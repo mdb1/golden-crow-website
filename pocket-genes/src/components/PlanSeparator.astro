@@ -1,0 +1,39 @@
+<div class="separator-container">
+    <span class="shape_separator"></span>
+</div>
+
+<style>
+    :root {
+        --separator-color: rgba(255, 255, 255, 0.3);
+        --separator-width: 2px;
+        --spacing: 10px;
+        --dash-size: 4rem;
+        --gap-size: 2rem;
+    }
+
+    .separator-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        margin: var(--spacing);
+    }
+
+    .shape_separator {
+        height: 100%;
+        width: var(--separator-width);
+        background: repeating-linear-gradient(
+            to bottom,
+            var(--separator-color) 0 var(--dash-size),
+            transparent var(--dash-size) calc(var(--dash-size) + var(--gap-size))
+        );
+        margin: var(--spacing) -var(--spacing);
+    }
+
+    @media screen and (max-width: 1280px) {
+        .separator-container {
+            margin: 0px 40px;
+        }
+        
+    }
+</style>

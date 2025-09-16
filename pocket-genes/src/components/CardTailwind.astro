@@ -1,0 +1,8 @@
+---
+const {src, alt, text} = Astro.props
+---
+
+<div class="flex flex-col items-center justify-center p-2">            
+    <img class="h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48 lg:h-56 lg:w-56 xl:h-64 xl:w-64 m-2 sm:m-3 lg:m-4 rounded-2xl lg:rounded-3xl object-cover shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl" src={src} alt={alt} />
+    <p class="text-white text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-center mt-2 sm:mt-3 mx-2 drop-shadow-lg leading-tight">{text}</p>
+</div>

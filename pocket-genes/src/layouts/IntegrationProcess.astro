@@ -1,0 +1,243 @@
+---
+const { subtitle, amount, description, items } = Astro.props;
+import Icon from "../components/Icon.astro";
+---
+
+<div class="container">
+  <div class="title_container">
+    <h1 class="title">Integration Process</h1>
+    <h2 class="subtitle">{subtitle}</h2>
+  </div>
+  <span class="line"></span>
+  <div class="pill_container">
+    
+    <div class="left">
+        <p class="amount_pill">{amount}</p>
+        <p class="description">{description}</p>
+    </div>
+    <div class="right">
+        {
+          items.map((item: object) => {
+            return <Icon icon={item.icon} title={item.title} text={item.description} />;
+          })
+        }
+      </div>
+  </div>
+  
+</div>
+
+<style>
+  .line {
+    z-index: 0;
+    width: 60vw;
+    height: 3px;
+    background-color: white;
+    position: relative;
+    transform: translate(500px, 120px); /*BAD BAD BAD*/
+  }
+  .container {
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(103, 126, 234, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(240, 147, 251, 0.08) 0%, transparent 50%);
+    height: auto;
+    position: relative;
+    overflow: hidden;
+    padding: 2rem 0;
+  }
+
+  .container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(20px);
+    pointer-events: none;
+  }
+
+  .title_container {
+    position: relative;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 2rem;
+    padding: 3rem 4rem;
+    margin: 2rem 4rem;
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.37),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .title {
+    color: var(--text-primary);
+    font-size: clamp(2.5rem, 5vw, 5rem);
+    margin: 0 0 1rem 0;
+    font-weight: 800;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: clamp(1.5rem, 3vw, 3rem);
+    margin: 0;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 60%;
+  }
+
+  .right {
+    z-index: 10;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    text-align: center;
+    margin-right: 2rem;
+  }
+
+  .amount_pill {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    z-index: 10;
+    color: var(--text-primary);
+    font-size: clamp(2rem, 4vw, 4rem);
+    font-weight: 700;
+    padding: 1.5rem 6rem;
+    border-radius: 50px;
+    width: fit-content;
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.37),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    transition: all 0.3s ease;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .amount_pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 12px 40px 0 rgba(31, 38, 135, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .pill_container{
+    display: flex;
+    flex-direction: row;
+  }
+
+  .description {
+    color: var(--text-secondary);
+    font-size: clamp(1.2rem, 2.2vw, 2.25rem);
+    line-height: 1.6;
+    margin-top: 2rem;
+    width: 70%;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 1.5rem;
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.37),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    text-align: center;
+  }
+
+  .description:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 12px 40px 0 rgba(31, 38, 135, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  @media screen and (max-width: 768px) {
+    .title_container {
+      margin: 1rem 2rem;
+      padding: 2rem;
+    }
+
+    .amount_pill {
+      padding: 1rem 4rem;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+    }
+
+    .description {
+      font-size: clamp(1rem, 3vw, 1.5rem);
+      line-height: 1.5;
+      margin: 1rem auto;
+      width: 90%;
+      padding: 1.5rem;
+    }
+    
+    .pill_container{
+      flex-direction: column;
+      padding: 0 1rem;
+    }
+
+    .left {
+      width: auto;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    
+    .right{
+      flex-direction: column;
+    }
+    
+    .line{
+      display: none;
+    }
+  }
+
+  @media (min-width: 769px) and (max-width: 1440px) {
+    .title_container {
+      margin: 2rem;
+      padding: 2.5rem;
+    }
+
+    .amount_pill {
+      font-size: clamp(2rem, 3vw, 2.5rem);
+      padding: 1rem 5rem;
+    }
+
+    .description {
+      font-size: clamp(1.2rem, 2vw, 1.5rem);
+      line-height: 1.6;
+      margin: 1rem auto;
+      width: 80%;
+      padding: 1.5rem;
+    }
+    
+    .pill_container{
+      flex-direction: column;
+      padding: 0 2rem;
+    }
+
+    .left {
+      width: auto;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    
+    .right{
+      flex-direction: column;
+    }
+    
+    .line{
+      display: none;
+    }
+  }
+</style>

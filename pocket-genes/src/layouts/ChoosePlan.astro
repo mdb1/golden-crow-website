@@ -1,0 +1,251 @@
+---
+import DetailedPlan from "../components/DetailedPlan.astro";
+import PlanSeparator from "../components/PlanSeparator.astro";
+---
+
+<section class="container">
+  <div class="choose-bg-effects">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+    <div class="molecular-grid"></div>
+  </div>
+  <div class="content-wrapper">
+    <div class="section-header">
+      <h1 class="title">
+        <span class="title-accent">Choosing the</span> 
+        <span class="title-main">Right Plan</span>
+      </h1>
+      <p class="section-subtitle">Compare features and find your perfect genomics integration solution</p>
+    </div>
+    <div class="plans_container">
+    <DetailedPlan
+      title="Free"
+      subtitle="<b>Integrate at zero cost,</b> allowing your users to explore to explore reports instantly in our app."
+      items={[
+        "$0 Cost",
+        "User Report Access",
+        "No Maintenance",
+        "Instant Deployment",
+        "Seamless Experience",
+      ]}
+    />
+    <PlanSeparator />
+    <DetailedPlan
+      title="Plus"
+      subtitle="Add <b>custom branding</b> with optimized data display and <b>priority feature requests.</b>"
+      items={[
+        "Custom Branding",
+        "Optimized Data Display",
+        "Data Formatting Support",
+        "Priority Feature Requests",
+        "Affordable Pricing",
+      ]}
+    />
+    <PlanSeparator />
+    <DetailedPlan
+      title="Full"
+      subtitle="Get a <b>fully branded</b> standalone app with <b>custom features</b> and <b>enterprise-level support.</b>"
+      items={[
+        "Fully Branded Experience",
+        "Custom Features & UI",
+        "Full Control Over User Data",
+        "Advanced Integration Options",
+        "Dedicated Team",
+      ]}
+      isHighlighted={true}
+    />
+    </div>
+  </div>
+</section>
+
+<style>
+  .container {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
+    background-image: 
+      radial-gradient(circle at 25% 20%, rgba(103, 126, 234, 0.12) 0%, transparent 60%),
+      radial-gradient(circle at 75% 80%, rgba(240, 147, 251, 0.15) 0%, transparent 60%),
+      radial-gradient(circle at 40% 60%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5rem 4%;
+  }
+
+  /* Background Effects */
+  .choose-bg-effects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.3;
+    animation: floating 35s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 280px;
+    height: 280px;
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.2) 100%);
+    top: 15%;
+    left: 8%;
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.18) 100%);
+    bottom: 20%;
+    right: 10%;
+    animation-delay: -12s;
+  }
+
+  .orb-3 {
+    width: 160px;
+    height: 160px;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.28) 0%, rgba(240, 147, 251, 0.15) 100%);
+    top: 60%;
+    left: 75%;
+    animation-delay: -25s;
+  }
+
+  .molecular-grid {
+    position: absolute;
+    top: 10%;
+    right: 5%;
+    width: 100px;
+    height: 250px;
+    opacity: 0.04;
+    background-image: 
+      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3) 2px, transparent 2px),
+      radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+    background-size: 20px 20px, 15px 15px;
+    animation: molecularFloat 20s linear infinite;
+  }
+
+  @keyframes floating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-60px) rotate(90deg); }
+    50% { transform: translateY(40px) rotate(180deg); }
+    75% { transform: translateY(-30px) rotate(270deg); }
+  }
+
+  @keyframes molecularFloat {
+    from { transform: translateY(0px) rotate(0deg); }
+    to { transform: translateY(-30px) rotate(360deg); }
+  }
+
+  .content-wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .section-header {
+    margin-bottom: 4rem;
+  }
+
+  .title {
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 800;
+    margin: 0 0 1.5rem 0;
+    line-height: 1.1;
+  }
+
+  .title-accent {
+    display: block;
+    color: var(--text-primary);
+    font-size: 0.6em;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .title-main {
+    display: block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .section-subtitle {
+    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.6;
+    max-width: 600px;
+  }
+
+  .plans_container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 3rem;
+    width: 100%;
+    max-width: 1400px;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .plans_container {
+      flex-direction: column;
+      align-items: center;
+      gap: 2.5rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 3rem 4%;
+    }
+
+    .section-header {
+      margin-bottom: 3rem;
+    }
+
+    .plans_container {
+      gap: 2rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.2;
+    }
+
+    .molecular-grid {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 2rem 4%;
+    }
+
+    .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .plans_container {
+      gap: 1.5rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.15;
+    }
+  }
+</style>

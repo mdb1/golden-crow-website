@@ -1,0 +1,96 @@
+---
+const { icon, title, text } = Astro.props;
+---
+
+<div class="container">
+  <img class="image" src={icon || "/favicon.svg"} alt="" />
+  <h3>{title}</h3>
+  <p>{text}</p>
+</div>
+
+<style>
+  /* Ensure CSS variables are available */
+  :global(:root) {
+    --text-primary: #ffffff;
+    --text-secondary: #b8c5d1;
+  }
+
+  .container {
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 1rem;
+    padding: 2rem 1.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1.5rem;
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.37),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .container:hover {
+    transform: translateY(-8px);
+    box-shadow: 
+      0 20px 50px 0 rgba(31, 38, 135, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .image {
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    width: clamp(150px, 15vw, 200px);
+    height: clamp(150px, 15vw, 200px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    padding: 2rem;
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.37),
+      inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    object-fit: contain;
+  }
+
+  .container:hover .image {
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 
+      0 12px 40px 0 rgba(31, 38, 135, 0.5),
+      inset 0 2px 0 rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+  }
+
+  h3 {
+    font-size: clamp(1.2rem, 2vw, 2rem);
+    text-align: center;
+    width: 100%;
+    color: var(--text-primary);
+    font-weight: 700;
+    margin: 1.5rem 0 0.5rem 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  p {
+    color: var(--text-secondary);
+    font-size: clamp(0.9rem, 1.5vw, 1.5rem);
+    text-align: center;
+    width: 100%;
+    margin: 0;
+    line-height: 1.5;
+    opacity: 0.9;
+  }
+
+  .container:hover h3 {
+    color: rgba(255, 255, 255, 1);
+  }
+
+  .container:hover p {
+    opacity: 1;
+    color: rgba(184, 197, 209, 1);
+  }
+</style>

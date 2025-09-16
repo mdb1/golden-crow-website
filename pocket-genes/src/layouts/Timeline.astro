@@ -1,0 +1,131 @@
+---
+import Quarter from "../components/Quarter.astro";
+import Separator from "../components/Separator.astro";
+---
+
+<div class="container">
+  <h1 class="title">Our Timeline for 2026</h1>
+  <div class="quarter_container">
+    <Quarter
+      time="Q1 JAN-MAR"
+      text_1="Product Development"
+      text_2="Partner Integrations"
+      items={[
+        "Define standardized input data",
+        "First partners onboard",
+        "User Interviews",
+      ]}
+    />
+    <Separator />
+    <Quarter
+      time="Q2 APR-JUN"
+      text_1="AI Integrations"
+      text_2="Expanding Features"
+      items={[
+        "New panels",
+        "Access to genomics reports",
+        "Expanded user interactions",
+      ]}
+    />
+    <Separator />
+    <Quarter
+      time="Q3 JUL-SEP"
+      text_1="Android Development"
+      text_2="Community Growth"
+      items={[
+        "Community Section",
+        "AI-Driven recommendations",
+        "Gamification tools",
+      ]}
+    />
+    <Separator />
+    <Quarter
+      time="Q4 OCT-DEC"
+      text_1="Scale the product"
+      text_2="Customize the experience"
+      items={[
+        "Link with papers and newsletters",
+        "Launch on Android",
+        "Customized user experience",
+      ]}
+    />
+  </div>
+</div>
+
+<style>
+  /* Ensure CSS variables are available */
+  :root {
+    --dark-surface: #1a1f3a;
+    --dark-elevated: #2d3561;
+    --text-primary: #ffffff;
+    --text-secondary: #b8c5d1;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
+    background-image: 
+      radial-gradient(circle at 15% 25%, rgba(103, 126, 234, 0.12) 0%, transparent 60%),
+      radial-gradient(circle at 85% 75%, rgba(240, 147, 251, 0.10) 0%, transparent 60%),
+      radial-gradient(circle at 50% 50%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+    padding: 2rem 0;
+  }
+
+  .container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(20px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .quarter_container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    position: relative;
+    z-index: 2;
+    padding: 0 2rem;
+  }
+
+  .title {
+    color: var(--text-primary);
+    font-size: clamp(2.5rem, 6vw, 6rem);
+    font-weight: 800;
+    margin: 2rem 4rem 4rem 4rem;
+    text-align: center;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  @media screen and (max-width: 1440px) {
+    .container {
+      min-height: auto;
+      padding: 3rem 0;
+    }
+    .title {
+      margin: 2rem;
+    }
+    .quarter_container {
+      flex-direction: column;
+      align-items: center;
+      gap: 3rem;
+      padding: 0 1rem;
+    }
+    .quarter_container > * {
+      margin-bottom: 0;
+    }
+  }
+</style>

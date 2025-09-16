@@ -1,0 +1,50 @@
+<div class="separator-container">
+    <span class="dot"></span>
+    <span class="shape_separator"></span>
+</div>
+
+<style>
+    :root {
+        --separator-color: rgba(255, 255, 255, 0.3);
+        --separator-width: 3px;
+        --dot-size: 16px;
+        --spacing: 0px;
+    }
+
+    .separator-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        margin: var(--spacing);
+        bottom: -3.25rem;
+    }
+
+    .shape_separator {
+        height: 55vh;
+        width: var(--separator-width);
+        background: linear-gradient(180deg, transparent 0%, var(--separator-color) 20%, var(--separator-color) 80%, transparent 100%);
+        margin: var(--spacing) -var(--spacing);
+        border-radius: 2px;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    }
+
+    .dot {
+        width: var(--dot-size);
+        height: var(--dot-size);
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, var(--separator-color) 100%);
+        border-radius: 50%;
+        position: absolute;
+        top: 0px;
+        box-shadow: 
+          0 0 15px rgba(255, 255, 255, 0.4),
+          inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+
+    @media screen and (max-width: 1440px) {
+        .separator-container {
+            display: none;
+        }
+    }
+</style>

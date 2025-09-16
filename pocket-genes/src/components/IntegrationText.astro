@@ -1,0 +1,111 @@
+---
+const { bold_text, text, src } = Astro.props
+---
+<div class="feature-card">
+    <div class="card-header">
+        <div class="icon-wrapper">
+            <img class="integration_image" src={src} alt=""/>
+        </div>
+        <h3 class="bold_text">{bold_text}</h3>
+    </div>
+    <p class="feature-description">{text}</p>
+</div>
+
+<style>
+    .feature-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px);
+        border: 1px solid var(--glass-border);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        box-shadow: var(--glass-shadow);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 
+            0 25px 50px -12px rgba(31, 38, 135, 0.4),
+            0 0 0 1px rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .card-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .icon-wrapper {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover .icon-wrapper {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.1);
+    }
+
+    .integration_image {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        filter: brightness(1.2);
+    }
+
+    .bold_text {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    .feature-description {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        text-align: center;
+        margin: 0;
+        flex-grow: 1;
+    }
+
+    @media (max-width: 768px) {
+        .feature-card {
+            padding: 1.5rem;
+        }
+
+        .icon-wrapper {
+            width: 70px;
+            height: 70px;
+        }
+
+        .integration_image {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .bold_text {
+            font-size: 1.1rem;
+        }
+
+        .feature-description {
+            font-size: 0.9rem;
+        }
+    }
+</style>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="95" fill="#10b981" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Rocket body -->
+  <ellipse cx="100" cy="90" rx="15" ry="50" fill="white"/>
+  
+  <!-- Rocket tip -->
+  <path d="M85 40 L100 20 L115 40 Z" fill="white"/>
+  
+  <!-- Rocket fins -->
+  <path d="M85 120 L75 140 L85 140 Z" fill="white"/>
+  <path d="M115 120 L125 140 L115 140 Z" fill="white"/>
+  
+  <!-- Fire/exhaust -->
+  <path d="M90 140 L100 160 L110 140 Q105 150 100 155 Q95 150 90 140 Z" fill="#f59e0b"/>
+  
+  <!-- Test checkmarks -->
+  <path d="M50 60 L55 65 L65 50" stroke="white" stroke-width="4" fill="none"/>
+  <path d="M50 80 L55 85 L65 70" stroke="white" stroke-width="4" fill="none"/>
+  <path d="M50 100 L55 105 L65 90" stroke="white" stroke-width="4" fill="none"/>
+  
+  <!-- Launch trajectory -->
+  <path d="M130 140 Q150 120 160 90 Q170 60 180 40" stroke="white" stroke-width="3" fill="none" stroke-dasharray="5,5"/>
+</svg>

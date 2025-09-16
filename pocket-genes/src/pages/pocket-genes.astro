@@ -1,0 +1,567 @@
+---
+import Hero from "../layouts/Hero.astro";
+import IntroPlan from "../layouts/IntroPlan.astro";
+import Plan from "../layouts/Plan.astro";
+import MoreToCome from "../layouts/MoreToCome.astro";
+import Panels from "../layouts/Panels.astro";
+import SecondSection from "../layouts/SecondSection.astro";
+import ThirdSection from "../layouts/ThirdSection.astro";
+import IntroAboutUs from "../layouts/IntroAboutUs.astro";
+import Timeline from "../layouts/Timeline.astro";
+import ChoosePlan from "../layouts/ChoosePlan.astro";
+import Experience from "../layouts/Experience.astro";
+import IntegrationProcess from "../layouts/IntegrationProcess.astro";
+---
+
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pocket Genes - Explore Your DNA</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="main-nav">
+    <div class="nav-container">
+      <div class="logo">
+        <img src="/logo1024.png" alt="Golden Crow VS Logo" />
+      </div>
+      <button class="mobile-menu-toggle" aria-label="Toggle navigation">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/about" class="nav-link">About Us</a>
+        <a href="/pocket-genes" class="nav-link active">Pocket Genes</a>
+        <a href="/contact" class="nav-link">Contact Us</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="pocket-genes-page">
+    <Hero />
+    <SecondSection />
+    <ThirdSection />
+    <Panels />
+    <MoreToCome />
+    <IntroPlan />
+    <Plan />
+    <ChoosePlan />
+    <IntegrationProcess
+      subtitle="Free Program"
+      amount="$0"
+      description="Effortless integration - convert your genomic reports to our format for instant user access to interactive, intuitive panels."
+      items={[{
+        icon: "/data-input.svg",
+        title: "DATA INPUT FORMATTING",
+        description: "We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore."
+      },{
+        icon: "/test-launch.svg",
+        title: "TEST AND LAUNCH",
+        description: "We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore."
+      },{
+        icon: "/user-feedback.svg",
+        title: "USER ACCESS AND FEEDBACK",
+        description: "We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore."
+      },
+      ]}
+    />
+    <IntegrationProcess
+      subtitle="Plus Program"
+      amount="$999 / month"
+      description="The Plus Plan delivers a high level of customization, featuring branded integration, tailored data formatting, and custom features all within the app."
+      items={[{
+        icon: "/collaborative-input.svg",
+        title: "COLLABORATIVE DATA INPUT",
+        description: "We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore."
+      },{
+        icon: "/custom-features.svg",
+        title: "CUSTOM FEATURES",
+        description: "We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore."
+      },{
+        icon: "/support-maintenance.svg",
+        title: "ACTIVE SUPPORT AND MAINTENANCE",
+        description: "We collaborate with you to define the data structure and visual presentation, ensuring your reports are engaging and easy to explore."
+      },]}
+    />
+    <Experience />
+    <IntroAboutUs />
+    <Timeline />
+    
+    <section class="contact-cta-section">
+      <div class="contact-cta-container">
+        <div class="cta-content">
+          <h2>Ready to Get Started?</h2>
+          <p>Contact us to learn more about integrating Pocket Genes into your platform.</p>
+          <a href="/contact" class="contact-cta-button">Contact Us</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
+
+<style>
+  :root {
+    /* Modern DNA-inspired color palette */
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --success-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    
+    /* Neutral colors with depth */
+    --dark-bg: #0a0e27;
+    --dark-surface: #1a1f3a;
+    --dark-elevated: #2d3561;
+    --text-primary: #ffffff;
+    --text-secondary: #b8c5d1;
+    --text-accent: #64b5f6;
+    
+    /* Glass effect variables */
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    
+    /* Spacing system */
+    --space-xs: 0.5rem;
+    --space-sm: 1rem;
+    --space-md: 1.5rem;
+    --space-lg: 2rem;
+    --space-xl: 3rem;
+    --space-2xl: 4rem;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    background: var(--dark-bg);
+    background-image: 
+      radial-gradient(circle at 25% 25%, #667eea20 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, #764ba240 0%, transparent 50%);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-width: 320px;
+  }
+
+  .main-nav {
+    background: rgba(26, 31, 58, 0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  .nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 4vw, 2rem);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .logo img {
+    height: clamp(32px, 5vw, 40px);
+    width: auto;
+    max-width: clamp(80px, 15vw, 120px);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    border-radius: 4px;
+  }
+
+  .logo-text {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    font-weight: 700;
+    background: var(--accent-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .mobile-menu-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+  }
+
+  .hamburger-line {
+    width: 24px;
+    height: 2px;
+    background: var(--text-primary);
+    transition: all 0.3s ease;
+    transform-origin: center;
+  }
+
+  .mobile-menu-toggle.active .hamburger-line:first-child {
+    transform: rotate(45deg) translate(6px, 6px);
+  }
+
+  .mobile-menu-toggle.active .hamburger-line:nth-child(2) {
+    opacity: 0;
+  }
+
+  .mobile-menu-toggle.active .hamburger-line:last-child {
+    transform: rotate(-45deg) translate(6px, -6px);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: clamp(0.5rem, 3vw, 2rem);
+    flex-wrap: wrap;
+  }
+
+  .nav-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    font-size: clamp(0.8rem, 2vw, 1rem);
+    white-space: nowrap;
+  }
+
+  .nav-link:hover,
+  .nav-link.active {
+    color: var(--text-primary);
+  }
+
+  .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -0.5rem;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-gradient);
+    border-radius: 1px;
+  }
+
+  .pocket-genes-page {
+    margin-top: clamp(60px, 10vw, 80px);
+  }
+
+  /* Contact CTA Section */
+  .contact-cta-section {
+    padding: 6rem 0;
+    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .contact-cta-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+  }
+
+  .contact-cta-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cta-content h2 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    background: var(--accent-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .cta-content p {
+    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .contact-cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem 3rem;
+    background: var(--accent-gradient);
+    color: #000;
+    text-shadow: none;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    box-shadow: 
+      0 10px 30px rgba(79, 172, 254, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .contact-cta-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+  }
+
+  .contact-cta-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 
+      0 20px 40px rgba(79, 172, 254, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  .contact-cta-button:hover::before {
+    left: 100%;
+  }
+
+  .contact-cta-button:active {
+    transform: translateY(-1px);
+  }
+
+  /* Enhanced section animations */
+  section {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Global button styles */
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Enhanced link styles */
+  a {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--dark-surface);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(var(--primary-gradient));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(var(--secondary-gradient));
+  }
+
+  /* Selection styling */
+  ::selection {
+    background: rgba(103, 126, 234, 0.3);
+    color: white;
+  }
+
+  @media (max-width: 768px) {
+    .mobile-menu-toggle {
+      display: flex;
+    }
+    
+    .nav-links {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(26, 31, 58, 0.95);
+      backdrop-filter: blur(20px);
+      flex-direction: column;
+      padding: 1rem;
+      box-shadow: var(--glass-shadow);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      transform: translateY(-100%);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      z-index: 999;
+    }
+    
+    .nav-links.active {
+      transform: translateY(0);
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .nav-link {
+      font-size: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+    }
+    
+    .nav-link:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .nav-link.active::after {
+      display: none;
+    }
+
+    .contact-cta-section {
+      padding: clamp(3rem, 6vw, 4rem) 0;
+    }
+
+    .contact-cta-container {
+      padding: 0 clamp(1rem, 3vw, 1.5rem);
+    }
+
+    .contact-cta-button {
+      padding: clamp(1rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem);
+      font-size: clamp(0.95rem, 2vw, 1rem);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .contact-cta-section {
+      padding: clamp(2rem, 4vw, 3rem) 0;
+    }
+
+    .contact-cta-container {
+      padding: 0 clamp(1rem, 3vw, 1rem);
+    }
+
+    .contact-cta-button {
+      padding: clamp(0.875rem, 2vw, 0.875rem) clamp(1.5rem, 4vw, 2rem);
+      font-size: clamp(0.9rem, 2vw, 0.95rem);
+    }
+  }
+
+  /* Large screen optimization */
+  @media (min-width: 1400px) {
+    .nav-container {
+      max-width: 1400px;
+    }
+    
+    .contact-cta-container {
+      max-width: 900px;
+    }
+  }
+
+  /* High zoom compatibility */
+  @media (max-width: 1024px) {
+    .contact-cta-section {
+      padding: clamp(3rem, 5vw, 5rem) 0;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .mobile-menu-toggle {
+      display: flex;
+    }
+    
+    .nav-links {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(26, 31, 58, 0.95);
+      backdrop-filter: blur(20px);
+      flex-direction: column;
+      padding: 1rem;
+      box-shadow: var(--glass-shadow);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      transform: translateY(-100%);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      z-index: 999;
+    }
+    
+    .nav-links.active {
+      transform: translateY(0);
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+    const navLinks = document.querySelector('.nav-links');
+    
+    if (mobileMenuToggle && navLinks) {
+      mobileMenuToggle.addEventListener('click', function() {
+        navLinks.classList.toggle('active');
+        mobileMenuToggle.classList.toggle('active');
+      });
+      
+      // Close menu when clicking on a link
+      const navLinksElements = navLinks.querySelectorAll('.nav-link');
+      navLinksElements.forEach(link => {
+        link.addEventListener('click', function() {
+          navLinks.classList.remove('active');
+          mobileMenuToggle.classList.remove('active');
+        });
+      });
+      
+      // Close menu when clicking outside
+      document.addEventListener('click', function(event) {
+        if (!mobileMenuToggle.contains(event.target) && !navLinks.contains(event.target)) {
+          navLinks.classList.remove('active');
+          mobileMenuToggle.classList.remove('active');
+        }
+      });
+    }
+  });
+</script>

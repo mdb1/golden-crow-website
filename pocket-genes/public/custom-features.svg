@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="95" fill="#8b5cf6" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Code brackets -->
+  <path d="M30 60 L20 70 L20 90 L30 100 L20 110 L20 130 L30 140" 
+        stroke="white" stroke-width="4" fill="none"/>
+  <path d="M170 60 L180 70 L180 90 L170 100 L180 110 L180 130 L170 140" 
+        stroke="white" stroke-width="4" fill="none"/>
+  
+  <!-- Code lines -->
+  <rect x="50" y="65" width="40" height="4" fill="white"/>
+  <rect x="110" y="65" width="30" height="4" fill="white"/>
+  <rect x="50" y="80" width="60" height="4" fill="white"/>
+  <rect x="50" y="95" width="35" height="4" fill="white"/>
+  <rect x="100" y="95" width="45" height="4" fill="white"/>
+  <rect x="50" y="110" width="50" height="4" fill="white"/>
+  <rect x="110" y="110" width="25" height="4" fill="white"/>
+  <rect x="50" y="125" width="70" height="4" fill="white"/>
+  <rect x="50" y="140" width="40" height="4" fill="white"/>
+  
+  <!-- Customization tools -->
+  <circle cx="60" cy="45" r="8" fill="white"/>
+  <rect x="56" y="35" width="8" height="5" fill="#8b5cf6"/>
+  
+  <circle cx="100" cy="45" r="8" fill="white"/>
+  <path d="M95 40 L100 50 L105 40" stroke="#8b5cf6" stroke-width="2" fill="none"/>
+  
+  <circle cx="140" cy="45" r="8" fill="white"/>
+  <rect x="136" y="41" width="8" height="8" fill="#8b5cf6"/>
+  
+  <!-- Gears for customization -->
+  <g transform="translate(150,150)">
+    <circle r="15" fill="white"/>
+    <circle r="8" fill="#8b5cf6"/>
+    <rect x="-2" y="-18" width="4" height="6" fill="white"/>
+    <rect x="-2" y="12" width="4" height="6" fill="white"/>
+    <rect x="-18" y="-2" width="6" height="4" fill="white"/>
+    <rect x="12" y="-2" width="6" height="4" fill="white"/>
+  </g>
+</svg>

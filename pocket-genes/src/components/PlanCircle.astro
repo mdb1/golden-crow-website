@@ -1,0 +1,41 @@
+---
+const {plan, description, isHighlighted} = Astro.props;
+const containerClass = isHighlighted ? "container highlighted" : "container";
+---
+<div class={containerClass}>
+    <p>{description}</p>
+    <h2>{plan}</h2>
+</div>
+
+<style>
+    .container {
+        border: 3px solid #FFFFFF;
+        border-radius: 100%;
+        height: 250px;
+        width: 250px;
+    }
+
+    .highlighted {
+        background-color: white;
+    }
+
+    .highlighted h2 {
+        color: #9bbef2;
+    }
+
+    p {
+        width: 125px;
+        margin: auto;
+        color: #9bbef2;
+        font-size: 1.25rem;
+        text-align: center;
+        padding-top: 3rem;
+    }
+
+    h2 {
+        color: white;
+        font-size: 3.5rem;
+        margin: 1rem;
+        text-align: center;
+    }
+</style>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="95" fill="#3b82f6" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Database/Table Icon -->
+  <rect x="40" y="50" width="120" height="100" rx="8" fill="white"/>
+  
+  <!-- Table rows -->
+  <line x1="50" y1="70" x2="150" y2="70" stroke="#3b82f6" stroke-width="2"/>
+  <line x1="50" y1="90" x2="150" y2="90" stroke="#3b82f6" stroke-width="2"/>
+  <line x1="50" y1="110" x2="150" y2="110" stroke="#3b82f6" stroke-width="2"/>
+  <line x1="50" y1="130" x2="150" y2="130" stroke="#3b82f6" stroke-width="2"/>
+  
+  <!-- Table columns -->
+  <line x1="80" y1="60" x2="80" y2="140" stroke="#3b82f6" stroke-width="2"/>
+  <line x1="120" y1="60" x2="120" y2="140" stroke="#3b82f6" stroke-width="2"/>
+  
+  <!-- Header -->
+  <rect x="45" y="55" width="110" height="15" fill="#3b82f6"/>
+  
+  <!-- DNA helix decoration -->
+  <path d="M165 60 Q175 70 165 80 Q155 90 165 100 Q175 110 165 120" stroke="white" stroke-width="3" fill="none"/>
+  <path d="M175 60 Q165 70 175 80 Q185 90 175 100 Q165 110 175 120" stroke="white" stroke-width="3" fill="none"/>
+</svg>

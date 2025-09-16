@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="95" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- User icons -->
+  <circle cx="70" cy="70" r="15" fill="white"/>
+  <path d="M70 85 Q70 90 75 90 L65 90 Q70 90 70 85" fill="white"/>
+  
+  <circle cx="130" cy="70" r="15" fill="white"/>
+  <path d="M130 85 Q130 90 135 90 L125 90 Q130 90 130 85" fill="white"/>
+  
+  <circle cx="100" cy="120" r="15" fill="white"/>
+  <path d="M100 135 Q100 140 105 140 L95 140 Q100 140 100 135" fill="white"/>
+  
+  <!-- Feedback arrows -->
+  <path d="M85 75 L95 85" stroke="white" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M115 75 L105 85" stroke="white" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Stars (feedback/rating) -->
+  <path d="M40 40 L42 46 L48 46 L43 50 L45 56 L40 52 L35 56 L37 50 L32 46 L38 46 Z" fill="white"/>
+  <path d="M160 40 L162 46 L168 46 L163 50 L165 56 L160 52 L155 56 L157 50 L152 46 L158 46 Z" fill="white"/>
+  
+  <!-- Analytics chart -->
+  <rect x="35" y="150" width="8" height="20" fill="white"/>
+  <rect x="50" y="140" width="8" height="30" fill="white"/>
+  <rect x="65" y="130" width="8" height="40" fill="white"/>
+  <rect x="135" y="140" width="8" height="30" fill="white"/>
+  <rect x="150" y="145" width="8" height="25" fill="white"/>
+  <rect x="165" y="135" width="8" height="35" fill="white"/>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+            refX="0" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="white" />
+    </marker>
+  </defs>
+</svg>

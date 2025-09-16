@@ -1,0 +1,397 @@
+<section class="container">
+  <div class="intro-bg-effects">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+    <div class="dna-strand"></div>
+  </div>
+  <div class="content-wrapper">
+    <h1 class="title">
+      <span class="title-accent">Bringing Genomic</span>
+      <span class="title-main">Data to Life</span>
+    </h1>
+    <p class="description">Who we are, what we do, and our roadmap for the year ahead.</p>
+    <div class="mission-highlights">
+      <div class="highlight-card">
+        <span class="highlight-icon">🧬</span>
+        <div class="highlight-content">
+          <h3>Our Mission</h3>
+          <p>Making genomics accessible and actionable for everyone</p>
+        </div>
+      </div>
+      <div class="highlight-card">
+        <span class="highlight-icon">🚀</span>
+        <div class="highlight-content">
+          <h3>Our Vision</h3>
+          <p>Transforming how people understand and use their genetic data</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .container {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 5rem 8%;
+  }
+
+  /* Background Effects */
+  .intro-bg-effects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.4;
+    animation: floating 25s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 280px;
+    height: 280px;
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.2) 100%);
+    top: 20%;
+    left: 5%;
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.15) 100%);
+    bottom: 20%;
+    right: 10%;
+    animation-delay: -8s;
+  }
+
+  .orb-3 {
+    width: 140px;
+    height: 140px;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.3) 0%, rgba(240, 147, 251, 0.18) 100%);
+    top: 60%;
+    left: 75%;
+    animation-delay: -15s;
+  }
+
+  .dna-strand {
+    position: absolute;
+    top: 15%;
+    right: 8%;
+    width: 80px;
+    height: 200px;
+    opacity: 0.06;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.3) 10px,
+      rgba(255, 255, 255, 0.3) 20px
+    );
+    animation: strandFloat 12s linear infinite;
+  }
+
+  @keyframes floating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-30px) rotate(90deg); }
+    50% { transform: translateY(20px) rotate(180deg); }
+    75% { transform: translateY(-15px) rotate(270deg); }
+  }
+
+  @keyframes strandFloat {
+    from { transform: rotate(0deg) translateY(0); }
+    to { transform: rotate(360deg) translateY(-10px); }
+  }
+
+  .content-wrapper {
+    position: relative;
+    z-index: 2;
+    max-width: 80%;
+  }
+
+  .title {
+    font-size: clamp(3.5rem, 8vw, 7rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0 0 2rem 0;
+  }
+
+  .title-accent {
+    display: block;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .title-main {
+    display: block;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .description {
+    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0 0 4rem 0;
+    line-height: 1.6;
+    max-width: 95%;
+    font-weight: 400;
+    opacity: 0.9;
+  }
+
+  .mission-highlights {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .highlight-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 2rem;
+    padding: 2rem 1.75rem;
+    box-shadow: var(--glass-shadow);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 320px;
+    max-width: 380px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .highlight-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transition: left 0.6s ease;
+  }
+
+  .highlight-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 
+      0 25px 50px -10px rgba(31, 38, 135, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .highlight-card:hover::before {
+    left: 100%;
+  }
+
+  .highlight-icon {
+    font-size: 1.75rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.15) 0%, rgba(79, 172, 254, 0.1) 100%);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  .highlight-card:hover .highlight-icon {
+    transform: scale(1.1) rotate(10deg);
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.25) 0%, rgba(79, 172, 254, 0.2) 100%);
+  }
+
+  .highlight-content h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 0.75rem 0;
+    line-height: 1.3;
+  }
+
+  .highlight-content p {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0;
+    line-height: 1.5;
+    opacity: 0.9;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .container {
+      text-align: center;
+      justify-content: center;
+    }
+
+    .content-wrapper {
+      max-width: 100%;
+    }
+
+    .mission-highlights {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 3rem 5%;
+      min-height: 80vh;
+    }
+
+    .mission-highlights {
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .highlight-card {
+      min-width: auto;
+      max-width: 100%;
+      width: 100%;
+      padding: 1.75rem 1.5rem;
+      flex-direction: column;
+      text-align: center;
+      gap: 1rem;
+    }
+
+    .highlight-icon {
+      width: 44px;
+      height: 44px;
+      font-size: 1.6rem;
+      margin: 0 auto;
+    }
+
+    .highlight-content h3 {
+      font-size: 1.3rem;
+    }
+
+    .highlight-content p {
+      font-size: 1.05rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.25;
+    }
+
+    .dna-strand {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 2rem 1rem;
+      min-height: 70vh;
+    }
+
+    .mission-highlights {
+      gap: 1.25rem;
+      padding: 0 1rem;
+    }
+
+    .highlight-card {
+      padding: 1.25rem 1rem;
+      gap: 0.75rem;
+      min-width: auto;
+      max-width: calc(100% - 2rem);
+      width: calc(100% - 2rem);
+    }
+
+    .highlight-icon {
+      width: 40px;
+      height: 40px;
+      font-size: 1.4rem;
+    }
+
+    .highlight-content h3 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .highlight-content p {
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.15;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .container {
+      padding: 1.5rem 0.75rem;
+    }
+
+    .mission-highlights {
+      padding: 0 0.5rem;
+    }
+
+    .highlight-card {
+      padding: 1rem 0.875rem;
+      min-width: auto;
+      max-width: calc(100% - 1rem);
+      width: calc(100% - 1rem);
+    }
+
+    .highlight-icon {
+      width: 36px;
+      height: 36px;
+      font-size: 1.3rem;
+    }
+
+    .highlight-content h3 {
+      font-size: 1.1rem;
+    }
+
+    .highlight-content p {
+      font-size: 0.95rem;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .container {
+      padding: 1.5rem 0.5rem;
+    }
+
+    .mission-highlights {
+      padding: 0 0.25rem;
+    }
+
+    .highlight-card {
+      padding: 1rem 0.75rem;
+      max-width: calc(100% - 0.5rem);
+      width: calc(100% - 0.5rem);
+    }
+  }
+</style>

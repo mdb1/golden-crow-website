@@ -1,0 +1,238 @@
+---
+const { title, subtitle, items, isHighlighted } = Astro.props;
+const containerClass = isHighlighted ? "container highlighted" : "container";
+---
+
+<div class={containerClass}>
+  <h3 class="title">{title}</h3>
+  
+  <p class="subtitle" set:html={subtitle}></p>
+
+  <ul>
+    {
+      items.map((item: string) => {
+        return (
+          <li>
+            <p>{item}</p>
+          </li>
+        );
+      })
+    }
+  </ul>
+</div>
+
+<style>
+  .container {
+    display: flex;
+    flex-direction: column;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 2rem;
+    padding: 3rem 2.5rem;
+    box-shadow: var(--glass-shadow);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    min-width: 320px;
+    max-width: 400px;
+    margin: 0;
+  }
+
+  .container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .container:hover {
+    transform: translateY(-10px);
+    box-shadow: 
+      0 30px 60px -12px rgba(31, 38, 135, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .container:hover::before {
+    opacity: 1;
+  }
+
+  .highlighted {
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.25) 100%);
+    border: 2px solid rgba(103, 126, 234, 0.5);
+    transform: translateY(-1.5rem) scale(1.05);
+    box-shadow: 
+      0 35px 70px -12px rgba(103, 126, 234, 0.5),
+      0 0 0 2px rgba(103, 126, 234, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .highlighted::before {
+    background: linear-gradient(
+      135deg,
+      rgba(103, 126, 234, 0.2) 0%,
+      rgba(79, 172, 254, 0.15) 50%,
+      rgba(240, 147, 251, 0.1) 100%
+    );
+    opacity: 1;
+  }
+
+  .highlighted:hover {
+    transform: translateY(-2rem) scale(1.08);
+    box-shadow: 
+      0 45px 90px -12px rgba(103, 126, 234, 0.6),
+      0 0 0 2px rgba(103, 126, 234, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .highlighted .subtitle {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .highlighted ul {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .highlighted .title {
+    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .title {
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    font-weight: 800;
+    margin: 0 0 1.5rem 0;
+    text-align: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    z-index: 2;
+  }
+
+  .subtitle {
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    margin: 0 0 2rem 0;
+    width: 100%;
+    text-align: center;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    position: relative;
+    z-index: 2;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  ul li {
+    display: flex;
+    align-items: center;
+    font-size: clamp(1rem, 1.8vw, 1.25rem);
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    padding: 0.75rem 0;
+    color: var(--text-primary);
+    position: relative;
+  }
+
+  ul li::before {
+    content: '✓';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+
+  .highlighted ul li::before {
+    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+    color: #667eea;
+  }
+
+  /* Responsive Design */
+  @media screen and (max-width: 768px) {
+    .container {
+      padding: 2rem 1.5rem;
+      min-width: auto;
+      max-width: 100%;
+      margin: 0;
+    }
+
+    .highlighted {
+      transform: translateY(-0.5rem) scale(1.02);
+    }
+
+    .highlighted:hover {
+      transform: translateY(-1rem) scale(1.04);
+    }
+
+    ul li {
+      margin-bottom: 0.75rem;
+      padding: 0.5rem 0;
+    }
+
+    ul li::before {
+      width: 20px;
+      height: 20px;
+      font-size: 0.8rem;
+      margin-right: 0.75rem;
+    }
+  }
+
+  @media (min-width: 769px) and (max-width: 1200px) {
+    .container {
+      padding: 2.5rem 2rem;
+      min-width: 300px;
+      max-width: 380px;
+    }
+
+    .highlighted {
+      transform: translateY(-1rem) scale(1.03);
+    }
+
+    .highlighted:hover {
+      transform: translateY(-1.5rem) scale(1.06);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 1.5rem 1rem;
+    }
+
+    .highlighted {
+      transform: translateY(0) scale(1);
+    }
+
+    .highlighted:hover {
+      transform: translateY(-0.5rem) scale(1.02);
+    }
+
+    ul li {
+      margin-bottom: 0.5rem;
+    }
+  }
+</style>

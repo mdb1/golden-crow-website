@@ -1,0 +1,71 @@
+---
+const {src, alt, text} = Astro.props
+---
+
+<div class="image">            
+    <img class="image-card" src={src} alt={alt} />
+    <p class="text_card">{text}</p>
+</div>
+
+<style>
+    .image{
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        height: 100%;
+    }
+    
+    .image-card{
+        height: clamp(200px, 20vh, 280px);
+        width: clamp(200px, 20vh, 280px);
+        margin: 10px 0;
+        border-radius: 20px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .text_card {
+        color: var(--text-primary);
+        font-size: clamp(1rem, 2.5vw, 1.3rem);
+        font-weight: 600;
+        text-align: center;
+        margin: 0.5rem 10px 0;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        line-height: 1.3;
+        white-space: pre-line;
+        height: 2.6em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+        .image-card {
+            height: clamp(140px, 20vw, 180px);
+            width: clamp(140px, 20vw, 180px);
+            margin: 5px auto;
+        }
+
+        .text_card {
+            font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+            margin: 0.4rem 5px 0;
+            height: 2.1em;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .image-card {
+            height: clamp(120px, 30vw, 160px);
+            width: clamp(120px, 30vw, 160px);
+            margin: 5px auto;
+        }
+
+        .text_card {
+            font-size: 0.85rem;
+            margin: 0.25rem 5px 0;
+            height: 2em;
+        }
+    }
+
+</style>

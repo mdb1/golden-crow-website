@@ -1,0 +1,158 @@
+---
+const {time, text_1, text_2, items} = Astro.props;
+---
+<div class="container">
+    <h3 class="time">{time}</h3>
+    <div class="description">
+        <p class="description_1">{text_1}</p>
+        <p class="description_2">{text_2}</p>
+    </div>
+
+    <ul>
+        {items.map((item: string) => (
+            <li>
+                <p class="item">{item}</p>
+            </li>
+        ))}
+    </ul>
+</div>
+
+<style>
+    .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 2rem;
+        padding: 2.5rem 2rem;
+        margin: 1rem;
+        box-shadow: 
+          0 8px 32px 0 rgba(31, 38, 135, 0.37),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        max-width: 300px;
+        min-height: 400px;
+    }
+
+    .container:hover {
+        transform: translateY(-8px);
+        box-shadow: 
+          0 20px 50px 0 rgba(31, 38, 135, 0.5),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .time {
+        text-align: center;
+        color: var(--text-primary);
+        font-size: clamp(1rem, 2vw, 2rem);
+        font-weight: 700;
+        padding: 1rem 2rem;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 2rem;
+        box-shadow: 
+          0 4px 16px 0 rgba(31, 38, 135, 0.37),
+          inset 0 1px 0 rgba(255, 255, 255, 0.4);
+        margin-bottom: 2rem;
+        min-width: 200px;
+        transition: all 0.3s ease;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .container:hover .time {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: scale(1.05);
+    }
+
+    .description {
+        background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.25) 100%);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+        font-size: clamp(1rem, 1.3vw, 1.3rem);
+        font-weight: 700;
+        text-align: center;
+        padding: 1.5rem 2rem;
+        border-radius: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 
+          0 4px 16px 0 rgba(31, 38, 135, 0.37),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .container:hover .description {
+        background: linear-gradient(135deg, rgba(103, 126, 234, 0.4) 0%, rgba(79, 172, 254, 0.35) 100%);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: scale(1.02);
+    }
+
+    ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+    }
+
+    li {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.75rem;
+        margin: 0.75rem 0;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    li::before {
+        content: '•';
+        color: #4facfe;
+        font-size: 1.5rem;
+        margin-right: 0.5rem;
+        font-weight: bold;
+    }
+
+    li:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateX(5px);
+    }
+
+    .item {
+        font-size: clamp(1rem, 1.2vw, 1.3rem);
+        font-weight: 600;
+        margin: 0;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+    .description_1 {
+        font-size: clamp(1rem, 1.3vw, 1.3rem);
+        font-weight: 700;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .description_2 {
+        font-size: clamp(1rem, 1.3vw, 1.3rem);
+        font-weight: 700;
+        margin: 0.5rem 0 0 0;
+        line-height: 1.3;
+        opacity: 0.9;
+    }
+
+    /* Add CSS variables for consistent theming */
+    :global(:root) {
+        --text-primary: #ffffff;
+        --text-secondary: #b8c5d1;
+    }
+</style>

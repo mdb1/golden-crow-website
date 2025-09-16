@@ -1,0 +1,248 @@
+<section class="container">
+  <div class="intro-bg-effects">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+    <div class="dna-pattern"></div>
+  </div>
+  <div class="content-wrapper">
+    <h1 id="title">
+      <span class="title-accent">Unlock the Power of</span>
+      <span class="title-main">Genomics</span>
+    </h1>
+    <p id="description">Flexible Plans for Mobile Integration</p>
+    <div class="features-preview">
+      <div class="feature-badge">
+        <span class="badge-icon">⚡</span>
+        <span>Instant Integration</span>
+      </div>
+      <div class="feature-badge">
+        <span class="badge-icon">🎨</span>
+        <span>Custom Branding</span>
+      </div>
+      <div class="feature-badge">
+        <span class="badge-icon">📱</span>
+        <span>Mobile-First Design</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .container {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 5rem 8%;
+  }
+
+  /* Background Effects */
+  .intro-bg-effects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.4;
+    animation: floating 25s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 300px;
+    height: 300px;
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.2) 100%);
+    top: 20%;
+    left: 5%;
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: 220px;
+    height: 220px;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.15) 100%);
+    bottom: 20%;
+    right: 10%;
+    animation-delay: -8s;
+  }
+
+  .orb-3 {
+    width: 160px;
+    height: 160px;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.3) 0%, rgba(240, 147, 251, 0.18) 100%);
+    top: 60%;
+    left: 70%;
+    animation-delay: -15s;
+  }
+
+  .dna-pattern {
+    position: absolute;
+    top: 10%;
+    right: 5%;
+    width: 80px;
+    height: 200px;
+    opacity: 0.08;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 8px,
+      rgba(255, 255, 255, 0.3) 8px,
+      rgba(255, 255, 255, 0.3) 16px
+    );
+    animation: dnaFloat 12s linear infinite;
+  }
+
+  @keyframes floating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-40px) rotate(90deg); }
+    50% { transform: translateY(25px) rotate(180deg); }
+    75% { transform: translateY(-20px) rotate(270deg); }
+  }
+
+  @keyframes dnaFloat {
+    from { transform: rotate(0deg) translateY(0); }
+    to { transform: rotate(360deg) translateY(-15px); }
+  }
+
+  .content-wrapper {
+    position: relative;
+    z-index: 2;
+    max-width: 80%;
+  }
+
+  #title {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0 0 1.5rem 0;
+  }
+
+  .title-accent {
+    display: block;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 0.65em;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .title-main {
+    display: block;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  #description {
+    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0 0 2.5rem 0;
+    line-height: 1.4;
+    max-width: 85%;
+    font-weight: 500;
+  }
+
+  .features-preview {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .feature-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 2rem;
+    padding: 1rem 1.5rem;
+    box-shadow: var(--glass-shadow);
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+  }
+
+  .feature-badge:hover {
+    transform: translateY(-3px);
+    box-shadow: 
+      0 15px 35px -5px rgba(31, 38, 135, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.25);
+  }
+
+  .badge-icon {
+    font-size: 1.25rem;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .container {
+      text-align: center;
+      justify-content: center;
+    }
+
+    .content-wrapper {
+      max-width: 100%;
+    }
+
+    .features-preview {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 3rem 5%;
+      min-height: 80vh;
+    }
+
+    #description {
+      max-width: 100%;
+    }
+
+    .features-preview {
+      gap: 1rem;
+    }
+
+    .feature-badge {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.9rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.25;
+    }
+
+    .dna-pattern {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 2rem 4%;
+    }
+
+    .features-preview {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .feature-badge {
+      width: fit-content;
+    }
+  }
+</style>

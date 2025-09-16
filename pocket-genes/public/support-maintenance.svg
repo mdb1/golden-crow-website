@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="95" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Support headset -->
+  <path d="M60 80 Q60 60 100 60 Q140 60 140 80 L140 100 Q140 110 130 110 Q120 110 120 100 L120 85 Q120 80 115 80 L85 80 Q80 80 80 85 L80 100 Q80 110 70 110 Q60 110 60 100 Z" 
+        fill="white"/>
+  
+  <!-- Headset microphone -->
+  <rect x="58" y="95" width="12" height="4" rx="2" fill="white"/>
+  <rect x="50" y="97" width="8" height="2" fill="white"/>
+  
+  <!-- 24/7 clock -->
+  <circle cx="100" cy="140" r="25" fill="white"/>
+  <circle cx="100" cy="140" r="20" fill="none" stroke="#dc2626" stroke-width="2"/>
+  <text x="100" y="145" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#dc2626">24/7</text>
+  
+  <!-- Clock hands -->
+  <line x1="100" y1="140" x2="100" y2="125" stroke="#dc2626" stroke-width="2"/>
+  <line x1="100" y1="140" x2="112" y2="140" stroke="#dc2626" stroke-width="1.5"/>
+  
+  <!-- Support tools -->
+  <path d="M35 40 L45 30 L55 40 L50 45 L60 55 L50 65 L40 55 L45 50 L35 40" fill="white"/>
+  <circle cx="42.5" cy="42.5" r="3" fill="#dc2626"/>
+  
+  <!-- Maintenance wrench -->
+  <path d="M160 35 L170 25 L175 30 L170 35 L180 45 L175 50 L165 40 L160 45 L155 40 L160 35" fill="white"/>
+  
+  <!-- Service arrows (continuous support) -->
+  <path d="M130 35 Q150 25 170 35" stroke="white" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
+  <path d="M170 65 Q150 75 130 65" stroke="white" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
+  
+  <defs>
+    <marker id="arrowhead2" markerWidth="10" markerHeight="7" 
+            refX="0" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="white" />
+    </marker>
+  </defs>
+</svg>

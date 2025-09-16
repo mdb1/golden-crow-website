@@ -1,0 +1,344 @@
+---
+import ListItem from "../components/ListItem.astro";
+import PanelImage from "../components/PanelImage.astro"
+---
+
+<section id="screen3" class="panels_body">
+  <div class="panels-bg-effects">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+    <div class="dna-helix"></div>
+  </div>
+  <div class="content-wrapper">
+    <div class="panels_container">
+      <div class="section-header">
+        <h1 class="panels_title">
+          <span class="title-highlight">Mobile & Interactive</span> 
+          <span class="title-main">Genomic Panels</span>
+        </h1>
+        <p class="panels_subtitle">
+          Transform complex genetic data into beautiful, interactive experiences that your users will love to explore
+        </p>
+      </div>
+      <div class="panels-grid">
+        <ListItem
+          title="Health & Wellness"
+          description="Real-time insights into genetics risks and wellness traits."
+          color="primary"
+        />
+        <ListItem
+          title="Nutrition & Fitness"
+          description="Personalized diet and exercise recommendations."
+          color="secondary"
+        />
+        <ListItem
+          title="Medication Response"
+          description="Easy-to-understand reports on how genetics affect treatments."
+          color="success"
+        />
+        <ListItem
+          title="Ancestry & Traits"
+          description="Explore heritage and inherited characteristics."
+          color="accent"
+        />
+        <ListItem
+          title="Education & Learning"
+          description="Built-in tools to help users to understand their results."
+          color="warning"
+        />
+      </div>
+    </div>
+    <div class="image-wrapper">
+      <PanelImage />
+    </div>
+  </div>
+</section>
+
+<style>
+  .panels_body {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(103, 126, 234, 0.15) 0%, transparent 60%),
+      radial-gradient(circle at 80% 70%, rgba(240, 147, 251, 0.12) 0%, transparent 60%),
+      radial-gradient(circle at 50% 50%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: clamp(3rem, 6vw, 5rem) clamp(2%, 5vw, 5%);
+    z-index: 10;
+    position: relative;
+  }
+
+  /* Background Effects */
+  .panels-bg-effects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.4;
+    animation: floating 35s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: clamp(250px, 25vw, 350px);
+    height: clamp(250px, 25vw, 350px);
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.25) 0%, rgba(79, 172, 254, 0.15) 100%);
+    top: clamp(10%, 15vh, 20%);
+    left: clamp(5%, 8vw, 12%);
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: clamp(200px, 20vw, 280px);
+    height: clamp(200px, 20vw, 280px);
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(103, 126, 234, 0.12) 100%);
+    top: clamp(60%, 65vh, 70%);
+    right: clamp(8%, 12vw, 16%);
+    animation-delay: -12s;
+  }
+
+  .orb-3 {
+    width: clamp(120px, 12vw, 180px);
+    height: clamp(120px, 12vw, 180px);
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.22) 0%, rgba(240, 147, 251, 0.16) 100%);
+    bottom: clamp(20%, 25vh, 30%);
+    left: clamp(60%, 65vw, 70%);
+    animation-delay: -25s;
+  }
+
+  .dna-helix {
+    position: absolute;
+    top: clamp(8%, 10vh, 15%);
+    right: clamp(10%, 15vw, 20%);
+    width: clamp(100px, 10vw, 150px);
+    height: clamp(300px, 30vh, 400px);
+    opacity: 0.06;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent clamp(8px, 1vw, 10px),
+      rgba(255, 255, 255, 0.3) clamp(8px, 1vw, 10px),
+      rgba(255, 255, 255, 0.3) clamp(16px, 2vw, 20px)
+    );
+    animation: dnaFloat 20s linear infinite;
+  }
+
+  @keyframes floating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(clamp(-40px, -4vw, -60px)) rotate(90deg); }
+    50% { transform: translateY(clamp(25px, 2.5vw, 40px)) rotate(180deg); }
+    75% { transform: translateY(clamp(-20px, -2vw, -30px)) rotate(270deg); }
+  }
+
+  @keyframes dnaFloat {
+    from { transform: rotate(0deg) translateY(0); }
+    to { transform: rotate(360deg) translateY(-20px); }
+  }
+
+  .content-wrapper {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .panels_container {
+    flex: 1;
+    max-width: 50%;
+  }
+
+  .section-header {
+    margin-bottom: 3rem;
+  }
+
+  .panels_title {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+  }
+
+  .title-highlight {
+    display: block;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 600;
+    font-size: 0.7em;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .title-main {
+    display: block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .panels_subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 90%;
+  }
+
+  .panels-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .image-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .content-wrapper {
+      flex-direction: column;
+      gap: 4rem;
+      text-align: center;
+    }
+
+    .panels_container {
+      max-width: 100%;
+    }
+
+    .section-header {
+      margin-bottom: 2.5rem;
+    }
+
+    .panels_subtitle {
+      max-width: 100%;
+    }
+
+    .panels-grid {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+  }
+
+  @media (max-width: 850px) {
+    .panels_body {
+      padding: 3rem 4%;
+    }
+
+    .content-wrapper {
+      gap: 3rem;
+    }
+
+    .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .panels-grid {
+      gap: 1.25rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.25;
+    }
+
+    .dna-helix {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .panels_body {
+      padding: 2rem 4%;
+    }
+
+    .content-wrapper {
+      gap: 2rem;
+    }
+
+    .panels-grid {
+      gap: 1rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.15;
+    }
+  }
+
+  /* High zoom compatibility - when users zoom in heavily */
+  @media (max-width: 1400px) {
+    .orb-1 {
+      width: clamp(200px, 20vw, 300px);
+      height: clamp(200px, 20vw, 300px);
+    }
+    
+    .orb-2 {
+      width: clamp(160px, 16vw, 240px);
+      height: clamp(160px, 16vw, 240px);
+    }
+    
+    .orb-3 {
+      width: clamp(100px, 10vw, 160px);
+      height: clamp(100px, 10vw, 160px);
+    }
+  }
+
+  /* Extra zoom compatibility - very high zoom levels */
+  @media (max-width: 1000px) {
+    .orb-1 {
+      width: clamp(150px, 15vw, 250px);
+      height: clamp(150px, 15vw, 250px);
+      opacity: 0.3;
+    }
+    
+    .orb-2 {
+      width: clamp(120px, 12vw, 200px);
+      height: clamp(120px, 12vw, 200px);
+      opacity: 0.3;
+    }
+    
+    .orb-3 {
+      width: clamp(80px, 8vw, 140px);
+      height: clamp(80px, 8vw, 140px);
+      opacity: 0.3;
+    }
+    
+    .dna-helix {
+      opacity: 0.04;
+      width: clamp(80px, 8vw, 120px);
+      height: clamp(250px, 25vh, 350px);
+    }
+  }
+
+  /* Ultra high zoom - hide decorative elements to prevent overflow */
+  @media (max-width: 600px) {
+    .orb-1, .orb-2 {
+      opacity: 0.2;
+      width: clamp(100px, 12vw, 180px);
+      height: clamp(100px, 12vw, 180px);
+    }
+    
+    .orb-3 {
+      opacity: 0.15;
+      width: clamp(60px, 8vw, 120px);
+      height: clamp(60px, 8vw, 120px);
+    }
+  }
+</style>

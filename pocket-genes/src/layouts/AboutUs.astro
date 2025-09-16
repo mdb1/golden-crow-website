@@ -1,0 +1,286 @@
+---
+import TeamCard from "../components/TeamCard.astro";
+---
+
+<div class="container">
+  <div class="team-bg-effects">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+    <div class="dna-pattern"></div>
+  </div>
+  <div class="content-wrapper">
+    <div class="section-header">
+      <h1 class="team-title">
+        <span class="title-gradient">Meet</span> the Team
+      </h1>
+      <p class="team-subtitle">The brilliant minds behind Pocket Genes</p>
+    </div>
+    <div class="image_container">
+      <TeamCard
+        src="/aboutus1.png"
+        alt="Team1"
+        text="Manuel Herrera"
+        description="Founder & CEO"
+        skills={["LEADERSHIP"]}
+      />
+      <TeamCard
+        src="/aboutus2.png"
+        alt="Team2"
+        text="Federico Bustos"
+        description="Co-Founder & Head of Genomics"
+        skills={["LEADERSHIP", "INNOVATION"]}
+      />
+      <TeamCard
+        src="/aboutus4.png"
+        alt="Team4"
+        text="Matias Ezcurra"
+        description="Software Engineer"
+        skills={["ENGINEERING"]}
+      />
+    </div>
+  </div>
+</div>
+
+<style>
+  .container {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
+    background-image: 
+      radial-gradient(circle at 15% 25%, rgba(240, 147, 251, 0.12) 0%, transparent 50%),
+      radial-gradient(circle at 85% 75%, rgba(79, 172, 254, 0.15) 0%, transparent 50%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5rem 5%;
+  }
+
+  /* Background Effects */
+  .team-bg-effects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.5;
+    animation: floating 30s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 350px;
+    height: 350px;
+    background: rgba(240, 147, 251, 0.2);
+    top: 10%;
+    left: 10%;
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: 250px;
+    height: 250px;
+    background: rgba(103, 126, 234, 0.15);
+    top: 60%;
+    right: 15%;
+    animation-delay: -10s;
+  }
+
+  .orb-3 {
+    width: 180px;
+    height: 180px;
+    background: rgba(79, 172, 254, 0.2);
+    bottom: 15%;
+    left: 50%;
+    animation-delay: -20s;
+  }
+
+  .dna-pattern {
+    position: absolute;
+    top: 20%;
+    right: 5%;
+    width: 100px;
+    height: 300px;
+    opacity: 0.08;
+    background: linear-gradient(45deg, transparent 48%, white 49%, white 51%, transparent 52%);
+    background-size: 10px 20px;
+    animation: dnaRotate 15s linear infinite;
+  }
+
+  @keyframes floating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-50px) rotate(90deg); }
+    50% { transform: translateY(30px) rotate(180deg); }
+    75% { transform: translateY(-25px) rotate(270deg); }
+  }
+
+  @keyframes dnaRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .content-wrapper {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  .team-title {
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    line-height: 1.1;
+  }
+
+  .title-gradient {
+    background: var(--secondary-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .team-subtitle {
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .image_container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .container {
+      padding: 4rem 5%;
+    }
+
+    .section-header {
+      margin-bottom: 3rem;
+    }
+
+    .image_container {
+      gap: 1.5rem;
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 2rem 4%;
+      min-height: auto;
+    }
+
+    .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .team-title {
+      font-size: clamp(2.5rem, 8vw, 4rem);
+    }
+
+    .team-subtitle {
+      font-size: clamp(1rem, 4vw, 1.2rem);
+    }
+
+    .image_container {
+      flex-direction: column;
+      gap: 1.5rem;
+      align-items: center;
+      width: 100%;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.2;
+      filter: blur(40px);
+    }
+
+    .dna-pattern {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 1.5rem 1rem;
+      box-sizing: border-box;
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .team-title {
+      font-size: clamp(2rem, 10vw, 3rem);
+      margin-bottom: 0.75rem;
+    }
+
+    .team-subtitle {
+      font-size: clamp(0.9rem, 4.5vw, 1rem);
+    }
+
+    .image_container {
+      gap: 1.25rem;
+      width: 100%;
+      max-width: 100%;
+      padding: 0;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.1;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .container {
+      padding: 1.25rem 0.75rem;
+      box-sizing: border-box;
+    }
+
+    .image_container {
+      gap: 1rem;
+      padding: 0;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 320px) {
+    .container {
+      padding: 1rem 0.5rem;
+      box-sizing: border-box;
+    }
+
+    .team-title {
+      font-size: 2rem;
+    }
+
+    .team-subtitle {
+      font-size: 0.875rem;
+    }
+
+    .image_container {
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0;
+    }
+  }
+</style>

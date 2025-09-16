@@ -1,0 +1,26 @@
+---
+const {src, alt} = Astro.props
+---
+
+<div class="image">            
+    <img class="image-card" src={src} alt={alt} />
+</div>
+
+<style>
+    .image{
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .image-card{
+        height: 40vh;
+        margin: 10px;
+        border-radius: 20px;
+    }
+
+    @media screen and (max-width: 768px) {
+        .image-card {
+            height: 25vh;
+        }
+    }
+</style>

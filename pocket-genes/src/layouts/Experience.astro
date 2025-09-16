@@ -1,0 +1,285 @@
+---
+import ExperienceCard from '../components/ExperienceCard.astro'
+---
+
+<div class="container">
+  <div class="experience-bg-effects">
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+  </div>
+  <div class="content-wrapper">
+    <div class="left">
+      <div class="text-content">
+        <h1 class="title">
+          <span class="title-gradient">Our</span> Experience
+        </h1>
+        <div class="experience-stats">
+          <div class="stat-item">
+            <span class="stat-number">4+</span>
+            <span class="stat-label">Years</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">10+</span>
+            <span class="stat-label">Decade</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">100+</span>
+            <span class="stat-label">Projects</span>
+          </div>
+        </div>
+        <p class="text highlight-text">
+          For the past four years, we've partnered with top fitness and nutrition brands to develop mobile-first solutions that boost user engagement.
+        </p>
+        <p class="text">
+          Backed by over a decade of experience in software development, our diverse team—including developers, designers, product experts, legal advisors, and biotechnologists—focuses on delivering fun, fluid, science-driven experiences.
+        </p>
+        <p class="text emphasis-text">
+          We create intuitive platforms that empower users to take control of their health
+        </p>
+      </div>
+    </div>
+    <div class="experiences_container">
+      <ExperienceCard src="/experience1.png" alt="" text="Stronger U" description="We helped Stronger U team bring its personalized nutrition coaching to mobile, allowing users to connect with expert coaches, track progress, and receive tailored guidance—all in one intuitive app"/>
+      <ExperienceCard src="/experience2.png" alt="" text="Anytime Fitness" description="We helped Anytime Fitness team build a top-tier app that connects users with custom workout plans, progress tracking, and real-time fitness coaching, making training more accessible than ever"/>
+    </div>
+  </div>
+</div>
+
+<style>
+  .container {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--dark-bg) 0%, var(--dark-surface) 100%);
+    background-image: 
+      radial-gradient(circle at 20% 20%, rgba(103, 126, 234, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(240, 147, 251, 0.1) 0%, transparent 50%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 5rem 5%;
+  }
+
+  /* Background Effects */
+  .experience-bg-effects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.4;
+    animation: floating 25s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 400px;
+    height: 400px;
+    background: rgba(103, 126, 234, 0.2);
+    top: 15%;
+    left: 15%;
+    animation-delay: 0s;
+  }
+
+  .orb-2 {
+    width: 300px;
+    height: 300px;
+    background: rgba(240, 147, 251, 0.15);
+    top: 50%;
+    right: 10%;
+    animation-delay: -8s;
+  }
+
+  .orb-3 {
+    width: 200px;
+    height: 200px;
+    background: rgba(79, 172, 254, 0.2);
+    bottom: 25%;
+    left: 60%;
+    animation-delay: -15s;
+  }
+
+  @keyframes floating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-40px) rotate(90deg); }
+    50% { transform: translateY(20px) rotate(180deg); }
+    75% { transform: translateY(-20px) rotate(270deg); }
+  }
+
+  .content-wrapper {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .left {
+    flex: 1;
+    max-width: 45%;
+  }
+
+  .text-content {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 2rem;
+    padding: 3rem;
+    box-shadow: var(--glass-shadow);
+  }
+
+  .title {
+    font-size: clamp(2.5rem, 6vw, 6rem);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 2rem;
+    line-height: 1.1;
+  }
+
+  .title-gradient {
+    background: var(--primary-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .experience-stats {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .stat-item {
+    text-align: center;
+    flex: 1;
+  }
+
+  .stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    background: var(--success-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .stat-label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+    font-weight: 500;
+  }
+
+  .text {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .highlight-text {
+    font-size: clamp(1.1rem, 2.8vw, 1.4rem);
+    background: var(--accent-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 600;
+  }
+
+  .emphasis-text {
+    font-weight: 600;
+    color: var(--text-accent);
+    font-style: italic;
+    margin-bottom: 0;
+  }
+
+  .experiences_container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .content-wrapper {
+      flex-direction: column;
+      gap: 4rem;
+      text-align: center;
+    }
+
+    .left {
+      max-width: 100%;
+    }
+
+    .text-content {
+      padding: 2.5rem;
+    }
+
+    .experience-stats {
+      justify-content: center;
+      gap: 3rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 3rem 4%;
+    }
+
+    .content-wrapper {
+      gap: 3rem;
+    }
+
+    .text-content {
+      padding: 2rem;
+    }
+
+    .experience-stats {
+      flex-direction: row;
+      gap: 2rem;
+    }
+
+    .experiences_container {
+      gap: 2rem;
+    }
+
+    .orb-1, .orb-2, .orb-3 {
+      opacity: 0.2;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 2rem 4%;
+    }
+
+    .text-content {
+      padding: 1.5rem;
+    }
+
+    .experience-stats {
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem 0;
+    }
+
+    .stat-number {
+      font-size: 1.5rem;
+    }
+  }
+</style>
