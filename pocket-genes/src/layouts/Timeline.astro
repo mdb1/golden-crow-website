@@ -39,37 +39,15 @@ const t = useTranslations(Astro.currentLocale);
 </div>
 
 <style>
-  /* Ensure CSS variables are available */
-  :root {
-    --dark-surface: #1a1f3a;
-    --dark-elevated: #2d3561;
-    --text-primary: #ffffff;
-    --text-secondary: #b8c5d1;
-  }
-
   .container {
     max-width: none;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image:
-      radial-gradient(circle at 15% 25%, rgba(103, 126, 234, 0.12) 0%, transparent 60%),
-      radial-gradient(circle at 85% 75%, rgba(240, 147, 251, 0.10) 0%, transparent 60%),
-      radial-gradient(circle at 50% 50%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
+    background: var(--bg-primary);
     min-height: 100vh;
     position: relative;
     overflow: hidden;
     padding: 2rem 0;
-  }
-
-  .container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.02);
-    backdrop-filter: blur(20px);
-    pointer-events: none;
-    z-index: 1;
   }
 
   .quarter_container {
@@ -83,18 +61,13 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .title {
-    color: var(--text-primary);
+    color: var(--brand-color);
     font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     margin: 2rem 4rem 4rem 4rem;
     text-align: center;
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     position: relative;
     z-index: 2;
-    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   }
 
   @media screen and (max-width: 1440px) {

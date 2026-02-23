@@ -5,12 +5,6 @@ const t = useTranslations(Astro.currentLocale);
 ---
 
 <div class="container">
-  <div class="team-bg-effects">
-    <div class="floating-orb orb-1"></div>
-    <div class="floating-orb orb-2"></div>
-    <div class="floating-orb orb-3"></div>
-    <div class="dna-pattern"></div>
-  </div>
   <div class="content-wrapper">
     <div class="section-header">
       <h1 class="team-title">
@@ -54,83 +48,12 @@ const t = useTranslations(Astro.currentLocale);
   .container {
     max-width: none;
     position: relative;
-    min-height: 100vh;
-    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image:
-      radial-gradient(circle at 15% 25%, rgba(240, 147, 251, 0.12) 0%, transparent 50%),
-      radial-gradient(circle at 85% 75%, rgba(79, 172, 254, 0.15) 0%, transparent 50%);
+    background: var(--bg-primary);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: center;
     padding: 5rem 5%;
-  }
-
-  /* Background Effects */
-  .team-bg-effects {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .floating-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(50px);
-    opacity: 0.5;
-    animation: floating 30s ease-in-out infinite;
-  }
-
-  .orb-1 {
-    width: 350px;
-    height: 350px;
-    background: rgba(240, 147, 251, 0.2);
-    top: 10%;
-    left: 10%;
-    animation-delay: 0s;
-  }
-
-  .orb-2 {
-    width: 250px;
-    height: 250px;
-    background: rgba(103, 126, 234, 0.15);
-    top: 60%;
-    right: 15%;
-    animation-delay: -10s;
-  }
-
-  .orb-3 {
-    width: 180px;
-    height: 180px;
-    background: rgba(79, 172, 254, 0.2);
-    bottom: 15%;
-    left: 50%;
-    animation-delay: -20s;
-  }
-
-  .dna-pattern {
-    position: absolute;
-    top: 20%;
-    right: 5%;
-    width: 100px;
-    height: 300px;
-    opacity: 0.08;
-    background: linear-gradient(45deg, transparent 48%, white 49%, white 51%, transparent 52%);
-    background-size: 10px 20px;
-    animation: dnaRotate 15s linear infinite;
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-50px) rotate(90deg); }
-    50% { transform: translateY(30px) rotate(180deg); }
-    75% { transform: translateY(-25px) rotate(270deg); }
-  }
-
-  @keyframes dnaRotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
   }
 
   .content-wrapper {
@@ -156,10 +79,7 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .title-gradient {
-    background: var(--secondary-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
   }
 
   .team-subtitle {
@@ -196,7 +116,6 @@ const t = useTranslations(Astro.currentLocale);
   @media (max-width: 768px) {
     .container {
       padding: 2rem 4%;
-      min-height: auto;
     }
 
     .section-header {
@@ -216,15 +135,6 @@ const t = useTranslations(Astro.currentLocale);
       gap: 1.5rem;
       align-items: center;
       width: 100%;
-    }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.2;
-      filter: blur(40px);
-    }
-
-    .dna-pattern {
-      display: none;
     }
   }
 
@@ -252,10 +162,6 @@ const t = useTranslations(Astro.currentLocale);
       width: 100%;
       max-width: 100%;
       padding: 0;
-    }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.1;
     }
   }
 

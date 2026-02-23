@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SuccessCarousel from '../../components/SuccessCarousel.astro';
+import AboutUs from '../../layouts/AboutUs.astro';
 import { useTranslations, getLocalizedPath } from '../../i18n/index';
 import type { Lang } from '../../i18n/ui';
 import { defaultLang } from '../../i18n/ui';
@@ -10,143 +12,273 @@ const lang = (Astro.currentLocale || defaultLang) as Lang;
 function localPath(path: string) {
   return getLocalizedPath(path, lang);
 }
+
+const projects = [
+  {
+    image: t.index.project1Image,
+    title: t.index.project1Title,
+    description: t.index.project1Desc,
+    tags: t.index.project1Tags as unknown as string[],
+    appStoreUrl: t.index.project1AppStore || undefined,
+    googlePlayUrl: t.index.project1GooglePlay || undefined,
+    websiteUrl: t.index.project1Website || undefined,
+  },
+  {
+    image: t.index.project2Image,
+    title: t.index.project2Title,
+    description: t.index.project2Desc,
+    tags: t.index.project2Tags as unknown as string[],
+    appStoreUrl: t.index.project2AppStore || undefined,
+    googlePlayUrl: t.index.project2GooglePlay || undefined,
+    websiteUrl: t.index.project2Website || undefined,
+  },
+  {
+    image: t.index.project3Image,
+    title: t.index.project3Title,
+    description: t.index.project3Desc,
+    tags: t.index.project3Tags as unknown as string[],
+    appStoreUrl: t.index.project3AppStore || undefined,
+    googlePlayUrl: t.index.project3GooglePlay || undefined,
+    websiteUrl: t.index.project3Website || undefined,
+  },
+];
 ---
 
-<BaseLayout title={t.index.title} activePage="home">
+<BaseLayout title={t.index.title} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
   <main class="home-page">
+    <!-- Section 1: Hero -->
     <section class="hero-section">
-      <div class="hero-bg-effects">
-        <div class="floating-orb orb-1"></div>
-        <div class="floating-orb orb-2"></div>
-        <div class="floating-orb orb-3"></div>
-      </div>
       <div class="container">
         <div class="hero-content">
           <h1 class="hero-title">
-            <span class="title-accent">{t.index.heroAccent}</span>
             <span class="title-main">{t.index.heroMain}</span>
           </h1>
           <p class="hero-subtitle">{t.index.heroSubtitle}</p>
           <div class="hero-actions">
-            <a href={localPath('/pocket-genes')} class="btn-primary">{t.index.explorePocketGenes}</a>
-            <a href={localPath('/about')} class="btn-secondary">{t.index.learnMore}</a>
+            <a href="#booking" class="btn-primary">{t.index.ctaPrimary}</a>
+            <a href="#projects" class="btn-secondary">{t.index.ctaSecondary}</a>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="features-section">
+    <!-- Section 2: Mission & Vision -->
+    <section class="mission-section" id="about">
       <div class="container">
-        <h2>{t.index.ourSolutions}</h2>
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">🧬</div>
-            <h3>{t.index.genomicAnalysisTitle}</h3>
-            <p>{t.index.genomicAnalysisDesc}</p>
+        <div class="mission-grid">
+          <div class="mission-card">
+            <h3>{t.index.missionTitle}</h3>
+            <p>{t.index.missionDesc}</p>
           </div>
-          <div class="feature-card">
-            <div class="feature-icon">📱</div>
-            <h3>{t.index.mobileIntegrationTitle}</h3>
-            <p>{t.index.mobileIntegrationDesc}</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <h3>{t.index.realTimeTitle}</h3>
-            <p>{t.index.realTimeDesc}</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🔒</div>
-            <h3>{t.index.securePlatformTitle}</h3>
-            <p>{t.index.securePlatformDesc}</p>
+          <div class="mission-card">
+            <h3>{t.index.visionTitle}</h3>
+            <p>{t.index.visionDesc}</p>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Section 3: Success Stories -->
+    <section class="projects-section" id="projects">
+      <div class="container">
+        <h2>{t.index.projectsTitle}</h2>
+        <p class="section-subtitle">{t.index.projectsSubtitle}</p>
+        <SuccessCarousel projects={projects} />
+      </div>
+    </section>
+
+    <!-- Section 4: Why Us -->
+    <section class="why-us-section" id="why-us">
+      <div class="container">
+        <div class="why-us-header">
+          <h2>{t.index.statsTitle}</h2>
+          <p class="why-us-subtitle">{t.index.statsSubtitle}</p>
+        </div>
+
+        <div class="why-us-stats">
+          <div class="why-us-stat">
+            <span class="why-us-stat-number">{t.index.whyUsYearsStat}</span>
+            <span class="why-us-stat-label">{t.index.whyUsYearsLabel}</span>
+          </div>
+          <div class="why-us-stat">
+            <span class="why-us-stat-number">{t.index.whyUsDecadeStat}</span>
+            <span class="why-us-stat-label">{t.index.whyUsDecadeLabel}</span>
+          </div>
+          <div class="why-us-stat">
+            <span class="why-us-stat-number">{t.index.whyUsProjectsStat}</span>
+            <span class="why-us-stat-label">{t.index.whyUsProjectsLabel}</span>
+          </div>
+        </div>
+
+        <div class="why-us-content">
+          <p class="why-us-body">{t.index.whyUsParagraph2}</p>
+          <p class="why-us-accent">{t.index.whyUsParagraph3}</p>
+        </div>
+
+        <div class="why-us-closing">
+          <p class="why-us-offer">{t.index.whyUsClosing}</p>
+
+          <!-- Development Process Timeline -->
+          <h3 class="process-heading">{t.index.processTitle}</h3>
+          <div class="why-us-process">
+            <div class="process-step">
+              <div class="step-num">01</div>
+              <h4 class="step-title">{t.index.discoveryTitle}</h4>
+              <p class="step-desc">{t.index.discoveryDesc}</p>
+            </div>
+            <div class="process-step">
+              <div class="step-num">02</div>
+              <h4 class="step-title">{t.index.analysisTitle}</h4>
+              <p class="step-desc">{t.index.analysisDesc}</p>
+            </div>
+            <div class="process-step">
+              <div class="step-num">03</div>
+              <h4 class="step-title">{t.index.designTitle}</h4>
+              <p class="step-desc">{t.index.designDesc}</p>
+            </div>
+            <div class="process-step">
+              <div class="step-num">04</div>
+              <h4 class="step-title">{t.index.developmentTitle}</h4>
+              <p class="step-desc">{t.index.developmentDesc}</p>
+            </div>
+            <div class="process-step">
+              <div class="step-num">05</div>
+              <h4 class="step-title">{t.index.testingTitle}</h4>
+              <p class="step-desc">{t.index.testingDesc}</p>
+            </div>
+            <div class="process-step">
+              <div class="step-num">06</div>
+              <h4 class="step-title">{t.index.launchTitle}</h4>
+              <p class="step-desc">{t.index.launchDesc}</p>
+            </div>
+          </div>
+
+          <a href="#booking" class="btn-primary">{t.index.whyUsCtaButton}</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Team -->
+    <section class="team-section" id="team">
+      <AboutUs />
+    </section>
+
+    <!-- Section 6: Contact CTA -->
     <section class="cta-section">
       <div class="container">
         <h2>{t.index.ctaTitle}</h2>
         <p>{t.index.ctaDesc}</p>
-        <a href={localPath('/contact')} class="btn-primary">{t.index.ctaButton}</a>
+        <a href="#booking" class="btn-primary">{t.index.ctaButton}</a>
+      </div>
+    </section>
+
+    <!-- Section 7: Booking -->
+    <section id="booking" class="booking-section">
+      <div class="container">
+        <div class="booking-content">
+          <h2>{t.index.bookingTitle}</h2>
+          <p>{t.index.bookingDesc}</p>
+          <div class="calendar-wrapper">
+            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+          </div>
+        </div>
       </div>
     </section>
   </main>
 </BaseLayout>
 
 <style>
+  /* Hero Section */
   .hero-section {
     position: relative;
     min-height: clamp(600px, 100vh, 1200px);
     display: flex;
     align-items: center;
     overflow: hidden;
+    background: var(--bg-primary);
     margin-top: clamp(60px, 10vw, 80px);
     padding: clamp(2rem, 5vw, 4rem) 0;
   }
 
-  .hero-bg-effects { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-  .floating-orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.4; animation: floating 20s ease-in-out infinite; }
-  .orb-1 { width: 300px; height: 300px; background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.2) 100%); top: 20%; left: 5%; }
-  .orb-2 { width: 220px; height: 220px; background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.15) 100%); bottom: 20%; right: 10%; animation-delay: -8s; }
-  .orb-3 { width: 160px; height: 160px; background: linear-gradient(135deg, rgba(79, 172, 254, 0.3) 0%, rgba(240, 147, 251, 0.18) 100%); top: 60%; left: 70%; animation-delay: -15s; }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-40px) rotate(90deg); }
-    50% { transform: translateY(25px) rotate(180deg); }
-    75% { transform: translateY(-20px) rotate(270deg); }
-  }
-
   .hero-content { position: relative; z-index: 2; text-align: center; }
   .hero-title { font-size: clamp(3rem, 8vw, 6rem); font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; }
-  .title-accent { display: block; background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 0.5em; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.5rem; }
-  .title-main { display: block; background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .hero-subtitle { font-size: clamp(1.25rem, 3vw, 1.5rem); color: var(--text-secondary); margin-bottom: 2.5rem; max-width: 600px; margin-left: auto; margin-right: auto; }
+  .title-main { display: block; color: var(--text-primary); }
+  .hero-subtitle { font-size: clamp(1.1rem, 2.5vw, 1.4rem); color: var(--text-secondary); margin-bottom: 2.5rem; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.6; }
   .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
   .btn-primary, .btn-secondary { display: inline-block; padding: 1rem 2rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; transition: all 0.3s ease; border: none; cursor: pointer; }
-  .btn-primary { background: var(--accent-gradient); color: #000; text-shadow: none; }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(79, 172, 254, 0.4); }
-  .btn-secondary { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); color: var(--text-primary); }
-  .btn-secondary:hover { transform: translateY(-2px); box-shadow: var(--glass-shadow); }
+  .btn-primary { background: var(--brand-color); color: #fff; }
+  .btn-primary:hover { background: var(--brand-hover); transform: translateY(-2px); box-shadow: 0 10px 25px rgba(64, 37, 239, 0.3); }
+  .btn-secondary { background: transparent; border: 2px solid var(--card-border); color: var(--text-primary); }
+  .btn-secondary:hover { transform: translateY(-2px); border-color: var(--brand-color); color: var(--brand-color); }
 
-  .features-section { padding: clamp(3rem, 8vw, 6rem) 0; background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); }
-  .features-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: clamp(1.5rem, 3vw, 2rem); }
-  .feature-card { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 1rem; padding: clamp(1.5rem, 3vw, 2rem); text-align: center; transition: all 0.3s ease; }
-  .feature-card:hover { transform: translateY(-5px); box-shadow: var(--glass-shadow); }
-  .feature-icon { font-size: 2.5rem; margin-bottom: 1rem; }
-  .feature-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary); }
-  .feature-card p { color: var(--text-secondary); line-height: 1.6; }
+  /* Mission & Vision Section */
+  .mission-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-secondary); }
+  .mission-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(1.5rem, 3vw, 2rem); }
+  .mission-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 1rem; padding: clamp(2rem, 4vw, 3rem); transition: all 0.3s ease; }
+  .mission-card:hover { transform: translateY(-5px); box-shadow: var(--card-shadow-hover); }
+  .mission-card h3 { font-size: clamp(1.25rem, 3vw, 1.5rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
+  .mission-card p { color: var(--text-secondary); line-height: 1.7; }
 
-  .cta-section { padding: clamp(3rem, 8vw, 6rem) 0; text-align: center; }
-  .cta-section h2 { font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; background: var(--secondary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  /* Projects Section */
+  .projects-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-primary); }
+  .projects-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
+  .section-subtitle { text-align: center; font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); margin-bottom: clamp(2rem, 4vw, 3rem); max-width: 700px; margin-left: auto; margin-right: auto; }
+
+  /* Why Us Section */
+  .why-us-section { padding: clamp(4rem, 10vw, 8rem) 0; background: var(--bg-secondary); }
+  .why-us-header { text-align: center; margin-bottom: clamp(2rem, 4vw, 3rem); }
+  .why-us-header h2 { font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem; }
+  .why-us-subtitle { font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); max-width: 600px; margin-left: auto; margin-right: auto; }
+  .why-us-stats { display: flex; justify-content: center; gap: clamp(2rem, 5vw, 4rem); padding: clamp(1.5rem, 3vw, 2rem) 0; border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); margin-bottom: clamp(2rem, 4vw, 3rem); max-width: 700px; margin-left: auto; margin-right: auto; }
+  .why-us-stat { text-align: center; flex: 1; }
+  .why-us-stat-number { display: block; font-size: clamp(2.5rem, 5vw, 3.5rem); font-weight: 800; color: var(--brand-color); line-height: 1.1; }
+  .why-us-stat-label { display: block; font-size: clamp(0.8rem, 1.5vw, 0.95rem); color: var(--text-secondary); margin-top: 0.5rem; font-weight: 500; }
+  .why-us-content { max-width: 800px; margin: 0 auto clamp(2rem, 4vw, 3rem); text-align: center; }
+  .why-us-body { font-size: clamp(1rem, 2.5vw, 1.15rem); line-height: 1.7; color: var(--text-secondary); margin-bottom: 1.5rem; }
+  .why-us-accent { font-size: clamp(1rem, 2.5vw, 1.15rem); line-height: 1.7; font-weight: 600; color: var(--text-accent); font-style: italic; }
+  .why-us-closing { text-align: center; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 1rem; padding: clamp(2rem, 4vw, 3rem); max-width: 700px; margin: 0 auto; }
+  .why-us-offer { font-size: clamp(1.05rem, 2.5vw, 1.25rem); font-weight: 700; color: var(--text-primary); line-height: 1.6; margin-bottom: 1.5rem; }
+
+  .process-heading { font-size: clamp(1.25rem, 3vw, 1.5rem); font-weight: 700; color: var(--brand-color); margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--card-border); }
+  .why-us-process { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; text-align: left; }
+  .process-step { display: flex; flex-direction: column; gap: 0.5rem; padding: 1.15rem; border-radius: 0.625rem; background: var(--bg-secondary); border-top: 3px solid var(--brand-color); transition: all 0.3s ease; }
+  .process-step:hover { transform: translateY(-3px); box-shadow: var(--card-shadow-hover); }
+  .step-num { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; border-radius: 0.375rem; background: var(--brand-color); color: #fff; font-size: 0.8rem; font-weight: 800; }
+  .step-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+  .step-desc { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+
+  /* Team Section */
+  .team-section { padding: 0; }
+
+  /* Booking Section */
+  .booking-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-secondary); }
+  .booking-content { text-align: center; }
+  .booking-content h2 { font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
+  .booking-content > p { font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); margin-bottom: 2rem; }
+  .calendar-wrapper { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 1rem; padding: clamp(1rem, 3vw, 2rem); min-height: 600px; }
+  .calendar-wrapper iframe { min-height: 550px; }
+
+  /* CTA Section */
+  .cta-section { padding: clamp(4rem, 10vw, 8rem) 0; text-align: center; background: var(--bg-primary); }
+  .cta-section h2 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
   .cta-section p { font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); margin-bottom: clamp(1.5rem, 3vw, 2rem); max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.6; }
 
+  /* Responsive */
   @media (max-width: 768px) {
     .hero-actions { flex-direction: column; align-items: center; }
     .btn-primary, .btn-secondary { width: 100%; max-width: 280px; text-align: center; }
   }
 
   @media (max-width: 480px) {
-    .features-grid { grid-template-columns: 1fr; }
-    .orb-1, .orb-2, .orb-3 { display: none; }
     .hero-section { min-height: clamp(500px, 80vh, 600px); }
-  }
-
-  @media (max-width: 1024px) {
-    .features-grid {
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    }
+    .why-us-stats { flex-direction: column; gap: 1.5rem; padding: 1.5rem 0; }
+    .why-us-process { grid-template-columns: repeat(2, 1fr); }
+    .mission-grid { grid-template-columns: 1fr; }
   }
 
   @media (min-width: 1800px) {
-    .hero-title {
-      font-size: clamp(4rem, 6vw, 8rem);
-    }
-
-    .hero-subtitle {
-      font-size: clamp(1.5rem, 2vw, 2rem);
-    }
+    .hero-title { font-size: clamp(4rem, 6vw, 8rem); }
+    .hero-subtitle { font-size: clamp(1.5rem, 2vw, 2rem); }
   }
 </style>

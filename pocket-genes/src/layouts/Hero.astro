@@ -4,15 +4,7 @@ const t = useTranslations(Astro.currentLocale);
 ---
 
 <section class="hero">
-  <div class="hero-bg-effects">
-    <div class="dna-helix"></div>
-    <div class="floating-particles"></div>
-  </div>
   <div class="hero-content">
-    <span class="tag">
-      <span class="tag-icon">🧬</span>
-      {t.hero.brand}
-    </span>
     <h1 class="hero-title">
       <span class="title-main">{t.hero.product}</span>
       <span class="title-sub">{t.hero.tagline}</span>
@@ -34,8 +26,6 @@ const t = useTranslations(Astro.currentLocale);
   <div class="hero-images">
     <img src="/mobile1.png" alt={t.hero.appAlt} class="img1" />
     <img src="/mobile2.png" alt={t.hero.mobileAlt} class="img2" />
-    <div class="image-glow img1-glow"></div>
-    <div class="image-glow img2-glow"></div>
   </div>
   <a href="#screen2" class="scroll-button">
     <span>{t.hero.explorePlatform}</span>
@@ -53,54 +43,8 @@ const t = useTranslations(Astro.currentLocale);
     align-items: center;
     justify-content: space-between;
     padding: 2rem 5%;
-    background: var(--dark-bg);
-    background-image: 
-      radial-gradient(circle at 20% 20%, rgba(103, 126, 234, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
+    background: var(--bg-primary);
     overflow: hidden;
-  }
-
-  /* Background Effects */
-  .hero-bg-effects {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .dna-helix {
-    position: absolute;
-    top: 20%;
-    right: 10%;
-    width: 200px;
-    height: 400px;
-    opacity: 0.1;
-    background: linear-gradient(45deg, var(--primary-gradient));
-    border-radius: 50%;
-    animation: rotate 20s linear infinite;
-  }
-
-  .floating-particles {
-    position: absolute;
-    inset: 0;
-    background-image: 
-      radial-gradient(2px 2px at 20px 30px, #667eea, transparent),
-      radial-gradient(2px 2px at 40px 70px, #764ba2, transparent),
-      radial-gradient(1px 1px at 90px 40px, #4facfe, transparent);
-    background-repeat: repeat;
-    background-size: 100px 80px;
-    animation: float 15s linear infinite;
-    opacity: 0.3;
-  }
-
-  @keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  @keyframes float {
-    from { background-position: 0 0, 0 0, 0 0; }
-    to { background-position: 100px 0, -100px 0, 50px 0; }
   }
 
   /* Hero Content */
@@ -112,38 +56,6 @@ const t = useTranslations(Astro.currentLocale);
     padding-right: 2rem;
   }
 
-  .tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    padding: 0.75rem 1.5rem;
-    border-radius: 2rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin-bottom: 2rem;
-    box-shadow: var(--glass-shadow);
-    transition: all 0.3s ease;
-  }
-
-  .tag:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
-  }
-
-  .tag-icon {
-    font-size: 1.2em;
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-
   .hero-title {
     margin-bottom: 1.5rem;
   }
@@ -152,10 +64,7 @@ const t = useTranslations(Astro.currentLocale);
     display: block;
     font-size: clamp(2.25rem, 4vw, 3.5rem);
     font-weight: 900;
-    background: var(--primary-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
     line-height: 1.1;
     margin-bottom: 0.5rem;
   }
@@ -165,7 +74,6 @@ const t = useTranslations(Astro.currentLocale);
     font-size: clamp(1.1rem, 2vw, 1.5rem);
     font-weight: 300;
     color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
   }
 
   .hero-description {
@@ -177,10 +85,7 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .highlight {
-    background: var(--accent-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
     font-weight: 600;
   }
 
@@ -198,11 +103,7 @@ const t = useTranslations(Astro.currentLocale);
     display: block;
     font-size: 2rem;
     font-weight: 800;
-    background: var(--success-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-family: 'JetBrains Mono', monospace;
+    color: var(--brand-color);
   }
 
   .stat-label {
@@ -233,11 +134,11 @@ const t = useTranslations(Astro.currentLocale);
     height: 50px;
     width: auto;
     transition: all 0.3s ease;
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
   }
 
   .app-store-button:hover .app-store-badge {
-    filter: drop-shadow(0 8px 16px rgba(79, 172, 254, 0.4)) brightness(1.1);
+    filter: drop-shadow(0 8px 16px rgba(64, 37, 239, 0.2)) brightness(1.05);
   }
 
   /* Hero Images */
@@ -254,9 +155,7 @@ const t = useTranslations(Astro.currentLocale);
   .hero-images img {
     width: 280px;
     border-radius: 24px;
-    box-shadow: 
-      0 25px 50px -12px rgba(0, 0, 0, 0.5),
-      0 0 0 1px rgba(255, 255, 255, 0.1);
+    box-shadow: var(--card-shadow);
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     position: absolute;
   }
@@ -277,39 +176,7 @@ const t = useTranslations(Astro.currentLocale);
 
   .hero-images img:hover {
     transform: rotate(0deg) scale(1.05);
-    box-shadow: 
-      0 35px 70px -12px rgba(103, 126, 234, 0.4),
-      0 0 0 1px rgba(255, 255, 255, 0.2);
-  }
-
-  .image-glow {
-    position: absolute;
-    width: 280px;
-    height: 498px;
-    border-radius: 24px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.6s ease;
-  }
-
-  .img1-glow {
-    top: -50px;
-    left: 50px;
-    background: var(--primary-gradient);
-    filter: blur(20px);
-    z-index: 0;
-  }
-
-  .img2-glow {
-    bottom: -50px;
-    right: 50px;
-    background: var(--accent-gradient);
-    filter: blur(20px);
-    z-index: 1;
-  }
-
-  .hero-images:hover .image-glow {
-    opacity: 0.3;
+    box-shadow: var(--card-shadow-hover);
   }
 
   /* Scroll Button */
@@ -322,24 +189,21 @@ const t = useTranslations(Astro.currentLocale);
     align-items: center;
     gap: 0.75rem;
     padding: 1rem 2rem;
-    background: var(--glass-bg);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 3rem;
     color: var(--text-primary);
     text-decoration: none;
     font-weight: 500;
     font-size: 1rem;
-    box-shadow: var(--glass-shadow);
+    box-shadow: var(--card-shadow);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 10;
   }
 
   .scroll-button:hover {
     transform: translateX(-50%) translateY(-4px);
-    box-shadow: 0 20px 40px 0 rgba(31, 38, 135, 0.6);
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: var(--card-shadow-hover);
   }
 
   .scroll-button svg {
@@ -421,11 +285,6 @@ const t = useTranslations(Astro.currentLocale);
       width: 180px;
     }
 
-    .image-glow {
-      width: 180px;
-      height: 320px;
-    }
-
     .img1 {
       left: 10px;
       transform: rotate(-5deg) scale(0.95);
@@ -460,11 +319,6 @@ const t = useTranslations(Astro.currentLocale);
 
     .hero-images img {
       width: 140px;
-    }
-
-    .image-glow {
-      width: 140px;
-      height: 250px;
     }
   }
 </style>

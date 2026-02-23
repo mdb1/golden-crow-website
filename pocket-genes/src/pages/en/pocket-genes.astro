@@ -24,7 +24,7 @@ function localPath(path: string) {
 }
 ---
 
-<BaseLayout title={t.pocketGenes.title} activePage="pocket-genes" showFooter={false}>
+<BaseLayout title={t.pocketGenes.title} showFooter={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
   <main class="pocket-genes-page">
     <Hero />
     <SecondSection />
@@ -79,7 +79,19 @@ function localPath(path: string) {
         <div class="cta-content">
           <h2>{t.pocketGenes.ctaTitle}</h2>
           <p>{t.pocketGenes.ctaDesc}</p>
-          <a href={localPath('/contact')} class="contact-cta-button">{t.pocketGenes.ctaButton}</a>
+          <a href="#booking" class="contact-cta-button">{t.pocketGenes.ctaButton}</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="booking" class="booking-section">
+      <div class="container">
+        <div class="booking-content">
+          <h2>{t.index.bookingTitle}</h2>
+          <p>{t.index.bookingDesc}</p>
+          <div class="calendar-wrapper">
+            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+          </div>
         </div>
       </div>
     </section>
@@ -90,23 +102,23 @@ function localPath(path: string) {
   :root { --space-xs: 0.5rem; --space-sm: 1rem; --space-md: 1.5rem; --space-lg: 2rem; --space-xl: 3rem; --space-2xl: 4rem; }
   body { font-weight: 400; }
   .pocket-genes-page { margin-top: clamp(60px, 10vw, 80px); }
-  .contact-cta-section { padding: 6rem 0; background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); text-align: center; position: relative; overflow: hidden; }
-  .contact-cta-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%); }
+  .contact-cta-section { padding: 6rem 0; background: var(--bg-secondary); text-align: center; position: relative; overflow: hidden; }
   .contact-cta-container { max-width: 800px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 2; }
-  .cta-content h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; margin-bottom: 1rem; background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .cta-content h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
   .cta-content p { font-size: clamp(1.1rem, 2.5vw, 1.4rem); color: var(--text-secondary); margin-bottom: 2.5rem; line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; }
-  .contact-cta-button { display: inline-flex; align-items: center; justify-content: center; padding: 1.25rem 3rem; background: var(--accent-gradient); color: #000; text-shadow: none; text-decoration: none; font-weight: 600; font-size: 1.1rem; border-radius: 50px; box-shadow: 0 10px 30px rgba(79, 172, 254, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
-  .contact-cta-button::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s ease; }
-  .contact-cta-button:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(79, 172, 254, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2); }
-  .contact-cta-button:hover::before { left: 100%; }
+  .contact-cta-button { display: inline-flex; align-items: center; justify-content: center; padding: 1.25rem 3rem; background: var(--brand-color); color: #fff; text-decoration: none; font-weight: 600; font-size: 1.1rem; border-radius: 50px; box-shadow: 0 4px 15px rgba(64, 37, 239, 0.3); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+  .contact-cta-button:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(64, 37, 239, 0.4); }
   .contact-cta-button:active { transform: translateY(-1px); }
+  .booking-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-secondary); }
+  .booking-content { text-align: center; }
+  .booking-content h2 { font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
+  .booking-content > p { font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); margin-bottom: 2rem; }
+  .calendar-wrapper { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 1rem; padding: clamp(1rem, 3vw, 2rem); min-height: 600px; }
+  .calendar-wrapper iframe { min-height: 550px; }
   section { position: relative; overflow: hidden; }
   button { font-family: inherit; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
   a { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: var(--dark-surface); }
-  ::-webkit-scrollbar-thumb { background: linear-gradient(var(--primary-gradient)); border-radius: 4px; }
-  ::selection { background: rgba(103, 126, 234, 0.3); color: white; }
+  ::selection { background: rgba(64, 37, 239, 0.2); color: var(--text-primary); }
   @media (max-width: 768px) { .contact-cta-section { padding: clamp(3rem, 6vw, 4rem) 0; } .contact-cta-container { padding: 0 clamp(1rem, 3vw, 1.5rem); } .contact-cta-button { padding: clamp(1rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem); font-size: clamp(0.95rem, 2vw, 1rem); } }
   @media (max-width: 480px) { .contact-cta-section { padding: clamp(2rem, 4vw, 3rem) 0; } .contact-cta-container { padding: 0 clamp(1rem, 3vw, 1rem); } .contact-cta-button { padding: clamp(0.875rem, 2vw, 0.875rem) clamp(1.5rem, 4vw, 2rem); font-size: clamp(0.9rem, 2vw, 0.95rem); } }
   @media (min-width: 1400px) { .contact-cta-container { max-width: 900px; } }

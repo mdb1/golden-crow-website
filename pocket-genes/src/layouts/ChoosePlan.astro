@@ -6,12 +6,6 @@ const t = useTranslations(Astro.currentLocale);
 ---
 
 <section class="container">
-  <div class="choose-bg-effects">
-    <div class="floating-orb orb-1"></div>
-    <div class="floating-orb orb-2"></div>
-    <div class="floating-orb orb-3"></div>
-    <div class="molecular-grid"></div>
-  </div>
   <div class="content-wrapper">
     <div class="section-header">
       <h1 class="title">
@@ -48,85 +42,12 @@ const t = useTranslations(Astro.currentLocale);
     max-width: none;
     position: relative;
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image:
-      radial-gradient(circle at 25% 20%, rgba(103, 126, 234, 0.12) 0%, transparent 60%),
-      radial-gradient(circle at 75% 80%, rgba(240, 147, 251, 0.15) 0%, transparent 60%),
-      radial-gradient(circle at 40% 60%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
+    background: var(--bg-secondary);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: center;
     padding: 5rem 4%;
-  }
-
-  /* Background Effects */
-  .choose-bg-effects {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .floating-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(70px);
-    opacity: 0.3;
-    animation: floating 35s ease-in-out infinite;
-  }
-
-  .orb-1 {
-    width: 280px;
-    height: 280px;
-    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.2) 100%);
-    top: 15%;
-    left: 8%;
-    animation-delay: 0s;
-  }
-
-  .orb-2 {
-    width: 200px;
-    height: 200px;
-    background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.18) 100%);
-    bottom: 20%;
-    right: 10%;
-    animation-delay: -12s;
-  }
-
-  .orb-3 {
-    width: 160px;
-    height: 160px;
-    background: linear-gradient(135deg, rgba(79, 172, 254, 0.28) 0%, rgba(240, 147, 251, 0.15) 100%);
-    top: 60%;
-    left: 75%;
-    animation-delay: -25s;
-  }
-
-  .molecular-grid {
-    position: absolute;
-    top: 10%;
-    right: 5%;
-    width: 100px;
-    height: 250px;
-    opacity: 0.04;
-    background-image: 
-      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3) 2px, transparent 2px),
-      radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
-    background-size: 20px 20px, 15px 15px;
-    animation: molecularFloat 20s linear infinite;
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-60px) rotate(90deg); }
-    50% { transform: translateY(40px) rotate(180deg); }
-    75% { transform: translateY(-30px) rotate(270deg); }
-  }
-
-  @keyframes molecularFloat {
-    from { transform: translateY(0px) rotate(0deg); }
-    to { transform: translateY(-30px) rotate(360deg); }
   }
 
   .content-wrapper {
@@ -161,10 +82,7 @@ const t = useTranslations(Astro.currentLocale);
 
   .title-main {
     display: block;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
   }
 
   .section-subtitle {
@@ -206,14 +124,6 @@ const t = useTranslations(Astro.currentLocale);
     .plans_container {
       gap: 2rem;
     }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.2;
-    }
-
-    .molecular-grid {
-      display: none;
-    }
   }
 
   @media (max-width: 480px) {
@@ -227,10 +137,6 @@ const t = useTranslations(Astro.currentLocale);
 
     .plans_container {
       gap: 1.5rem;
-    }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.15;
     }
   }
 </style>

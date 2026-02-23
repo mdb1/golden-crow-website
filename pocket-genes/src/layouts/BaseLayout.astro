@@ -5,13 +5,11 @@ import { defaultLang } from '../i18n/ui';
 
 interface Props {
   title: string;
-  activePage?: string;
   showFooter?: boolean;
-  footerVariant?: 'default' | 'landing';
   extraHeadScripts?: string[];
 }
 
-const { title, activePage = '', showFooter = true, footerVariant = 'default', extraHeadScripts = [] } = Astro.props;
+const { title, showFooter = true, extraHeadScripts = [] } = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const t = useTranslations(Astro.currentLocale);
 
@@ -44,9 +42,8 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
   <link rel="alternate" hreflang="es" href={`${siteBase}${esPath}`} />
   <link rel="alternate" hreflang="en" href={`${siteBase}${enPath}`} />
   <link rel="alternate" hreflang="x-default" href={`${siteBase}${esPath}`} />
@@ -58,6 +55,7 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
       <div class="logo">
         <a href={localPath('/')}>
           <img src="/logo1024.png" alt="Golden Crow VS Logo" />
+          <span class="logo-text">{t.hero.brand}</span>
         </a>
       </div>
       <button class="mobile-menu-toggle" aria-label="Toggle navigation">
@@ -66,15 +64,16 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
         <span class="hamburger-line"></span>
       </button>
       <div class="nav-links">
-        <a href={localPath('/')} class:list={['nav-link', { active: activePage === 'home' }]}>{t.nav.home}</a>
-        <a href={localPath('/about')} class:list={['nav-link', { active: activePage === 'about' }]}>{t.nav.about}</a>
-        <a href={localPath('/pocket-genes')} class:list={['nav-link', { active: activePage === 'pocket-genes' }]}>{t.nav.pocketGenes}</a>
-        <a href={localPath('/contact')} class:list={['nav-link', { active: activePage === 'contact' }]}>{t.nav.contact}</a>
+        <a href={`${localPath('/')}#about`} class="nav-link">{t.nav.about}</a>
+        <a href={`${localPath('/')}#projects`} class="nav-link">{t.nav.projects}</a>
+        <a href={`${localPath('/')}#why-us`} class="nav-link">{t.nav.whyUs}</a>
+        <a href={`${localPath('/')}#team`} class="nav-link">{t.nav.team}</a>
         <div class="lang-switcher">
           <a href={esPath} class:list={['lang-option', { active: lang === 'es' }]}>ES</a>
-          <span class="lang-divider">/</span>
+          <span class="lang-divider">|</span>
           <a href={enPath} class:list={['lang-option', { active: lang === 'en' }]}>EN</a>
         </div>
+        <a href={`${localPath('/')}#booking`} class="nav-cta">{t.nav.contact}</a>
       </div>
     </div>
   </nav>
@@ -84,32 +83,33 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   {showFooter && (
     <footer class="main-footer">
       <div class="container">
-        <div class="footer-content">
-          <div class="footer-brand">
-            <div class="logo">
-              <img src="/logo1024.png" alt="Golden Crow VS Logo" />
-            </div>
-            <p>{footerVariant === 'landing' ? t.footer.taglineLanding : t.footer.tagline}</p>
-          </div>
-          <div class="footer-links">
-            <div class="footer-section">
-              <h4>{t.footer.company}</h4>
-              <ul>
-                <li><a href={localPath('/about')}>{t.footer.aboutUs}</a></li>
-                <li><a href={localPath('/contact')}>{t.footer.contactLink}</a></li>
-              </ul>
-            </div>
-            <div class="footer-section">
-              <h4>{t.footer.products}</h4>
-              <ul>
-                <li><a href={localPath('/pocket-genes')}>{t.footer.pocketGenes}</a></li>
-              </ul>
-            </div>
-          </div>
+        <nav class="footer-nav">
+          <a href={`${localPath('/')}#about`}>{t.nav.about}</a>
+          <span class="footer-nav-divider">&middot;</span>
+          <a href={`${localPath('/')}#projects`}>{t.nav.projects}</a>
+          <span class="footer-nav-divider">&middot;</span>
+          <a href={`${localPath('/')}#why-us`}>{t.nav.whyUs}</a>
+          <span class="footer-nav-divider">&middot;</span>
+          <a href={`${localPath('/')}#team`}>{t.nav.team}</a>
+          <span class="footer-nav-divider">&middot;</span>
+          <a href={`${localPath('/')}#booking`}>{t.nav.contact}</a>
+        </nav>
+
+        <div class="footer-social">
+          <a href="https://www.linkedin.com/company/golden-crow-vs/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+            </svg>
+          </a>
+          <a href="https://www.instagram.com/goldencrowvs/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+            </svg>
+          </a>
         </div>
+
         <div class="footer-bottom">
           <p>{t.footer.copyright}</p>
-          {footerVariant === 'landing' && <p class="footer-tagline">{t.footer.developedWith}</p>}
         </div>
       </div>
     </footer>
@@ -119,22 +119,32 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
 
 <style is:global>
   :root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    --success-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-    --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    --brand-color: #4025ef;
+    --brand-hover: #3420c0;
+    --bg-primary: #f9fafb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f3f4f6;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+    --text-accent: #4025ef;
+    --card-bg: #ffffff;
+    --card-border: #e5e7eb;
+    --card-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+    --card-shadow-hover: 0 10px 25px -5px rgba(0,0,0,0.08);
 
-    --dark-bg: #0a0e27;
-    --dark-surface: #1a1f3a;
-    --dark-elevated: #2d3561;
-    --text-primary: #ffffff;
-    --text-secondary: #b8c5d1;
-    --text-accent: #64b5f6;
-
-    --glass-bg: rgba(255, 255, 255, 0.1);
-    --glass-border: rgba(255, 255, 255, 0.2);
-    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    /* Backward-compat aliases */
+    --dark-bg: var(--bg-primary);
+    --dark-surface: var(--bg-secondary);
+    --dark-elevated: var(--bg-tertiary);
+    --glass-bg: var(--card-bg);
+    --glass-border: var(--card-border);
+    --glass-shadow: var(--card-shadow);
+    --primary-gradient: #6d9eeb;
+    --secondary-gradient: #e06666;
+    --accent-gradient: #c27ba0;
+    --success-gradient: #93c47d;
+    --warning-gradient: #f6b26b;
   }
 
   * {
@@ -150,12 +160,9 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   }
 
   body {
-    background: var(--dark-bg);
-    background-image:
-      radial-gradient(circle at 25% 25%, #667eea20 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, #764ba240 0%, transparent 50%);
+    background: var(--bg-primary);
     color: var(--text-primary);
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -178,20 +185,23 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
 
 <style>
   .main-nav {
-    background: rgba(26, 31, 58, 0.9);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 60px;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 1100px;
+    width: calc(100% - 2rem);
     z-index: 1000;
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
   }
 
   .nav-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 4vw, 2rem);
+    padding: 0.5rem 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -207,14 +217,21 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   .logo a {
     display: flex;
     align-items: center;
+    text-decoration: none;
   }
 
   .logo img {
     height: clamp(32px, 5vw, 40px);
     width: auto;
     max-width: clamp(80px, 15vw, 120px);
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
     border-radius: 4px;
+  }
+
+  .logo-text {
+    font-weight: 700;
+    font-size: clamp(0.85rem, 1.5vw, 1rem);
+    color: var(--text-primary);
+    white-space: nowrap;
   }
 
   .mobile-menu-toggle {
@@ -230,7 +247,7 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   .hamburger-line {
     width: 24px;
     height: 2px;
-    background: var(--text-primary);
+    background: #1a1f3a;
     transition: all 0.3s ease;
     transform-origin: center;
   }
@@ -249,49 +266,49 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
 
   .nav-links {
     display: flex;
-    gap: clamp(0.5rem, 3vw, 2rem);
-    flex-wrap: wrap;
+    gap: clamp(0.5rem, 2vw, 1.5rem);
     align-items: center;
   }
 
   .nav-link {
-    color: var(--text-secondary);
+    color: #1a1f3a;
     text-decoration: none;
     font-weight: 500;
-    transition: all 0.3s ease;
-    position: relative;
-    font-size: clamp(0.8rem, 2vw, 1rem);
+    transition: color 0.3s ease;
+    font-size: clamp(0.8rem, 1.5vw, 0.95rem);
     white-space: nowrap;
   }
 
-  .nav-link:hover,
-  .nav-link.active {
-    color: var(--text-primary);
+  .nav-link:hover {
+    color: var(--brand-color);
   }
 
-  .nav-link.active::after {
-    content: '';
-    position: absolute;
-    bottom: -0.5rem;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--accent-gradient);
-    border-radius: 1px;
+  .nav-cta {
+    background: var(--brand-color);
+    color: #fff;
+    padding: 0.5rem 1.5rem;
+    border-radius: 60px;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: clamp(0.8rem, 1.5vw, 0.95rem);
+    white-space: nowrap;
+    transition: all 0.3s ease;
+  }
+
+  .nav-cta:hover {
+    background: var(--brand-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(64, 37, 239, 0.3);
   }
 
   .lang-switcher {
     display: flex;
     align-items: center;
     gap: 0.3rem;
-    background: rgba(79, 172, 254, 0.1);
-    border: 1px solid rgba(79, 172, 254, 0.2);
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
   }
 
   .lang-option {
-    color: var(--text-secondary);
+    color: #1a1f3a;
     text-decoration: none;
     font-size: 0.8rem;
     font-weight: 600;
@@ -301,101 +318,103 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   }
 
   .lang-option:hover {
-    color: var(--text-primary);
+    color: var(--brand-color);
   }
 
   .lang-option.active {
-    color: var(--text-accent);
+    color: var(--brand-color);
     font-weight: 700;
   }
 
   .lang-divider {
-    color: var(--text-secondary);
-    opacity: 0.5;
+    color: #1a1f3a;
+    opacity: 0.3;
     font-size: 0.8rem;
   }
 
   .main-footer {
-    background: var(--dark-surface);
-    padding: clamp(2rem, 4vw, 3rem) 0 clamp(1rem, 2vw, 1rem);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-primary);
+    padding: clamp(2rem, 4vw, 3rem) 0 clamp(1.5rem, 2vw, 2rem);
+    border-top: 1px solid var(--card-border);
+    text-align: center;
   }
 
-  .footer-content {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: clamp(1.5rem, 3vw, 2rem);
-    margin-bottom: clamp(1.5rem, 3vw, 2rem);
-  }
-
-  .footer-brand p {
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-  }
-
-  .footer-links {
+  .footer-nav {
     display: flex;
-    gap: clamp(1.5rem, 4vw, 3rem);
+    justify-content: center;
+    align-items: center;
     flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
   }
 
-  .footer-section h4 {
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .footer-section ul {
-    list-style: none;
-  }
-
-  .footer-section ul li {
-    margin-bottom: 0.5rem;
-  }
-
-  .footer-section ul li a {
+  .footer-nav a {
     color: var(--text-secondary);
     text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
     transition: color 0.3s ease;
   }
 
-  .footer-section ul li a:hover {
-    color: var(--text-primary);
+  .footer-nav a:hover {
+    color: var(--brand-color);
+  }
+
+  .footer-nav-divider {
+    color: var(--text-tertiary);
+    user-select: none;
+  }
+
+  .footer-social {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .footer-social a {
+    color: var(--text-tertiary);
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+  }
+
+  .footer-social a:hover {
+    color: var(--brand-color);
   }
 
   .footer-bottom {
-    padding-top: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
     text-align: center;
   }
 
   .footer-bottom p {
-    color: var(--text-secondary);
-  }
-
-  .footer-tagline {
-    margin-top: 0.5rem;
-    font-style: italic;
-    opacity: 0.8;
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
   }
 
   @media (max-width: 900px) {
+    .main-nav {
+      border-radius: 16px;
+    }
+
     .mobile-menu-toggle {
       display: flex;
     }
 
     .nav-links {
       position: absolute;
-      top: 100%;
+      top: calc(100% + 0.5rem);
       left: 0;
       right: 0;
-      background: rgba(26, 31, 58, 0.95);
-      backdrop-filter: blur(20px);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 16px;
       flex-direction: column;
       padding: 1rem;
-      box-shadow: var(--glass-shadow);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      transform: translateY(-100%);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      transform: translateY(-10px);
       opacity: 0;
       visibility: hidden;
       transition: all 0.3s ease;
@@ -409,41 +428,41 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
     }
 
     .nav-link {
+      color: #1a1f3a;
       font-size: 1rem;
       padding: 0.75rem 1rem;
       border-radius: 0.5rem;
       transition: all 0.3s ease;
+      width: 100%;
     }
 
     .nav-link:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .nav-link.active::after {
-      display: none;
+      background: rgba(64, 37, 239, 0.08);
     }
 
     .lang-switcher {
       align-self: flex-start;
+      padding: 0.5rem 1rem;
     }
-  }
 
-  @media (max-width: 768px) {
-    .footer-content {
-      grid-template-columns: 1fr;
+    .nav-cta {
+      width: 100%;
       text-align: center;
-    }
-
-    .footer-links {
-      justify-content: center;
+      padding: 0.75rem 1.5rem;
+      margin-top: 0.5rem;
     }
   }
 
-  @media (min-width: 1400px) {
-    .nav-container {
-      max-width: 1400px;
+  @media (max-width: 480px) {
+    .footer-nav a {
+      font-size: 0.8rem;
+    }
+
+    .footer-bottom p {
+      font-size: 0.78rem;
     }
   }
+
 </style>
 
 <script>
@@ -457,8 +476,8 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
         mobileMenuToggle.classList.toggle('active');
       });
 
-      const navLinksElements = navLinks.querySelectorAll('.nav-link');
-      navLinksElements.forEach(link => {
+      const allNavLinks = navLinks.querySelectorAll('.nav-link, .nav-cta');
+      allNavLinks.forEach(link => {
         link.addEventListener('click', function() {
           navLinks.classList.remove('active');
           mobileMenuToggle.classList.remove('active');

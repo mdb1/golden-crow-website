@@ -9,12 +9,6 @@ const { icon, title, text } = Astro.props;
 </div>
 
 <style>
-  /* Ensure CSS variables are available */
-  :global(:root) {
-    --text-primary: #ffffff;
-    --text-secondary: #b8c5d1;
-  }
-
   .container {
     z-index: 10;
     display: flex;
@@ -22,46 +16,32 @@ const { icon, title, text } = Astro.props;
     align-items: center;
     margin: 1rem;
     padding: 2rem 1.5rem;
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 1.5rem;
-    box-shadow: 
-      0 8px 32px 0 rgba(31, 38, 135, 0.37),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow: var(--card-shadow);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .container:hover {
     transform: translateY(-8px);
-    box-shadow: 
-      0 20px 50px 0 rgba(31, 38, 135, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.12);
+    box-shadow: var(--card-shadow-hover);
   }
 
   .image {
     z-index: 10;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    background: rgba(64, 37, 239, 0.04);
     width: clamp(150px, 15vw, 200px);
     height: clamp(150px, 15vw, 200px);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid var(--card-border);
     border-radius: 50%;
     padding: 2rem;
-    box-shadow: 
-      0 8px 32px 0 rgba(31, 38, 135, 0.37),
-      inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    box-shadow: var(--card-shadow);
     transition: all 0.3s ease;
     object-fit: contain;
   }
 
   .container:hover .image {
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 
-      0 12px 40px 0 rgba(31, 38, 135, 0.5),
-      inset 0 2px 0 rgba(255, 255, 255, 0.3);
     transform: scale(1.05);
   }
 
@@ -72,7 +52,6 @@ const { icon, title, text } = Astro.props;
     color: var(--text-primary);
     font-weight: 700;
     margin: 1.5rem 0 0.5rem 0;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
 
   p {
@@ -82,15 +61,5 @@ const { icon, title, text } = Astro.props;
     width: 100%;
     margin: 0;
     line-height: 1.5;
-    opacity: 0.9;
-  }
-
-  .container:hover h3 {
-    color: rgba(255, 255, 255, 1);
-  }
-
-  .container:hover p {
-    opacity: 1;
-    color: rgba(184, 197, 209, 1);
   }
 </style>

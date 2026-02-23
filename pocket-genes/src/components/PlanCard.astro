@@ -23,42 +23,20 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 2rem;
     padding: 2.5rem 1.5rem;
-    box-shadow: var(--glass-shadow);
+    box-shadow: var(--card-shadow);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
     min-height: 420px;
   }
 
-  .container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.05) 50%,
-      rgba(255, 255, 255, 0.02) 100%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
   .container:hover {
     transform: translateY(-8px) scale(1.02);
-    box-shadow: 
-      0 25px 50px -12px rgba(31, 38, 135, 0.4),
-      0 0 0 1px rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.15);
-  }
-
-  .container:hover::before {
-    opacity: 1;
+    box-shadow: var(--card-shadow-hover);
   }
 
   h3 {
@@ -90,47 +68,32 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
   }
 
   .highlighted {
-    background: linear-gradient(135deg, rgba(103, 126, 234, 0.25) 0%, rgba(79, 172, 254, 0.2) 100%);
-    border: 2px solid rgba(103, 126, 234, 0.4);
+    background: rgba(64, 37, 239, 0.06);
+    border: 2px solid var(--brand-color);
     transform: translateY(-1rem) scale(1.05);
-    box-shadow: 
-      0 30px 60px -12px rgba(103, 126, 234, 0.4),
-      0 0 0 1px rgba(103, 126, 234, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-
-  .highlighted::before {
-    background: linear-gradient(
-      135deg,
-      rgba(103, 126, 234, 0.15) 0%,
-      rgba(79, 172, 254, 0.1) 50%,
-      rgba(240, 147, 251, 0.05) 100%
-    );
-    opacity: 1;
+    box-shadow:
+      0 30px 60px -12px rgba(64, 37, 239, 0.15),
+      0 0 0 1px rgba(64, 37, 239, 0.1);
   }
 
   .highlighted h3 {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
   }
 
   .highlighted #text {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-secondary);
   }
 
   .highlighted #subtext {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-secondary);
     font-weight: 500;
   }
 
   .highlighted:hover {
     transform: translateY(-1.5rem) scale(1.08);
-    box-shadow: 
-      0 40px 80px -12px rgba(103, 126, 234, 0.5),
-      0 0 0 2px rgba(103, 126, 234, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    box-shadow:
+      0 40px 80px -12px rgba(64, 37, 239, 0.2),
+      0 0 0 2px rgba(64, 37, 239, 0.15);
   }
 
   @media screen and (max-width: 768px) {

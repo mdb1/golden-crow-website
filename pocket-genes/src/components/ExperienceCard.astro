@@ -22,24 +22,21 @@ const { src, alt, text, description } = Astro.props;
 
 <style>
   .experience-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 2rem;
     padding: 2rem;
-    box-shadow: var(--glass-shadow);
+    box-shadow: var(--card-shadow);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    max-width: 420px;
+    width: 100%;
+    flex: 1;
     position: relative;
     overflow: hidden;
   }
 
   .experience-card:hover {
     transform: translateY(-12px);
-    box-shadow: 
-      0 35px 70px -12px rgba(31, 38, 135, 0.5),
-      0 0 0 1px rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.15);
+    box-shadow: var(--card-shadow-hover);
   }
 
   .image-wrapper {
@@ -51,7 +48,8 @@ const { src, alt, text, description } = Astro.props;
 
   .image-card {
     width: 100%;
-    height: 280px;
+    height: auto;
+    max-height: 200px;
     object-fit: cover;
     object-position: center;
     transition: transform 0.4s ease;
@@ -64,11 +62,7 @@ const { src, alt, text, description } = Astro.props;
   .image-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      45deg, 
-      rgba(103, 126, 234, 0.3) 0%, 
-      rgba(240, 147, 251, 0.2) 100%
-    );
+    background: rgba(64, 37, 239, 0.3);
     opacity: 0;
     transition: opacity 0.3s ease;
     display: flex;
@@ -81,9 +75,8 @@ const { src, alt, text, description } = Astro.props;
   }
 
   .company-badge {
-    background: var(--glass-bg);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--card-border);
     padding: 0.75rem 1.5rem;
     border-radius: 2rem;
     transform: translateY(20px);
@@ -107,10 +100,7 @@ const { src, alt, text, description } = Astro.props;
   .company-name {
     font-size: 1.75rem;
     font-weight: 700;
-    background: var(--primary-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
     margin-bottom: 1rem;
     line-height: 1.3;
   }
@@ -124,7 +114,7 @@ const { src, alt, text, description } = Astro.props;
 
   .card-footer {
     padding-top: 1rem;
-    border-top: 1px solid var(--glass-border);
+    border-top: 1px solid var(--card-border);
   }
 
   .success-indicator {
@@ -133,21 +123,17 @@ const { src, alt, text, description } = Astro.props;
     gap: 0.5rem;
     font-size: 0.875rem;
     font-weight: 600;
-    background: var(--success-gradient);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
   }
 
   /* Responsive Design */
   @media (max-width: 768px) {
     .experience-card {
       padding: 1.5rem;
-      max-width: 350px;
     }
 
     .image-card {
-      height: 220px;
+      max-height: 220px;
     }
 
     .company-name {
@@ -162,11 +148,10 @@ const { src, alt, text, description } = Astro.props;
   @media (max-width: 480px) {
     .experience-card {
       padding: 1.25rem;
-      max-width: 300px;
     }
 
     .image-card {
-      height: 180px;
+      max-height: 180px;
     }
 
     .company-name {
