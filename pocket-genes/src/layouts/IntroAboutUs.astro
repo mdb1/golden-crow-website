@@ -1,3 +1,8 @@
+---
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
+---
+
 <section class="container">
   <div class="intro-bg-effects">
     <div class="floating-orb orb-1"></div>
@@ -7,23 +12,23 @@
   </div>
   <div class="content-wrapper">
     <h1 class="title">
-      <span class="title-accent">Bringing Genomic</span>
-      <span class="title-main">Data to Life</span>
+      <span class="title-accent">{t.introAboutUs.title1}</span>
+      <span class="title-main">{t.introAboutUs.title2}</span>
     </h1>
-    <p class="description">Who we are, what we do, and our roadmap for the year ahead.</p>
+    <p class="description">{t.introAboutUs.description}</p>
     <div class="mission-highlights">
       <div class="highlight-card">
         <span class="highlight-icon">🧬</span>
         <div class="highlight-content">
-          <h3>Our Mission</h3>
-          <p>Making genomics accessible and actionable for everyone</p>
+          <h3>{t.introAboutUs.missionTitle}</h3>
+          <p>{t.introAboutUs.missionDesc}</p>
         </div>
       </div>
       <div class="highlight-card">
         <span class="highlight-icon">🚀</span>
         <div class="highlight-content">
-          <h3>Our Vision</h3>
-          <p>Transforming how people understand and use their genetic data</p>
+          <h3>{t.introAboutUs.visionTitle}</h3>
+          <p>{t.introAboutUs.visionDesc}</p>
         </div>
       </div>
     </div>
@@ -32,6 +37,7 @@
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -120,7 +126,7 @@
   }
 
   .title {
-    font-size: clamp(3.5rem, 8vw, 7rem);
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
     font-weight: 800;
     line-height: 1.1;
     margin: 0 0 2rem 0;
@@ -148,7 +154,7 @@
   }
 
   .description {
-    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
     color: rgba(255, 255, 255, 0.9);
     margin: 0 0 4rem 0;
     line-height: 1.6;

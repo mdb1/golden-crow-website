@@ -1,11 +1,13 @@
 ---
 const { subtitle, amount, description, items } = Astro.props;
 import Icon from "../components/Icon.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <div class="container">
   <div class="title_container">
-    <h1 class="title">Integration Process</h1>
+    <h1 class="title">{t.integrationProcess.title}</h1>
     <h2 class="subtitle">{subtitle}</h2>
   </div>
   <span class="line"></span>
@@ -36,10 +38,11 @@ import Icon from "../components/Icon.astro";
     transform: translate(500px, 120px); /*BAD BAD BAD*/
   }
   .container {
+    max-width: none;
     display: flex;
     flex-direction: column;
     background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image: 
+    background-image:
       radial-gradient(circle at 20% 30%, rgba(103, 126, 234, 0.1) 0%, transparent 50%),
       radial-gradient(circle at 80% 70%, rgba(240, 147, 251, 0.08) 0%, transparent 50%);
     height: auto;
@@ -73,7 +76,7 @@ import Icon from "../components/Icon.astro";
 
   .title {
     color: var(--text-primary);
-    font-size: clamp(2.5rem, 5vw, 5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     margin: 0 0 1rem 0;
     font-weight: 800;
     background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
@@ -85,7 +88,7 @@ import Icon from "../components/Icon.astro";
 
   .subtitle {
     color: var(--text-secondary);
-    font-size: clamp(1.5rem, 3vw, 3rem);
+    font-size: clamp(1.1rem, 2vw, 1.75rem);
     margin: 0;
     font-weight: 600;
     text-align: center;
@@ -113,7 +116,7 @@ import Icon from "../components/Icon.astro";
     border: 1px solid rgba(255, 255, 255, 0.3);
     z-index: 10;
     color: var(--text-primary);
-    font-size: clamp(2rem, 4vw, 4rem);
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
     font-weight: 700;
     padding: 1.5rem 6rem;
     border-radius: 50px;
@@ -139,7 +142,7 @@ import Icon from "../components/Icon.astro";
 
   .description {
     color: var(--text-secondary);
-    font-size: clamp(1.2rem, 2.2vw, 2.25rem);
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
     line-height: 1.6;
     margin-top: 2rem;
     width: 70%;
@@ -171,11 +174,11 @@ import Icon from "../components/Icon.astro";
 
     .amount_pill {
       padding: 1rem 4rem;
-      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-size: clamp(1.25rem, 3vw, 2rem);
     }
 
     .description {
-      font-size: clamp(1rem, 3vw, 1.5rem);
+      font-size: clamp(1rem, 2vw, 1.15rem);
       line-height: 1.5;
       margin: 1rem auto;
       width: 90%;
@@ -209,12 +212,12 @@ import Icon from "../components/Icon.astro";
     }
 
     .amount_pill {
-      font-size: clamp(2rem, 3vw, 2.5rem);
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
       padding: 1rem 5rem;
     }
 
     .description {
-      font-size: clamp(1.2rem, 2vw, 1.5rem);
+      font-size: clamp(1rem, 1.5vw, 1.25rem);
       line-height: 1.6;
       margin: 1rem auto;
       width: 80%;

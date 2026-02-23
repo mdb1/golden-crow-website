@@ -1,6 +1,8 @@
 ---
 import Card from "../components/Card.astro";
 import Item from "../components/Item.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section id="screen3" class="body">
@@ -13,33 +15,32 @@ import Item from "../components/Item.astro";
   <div class="content-wrapper">
     <div class="container">
       <h1 class="title">
-        <span class="title-accent">More</span> 
-        <span class="title-main">to Come</span>
+        <span class="title-accent">{t.moreToCome.title1}</span>
+        <span class="title-main">{t.moreToCome.title2}</span>
       </h1>
       <h3 class="subtitle">
-        Pocket Genes will continuously add new panels and tools to enhance user
-        experience and genomic discovery.
+        {t.moreToCome.description}
       </h3>
       <div class="features-container">
         <div class="features-list">
-          <Item title="Sports & Performance" description="Customized workout plans based on strength, endurance, and recovery traits."/>
-          <Item title="Personality & Behavior" description="Genetic influences on emotions, decision-making addictions and habits."/>
-          <Item title="Physical Traits" description="Explore inherited characteristics like hair, eye color, and skin response."/>
-          <Item title="Cognitive Abilities" description="Uncover learning potential, memory, and problem-solving skills."/>
-          <Item title="Endless Exploration" description="Access extra details on traits, genetic variants, and linked studies for deeper insights."/>
+          <Item title={t.moreToCome.sportsTitle} description={t.moreToCome.sportsDesc}/>
+          <Item title={t.moreToCome.personalityTitle} description={t.moreToCome.personalityDesc}/>
+          <Item title={t.moreToCome.physicalTitle} description={t.moreToCome.physicalDesc}/>
+          <Item title={t.moreToCome.cognitiveTitle} description={t.moreToCome.cognitiveDesc}/>
+          <Item title={t.moreToCome.endlessTitle} description={t.moreToCome.endlessDesc}/>
         </div>
       </div>
     </div>
     <div class="image-wrapper">
       <div class="image_row">
-        <Card src="/more1.png" alt="" text={"Sports &\nPerformance"}/>
-        <Card src="/more2.png" alt="" text={"Personality &\nBehavior"}/>
-        <Card src="/more3.png" alt="" text={"Physical\nTraits"}/>
+        <Card src="/more1.png" alt="" text={t.moreToCome.cardSports}/>
+        <Card src="/more2.png" alt="" text={t.moreToCome.cardPersonality}/>
+        <Card src="/more3.png" alt="" text={t.moreToCome.cardPhysical}/>
       </div>
       <div class="image_row">
-          <Card src="/more4.png" alt="" text={"Cognitive &\nIntelligence"}/>
-          <Card src="/more5.png" alt="" text={"Linked Variants &\nStudies"}/>
-          <Card src="/more6.png" alt="" text={"Deep Genome\nInsights"}/>
+          <Card src="/more4.png" alt="" text={t.moreToCome.cardCognitive}/>
+          <Card src="/more5.png" alt="" text={t.moreToCome.cardVariants}/>
+          <Card src="/more6.png" alt="" text={t.moreToCome.cardDeep}/>
       </div>
     </div>
   </div>
@@ -150,7 +151,7 @@ import Item from "../components/Item.astro";
   }
 
   .title {
-    font-size: clamp(3rem, 6vw, 5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     margin: 0 0 1.5rem 0;
     line-height: 1.2;

@@ -1,6 +1,8 @@
 ---
 import ListItem from "../components/ListItem.astro";
 import PanelImage from "../components/PanelImage.astro"
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section id="screen3" class="panels_body">
@@ -14,37 +16,37 @@ import PanelImage from "../components/PanelImage.astro"
     <div class="panels_container">
       <div class="section-header">
         <h1 class="panels_title">
-          <span class="title-highlight">Mobile & Interactive</span> 
-          <span class="title-main">Genomic Panels</span>
+          <span class="title-highlight">{t.panels.title1}</span>
+          <span class="title-main">{t.panels.title2}</span>
         </h1>
         <p class="panels_subtitle">
-          Transform complex genetic data into beautiful, interactive experiences that your users will love to explore
+          {t.panels.description}
         </p>
       </div>
       <div class="panels-grid">
         <ListItem
-          title="Health & Wellness"
-          description="Real-time insights into genetics risks and wellness traits."
+          title={t.panels.healthTitle}
+          description={t.panels.healthDesc}
           color="primary"
         />
         <ListItem
-          title="Nutrition & Fitness"
-          description="Personalized diet and exercise recommendations."
+          title={t.panels.nutritionTitle}
+          description={t.panels.nutritionDesc}
           color="secondary"
         />
         <ListItem
-          title="Medication Response"
-          description="Easy-to-understand reports on how genetics affect treatments."
+          title={t.panels.medicationTitle}
+          description={t.panels.medicationDesc}
           color="success"
         />
         <ListItem
-          title="Ancestry & Traits"
-          description="Explore heritage and inherited characteristics."
+          title={t.panels.ancestryTitle}
+          description={t.panels.ancestryDesc}
           color="accent"
         />
         <ListItem
-          title="Education & Learning"
-          description="Built-in tools to help users to understand their results."
+          title={t.panels.educationTitle}
+          description={t.panels.educationDesc}
           color="warning"
         />
       </div>
@@ -164,7 +166,7 @@ import PanelImage from "../components/PanelImage.astro"
   }
 
   .panels_title {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     line-height: 1.2;
     margin-bottom: 1.5rem;

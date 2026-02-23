@@ -1,6 +1,8 @@
 ---
 import ImageCard from "../components/ImageCard.astro";
 import IntegrationText from "../components/IntegrationText.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section id="screen3" class="integration_body">
@@ -12,30 +14,30 @@ import IntegrationText from "../components/IntegrationText.astro";
     <div class="content-wrapper">
         <div class="text">
             <h1 class="integration_text">
-                <span class="text-gradient">Integrate</span> with 
-                <span class="text-accent">Pocket Genes</span>
+                <span class="text-gradient">{t.thirdSection.title1}</span> with
+                <span class="text-accent">{t.thirdSection.title2}</span>
             </h1>
-            <p class="integration-subtitle">Transform your genomics workflow with our cutting-edge platform</p>
+            <p class="integration-subtitle">{t.thirdSection.description}</p>
             <div class="features-grid">
                 <IntegrationText
                     src="/launch-faster.svg"
-                    bold_text="Launch Faster"
-                    text="Skip the long development process and go live quickly."
+                    bold_text={t.thirdSection.launchFaster}
+                    text={t.thirdSection.launchFasterDesc}
                 />
                 <IntegrationText
                     src="/save-costs.svg"
-                    bold_text="Save Costs"
-                    text="Get a powerful genomic platform at a fraction of custom app costs."
+                    bold_text={t.thirdSection.saveCosts}
+                    text={t.thirdSection.saveCostsDesc}
                 />
                 <IntegrationText
                     src="/boost-engagement.svg"
-                    bold_text="Boost Engagement"
-                    text="Interactive DNA reports increase user retention."
+                    bold_text={t.thirdSection.boostEngagement}
+                    text={t.thirdSection.boostEngagementDesc}
                 />
                 <IntegrationText
                     src="/scale-easily.svg"
-                    bold_text="Scale Easily"
-                    text="We manage mobile app development, so you can focus on growing your business."
+                    bold_text={t.thirdSection.scaleEasily}
+                    text={t.thirdSection.scaleEasilyDesc}
                 />
             </div>
         </div>
@@ -122,7 +124,7 @@ import IntegrationText from "../components/IntegrationText.astro";
     }
 
     .integration_text {
-        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        font-size: clamp(2rem, 3.5vw, 3rem);
         font-weight: 800;
         line-height: 1.2;
         margin-bottom: 1.5rem;

@@ -1,3 +1,8 @@
+---
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
+---
+
 <section class="hero">
   <div class="hero-bg-effects">
     <div class="dna-helix"></div>
@@ -6,35 +11,34 @@
   <div class="hero-content">
     <span class="tag">
       <span class="tag-icon">🧬</span>
-      Golden Crow VS
+      {t.hero.brand}
     </span>
     <h1 class="hero-title">
-      <span class="title-main">Pocket Genes</span>
-      <span class="title-sub">DNA Made Simple</span>
+      <span class="title-main">{t.hero.product}</span>
+      <span class="title-sub">{t.hero.tagline}</span>
     </h1>
     <p class="hero-description">
-      Transform complex genomic data into 
-      <span class="highlight">beautiful, interactive reports</span> 
-      that your users will love to explore
+      {t.hero.description}
+      <span class="highlight">{t.hero.highlight}</span>
     </p>
     <div class="hero-stats">
       <div class="stat">
-        <span class="stat-number">24/7</span>
-        <span class="stat-label">Support</span>
+        <span class="stat-number">{t.hero.support247}</span>
+        <span class="stat-label">{t.hero.supportLabel}</span>
       </div>
       <a href="https://apps.apple.com/us/app/pocket-genes/id6748587627" target="_blank" class="app-store-button">
-        <img src="/appStore.png" alt="Download on the App Store" class="app-store-badge" />
+        <img src="/appStore.png" alt={t.hero.appAlt} class="app-store-badge" />
       </a>
     </div>
   </div>
   <div class="hero-images">
-    <img src="/mobile1.png" alt="Pocket Genes App" class="img1" />
-    <img src="/mobile2.png" alt="Pocket Genes Mobile" class="img2" />
+    <img src="/mobile1.png" alt={t.hero.appAlt} class="img1" />
+    <img src="/mobile2.png" alt={t.hero.mobileAlt} class="img2" />
     <div class="image-glow img1-glow"></div>
     <div class="image-glow img2-glow"></div>
   </div>
   <a href="#screen2" class="scroll-button">
-    <span>Explore Platform</span>
+    <span>{t.hero.explorePlatform}</span>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 4L12 20M12 20L18 14M12 20L6 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
@@ -146,7 +150,7 @@
 
   .title-main {
     display: block;
-    font-size: clamp(3rem, 8vw, 6rem);
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
     font-weight: 900;
     background: var(--primary-gradient);
     background-clip: text;
@@ -158,14 +162,14 @@
 
   .title-sub {
     display: block;
-    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
     font-weight: 300;
     color: var(--text-secondary);
     font-family: 'JetBrains Mono', monospace;
   }
 
   .hero-description {
-    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
     line-height: 1.7;
     color: var(--text-secondary);
     margin-bottom: 3rem;

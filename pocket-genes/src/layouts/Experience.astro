@@ -1,5 +1,7 @@
 ---
 import ExperienceCard from '../components/ExperienceCard.astro'
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <div class="container">
@@ -12,46 +14,47 @@ import ExperienceCard from '../components/ExperienceCard.astro'
     <div class="left">
       <div class="text-content">
         <h1 class="title">
-          <span class="title-gradient">Our</span> Experience
+          <span class="title-gradient">{t.experience.title1}</span> {t.experience.title2}
         </h1>
         <div class="experience-stats">
           <div class="stat-item">
-            <span class="stat-number">4+</span>
-            <span class="stat-label">Years</span>
+            <span class="stat-number">{t.experience.years}</span>
+            <span class="stat-label">{t.experience.yearsLabel}</span>
           </div>
           <div class="stat-item">
-            <span class="stat-number">10+</span>
-            <span class="stat-label">Decade</span>
+            <span class="stat-number">{t.experience.decade}</span>
+            <span class="stat-label">{t.experience.decadeLabel}</span>
           </div>
           <div class="stat-item">
-            <span class="stat-number">100+</span>
-            <span class="stat-label">Projects</span>
+            <span class="stat-number">{t.experience.projects}</span>
+            <span class="stat-label">{t.experience.projectsLabel}</span>
           </div>
         </div>
         <p class="text highlight-text">
-          For the past four years, we've partnered with top fitness and nutrition brands to develop mobile-first solutions that boost user engagement.
+          {t.experience.paragraph1}
         </p>
         <p class="text">
-          Backed by over a decade of experience in software development, our diverse team—including developers, designers, product experts, legal advisors, and biotechnologists—focuses on delivering fun, fluid, science-driven experiences.
+          {t.experience.paragraph2}
         </p>
         <p class="text emphasis-text">
-          We create intuitive platforms that empower users to take control of their health
+          {t.experience.paragraph3}
         </p>
       </div>
     </div>
     <div class="experiences_container">
-      <ExperienceCard src="/experience1.png" alt="" text="Stronger U" description="We helped Stronger U team bring its personalized nutrition coaching to mobile, allowing users to connect with expert coaches, track progress, and receive tailored guidance—all in one intuitive app"/>
-      <ExperienceCard src="/experience2.png" alt="" text="Anytime Fitness" description="We helped Anytime Fitness team build a top-tier app that connects users with custom workout plans, progress tracking, and real-time fitness coaching, making training more accessible than ever"/>
+      <ExperienceCard src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc}/>
+      <ExperienceCard src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc}/>
     </div>
   </div>
 </div>
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
     background: linear-gradient(135deg, var(--dark-bg) 0%, var(--dark-surface) 100%);
-    background-image: 
+    background-image:
       radial-gradient(circle at 20% 20%, rgba(103, 126, 234, 0.15) 0%, transparent 50%),
       radial-gradient(circle at 80% 80%, rgba(240, 147, 251, 0.1) 0%, transparent 50%);
     overflow: hidden;
@@ -135,7 +138,7 @@ import ExperienceCard from '../components/ExperienceCard.astro'
   }
 
   .title {
-    font-size: clamp(2.5rem, 6vw, 6rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     color: var(--text-primary);
     margin-bottom: 2rem;

@@ -1,3 +1,8 @@
+---
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
+---
+
 <section class="container">
   <div class="intro-bg-effects">
     <div class="floating-orb orb-1"></div>
@@ -7,22 +12,22 @@
   </div>
   <div class="content-wrapper">
     <h1 id="title">
-      <span class="title-accent">Unlock the Power of</span>
-      <span class="title-main">Genomics</span>
+      <span class="title-accent">{t.introPlan.title1}</span>
+      <span class="title-main">{t.introPlan.title2}</span>
     </h1>
-    <p id="description">Flexible Plans for Mobile Integration</p>
+    <p id="description">{t.introPlan.subtitle}</p>
     <div class="features-preview">
       <div class="feature-badge">
         <span class="badge-icon">⚡</span>
-        <span>Instant Integration</span>
+        <span>{t.introPlan.instantIntegration}</span>
       </div>
       <div class="feature-badge">
         <span class="badge-icon">🎨</span>
-        <span>Custom Branding</span>
+        <span>{t.introPlan.customBranding}</span>
       </div>
       <div class="feature-badge">
         <span class="badge-icon">📱</span>
-        <span>Mobile-First Design</span>
+        <span>{t.introPlan.mobileFirst}</span>
       </div>
     </div>
   </div>
@@ -30,6 +35,7 @@
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -118,7 +124,7 @@
   }
 
   #title {
-    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
     font-weight: 800;
     line-height: 1.2;
     margin: 0 0 1.5rem 0;
@@ -146,7 +152,7 @@
   }
 
   #description {
-    font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
     color: rgba(255, 255, 255, 0.9);
     margin: 0 0 2.5rem 0;
     line-height: 1.4;

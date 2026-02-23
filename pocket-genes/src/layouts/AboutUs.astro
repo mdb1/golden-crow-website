@@ -1,5 +1,7 @@
 ---
 import TeamCard from "../components/TeamCard.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <div class="container">
@@ -12,36 +14,36 @@ import TeamCard from "../components/TeamCard.astro";
   <div class="content-wrapper">
     <div class="section-header">
       <h1 class="team-title">
-        <span class="title-gradient">Meet</span> the Team
+        <span class="title-gradient">{t.aboutUs.title1}</span> {t.aboutUs.title2}
       </h1>
     </div>
     <div class="image_container">
       <TeamCard
         src="/aboutus1.png"
         alt="Team1"
-        text="Manuel Herrera"
-        description="Founder & CEO"
+        text={t.aboutUs.manuelName}
+        description={t.aboutUs.manuelRole}
         skills={["LEADERSHIP"]}
       />
       <TeamCard
         src="/aboutus2.png"
         alt="Team2"
-        text="Federico Bustos"
-        description="Co-Founder & Head of Genomics"
+        text={t.aboutUs.federicoName}
+        description={t.aboutUs.federicoRole}
         skills={["LEADERSHIP", "INNOVATION"]}
       />
       <TeamCard
         src="/aboutus3.png"
         alt="Team3"
-        text="Santiago Canosa"
-        description="Head of Marketing"
+        text={t.aboutUs.santiagoName}
+        description={t.aboutUs.santiagoRole}
         skills={["MARKETING"]}
       />
       <TeamCard
         src="/aboutus4.png"
         alt="Team4"
-        text="Matias Ezcurra"
-        description="Software Engineer"
+        text={t.aboutUs.matiasName}
+        description={t.aboutUs.matiasRole}
         skills={["ENGINEERING"]}
       />
     </div>
@@ -50,10 +52,11 @@ import TeamCard from "../components/TeamCard.astro";
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
     background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image: 
+    background-image:
       radial-gradient(circle at 15% 25%, rgba(240, 147, 251, 0.12) 0%, transparent 50%),
       radial-gradient(circle at 85% 75%, rgba(79, 172, 254, 0.15) 0%, transparent 50%);
     overflow: hidden;
@@ -145,7 +148,7 @@ import TeamCard from "../components/TeamCard.astro";
   }
 
   .team-title {
-    font-size: clamp(3rem, 8vw, 6rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     color: var(--text-primary);
     margin-bottom: 1rem;
@@ -201,7 +204,7 @@ import TeamCard from "../components/TeamCard.astro";
     }
 
     .team-title {
-      font-size: clamp(2.5rem, 8vw, 4rem);
+      font-size: clamp(1.75rem, 5vw, 2.5rem);
     }
 
     .team-subtitle {
@@ -236,7 +239,7 @@ import TeamCard from "../components/TeamCard.astro";
     }
 
     .team-title {
-      font-size: clamp(2rem, 10vw, 3rem);
+      font-size: clamp(1.5rem, 6vw, 2rem);
       margin-bottom: 0.75rem;
     }
 
@@ -276,7 +279,7 @@ import TeamCard from "../components/TeamCard.astro";
     }
 
     .team-title {
-      font-size: 2rem;
+      font-size: 1.5rem;
     }
 
     .team-subtitle {

@@ -1,6 +1,8 @@
 ---
 import DetailedPlan from "../components/DetailedPlan.astro";
 import PlanSeparator from "../components/PlanSeparator.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section class="container">
@@ -13,46 +15,28 @@ import PlanSeparator from "../components/PlanSeparator.astro";
   <div class="content-wrapper">
     <div class="section-header">
       <h1 class="title">
-        <span class="title-accent">Choosing the</span> 
-        <span class="title-main">Right Plan</span>
+        <span class="title-accent">{t.choosePlan.title1}</span>
+        <span class="title-main">{t.choosePlan.title2}</span>
       </h1>
-      <p class="section-subtitle">Compare features and find your perfect genomics integration solution</p>
+      <p class="section-subtitle">{t.choosePlan.subtitle}</p>
     </div>
     <div class="plans_container">
     <DetailedPlan
-      title="Free"
-      subtitle="<b>Integrate at zero cost,</b> allowing your users to explore to explore reports instantly in our app."
-      items={[
-        "$0 Cost",
-        "User Report Access",
-        "No Maintenance",
-        "Instant Deployment",
-        "Seamless Experience",
-      ]}
+      title={t.choosePlan.freePlan}
+      subtitle={t.choosePlan.freeDesc}
+      items={t.choosePlan.freeItems}
     />
     <PlanSeparator />
     <DetailedPlan
-      title="Plus"
-      subtitle="Add <b>custom branding</b> with optimized data display and <b>priority feature requests.</b>"
-      items={[
-        "Custom Branding",
-        "Optimized Data Display",
-        "Data Formatting Support",
-        "Priority Feature Requests",
-        "Affordable Pricing",
-      ]}
+      title={t.choosePlan.plusPlan}
+      subtitle={t.choosePlan.plusDesc}
+      items={t.choosePlan.plusItems}
     />
     <PlanSeparator />
     <DetailedPlan
-      title="Full"
-      subtitle="Get a <b>fully branded</b> standalone app with <b>custom features</b> and <b>enterprise-level support.</b>"
-      items={[
-        "Fully Branded Experience",
-        "Custom Features & UI",
-        "Full Control Over User Data",
-        "Advanced Integration Options",
-        "Dedicated Team",
-      ]}
+      title={t.choosePlan.fullPlan}
+      subtitle={t.choosePlan.fullDesc}
+      items={t.choosePlan.fullItems}
       isHighlighted={true}
     />
     </div>
@@ -61,10 +45,11 @@ import PlanSeparator from "../components/PlanSeparator.astro";
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
     background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image: 
+    background-image:
       radial-gradient(circle at 25% 20%, rgba(103, 126, 234, 0.12) 0%, transparent 60%),
       radial-gradient(circle at 75% 80%, rgba(240, 147, 251, 0.15) 0%, transparent 60%),
       radial-gradient(circle at 40% 60%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
@@ -158,7 +143,7 @@ import PlanSeparator from "../components/PlanSeparator.astro";
   }
 
   .title {
-    font-size: clamp(3rem, 8vw, 6rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     margin: 0 0 1.5rem 0;
     line-height: 1.1;

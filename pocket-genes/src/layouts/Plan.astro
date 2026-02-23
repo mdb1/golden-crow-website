@@ -1,5 +1,7 @@
 ---
 import PlanCard from "../components/PlanCard.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section class="container">
@@ -10,29 +12,29 @@ import PlanCard from "../components/PlanCard.astro";
     <div class="genetic-pattern"></div>
   </div>
   <div class="content-wrapper">
-    <h1 id="title">Flexible Plans to Fit Your Needs</h1>
-    <p class="section-subtitle">Choose the perfect integration level for your genomics platform</p>
+    <h1 id="title">{t.plan.title}</h1>
+    <p class="section-subtitle">{t.plan.subtitle}</p>
     <div class="card_container">
       <PlanCard
-        title="Quick Start Integration"
-        text="Get users exploring their genomic data instantly with zero development time."
-        subtext="Perfect for testing the waters with immediate ROI."
-        plan="Free"
-        description="Instant Launch"
+        title={t.plan.quickStartTitle}
+        text={t.plan.quickStartDesc}
+        subtext={t.plan.quickStartFeature}
+        plan={t.plan.quickStartPlan}
+        description={t.plan.quickStartLabel}
       />
       <PlanCard
-        title="Professional Branding"
-        text="Transform the experience with your brand identity and optimized data visualization."
-        subtext="Elevate your brand while keeping costs predictable."
-        plan="Plus"
-        description="Custom Branding"
+        title={t.plan.proBrandingTitle}
+        text={t.plan.proBrandingDesc}
+        subtext={t.plan.proBrandingFeature}
+        plan={t.plan.proBrandingPlan}
+        description={t.plan.proBrandingLabel}
       />
       <PlanCard
-        title="Enterprise Mobile Solution"
-        text="Launch your own genomics empire with a fully customized, standalone mobile application."
-        subtext="The ultimate solution for market leaders and innovators."
-        plan="Full"
-        description="Complete Platform"
+        title={t.plan.enterpriseTitle}
+        text={t.plan.enterpriseDesc}
+        subtext={t.plan.enterpriseFeature}
+        plan={t.plan.enterprisePlan}
+        description={t.plan.enterpriseLabel}
         isHighlighted=true
       />
     </div>
@@ -41,10 +43,11 @@ import PlanCard from "../components/PlanCard.astro";
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
     background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image: 
+    background-image:
       radial-gradient(circle at 15% 25%, rgba(240, 147, 251, 0.12) 0%, transparent 60%),
       radial-gradient(circle at 85% 75%, rgba(79, 172, 254, 0.15) 0%, transparent 60%),
       radial-gradient(circle at 50% 10%, rgba(103, 126, 234, 0.08) 0%, transparent 70%);
@@ -138,7 +141,7 @@ import PlanCard from "../components/PlanCard.astro";
   }
 
   #title {
-    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     background-clip: text;

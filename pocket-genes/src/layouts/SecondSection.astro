@@ -1,3 +1,8 @@
+---
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
+---
+
 <section id="screen2" class="interactive">
   <div class="second-bg-effects">
     <div class="floating-orb orb-1"></div>
@@ -8,28 +13,27 @@
   <div class="content-wrapper">
     <div class="text">
       <h1 class="section-title">
-        <span class="title-accent">Mobile & Interactive</span>
-        <span class="title-main">Genomic Panels</span>
+        <span class="title-accent">{t.secondSection.title1}</span>
+        <span class="title-main">{t.secondSection.title2}</span>
       </h1>
       <p class="section-description">
-        Clear reports on health, nutrition, ancestry, and more—making genomics
-        easy to explore and understand for your users.
+        {t.secondSection.description}
       </p>
       <div class="feature-highlights">
         <div class="highlight-item">
           <span class="highlight-icon">📊</span>
-          <span>Interactive Reports</span>
+          <span>{t.secondSection.interactiveReports}</span>
         </div>
         <div class="highlight-item">
           <span class="highlight-icon">🎨</span>
-          <span>Beautiful UI</span>
+          <span>{t.secondSection.beautifulUI}</span>
         </div>
       </div>
     </div>
     <div class="image-wrapper">
       <div class="image-card">
         <div class="lightning"></div>
-        <img src="/interactive1.png" alt="Pocket Genes App" />
+        <img src="/interactive1.png" alt={t.secondSection.appAlt} />
       </div>
     </div>
   </div>
@@ -140,7 +144,7 @@
   }
 
   .section-title {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     line-height: 1.2;
     margin: 0 0 2rem 0;
@@ -168,7 +172,7 @@
   }
 
   .section-description {
-    font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
     color: var(--text-secondary);
     line-height: 1.6;
     margin: 0 0 2.5rem 0;
