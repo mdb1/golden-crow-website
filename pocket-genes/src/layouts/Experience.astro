@@ -1,10 +1,12 @@
 ---
 import ExperienceCard from '../components/ExperienceCard.astro'
+import ExperienceCardMobile from '../components/ExperienceCardMobile.astro'
 import { useTranslations } from '../i18n/index';
 const t = useTranslations(Astro.currentLocale);
 ---
 
-<div class="container">
+<!-- Desktop layout -->
+<div class="experience-section">
   <div class="content-wrapper">
     <div class="left">
       <div class="text-content">
@@ -43,8 +45,41 @@ const t = useTranslations(Astro.currentLocale);
   </div>
 </div>
 
+<!-- Mobile layout -->
+<div class="mobile-experience">
+  <div class="mobile-container">
+    <h1 class="mobile-title">
+      <span class="mobile-title-gradient">{t.experience.title1}</span> {t.experience.title2}
+    </h1>
+
+    <div class="mobile-stats">
+      <div class="mobile-stat-item">
+        <span class="mobile-stat-number">{t.experience.years}</span>
+        <span class="mobile-stat-label">{t.experience.yearsLabel}</span>
+      </div>
+      <div class="mobile-stat-item">
+        <span class="mobile-stat-number">{t.experience.decade}</span>
+        <span class="mobile-stat-label">{t.experience.decadeLabel}</span>
+      </div>
+      <div class="mobile-stat-item">
+        <span class="mobile-stat-number">{t.experience.projects}</span>
+        <span class="mobile-stat-label">{t.experience.projectsLabel}</span>
+      </div>
+    </div>
+
+    <p class="mobile-text">{t.experience.paragraph2}</p>
+    <p class="mobile-emphasis">{t.experience.paragraph3}</p>
+
+    <div class="mobile-cards">
+      <ExperienceCardMobile src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc}/>
+      <ExperienceCardMobile src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc}/>
+    </div>
+  </div>
+</div>
+
 <style>
-  .container {
+  /* === Desktop styles === */
+  .experience-section {
     max-width: none;
     position: relative;
     min-height: 100vh;
@@ -145,7 +180,12 @@ const t = useTranslations(Astro.currentLocale);
     grid-row: 1 / -1;
   }
 
-  /* Responsive Design */
+  /* === Desktop/Mobile toggle === */
+  .mobile-experience {
+    display: none;
+  }
+
+  /* Desktop responsive */
   @media (max-width: 1200px) {
     .content-wrapper {
       text-align: center;
@@ -158,45 +198,101 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   @media (max-width: 768px) {
-    .container {
-      padding: 3rem 4%;
+    /* Hide desktop, show mobile */
+    .experience-section {
+      display: none;
     }
 
-    .content-wrapper {
-      grid-template-columns: 1fr;
-    }
-
-    .text-content {
-      padding: 2rem;
-    }
-
-    .experience-stats {
-      flex-direction: row;
-      gap: 2rem;
-    }
-
-    .experiences_container {
-      gap: 1.5rem;
+    .mobile-experience {
+      display: block;
     }
   }
 
+  /* === Mobile styles === */
+  .mobile-experience {
+    background: var(--bg-primary);
+  }
+
+  .mobile-container {
+    padding: 3rem 5%;
+  }
+
+  .mobile-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .mobile-title-gradient {
+    color: var(--brand-color);
+  }
+
+  .mobile-stats {
+    display: flex;
+    justify-content: space-around;
+    padding: 1.25rem 0;
+    margin-bottom: 1.5rem;
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .mobile-stat-item {
+    text-align: center;
+  }
+
+  .mobile-stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--brand-color);
+  }
+
+  .mobile-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+    font-weight: 500;
+  }
+
+  .mobile-text {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .mobile-emphasis {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-accent);
+    font-weight: 600;
+    font-style: italic;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+
+  .mobile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   @media (max-width: 480px) {
-    .container {
+    .mobile-container {
       padding: 2rem 4%;
     }
 
-    .text-content {
-      padding: 1.5rem;
-    }
-
-    .experience-stats {
-      flex-direction: column;
-      gap: 1rem;
-      padding: 1rem 0;
-    }
-
-    .stat-number {
+    .mobile-title {
       font-size: 1.5rem;
+    }
+
+    .mobile-stat-number {
+      font-size: 1.25rem;
     }
   }
 </style>
