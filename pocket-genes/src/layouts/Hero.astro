@@ -24,8 +24,8 @@ const t = useTranslations(Astro.currentLocale);
     </div>
   </div>
   <div class="hero-images">
-    <img src="/mobile1.png" alt={t.hero.appAlt} class="img1" />
-    <img src="/mobile2.png" alt={t.hero.mobileAlt} class="img2" />
+    <img src="/mobile1.webp" alt={t.hero.appAlt} class="img1" fetchpriority="high" />
+    <img src="/mobile2.webp" alt={t.hero.mobileAlt} class="img2" fetchpriority="high" />
   </div>
   <a href="#screen2" class="scroll-button">
     <span>{t.hero.explorePlatform}</span>

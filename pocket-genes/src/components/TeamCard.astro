@@ -5,7 +5,7 @@ const {src, alt, text, description, skills = [], linkedinUrl} = Astro.props
 <div class="team-card">
     <div class="card-inner">
         <div class="image-wrapper">
-            <img class="image-card" src={src} alt={alt} />
+            <img class="image-card" src={src} alt={alt} loading="lazy" />
             <div class="image-overlay">
                 <div class="role-badge">
                     <span>{description}</span>

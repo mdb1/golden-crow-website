@@ -6,7 +6,7 @@ const linkProps = href ? { href } : {};
 
 <Tag class="experience-card-mobile" {...linkProps}>
   <div class="card-image">
-    <img src={src} alt={alt} />
+    <img src={src} alt={alt} loading="lazy" />
   </div>
   <div class="card-body">
     <h3 class="card-title">{text}</h3>
