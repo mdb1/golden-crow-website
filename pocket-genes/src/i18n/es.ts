@@ -44,7 +44,7 @@ export const es: Translations = {
     project1Tags: ['iOS', 'Android', 'Fitness'] as unknown as string[],
     project1AppStore: '',
     project1GooglePlay: '',
-    project1Website: '',
+    project1Website: '/stronger-u',
     project2Title: 'PocketGenes',
     project2Desc: 'App revolucionaria de análisis genómico que pone información personalizada de salud en tu bolsillo. Visualización avanzada de datos de ADN y recomendaciones de salud.',
     project2Image: '/mobile1.png',
@@ -127,6 +127,52 @@ export const es: Translations = {
     ctaTitle: '¿Listo para Empezar?',
     ctaDesc: 'Contactanos para saber más sobre cómo integrar Pocket Genes en tu plataforma.',
     ctaButton: 'Contactanos',
+  },
+
+  // StrongerU page
+  strongerU: {
+    title: 'StrongerU - Caso de Estudio | Golden Crow VS',
+    // Hero
+    heroTitle: 'StrongerU',
+    heroSubtitle: 'Coaching Nutricional Personalizado, Reinventado',
+    heroDesc: 'Construimos la app móvil que impulsa la plataforma de coaching nutricional personalizado de StrongerU — conectando usuarios con coaches expertos, seguimiento de progreso y orientación a medida.',
+    heroImage: '/experience1.png',
+    // Challenge
+    challengeTitle: 'El Desafío',
+    challengeDesc: 'StrongerU necesitaba una experiencia móvil que pudiera ofrecer coaching nutricional verdaderamente personalizado a escala — no una solución genérica, sino una app donde cada usuario reciba orientación individualizada de coaches reales.',
+    challengeItems: [
+      'Ofrecer coaching personalizado a través de una experiencia mobile-first',
+      'Habilitar interacción en tiempo real entre coaches y clientes',
+      'Seguir el progreso individual con métricas y objetivos personalizados',
+      'Escalar la plataforma sin perder el toque personal',
+    ] as unknown as string[],
+    // Solution
+    solutionTitle: 'Lo Que Construimos',
+    solutionDesc: 'Una app móvil nativa que pone el coaching nutricional personalizado en el bolsillo de cada usuario — intuitiva, rápida y diseñada para el engagement.',
+    // Features
+    feature1Title: 'Interacción con Coaches',
+    feature1Desc: 'Mensajería en tiempo real y feedback entre coaches y clientes, manteniendo a los usuarios comprometidos y responsables.',
+    feature2Title: 'Seguimiento de Progreso',
+    feature2Desc: 'Dashboards visuales que rastrean nutrición, hábitos e hitos — haciendo visible cada paso del camino.',
+    feature3Title: 'Orientación a Medida',
+    feature3Desc: 'Planes de alimentación y recomendaciones personalizadas que se adaptan a los objetivos, preferencias y progreso de cada usuario.',
+    feature4Title: 'Experiencia Intuitiva',
+    feature4Desc: 'Una interfaz limpia y simple diseñada para el uso diario — para que los usuarios pasen menos tiempo navegando y más tiempo mejorando.',
+    // Results
+    resultsTitle: 'Los Resultados',
+    resultsDesc: 'StrongerU ahora sirve a miles de usuarios activos con una experiencia móvil que mantiene el toque personal del coaching uno a uno.',
+    result1Stat: '1000+',
+    result1Label: 'Usuarios Activos',
+    result2Stat: '4.8',
+    result2Label: 'Rating de la App',
+    result3Stat: '90%',
+    result3Label: 'Retención de Usuarios',
+    // CTA
+    ctaTitle: '¿Listo para Crear Tu App?',
+    ctaDesc: 'Dejanos hacer lo mismo por tu negocio. Agendá una consulta gratuita para hablar de tu proyecto.',
+    ctaButton: 'Agendar Llamada',
+    // Tags
+    tags: ['iOS', 'Android', 'Fitness', 'Nutrición'] as unknown as string[],
   },
 
   // Thanks page

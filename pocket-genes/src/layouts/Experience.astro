@@ -1,8 +1,12 @@
 ---
 import ExperienceCard from '../components/ExperienceCard.astro'
 import ExperienceCardMobile from '../components/ExperienceCardMobile.astro'
-import { useTranslations } from '../i18n/index';
+import { useTranslations, getLocalizedPath } from '../i18n/index';
+import type { Lang } from '../i18n/ui';
+import { defaultLang } from '../i18n/ui';
 const t = useTranslations(Astro.currentLocale);
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+const strongerUHref = getLocalizedPath('/stronger-u', lang);
 ---
 
 <!-- Desktop layout -->
@@ -39,7 +43,7 @@ const t = useTranslations(Astro.currentLocale);
       </div>
     </div>
     <div class="experiences_container">
-      <ExperienceCard src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc}/>
+      <ExperienceCard src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc} href={strongerUHref}/>
       <ExperienceCard src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc}/>
     </div>
   </div>
@@ -71,7 +75,7 @@ const t = useTranslations(Astro.currentLocale);
     <p class="mobile-emphasis">{t.experience.paragraph3}</p>
 
     <div class="mobile-cards">
-      <ExperienceCardMobile src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc}/>
+      <ExperienceCardMobile src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc} href={strongerUHref}/>
       <ExperienceCardMobile src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc}/>
     </div>
   </div>

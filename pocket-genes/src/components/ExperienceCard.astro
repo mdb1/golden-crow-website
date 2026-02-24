@@ -1,8 +1,10 @@
 ---
-const { src, alt, text, description } = Astro.props;
+const { src, alt, text, description, href } = Astro.props;
+const Tag = href ? 'a' : 'div';
+const linkProps = href ? { href } : {};
 ---
 
-<div class="experience-card">
+<Tag class="experience-card" {...linkProps}>
   <div class="image-wrapper">
     <img class="image-card" src={src} alt={alt} />
     <div class="image-overlay">
@@ -18,9 +20,15 @@ const { src, alt, text, description } = Astro.props;
       <span class="success-indicator">✓ Successful Partnership</span>
     </div>
   </div>
-</div>
+</Tag>
 
 <style>
+  a.experience-card {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
   .experience-card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
