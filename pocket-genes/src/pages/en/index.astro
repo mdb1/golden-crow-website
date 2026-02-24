@@ -307,7 +307,7 @@ const projects = [
         background: { color: "transparent" },
         particles: {
           number: {
-            value: isMobile ? 40 : 100,
+            value: 100,
             density: { enable: true, area: 800 },
           },
           color: { value: "#4025ef" },
@@ -330,7 +330,7 @@ const projects = [
         interactivity: {
           events: {
             onHover: { enable: !isMobile, mode: "grab" },
-            onClick: { enable: !isMobile, mode: "push" },
+            onClick: { enable: false, mode: "push" },
           },
           modes: {
             grab: { distance: 250, links: { opacity: 0.5 } },
