@@ -7,6 +7,7 @@ import { defaultLang } from '../i18n/ui';
 const t = useTranslations(Astro.currentLocale);
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const strongerUHref = getLocalizedPath('/stronger-u', lang);
+const anytimeFitnessHref = getLocalizedPath('/anytime-fitness', lang);
 ---
 
 <!-- Desktop layout -->
@@ -44,7 +45,7 @@ const strongerUHref = getLocalizedPath('/stronger-u', lang);
     </div>
     <div class="experiences_container">
       <ExperienceCard src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc} href={strongerUHref}/>
-      <ExperienceCard src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc}/>
+      <ExperienceCard src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc} href={anytimeFitnessHref}/>
     </div>
   </div>
 </div>
@@ -76,7 +77,7 @@ const strongerUHref = getLocalizedPath('/stronger-u', lang);
 
     <div class="mobile-cards">
       <ExperienceCardMobile src="/experience1.png" alt="" text={t.experience.strongerUTitle} description={t.experience.strongerUDesc} href={strongerUHref}/>
-      <ExperienceCardMobile src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc}/>
+      <ExperienceCardMobile src="/experience2.png" alt="" text={t.experience.anytimeTitle} description={t.experience.anytimeDesc} href={anytimeFitnessHref}/>
     </div>
   </div>
 </div>

@@ -1,0 +1,551 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { useTranslations } from '../../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<BaseLayout title={t.anytimeFitness.title} showFooter={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
+  <main class="stronger-u-page">
+
+    <!-- Hero -->
+    <section class="su-hero">
+      <div class="su-hero-grid">
+        <div class="su-hero-content">
+          <div class="su-tags">
+            {t.anytimeFitness.tags.map((tag: string) => (
+              <span class="su-tag">{tag}</span>
+            ))}
+          </div>
+          <h1 class="su-hero-title">{t.anytimeFitness.heroTitle}</h1>
+          <p class="su-hero-subtitle">{t.anytimeFitness.heroSubtitle}</p>
+          <p class="su-hero-desc">{t.anytimeFitness.heroDesc}</p>
+          <a href="#booking" class="su-hero-cta">{t.anytimeFitness.ctaButton}</a>
+        </div>
+        <div class="su-hero-image">
+          <img src={t.anytimeFitness.heroImage} alt={t.anytimeFitness.heroTitle} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Challenge & Solution -->
+    <section class="su-challenge-solution">
+      <div class="su-cs-grid">
+        <div class="su-card su-challenge-card">
+          <h2>{t.anytimeFitness.challengeTitle}</h2>
+          <p>{t.anytimeFitness.challengeDesc}</p>
+          <ul>
+            {t.anytimeFitness.challengeItems.map((item: string) => (
+              <li>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div class="su-card su-solution-card">
+          <h2>{t.anytimeFitness.solutionTitle}</h2>
+          <p>{t.anytimeFitness.solutionDesc}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Built -->
+    <section class="su-features">
+      <div class="su-features-grid">
+        <div class="su-card su-feature-card">
+          <h3>{t.anytimeFitness.feature1Title}</h3>
+          <p>{t.anytimeFitness.feature1Desc}</p>
+        </div>
+        <div class="su-card su-feature-card">
+          <h3>{t.anytimeFitness.feature2Title}</h3>
+          <p>{t.anytimeFitness.feature2Desc}</p>
+        </div>
+        <div class="su-card su-feature-card">
+          <h3>{t.anytimeFitness.feature3Title}</h3>
+          <p>{t.anytimeFitness.feature3Desc}</p>
+        </div>
+        <div class="su-card su-feature-card">
+          <h3>{t.anytimeFitness.feature4Title}</h3>
+          <p>{t.anytimeFitness.feature4Desc}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section class="su-results">
+      <h2 class="su-results-title">{t.anytimeFitness.resultsTitle}</h2>
+      <p class="su-results-desc">{t.anytimeFitness.resultsDesc}</p>
+      <div class="su-stats-row">
+        <div class="su-stat-card">
+          <span class="su-stat-number">{t.anytimeFitness.result1Stat}</span>
+          <span class="su-stat-label">{t.anytimeFitness.result1Label}</span>
+        </div>
+        <div class="su-stat-card">
+          <span class="su-stat-number">{t.anytimeFitness.result2Stat}</span>
+          <span class="su-stat-label">{t.anytimeFitness.result2Label}</span>
+        </div>
+        <div class="su-stat-card">
+          <span class="su-stat-number">{t.anytimeFitness.result3Stat}</span>
+          <span class="su-stat-label">{t.anytimeFitness.result3Label}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="contact-cta-section">
+      <div class="contact-cta-container">
+        <div class="cta-content">
+          <h2>{t.anytimeFitness.ctaTitle}</h2>
+          <p>{t.anytimeFitness.ctaDesc}</p>
+          <a href="#booking" class="contact-cta-button">{t.anytimeFitness.ctaButton}</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Booking -->
+    <section id="booking" class="booking-section">
+      <div class="container">
+        <div class="booking-content">
+          <h2>{t.index.bookingTitle}</h2>
+          <p>{t.index.bookingDesc}</p>
+          <div class="calendar-wrapper">
+            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</BaseLayout>
+
+<style>
+  .stronger-u-page {
+    margin-top: clamp(60px, 10vw, 80px);
+  }
+
+  /* === Hero === */
+  .su-hero {
+    padding: clamp(3rem, 8vw, 6rem) 5%;
+    background: var(--bg-primary);
+  }
+
+  .su-hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .su-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .su-tag {
+    display: inline-block;
+    padding: 0.35rem 1rem;
+    background: rgba(64, 37, 239, 0.1);
+    color: var(--brand-color);
+    border-radius: 2rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .su-hero-title {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    line-height: 1.1;
+  }
+
+  .su-hero-subtitle {
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    color: var(--brand-color);
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    line-height: 1.3;
+  }
+
+  .su-hero-desc {
+    font-size: clamp(1rem, 2vw, 1.15rem);
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 2rem;
+  }
+
+  .su-hero-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 2.5rem;
+    background: var(--brand-color);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.05rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(64, 37, 239, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .su-hero-cta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(64, 37, 239, 0.4);
+  }
+
+  .su-hero-image {
+    border-radius: 2rem;
+    overflow: hidden;
+  }
+
+  .su-hero-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    border-radius: 2rem;
+  }
+
+  /* === Shared card style === */
+  .su-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 2rem;
+    padding: 2.5rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .su-card h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .su-card h3 {
+    font-size: clamp(1.15rem, 2.5vw, 1.4rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .su-card p {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  /* === Challenge & Solution === */
+  .su-challenge-solution {
+    padding: clamp(3rem, 8vw, 6rem) 5%;
+    background: var(--bg-secondary);
+  }
+
+  .su-cs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .su-challenge-card ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 1.25rem;
+  }
+
+  .su-challenge-card ul li {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .su-challenge-card ul li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand-color);
+  }
+
+  .su-solution-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* === Features === */
+  .su-features {
+    padding: clamp(3rem, 8vw, 6rem) 5%;
+    background: var(--bg-primary);
+  }
+
+  .su-features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .su-feature-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .su-feature-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  /* === Results === */
+  .su-results {
+    padding: clamp(3rem, 8vw, 6rem) 5%;
+    background: var(--bg-secondary);
+    text-align: center;
+  }
+
+  .su-results-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .su-results-desc {
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 700px;
+    margin: 0 auto 3rem;
+  }
+
+  .su-stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .su-stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 2rem;
+    padding: 2rem 3rem;
+    box-shadow: var(--card-shadow);
+    text-align: center;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .su-stat-number {
+    display: block;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    color: var(--brand-color);
+    margin-bottom: 0.5rem;
+  }
+
+  .su-stat-label {
+    display: block;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* === CTA (reused from pocket-genes) === */
+  .contact-cta-section {
+    padding: 6rem 0;
+    background: var(--bg-primary);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .contact-cta-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cta-content h2 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .cta-content p {
+    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .contact-cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem 3rem;
+    background: var(--brand-color);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(64, 37, 239, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .contact-cta-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(64, 37, 239, 0.4);
+  }
+
+  .contact-cta-button:active {
+    transform: translateY(-1px);
+  }
+
+  /* === Booking (reused from pocket-genes) === */
+  .booking-section {
+    padding: clamp(3rem, 8vw, 6rem) 0;
+    background: var(--bg-secondary);
+  }
+
+  .booking-content {
+    text-align: center;
+  }
+
+  .booking-content h2 {
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .booking-content > p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  .calendar-wrapper {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: clamp(1rem, 3vw, 2rem);
+    min-height: 600px;
+  }
+
+  .calendar-wrapper iframe {
+    min-height: 550px;
+  }
+
+  section {
+    position: relative;
+    overflow: hidden;
+  }
+
+  a {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  ::selection {
+    background: rgba(64, 37, 239, 0.2);
+    color: var(--text-primary);
+  }
+
+  /* === Responsive === */
+  @media (max-width: 768px) {
+    .su-hero-grid {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .su-tags {
+      justify-content: center;
+    }
+
+    .su-hero-image {
+      order: -1;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .su-cs-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .su-features-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .su-stat-card {
+      min-width: 150px;
+      padding: 1.5rem 2rem;
+    }
+
+    .contact-cta-section {
+      padding: clamp(3rem, 6vw, 4rem) 0;
+    }
+
+    .contact-cta-container {
+      padding: 0 clamp(1rem, 3vw, 1.5rem);
+    }
+
+    .contact-cta-button {
+      padding: clamp(1rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem);
+      font-size: clamp(0.95rem, 2vw, 1rem);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .su-hero {
+      padding: 2rem 4%;
+    }
+
+    .su-card {
+      padding: 1.5rem;
+      border-radius: 1.5rem;
+    }
+
+    .su-stats-row {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .su-stat-card {
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .contact-cta-section {
+      padding: clamp(2rem, 4vw, 3rem) 0;
+    }
+
+    .contact-cta-container {
+      padding: 0 clamp(1rem, 3vw, 1rem);
+    }
+
+    .contact-cta-button {
+      padding: clamp(0.875rem, 2vw, 0.875rem) clamp(1.5rem, 4vw, 2rem);
+      font-size: clamp(0.9rem, 2vw, 0.95rem);
+    }
+  }
+</style>

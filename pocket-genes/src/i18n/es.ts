@@ -58,7 +58,7 @@ export const es: Translations = {
     project3Tags: ['iOS', 'Android', 'Enterprise'] as unknown as string[],
     project3AppStore: '',
     project3GooglePlay: '',
-    project3Website: '',
+    project3Website: '/anytime-fitness',
     // Stats / Why Us
     statsTitle: '¿Por Qué Elegirnos?',
     statsSubtitle: 'Un socio probado en tecnología para fitness y salud',
@@ -173,6 +173,52 @@ export const es: Translations = {
     ctaButton: 'Agendar Llamada',
     // Tags
     tags: ['iOS', 'Android', 'Fitness', 'Nutrición'] as unknown as string[],
+  },
+
+  // Anytime Fitness page
+  anytimeFitness: {
+    title: 'Anytime Fitness - Caso de Estudio | Golden Crow VS',
+    // Hero
+    heroTitle: 'Anytime Fitness',
+    heroSubtitle: 'Gestión de Gimnasios y Experiencia del Socio, Elevada',
+    heroDesc: 'Construimos la app móvil que impulsa la plataforma de gestión de gimnasios de Anytime Fitness — habilitando acceso al gimnasio, reserva de clases, seguimiento de entrenamientos y engagement de socios en miles de ubicaciones en todo el mundo.',
+    heroImage: '/experience2.png',
+    // Challenge
+    challengeTitle: 'El Desafío',
+    challengeDesc: 'Anytime Fitness necesitaba una experiencia móvil que unifique el acceso al gimnasio, la reserva de clases, el seguimiento de entrenamientos y el engagement de socios en miles de ubicaciones a nivel global.',
+    challengeItems: [
+      'Ofrecer una experiencia unificada para socios en todas las ubicaciones',
+      'Habilitar reserva de clases en tiempo real con disponibilidad actualizada',
+      'Proveer seguimiento de entrenamientos con planes personalizados',
+      'Construir una solución escalable para un modelo de franquicia global',
+    ] as unknown as string[],
+    // Solution
+    solutionTitle: 'Lo Que Construimos',
+    solutionDesc: 'Una app móvil nativa que pone la experiencia completa del gimnasio en el bolsillo de cada socio — intuitiva, rápida y diseñada para escala global.',
+    // Features
+    feature1Title: 'Acceso al Gimnasio',
+    feature1Desc: 'Check-in digital que permite a los socios ingresar a cualquier sede de Anytime Fitness y comenzar su entrenamiento con un solo toque.',
+    feature2Title: 'Reserva de Clases',
+    feature2Desc: 'Programación de clases en tiempo real con actualizaciones de disponibilidad, listas de espera y confirmación instantánea en todas las sedes.',
+    feature3Title: 'Seguimiento de Entrenamientos',
+    feature3Desc: 'Planes de entrenamiento personalizados y seguimiento de progreso que se adaptan a los objetivos, nivel de fitness e historial de cada socio.',
+    feature4Title: 'Engagement de Socios',
+    feature4Desc: 'Notificaciones push, desafíos fitness y funciones de comunidad que mantienen a los socios motivados y conectados.',
+    // Results
+    resultsTitle: 'Los Resultados',
+    resultsDesc: 'Anytime Fitness ahora ofrece una experiencia digital fluida a millones de socios en miles de gimnasios en todo el mundo.',
+    result1Stat: '5M+',
+    result1Label: 'Descargas de la App',
+    result2Stat: '4.7',
+    result2Label: 'Rating de la App',
+    result3Stat: '5000+',
+    result3Label: 'Gimnasios Conectados',
+    // CTA
+    ctaTitle: '¿Listo para Crear Tu App?',
+    ctaDesc: 'Dejanos hacer lo mismo por tu negocio. Agendá una consulta gratuita para hablar de tu proyecto.',
+    ctaButton: 'Agendar Llamada',
+    // Tags
+    tags: ['iOS', 'Android', 'Fitness', 'Enterprise'] as unknown as string[],
   },
 
   // Thanks page
