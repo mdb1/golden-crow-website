@@ -13,10 +13,6 @@ function localPath(path: string) {
   return getLocalizedPath(path, lang);
 }
 
-// Change this to switch hero background for PR review.
-// Options: "particles" | "blobs"
-const HERO_BG = "particles" as const;
-
 const projects = [
   {
     image: t.index.project1Image,
@@ -51,15 +47,8 @@ const projects = [
 <BaseLayout title={t.index.title} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
   <main class="home-page">
     <!-- Section 1: Hero -->
-    <section class="hero-section" data-bg={HERO_BG}>
-      {HERO_BG === "particles" && <div id="tsparticles"></div>}
-      {HERO_BG === "blobs" && (
-        <div class="blob-container" aria-hidden="true">
-          <div class="blob blob-1"></div>
-          <div class="blob blob-2"></div>
-          <div class="blob blob-3"></div>
-        </div>
-      )}
+    <section class="hero-section">
+      <div id="tsparticles"></div>
       <div class="container">
         <div class="hero-content">
           <h1 class="hero-title">
@@ -206,69 +195,6 @@ const projects = [
     z-index: 1;
   }
 
-  /* Blob Background */
-  .blob-container {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    overflow: hidden;
-  }
-
-  .blob {
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0.18;
-    filter: blur(80px);
-    will-change: transform;
-  }
-
-  .blob-1 {
-    width: 45%;
-    aspect-ratio: 1;
-    background: #4025ef;
-    top: -10%;
-    left: -5%;
-    animation: blob-drift-1 20s ease-in-out infinite alternate;
-  }
-
-  .blob-2 {
-    width: 35%;
-    aspect-ratio: 1;
-    background: #6d5eef;
-    top: 50%;
-    right: -10%;
-    animation: blob-drift-2 25s ease-in-out infinite alternate;
-  }
-
-  .blob-3 {
-    width: 40%;
-    aspect-ratio: 1;
-    background: #5a3ef0;
-    bottom: -15%;
-    left: 30%;
-    animation: blob-drift-3 18s ease-in-out infinite alternate;
-  }
-
-  @keyframes blob-drift-1 {
-    from { transform: translate(0, 0) scale(1); }
-    to { transform: translate(10%, 15%) scale(1.1); }
-  }
-
-  @keyframes blob-drift-2 {
-    from { transform: translate(0, 0) scale(1); }
-    to { transform: translate(-15%, -10%) scale(1.15); }
-  }
-
-  @keyframes blob-drift-3 {
-    from { transform: translate(0, 0) scale(1); }
-    to { transform: translate(-10%, -20%) scale(1.05); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .blob { animation: none; }
-  }
-
   /* Hero Section */
   .hero-section {
     position: relative;
@@ -347,7 +273,6 @@ const projects = [
 
   /* Responsive */
   @media (max-width: 768px) {
-    .blob { opacity: 0.12; filter: blur(60px); }
     .hero-actions { flex-direction: column; align-items: center; }
     .btn-primary, .btn-secondary { width: 100%; max-width: 280px; text-align: center; }
   }
@@ -370,9 +295,6 @@ const projects = [
   import { loadSlim } from "@tsparticles/slim";
 
   async function initParticles() {
-    const hero = document.querySelector(".hero-section");
-    if (!hero || hero.getAttribute("data-bg") !== "particles") return;
-
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const isMobile = window.innerWidth < 768;
 
