@@ -467,7 +467,7 @@ export const en = {
     federicoName: 'Federico Bustos',
     federicoRole: 'Co-Founder & Head of Genomics',
     santiagoName: 'Santiago Canosa',
-    santiagoRole: 'Head of Growth',
+    santiagoRole: 'Chief Revenue Officer',
     matiasName: 'Matias Ezcurra',
     matiasRole: 'Software Engineer',
   },
