@@ -3,7 +3,7 @@ const {src, alt} = Astro.props
 ---
 
 <div class="image">            
-    <img class="image-card" src={src} alt={alt} />
+    <img class="image-card" src={src} alt={alt} loading="lazy" />
 </div>
 
 <style>
