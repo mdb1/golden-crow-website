@@ -1,8 +1,10 @@
 ---
-const { src, alt, text, description } = Astro.props;
+const { src, alt, text, description, href } = Astro.props;
+const Tag = href ? 'a' : 'div';
+const linkProps = href ? { href } : {};
 ---
 
-<div class="experience-card-mobile">
+<Tag class="experience-card-mobile" {...linkProps}>
   <div class="card-image">
     <img src={src} alt={alt} />
   </div>
@@ -11,9 +13,15 @@ const { src, alt, text, description } = Astro.props;
     <p class="card-desc">{description}</p>
     <span class="card-badge">✓ Successful Partnership</span>
   </div>
-</div>
+</Tag>
 
 <style>
+  a.experience-card-mobile {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
   .experience-card-mobile {
     display: flex;
     flex-direction: row;

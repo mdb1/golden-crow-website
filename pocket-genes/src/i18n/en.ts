@@ -42,7 +42,7 @@ export const en = {
     project1Tags: ['iOS', 'Android', 'Fitness'] as unknown as string[],
     project1AppStore: '',
     project1GooglePlay: '',
-    project1Website: '',
+    project1Website: '/en/stronger-u',
     project2Title: 'PocketGenes',
     project2Desc: 'Revolutionary genomic analysis app that puts personalized health insights in your pocket. Advanced DNA data visualization and health recommendations.',
     project2Image: '/mobile1.png',
@@ -56,7 +56,7 @@ export const en = {
     project3Tags: ['iOS', 'Android', 'Enterprise'] as unknown as string[],
     project3AppStore: '',
     project3GooglePlay: '',
-    project3Website: '',
+    project3Website: '/en/anytime-fitness',
     // Stats / Why Us
     statsTitle: 'Why Choose Us',
     statsSubtitle: 'A proven partner for fitness and healthcare technology',
@@ -125,6 +125,98 @@ export const en = {
     ctaTitle: 'Ready to Get Started?',
     ctaDesc: 'Contact us to learn more about integrating Pocket Genes into your platform.',
     ctaButton: 'Contact Us',
+  },
+
+  // StrongerU page
+  strongerU: {
+    title: 'StrongerU - Case Study | Golden Crow VS',
+    // Hero
+    heroTitle: 'StrongerU',
+    heroSubtitle: 'Personalized Nutrition Coaching, Reimagined',
+    heroDesc: 'We built the mobile app that powers StrongerU\'s personalized nutrition coaching platform — connecting users with expert coaches, progress tracking, and tailored guidance.',
+    heroImage: '/experience1.png',
+    // Challenge
+    challengeTitle: 'The Challenge',
+    challengeDesc: 'StrongerU needed a mobile experience that could deliver truly personalized nutrition coaching at scale — not a one-size-fits-all solution, but an app where every user receives individualized guidance from real coaches.',
+    challengeItems: [
+      'Deliver personalized coaching through a mobile-first experience',
+      'Enable real-time interaction between coaches and clients',
+      'Track individual progress with tailored metrics and goals',
+      'Scale the platform without losing the personal touch',
+    ] as unknown as string[],
+    // Solution
+    solutionTitle: 'What We Built',
+    solutionDesc: 'A native mobile app that puts personalized nutrition coaching in every user\'s pocket — intuitive, fast, and built for engagement.',
+    // Features
+    feature1Title: 'Coach Interaction',
+    feature1Desc: 'Real-time messaging and feedback between coaches and clients, keeping users engaged and accountable.',
+    feature2Title: 'Progress Tracking',
+    feature2Desc: 'Visual dashboards that track nutrition, habits, and milestones — making every step of the journey visible.',
+    feature3Title: 'Tailored Guidance',
+    feature3Desc: 'Personalized meal plans and recommendations that adapt to each user\'s goals, preferences, and progress.',
+    feature4Title: 'Intuitive Experience',
+    feature4Desc: 'A clean, simple interface designed for daily use — so users spend less time navigating and more time improving.',
+    // Results
+    resultsTitle: 'The Results',
+    resultsDesc: 'StrongerU now serves thousands of active users with a mobile experience that maintains the personal touch of one-on-one coaching.',
+    result1Stat: '1000+',
+    result1Label: 'Active Users',
+    result2Stat: '4.8',
+    result2Label: 'App Rating',
+    result3Stat: '90%',
+    result3Label: 'User Retention',
+    // CTA
+    ctaTitle: 'Ready to Build Your App?',
+    ctaDesc: 'Let us do the same for your business. Schedule a free consultation to discuss your project.',
+    ctaButton: 'Book a Call',
+    // Tags
+    tags: ['iOS', 'Android', 'Fitness', 'Nutrition'] as unknown as string[],
+  },
+
+  // Anytime Fitness page
+  anytimeFitness: {
+    title: 'Anytime Fitness - Case Study | Golden Crow VS',
+    // Hero
+    heroTitle: 'Anytime Fitness',
+    heroSubtitle: 'Gym Management & Member Experience, Elevated',
+    heroDesc: 'We built the mobile app that powers Anytime Fitness\'s gym management platform — enabling seamless gym access, class booking, workout tracking, and member engagement across thousands of locations worldwide.',
+    heroImage: '/experience2.png',
+    // Challenge
+    challengeTitle: 'The Challenge',
+    challengeDesc: 'Anytime Fitness needed a mobile experience that unifies gym access, class booking, workout tracking, and member engagement across thousands of locations globally.',
+    challengeItems: [
+      'Deliver a unified member experience across all locations',
+      'Enable real-time class scheduling and availability',
+      'Provide workout tracking with personalized training plans',
+      'Build a scalable solution for a global franchise model',
+    ] as unknown as string[],
+    // Solution
+    solutionTitle: 'What We Built',
+    solutionDesc: 'A native mobile app that puts the full gym experience in every member\'s pocket — intuitive, fast, and built for a global scale.',
+    // Features
+    feature1Title: 'Seamless Gym Access',
+    feature1Desc: 'Digital check-in that lets members walk into any Anytime Fitness location and start their workout with a single tap.',
+    feature2Title: 'Class Booking',
+    feature2Desc: 'Real-time class scheduling with availability updates, waitlists, and instant confirmation across all gym locations.',
+    feature3Title: 'Workout Tracking',
+    feature3Desc: 'Personalized training plans and progress tracking that adapt to each member\'s goals, fitness level, and history.',
+    feature4Title: 'Member Engagement',
+    feature4Desc: 'Push notifications, fitness challenges, and community features that keep members motivated and connected.',
+    // Results
+    resultsTitle: 'The Results',
+    resultsDesc: 'Anytime Fitness now delivers a seamless digital experience to millions of members across thousands of gyms worldwide.',
+    result1Stat: '5M+',
+    result1Label: 'App Downloads',
+    result2Stat: '4.7',
+    result2Label: 'App Rating',
+    result3Stat: '5000+',
+    result3Label: 'Gyms Connected',
+    // CTA
+    ctaTitle: 'Ready to Build Your App?',
+    ctaDesc: 'Let us do the same for your business. Schedule a free consultation to discuss your project.',
+    ctaButton: 'Book a Call',
+    // Tags
+    tags: ['iOS', 'Android', 'Fitness', 'Enterprise'] as unknown as string[],
   },
 
   // Thanks page
