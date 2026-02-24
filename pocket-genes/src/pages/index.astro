@@ -48,6 +48,7 @@ const projects = [
   <main class="home-page">
     <!-- Section 1: Hero -->
     <section class="hero-section">
+      <div id="tsparticles"></div>
       <div class="container">
         <div class="hero-content">
           <h1 class="hero-title">
@@ -188,6 +189,12 @@ const projects = [
 </BaseLayout>
 
 <style>
+  #tsparticles {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
   /* Hero Section */
   .hero-section {
     position: relative;
@@ -592,3 +599,58 @@ const projects = [
     }
   }
 </style>
+
+<script>
+  import { tsParticles } from "@tsparticles/engine";
+  import { loadSlim } from "@tsparticles/slim";
+
+  async function initParticles() {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isMobile = window.innerWidth < 768;
+
+    await loadSlim(tsParticles);
+
+    await tsParticles.load({
+      id: "tsparticles",
+      options: {
+        fullScreen: { enable: false },
+        background: { color: "transparent" },
+        particles: {
+          number: {
+            value: isMobile ? 40 : 100,
+            density: { enable: true, area: 800 },
+          },
+          color: { value: "#4025ef" },
+          opacity: { value: { min: 0.15, max: 0.4 } },
+          size: { value: { min: 1, max: 3 } },
+          move: {
+            enable: !prefersReducedMotion,
+            speed: { min: 0.5, max: 1.5 },
+            direction: "none",
+            outModes: { default: "bounce" },
+          },
+          links: {
+            enable: true,
+            color: "#4025ef",
+            distance: 180,
+            opacity: 0.2,
+            width: 1,
+          },
+        },
+        interactivity: {
+          events: {
+            onHover: { enable: !isMobile, mode: "grab" },
+            onClick: { enable: !isMobile, mode: "push" },
+          },
+          modes: {
+            grab: { distance: 250, links: { opacity: 0.5 } },
+            push: { quantity: 4 },
+          },
+        },
+        detectRetina: true,
+      },
+    });
+  }
+
+  initParticles();
+</script>
