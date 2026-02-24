@@ -1,0 +1,56 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AboutUs from '../../layouts/AboutUs.astro';
+import { useTranslations } from '../../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<BaseLayout title={t.about.title}>
+  <main class="about-page">
+    <section class="about-hero">
+      <div class="container">
+        <h1>{t.about.heroTitle}</h1>
+        <p>{t.about.heroDesc}</p>
+      </div>
+    </section>
+
+    <section class="about-content">
+      <div class="container">
+        <div class="about-grid">
+          <div class="about-item">
+            <h3>{t.about.missionTitle}</h3>
+            <p>{t.about.missionDesc}</p>
+          </div>
+          <div class="about-item">
+            <h3>{t.about.visionTitle}</h3>
+            <p>{t.about.visionDesc}</p>
+          </div>
+          <div class="about-item">
+            <h3>{t.about.technologyTitle}</h3>
+            <p>{t.about.technologyDesc}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="team-section">
+      <AboutUs />
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .about-page { margin-top: clamp(60px, 10vw, 80px); }
+  .about-hero { background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); padding: clamp(3rem, 8vw, 6rem) clamp(1rem, 4vw, 2rem); text-align: center; }
+  .about-hero h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 800; margin-bottom: 1.5rem; background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .about-hero p { font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); max-width: 600px; margin: 0 auto; line-height: 1.6; }
+  .about-content { padding: clamp(3rem, 6vw, 4rem) 0; }
+  .about-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: clamp(1.5rem, 3vw, 2rem); margin-top: clamp(1.5rem, 3vw, 2rem); }
+  .about-item { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: clamp(1.5rem, 3vw, 2rem); transition: all 0.3s ease; }
+  .about-item:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+  .about-item h3 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .about-item p { color: var(--text-secondary); line-height: 1.6; }
+  .team-section { padding: clamp(3rem, 6vw, 4rem) 0; background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); }
+  @media (max-width: 480px) { .about-grid { grid-template-columns: 1fr; } }
+</style>

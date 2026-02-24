@@ -25,12 +25,11 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
   .container {
     display: flex;
     flex-direction: column;
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 2rem;
     padding: 3rem 2.5rem;
-    box-shadow: var(--glass-shadow);
+    box-shadow: var(--card-shadow);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
@@ -39,73 +38,37 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
     margin: 0;
   }
 
-  .container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.05) 50%,
-      rgba(255, 255, 255, 0.02) 100%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
   .container:hover {
     transform: translateY(-10px);
-    box-shadow: 
-      0 30px 60px -12px rgba(31, 38, 135, 0.4),
-      0 0 0 1px rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.15);
-  }
-
-  .container:hover::before {
-    opacity: 1;
+    box-shadow: var(--card-shadow-hover);
   }
 
   .highlighted {
-    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.25) 100%);
-    border: 2px solid rgba(103, 126, 234, 0.5);
+    background: rgba(64, 37, 239, 0.06);
+    border: 2px solid var(--brand-color);
     transform: translateY(-1.5rem) scale(1.05);
-    box-shadow: 
-      0 35px 70px -12px rgba(103, 126, 234, 0.5),
-      0 0 0 2px rgba(103, 126, 234, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-
-  .highlighted::before {
-    background: linear-gradient(
-      135deg,
-      rgba(103, 126, 234, 0.2) 0%,
-      rgba(79, 172, 254, 0.15) 50%,
-      rgba(240, 147, 251, 0.1) 100%
-    );
-    opacity: 1;
+    box-shadow:
+      0 35px 70px -12px rgba(64, 37, 239, 0.15),
+      0 0 0 2px rgba(64, 37, 239, 0.1);
   }
 
   .highlighted:hover {
     transform: translateY(-2rem) scale(1.08);
-    box-shadow: 
-      0 45px 90px -12px rgba(103, 126, 234, 0.6),
-      0 0 0 2px rgba(103, 126, 234, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    box-shadow:
+      0 45px 90px -12px rgba(64, 37, 239, 0.2),
+      0 0 0 2px rgba(64, 37, 239, 0.15);
   }
 
   .highlighted .subtitle {
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--text-secondary);
   }
 
   .highlighted ul {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
   }
 
   .highlighted .title {
-    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
   }
 
   .title {
@@ -113,10 +76,7 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
     font-weight: 800;
     margin: 0 0 1.5rem 0;
     text-align: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
     position: relative;
     z-index: 2;
   }
@@ -158,7 +118,7 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
     justify-content: center;
     width: 24px;
     height: 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--brand-color);
     border-radius: 50%;
     color: white;
     font-weight: bold;
@@ -168,8 +128,8 @@ const containerClass = isHighlighted ? "container highlighted" : "container";
   }
 
   .highlighted ul li::before {
-    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
-    color: #667eea;
+    background: var(--brand-color);
+    color: white;
   }
 
   /* Responsive Design */

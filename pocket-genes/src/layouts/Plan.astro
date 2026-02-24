@@ -1,38 +1,34 @@
 ---
 import PlanCard from "../components/PlanCard.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section class="container">
-  <div class="plan-bg-effects">
-    <div class="floating-orb orb-1"></div>
-    <div class="floating-orb orb-2"></div>
-    <div class="floating-orb orb-3"></div>
-    <div class="genetic-pattern"></div>
-  </div>
   <div class="content-wrapper">
-    <h1 id="title">Flexible Plans to Fit Your Needs</h1>
-    <p class="section-subtitle">Choose the perfect integration level for your genomics platform</p>
+    <h1 id="title">{t.plan.title}</h1>
+    <p class="section-subtitle">{t.plan.subtitle}</p>
     <div class="card_container">
       <PlanCard
-        title="Quick Start Integration"
-        text="Get users exploring their genomic data instantly with zero development time."
-        subtext="Perfect for testing the waters with immediate ROI."
-        plan="Free"
-        description="Instant Launch"
+        title={t.plan.quickStartTitle}
+        text={t.plan.quickStartDesc}
+        subtext={t.plan.quickStartFeature}
+        plan={t.plan.quickStartPlan}
+        description={t.plan.quickStartLabel}
       />
       <PlanCard
-        title="Professional Branding"
-        text="Transform the experience with your brand identity and optimized data visualization."
-        subtext="Elevate your brand while keeping costs predictable."
-        plan="Plus"
-        description="Custom Branding"
+        title={t.plan.proBrandingTitle}
+        text={t.plan.proBrandingDesc}
+        subtext={t.plan.proBrandingFeature}
+        plan={t.plan.proBrandingPlan}
+        description={t.plan.proBrandingLabel}
       />
       <PlanCard
-        title="Enterprise Mobile Solution"
-        text="Launch your own genomics empire with a fully customized, standalone mobile application."
-        subtext="The ultimate solution for market leaders and innovators."
-        plan="Full"
-        description="Complete Platform"
+        title={t.plan.enterpriseTitle}
+        text={t.plan.enterpriseDesc}
+        subtext={t.plan.enterpriseFeature}
+        plan={t.plan.enterprisePlan}
+        description={t.plan.enterpriseLabel}
         isHighlighted=true
       />
     </div>
@@ -41,91 +37,15 @@ import PlanCard from "../components/PlanCard.astro";
 
 <style>
   .container {
+    max-width: none;
     position: relative;
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image: 
-      radial-gradient(circle at 15% 25%, rgba(240, 147, 251, 0.12) 0%, transparent 60%),
-      radial-gradient(circle at 85% 75%, rgba(79, 172, 254, 0.15) 0%, transparent 60%),
-      radial-gradient(circle at 50% 10%, rgba(103, 126, 234, 0.08) 0%, transparent 70%);
+    background: var(--bg-primary);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: center;
     padding: 5rem 5%;
-  }
-
-  /* Background Effects */
-  .plan-bg-effects {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .floating-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.4;
-    animation: floating 30s ease-in-out infinite;
-  }
-
-  .orb-1 {
-    width: 320px;
-    height: 320px;
-    background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.15) 100%);
-    top: 10%;
-    left: 5%;
-    animation-delay: 0s;
-  }
-
-  .orb-2 {
-    width: 240px;
-    height: 240px;
-    background: linear-gradient(135deg, rgba(79, 172, 254, 0.2) 0%, rgba(240, 147, 251, 0.18) 100%);
-    bottom: 15%;
-    right: 8%;
-    animation-delay: -10s;
-  }
-
-  .orb-3 {
-    width: 180px;
-    height: 180px;
-    background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.2) 100%);
-    top: 50%;
-    left: 80%;
-    animation-delay: -20s;
-  }
-
-  .genetic-pattern {
-    position: absolute;
-    top: 20%;
-    right: 5%;
-    width: 120px;
-    height: 300px;
-    opacity: 0.06;
-    background: repeating-linear-gradient(
-      135deg,
-      transparent,
-      transparent 15px,
-      rgba(255, 255, 255, 0.1) 15px,
-      rgba(255, 255, 255, 0.1) 30px
-    );
-    animation: geneticRotate 25s linear infinite;
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-50px) rotate(90deg); }
-    50% { transform: translateY(30px) rotate(180deg); }
-    75% { transform: translateY(-25px) rotate(270deg); }
-  }
-
-  @keyframes geneticRotate {
-    from { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(180deg) scale(1.1); }
-    to { transform: rotate(360deg) scale(1); }
   }
 
   .content-wrapper {
@@ -138,12 +58,9 @@ import PlanCard from "../components/PlanCard.astro";
   }
 
   #title {
-    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
     margin: 0 0 1rem 0;
     line-height: 1.2;
     max-width: 90%;
@@ -205,23 +122,11 @@ import PlanCard from "../components/PlanCard.astro";
     .card_container {
       gap: 1.5rem;
     }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.25;
-    }
-
-    .genetic-pattern {
-      display: none;
-    }
   }
 
   @media (max-width: 480px) {
     .container {
       padding: 2rem 4%;
-    }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.15;
     }
   }
 </style>

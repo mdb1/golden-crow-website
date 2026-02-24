@@ -21,11 +21,10 @@ const { title, description } = Astro.props;
         gap: 1rem;
         margin-bottom: 1.5rem;
         padding: 1.25rem;
-        background: var(--glass-bg);
-        backdrop-filter: blur(20px);
-        border: 1px solid var(--glass-border);
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
         border-radius: 1rem;
-        box-shadow: var(--glass-shadow);
+        box-shadow: var(--card-shadow);
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
@@ -34,32 +33,9 @@ const { title, description } = Astro.props;
         box-sizing: border-box;
     }
 
-    .container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.1),
-            transparent
-        );
-        transition: left 0.5s ease;
-    }
-
     .container:hover {
         transform: translateY(-2px);
-        box-shadow: 
-            0 12px 30px -5px rgba(31, 38, 135, 0.3),
-            0 0 0 1px rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.12);
-    }
-
-    .container:hover::before {
-        left: 100%;
+        box-shadow: var(--card-shadow-hover);
     }
 
     .item-content {
@@ -71,10 +47,7 @@ const { title, description } = Astro.props;
         font-size: clamp(1.1rem, 2vw, 1.4rem);
         font-weight: 700;
         margin: 0 0 0.5rem 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        background-clip: text;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: var(--brand-color);
         line-height: 1.3;
         word-wrap: break-word;
         overflow-wrap: break-word;
@@ -97,7 +70,7 @@ const { title, description } = Astro.props;
         justify-content: center;
         width: 32px;
         height: 32px;
-        background: linear-gradient(135deg, rgba(103, 126, 234, 0.2) 0%, rgba(79, 172, 254, 0.15) 100%);
+        background: rgba(64, 37, 239, 0.08);
         border-radius: 50%;
         font-size: 1rem;
         flex-shrink: 0;
@@ -106,7 +79,7 @@ const { title, description } = Astro.props;
 
     .container:hover .item-icon {
         transform: scale(1.1) rotate(180deg);
-        background: linear-gradient(135deg, rgba(103, 126, 234, 0.3) 0%, rgba(79, 172, 254, 0.25) 100%);
+        background: rgba(64, 37, 239, 0.12);
     }
 
     @media (max-width: 768px) {

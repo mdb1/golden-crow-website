@@ -1,45 +1,40 @@
 ---
 import Card from "../components/Card.astro";
 import Item from "../components/Item.astro";
+import { useTranslations } from '../i18n/index';
+const t = useTranslations(Astro.currentLocale);
 ---
 
 <section id="screen3" class="body">
-  <div class="more-bg-effects">
-    <div class="floating-orb orb-1"></div>
-    <div class="floating-orb orb-2"></div>
-    <div class="floating-orb orb-3"></div>
-    <div class="genetic-spiral"></div>
-  </div>
   <div class="content-wrapper">
     <div class="container">
       <h1 class="title">
-        <span class="title-accent">More</span> 
-        <span class="title-main">to Come</span>
+        <span class="title-accent">{t.moreToCome.title1}</span>
+        <span class="title-main">{t.moreToCome.title2}</span>
       </h1>
       <h3 class="subtitle">
-        Pocket Genes will continuously add new panels and tools to enhance user
-        experience and genomic discovery.
+        {t.moreToCome.description}
       </h3>
       <div class="features-container">
         <div class="features-list">
-          <Item title="Sports & Performance" description="Customized workout plans based on strength, endurance, and recovery traits."/>
-          <Item title="Personality & Behavior" description="Genetic influences on emotions, decision-making addictions and habits."/>
-          <Item title="Physical Traits" description="Explore inherited characteristics like hair, eye color, and skin response."/>
-          <Item title="Cognitive Abilities" description="Uncover learning potential, memory, and problem-solving skills."/>
-          <Item title="Endless Exploration" description="Access extra details on traits, genetic variants, and linked studies for deeper insights."/>
+          <Item title={t.moreToCome.sportsTitle} description={t.moreToCome.sportsDesc}/>
+          <Item title={t.moreToCome.personalityTitle} description={t.moreToCome.personalityDesc}/>
+          <Item title={t.moreToCome.physicalTitle} description={t.moreToCome.physicalDesc}/>
+          <Item title={t.moreToCome.cognitiveTitle} description={t.moreToCome.cognitiveDesc}/>
+          <Item title={t.moreToCome.endlessTitle} description={t.moreToCome.endlessDesc}/>
         </div>
       </div>
     </div>
     <div class="image-wrapper">
       <div class="image_row">
-        <Card src="/more1.png" alt="" text={"Sports &\nPerformance"}/>
-        <Card src="/more2.png" alt="" text={"Personality &\nBehavior"}/>
-        <Card src="/more3.png" alt="" text={"Physical\nTraits"}/>
+        <Card src="/more1.png" alt="" text={t.moreToCome.cardSports}/>
+        <Card src="/more2.png" alt="" text={t.moreToCome.cardPersonality}/>
+        <Card src="/more3.png" alt="" text={t.moreToCome.cardPhysical}/>
       </div>
       <div class="image_row">
-          <Card src="/more4.png" alt="" text={"Cognitive &\nIntelligence"}/>
-          <Card src="/more5.png" alt="" text={"Linked Variants &\nStudies"}/>
-          <Card src="/more6.png" alt="" text={"Deep Genome\nInsights"}/>
+          <Card src="/more4.png" alt="" text={t.moreToCome.cardCognitive}/>
+          <Card src="/more5.png" alt="" text={t.moreToCome.cardVariants}/>
+          <Card src="/more6.png" alt="" text={t.moreToCome.cardDeep}/>
       </div>
     </div>
   </div>
@@ -49,85 +44,12 @@ import Item from "../components/Item.astro";
   .body {
     position: relative;
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%);
-    background-image: 
-      radial-gradient(circle at 25% 25%, rgba(240, 147, 251, 0.12) 0%, transparent 60%),
-      radial-gradient(circle at 75% 75%, rgba(103, 126, 234, 0.15) 0%, transparent 60%),
-      radial-gradient(circle at 50% 10%, rgba(79, 172, 254, 0.08) 0%, transparent 70%);
+    background: var(--bg-primary);
     overflow-x: hidden;
     display: flex;
     align-items: center;
     padding: 5rem 5%;
     box-sizing: border-box;
-  }
-
-  /* Background Effects */
-  .more-bg-effects {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .floating-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.4;
-    animation: floating 28s ease-in-out infinite;
-  }
-
-  .orb-1 {
-    width: 300px;
-    height: 300px;
-    background: linear-gradient(135deg, rgba(240, 147, 251, 0.25) 0%, rgba(103, 126, 234, 0.2) 100%);
-    top: 10%;
-    left: 10%;
-    animation-delay: 0s;
-  }
-
-  .orb-2 {
-    width: 220px;
-    height: 220px;
-    background: linear-gradient(135deg, rgba(103, 126, 234, 0.2) 0%, rgba(79, 172, 254, 0.18) 100%);
-    bottom: 15%;
-    right: 12%;
-    animation-delay: -8s;
-  }
-
-  .orb-3 {
-    width: 160px;
-    height: 160px;
-    background: linear-gradient(135deg, rgba(79, 172, 254, 0.25) 0%, rgba(240, 147, 251, 0.15) 100%);
-    top: 60%;
-    left: 80%;
-    animation-delay: -18s;
-  }
-
-  .genetic-spiral {
-    position: absolute;
-    top: 20%;
-    right: 8%;
-    width: 100px;
-    height: 250px;
-    opacity: 0.05;
-    background-image: 
-      conic-gradient(from 0deg, transparent 340deg, rgba(255, 255, 255, 0.3) 360deg);
-    border-radius: 50%;
-    animation: spiralRotate 15s linear infinite;
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-40px) rotate(90deg); }
-    50% { transform: translateY(25px) rotate(180deg); }
-    75% { transform: translateY(-20px) rotate(270deg); }
-  }
-
-  @keyframes spiralRotate {
-    from { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(180deg) scale(1.1); }
-    to { transform: rotate(360deg) scale(1); }
   }
 
   .content-wrapper {
@@ -150,7 +72,7 @@ import Item from "../components/Item.astro";
   }
 
   .title {
-    font-size: clamp(3rem, 6vw, 5rem);
+    font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 800;
     margin: 0 0 1.5rem 0;
     line-height: 1.2;
@@ -158,19 +80,13 @@ import Item from "../components/Item.astro";
 
   .title-accent {
     display: inline;
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--brand-color);
     margin-right: 0.5rem;
   }
 
   .title-main {
     display: inline;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
   }
 
   .subtitle {
@@ -296,14 +212,6 @@ import Item from "../components/Item.astro";
       justify-items: center;
       align-items: start;
     }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.25;
-    }
-
-    .genetic-spiral {
-      display: none;
-    }
   }
 
   @media (max-width: 480px) {
@@ -353,12 +261,8 @@ import Item from "../components/Item.astro";
       gap: 1rem;
       align-items: center;
     }
-
-    .orb-1, .orb-2, .orb-3 {
-      opacity: 0.15;
-    }
   }
-  
+
   @media (max-width: 390px) {
     .body {
       padding: 1.5rem 0;
@@ -393,7 +297,7 @@ import Item from "../components/Item.astro";
       margin: 0;
     }
   }
-  
+
   @media (max-width: 375px) {
     .body {
       padding: 1.5rem 0;
