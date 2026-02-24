@@ -9,11 +9,6 @@ const t = useTranslations(Astro.currentLocale);
   <main class="thanks-page">
     <!-- Success Hero Section -->
     <section class="success-hero">
-      <div class="hero-bg-effects">
-        <div class="floating-orb orb-1"></div>
-        <div class="floating-orb orb-2"></div>
-        <div class="floating-orb orb-3"></div>
-      </div>
       <div class="container">
         <div class="success-content">
           <div class="success-icon">
@@ -52,55 +47,6 @@ const t = useTranslations(Astro.currentLocale);
             <div class="eligibility-icon">💡</div>
             <h3>{t.thanks.entrepreneursTitle}</h3>
             <p>{t.thanks.entrepreneursDesc}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Success Stories Section -->
-    <section class="stories-section">
-      <div class="container">
-        <h2>{t.thanks.storiesTitle}</h2>
-        <p class="section-subtitle">{t.thanks.storiesSubtitle}</p>
-
-        <div class="stories-grid">
-          <div class="story-card">
-            <div class="story-content">
-              <div class="quote-icon">"</div>
-              <p>{t.thanks.story1Quote}</p>
-              <div class="story-author">
-                <div class="author-info">
-                  <strong>{t.thanks.story1Author}</strong>
-                  <span>{t.thanks.story1Company}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="story-card">
-            <div class="story-content">
-              <div class="quote-icon">"</div>
-              <p>{t.thanks.story2Quote}</p>
-              <div class="story-author">
-                <div class="author-info">
-                  <strong>{t.thanks.story2Author}</strong>
-                  <span>{t.thanks.story2Company}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="story-card">
-            <div class="story-content">
-              <div class="quote-icon">"</div>
-              <p>{t.thanks.story3Quote}</p>
-              <div class="story-author">
-                <div class="author-info">
-                  <strong>{t.thanks.story3Author}</strong>
-                  <span>{t.thanks.story3Company}</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -225,76 +171,42 @@ const t = useTranslations(Astro.currentLocale);
     overflow: hidden;
     margin-top: clamp(60px, 10vw, 80px);
     padding: clamp(3rem, 6vw, 5rem) 0;
+    background: var(--bg-primary);
   }
 
-  .hero-bg-effects { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-
-  .floating-orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.4; animation: floating 20s ease-in-out infinite; }
-  .orb-1 { width: 300px; height: 300px; background: linear-gradient(135deg, rgba(67, 233, 123, 0.3) 0%, rgba(56, 249, 215, 0.2) 100%); top: 20%; left: 5%; }
-  .orb-2 { width: 220px; height: 220px; background: linear-gradient(135deg, rgba(79, 172, 254, 0.25) 0%, rgba(67, 233, 123, 0.15) 100%); bottom: 20%; right: 10%; animation-delay: -8s; }
-  .orb-3 { width: 160px; height: 160px; background: linear-gradient(135deg, rgba(67, 233, 123, 0.3) 0%, rgba(79, 172, 254, 0.18) 100%); top: 60%; left: 70%; animation-delay: -15s; }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    25% { transform: translateY(-40px) rotate(90deg); }
-    50% { transform: translateY(25px) rotate(180deg); }
-    75% { transform: translateY(-20px) rotate(270deg); }
-  }
-
-  .success-content { position: relative; z-index: 2; text-align: center; }
+  .success-content { text-align: center; }
 
   .success-icon {
     width: 100px; height: 100px; margin: 0 auto 2rem;
-    background: var(--success-gradient); border-radius: 50%;
+    background: var(--brand-color); border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    animation: pulse 2s ease-in-out infinite;
   }
   .success-icon svg { width: 50px; height: 50px; color: white; }
 
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(67, 233, 123, 0.4); }
-    50% { transform: scale(1.05); box-shadow: 0 0 30px 10px rgba(67, 233, 123, 0.2); }
-  }
-
   .success-content h1 {
     font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; margin-bottom: 1.5rem;
-    background: var(--success-gradient); background-clip: text;
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
   }
 
   .success-message { font-size: clamp(1.1rem, 2.5vw, 1.4rem); color: var(--text-secondary); max-width: 700px; margin: 0 auto; line-height: 1.6; }
 
   /* Eligibility Section */
-  .eligibility-section { padding: clamp(3rem, 8vw, 6rem) 0; background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); }
-  .eligibility-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .eligibility-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-secondary); }
+  .eligibility-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); color: var(--text-primary); }
   .eligibility-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: clamp(1.5rem, 3vw, 2rem); }
-  .eligibility-card { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 1rem; padding: clamp(1.5rem, 3vw, 2rem); text-align: center; transition: all 0.3s ease; }
-  .eligibility-card:hover { transform: translateY(-5px); box-shadow: var(--glass-shadow); }
+  .eligibility-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 1rem; padding: clamp(1.5rem, 3vw, 2rem); text-align: center; transition: all 0.3s ease; }
+  .eligibility-card:hover { transform: translateY(-5px); box-shadow: var(--card-shadow-hover); }
   .eligibility-icon { font-size: 2.5rem; margin-bottom: 1rem; }
   .eligibility-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary); }
   .eligibility-card p { color: var(--text-secondary); line-height: 1.6; }
 
-  /* Stories Section */
-  .stories-section { padding: clamp(3rem, 8vw, 6rem) 0; }
-  .stories-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; background: var(--secondary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .section-subtitle { text-align: center; font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); margin-bottom: clamp(2rem, 4vw, 3rem); max-width: 700px; margin-left: auto; margin-right: auto; }
-  .stories-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(1.5rem, 3vw, 2rem); }
-  .story-card { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 1rem; padding: clamp(1.5rem, 3vw, 2rem); transition: all 0.3s ease; }
-  .story-card:hover { transform: translateY(-5px); box-shadow: var(--glass-shadow); }
-  .quote-icon { font-size: 4rem; font-family: Georgia, serif; background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; margin-bottom: -1rem; }
-  .story-content p { color: var(--text-secondary); line-height: 1.6; font-style: italic; margin-bottom: 1.5rem; }
-  .story-author { display: flex; align-items: center; gap: 1rem; }
-  .author-info { display: flex; flex-direction: column; }
-  .author-info strong { color: var(--text-primary); font-weight: 600; }
-  .author-info span { color: var(--text-accent); font-size: 0.9rem; }
-
   /* Clients Section */
-  .clients-section { padding: clamp(3rem, 8vw, 6rem) 0; background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); overflow: hidden; }
-  .clients-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .clients-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-primary); overflow: hidden; }
+  .clients-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); color: var(--text-primary); }
   .logo-carousel { overflow: hidden; position: relative; }
   .logo-carousel::before, .logo-carousel::after { content: ''; position: absolute; top: 0; bottom: 0; width: 100px; z-index: 2; }
-  .logo-carousel::before { left: 0; background: linear-gradient(to right, var(--dark-surface), transparent); }
-  .logo-carousel::after { right: 0; background: linear-gradient(to left, var(--dark-surface), transparent); }
+  .logo-carousel::before { left: 0; background: linear-gradient(to right, var(--bg-primary), transparent); }
+  .logo-carousel::after { right: 0; background: linear-gradient(to left, var(--bg-primary), transparent); }
   .logo-track { display: flex; animation: scroll 20s linear infinite; }
   @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
   .client-logo { flex-shrink: 0; padding: 1rem 3rem; }
@@ -302,10 +214,10 @@ const t = useTranslations(Astro.currentLocale);
   .client-logo:hover .logo-text { opacity: 1; }
 
   /* FAQ Section */
-  .faq-section { padding: clamp(3rem, 8vw, 6rem) 0; }
-  .faq-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .faq-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-secondary); }
+  .faq-section h2 { text-align: center; font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: clamp(2rem, 4vw, 3rem); color: var(--text-primary); }
   .faq-list { max-width: 800px; margin: 0 auto; }
-  .faq-item { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 1rem; margin-bottom: 1rem; overflow: hidden; transition: all 0.3s ease; }
+  .faq-item { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 1rem; margin-bottom: 1rem; overflow: hidden; transition: all 0.3s ease; }
   .faq-question { width: 100%; padding: 1.5rem; background: none; border: none; color: var(--text-primary); font-size: 1.1rem; font-weight: 600; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-family: inherit; }
   .faq-icon { width: 24px; height: 24px; transition: transform 0.3s ease; }
   .faq-item.active .faq-icon { transform: rotate(180deg); }
@@ -314,17 +226,16 @@ const t = useTranslations(Astro.currentLocale);
   .faq-answer p { color: var(--text-secondary); line-height: 1.6; }
 
   /* Contact Section */
-  .contact-section { padding: clamp(3rem, 8vw, 6rem) 0; background: linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-elevated) 100%); text-align: center; }
-  .contact-section h2 { font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; background: var(--success-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .contact-section { padding: clamp(3rem, 8vw, 6rem) 0; background: var(--bg-primary); text-align: center; }
+  .contact-section h2 { font-size: clamp(1.75rem, 5vw, 3rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
   .contact-section > .container > p { font-size: clamp(1rem, 2.5vw, 1.25rem); color: var(--text-secondary); margin-bottom: 2rem; }
   .contact-methods { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
-  .contact-method { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 2rem; background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 0.75rem; text-decoration: none; color: var(--text-primary); transition: all 0.3s ease; }
-  .contact-method:hover { transform: translateY(-3px); box-shadow: var(--glass-shadow); }
+  .contact-method { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 2rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 0.75rem; text-decoration: none; color: var(--text-primary); transition: all 0.3s ease; }
+  .contact-method:hover { transform: translateY(-3px); box-shadow: var(--card-shadow-hover); }
   .contact-icon { font-size: 1.5rem; }
 
   @media (max-width: 480px) {
-    .orb-1, .orb-2, .orb-3 { display: none; }
-    .eligibility-grid, .stories-grid { grid-template-columns: 1fr; }
+    .eligibility-grid { grid-template-columns: 1fr; }
     .success-icon { width: 80px; height: 80px; }
     .success-icon svg { width: 40px; height: 40px; }
   }

@@ -26,7 +26,7 @@ export const es: Translations = {
     title: 'Golden Crow VS - Tecnología para Fitness y Salud',
     // Hero
     heroAccent: 'Golden Crow VS',
-    heroMain: 'Innovación Tecnológica para Fitness y Salud',
+    heroMain: 'Innovación Tecnológica en Fitness y Salud',
     heroSubtitle: 'Desarrollamos tecnología a medida para mejorar operaciones, maximizar ingresos y potenciar el crecimiento de empresas de fitness y salud',
     ctaPrimary: 'Contactanos',
     ctaSecondary: 'Nuestros Proyectos',
@@ -377,7 +377,7 @@ export const es: Translations = {
     federicoName: 'Federico Bustos',
     federicoRole: 'Co-Fundador y Director de Genómica',
     santiagoName: 'Santiago Canosa',
-    santiagoRole: 'Director de Marketing',
+    santiagoRole: 'Director de Crecimiento',
     matiasName: 'Matias Ezcurra',
     matiasRole: 'Ingeniero de Software',
   },
