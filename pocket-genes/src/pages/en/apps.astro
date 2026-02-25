@@ -1,0 +1,548 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SuccessCarousel from '../../components/SuccessCarousel.astro';
+import { useTranslations, getLocalizedPath } from '../../i18n/index';
+import type { Lang } from '../../i18n/ui';
+import { defaultLang } from '../../i18n/ui';
+
+const t = useTranslations(Astro.currentLocale);
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+
+const projects = [
+  {
+    image: t.index.project1Image,
+    title: t.index.project1Title,
+    description: t.index.project1Desc,
+    tags: t.index.project1Tags as unknown as string[],
+    appStoreUrl: t.index.project1AppStore || undefined,
+    googlePlayUrl: t.index.project1GooglePlay || undefined,
+    websiteUrl: t.index.project1Website || undefined,
+  },
+  {
+    image: t.index.project2Image,
+    title: t.index.project2Title,
+    description: t.index.project2Desc,
+    tags: t.index.project2Tags as unknown as string[],
+    appStoreUrl: t.index.project2AppStore || undefined,
+    googlePlayUrl: t.index.project2GooglePlay || undefined,
+    websiteUrl: t.index.project2Website || undefined,
+  },
+  {
+    image: t.index.project3Image,
+    title: t.index.project3Title,
+    description: t.index.project3Desc,
+    tags: t.index.project3Tags as unknown as string[],
+    appStoreUrl: t.index.project3AppStore || undefined,
+    googlePlayUrl: t.index.project3GooglePlay || undefined,
+    websiteUrl: t.index.project3Website || undefined,
+  },
+];
+---
+
+<BaseLayout title={t.landing.title} showNav={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
+  <main class="landing-page">
+    <!-- Section 1: Hero -->
+    <section class="hero-section">
+      <div class="container">
+        <div class="hero-content">
+          <p class="hero-question">{t.landing.heroQuestion}</p>
+          <h1 class="hero-title" set:html={t.landing.heroTitle} />
+          <p class="hero-subtext">{t.landing.heroSubtext}</p>
+          <a href="#booking" class="btn-primary">{t.landing.heroCta}</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Booking -->
+    <section id="booking" class="booking-section">
+      <div class="container">
+        <div class="booking-content">
+          <div class="calendar-wrapper">
+            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Success Stories -->
+    <section class="projects-section" id="projects">
+      <div class="container">
+        <h2>{t.landing.testimonialsTitle}</h2>
+        <p class="section-subtitle">{t.landing.testimonialsSubtitle}</p>
+        <SuccessCarousel projects={projects} />
+      </div>
+    </section>
+
+    <!-- Section 3: Development Process -->
+    <section class="process-section">
+      <div class="container">
+        <h2>{t.index.processTitle}</h2>
+        <div class="process-grid">
+          <div class="process-step">
+            <div class="step-num">01</div>
+            <h4 class="step-title">{t.index.discoveryTitle}</h4>
+            <p class="step-desc">{t.index.discoveryDesc}</p>
+          </div>
+          <div class="process-step">
+            <div class="step-num">02</div>
+            <h4 class="step-title">{t.index.analysisTitle}</h4>
+            <p class="step-desc">{t.index.analysisDesc}</p>
+          </div>
+          <div class="process-step">
+            <div class="step-num">03</div>
+            <h4 class="step-title">{t.index.designTitle}</h4>
+            <p class="step-desc">{t.index.designDesc}</p>
+          </div>
+          <div class="process-step">
+            <div class="step-num">04</div>
+            <h4 class="step-title">{t.index.developmentTitle}</h4>
+            <p class="step-desc">{t.index.developmentDesc}</p>
+          </div>
+          <div class="process-step">
+            <div class="step-num">05</div>
+            <h4 class="step-title">{t.index.testingTitle}</h4>
+            <p class="step-desc">{t.index.testingDesc}</p>
+          </div>
+          <div class="process-step">
+            <div class="step-num">06</div>
+            <h4 class="step-title">{t.index.launchTitle}</h4>
+            <p class="step-desc">{t.index.launchDesc}</p>
+          </div>
+        </div>
+        <div class="process-cta">
+          <a href="#booking" class="btn-primary">{t.landing.heroCta}</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Why Us / Stats -->
+    <section class="why-us-section">
+      <div class="container">
+        <div class="why-us-header">
+          <h2>{t.index.statsTitle}</h2>
+          <p class="why-us-subtitle">{t.index.statsSubtitle}</p>
+        </div>
+
+        <div class="why-us-stats">
+          <div class="why-us-stat">
+            <span class="why-us-stat-number">{t.index.whyUsYearsStat}</span>
+            <span class="why-us-stat-label">{t.index.whyUsYearsLabel}</span>
+          </div>
+          <div class="why-us-stat">
+            <span class="why-us-stat-number">{t.index.whyUsDecadeStat}</span>
+            <span class="why-us-stat-label">{t.index.whyUsDecadeLabel}</span>
+          </div>
+          <div class="why-us-stat">
+            <span class="why-us-stat-number">{t.index.whyUsProjectsStat}</span>
+            <span class="why-us-stat-label">{t.index.whyUsProjectsLabel}</span>
+          </div>
+        </div>
+
+        <div class="why-us-content">
+          <p class="why-us-body">{t.index.whyUsParagraph2}</p>
+          <p class="why-us-accent">{t.index.whyUsParagraph3}</p>
+        </div>
+
+        <div class="why-us-closing">
+          <p class="why-us-offer">{t.index.whyUsClosing}</p>
+          <a href="#booking" class="btn-primary">{t.landing.heroCta}</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: FAQ -->
+    <section class="faq-section">
+      <div class="container">
+        <h2>{t.landing.faqTitle}</h2>
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary>{t.thanks.faq1Question}</summary>
+            <p>{t.thanks.faq1Answer}</p>
+          </details>
+          <details class="faq-item">
+            <summary>{t.thanks.faq2Question}</summary>
+            <p>{t.thanks.faq2Answer}</p>
+          </details>
+          <details class="faq-item">
+            <summary>{t.thanks.faq3Question}</summary>
+            <p>{t.thanks.faq3Answer}</p>
+          </details>
+          <details class="faq-item">
+            <summary>{t.thanks.faq4Question}</summary>
+            <p>{t.thanks.faq4Answer}</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  /* Hero Section */
+  .hero-section {
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: var(--bg-primary);
+    margin-top: 0;
+    padding: clamp(2rem, 4vw, 3.5rem) 0 1rem;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-question {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    font-weight: 500;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 5.5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    max-width: 1100px;
+  }
+
+  .hero-title :global(strong) {
+    color: var(--brand-color);
+    font-weight: 800;
+  }
+
+  .hero-subtext {
+    font-size: clamp(0.85rem, 2vw, 1rem);
+    color: var(--text-secondary);
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    max-width: 600px;
+  }
+
+  .btn-primary {
+    display: inline-block;
+    padding: 1.1rem 2.5rem;
+    border-radius: 60px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    background: var(--brand-color);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--brand-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(64, 37, 239, 0.3);
+  }
+
+  /* Projects / Testimonials Section */
+  .projects-section {
+    padding: clamp(3rem, 8vw, 6rem) 0;
+    background: var(--bg-primary);
+  }
+
+  .projects-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .section-subtitle {
+    text-align: center;
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: var(--text-secondary);
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Process Section */
+  .process-section {
+    padding: clamp(4rem, 10vw, 8rem) 0;
+    background: var(--bg-secondary);
+  }
+
+  .process-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-weight: 700;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    color: var(--text-primary);
+  }
+
+  .process-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    text-align: left;
+  }
+
+  .process-step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.15rem;
+    border-radius: 0.625rem;
+    background: var(--bg-primary);
+    border-top: 3px solid var(--brand-color);
+    transition: all 0.3s ease;
+  }
+
+  .process-step:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 0.375rem;
+    background: var(--brand-color);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  .step-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .step-desc {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .process-cta {
+    text-align: center;
+    margin-top: 2rem;
+  }
+
+  /* Why Us Section */
+  .why-us-section {
+    padding: clamp(4rem, 10vw, 8rem) 0;
+    background: var(--bg-primary);
+  }
+
+  .why-us-header {
+    text-align: center;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  .why-us-header h2 {
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .why-us-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .why-us-stats {
+    display: flex;
+    justify-content: center;
+    gap: clamp(2rem, 5vw, 4rem);
+    padding: clamp(1.5rem, 3vw, 2rem) 0;
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .why-us-stat { text-align: center; flex: 1; }
+
+  .why-us-stat-number {
+    display: block;
+    font-size: clamp(2.5rem, 5vw, 3.5rem);
+    font-weight: 800;
+    color: var(--brand-color);
+    line-height: 1.1;
+  }
+
+  .why-us-stat-label {
+    display: block;
+    font-size: clamp(0.8rem, 1.5vw, 0.95rem);
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    font-weight: 500;
+  }
+
+  .why-us-content {
+    max-width: 800px;
+    margin: 0 auto clamp(2rem, 4vw, 3rem);
+    text-align: center;
+  }
+
+  .why-us-body {
+    font-size: clamp(1rem, 2.5vw, 1.15rem);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .why-us-accent {
+    font-size: clamp(1rem, 2.5vw, 1.15rem);
+    line-height: 1.7;
+    font-weight: 600;
+    color: var(--text-accent);
+    font-style: italic;
+  }
+
+  .why-us-closing {
+    text-align: center;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: clamp(2rem, 4vw, 3rem);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .why-us-offer {
+    font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  /* FAQ Section */
+  .faq-section {
+    padding: clamp(4rem, 10vw, 8rem) 0;
+    background: var(--bg-secondary);
+  }
+
+  .faq-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-weight: 700;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    color: var(--text-primary);
+  }
+
+  .faq-list {
+    max-width: 750px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .faq-item {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .faq-item[open] {
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .faq-item summary {
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    font-size: clamp(1rem, 2.5vw, 1.15rem);
+    color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item summary::after {
+    content: '+';
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: var(--brand-color);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+
+  .faq-item[open] summary::after {
+    transform: rotate(45deg);
+  }
+
+  .faq-item p {
+    padding: 0 1.5rem 1.25rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+  }
+
+  /* Booking Section */
+  .booking-section {
+    padding: 0 0 clamp(3rem, 8vw, 6rem);
+    background: var(--bg-secondary);
+  }
+
+  .booking-content {
+    text-align: center;
+  }
+
+  .calendar-wrapper {
+    background: var(--card-bg);
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    min-height: 600px;
+  }
+
+  .calendar-wrapper iframe {
+    min-height: 550px;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .process-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+
+    .btn-primary {
+      width: 100%;
+      max-width: 280px;
+      text-align: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .why-us-stats { flex-direction: column; gap: 1.5rem; padding: 1.5rem 0; }
+    .process-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+  }
+
+</style>
