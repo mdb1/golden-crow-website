@@ -247,7 +247,7 @@ export const en = {
     clientsTitle: 'Trusted By Industry Leaders',
     faqTitle: 'What To Expect Next',
     faq1Question: 'How does the consultation work?',
-    faq1Answer: "During the 30-minute video call, we'll discuss your app idea in detail, understand your business goals, identify key features, and provide initial recommendations. We'll also explain our development process and answer any questions you have.",
+    faq1Answer: "During the 45-minute video call, we'll discuss your app idea in detail, understand your business goals, identify key features, and provide initial recommendations. We'll also explain our development process and answer any questions you have.",
     faq2Question: 'What should I prepare for the call?',
     faq2Answer: "Think about your app's main purpose, target users, and key features. If you have any reference apps or designs, have them ready to share. Don't worry if you don't have everything figured out - that's what we're here to help with!",
     faq3Question: 'What happens after the consultation?',
@@ -470,6 +470,18 @@ export const en = {
     santiagoRole: 'Chief Revenue Officer',
     matiasName: 'Matias Ezcurra',
     matiasRole: 'Software Engineer',
+  },
+
+  // Landing page (apps)
+  landing: {
+    title: 'Golden Crow VS - Custom App Development',
+    heroQuestion: 'Want to increase your client retention?',
+    heroTitle: 'We build your tracking system to increase retention by <strong>25%</strong> in <strong>90 days</strong>. And we start it for just <strong>10%</strong> of the budget.',
+    heroCta: 'Schedule Free Consultation',
+    heroSubtext: 'Schedule a consultation with our team for free by completing the form below',
+    testimonialsTitle: 'Hear Their Stories',
+    testimonialsSubtitle: 'Real apps, real results. Discover how we\'ve helped companies transform their businesses through mobile technology.',
+    faqTitle: 'Frequently Asked Questions',
   },
 
   // Layout components - Contact (pocket genes page)

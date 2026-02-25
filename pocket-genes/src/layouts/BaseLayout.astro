@@ -6,10 +6,11 @@ import { defaultLang } from '../i18n/ui';
 interface Props {
   title: string;
   showFooter?: boolean;
+  showNav?: boolean;
   extraHeadScripts?: string[];
 }
 
-const { title, showFooter = true, extraHeadScripts = [] } = Astro.props;
+const { title, showFooter = true, showNav = true, extraHeadScripts = [] } = Astro.props;
 const lang = (Astro.currentLocale || defaultLang) as Lang;
 const t = useTranslations(Astro.currentLocale);
 
@@ -50,33 +51,35 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   {extraHeadScripts.map(src => <script src={src} type="text/javascript" />)}
 </head>
 <body>
-  <nav class="main-nav">
-    <div class="nav-container">
-      <div class="logo">
-        <a href={localPath('/')}>
-          <img src="/logo1024.webp" alt="Golden Crow VS Logo" />
-          <span class="logo-text">{t.hero.brand}</span>
-        </a>
-      </div>
-      <button class="mobile-menu-toggle" aria-label="Toggle navigation">
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-      </button>
-      <div class="nav-links">
-        <a href={`${localPath('/')}#about`} class="nav-link">{t.nav.about}</a>
-        <a href={`${localPath('/')}#projects`} class="nav-link">{t.nav.projects}</a>
-        <a href={`${localPath('/')}#why-us`} class="nav-link">{t.nav.whyUs}</a>
-        <a href={`${localPath('/')}#team`} class="nav-link">{t.nav.team}</a>
-        <div class="lang-switcher">
-          <a href={esPath} class:list={['lang-option', { active: lang === 'es' }]}>ES</a>
-          <span class="lang-divider">|</span>
-          <a href={enPath} class:list={['lang-option', { active: lang === 'en' }]}>EN</a>
+  {showNav && (
+    <nav class="main-nav">
+      <div class="nav-container">
+        <div class="logo">
+          <a href={localPath('/')}>
+            <img src="/logo1024.webp" alt="Golden Crow VS Logo" />
+            <span class="logo-text">{t.hero.brand}</span>
+          </a>
         </div>
-        <a href={`${localPath('/')}#booking`} class="nav-cta">{t.nav.contact}</a>
+        <button class="mobile-menu-toggle" aria-label="Toggle navigation">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+        <div class="nav-links">
+          <a href={`${localPath('/')}#about`} class="nav-link">{t.nav.about}</a>
+          <a href={`${localPath('/')}#projects`} class="nav-link">{t.nav.projects}</a>
+          <a href={`${localPath('/')}#why-us`} class="nav-link">{t.nav.whyUs}</a>
+          <a href={`${localPath('/')}#team`} class="nav-link">{t.nav.team}</a>
+          <div class="lang-switcher">
+            <a href={esPath} class:list={['lang-option', { active: lang === 'es' }]}>ES</a>
+            <span class="lang-divider">|</span>
+            <a href={enPath} class:list={['lang-option', { active: lang === 'en' }]}>EN</a>
+          </div>
+          <a href={`${localPath('/')}#booking`} class="nav-cta">{t.nav.contact}</a>
+        </div>
       </div>
-    </div>
-  </nav>
+    </nav>
+  )}
 
   <slot />
 
