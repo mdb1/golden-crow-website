@@ -249,7 +249,7 @@ export const es: Translations = {
     clientsTitle: 'Confiado por Líderes de la Industria',
     faqTitle: 'Qué Esperar a Continuación',
     faq1Question: '¿Cómo funciona la consulta?',
-    faq1Answer: 'Durante la videollamada de 45 minutos, discutiremos tu idea de app en detalle, entenderemos tus objetivos de negocio, identificaremos funcionalidades clave y te daremos recomendaciones iniciales. También explicaremos nuestro proceso de desarrollo y responderemos todas tus preguntas.',
+    faq1Answer: 'Durante la videollamada de 30 minutos, discutiremos tu idea de app en detalle, entenderemos tus objetivos de negocio, identificaremos funcionalidades clave y te daremos recomendaciones iniciales. También explicaremos nuestro proceso de desarrollo y responderemos todas tus preguntas.',
     faq2Question: '¿Qué debo preparar para la llamada?',
     faq2Answer: 'Pensá en el propósito principal de tu app, los usuarios objetivo y las funcionalidades clave. Si tenés apps de referencia o diseños, tenelos listos para compartir. No te preocupes si no tenés todo resuelto - ¡para eso estamos!',
     faq3Question: '¿Qué pasa después de la consulta?',
@@ -477,7 +477,7 @@ export const es: Translations = {
   // Landing page (apps)
   landing: {
     title: 'Golden Crow VS - Desarrollo de Apps y Software a Medida',
-    heroQuestion: '¿Querés aumentar la retención de tus clientes?',
+    heroQuestion: '¿Quieres desarrollar un software o una aplicación?',
     heroTitle: 'Desarrollamos Su Propio Software O Aplicación A Medida En Sólo <strong>90 Días</strong> Y Lo Iniciamos Por Sólo El <strong>10%</strong> Del Presupuesto',
     heroCta: 'Agendar Consultoría Gratuita',
     heroSubtext: 'Agendá una consultoría con nuestro equipo de forma gratuita completando el formulario debajo',
