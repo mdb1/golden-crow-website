@@ -476,7 +476,7 @@ export const en = {
   landing: {
     title: 'Golden Crow VS - Custom App Development',
     heroQuestion: 'Want to increase your client retention?',
-    heroTitle: 'We build your tracking system to increase retention by <strong>25%</strong> in <strong>90 days</strong>. And we start it for just <strong>10%</strong> of the budget.',
+    heroTitle: 'We Build Your Custom Software Or App In Just <strong>90 Days</strong> And Start It For Just <strong>10%</strong> Of The Budget',
     heroCta: 'Schedule Free Consultation',
     heroSubtext: 'Schedule a consultation with our team for free by completing the form below',
     testimonialsTitle: 'Hear Their Stories',

@@ -478,7 +478,7 @@ export const es: Translations = {
   landing: {
     title: 'Golden Crow VS - Desarrollo de Apps y Software a Medida',
     heroQuestion: '¿Querés aumentar la retención de tus clientes?',
-    heroTitle: 'Desarrollamos tu sistema de seguimiento para aumentar un <strong>25%</strong> la retención en <strong>90 días</strong>. Y lo iniciamos por sólo el <strong>10%</strong> del presupuesto.',
+    heroTitle: 'Desarrollamos Su Propio Software O Aplicación A Medida En Sólo <strong>90 Días</strong> Y Lo Iniciamos Por Sólo El <strong>10%</strong> Del Presupuesto',
     heroCta: 'Agendar Consultoría Gratuita',
     heroSubtext: 'Agendá una consultoría con nuestro equipo de forma gratuita completando el formulario debajo',
     testimonialsTitle: 'Escuchá Sus Historias',
