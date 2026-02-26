@@ -472,6 +472,14 @@ export const es: Translations = {
     santiagoRole: 'Director Comercial',
     matiasName: 'Matias Ezcurra',
     matiasRole: 'Ingeniero de Software',
+    leonardoName: 'Leonardo Saqueta',
+    leonardoRole: 'Product Manager',
+    lucioName: 'Lucio Filetto',
+    lucioRole: 'Ingeniero de Software Sr',
+    marcoName: 'Marco Filetto',
+    marcoRole: 'Ingeniero de Software Sr',
+    sebastianName: 'Sebastian Posadas',
+    sebastianRole: 'Ingeniero de Software Sr',
   },
 
   // Landing page (apps)
