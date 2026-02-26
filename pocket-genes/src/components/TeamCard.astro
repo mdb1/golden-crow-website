@@ -206,7 +206,10 @@ const {src, alt, text, description, skills = [], linkedinUrl} = Astro.props
         }
 
         .image-card {
-            height: 250px;
+            height: auto;
+            max-height: 300px;
+            object-fit: contain;
+            object-position: center;
         }
 
         .member-name {
@@ -239,10 +242,6 @@ const {src, alt, text, description, skills = [], linkedinUrl} = Astro.props
 
         .team-card:hover {
             transform: translateY(-6px);
-        }
-
-        .image-card {
-            height: 220px;
         }
 
         .member-name {
@@ -291,10 +290,6 @@ const {src, alt, text, description, skills = [], linkedinUrl} = Astro.props
             margin: 0 auto;
         }
 
-        .image-card {
-            height: 200px;
-        }
-
         .member-name {
             font-size: 1.2rem;
         }
@@ -319,10 +314,6 @@ const {src, alt, text, description, skills = [], linkedinUrl} = Astro.props
             max-width: 260px;
             width: 260px;
             margin: 0 auto;
-        }
-
-        .image-card {
-            height: 180px;
         }
 
         .member-name {
@@ -358,7 +349,6 @@ const {src, alt, text, description, skills = [], linkedinUrl} = Astro.props
         }
 
         .image-card {
-            height: 160px;
             border-radius: 1rem;
         }
 
