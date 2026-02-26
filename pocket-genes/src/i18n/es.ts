@@ -467,7 +467,7 @@ export const es: Translations = {
     manuelName: 'Manuel Herrera',
     manuelRole: 'Fundador y CEO',
     federicoName: 'Federico Bustos',
-    federicoRole: 'Co-Fundador y Director de Genómica',
+    federicoRole: 'Co-Fundador y CTO',
     santiagoName: 'Santiago Canosa',
     santiagoRole: 'Director Comercial',
     matiasName: 'Matias Ezcurra',
