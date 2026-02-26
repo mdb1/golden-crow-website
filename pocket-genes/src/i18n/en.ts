@@ -470,6 +470,16 @@ export const en = {
     santiagoRole: 'Chief Revenue Officer',
     matiasName: 'Matias Ezcurra',
     matiasRole: 'Software Engineer',
+    leonardoName: 'Leonardo Saqueta',
+    leonardoRole: 'Product Manager',
+    lucioName: 'Lucio Filetto',
+    lucioRole: 'Sr Software Engineer',
+    marcoName: 'Marco Filetto',
+    marcoRole: 'Sr Software Engineer',
+    sebastianName: 'Sebastian Posadas',
+    sebastianRole: 'Sr Software Engineer',
+    nicolasName: 'Nicolas Carba',
+    nicolasRole: 'Sr Data Engineer',
   },
 
   // Landing page (apps)
