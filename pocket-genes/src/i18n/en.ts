@@ -478,6 +478,8 @@ export const en = {
     marcoRole: 'Sr Software Engineer',
     sebastianName: 'Sebastian Posadas',
     sebastianRole: 'Sr Software Engineer',
+    nicolasName: 'Nicolas Carba',
+    nicolasRole: 'Sr Data Engineer',
   },
 
   // Landing page (apps)

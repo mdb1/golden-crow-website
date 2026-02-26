@@ -480,6 +480,8 @@ export const es: Translations = {
     marcoRole: 'Ingeniero de Software Sr',
     sebastianName: 'Sebastian Posadas',
     sebastianRole: 'Ingeniero de Software Sr',
+    nicolasName: 'Nicolas Carba',
+    nicolasRole: 'Ingeniero de Datos Sr',
   },
 
   // Landing page (apps)
