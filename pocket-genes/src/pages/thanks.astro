@@ -145,6 +145,12 @@ const t = useTranslations(Astro.currentLocale);
 </BaseLayout>
 
 <script>
+  if (typeof fbq !== 'undefined') {
+    fbq('track', 'Schedule');
+  }
+</script>
+
+<script>
   document.addEventListener('DOMContentLoaded', function() {
     // FAQ accordion
     const faqItems = document.querySelectorAll('.faq-item');
