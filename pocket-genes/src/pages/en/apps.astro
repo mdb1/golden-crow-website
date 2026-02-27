@@ -546,3 +546,51 @@ const projects = [
   }
 
 </style>
+
+<script is:inline>
+  // 1. ViewContent — user arrived at the landing page
+  if (typeof fbq !== 'undefined') {
+    fbq('track', 'ViewContent', {
+      content_name: 'Apps Landing Page',
+      content_category: 'Landing Page'
+    });
+  }
+
+  // 2. Lead — user clicked "Book a consultation" CTA
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a.btn-primary[href="#booking"]');
+    if (link && typeof fbq !== 'undefined') {
+      fbq('track', 'Lead', {
+        content_name: 'Book Consultation CTA',
+        content_category: 'Apps Landing Page'
+      });
+    }
+  });
+
+  // 3. Section visibility tracking — understand which sections users reach
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof IntersectionObserver === 'undefined' || typeof fbq === 'undefined') return;
+
+    var sections = [
+      { el: document.getElementById('booking'), name: 'Booking', event: 'BookingSectionViewed' },
+      { el: document.getElementById('projects'), name: 'Success Stories', event: 'SectionViewed' },
+      { el: document.querySelector('.process-section'), name: 'Development Process', event: 'SectionViewed' },
+      { el: document.querySelector('.why-us-section'), name: 'Why Us', event: 'SectionViewed' },
+      { el: document.querySelector('.faq-section'), name: 'FAQ', event: 'SectionViewed' },
+    ];
+
+    sections.forEach(function(section) {
+      if (!section.el) return;
+      var observer = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          fbq('trackCustom', section.event, {
+            section_name: section.name,
+            content_category: 'Apps Landing Page'
+          });
+        }
+      }, { threshold: 0.3 });
+      observer.observe(section.el);
+    });
+  });
+</script>
