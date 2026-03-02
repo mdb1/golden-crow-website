@@ -38,6 +38,17 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title}</title>
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={title} />
+  <meta property="og:url" content={`${siteBase}${Astro.url.pathname}`} />
+  <meta property="og:image" content={`${siteBase}/android-chrome-512x512.png`} />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:image" content={`${siteBase}/android-chrome-512x512.png`} />
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -512,4 +523,15 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
       });
     }
   });
+
+  // Re-scroll to hash target after layout settles (fixes race condition on
+  // initial page load where async content like iframes shift the layout).
+  if (location.hash) {
+    const scrollToHash = () => {
+      const el = document.querySelector(location.hash);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    };
+    // Wait for the page to fully load (images, iframes, etc.)
+    window.addEventListener('load', () => setTimeout(scrollToHash, 400));
+  }
 </script>
