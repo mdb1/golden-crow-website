@@ -1,175 +1,97 @@
-# 🌌 Golden Crow Website
+# Golden Crow Website
 
-Live site: https://goldencrowvs.com/
+Monorepo containing the Golden Crow marketing site, backoffice admin dashboard, and backend SDK.
 
----
+## Live URLs
 
-## 🛠 Prerequisites
+| App | URL |
+|-----|-----|
+| Website | https://goldencrowvs.com |
+| Backoffice | https://golden-crow-backoffice.vercel.app |
+| SDK | https://golden-crow-sdk.vercel.app |
 
-- Node.js 18 or newer (check with: node -v)
-- npm (check with: npm -v)
+## Project Structure
 
----
+```
+golden-crow-website/
+├── pocket-genes/      # Astro static marketing site (GitHub Pages)
+├── backoffice/        # Next.js 16 admin dashboard (Vercel)
+├── goldencrow-sdk/    # Fastify 5 BFF server (Vercel)
+└── .github/workflows/ # CI/CD for GitHub Pages
+```
 
-## 🧞 Quick Start (Local Development)
+## Prerequisites
 
-1) Clone and enter the project  
-git clone https://github.com/Federico0812/golden-crow-web.git  
-cd golden-crow-web/pocket-genes  
+- Node.js 18+
+- npm
 
-2) Install dependencies  
-npm install  
+## Local Development
 
-3) Run the dev server  
-npm run dev  
-Open http://localhost:4321  
+Run all three in separate terminals:
 
-4) Build for production  
-npm run build  
-Output goes to pocket-genes/dist  
+```bash
+# Terminal 1 — SDK (must start first)
+cd goldencrow-sdk
+npm install
+npm run dev
+# Runs on http://localhost:4000
 
-5) Preview the production build  
-npm run preview  
+# Terminal 2 — Backoffice
+cd backoffice
+npm install
+npm run dev
+# Runs on http://localhost:3001
 
-To stop any running server: press Ctrl + C in the terminal.
+# Terminal 3 — Website (optional)
+cd pocket-genes
+npm install
+npm run dev
+# Runs on http://localhost:4321
+```
 
----
+## Environment Variables
 
-## 🧰 Useful Commands (run in pocket-genes/)
+### goldencrow-sdk/.env
 
-| Command           | Description                                       |
-| ----------------- | ------------------------------------------------- |
-| npm install       | Install dependencies                              |
-| npm run dev       | Start dev server at http://localhost:4321         |
-| npm run build     | Build to ./dist                                   |
-| npm run preview   | Preview the built site locally                    |
-| npm run astro -- --help | Astro CLI help                             |
+| Variable | Value |
+|----------|-------|
+| `FIREBASE_ADMIN_PROJECT_ID` | `goldencrow-pocketgenes` |
+| `FIREBASE_ADMIN_CLIENT_EMAIL` | `firebase-adminsdk-fbsvc@goldencrow-pocketgenes.iam.gserviceaccount.com` |
+| `FIREBASE_ADMIN_PRIVATE_KEY` | Firebase service account private key |
+| `FIREBASE_WEB_API_KEY` | `AIzaSyCTiL_RwICvnngYEqE721_MwVmDqGyYZ64` |
+| `TEAM_ALLOWLIST` | Comma-separated admin emails |
+| `PORT` | `4000` (local) |
+| `NODE_ENV` | `development` (local) / `production` (Vercel) |
+| `BACKOFFICE_ORIGIN` | `http://localhost:3001` (local) / `https://golden-crow-backoffice.vercel.app` (Vercel) |
 
----
+### backoffice/.env.local
 
-## 🌍 Deploying to GitHub Pages (CI/CD)
+| Variable | Value |
+|----------|-------|
+| `NEXTAUTH_URL` | `http://localhost:3001` (local) / `https://golden-crow-backoffice.vercel.app` (Vercel) |
+| `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | `AIzaSyCTiL_RwICvnngYEqE721_MwVmDqGyYZ64` |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | `goldencrow-pocketgenes.firebaseapp.com` |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `goldencrow-pocketgenes` |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | `goldencrow-pocketgenes.firebasestorage.app` |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `355295584619` |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | `1:355295584619:web:1b3eb5bd34a4cc03da6c2e` |
+| `NEXT_PUBLIC_SDK_URL` | `http://localhost:4000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
+| `GOLDENCROW_SDK_URL` | `http://localhost:4000` (local) / `https://golden-crow-sdk.vercel.app` (Vercel, no trailing slash) |
 
-This repository deploys via GitHub Actions from the `main` branch. Because the Astro app sits in `pocket-genes/`, the workflow runs there and then uploads `pocket-genes/dist`.
+Copy from the `.env.example` / `.env.local.example` files and fill in the values.
 
-1) Confirm Astro base path for Pages subpath
+## Deployment
 
-Open `pocket-genes/astro.config.mjs` and ensure:
+### Website (pocket-genes)
+Deployed automatically to **GitHub Pages** on push to `main` via `.github/workflows/deploy.yml`.
 
-    import { defineConfig } from 'astro/config';
-    export default defineConfig({
-      base: '/golden-crow-web/',
-      output: 'static',
-    });
+### Backoffice & SDK
+Both deployed on **Vercel** as separate projects from the same repo:
+- Backoffice: root directory set to `backoffice`
+- SDK: root directory set to `goldencrow-sdk`
 
-2) Ensure workflow exists at repo root: `.github/workflows/deploy.yml`
+Set the environment variables listed above in each Vercel project's settings. Make sure the SDK URLs on the backoffice project have **no trailing slash**.
 
-    name: Deploy to GitHub Pages
-
-    on:
-      push:
-        branches: [main]
-
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    defaults:
-      run:
-        working-directory: pocket-genes
-
-    jobs:
-      deploy:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Checkout source code
-            uses: actions/checkout@v4
-
-          - name: Setup Node.js
-            uses: actions/setup-node@v4
-            with:
-              node-version: 18
-
-          - name: Install dependencies
-            run: npm install
-
-          - name: Build Astro site
-            run: npm run build
-
-          - name: Upload artifact
-            uses: actions/upload-pages-artifact@v3
-            with:
-              path: pocket-genes/dist
-
-          - name: Deploy to GitHub Pages
-            uses: actions/deploy-pages@v4
-
-3) In GitHub → Settings → Pages
-   - Build and deployment → Source: GitHub Actions
-
-4) Deploy
-   - Commit and push to `main`
-   - Watch the run at: https://github.com/Federico0812/golden-crow-web/actions
-   - When green, your site updates at: https://federico0812.github.io/golden-crow-web/
-
----
-
-## 🧩 Customizing Images
-
-To use different hero/section images, edit these files:
-
-- `src/layouts/Hero.astro` (two images: classes `img1`, `img2`)
-- `src/layouts/AboutUs.astro` (four image slots)
-- `src/layouts/Experience.astro` (images passed to `<ExperienceCard ... src="...">`)
-
-Example change in Hero.astro:
-
-    <div class="hero-images">
-      <img src="mobile3.png" alt="Pocket Genes App" class="img1" />
-      <img src="mobile4.png" alt="Pocket Genes Mobile" class="img2" />
-    </div>
-
-Make sure the referenced files exist under `public/`.
-
----
-
-## 🧹 Browser Cache Gotcha
-
-If you’ve deployed but still see old images/text:
-- Hard refresh the page:
-  - macOS: Cmd + Shift + R
-  - Windows: Ctrl + Shift + R
-- Or open the site in a private/incognito window.
-
----
-
-## 🧪 Troubleshooting CI
-
-- Workflow fails on “npm ci”
-  - Switch to `npm install` (already done above) or commit `package-lock.json`.
-
-- Workflow runs but site shows old version
-  - The deploy finished, but your browser cached assets. See “Browser Cache Gotcha”.
-
-- Images 404 on Pages
-  - Ensure they live in `pocket-genes/public/` and paths in `.astro` are correct (e.g., `/mobile2.png`).
-
-- Workflow not detected
-  - Confirm the file path is `.github/workflows/deploy.yml` at the **repository root** (not inside `pocket-genes/`).
-
----
-
-## 📚 Reference
-
-This site started from the Astro “Basics” template.
-
-Create a new Astro basics project:
-    npm create astro@latest -- --template basics
-
-Astro docs:
-- https://docs.astro.build
-- Deployment to GitHub Pages: https://docs.astro.build/en/guides/deploy/github/
-
----
-
-© Golden Crow VS — Pocket Genes
+### Firebase Setup
+Add `golden-crow-backoffice.vercel.app` and `golden-crow-sdk.vercel.app` to Firebase Console > Authentication > Settings > Authorized domains.
