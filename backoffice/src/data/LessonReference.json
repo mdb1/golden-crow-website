@@ -1,0 +1,2665 @@
+{
+  "subjects": [
+    {
+      "subjectIdentifier": "A",
+      "subjectTitle": "Population Genomics",
+      "chapters": [
+        {
+          "chapterTitle": "Chapter A1: DNA Basics and Population Genetics",
+          "lessons": [
+            {
+              "lessonIdentifier": "A1.1",
+              "lessonTitle": "Introduction to Gene and Genotype Frequencies",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.2",
+              "lessonTitle": "Allele Frequencies: Definition and Calculation",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.3",
+              "lessonTitle": "Genotype Frequencies in Populations",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.4",
+              "lessonTitle": "Relationship Between Allele and Genotype Frequencies",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.5",
+              "lessonTitle": "The Hardy\u2013Weinberg Principle",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.6",
+              "lessonTitle": "Predicting Genotype Frequencies at Equilibrium",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.7",
+              "lessonTitle": "Worked Example: Calculating Frequencies",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.8",
+              "lessonTitle": "Practical Case: Flower Color in Populations",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.9",
+              "lessonTitle": "Why Gene and Genotype Frequencies Matter",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A1.10",
+              "lessonTitle": "Conclusions on Frequency Analysis",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 2: Genes and Expression",
+          "lessons": [
+            {
+              "lessonIdentifier": "A2.1",
+              "lessonTitle": "Genes and Proteins",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.2",
+              "lessonTitle": "Regulation of Gene Expression",
+              "imageURL": null,
+              "lessonColor": "#7B68EE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.3",
+              "lessonTitle": "Fundamentals of Gametic Disequilibrium",
+              "imageURL": null,
+              "lessonColor": "#FF7F50",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.4",
+              "lessonTitle": "Causes of Gametic Disequilibrium",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.5",
+              "lessonTitle": "Measuring Disequilibrium with Statistical Tools",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.6",
+              "lessonTitle": "Indices of Disequilibrium: D, D\u2019 and r\u00b2",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.7",
+              "lessonTitle": "Multilocus Linkage Disequilibrium",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.8",
+              "lessonTitle": "Computational Tools and Poppr in R",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.9",
+              "lessonTitle": "Genomic Studies and Practical Applications",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A2.10",
+              "lessonTitle": "Implications for Evolution and Conservation",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 3: Chromosomes and Mutations",
+          "lessons": [
+            {
+              "lessonIdentifier": "A3.1",
+              "lessonTitle": "Chromosome Structure and Variability",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.2",
+              "lessonTitle": "Types of Mutations and Their Effects",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.3",
+              "lessonTitle": "Measuring Genetic Variability",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.4",
+              "lessonTitle": "Allelic Richness and Rarefaction Methods",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.5",
+              "lessonTitle": "Heterozygosity and Population Structure",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.6",
+              "lessonTitle": "Genetic Distance: Nei, Rogers and Others",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.7",
+              "lessonTitle": "Use of Matrices and Dendrograms",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.8",
+              "lessonTitle": "Markers: SNPs, SSRs and AFLPs",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.9",
+              "lessonTitle": "Haplotypes and Their Diversity",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A3.10",
+              "lessonTitle": "Indices and Implications for Evolution",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 4: Inbreeding and Genetic Consequences",
+          "lessons": [
+            {
+              "lessonIdentifier": "A4.1",
+              "lessonTitle": "Definition and Basic Concepts of Inbreeding",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.2",
+              "lessonTitle": "Identity by Descent and Identity by State",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.3",
+              "lessonTitle": "Homozygosity versus Autozygosity",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.4",
+              "lessonTitle": "The Inbreeding Coefficient (F)",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.5",
+              "lessonTitle": "Pedigree-Based Calculation of Inbreeding",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.6",
+              "lessonTitle": "Molecular Estimation of Inbreeding",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.7",
+              "lessonTitle": "Inbreeding Depression and Fitness Effects",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.8",
+              "lessonTitle": "Inbreeding and Population Structure",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.9",
+              "lessonTitle": "Role of Gene Flow and Conservation Strategies",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A4.10",
+              "lessonTitle": "Molecular Markers and IBD Detection",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 5: Selection and Genetic Interactions",
+          "lessons": [
+            {
+              "lessonIdentifier": "A5.1",
+              "lessonTitle": "Natural Selection and Fitness",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.2",
+              "lessonTitle": "Deleterious Alleles and Purifying Selection",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.3",
+              "lessonTitle": "Directional and Progressive Selection",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.4",
+              "lessonTitle": "Balancing Selection and Heterozygote Advantage",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.5",
+              "lessonTitle": "Equilibrium Points and Stability",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.6",
+              "lessonTitle": "Classic Examples in Selection",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.7",
+              "lessonTitle": "Alternative Models of Selection",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.8",
+              "lessonTitle": "Fundamental Theorem of Natural Selection",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.9",
+              "lessonTitle": "Trends of \u0394q and Fixation Speed",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A5.10",
+              "lessonTitle": "Interactions: Mutation, Migration, and Inbreeding",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 6: Genetic Drift and Interactions",
+          "lessons": [
+            {
+              "lessonIdentifier": "A6.1",
+              "lessonTitle": "Genetic Drift as a Random Evolutionary Process",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.2",
+              "lessonTitle": "Role of Population Size and Effective Population (Ne)",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.3",
+              "lessonTitle": "Wright\u2013Fisher Models and Absorbing States",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.4",
+              "lessonTitle": "Loss of Heterozygosity and the Wahlund Effect",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.5",
+              "lessonTitle": "Founder Effects and Population Bottlenecks",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.6",
+              "lessonTitle": "Probability of Fixation and Drift\u2013Mutation Balance",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.7",
+              "lessonTitle": "Migration, Drift and Models of Population Structure",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.8",
+              "lessonTitle": "Isolation by Distance and Neighborhood Size",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.9",
+              "lessonTitle": "Classical vs Balanced Models of Variability",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A6.10",
+              "lessonTitle": "Neutral Theory of Kimura and Molecular Substitutions",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 7: Population Structure",
+          "lessons": [
+            {
+              "lessonIdentifier": "A7.1",
+              "lessonTitle": "Concept of Population Structure",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.2",
+              "lessonTitle": "Wright\u2019s Fixation Indices (FIS, FST, FIT)",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.3",
+              "lessonTitle": "Molecular Analysis of Variance (AMOVA)",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.4",
+              "lessonTitle": "Multilocus Genotype-Based Methods",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.5",
+              "lessonTitle": "Model-Based Approaches: STRUCTURE and Beyond",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.6",
+              "lessonTitle": "Comparison of STRUCTURE vs DAPC",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.7",
+              "lessonTitle": "Bayesian Inference and Population Assignment",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.8",
+              "lessonTitle": "Hardy\u2013Weinberg Equilibrium and Deviations",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.9",
+              "lessonTitle": "The Wahlund Effect and Heterozygosity Reduction",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A7.10",
+              "lessonTitle": "Applications in Biodiversity and Conservation",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 8: Quantitative Genetics",
+          "lessons": [
+            {
+              "lessonIdentifier": "A8.1",
+              "lessonTitle": "Phenotypic Variance and Its Decomposition",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.2",
+              "lessonTitle": "Additive, Dominance and Epistatic Variance",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.3",
+              "lessonTitle": "Heritability: Broad Sense vs Narrow Sense",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.4",
+              "lessonTitle": "Normal Distribution and Quantitative Traits",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.5",
+              "lessonTitle": "Repeatability and Predictability of Traits",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.6",
+              "lessonTitle": "Breeding Value and Progeny Testing",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.7",
+              "lessonTitle": "Dominance Deviation and Its Role in Genetics",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.8",
+              "lessonTitle": "Epistasis and Genetic Interactions",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.9",
+              "lessonTitle": "Genotype \u00d7 Environment Interactions",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A8.10",
+              "lessonTitle": "Quantitative Prediction: BLUP and Selection",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 9: QST and QTL Analyses",
+          "lessons": [
+            {
+              "lessonIdentifier": "A9.1",
+              "lessonTitle": "Foundations of Genetic Differentiation: FST and QST",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.2",
+              "lessonTitle": "Partitioning Genetic Variance and the Role of AMOVA",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.3",
+              "lessonTitle": "Comparing FST and QST to Detect Natural Selection",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.4",
+              "lessonTitle": "Quantitative Trait Loci (QTL): Concepts and Importance",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.5",
+              "lessonTitle": "Molecular Markers and Linkage in QTL Mapping",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.6",
+              "lessonTitle": "Methods of QTL Mapping: SMA, SIM and LOD Score",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.7",
+              "lessonTitle": "Fine Mapping with RILs, NILs and Related Strategies",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.8",
+              "lessonTitle": "Bulked Segregant Analysis (BSA) and Its Applications",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.9",
+              "lessonTitle": "QST vs QTL: Linking Differentiation to Trait Mapping",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A9.10",
+              "lessonTitle": "Applications of QST and QTL in Evolution and Breeding",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 10: Genome-Wide Association Studies (GWAS)",
+          "lessons": [
+            {
+              "lessonIdentifier": "A10.1",
+              "lessonTitle": "Introduction to GWAS and Candidate Gene Approaches",
+              "imageURL": null,
+              "lessonColor": "#FF6F61",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.2",
+              "lessonTitle": "Association Mapping Populations and Germplasm",
+              "imageURL": null,
+              "lessonColor": "#FF9F40",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.3",
+              "lessonTitle": "Genotyping and Use of Molecular Markers",
+              "imageURL": null,
+              "lessonColor": "#FFD700",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.4",
+              "lessonTitle": "Population Structure and Kinship Corrections",
+              "imageURL": null,
+              "lessonColor": "#20B2AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.5",
+              "lessonTitle": "Phenotyping for Complex Traits",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.6",
+              "lessonTitle": "Linkage Disequilibrium and Historical Recombination",
+              "imageURL": null,
+              "lessonColor": "#32CD32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.7",
+              "lessonTitle": "Statistical Models: GLM, MLM, and Mixed Approaches",
+              "imageURL": null,
+              "lessonColor": "#8A2BE2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.8",
+              "lessonTitle": "Multiple Testing Corrections and Significance Thresholds",
+              "imageURL": null,
+              "lessonColor": "#FF4500",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.9",
+              "lessonTitle": "Multivariate Analyses, DAPC, and Manhattan Plots",
+              "imageURL": null,
+              "lessonColor": "#4682B4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "A10.10",
+              "lessonTitle": "Validation of Associations and Biological Interpretation",
+              "imageURL": null,
+              "lessonColor": "#DC143C",
+              "paragraphs": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subjectIdentifier": "B",
+      "subjectTitle": "Genomic Medicine",
+      "chapters": [
+        {
+          "chapterTitle": "Chapter 1: Introduction to Genetic Risk",
+          "lessons": [
+            {
+              "lessonIdentifier": "B1.1",
+              "lessonTitle": "Genetic Variants",
+              "imageURL": "https://example.com/images/genetic_variants.png",
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "B1.2",
+              "lessonTitle": "Polygenic Risk Scores",
+              "imageURL": "https://example.com/images/polygenic.png",
+              "lessonColor": "#FFD54F",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 2: Pharmacogenomics",
+          "lessons": [
+            {
+              "lessonIdentifier": "B2.1",
+              "lessonTitle": "Genetics and Drug Response",
+              "imageURL": "https://example.com/images/pharmacogenomics.png",
+              "lessonColor": "#4DD0E1",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "B2.2",
+              "lessonTitle": "Personalized Medicine",
+              "imageURL": "https://example.com/images/personalized_medicine.png",
+              "lessonColor": "#81C784",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 3: Genetic Counseling",
+          "lessons": [
+            {
+              "lessonIdentifier": "B3.1",
+              "lessonTitle": "Role of a Genetic Counselor",
+              "imageURL": "https://example.com/images/counselor.png",
+              "lessonColor": "#9575CD",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "B3.2",
+              "lessonTitle": "Ethical Considerations",
+              "imageURL": "https://example.com/images/ethics.png",
+              "lessonColor": "#A1887F",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 4: Rare Diseases",
+          "lessons": [
+            {
+              "lessonIdentifier": "B4.1",
+              "lessonTitle": "Genetic Basis of Rare Disorders",
+              "imageURL": "https://example.com/images/rare_disorders.png",
+              "lessonColor": "#FF7043",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "B4.2",
+              "lessonTitle": "Diagnosis Challenges",
+              "imageURL": "https://example.com/images/diagnosis.png",
+              "lessonColor": "#D4E157",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 5: Future of Genomic Medicine",
+          "lessons": [
+            {
+              "lessonIdentifier": "B5.1",
+              "lessonTitle": "AI in Genomics",
+              "imageURL": "https://example.com/images/ai_genomics.png",
+              "lessonColor": "#FFB74D",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "B5.2",
+              "lessonTitle": "Gene Editing",
+              "imageURL": "https://example.com/images/gene_editing.png",
+              "lessonColor": "#E57373",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "B5.3",
+              "lessonTitle": "CRISPR Technology",
+              "imageURL": "https://example.com/images/crispr.png",
+              "lessonColor": "#64B5F6",
+              "paragraphs": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subjectIdentifier": "C",
+      "subjectTitle": "Genetics and Health",
+      "chapters": [
+        {
+          "chapterTitle": "Chapter 1: Health, Fitness, and Ancestry Insights",
+          "lessons": [
+            {
+              "lessonIdentifier": "C1.1",
+              "lessonTitle": "Genetic Traits and Health Reports",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C1.2",
+              "lessonTitle": "Genetics and Personalized Fitness",
+              "imageURL": null,
+              "lessonColor": "#FFD54F",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C1.3",
+              "lessonTitle": "Genetics in Skincare Routines",
+              "imageURL": null,
+              "lessonColor": "#4DD0E1",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C1.4",
+              "lessonTitle": "Markers of Health Risks",
+              "imageURL": null,
+              "lessonColor": "#81C784",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C1.5",
+              "lessonTitle": "Tracking Ancestry with Genetics",
+              "imageURL": null,
+              "lessonColor": "#9575CD",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 2: Genetic Predispositions and Lifestyle",
+          "lessons": [
+            {
+              "lessonIdentifier": "C2.1",
+              "lessonTitle": "Predisposition to Health Risks",
+              "imageURL": null,
+              "lessonColor": "#A1887F",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C2.2",
+              "lessonTitle": "Genes and Exercise Response",
+              "imageURL": null,
+              "lessonColor": "#FF7043",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C2.3",
+              "lessonTitle": "Skincare Personalization by Genetics",
+              "imageURL": null,
+              "lessonColor": "#D4E157",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C2.4",
+              "lessonTitle": "Family Health History through Genetics",
+              "imageURL": null,
+              "lessonColor": "#FFB74D",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C2.5",
+              "lessonTitle": "Metabolism and Nutrition Needs",
+              "imageURL": null,
+              "lessonColor": "#E57373",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 3: Disease Risks and Personalized Care",
+          "lessons": [
+            {
+              "lessonIdentifier": "C3.1",
+              "lessonTitle": "Genetic Variations and Disease Risks",
+              "imageURL": null,
+              "lessonColor": "#64B5F6",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C3.2",
+              "lessonTitle": "Workout Plans by Genetic Makeup",
+              "imageURL": null,
+              "lessonColor": "#BA68C8",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C3.3",
+              "lessonTitle": "Skincare Effectiveness and Genes",
+              "imageURL": null,
+              "lessonColor": "#4FC3F7",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C3.4",
+              "lessonTitle": "Predicting Health Risks Early",
+              "imageURL": null,
+              "lessonColor": "#AED581",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C3.5",
+              "lessonTitle": "Exploring Family Connections",
+              "imageURL": null,
+              "lessonColor": "#FF8A65",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 4: Genes, Lifestyle, and Ancestry",
+          "lessons": [
+            {
+              "lessonIdentifier": "C4.1",
+              "lessonTitle": "Genes and Mood Influence",
+              "imageURL": null,
+              "lessonColor": "#F06292",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C4.2",
+              "lessonTitle": "Nutrition and Genetic Influence",
+              "imageURL": null,
+              "lessonColor": "#4DB6AC",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C4.3",
+              "lessonTitle": "Genetics and Sleep Patterns",
+              "imageURL": null,
+              "lessonColor": "#7986CB",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C4.4",
+              "lessonTitle": "Health Risks Identified Early",
+              "imageURL": null,
+              "lessonColor": "#FFCA28",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C4.5",
+              "lessonTitle": "Tracing Ethnic Origins",
+              "imageURL": null,
+              "lessonColor": "#8D6E63",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 5: Diet, Fitness, and Wellness",
+          "lessons": [
+            {
+              "lessonIdentifier": "C5.1",
+              "lessonTitle": "Optimizing Diet with Genetics",
+              "imageURL": null,
+              "lessonColor": "#F44336",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C5.2",
+              "lessonTitle": "Fitness Program Guided by Genes",
+              "imageURL": null,
+              "lessonColor": "#2196F3",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C5.3",
+              "lessonTitle": "Skincare through Genetic Data",
+              "imageURL": null,
+              "lessonColor": "#9C27B0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C5.4",
+              "lessonTitle": "Detecting Early Disease Signs",
+              "imageURL": null,
+              "lessonColor": "#009688",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C5.5",
+              "lessonTitle": "Improving Wellness Routines",
+              "imageURL": null,
+              "lessonColor": "#FF9800",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 6: Stress, Prevention, and Lifestyle",
+          "lessons": [
+            {
+              "lessonIdentifier": "C6.1",
+              "lessonTitle": "Ancestry and Health History",
+              "imageURL": null,
+              "lessonColor": "#795548",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C6.2",
+              "lessonTitle": "Genetic Traits and Stress Response",
+              "imageURL": null,
+              "lessonColor": "#607D8B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C6.3",
+              "lessonTitle": "Personalized Wellness Routines",
+              "imageURL": null,
+              "lessonColor": "#FFC107",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C6.4",
+              "lessonTitle": "Preventive Healthcare with Genetics",
+              "imageURL": null,
+              "lessonColor": "#8BC34A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C6.5",
+              "lessonTitle": "Tailoring Lifestyle with Insights",
+              "imageURL": null,
+              "lessonColor": "#03A9F4",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 7: Hydration, Medication, and Nutrition",
+          "lessons": [
+            {
+              "lessonIdentifier": "C7.1",
+              "lessonTitle": "Genes and Hydration",
+              "imageURL": null,
+              "lessonColor": "#9E9D24",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C7.2",
+              "lessonTitle": "Medication Response and Genes",
+              "imageURL": null,
+              "lessonColor": "#00BCD4",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C7.3",
+              "lessonTitle": "Managing Chronic Conditions",
+              "imageURL": null,
+              "lessonColor": "#FF5722",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C7.4",
+              "lessonTitle": "Exercise Response and Markers",
+              "imageURL": null,
+              "lessonColor": "#4CAF50",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C7.5",
+              "lessonTitle": "Processing Nutrients and Hydration",
+              "imageURL": null,
+              "lessonColor": "#673AB7",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter 8: Ancestry, Disease Risks, and Fitness",
+          "lessons": [
+            {
+              "lessonIdentifier": "C8.1",
+              "lessonTitle": "Exploring Ancestry and Relatives",
+              "imageURL": null,
+              "lessonColor": "#C2185B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C8.2",
+              "lessonTitle": "Hereditary Disease Risks",
+              "imageURL": null,
+              "lessonColor": "#7B1FA2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C8.3",
+              "lessonTitle": "Fine-Tuning Diet with Genetics",
+              "imageURL": null,
+              "lessonColor": "#388E3C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C8.4",
+              "lessonTitle": "Genetics and Workout Recovery",
+              "imageURL": null,
+              "lessonColor": "#0288D1",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "C8.5",
+              "lessonTitle": "Guided Fitness and Nutrition",
+              "imageURL": null,
+              "lessonColor": "#F57C00",
+              "paragraphs": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subjectIdentifier": "D",
+      "subjectTitle": "Actyon Genomics Panels",
+      "chapters": [
+        {
+          "chapterTitle": "Chapter D1: A-VISION Overview",
+          "lessons": [
+            {
+              "lessonIdentifier": "D1.1",
+              "lessonTitle": "Exploring Genetic Eye Conditions",
+              "imageURL": null,
+              "lessonColor": "#039BE5",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D1.2",
+              "lessonTitle": "ABCA4 Variants and Stargardt Disease",
+              "imageURL": null,
+              "lessonColor": "#FBC02D",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D1.3",
+              "lessonTitle": "Family-Based Testing for Retinal Disorders",
+              "imageURL": null,
+              "lessonColor": "#E53935",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D1.4",
+              "lessonTitle": "400 Genes for Retinal and Optic Health",
+              "imageURL": null,
+              "lessonColor": "#6A1B9A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D1.5",
+              "lessonTitle": "Mitochondrial DNA Sequencing",
+              "imageURL": null,
+              "lessonColor": "#00897B",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D2: Testing and Interpretation",
+          "lessons": [
+            {
+              "lessonIdentifier": "D2.1",
+              "lessonTitle": "Exonic and Intronic Variants in Vision",
+              "imageURL": null,
+              "lessonColor": "#F57C00",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D2.2",
+              "lessonTitle": "ACMG/ClinGen Guidelines in Reporting",
+              "imageURL": null,
+              "lessonColor": "#3949AB",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D2.3",
+              "lessonTitle": "Compound Heterozygosity in Recessive Traits",
+              "imageURL": null,
+              "lessonColor": "#C62828",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D2.4",
+              "lessonTitle": "Roche Enrichment and NGS-Illumina",
+              "imageURL": null,
+              "lessonColor": "#1E88E5",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D2.5",
+              "lessonTitle": "Clinical Genetics Professionals Review",
+              "imageURL": null,
+              "lessonColor": "#7B1FA2",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D3: Linking Results to Phenotype",
+          "lessons": [
+            {
+              "lessonIdentifier": "D3.1",
+              "lessonTitle": "HPO Terms and Macular Degeneration",
+              "imageURL": null,
+              "lessonColor": "#EF6C00",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D3.2",
+              "lessonTitle": "Optimized Panels for Rare Diseases",
+              "imageURL": null,
+              "lessonColor": "#0288D1",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D3.3",
+              "lessonTitle": "Curated Variants with High Coverage",
+              "imageURL": null,
+              "lessonColor": "#039BE5",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D3.4",
+              "lessonTitle": "Reviewing Clinical and Familial Context",
+              "imageURL": null,
+              "lessonColor": "#FBC02D",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D3.5",
+              "lessonTitle": "Molecular Diagnosis and Reproductive Risk",
+              "imageURL": null,
+              "lessonColor": "#E53935",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D4: Variant Assessment",
+          "lessons": [
+            {
+              "lessonIdentifier": "D4.1",
+              "lessonTitle": "Using ClinVar, OMIM, and REVEL",
+              "imageURL": null,
+              "lessonColor": "#6A1B9A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D4.2",
+              "lessonTitle": "Exonic, Intronic, CNVs, and mtDNA Findings",
+              "imageURL": null,
+              "lessonColor": "#00897B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D4.3",
+              "lessonTitle": "Test Documentation and Protocols",
+              "imageURL": null,
+              "lessonColor": "#F57C00",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D4.4",
+              "lessonTitle": "Segregation and Inheritance Models",
+              "imageURL": null,
+              "lessonColor": "#3949AB",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D4.5",
+              "lessonTitle": "Interpretation by Medical Genetics Experts",
+              "imageURL": null,
+              "lessonColor": "#C62828",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D5: Technology and Pipelines",
+          "lessons": [
+            {
+              "lessonIdentifier": "D5.1",
+              "lessonTitle": "NGS Detection of Rare Variants",
+              "imageURL": null,
+              "lessonColor": "#1E88E5",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D5.2",
+              "lessonTitle": "Partnerships with Genomic Institutions",
+              "imageURL": null,
+              "lessonColor": "#00897B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D5.3",
+              "lessonTitle": "Bioinformatics Pipelines with GRCh39",
+              "imageURL": null,
+              "lessonColor": "#6A1B9A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D5.4",
+              "lessonTitle": "ABCA4 Variants in Stargardt Disease",
+              "imageURL": null,
+              "lessonColor": "#EF6C00",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D5.5",
+              "lessonTitle": "Databases Supporting Interpretation",
+              "imageURL": null,
+              "lessonColor": "#7B1FA2",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D6: Structural Variation and Splicing",
+          "lessons": [
+            {
+              "lessonIdentifier": "D6.1",
+              "lessonTitle": "Copy Number Variation Analysis",
+              "imageURL": null,
+              "lessonColor": "#0288D1",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D6.2",
+              "lessonTitle": "Conservation Metrics: GERP and phastCons",
+              "imageURL": null,
+              "lessonColor": "#7B1FA2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D6.3",
+              "lessonTitle": "Compound Heterozygous Alleles in Stargardt",
+              "imageURL": null,
+              "lessonColor": "#43A047",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D6.4",
+              "lessonTitle": "Splice Prediction Tools",
+              "imageURL": null,
+              "lessonColor": "#F4511E",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D6.5",
+              "lessonTitle": "Coverage Metrics Across Samples",
+              "imageURL": null,
+              "lessonColor": "#C62828",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D7: Regulatory Regions and Curation",
+          "lessons": [
+            {
+              "lessonIdentifier": "D7.1",
+              "lessonTitle": "Untranslated Regions in Panels",
+              "imageURL": null,
+              "lessonColor": "#1565C0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D7.2",
+              "lessonTitle": "Variant Curation for Diagnostic Confidence",
+              "imageURL": null,
+              "lessonColor": "#2E7D32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D7.3",
+              "lessonTitle": "Evidence Supporting Variant Classification",
+              "imageURL": null,
+              "lessonColor": "#FBC02D",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D7.4",
+              "lessonTitle": "Findings with References and Confidence",
+              "imageURL": null,
+              "lessonColor": "#8E24AA",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D7.5",
+              "lessonTitle": "Ancestry in Variant Interpretation",
+              "imageURL": null,
+              "lessonColor": "#EF6C00",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter D8: Reporting and Clinical Actions",
+          "lessons": [
+            {
+              "lessonIdentifier": "D8.1",
+              "lessonTitle": "Genotype, Zygosity, and Read Depth",
+              "imageURL": null,
+              "lessonColor": "#3949AB",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D8.2",
+              "lessonTitle": "Mode of Inheritance and Clinical Correlation",
+              "imageURL": null,
+              "lessonColor": "#2E7D32",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D8.3",
+              "lessonTitle": "ACMG Standards in Workflow",
+              "imageURL": null,
+              "lessonColor": "#FBC02D",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D8.4",
+              "lessonTitle": "Updating Panels with New Associations",
+              "imageURL": null,
+              "lessonColor": "#C2185B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "D8.5",
+              "lessonTitle": "High-Confidence Findings for Counseling",
+              "imageURL": null,
+              "lessonColor": "#E53935",
+              "paragraphs": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subjectIdentifier": "E",
+      "subjectTitle": "Monogenic Disease Insights",
+      "chapters": [
+        {
+          "chapterTitle": "Chapter E1: Metabolic Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E1.1",
+              "lessonTitle": "Phenylketonuria (PAH)",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.2",
+              "lessonTitle": "Maple Syrup Urine Disease (BCKD Complex)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.3",
+              "lessonTitle": "Medium-Chain Acyl-CoA Dehydrogenase Deficiency",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.4",
+              "lessonTitle": "Citrullinemia Type I (ASS1)",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.5",
+              "lessonTitle": "Homocystinuria (CBS Deficiency)",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.6",
+              "lessonTitle": "Tay\u2013Sachs Disease (HEXA)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.7",
+              "lessonTitle": "Gaucher Disease Type 1 (GBA)",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.8",
+              "lessonTitle": "Fabry Disease (GLA)",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.9",
+              "lessonTitle": "Pompe Disease (GAA)",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E1.10",
+              "lessonTitle": "Wilson Disease (ATP7B)",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E2: Hematologic Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E2.1",
+              "lessonTitle": "Sickle Cell Disease (HBB Glu6Val)",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.2",
+              "lessonTitle": "Beta-Thalassemia Major",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.3",
+              "lessonTitle": "Hereditary Spherocytosis (ANK1)",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.4",
+              "lessonTitle": "G6PD Deficiency",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.5",
+              "lessonTitle": "Hemophilia A (Factor VIII)",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.6",
+              "lessonTitle": "Hemophilia B (Factor IX)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.7",
+              "lessonTitle": "Type 3 von Willebrand Disease",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.8",
+              "lessonTitle": "Bernard\u2013Soulier Syndrome",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.9",
+              "lessonTitle": "Factor V Leiden Thrombophilia",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E2.10",
+              "lessonTitle": "Hereditary Hemochromatosis (HFE)",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E3: Neuromuscular Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E3.1",
+              "lessonTitle": "Duchenne Muscular Dystrophy",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.2",
+              "lessonTitle": "Becker Muscular Dystrophy",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.3",
+              "lessonTitle": "Spinal Muscular Atrophy Type I",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.4",
+              "lessonTitle": "Myotonic Dystrophy Type 1",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.5",
+              "lessonTitle": "Charcot\u2013Marie\u2013Tooth Disease Type 1A",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.6",
+              "lessonTitle": "Familial ALS (SOD1)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.7",
+              "lessonTitle": "Hereditary Spastic Paraplegia (SPAST)",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.8",
+              "lessonTitle": "Paramyotonia Congenita (SCN4A)",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.9",
+              "lessonTitle": "Malignant Hyperthermia Susceptibility (RYR1)",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E3.10",
+              "lessonTitle": "Congenital Myasthenic Syndrome (CHRNE)",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E4: Visual Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E4.1",
+              "lessonTitle": "Retinitis Pigmentosa (RHO)",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.2",
+              "lessonTitle": "Leber Congenital Amaurosis (RPE65)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.3",
+              "lessonTitle": "Stargardt Disease (ABCA4)",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.4",
+              "lessonTitle": "Achromatopsia (CNGA3)",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.5",
+              "lessonTitle": "Congenital Stationary Night Blindness",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.6",
+              "lessonTitle": "Primary Congenital Glaucoma (CYP1B1)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.7",
+              "lessonTitle": "Aniridia (PAX6 Haploinsufficiency)",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.8",
+              "lessonTitle": "Ocular Albinism Type 1",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.9",
+              "lessonTitle": "Leber Hereditary Optic Neuropathy",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E4.10",
+              "lessonTitle": "Best Vitelliform Macular Dystrophy",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E5: Cardiovascular Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E5.1",
+              "lessonTitle": "Hypertrophic Cardiomyopathy (MYH7)",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.2",
+              "lessonTitle": "Dilated Cardiomyopathy (TTN Truncation)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.3",
+              "lessonTitle": "Long QT Syndrome Type 1",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.4",
+              "lessonTitle": "Long QT Syndrome Type 2",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.5",
+              "lessonTitle": "Catecholaminergic Polymorphic VT",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.6",
+              "lessonTitle": "Brugada Syndrome (SCN5A)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.7",
+              "lessonTitle": "Marfan Syndrome (FBN1)",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.8",
+              "lessonTitle": "Familial Thoracic Aortic Aneurysm (TGFBR2)",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.9",
+              "lessonTitle": "Loeys\u2013Dietz Syndrome (SMAD3)",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E5.10",
+              "lessonTitle": "Hereditary Transthyretin Amyloidosis",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E6: Endocrine Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E6.1",
+              "lessonTitle": "21-Hydroxylase Deficiency CAH",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.2",
+              "lessonTitle": "Multiple Endocrine Neoplasia Type 2A",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.3",
+              "lessonTitle": "MODY Type 2 (GCK)",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.4",
+              "lessonTitle": "MODY Type 3 (HNF1A)",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.5",
+              "lessonTitle": "Familial Hypocalciuric Hypercalcemia",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.6",
+              "lessonTitle": "Pseudohypoparathyroidism Type 1A",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.7",
+              "lessonTitle": "Familial Glucocorticoid Deficiency",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.8",
+              "lessonTitle": "Congenital Hypothyroidism (TSHR)",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.9",
+              "lessonTitle": "Wolfram Syndrome (WFS1)",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E6.10",
+              "lessonTitle": "Liddle Syndrome (SCNN1B)",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E7: Dermatologic Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E7.1",
+              "lessonTitle": "Epidermolysis Bullosa Simplex",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.2",
+              "lessonTitle": "Junctional Epidermolysis Bullosa",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.3",
+              "lessonTitle": "Dystrophic Epidermolysis Bullosa",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.4",
+              "lessonTitle": "Xeroderma Pigmentosum (XPA)",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.5",
+              "lessonTitle": "Ichthyosis Vulgaris (FLG)",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.6",
+              "lessonTitle": "Incontinentia Pigmenti",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.7",
+              "lessonTitle": "Hailey\u2013Hailey Disease",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.8",
+              "lessonTitle": "Piebaldism (KIT Haploinsufficiency)",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.9",
+              "lessonTitle": "Hypohidrotic Ectodermal Dysplasia",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E7.10",
+              "lessonTitle": "Darier Disease (ATP2A2)",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E8: Renal and Electrolyte Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E8.1",
+              "lessonTitle": "Autosomal Dominant PKD Type 1",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.2",
+              "lessonTitle": "Autosomal Dominant PKD Type 2",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.3",
+              "lessonTitle": "Alport Syndrome (COL4A5)",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.4",
+              "lessonTitle": "Bartter Syndrome Type I",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.5",
+              "lessonTitle": "Gitelman Syndrome",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.6",
+              "lessonTitle": "Nephrogenic Diabetes Insipidus (AVPR2)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.7",
+              "lessonTitle": "Primary Hyperoxaluria Type 1",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.8",
+              "lessonTitle": "Congenital Nephrotic Syndrome (NPHS1)",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.9",
+              "lessonTitle": "Autosomal Recessive PKD",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E8.10",
+              "lessonTitle": "Thin Basement Membrane Nephropathy",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E9: Pulmonary Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E9.1",
+              "lessonTitle": "Cystic Fibrosis (CFTR F508del)",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.2",
+              "lessonTitle": "Alpha-1 Antitrypsin Deficiency",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.3",
+              "lessonTitle": "Primary Ciliary Dyskinesia",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.4",
+              "lessonTitle": "Surfactant Protein B Deficiency",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.5",
+              "lessonTitle": "Pulmonary Alveolar Microlithiasis",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.6",
+              "lessonTitle": "Hereditary Hemorrhagic Telangiectasia",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.7",
+              "lessonTitle": "Birt\u2013Hogg\u2013Dub\u00e9 Syndrome",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.8",
+              "lessonTitle": "Tuberous Sclerosis Lung Disease",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.9",
+              "lessonTitle": "Heritable Pulmonary Arterial Hypertension",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E9.10",
+              "lessonTitle": "Hermansky\u2013Pudlak Syndrome",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter E10: Immunologic Monogenic Disorders",
+          "lessons": [
+            {
+              "lessonIdentifier": "E10.1",
+              "lessonTitle": "ADA Severe Combined Immunodeficiency",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.2",
+              "lessonTitle": "X-Linked SCID (IL2RG)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.3",
+              "lessonTitle": "Chronic Granulomatous Disease",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.4",
+              "lessonTitle": "Wiskott\u2013Aldrich Syndrome",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.5",
+              "lessonTitle": "X-Linked Hyper-IgM Syndrome",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.6",
+              "lessonTitle": "TNFRSF13B-Related CVID",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.7",
+              "lessonTitle": "Familial Mediterranean Fever",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.8",
+              "lessonTitle": "NLRP3-Associated Periodic Fever",
+              "imageURL": null,
+              "lessonColor": "#F8E71C",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.9",
+              "lessonTitle": "IPEX Syndrome",
+              "imageURL": null,
+              "lessonColor": "#9013FE",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "E10.10",
+              "lessonTitle": "Autoimmune Polyendocrinopathy (AIRE)",
+              "imageURL": null,
+              "lessonColor": "#417505",
+              "paragraphs": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subjectIdentifier": "F",
+      "subjectTitle": "Variants and VCF Fundamentals",
+      "chapters": [
+        {
+          "chapterTitle": "Chapter F1: Variants and Variant Calling Basics",
+          "lessons": [
+            {
+              "lessonIdentifier": "F1.1",
+              "lessonTitle": "What Is a Variant?",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F1.2",
+              "lessonTitle": "Reference vs Alternate Alleles",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F1.3",
+              "lessonTitle": "Variant Calling: From Reads to Calls",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F1.4",
+              "lessonTitle": "Quality, Filters, and Confidence",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F1.5",
+              "lessonTitle": "Genotypes and Zygosity",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F1.6",
+              "lessonTitle": "Variant Types (SNV, Indel, SV, CNV)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F1.7",
+              "lessonTitle": "Reference Builds and Liftover",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F2: VCF File Structure",
+          "lessons": [
+            {
+              "lessonIdentifier": "F2.1",
+              "lessonTitle": "Header Lines and Metadata",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F2.2",
+              "lessonTitle": "Core Columns (CHROM, POS, ID, REF, ALT)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F2.3",
+              "lessonTitle": "QUAL and FILTER Fields",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F2.4",
+              "lessonTitle": "The INFO Field",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F2.5",
+              "lessonTitle": "FORMAT and Sample Columns",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F2.6",
+              "lessonTitle": "Multi-Sample VCFs and Cohorts",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F2.7",
+              "lessonTitle": "Symbolic Alleles and Breakends",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F3: Working With VCF at Scale",
+          "lessons": [
+            {
+              "lessonIdentifier": "F3.1",
+              "lessonTitle": "Sorting and Coordinate Systems",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F3.2",
+              "lessonTitle": "Compression with bgzip",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F3.3",
+              "lessonTitle": "Index Files (.tbi and .csi)",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F3.4",
+              "lessonTitle": "Fast Region Queries",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F3.5",
+              "lessonTitle": "Multi-Allelic Sites and Normalization",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F3.6",
+              "lessonTitle": "VCF vs BCF and Storage Tradeoffs",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F3.7",
+              "lessonTitle": "Streaming, Chunking, and Parallelism",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F4: Interpreting VCF Annotations",
+          "lessons": [
+            {
+              "lessonIdentifier": "F4.1",
+              "lessonTitle": "Variant IDs and rsIDs",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F4.2",
+              "lessonTitle": "INFO Metrics (AF, AC, DP)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F4.3",
+              "lessonTitle": "Consequence Annotations",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F4.4",
+              "lessonTitle": "FORMAT Fields (GT, GQ, DP, AD)",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F4.5",
+              "lessonTitle": "Structural Variants in VCF",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F4.6",
+              "lessonTitle": "Interpretation Pitfalls and Edge Cases",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F4.7",
+              "lessonTitle": "Reporting and Clinical Context",
+              "imageURL": null,
+              "lessonColor": "#DA004A",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F5: Variant Calling Pipelines and Evidence",
+          "lessons": [
+            {
+              "lessonIdentifier": "F5.1",
+              "lessonTitle": "Alignment and Reference Builds",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F5.2",
+              "lessonTitle": "Read Depth, Coverage, and Bias",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F5.3",
+              "lessonTitle": "Base Quality, Mapping Quality, and Artifacts",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F5.4",
+              "lessonTitle": "Calling SNVs vs Indels",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F5.5",
+              "lessonTitle": "Joint Genotyping and Cohort Context",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F6: Annotation, Interpretation, and Databases",
+          "lessons": [
+            {
+              "lessonIdentifier": "F6.1",
+              "lessonTitle": "Annotation Layers and Pipelines",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F6.2",
+              "lessonTitle": "Population Frequency Databases",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F6.3",
+              "lessonTitle": "Clinical Databases and Evidence",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F6.4",
+              "lessonTitle": "Gene Models and Transcripts",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F6.5",
+              "lessonTitle": "Predictive Scores and Functional Impact",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F7: Practical Workflows and Best Practices",
+          "lessons": [
+            {
+              "lessonIdentifier": "F7.1",
+              "lessonTitle": "Filtering Strategies and Thresholds",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F7.2",
+              "lessonTitle": "Trio and Inheritance Analysis",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F7.3",
+              "lessonTitle": "Phasing and Haplotypes",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F7.4",
+              "lessonTitle": "Quality Control and Reproducibility",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F7.5",
+              "lessonTitle": "Ethics, Privacy, and Data Stewardship",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            }
+          ]
+        },
+        {
+          "chapterTitle": "Chapter F8: INFO and FORMAT Field Guides",
+          "lessons": [
+            {
+              "lessonIdentifier": "F8.1",
+              "lessonTitle": "INFO: NS (Number of Samples)",
+              "imageURL": null,
+              "lessonColor": "#4A90E2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F8.2",
+              "lessonTitle": "INFO: AF (Allele Frequency)",
+              "imageURL": null,
+              "lessonColor": "#50E3C2",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F8.3",
+              "lessonTitle": "FORMAT: GT (Genotype)",
+              "imageURL": null,
+              "lessonColor": "#F5A623",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F8.4",
+              "lessonTitle": "FORMAT: DP (Read Depth)",
+              "imageURL": null,
+              "lessonColor": "#BD10E0",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F8.5",
+              "lessonTitle": "FORMAT: AD (Allele Depth)",
+              "imageURL": null,
+              "lessonColor": "#7ED321",
+              "paragraphs": null
+            },
+            {
+              "lessonIdentifier": "F8.6",
+              "lessonTitle": "FORMAT: GL (Genotype Likelihood)",
+              "imageURL": null,
+              "lessonColor": "#D0021B",
+              "paragraphs": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

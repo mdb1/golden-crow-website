@@ -1,0 +1,36 @@
+import { notFound } from "next/navigation";
+import { RoleAssignmentCapabilitiesScreen } from "@/components/role-assignment-capabilities-screen";
+import { getAdminContextServer } from "@/lib/admin-context-server";
+import type { AdminRole } from "@/lib/admin-areas";
+import { getSurfaceSpec } from "@/lib/two-pq-dashboard";
+
+function isAdminRole(value: string | undefined): value is AdminRole {
+  return (
+    value === "full_admin" ||
+    value === "institution_admin" ||
+    value === "institution_doctor" ||
+    value === "patient"
+  );
+}
+
+export default async function RoleAccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ role?: string }>;
+}) {
+  const adminContext = await getAdminContextServer();
+  const surface = getSurfaceSpec("roles");
+  const { role } = await searchParams;
+
+  if (!surface) {
+    notFound();
+  }
+
+  return (
+    <RoleAssignmentCapabilitiesScreen
+      entries={surface.roleAccess}
+      selectedRole={isAdminRole(role) ? role : adminContext.role}
+      currentRole={adminContext.role}
+    />
+  );
+}

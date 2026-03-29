@@ -1,0 +1,44 @@
+import { redirect } from "next/navigation";
+import { HelperBanner } from "@/components/helper-banner";
+import { RoleWorkbench } from "@/components/areas/role-workbench";
+import { PageHero } from "@/components/page-hero";
+import type {
+  DoctorListItem,
+  InstitutionRecord,
+  PatientListItem,
+} from "@/lib/admin-areas";
+import { getAssignableRoleOptions } from "@/lib/admin-areas";
+import { getAdminContextServer } from "@/lib/admin-context-server";
+import { sdkFetchServer } from "@/lib/sdk-server";
+
+export default async function NewRolePage() {
+  const adminContext = await getAdminContextServer();
+  if (getAssignableRoleOptions(adminContext.role).length === 0) {
+    redirect("/roles");
+  }
+
+  const [institutionsPayload, doctorsPayload, patientsPayload] = await Promise.all([
+    sdkFetchServer<{ institutions: InstitutionRecord[] }>("/areas/institutions"),
+    sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
+    sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
+  ]);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHero
+        eyebrow="Access"
+        title="Create role assignment"
+        description="Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows."
+      />
+      <HelperBanner title="Scope first, role second." tone="blue">
+        The selected role determines which linked records are required. When a doctor or patient link exists, the backend validates that the email and relational scope line up correctly.
+      </HelperBanner>
+      <RoleWorkbench
+        mode="create"
+        institutions={institutionsPayload.institutions}
+        doctors={doctorsPayload.doctors}
+        patients={patientsPayload.patients}
+      />
+    </div>
+  );
+}
