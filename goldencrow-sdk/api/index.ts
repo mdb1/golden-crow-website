@@ -14,5 +14,31 @@ async function getApp() {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const server = await getApp();
-  server.server.emit("request", req, res);
+
+  const url = req.url || "/";
+  const headers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value) headers[key] = Array.isArray(value) ? value.join(", ") : value;
+  }
+
+  // Collect body for non-GET/HEAD requests
+  let payload: string | undefined;
+  if (req.method !== "GET" && req.method !== "HEAD" && req.body) {
+    payload =
+      typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  }
+
+  const response = await server.inject({
+    method: req.method as any,
+    url,
+    headers,
+    payload,
+  });
+
+  // Forward status, headers, and body
+  res.status(response.statusCode);
+  for (const [key, value] of Object.entries(response.headers)) {
+    if (value) res.setHeader(key, value as string);
+  }
+  res.send(response.rawPayload);
 }
