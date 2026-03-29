@@ -47,7 +47,14 @@ async function start() {
   await server.listen({ port: ENV.PORT, host: "0.0.0.0" });
 }
 
-start().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only auto-start when run directly (not when imported by Vercel adapter)
+const isDirectRun =
+  process.argv[1]?.endsWith("server.js") ||
+  process.argv[1]?.endsWith("server.ts");
+
+if (isDirectRun) {
+  start().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
