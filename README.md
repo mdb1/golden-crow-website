@@ -8,7 +8,7 @@ Monorepo containing the Golden Crow marketing site, backoffice admin dashboard, 
 |-----|-----|
 | Website | https://goldencrowvs.com |
 | Backoffice | https://golden-crow-backoffice.vercel.app |
-| SDK | https://golden-crow-sdk.vercel.app |
+| SDK | https://golden-crow-sdk.vercel.app/health |
 
 ## Project Structure
 
