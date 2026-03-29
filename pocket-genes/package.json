@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "@tsparticles/slim": "^3.9.1",
-    "astro": "^5.14.4"
+    "astro": "^6.1.1"
   }
 }
