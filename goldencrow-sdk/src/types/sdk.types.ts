@@ -1,0 +1,389 @@
+// SourceKey — matches report_codes.source field values
+export type SourceKey = "myDNAMap" | "ActyonGenomics" | "vcf";
+export type ModerationCollectionKey =
+  | "profiles"
+  | "public_profiles"
+  | "community_users"
+  | "community_posts"
+  | "report_codes"
+  | "uploaded_reports"
+  | "report_owners"
+  | "user_progress";
+export type ModerationSubcollectionKey = "comments" | "events";
+export type AdminUserSex =
+  | "male"
+  | "female"
+  | "other"
+  | "prefer_not_to_say"
+  | string;
+export type AdminRole =
+  | "full_admin"
+  | "institution_admin"
+  | "institution_doctor"
+  | "patient";
+
+// AdminUser — merged Firebase Auth record + Firestore profiles/{uid} doc
+export interface AdminUser {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+  disabled: boolean;
+  createdAt: string; // from auth.metadata.creationTime
+  lastSignInAt: string; // from auth.metadata.lastSignInTime
+  photoURL: string | null;
+  // From Firestore profiles doc:
+  displayName: string;
+  age?: number | string;
+  sex?: AdminUserSex;
+  country?: string;
+  conditions: string[];
+  onboardingCompleted: boolean;
+  visibilitySettings?: Record<string, boolean>;
+  lastReportDate?: string;
+  patientID?: string;
+  profileImage?: string;
+  hiddenFields: string[];
+  iconName: string;
+  iconColorHex: string;
+  linkedRecords?: {
+    profile: boolean;
+    publicProfile: boolean;
+    communityUser: boolean;
+    reportOwner: boolean;
+    userProgress: boolean;
+  };
+}
+
+export interface AdminUserVerificationSummary {
+  uid: string;
+  exists: boolean;
+  email: string;
+  emailVerified: boolean;
+  disabled: boolean;
+}
+
+export interface UserRoleRecord {
+  email: string;
+  role: AdminRole;
+  institutionId?: string;
+  doctorId?: string;
+  patientId?: string;
+  isActive: boolean;
+  displayName?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail?: string;
+}
+
+export interface AdminContext {
+  email: string;
+  uid: string;
+  role: AdminRole;
+  institutionId?: string;
+  doctorId?: string;
+  patientId?: string;
+  isBootstrap: boolean;
+  canAccessBackoffice: boolean;
+}
+
+export interface AdminContextResponse {
+  context: AdminContext;
+  capabilities: string[];
+}
+
+export interface InstitutionRecord {
+  id: string;
+  code: string;
+  name: string;
+  legalName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InstitutionListItem extends InstitutionRecord {
+  doctorCount: number;
+  patientCount: number;
+  institutionAdminCount: number;
+}
+
+export interface DoctorRecord {
+  id: string;
+  institutionId: string;
+  authEmail: string;
+  authUid?: string;
+  fullName: string;
+  specialty?: string;
+  licenseNumber?: string;
+  contactPhone?: string;
+  status: "active" | "inactive";
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorListItem extends DoctorRecord {
+  institutionName?: string;
+  patientCount: number;
+  roleEmail?: string;
+  roleActive?: boolean;
+}
+
+export interface PatientRecord {
+  id: string;
+  institutionId: string;
+  doctorId: string;
+  email: string;
+  fullName: string;
+  medicalRecordNumber?: string;
+  birthDate?: string;
+  sex?: AdminUserSex;
+  status: "active" | "inactive";
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientListItem extends PatientRecord {
+  institutionName?: string;
+  doctorName?: string;
+  doctorEmail?: string;
+}
+
+export interface RoleManagementRecord extends UserRoleRecord {
+  institutionName?: string;
+  doctorName?: string;
+  patientName?: string;
+  bootstrap?: boolean;
+}
+
+export interface InstitutionDetailRecord {
+  institution: InstitutionListItem;
+  doctors: DoctorListItem[];
+  institutionAdmins: RoleManagementRecord[];
+}
+
+export interface DoctorDetailRecord {
+  doctor: DoctorListItem;
+  institution: InstitutionRecord | null;
+  patients: PatientListItem[];
+  roleRecord: RoleManagementRecord | null;
+}
+
+export interface PatientDetailRecord {
+  patient: PatientListItem;
+  institution: InstitutionRecord | null;
+  doctor: DoctorListItem | null;
+  roleRecord: RoleManagementRecord | null;
+}
+
+export type TwoPQAreaKey =
+  | "cases"
+  | "sampling"
+  | "shipments"
+  | "sequencing"
+  | "reports"
+  | "clients";
+
+export type TwoPQCollectionKey =
+  | "2pq_case"
+  | "2pq_sampling"
+  | "2pq_shipment"
+  | "2pq_sequencing"
+  | "2pq_report"
+  | "2pq_client";
+
+export interface TwoPQRecord {
+  id: string;
+  areaKey: TwoPQAreaKey;
+  collectionKey: TwoPQCollectionKey;
+  institutionId: string;
+  doctorId: string;
+  patientId?: string;
+  caseLabel?: string;
+  caseStatus?: string;
+  caseType?: string;
+  priority?: string;
+  sampleId?: string;
+  shipmentId?: string;
+  trackingNumber?: string;
+  requestedAt?: string;
+  dueAt?: string;
+  sampleType?: string;
+  collectionDate?: string;
+  receptionDate?: string;
+  processingStatus?: string;
+  runId?: string;
+  qcStatus?: string;
+  carrier?: string;
+  dispatchDate?: string;
+  deliveryDate?: string;
+  deliveryStatus?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  platform?: string;
+  scheduling?: string;
+  analysisStatus?: string;
+  providerName?: string;
+  providerFormat?: string;
+  phoneNumber?: string;
+  reportCode?: string;
+  uploadedReportId?: string;
+  clientCaseStatus?: string;
+  reportDelivery?: string;
+  clientName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  preferredLanguage?: string;
+  country?: string;
+  roleEmail?: string;
+  accessStatus?: string;
+  communicationStatus?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail?: string;
+  updatedByEmail?: string;
+}
+
+export interface TwoPQListItem extends TwoPQRecord {
+  institutionName?: string;
+  doctorName?: string;
+  patientName?: string;
+  canReplace: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
+export interface TwoPQDetailRecord {
+  record: TwoPQListItem;
+  institution: InstitutionRecord | null;
+  doctor: DoctorListItem | null;
+  patient: PatientListItem | null;
+}
+
+// CommunityPost — mirrors Firestore posts collection
+export interface CommunityPost {
+  id: string;
+  title: string;
+  body: string;
+  community: string;
+  tags: string[];
+  authorId: string;
+  authorEmail: string;
+  authorAvatarURL?: string;
+  authorIconName?: string;
+  authorIconColorHex?: string;
+  createdAt: string;
+  updatedAt?: string;
+  commentCount: number;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+}
+
+// CommunityComment — mirrors Firestore comments collection
+export interface CommunityComment {
+  id: string;
+  postId: string;
+  body: string;
+  authorId: string;
+  authorEmail: string;
+  authorAvatarURL?: string;
+  authorIconName?: string;
+  authorIconColorHex?: string;
+  createdAt: string;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  associatedReference?: string;
+}
+
+// DnaReport — mirrors Firestore report_codes collection
+export interface DnaReport {
+  id: string; // Firestore document ID
+  code: string;
+  source: SourceKey;
+  userId: string; // Owner/report owner Firebase UID
+  downloadUrl: string | null;
+  createdAt?: string;
+  uploadedReportId?: string;
+  fileName?: string | null;
+  providerFormat?: string | null;
+  providerName?: string | null;
+  trackingStatus?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerCommunityUserId?: string | null;
+  ownerPublicProfileId?: string | null;
+  uploadVersionCount?: number;
+}
+
+// UserProgress — mirrors Firestore user_progress/{uid} document
+// This SDK defines the authoritative schema (the web app stubs never wrote real data)
+export interface CollectedAminoAcid {
+  id: string;
+  name: string;
+  earnedAt: string;
+}
+export interface StreakData {
+  current: number;
+  longest: number;
+  lastActivityDate: string;
+}
+export interface UserProgress {
+  uid: string; // Document ID = Firebase UID
+  xp: number;
+  level: number;
+  completedLessons: string[];
+  collectedAminoAcids: CollectedAminoAcid[];
+  streak: StreakData;
+}
+
+// CascadeDeleteResult — returned by deleteUserCascade
+export interface CascadeDeleteResult {
+  success: boolean;
+  errors: string[];
+}
+
+export interface ModerationDocumentRecord {
+  id: string;
+  path: string;
+  collection: string;
+  data: Record<string, unknown>;
+}
+
+// Lesson types — Firestore-backed lesson content
+export interface LessonParagraph {
+  paragraphTitle: string;
+  icon: string;
+  contentText: string;
+}
+export interface LessonEntry {
+  lessonIdentifier: string;
+  lessonTitle: string;
+  imageURL: string | null;
+  lessonColor: string;
+  paragraphs: LessonParagraph[] | null;
+}
+export interface LessonChapterEntry {
+  chapterTitle: string;
+  lessons: Pick<LessonEntry, "lessonIdentifier" | "lessonTitle" | "imageURL" | "lessonColor">[];
+}
+export interface LessonSubjectEntry {
+  subjectIdentifier: string;
+  subjectTitle: string;
+  chapters: LessonChapterEntry[];
+}
+export interface LessonTree {
+  subjects: LessonSubjectEntry[];
+}
