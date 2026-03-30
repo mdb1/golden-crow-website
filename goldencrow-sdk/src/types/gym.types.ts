@@ -241,3 +241,47 @@ export interface GymStatsRecord {
   activeTrainingPlanCount: number;
   upcomingBookingCount: number;
 }
+
+// WorkoutSessionRecord — from gym_workout_sessions/{uid}/sessions/{sessionId}
+export interface LoggedSet {
+  id: string;
+  setNumber: number;
+  actualReps: number;
+  actualWeightKg: number;
+  completed: boolean;
+}
+
+export interface LoggedExercise {
+  id: string;
+  exerciseName: string;
+  sets: LoggedSet[];
+  isPersonalRecord: boolean;
+}
+
+export interface WorkoutSessionRecord {
+  id: string;
+  userId: string;
+  gymId: string;
+  planId: string;
+  dayId: string;
+  dayLabel: string;
+  date: string;                // ISO timestamp
+  durationSeconds: number | undefined;
+  exercises: LoggedExercise[];
+  notes: string | undefined;
+}
+
+// MealComplianceRecord — from gym_meal_compliance/{uid}/entries/{entryId}
+export type MealComplianceStatus = "eaten" | "skipped" | "modified";
+
+export interface MealComplianceRecord {
+  id: string;
+  userId: string;
+  gymId: string;
+  planId: string;
+  date: string;                // ISO date string (calendar date)
+  mealId: string;
+  status: MealComplianceStatus;
+  notes: string | undefined;
+  loggedAt: string;            // ISO timestamp
+}
