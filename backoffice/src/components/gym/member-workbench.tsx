@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WorkoutSessionsTab } from "./workout-sessions-tab";
+import { MealComplianceTab } from "./meal-compliance-tab";
+import { DocumentsTab } from "./documents-tab";
+import { AchievementProgressTab } from "./achievement-progress-tab";
 
 // Inline type definitions matching gym.types.ts
 interface GymMemberRecord {
@@ -94,6 +98,10 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
           <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
           <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
           <TabsTrigger value="clinical">Clinical History</TabsTrigger>
+          <TabsTrigger value="workouts">Workouts</TabsTrigger>
+          <TabsTrigger value="meals">Meals</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="achievements">Achievements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -349,6 +357,22 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
               </table>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="workouts">
+          <WorkoutSessionsTab uid={uid} />
+        </TabsContent>
+
+        <TabsContent value="meals">
+          <MealComplianceTab uid={uid} />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <DocumentsTab uid={uid} />
+        </TabsContent>
+
+        <TabsContent value="achievements">
+          <AchievementProgressTab uid={uid} />
         </TabsContent>
       </Tabs>
     </div>
