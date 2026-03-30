@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedProject, setSelectedProject] = useState<"mydnamap" | "pocket-gyms" | null>(null);
 
   async function finalizeLogin(options: {
     idToken: string;
@@ -52,6 +53,7 @@ export default function LoginPage() {
       name: options.name,
       email: options.email,
       image: options.image,
+      project: selectedProject ?? "mydnamap",
       redirect: false,
     });
 
@@ -128,71 +130,120 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="glass-panel flex w-full flex-col gap-6 px-6 py-7">
-      <div className="flex flex-col gap-2">
-        <p className="section-eyebrow">Pocket Genes</p>
-        <h1 className="font-heading text-3xl font-semibold text-foreground">
-          Pocket Genes Admin
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Sign in to the moderation console with a Google or email-based team
-          account.
-        </p>
-      </div>
-
-      <HelperBanner title="Access is still backend-controlled." tone="blue">
-        Google sign-in, email sign-in, and email sign-up only work if the
-        authenticated account is on the Pocket Genes team allowlist.
-      </HelperBanner>
-
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-      <Button
-        onClick={handleGoogleSignIn}
-        disabled={loading !== null}
-        className="w-full justify-center"
-      >
-        {loading === "google" ? "Signing in..." : "Sign in with Google"}
-      </Button>
-
-      <form className="flex flex-col gap-4" onSubmit={handleEmailSignIn}>
-        <div className="space-y-2">
-          <Label>Email</Label>
-          <Input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="team@pocketgenes.app"
-            required
-          />
+    <div className="glass-panel flex w-full flex-col gap-6">
+      {selectedProject === null && (
+        <div className="flex flex-col gap-4 px-6 py-7">
+          <div className="flex flex-col gap-2">
+            <p className="section-eyebrow">Golden Crow</p>
+            <h1 className="font-heading text-3xl font-semibold text-foreground">
+              Choose a project
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Select the product you want to manage.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary"
+              onClick={() => setSelectedProject("mydnamap")}
+            >
+              <span className="text-2xl">🧬</span>
+              <span className="font-semibold text-card-foreground">MyDNAMap</span>
+              <span className="text-sm text-muted-foreground">
+                Genomics reports, community, and account management.
+              </span>
+            </button>
+            <button
+              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary"
+              onClick={() => setSelectedProject("pocket-gyms")}
+            >
+              <span className="text-2xl">🏋️</span>
+              <span className="font-semibold text-card-foreground">Pocket Gyms</span>
+              <span className="text-sm text-muted-foreground">
+                Members, training plans, bookings, and achievements.
+              </span>
+            </button>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Password</Label>
-          <Input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            required
-          />
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button type="submit" disabled={loading !== null} className="flex-1">
-            {loading === "email" ? "Signing in..." : "Sign in with email"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={loading !== null}
-            className="flex-1"
-            onClick={handleEmailSignUp}
+      )}
+
+      {selectedProject !== null && (
+        <div className="flex flex-col gap-6 px-6 py-7">
+          <button
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => setSelectedProject(null)}
           >
-            {loading === "signup" ? "Creating..." : "Create email account"}
+            ← {selectedProject === "mydnamap" ? "MyDNAMap" : "Pocket Gyms"}
+          </button>
+
+          <div className="flex flex-col gap-2">
+            <p className="section-eyebrow">
+              {selectedProject === "mydnamap" ? "MyDNAMap" : "Pocket Gyms"}
+            </p>
+            <h1 className="font-heading text-3xl font-semibold text-foreground">
+              Admin Sign In
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Sign in to the moderation console with a Google or email-based team
+              account.
+            </p>
+          </div>
+
+          <HelperBanner title="Access is still backend-controlled." tone="blue">
+            Google sign-in, email sign-in, and email sign-up only work if the
+            authenticated account is on the team allowlist.
+          </HelperBanner>
+
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+          <Button
+            onClick={handleGoogleSignIn}
+            disabled={loading !== null}
+            className="w-full justify-center"
+          >
+            {loading === "google" ? "Signing in..." : "Sign in with Google"}
           </Button>
+
+          <form className="flex flex-col gap-4" onSubmit={handleEmailSignIn}>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="team@pocketgenes.app"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Password"
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" disabled={loading !== null} className="flex-1">
+                {loading === "email" ? "Signing in..." : "Sign in with email"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading !== null}
+                className="flex-1"
+                onClick={handleEmailSignUp}
+              >
+                {loading === "signup" ? "Creating..." : "Create email account"}
+              </Button>
+            </div>
+          </form>
         </div>
-      </form>
+      )}
     </div>
   );
 }
