@@ -10,7 +10,11 @@ export type AdminSectionKey =
   | "reports"
   | "learning"
   | "areas"
-  | "access";
+  | "access"
+  | "gym-overview"
+  | "gym-members"
+  | "gym-scheduling"
+  | "gym-programs";
 export type CollectionKey =
   | "profiles"
   | "public_profiles"

@@ -1,7 +1,11 @@
 import {
+  Activity,
+  Award,
   BookOpen,
   Building2,
+  Calendar,
   Dna,
+  Dumbbell,
   FileBadge2,
   FileCode2,
   FileSearch,
@@ -11,11 +15,13 @@ import {
   ShieldUser,
   Sparkles,
   Stethoscope,
+  Trophy,
   UserRoundCog,
   UserPlus,
   Users,
+  Utensils,
 } from "lucide-react";
-import type { AdminRole } from "./admin-areas";
+import type { AdminRole, ProjectKey } from "./admin-areas";
 import type {
   AdminNavItem,
   ChromeMetadata,
@@ -758,6 +764,108 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
 ];
 
+export const GYM_SECTIONS: SectionDescriptor[] = [
+  {
+    key: "gym-overview",
+    label: "Overview",
+    description: "Gym operations dashboard.",
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    key: "gym-members",
+    label: "Members",
+    description: "Gym member management.",
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    key: "gym-scheduling",
+    label: "Scheduling",
+    description: "Booking slots and bookings.",
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    key: "gym-programs",
+    label: "Programs",
+    description: "Achievements and challenges.",
+    visibleRoles: AREA_ROLES,
+  },
+];
+
+export const GYM_NAV: AdminNavItem[] = [
+  {
+    section: "gym-overview",
+    label: "Dashboard",
+    href: "/gym/dashboard",
+    description: "Key gym metrics",
+    icon: LayoutDashboard,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-members",
+    label: "Members",
+    href: "/gym/members",
+    description: "Gym member list and profiles",
+    icon: Users,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-members",
+    label: "Training Plans",
+    href: "/gym/training-plans",
+    description: "Member training plan management",
+    icon: Dumbbell,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-members",
+    label: "Evaluations",
+    href: "/gym/evaluations",
+    description: "Physical assessment records",
+    icon: Activity,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-members",
+    label: "Nutrition",
+    href: "/gym/nutrition",
+    description: "Member nutrition plans",
+    icon: Utensils,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-scheduling",
+    label: "Booking Slots",
+    href: "/gym/booking-slots",
+    description: "Available time slot management",
+    icon: Calendar,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-scheduling",
+    label: "Bookings",
+    href: "/gym/bookings",
+    description: "Booking list and status",
+    icon: Calendar,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-programs",
+    label: "Achievements",
+    href: "/gym/achievements",
+    description: "Achievement definitions",
+    icon: Award,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "gym-programs",
+    label: "Challenges",
+    href: "/gym/challenges",
+    description: "Challenge definitions",
+    icon: Trophy,
+    visibleRoles: AREA_ROLES,
+  },
+];
+
 export function getVisibleSections(role: AdminRole) {
   return SECTION_DESCRIPTORS.filter(
     (section) => !section.visibleRoles || section.visibleRoles.includes(role)
@@ -766,6 +874,24 @@ export function getVisibleSections(role: AdminRole) {
 
 export function getVisibleAdminNav(role: AdminRole) {
   return ADMIN_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
+}
+
+export function getProjectNav(project: ProjectKey, role: AdminRole): AdminNavItem[] {
+  if (project === "pocket-gyms") {
+    return GYM_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
+  }
+  return ADMIN_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
+}
+
+export function getProjectSections(project: ProjectKey, role: AdminRole): SectionDescriptor[] {
+  if (project === "pocket-gyms") {
+    return GYM_SECTIONS.filter(
+      (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+    );
+  }
+  return SECTION_DESCRIPTORS.filter(
+    (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+  );
 }
 
 export function getCollectionConfig(collectionKey: CollectionKey) {
