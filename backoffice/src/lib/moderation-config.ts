@@ -1172,6 +1172,37 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     };
   }
 
+  if (pathname === "/gym/dashboard") {
+    return { eyebrow: "Gym", title: "Dashboard", description: "Key Pocket Gyms metrics: members, active plans, and upcoming bookings." };
+  }
+  if (pathname === "/gym/members") {
+    return { eyebrow: "Gym", title: "Members", description: "Pocket Gyms member list with search and profile access." };
+  }
+  if (pathname.startsWith("/gym/members/")) {
+    return { eyebrow: "Gym", title: "Member detail", description: "Member profile with training plans, evaluations, nutrition, and clinical history." };
+  }
+  if (pathname.startsWith("/gym/training-plans/")) {
+    return { eyebrow: "Gym", title: "Training plan editor", description: "Create and edit weekly training plans for a gym member." };
+  }
+  if (pathname.startsWith("/gym/evaluations/")) {
+    return { eyebrow: "Gym", title: "Evaluation form", description: "Record a physical assessment for a gym member." };
+  }
+  if (pathname.startsWith("/gym/nutrition/")) {
+    return { eyebrow: "Gym", title: "Nutrition plan editor", description: "Create and edit daily nutrition plans for a gym member." };
+  }
+  if (pathname === "/gym/booking-slots") {
+    return { eyebrow: "Gym", title: "Booking slots", description: "Manage available training time slots." };
+  }
+  if (pathname === "/gym/bookings") {
+    return { eyebrow: "Gym", title: "Bookings", description: "View all bookings and their confirmation status." };
+  }
+  if (pathname === "/gym/achievements") {
+    return { eyebrow: "Gym", title: "Achievements", description: "Create and edit achievement definitions awarded to members." };
+  }
+  if (pathname === "/gym/challenges") {
+    return { eyebrow: "Gym", title: "Challenges", description: "Create and edit challenge definitions for gym members." };
+  }
+
   return {
     eyebrow: "Pocket Genes Admin",
     title: "Backoffice",
