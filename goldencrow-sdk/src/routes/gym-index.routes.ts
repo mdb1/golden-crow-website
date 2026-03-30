@@ -10,6 +10,8 @@ import { gymMealComplianceRoutes } from "./gym-meal-compliance.routes.js";
 import { gymAchievementsRoutes } from "./gym-achievements.routes.js";
 import { gymChallengesRoutes } from "./gym-challenges.routes.js";
 import { gymStatsRoutes } from "./gym-stats.routes.js";
+import { gymDocumentsRoutes } from "./gym-documents.routes.js";
+import { gymUserAchievementsRoutes } from "./gym-user-achievements.routes.js";
 
 /**
  * Barrel for all Pocket Gyms routes.
@@ -27,4 +29,6 @@ export async function gymRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(gymAchievementsRoutes);
   await fastify.register(gymChallengesRoutes);
   await fastify.register(gymStatsRoutes);
+  await fastify.register(gymDocumentsRoutes);
+  await fastify.register(gymUserAchievementsRoutes);
 }
