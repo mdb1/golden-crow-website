@@ -1,5 +1,5 @@
 import { adminDb } from "../config/firebase.js";
-import { TEAM_ALLOWLIST } from "../config/env.js";
+import { TEAM_ALLOWLIST, resolveProjectAccess } from "../config/env.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import type {
   AdminContext,
@@ -222,6 +222,7 @@ export async function resolveAdminContext(input: {
       patientId: roleRecord.patientId,
       isBootstrap: false,
       canAccessBackoffice: roleRecord.isActive && roleRecord.role !== "patient",
+      projectAccess: resolveProjectAccess(normalizedEmail),
     };
   }
 
@@ -232,6 +233,7 @@ export async function resolveAdminContext(input: {
       role: "full_admin",
       isBootstrap: true,
       canAccessBackoffice: true,
+      projectAccess: resolveProjectAccess(normalizedEmail),
     };
   }
 
