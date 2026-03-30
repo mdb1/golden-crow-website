@@ -15,6 +15,7 @@ export const authOptions: NextAuthOptions = {
         name: { type: "text" },
         email: { type: "text" },
         image: { type: "text" },
+        project: { type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.idToken) return null;
@@ -30,6 +31,7 @@ export const authOptions: NextAuthOptions = {
             name: credentials.name ?? null,
             email: credentials.email ?? null,
             image: credentials.image ?? null,
+            project: credentials.project ?? "mydnamap",
           };
         } catch {
           return null;
@@ -43,7 +45,16 @@ export const authOptions: NextAuthOptions = {
     error: "/access-denied",
   },
   callbacks: {
-    async session({ session }) {
+    async jwt({ token, user }) {
+      if (user) {
+        token.project = (user as { project?: string }).project ?? "mydnamap";
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token.project) {
+        session.user.project = token.project as string;
+      }
       return session;
     },
   },

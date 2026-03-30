@@ -22,7 +22,7 @@ export default async function DashboardLayout({
   let adminContext;
 
   try {
-    adminContext = await getAdminContextServer();
+    adminContext = await getAdminContextServer(session.user?.project);
   } catch {
     redirect("/access-denied");
   }
