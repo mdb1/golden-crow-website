@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type ProjectKey = "mydnamap" | "pocket-gyms";
+
 export default function LoginPage() {
   const [loading, setLoading] = useState<"google" | "email" | "signup" | null>(
     null
@@ -24,14 +26,24 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedProject, setSelectedProject] = useState<"mydnamap" | "pocket-gyms" | null>(null);
 
-  async function finalizeLogin(options: {
+  // Phase: "auth" = show login form, "select" = show project picker (only if multi-project)
+  const [phase, setPhase] = useState<"auth" | "select">("auth");
+  const [pendingAuth, setPendingAuth] = useState<{
+    idToken: string;
+    name: string;
+    email: string;
+    image: string;
+    projectAccess: ProjectKey[];
+  } | null>(null);
+
+  async function handleAuthSuccess(options: {
     idToken: string;
     name: string;
     email: string;
     image: string;
   }) {
+    // Step 1: Create SDK session cookie
     const loginRes = await fetch("/api/sdk/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -48,12 +60,41 @@ export default function LoginPage() {
       throw new Error("SDK login failed");
     }
 
+    // Step 2: Fetch project access from SDK context
+    const contextRes = await fetch("/api/sdk/auth/context", {
+      credentials: "include",
+    });
+
+    if (!contextRes.ok) {
+      throw new Error("Failed to fetch project access");
+    }
+
+    const contextData = await contextRes.json();
+    const projectAccess: ProjectKey[] = contextData.context?.projectAccess ?? [];
+
+    // Step 3: Auto-select if single project, otherwise show selector
+    if (projectAccess.length === 1) {
+      // D-04: Auto-select for single-project users
+      await finalizeLogin(options, projectAccess[0]);
+    } else if (projectAccess.length > 1) {
+      setPendingAuth({ ...options, projectAccess });
+      setPhase("select");
+    } else {
+      // No project access — shouldn't happen if login succeeded, but handle gracefully
+      await finalizeLogin(options, "mydnamap");
+    }
+  }
+
+  async function finalizeLogin(
+    options: { idToken: string; name: string; email: string; image: string },
+    project: ProjectKey
+  ) {
     const signInResult = await signIn("credentials", {
       idToken: options.idToken,
       name: options.name,
       email: options.email,
       image: options.image,
-      project: selectedProject ?? "mydnamap",
+      project,
       redirect: false,
     });
 
@@ -72,7 +113,7 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      await finalizeLogin({
+      await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
         name: result.user.displayName ?? "",
         email: result.user.email ?? "",
@@ -93,7 +134,7 @@ export default function LoginPage() {
 
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      await finalizeLogin({
+      await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
         name: result.user.displayName ?? "",
         email: result.user.email ?? email,
@@ -113,7 +154,7 @@ export default function LoginPage() {
 
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      await finalizeLogin({
+      await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
         name: result.user.displayName ?? "",
         email: result.user.email ?? email,
@@ -129,9 +170,23 @@ export default function LoginPage() {
     }
   }
 
+  async function handleProjectSelect(project: ProjectKey) {
+    if (!pendingAuth) return;
+    setLoading("google"); // reuse loading state
+    setError(null);
+    try {
+      await finalizeLogin(pendingAuth, project);
+    } catch (err) {
+      console.error("Project select error:", err);
+      setError("Failed to complete sign in. Please try again.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   return (
     <div className="glass-panel flex w-full flex-col gap-6">
-      {selectedProject === null && (
+      {phase === "select" && pendingAuth && (
         <div className="flex flex-col gap-4 px-6 py-7">
           <div className="flex flex-col gap-2">
             <p className="section-eyebrow">Golden Crow</p>
@@ -143,43 +198,41 @@ export default function LoginPage() {
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary"
-              onClick={() => setSelectedProject("mydnamap")}
-            >
-              <span className="text-2xl">🧬</span>
-              <span className="font-semibold text-card-foreground">MyDNAMap</span>
-              <span className="text-sm text-muted-foreground">
-                Genomics reports, community, and account management.
-              </span>
-            </button>
-            <button
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary"
-              onClick={() => setSelectedProject("pocket-gyms")}
-            >
-              <span className="text-2xl">🏋️</span>
-              <span className="font-semibold text-card-foreground">Pocket Gyms</span>
-              <span className="text-sm text-muted-foreground">
-                Members, training plans, bookings, and achievements.
-              </span>
-            </button>
+            {pendingAuth.projectAccess.includes("mydnamap") && (
+              <button
+                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                onClick={() => handleProjectSelect("mydnamap")}
+                disabled={loading !== null}
+              >
+                <span className="text-2xl">🧬</span>
+                <span className="font-semibold text-card-foreground">MyDNAMap</span>
+                <span className="text-sm text-muted-foreground">
+                  Genomics reports, community, and account management.
+                </span>
+              </button>
+            )}
+            {pendingAuth.projectAccess.includes("pocket-gyms") && (
+              <button
+                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                onClick={() => handleProjectSelect("pocket-gyms")}
+                disabled={loading !== null}
+              >
+                <span className="text-2xl">🏋️</span>
+                <span className="font-semibold text-card-foreground">Pocket Gyms</span>
+                <span className="text-sm text-muted-foreground">
+                  Members, training plans, bookings, and achievements.
+                </span>
+              </button>
+            )}
           </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
       )}
 
-      {selectedProject !== null && (
+      {phase === "auth" && (
         <div className="flex flex-col gap-6 px-6 py-7">
-          <button
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            onClick={() => setSelectedProject(null)}
-          >
-            ← {selectedProject === "mydnamap" ? "MyDNAMap" : "Pocket Gyms"}
-          </button>
-
           <div className="flex flex-col gap-2">
-            <p className="section-eyebrow">
-              {selectedProject === "mydnamap" ? "MyDNAMap" : "Pocket Gyms"}
-            </p>
+            <p className="section-eyebrow">Golden Crow</p>
             <h1 className="font-heading text-3xl font-semibold text-foreground">
               Admin Sign In
             </h1>
