@@ -285,3 +285,27 @@ export interface MealComplianceRecord {
   notes: string | undefined;
   loggedAt: string;            // ISO timestamp
 }
+
+// GymDocumentRecord — from gym_documents/{uid}/documents/{docId}
+export type GymDocumentType = "medical_cert" | "fitness_clearance" | "other";
+
+export interface GymDocumentRecord {
+  id: string;
+  userId: string;
+  gymId: string;
+  name: string;
+  type: GymDocumentType;
+  uploadedAt: string;            // ISO timestamp
+  expiresAt: string | undefined; // ISO timestamp or undefined
+  storagePath: string;           // "gym_documents/{userId}/{docId}.pdf"
+  fileSize: number;              // bytes
+}
+
+// UserAchievementRecord — from gym_user_achievements/{docId} (top-level, filtered by userId)
+export interface UserAchievementRecord {
+  id: string;
+  userId: string;
+  achievementId: string;
+  earnedAt: string;              // ISO timestamp
+  xpEarned: number;
+}
