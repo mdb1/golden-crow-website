@@ -14,7 +14,9 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import type { AdminContextRecord } from "@/lib/admin-areas";
-import { getVisibleAdminNav, getVisibleSections } from "@/lib/moderation-config";
+import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
+import { ChevronDown } from "lucide-react";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -24,19 +26,37 @@ export function AppSidebar({
   adminContext: AdminContextRecord;
 }) {
   const pathname = usePathname();
-  const visibleSections = getVisibleSections(adminContext.role);
-  const visibleNav = getVisibleAdminNav(adminContext.role);
+  const visibleSections = getProjectSections(adminContext.project, adminContext.role);
+  const visibleNav = getProjectNav(adminContext.project, adminContext.role);
+
+  async function handleSwitchProject() {
+    await signOut({ callbackUrl: "/login", redirect: true });
+  }
 
   return (
     <Sidebar variant="floating" collapsible="icon" className="border-none bg-transparent p-2">
       <SidebarHeader className="glass-panel gap-3 px-3 py-3">
         <div className="px-2">
-          <p className="section-eyebrow">Pocket Genes</p>
-          <p className="font-heading text-lg font-semibold text-sidebar-foreground">
-            Pocket Genes Admin
-          </p>
+          <p className="section-eyebrow">Golden Crow</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-heading text-lg font-semibold text-sidebar-foreground">
+              {adminContext.project === "pocket-gyms" ? "Pocket Gyms" : "MyDNAMap"}
+            </p>
+            {adminContext.projectAccess.length > 1 && (
+              <button
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                onClick={handleSwitchProject}
+                title="Switch project"
+              >
+                <ChevronDown className="h-3 w-3" />
+                Switch
+              </button>
+            )}
+          </div>
           <p className="mt-1 text-sm text-sidebar-foreground/70">
-            Readable operations console for the live Firebase model.
+            {adminContext.project === "pocket-gyms"
+              ? "Gym operations console."
+              : "Readable operations console for the live Firebase model."}
           </p>
         </div>
       </SidebarHeader>
