@@ -4,6 +4,8 @@ export type AdminRole =
   | "institution_doctor"
   | "patient";
 
+export type ProjectKey = "mydnamap" | "pocket-gyms";
+
 export interface AdminContextRecord {
   email: string;
   uid: string;
@@ -13,6 +15,8 @@ export interface AdminContextRecord {
   patientId?: string;
   isBootstrap: boolean;
   canAccessBackoffice: boolean;
+  project: ProjectKey;
+  projectAccess: ProjectKey[];
 }
 
 export interface AdminContextResponse {
