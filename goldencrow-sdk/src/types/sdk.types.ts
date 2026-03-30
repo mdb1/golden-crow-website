@@ -76,6 +76,8 @@ export interface UserRoleRecord {
   createdByEmail?: string;
 }
 
+export type ProjectKey = "mydnamap" | "pocket-gyms";
+
 export interface AdminContext {
   email: string;
   uid: string;
@@ -85,6 +87,7 @@ export interface AdminContext {
   patientId?: string;
   isBootstrap: boolean;
   canAccessBackoffice: boolean;
+  projectAccess: ProjectKey[];
 }
 
 export interface AdminContextResponse {
