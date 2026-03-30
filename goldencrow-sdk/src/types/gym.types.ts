@@ -47,32 +47,32 @@ export interface StrengthAssessment {
   exerciseName: string;
   weightKg: number;
   reps: number;
-  notes: string | undefined;
+  notes?: string;
 }
 
 export interface MobilityAssessment {
   jointName: string;
   rangeOfMotionDegrees: number;
-  side: string | undefined;
-  notes: string | undefined;
+  side?: string;
+  notes?: string;
 }
 
 export interface AnthropometryAssessment {
-  weightKg: number | undefined;
-  heightCm: number | undefined;
-  bodyFatPercent: number | undefined;
-  bmi: number | undefined;
-  waistCm: number | undefined;
-  hipCm: number | undefined;
-  chestCm: number | undefined;
-  armCm: number | undefined;
-  thighCm: number | undefined;
+  weightKg?: number;
+  heightCm?: number;
+  bodyFatPercent?: number;
+  bmi?: number;
+  waistCm?: number;
+  hipCm?: number;
+  chestCm?: number;
+  armCm?: number;
+  thighCm?: number;
 }
 
 export interface PainAssessment {
   bodyArea: string;
   painScale: number;  // 0-10
-  notes: string | undefined;
+  notes?: string;
 }
 
 export interface PhysicalEvaluationRecord {
