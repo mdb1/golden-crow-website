@@ -21,5 +21,7 @@ export function useAdminContext() {
     throw new Error("useAdminContext must be used within AdminContextProvider");
   }
 
+  // AdminContextRecord includes: email, uid, role, project, projectAccess, institutionId, etc.
+  // Client components can access context.project and context.projectAccess without prop-drilling.
   return context;
 }

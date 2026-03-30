@@ -1,3 +1,6 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 const SDK_URL =
   process.env.GOLDENCROW_SDK_URL ??
   process.env.NEXT_PUBLIC_SDK_URL ??
@@ -15,6 +18,20 @@ async function proxyRequest(
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
+
+  // Inject project context from NextAuth session (per D-07)
+  // Skip for auth routes — they don't need project context
+  const path = sdkPath.join("/");
+  if (!path.startsWith("auth/")) {
+    try {
+      const session = await getServerSession(authOptions);
+      if (session?.user?.project) {
+        headers.set("x-project", session.user.project);
+      }
+    } catch {
+      // Session read failure is non-fatal — SDK will enforce access via cookie
+    }
+  }
 
   const method = request.method.toUpperCase();
   const body =
