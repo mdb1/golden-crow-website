@@ -36,7 +36,7 @@ export async function gymAchievementsRoutes(fastify: FastifyInstance): Promise<v
         body: z.object({
           name: z.string().min(1),
           description: z.string().min(1),
-          iconName: z.string().min(1),
+          iconName: z.string().optional().default(""),
           xpReward: z.number().int().min(0),
           triggerType: TriggerTypeSchema,
           triggerThreshold: z.number().int().min(1),

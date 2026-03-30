@@ -5,7 +5,6 @@ import {
   Building2,
   Calendar,
   Dna,
-  Dumbbell,
   FileBadge2,
   FileCode2,
   FileSearch,
@@ -19,7 +18,6 @@ import {
   UserRoundCog,
   UserPlus,
   Users,
-  Utensils,
 } from "lucide-react";
 import type { AdminRole, ProjectKey } from "./admin-areas";
 import type {
@@ -806,30 +804,6 @@ export const GYM_NAV: AdminNavItem[] = [
     href: "/gym/members",
     description: "Gym member list and profiles",
     icon: Users,
-    visibleRoles: AREA_ROLES,
-  },
-  {
-    section: "gym-members",
-    label: "Training Plans",
-    href: "/gym/training-plans",
-    description: "Member training plan management",
-    icon: Dumbbell,
-    visibleRoles: AREA_ROLES,
-  },
-  {
-    section: "gym-members",
-    label: "Evaluations",
-    href: "/gym/evaluations",
-    description: "Physical assessment records",
-    icon: Activity,
-    visibleRoles: AREA_ROLES,
-  },
-  {
-    section: "gym-members",
-    label: "Nutrition",
-    href: "/gym/nutrition",
-    description: "Member nutrition plans",
-    icon: Utensils,
     visibleRoles: AREA_ROLES,
   },
   {
