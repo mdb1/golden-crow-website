@@ -1,6 +1,6 @@
-# MyDNAMap Backoffice
+# PocketGenes Backoffice
 
-Next.js admin interface for the MyDNAMap platform. Requires GoldenCrow SDK running as a backend.
+Next.js admin interface for the PocketGenes platform. Requires GoldenCrow SDK running as a backend.
 
 ## Prerequisites
 

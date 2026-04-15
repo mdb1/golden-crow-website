@@ -205,7 +205,7 @@ export default function LoginPage() {
                 disabled={loading !== null}
               >
                 <span className="text-2xl">🧬</span>
-                <span className="font-semibold text-card-foreground">MyDNAMap</span>
+                <span className="font-semibold text-card-foreground">PocketGenes</span>
                 <span className="text-sm text-muted-foreground">
                   Genomics reports, community, and account management.
                 </span>

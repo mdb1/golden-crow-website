@@ -55,7 +55,7 @@ const REPORT_SOURCE_META: Record<
   ReportSourceKey,
   { label: string; color: string }
 > = {
-  myDNAMap: { label: "MyDNAMap", color: "#E5517D" },
+  myDNAMap: { label: "PocketGenes", color: "#E5517D" },
   ActyonGenomics: { label: "ActyonGenomics", color: "#0097A7" },
   vcf: { label: "VCF", color: "#FF9E2C" },
 };

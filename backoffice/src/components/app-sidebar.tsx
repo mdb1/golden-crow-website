@@ -14,6 +14,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import type { AdminContextRecord } from "@/lib/admin-areas";
+import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
 import { ChevronDown } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -39,9 +40,14 @@ export function AppSidebar({
         <div className="px-2">
           <p className="section-eyebrow">Golden Crow</p>
           <div className="flex items-center justify-between gap-2">
-            <p className="font-heading text-lg font-semibold text-sidebar-foreground">
-              {adminContext.project === "pocket-gyms" ? "Pocket Gyms" : "MyDNAMap"}
-            </p>
+            <div className="flex items-baseline gap-2">
+              <p className="font-heading text-lg font-semibold text-sidebar-foreground">
+                {adminContext.project === "pocket-gyms" ? "Pocket Gyms" : "PocketGenes"}
+              </p>
+              <span className="text-xs font-medium text-sidebar-foreground/45">
+                v{BACKOFFICE_VERSION}
+              </span>
+            </div>
             {adminContext.projectAccess.length > 1 && (
               <button
                 className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"

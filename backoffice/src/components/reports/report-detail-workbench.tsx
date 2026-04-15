@@ -32,7 +32,7 @@ type EditableReportCodeState = {
 };
 
 const SOURCE_DESCRIPTIONS: Record<AdminReportRecord["source"], string> = {
-  myDNAMap: "Report uploaded via the MyDNAMap mobile app.",
+  myDNAMap: "Report uploaded via the PocketGenes mobile app.",
   ActyonGenomics: "Report from ActyonGenomics laboratory partner.",
   vcf: "Variant Call Format file - raw genomic variant data.",
 };

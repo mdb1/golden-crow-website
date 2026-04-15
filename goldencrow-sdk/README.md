@@ -1,6 +1,6 @@
 # GoldenCrow SDK
 
-Fastify BFF server wrapping Firebase Admin SDK. Provides authenticated HTTP endpoints for the MyDNAMap backoffice admin interface.
+Fastify BFF server wrapping Firebase Admin SDK. Provides authenticated HTTP endpoints for the PocketGenes backoffice admin interface.
 
 ## Prerequisites
 

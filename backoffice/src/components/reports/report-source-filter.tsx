@@ -11,7 +11,7 @@ export type SourceFilter = "all" | "myDNAMap" | "ActyonGenomics" | "vcf";
 
 const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "All Sources" },
-  { value: "myDNAMap", label: "MyDNAMap" },
+  { value: "myDNAMap", label: "PocketGenes" },
   { value: "ActyonGenomics", label: "ActyonGenomics" },
   { value: "vcf", label: "VCF" },
 ];

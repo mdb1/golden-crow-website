@@ -839,7 +839,7 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
             key: "providerName",
             label: "Provider name",
             type: "text",
-            placeholder: "MyDNAMap",
+            placeholder: "PocketGenes",
             description: "Provider or reporting lab.",
           },
           {
