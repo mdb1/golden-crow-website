@@ -33,10 +33,10 @@ export interface TwoPQRecord {
   institutionId: string;
   doctorId: string;
   patientId?: string;
-  batchId?: string;
-  caseId?: string;
-  linkedCaseIds?: string[];
-  linkedSamplingIds?: string[];
+  parent_batch?: string;
+  parent_case?: string;
+  children_cases?: string[];
+  children_sampling?: string[];
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -89,10 +89,10 @@ export type TwoPQMutableFieldKey = Exclude<
   | "id"
   | "areaKey"
   | "collectionKey"
-  | "batchId"
-  | "caseId"
-  | "linkedCaseIds"
-  | "linkedSamplingIds"
+  | "parent_batch"
+  | "parent_case"
+  | "children_cases"
+  | "children_sampling"
   | "createdAt"
   | "updatedAt"
   | "createdByEmail"

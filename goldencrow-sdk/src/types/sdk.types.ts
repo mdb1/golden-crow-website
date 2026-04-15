@@ -212,10 +212,10 @@ export interface TwoPQRecord {
   institutionId: string;
   doctorId: string;
   patientId?: string;
-  batchId?: string;
-  caseId?: string;
-  linkedCaseIds?: string[];
-  linkedSamplingIds?: string[];
+  parent_batch?: string;
+  parent_case?: string;
+  children_cases?: string[];
+  children_sampling?: string[];
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;

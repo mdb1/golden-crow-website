@@ -25,8 +25,8 @@ type TwoPQMutationInput = {
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
-  batchId?: string;
-  caseId?: string;
+  parent_batch?: string;
+  parent_case?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -148,7 +148,7 @@ const AREA_CONFIG: Record<
     prefix: "CASE",
     requiredFields: ["institutionId", "doctorId", "caseLabel", "caseStatus", "sampleId"],
     searchableFields: [
-      "batchId",
+      "parent_batch",
       "caseLabel",
       "caseStatus",
       "sampleId",
@@ -171,7 +171,7 @@ const AREA_CONFIG: Record<
       "processingStatus",
     ],
     searchableFields: [
-      "caseId",
+      "parent_case",
       "caseLabel",
       "sampleId",
       "sampleType",
@@ -270,8 +270,8 @@ const AREA_CONFIG: Record<
 
 const DEFAULT_RECORD_FIELDS: Array<keyof TwoPQRecord> = [
   "patientId",
-  "batchId",
-  "caseId",
+  "parent_batch",
+  "parent_case",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -528,14 +528,30 @@ function toTwoPQRecord(
         : areaKey,
   });
 
-  const linkedCaseIds = normalizeStringArray(data.linkedCaseIds);
-  if (linkedCaseIds) {
-    record.linkedCaseIds = linkedCaseIds;
+  if (!record.parent_batch) {
+    const legacyParentBatch = normalizeOptionalString(data.batchId);
+    if (legacyParentBatch) {
+      record.parent_batch = legacyParentBatch;
+    }
   }
 
-  const linkedSamplingIds = normalizeStringArray(data.linkedSamplingIds);
-  if (linkedSamplingIds) {
-    record.linkedSamplingIds = linkedSamplingIds;
+  if (!record.parent_case) {
+    const legacyParentCase = normalizeOptionalString(data.caseId);
+    if (legacyParentCase) {
+      record.parent_case = legacyParentCase;
+    }
+  }
+
+  const childrenCases =
+    normalizeStringArray(data.children_cases) ?? normalizeStringArray(data.linkedCaseIds);
+  if (childrenCases) {
+    record.children_cases = childrenCases;
+  }
+
+  const childrenSampling =
+    normalizeStringArray(data.children_sampling) ?? normalizeStringArray(data.linkedSamplingIds);
+  if (childrenSampling) {
+    record.children_sampling = childrenSampling;
   }
 
   return record;
@@ -943,7 +959,7 @@ async function getTwoPQRecordsByIds(areaKey: TwoPQAreaKey, recordIds: string[]) 
 
 async function getTwoPQChildrenByParentField(
   areaKey: "cases" | "sampling",
-  parentField: "batchId" | "caseId",
+  parentField: "parent_batch" | "parent_case",
   parentId: string
 ) {
   const snapshot = await adminDb
@@ -994,7 +1010,7 @@ async function linkCaseToBatchInTransaction(
   transaction: Transaction,
   context: AdminContext,
   batchId: string,
-  caseRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "patientId" | "batchId">,
+  caseRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "patientId" | "parent_batch">,
   now: string
 ) {
   const batchRef = getTwoPQRecordRef("sequencing", batchId);
@@ -1018,11 +1034,12 @@ async function linkCaseToBatchInTransaction(
     childLabel: "Case",
   });
 
-  if (caseRecord.batchId && caseRecord.batchId !== batchId) {
+  if (caseRecord.parent_batch && caseRecord.parent_batch !== batchId) {
     transaction.set(
-      getTwoPQRecordRef("sequencing", caseRecord.batchId),
+      getTwoPQRecordRef("sequencing", caseRecord.parent_batch),
       {
-        linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
+        children_cases: FieldValue.arrayRemove(caseRecord.id),
+        linkedCaseIds: FieldValue.delete(),
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1033,7 +1050,8 @@ async function linkCaseToBatchInTransaction(
   transaction.set(
     batchRef,
     {
-      linkedCaseIds: FieldValue.arrayUnion(caseRecord.id),
+      children_cases: FieldValue.arrayUnion(caseRecord.id),
+      linkedCaseIds: FieldValue.delete(),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1045,7 +1063,7 @@ async function unlinkCaseFromBatchInTransaction(
   transaction: Transaction,
   context: AdminContext,
   batchId: string,
-  caseRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "batchId">,
+  caseRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "parent_batch">,
   now: string
 ) {
   const batchRef = getTwoPQRecordRef("sequencing", batchId);
@@ -1067,7 +1085,8 @@ async function unlinkCaseFromBatchInTransaction(
   transaction.set(
     batchRef,
     {
-      linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
+      children_cases: FieldValue.arrayRemove(caseRecord.id),
+      linkedCaseIds: FieldValue.delete(),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1079,7 +1098,7 @@ async function linkSamplingToCaseInTransaction(
   transaction: Transaction,
   context: AdminContext,
   caseId: string,
-  samplingRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "patientId" | "caseId">,
+  samplingRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "patientId" | "parent_case">,
   now: string
 ) {
   const caseRef = getTwoPQRecordRef("cases", caseId);
@@ -1100,11 +1119,12 @@ async function linkSamplingToCaseInTransaction(
     enforcePatientMatch: true,
   });
 
-  if (samplingRecord.caseId && samplingRecord.caseId !== caseId) {
+  if (samplingRecord.parent_case && samplingRecord.parent_case !== caseId) {
     transaction.set(
-      getTwoPQRecordRef("cases", samplingRecord.caseId),
+      getTwoPQRecordRef("cases", samplingRecord.parent_case),
       {
-        linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+        children_sampling: FieldValue.arrayRemove(samplingRecord.id),
+        linkedSamplingIds: FieldValue.delete(),
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1115,7 +1135,8 @@ async function linkSamplingToCaseInTransaction(
   transaction.set(
     caseRef,
     {
-      linkedSamplingIds: FieldValue.arrayUnion(samplingRecord.id),
+      children_sampling: FieldValue.arrayUnion(samplingRecord.id),
+      linkedSamplingIds: FieldValue.delete(),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1127,7 +1148,7 @@ async function unlinkSamplingFromCaseInTransaction(
   transaction: Transaction,
   context: AdminContext,
   caseId: string,
-  samplingRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "caseId">,
+  samplingRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "parent_case">,
   now: string
 ) {
   const caseRef = getTwoPQRecordRef("cases", caseId);
@@ -1145,7 +1166,8 @@ async function unlinkSamplingFromCaseInTransaction(
   transaction.set(
     caseRef,
     {
-      linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+      children_sampling: FieldValue.arrayRemove(samplingRecord.id),
+      linkedSamplingIds: FieldValue.delete(),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1163,8 +1185,8 @@ function mergeRecordsById(records: TwoPQRecord[]) {
 
 async function loadLinkedCasesForBatch(record: TwoPQRecord) {
   const [recordsById, recordsByQuery] = await Promise.all([
-    getTwoPQRecordsByIds("cases", record.linkedCaseIds ?? []),
-    getTwoPQChildrenByParentField("cases", "batchId", record.id),
+    getTwoPQRecordsByIds("cases", record.children_cases ?? []),
+    getTwoPQChildrenByParentField("cases", "parent_batch", record.id),
   ]);
 
   return mergeRecordsById([...recordsById, ...recordsByQuery]);
@@ -1172,8 +1194,8 @@ async function loadLinkedCasesForBatch(record: TwoPQRecord) {
 
 async function loadLinkedSamplingsForCase(record: TwoPQRecord) {
   const [recordsById, recordsByQuery] = await Promise.all([
-    getTwoPQRecordsByIds("sampling", record.linkedSamplingIds ?? []),
-    getTwoPQChildrenByParentField("sampling", "caseId", record.id),
+    getTwoPQRecordsByIds("sampling", record.children_sampling ?? []),
+    getTwoPQChildrenByParentField("sampling", "parent_case", record.id),
   ]);
 
   return mergeRecordsById([...recordsById, ...recordsByQuery]);
@@ -1183,7 +1205,7 @@ async function validateCurrentRelationsForRecord(areaKey: TwoPQAreaKey, record: 
   if (areaKey === "sequencing") {
     const linkedCases = await loadLinkedCasesForBatch(record);
     for (const linkedCase of linkedCases) {
-      if (linkedCase.batchId !== record.id) {
+      if (linkedCase.parent_batch !== record.id) {
         continue;
       }
 
@@ -1196,8 +1218,8 @@ async function validateCurrentRelationsForRecord(areaKey: TwoPQAreaKey, record: 
   }
 
   if (areaKey === "cases") {
-    if (record.batchId) {
-      const linkedBatch = await getTwoPQRecord("sequencing", record.batchId);
+    if (record.parent_batch) {
+      const linkedBatch = await getTwoPQRecord("sequencing", record.parent_batch);
       if (!linkedBatch) {
         throw new AdminRepositoryError("Linked batch not found.", 404);
       }
@@ -1210,7 +1232,7 @@ async function validateCurrentRelationsForRecord(areaKey: TwoPQAreaKey, record: 
 
     const linkedSamplings = await loadLinkedSamplingsForCase(record);
     for (const linkedSampling of linkedSamplings) {
-      if (linkedSampling.caseId !== record.id) {
+      if (linkedSampling.parent_case !== record.id) {
         continue;
       }
 
@@ -1223,8 +1245,8 @@ async function validateCurrentRelationsForRecord(areaKey: TwoPQAreaKey, record: 
     return;
   }
 
-  if (areaKey === "sampling" && record.caseId) {
-    const linkedCase = await getTwoPQRecord("cases", record.caseId);
+  if (areaKey === "sampling" && record.parent_case) {
+    const linkedCase = await getTwoPQRecord("cases", record.parent_case);
     if (!linkedCase) {
       throw new AdminRepositoryError("Linked case not found.", 404);
     }
@@ -1359,13 +1381,13 @@ export async function createTwoPQRecordForContext(
   );
 
   const requestedBatchId =
-    areaKey === "cases" ? normalizeOptionalString(payload.batchId) : undefined;
+    areaKey === "cases" ? normalizeOptionalString(payload.parent_batch) : undefined;
   const requestedCaseId =
-    areaKey === "sampling" ? normalizeOptionalString(payload.caseId) : undefined;
+    areaKey === "sampling" ? normalizeOptionalString(payload.parent_case) : undefined;
   const writeDocument: TwoPQRecord = {
     ...document,
-    ...(requestedBatchId ? { batchId: requestedBatchId } : {}),
-    ...(requestedCaseId ? { caseId: requestedCaseId } : {}),
+    ...(requestedBatchId ? { parent_batch: requestedBatchId } : {}),
+    ...(requestedCaseId ? { parent_case: requestedCaseId } : {}),
     createdByEmail: context.email,
     updatedByEmail: context.email,
   };
@@ -1431,11 +1453,11 @@ export async function getTwoPQDetailForContext(
     getInstitutionById(record.institutionId),
     getDoctorById(record.doctorId),
     record.patientId ? getPatientById(record.patientId) : Promise.resolve(null),
-      areaKey === "cases" && record.batchId
-        ? getTwoPQListItemForContext(context, "sequencing", record.batchId)
+      areaKey === "cases" && record.parent_batch
+        ? getTwoPQListItemForContext(context, "sequencing", record.parent_batch)
         : Promise.resolve(null),
-      areaKey === "sampling" && record.caseId
-        ? getTwoPQListItemForContext(context, "cases", record.caseId)
+      areaKey === "sampling" && record.parent_case
+        ? getTwoPQListItemForContext(context, "cases", record.parent_case)
         : Promise.resolve(null),
       areaKey === "sequencing"
         ? loadLinkedCasesForBatch(record).then((records) => buildListItemsForRecords(context, records))
@@ -1626,7 +1648,8 @@ export async function linkCaseToBatchForContext(
     transaction.set(
       getTwoPQRecordRef("cases", caseId),
       {
-        batchId,
+        parent_batch: batchId,
+        batchId: FieldValue.delete(),
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1655,10 +1678,11 @@ export async function unlinkCaseFromBatchForContext(
   await adminDb.runTransaction(async (transaction) => {
     await unlinkCaseFromBatchInTransaction(transaction, context, batchId, caseRecord, now);
 
-    if (caseRecord.batchId === batchId) {
+    if (caseRecord.parent_batch === batchId) {
       transaction.set(
         getTwoPQRecordRef("cases", caseId),
         {
+          parent_batch: FieldValue.delete(),
           batchId: FieldValue.delete(),
           updatedAt: now,
           updatedByEmail: context.email,
@@ -1691,7 +1715,8 @@ export async function linkSamplingToCaseForContext(
     transaction.set(
       getTwoPQRecordRef("sampling", samplingId),
       {
-        caseId,
+        parent_case: caseId,
+        caseId: FieldValue.delete(),
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1720,10 +1745,11 @@ export async function unlinkSamplingFromCaseForContext(
   await adminDb.runTransaction(async (transaction) => {
     await unlinkSamplingFromCaseInTransaction(transaction, context, caseId, samplingRecord, now);
 
-    if (samplingRecord.caseId === caseId) {
+    if (samplingRecord.parent_case === caseId) {
       transaction.set(
         getTwoPQRecordRef("sampling", samplingId),
         {
+          parent_case: FieldValue.delete(),
           caseId: FieldValue.delete(),
           updatedAt: now,
           updatedByEmail: context.email,
@@ -1756,20 +1782,21 @@ export async function deleteTwoPQRecordForContext(
     const linkedCases = await loadLinkedCasesForBatch(record);
 
     for (const linkedCase of linkedCases) {
-      if (linkedCase.batchId === record.id && !canWriteTwoPQRecord(context, linkedCase)) {
+      if (linkedCase.parent_batch === record.id && !canWriteTwoPQRecord(context, linkedCase)) {
         throw new AdminRepositoryError("You cannot unlink every case in this batch.", 403);
       }
     }
 
     await adminDb.runTransaction(async (transaction) => {
       for (const linkedCase of linkedCases) {
-        if (linkedCase.batchId !== record.id) {
+        if (linkedCase.parent_batch !== record.id) {
           continue;
         }
 
         transaction.set(
           getTwoPQRecordRef("cases", linkedCase.id),
           {
+            parent_batch: FieldValue.delete(),
             batchId: FieldValue.delete(),
             updatedAt: now,
             updatedByEmail: context.email,
@@ -1788,24 +1815,25 @@ export async function deleteTwoPQRecordForContext(
     const linkedSamplings = await loadLinkedSamplingsForCase(record);
 
     for (const linkedSampling of linkedSamplings) {
-      if (linkedSampling.caseId === record.id && !canWriteTwoPQRecord(context, linkedSampling)) {
+      if (linkedSampling.parent_case === record.id && !canWriteTwoPQRecord(context, linkedSampling)) {
         throw new AdminRepositoryError("You cannot unlink every sampling linked to this case.", 403);
       }
     }
 
     await adminDb.runTransaction(async (transaction) => {
-      if (record.batchId) {
-        await unlinkCaseFromBatchInTransaction(transaction, context, record.batchId, record, now);
+      if (record.parent_batch) {
+        await unlinkCaseFromBatchInTransaction(transaction, context, record.parent_batch, record, now);
       }
 
       for (const linkedSampling of linkedSamplings) {
-        if (linkedSampling.caseId !== record.id) {
+        if (linkedSampling.parent_case !== record.id) {
           continue;
         }
 
         transaction.set(
           getTwoPQRecordRef("sampling", linkedSampling.id),
           {
+            parent_case: FieldValue.delete(),
             caseId: FieldValue.delete(),
             updatedAt: now,
             updatedByEmail: context.email,
@@ -1820,9 +1848,9 @@ export async function deleteTwoPQRecordForContext(
     return { success: true };
   }
 
-  if (areaKey === "sampling" && record.caseId) {
+  if (areaKey === "sampling" && record.parent_case) {
     await adminDb.runTransaction(async (transaction) => {
-      await unlinkSamplingFromCaseInTransaction(transaction, context, record.caseId!, record, now);
+      await unlinkSamplingFromCaseInTransaction(transaction, context, record.parent_case!, record, now);
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
     });
 

@@ -128,6 +128,19 @@ function getRecordHref(record: TwoPQListItem) {
   return linkedArea ? `${linkedArea.route}/${record.id}` : "#";
 }
 
+const RELATION_STRIP_CLASSNAME =
+  "order-last col-span-full -mx-1 flex flex-row gap-4 overflow-x-auto px-1 pb-1 pt-2";
+const RELATION_SECTION_CLASSNAME =
+  "min-w-[22rem] max-w-[28rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] shadow-[0_18px_56px_rgba(187,247,208,0.32)]";
+const RELATION_SECONDARY_BUTTON_CLASSNAME =
+  "border-emerald-100 bg-white/80 text-emerald-900 shadow-[0_10px_24px_rgba(220,252,231,0.78)] hover:bg-emerald-50";
+const RELATION_PRIMARY_BUTTON_CLASSNAME =
+  "border border-emerald-100 bg-[linear-gradient(180deg,rgba(240,253,244,0.98),rgba(220,252,231,0.98))] text-emerald-950 shadow-[0_14px_32px_rgba(187,247,208,0.38)] hover:brightness-[1.01]";
+const RELATION_HINT_CLASSNAME =
+  "rounded-full border border-emerald-100 bg-white/72 px-3 py-1 text-xs text-emerald-900/55 shadow-[0_8px_22px_rgba(220,252,231,0.68)]";
+const RELATION_EMPTY_STATE_CLASSNAME =
+  "rounded-[1.35rem] border border-dashed border-emerald-100 bg-white/72 px-4 py-5 text-sm text-emerald-900/65";
+
 function RelationSection({
   title,
   subtitle,
@@ -140,11 +153,11 @@ function RelationSection({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-[linear-gradient(145deg,rgba(12,45,32,0.96),rgba(8,25,19,0.94)_52%,rgba(5,150,105,0.24))] shadow-[0_22px_72px_rgba(16,185,129,0.16)]">
-      <div className="flex flex-col gap-3 border-b border-emerald-200/10 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className={RELATION_SECTION_CLASSNAME}>
+      <div className="flex flex-col gap-3 border-b border-emerald-200/70 px-5 py-4">
         <div>
-          <h3 className="font-heading text-lg font-semibold text-emerald-50">{title}</h3>
-          <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-100/44">
+          <h3 className="font-heading text-lg font-semibold text-emerald-950">{title}</h3>
+          <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-900/45">
             {subtitle}
           </p>
         </div>
@@ -171,21 +184,18 @@ function LinkedEntityCard({
   const subtitle = linkedArea ? getTwoPQRecordSubtitle(linkedArea, record) : "";
 
   return (
-    <div className="rounded-[1.35rem] border border-emerald-200/14 bg-emerald-50/[0.04] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="rounded-[1.35rem] border border-emerald-100 bg-white/82 px-4 py-4 shadow-[0_12px_32px_rgba(220,252,231,0.82)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className="border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
-            >
+            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-900">
               {badge}
             </Badge>
-            <span className="font-mono text-[11px] text-emerald-100/56">{record.id}</span>
+            <span className="font-mono text-[11px] text-emerald-900/52">{record.id}</span>
           </div>
-          <p className="mt-3 text-base font-semibold text-white">{title}</p>
-          <p className="mt-1 text-sm text-emerald-50/72">{subtitle || "Linked entity"}</p>
-          {note ? <p className="mt-2 text-xs text-emerald-100/54">{note}</p> : null}
+          <p className="mt-3 text-base font-semibold text-emerald-950">{title}</p>
+          <p className="mt-1 text-sm text-emerald-900/68">{subtitle || "Linked entity"}</p>
+          {note ? <p className="mt-2 text-xs text-emerald-900/52">{note}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
@@ -242,12 +252,12 @@ function RelationSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-hidden rounded-[2rem] border border-emerald-300/24 bg-[linear-gradient(155deg,rgba(17,24,39,0.98),rgba(8,38,27,0.98)_54%,rgba(16,185,129,0.34))] p-0 text-emerald-50 shadow-[0_34px_120px_rgba(16,185,129,0.22)]">
-        <DialogHeader className="border-b border-emerald-200/10 px-6 py-5">
-          <DialogTitle className="font-heading text-2xl font-semibold text-white">
+      <DialogContent className="max-w-3xl overflow-hidden rounded-[2rem] border border-emerald-100 bg-[linear-gradient(155deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_56%,rgba(220,252,231,0.94))] p-0 text-emerald-950 shadow-[0_34px_120px_rgba(187,247,208,0.36)]">
+        <DialogHeader className="border-b border-emerald-100 px-6 py-5">
+          <DialogTitle className="font-heading text-2xl font-semibold text-emerald-950">
             {title}
           </DialogTitle>
-          <DialogDescription className="text-emerald-50/70">
+          <DialogDescription className="text-emerald-900/65">
             {description}
           </DialogDescription>
         </DialogHeader>
@@ -256,38 +266,38 @@ function RelationSelectionDialog({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder={`Search ${area.label.toLowerCase()}...`}
-            className="border-emerald-200/14 bg-emerald-950/26 text-emerald-50 placeholder:text-emerald-100/36"
+            className="border-emerald-100 bg-white/82 text-emerald-950 placeholder:text-emerald-900/35"
           />
           <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
             {loading ? (
-              <div className="rounded-[1.35rem] border border-emerald-200/12 bg-emerald-50/[0.04] px-4 py-5 text-sm text-emerald-50/70">
+              <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                 Loading available {area.navLabel.toLowerCase()}...
               </div>
             ) : filteredRecords.length === 0 ? (
-              <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+              <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                 No matching records available.
               </div>
             ) : (
               filteredRecords.map((record) => (
                 <div
                   key={record.id}
-                  className="rounded-[1.35rem] border border-emerald-200/12 bg-emerald-50/[0.04] px-4 py-4"
+                  className="rounded-[1.35rem] border border-emerald-100 bg-white/82 px-4 py-4 shadow-[0_10px_28px_rgba(220,252,231,0.76)]"
                 >
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-white">
+                        <p className="text-sm font-semibold text-emerald-950">
                           {getTwoPQRecordTitle(area, record)}
                         </p>
-                        <span className="font-mono text-[11px] text-emerald-100/48">
+                        <span className="font-mono text-[11px] text-emerald-900/48">
                           {record.id}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-emerald-50/70">
+                      <p className="mt-1 text-sm text-emerald-900/68">
                         {getTwoPQRecordSubtitle(area, record) || "Linked entity"}
                       </p>
                       {noteByRecordId?.[record.id] ? (
-                        <p className="mt-2 text-xs text-emerald-100/52">
+                        <p className="mt-2 text-xs text-emerald-900/52">
                           {noteByRecordId[record.id]}
                         </p>
                       ) : null}
@@ -297,7 +307,7 @@ function RelationSelectionDialog({
                         variant="outline"
                         size="sm"
                         asChild
-                        className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                        className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                       >
                         <Link href={getRecordHref(record)}>
                           Open
@@ -308,7 +318,7 @@ function RelationSelectionDialog({
                         size="sm"
                         onClick={() => onSelect(record)}
                         disabled={pendingRecordId === record.id}
-                        className="border border-emerald-200/12 bg-[linear-gradient(180deg,rgba(110,231,183,0.98),rgba(16,185,129,0.96))] text-emerald-950 shadow-[0_14px_40px_rgba(16,185,129,0.24)]"
+                        className={RELATION_PRIMARY_BUTTON_CLASSNAME}
                       >
                         {pendingRecordId === record.id ? "Linking..." : selectLabel}
                       </Button>
@@ -574,8 +584,8 @@ export function TwoPQRecordWorkbench({
       Object.fromEntries(
         sequencingCaseCandidates.map((record) => [
           record.id,
-          record.batchId && record.batchId !== detail?.record.id
-            ? `Currently linked to batch ${record.batchId}. Linking here will move it.`
+          record.parent_batch && record.parent_batch !== detail?.record.id
+            ? `Currently linked to batch ${record.parent_batch}. Linking here will move it.`
             : "This case will become a child of the current batch.",
         ])
       ),
@@ -586,8 +596,8 @@ export function TwoPQRecordWorkbench({
       Object.fromEntries(
         samplingCandidates.map((record) => [
           record.id,
-          record.caseId && record.caseId !== detail?.record.id
-            ? `Currently linked to case ${record.caseId}. Linking here will move it.`
+          record.parent_case && record.parent_case !== detail?.record.id
+            ? `Currently linked to case ${record.parent_case}. Linking here will move it.`
             : "This sampling record will become a child of the current case.",
         ])
       ),
@@ -854,10 +864,10 @@ export function TwoPQRecordWorkbench({
     try {
       const payload = buildPayload(getFieldKeys(areaKey));
       if (areaKey === "cases" && draftBatch?.id) {
-        payload.batchId = draftBatch.id;
+        payload.parent_batch = draftBatch.id;
       }
       if (areaKey === "sampling" && draftCase?.id) {
-        payload.caseId = draftCase.id;
+        payload.parent_case = draftCase.id;
       }
 
       const response = await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}`, {
@@ -1180,13 +1190,15 @@ export function TwoPQRecordWorkbench({
         ) : null}
 
         <div className={mode === "create" ? "grid gap-4 pb-40 md:pb-44" : "grid gap-4"}>
+          {areaKey === "sequencing" || areaKey === "cases" || areaKey === "sampling" ? (
+            <div className={RELATION_STRIP_CLASSNAME}>
           {areaKey === "sequencing" ? (
             <RelationSection
               title="Linked cases"
               subtitle="Children entities"
               actions={
                 mode === "create" ? (
-                  <span className="rounded-full border border-emerald-200/12 bg-emerald-50/[0.04] px-3 py-1 text-xs text-emerald-100/54">
+                  <span className={RELATION_HINT_CLASSNAME}>
                     Create this batch first to start linking cases.
                   </span>
                 ) : (
@@ -1196,7 +1208,7 @@ export function TwoPQRecordWorkbench({
                       size="sm"
                       onClick={() => openRelationDialog("sequencing-child-case")}
                       disabled={!canManageRelations || pendingRelationRecordId !== null}
-                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Link existing
@@ -1204,7 +1216,7 @@ export function TwoPQRecordWorkbench({
                     <Button
                       size="sm"
                       asChild
-                      className="border border-emerald-200/12 bg-[linear-gradient(180deg,rgba(110,231,183,0.98),rgba(16,185,129,0.96))] text-emerald-950 shadow-[0_14px_40px_rgba(16,185,129,0.24)]"
+                      className={RELATION_PRIMARY_BUTTON_CLASSNAME}
                     >
                       <Link href={`${caseArea.route}/new?batchId=${encodeURIComponent(detail!.record.id)}`}>
                         <Plus className="h-3.5 w-3.5" />
@@ -1216,12 +1228,12 @@ export function TwoPQRecordWorkbench({
               }
             >
               {mode === "create" ? (
-                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                   Save the sequencing batch, then link existing cases or create a new child case with
                   the batch preloaded.
                 </div>
               ) : linkedCases.length === 0 ? (
-                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                   No cases are linked to this batch yet.
                 </div>
               ) : (
@@ -1237,7 +1249,7 @@ export function TwoPQRecordWorkbench({
                             variant="outline"
                             size="sm"
                             asChild
-                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                           >
                             <Link href={getRecordHref(record)}>
                               Open
@@ -1249,7 +1261,7 @@ export function TwoPQRecordWorkbench({
                             size="sm"
                             onClick={() => void handleUnlinkExistingCase(record)}
                             disabled={!canManageRelations || pendingRelationRecordId === record.id}
-                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                           >
                             {pendingRelationRecordId === record.id ? "Unlinking..." : "Unlink"}
                           </Button>
@@ -1273,7 +1285,7 @@ export function TwoPQRecordWorkbench({
                     size="sm"
                     onClick={() => openRelationDialog("case-parent-batch")}
                     disabled={!canManageRelations || pendingRelationRecordId !== null}
-                    className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                   >
                     <Link2 className="h-3.5 w-3.5" />
                     {linkedBatch ? "Change batch" : "Link batch"}
@@ -1284,7 +1296,7 @@ export function TwoPQRecordWorkbench({
                       size="sm"
                       onClick={() => void handleUnlinkBatchFromCase()}
                       disabled={!canManageRelations || pendingRelationRecordId === linkedBatch.id}
-                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                     >
                       {pendingRelationRecordId === linkedBatch.id ? "Unlinking..." : "Unlink"}
                     </Button>
@@ -1302,7 +1314,7 @@ export function TwoPQRecordWorkbench({
                       variant="outline"
                       size="sm"
                       asChild
-                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                     >
                       <Link href={getRecordHref(linkedBatch)}>
                         Open
@@ -1312,7 +1324,7 @@ export function TwoPQRecordWorkbench({
                   }
                 />
               ) : (
-                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                   No parent batch is linked to this case yet.
                 </div>
               )}
@@ -1325,7 +1337,7 @@ export function TwoPQRecordWorkbench({
               subtitle="Children entities"
               actions={
                 mode === "create" ? (
-                  <span className="rounded-full border border-emerald-200/12 bg-emerald-50/[0.04] px-3 py-1 text-xs text-emerald-100/54">
+                  <span className={RELATION_HINT_CLASSNAME}>
                     Create this case first to start linking samplings.
                   </span>
                 ) : (
@@ -1335,7 +1347,7 @@ export function TwoPQRecordWorkbench({
                       size="sm"
                       onClick={() => openRelationDialog("case-child-sampling")}
                       disabled={!canManageRelations || pendingRelationRecordId !== null}
-                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Link existing
@@ -1343,7 +1355,7 @@ export function TwoPQRecordWorkbench({
                     <Button
                       size="sm"
                       asChild
-                      className="border border-emerald-200/12 bg-[linear-gradient(180deg,rgba(110,231,183,0.98),rgba(16,185,129,0.96))] text-emerald-950 shadow-[0_14px_40px_rgba(16,185,129,0.24)]"
+                      className={RELATION_PRIMARY_BUTTON_CLASSNAME}
                     >
                       <Link href={`${samplingArea.route}/new?caseId=${encodeURIComponent(detail!.record.id)}`}>
                         <Plus className="h-3.5 w-3.5" />
@@ -1355,12 +1367,12 @@ export function TwoPQRecordWorkbench({
               }
             >
               {mode === "create" ? (
-                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                   Save the case, then link existing sampling records or create a new child sampling
                   with this case preloaded.
                 </div>
               ) : linkedSamplings.length === 0 ? (
-                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                   No samplings are linked to this case yet.
                 </div>
               ) : (
@@ -1376,7 +1388,7 @@ export function TwoPQRecordWorkbench({
                             variant="outline"
                             size="sm"
                             asChild
-                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                           >
                             <Link href={getRecordHref(record)}>
                               Open
@@ -1388,7 +1400,7 @@ export function TwoPQRecordWorkbench({
                             size="sm"
                             onClick={() => void handleUnlinkExistingSampling(record)}
                             disabled={!canManageRelations || pendingRelationRecordId === record.id}
-                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                           >
                             {pendingRelationRecordId === record.id ? "Unlinking..." : "Unlink"}
                           </Button>
@@ -1412,7 +1424,7 @@ export function TwoPQRecordWorkbench({
                     size="sm"
                     onClick={() => openRelationDialog("sampling-parent-case")}
                     disabled={!canManageRelations || pendingRelationRecordId !== null}
-                    className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                   >
                     <Link2 className="h-3.5 w-3.5" />
                     {linkedCase ? "Change case" : "Link case"}
@@ -1423,7 +1435,7 @@ export function TwoPQRecordWorkbench({
                       size="sm"
                       onClick={() => void handleUnlinkCaseFromSampling()}
                       disabled={!canManageRelations || pendingRelationRecordId === linkedCase.id}
-                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                     >
                       {pendingRelationRecordId === linkedCase.id ? "Unlinking..." : "Unlink"}
                     </Button>
@@ -1441,7 +1453,7 @@ export function TwoPQRecordWorkbench({
                       variant="outline"
                       size="sm"
                       asChild
-                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
                     >
                       <Link href={getRecordHref(linkedCase)}>
                         Open
@@ -1451,11 +1463,13 @@ export function TwoPQRecordWorkbench({
                   }
                 />
               ) : (
-                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
                   No parent case is linked to this sampling record yet.
                 </div>
               )}
             </RelationSection>
+          ) : null}
+            </div>
           ) : null}
 
           {area.fieldGroups.map((group) => (
