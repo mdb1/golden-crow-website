@@ -607,12 +607,12 @@ export const TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
   },
   {
     key: "sequencing_runs",
-    label: "Sequencing Runs",
-    shortLabel: "Runs",
+    label: "Sequencing Batches",
+    shortLabel: "Batches",
     description:
-      "Scheduling and execution lane for runs, provider coordination, platform metadata, and analysis readiness.",
+      "Scheduling and execution lane for sequencing batches, provider coordination, platform metadata, and analysis readiness.",
     summary:
-      "This is the right-hand sequencing control panel from the PDF translated into the current permission model.",
+      "This is the right-hand sequencing batch control panel from the PDF translated into the current permission model.",
     icon: Dna,
     tone: "violet",
     chips: ["Scheduling", "Provider handoff", "Run control"],

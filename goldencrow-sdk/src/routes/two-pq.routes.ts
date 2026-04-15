@@ -6,8 +6,12 @@ import {
   createTwoPQRecordForContext,
   deleteTwoPQRecordForContext,
   getTwoPQDetailForContext,
+  linkCaseToBatchForContext,
+  linkSamplingToCaseForContext,
   listTwoPQRecordsForContext,
   replaceTwoPQRecordForContext,
+  unlinkCaseFromBatchForContext,
+  unlinkSamplingFromCaseForContext,
   updateTwoPQRecordForContext,
 } from "../repositories/two-pq.repository.js";
 
@@ -24,6 +28,8 @@ const TwoPQMutationSchema = z.object({
   institutionId: z.string().optional(),
   doctorId: z.string().optional(),
   patientId: z.string().optional(),
+  batchId: z.string().optional(),
+  caseId: z.string().optional(),
   caseLabel: z.string().optional(),
   caseStatus: z.string().optional(),
   caseType: z.string().optional(),
@@ -251,6 +257,134 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.adminContext,
           request.params.areaKey,
           request.params.recordId
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.post(
+    "/2pq/relations/batches/:batchId/cases/:caseId",
+    {
+      schema: {
+        params: z.object({
+          batchId: z.string().min(1),
+          caseId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await linkCaseToBatchForContext(
+          request.adminContext,
+          request.params.batchId,
+          request.params.caseId
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.delete(
+    "/2pq/relations/batches/:batchId/cases/:caseId",
+    {
+      schema: {
+        params: z.object({
+          batchId: z.string().min(1),
+          caseId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await unlinkCaseFromBatchForContext(
+          request.adminContext,
+          request.params.batchId,
+          request.params.caseId
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.post(
+    "/2pq/relations/cases/:caseId/samplings/:samplingId",
+    {
+      schema: {
+        params: z.object({
+          caseId: z.string().min(1),
+          samplingId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await linkSamplingToCaseForContext(
+          request.adminContext,
+          request.params.caseId,
+          request.params.samplingId
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.delete(
+    "/2pq/relations/cases/:caseId/samplings/:samplingId",
+    {
+      schema: {
+        params: z.object({
+          caseId: z.string().min(1),
+          samplingId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await unlinkSamplingFromCaseForContext(
+          request.adminContext,
+          request.params.caseId,
+          request.params.samplingId
         );
         return reply.send(result);
       } catch (error) {

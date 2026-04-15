@@ -33,6 +33,10 @@ export interface TwoPQRecord {
   institutionId: string;
   doctorId: string;
   patientId?: string;
+  batchId?: string;
+  caseId?: string;
+  linkedCaseIds?: string[];
+  linkedSamplingIds?: string[];
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -82,7 +86,17 @@ export interface TwoPQRecord {
 
 export type TwoPQMutableFieldKey = Exclude<
   keyof TwoPQRecord,
-  "id" | "areaKey" | "collectionKey" | "createdAt" | "updatedAt" | "createdByEmail" | "updatedByEmail"
+  | "id"
+  | "areaKey"
+  | "collectionKey"
+  | "batchId"
+  | "caseId"
+  | "linkedCaseIds"
+  | "linkedSamplingIds"
+  | "createdAt"
+  | "updatedAt"
+  | "createdByEmail"
+  | "updatedByEmail"
 >;
 
 export interface TwoPQListItem extends TwoPQRecord {
@@ -99,6 +113,10 @@ export interface TwoPQDetailRecord {
   institution: InstitutionRecord | null;
   doctor: DoctorListItem | null;
   patient: PatientListItem | null;
+  linkedBatch: TwoPQListItem | null;
+  linkedCase: TwoPQListItem | null;
+  linkedCases: TwoPQListItem[];
+  linkedSamplings: TwoPQListItem[];
 }
 
 type TwoPQDisplayRecord = TwoPQRecord &
@@ -626,14 +644,14 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
     icon: Dna,
     tone: "violet",
     description:
-      "Sequencing scheduling and analysis records stored in Firebase under `2pq_sequencing`.",
+      "Sequencing batch scheduling and analysis records stored in Firebase under `2pq_sequencing`.",
     summary:
-      "This area covers run scheduling, provider contacts, platform data, and analysis status.",
-    helperTitle: "Sequencing runs are editable records now.",
+      "This area covers batch scheduling, provider contacts, platform data, and analysis status.",
+    helperTitle: "Sequencing batches are editable records now.",
     helperBody:
-      "Use create, replace, update, and delete to manage sequencing work items directly in Firebase.",
-    searchPlaceholder: "Search sequencing by case, run, platform, analysis status, provider, or contact...",
-    createLabel: "New sequencing run",
+      "Use create, replace, update, and delete to manage sequencing batch work items directly in Firebase.",
+    searchPlaceholder: "Search sequencing by batch, run, platform, analysis status, provider, or contact...",
+    createLabel: "New sequencing batch",
     roleAccess: ASSIGNED_SCOPE_ACCESS,
     fieldGroups: [
       {
@@ -666,24 +684,24 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
         ],
       },
       {
-        title: "Run state",
-        description: "Main sequencing metadata.",
+        title: "Batch state",
+        description: "Main sequencing batch metadata.",
         fields: [
           {
             key: "caseLabel",
-            label: "Case label",
+            label: "Batch label",
             type: "text",
             required: true,
-            placeholder: "CMS-2026-001",
-            description: "Linked case identifier.",
+            placeholder: "BATCH-APR-01",
+            description: "Human-readable sequencing batch label.",
           },
           {
             key: "runId",
-            label: "Run ID",
+            label: "Batch / Run ID",
             type: "text",
             required: true,
             placeholder: "SEQ-0007",
-            description: "Primary sequencing run id.",
+            description: "Primary sequencing batch identifier.",
           },
           {
             key: "platform",

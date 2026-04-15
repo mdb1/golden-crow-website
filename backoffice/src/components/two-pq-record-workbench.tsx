@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   CheckCircle2,
+  Link2,
   LoaderCircle,
+  Plus,
   RotateCcw,
   Save,
   Sparkles,
@@ -31,19 +35,35 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { sdkFetch } from "@/lib/sdk-client";
 import {
+  type TwoPQAreaConfig,
   type TwoPQAreaKey,
   type TwoPQDetailRecord,
+  type TwoPQListItem,
   type TwoPQMutableFieldKey,
   type TwoPQRecord,
   getTwoPQAreaConfig,
+  getTwoPQRecordSubtitle,
+  getTwoPQRecordTitle,
 } from "@/lib/two-pq-areas";
 
 type FormState = Record<TwoPQMutableFieldKey, string>;
+type RelationDialogKey =
+  | "case-parent-batch"
+  | "sampling-parent-case"
+  | "sequencing-child-case"
+  | "case-child-sampling";
 
 const CREATION_CONFETTI = [
   { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
@@ -103,6 +123,207 @@ const EMPTY_FORM_STATE: FormState = {
   notes: "",
 };
 
+function getRecordHref(record: TwoPQListItem) {
+  const linkedArea = getTwoPQAreaConfig(record.areaKey);
+  return linkedArea ? `${linkedArea.route}/${record.id}` : "#";
+}
+
+function RelationSection({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-[linear-gradient(145deg,rgba(12,45,32,0.96),rgba(8,25,19,0.94)_52%,rgba(5,150,105,0.24))] shadow-[0_22px_72px_rgba(16,185,129,0.16)]">
+      <div className="flex flex-col gap-3 border-b border-emerald-200/10 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 className="font-heading text-lg font-semibold text-emerald-50">{title}</h3>
+          <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-100/44">
+            {subtitle}
+          </p>
+        </div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </section>
+  );
+}
+
+function LinkedEntityCard({
+  record,
+  badge,
+  note,
+  actions,
+}: {
+  record: TwoPQListItem;
+  badge: string;
+  note?: string;
+  actions?: ReactNode;
+}) {
+  const linkedArea = getTwoPQAreaConfig(record.areaKey);
+  const title = linkedArea ? getTwoPQRecordTitle(linkedArea, record) : record.id;
+  const subtitle = linkedArea ? getTwoPQRecordSubtitle(linkedArea, record) : "";
+
+  return (
+    <div className="rounded-[1.35rem] border border-emerald-200/14 bg-emerald-50/[0.04] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className="border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+            >
+              {badge}
+            </Badge>
+            <span className="font-mono text-[11px] text-emerald-100/56">{record.id}</span>
+          </div>
+          <p className="mt-3 text-base font-semibold text-white">{title}</p>
+          <p className="mt-1 text-sm text-emerald-50/72">{subtitle || "Linked entity"}</p>
+          {note ? <p className="mt-2 text-xs text-emerald-100/54">{note}</p> : null}
+        </div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function RelationSelectionDialog({
+  open,
+  onOpenChange,
+  area,
+  title,
+  description,
+  records,
+  loading,
+  pendingRecordId,
+  query,
+  onQueryChange,
+  onSelect,
+  selectLabel,
+  noteByRecordId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  area: TwoPQAreaConfig;
+  title: string;
+  description: string;
+  records: TwoPQListItem[];
+  loading: boolean;
+  pendingRecordId: string | null;
+  query: string;
+  onQueryChange: (value: string) => void;
+  onSelect: (record: TwoPQListItem) => void;
+  selectLabel: string;
+  noteByRecordId?: Record<string, string>;
+}) {
+  const filteredRecords = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return records;
+    }
+
+    return records.filter((record) => {
+      const titleText = getTwoPQRecordTitle(area, record);
+      const subtitleText = getTwoPQRecordSubtitle(area, record);
+      const note = noteByRecordId?.[record.id];
+      return [record.id, titleText, subtitleText, note]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+    });
+  }, [area, noteByRecordId, query, records]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl overflow-hidden rounded-[2rem] border border-emerald-300/24 bg-[linear-gradient(155deg,rgba(17,24,39,0.98),rgba(8,38,27,0.98)_54%,rgba(16,185,129,0.34))] p-0 text-emerald-50 shadow-[0_34px_120px_rgba(16,185,129,0.22)]">
+        <DialogHeader className="border-b border-emerald-200/10 px-6 py-5">
+          <DialogTitle className="font-heading text-2xl font-semibold text-white">
+            {title}
+          </DialogTitle>
+          <DialogDescription className="text-emerald-50/70">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-6 py-5">
+          <Input
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder={`Search ${area.label.toLowerCase()}...`}
+            className="border-emerald-200/14 bg-emerald-950/26 text-emerald-50 placeholder:text-emerald-100/36"
+          />
+          <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+            {loading ? (
+              <div className="rounded-[1.35rem] border border-emerald-200/12 bg-emerald-50/[0.04] px-4 py-5 text-sm text-emerald-50/70">
+                Loading available {area.navLabel.toLowerCase()}...
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                No matching records available.
+              </div>
+            ) : (
+              filteredRecords.map((record) => (
+                <div
+                  key={record.id}
+                  className="rounded-[1.35rem] border border-emerald-200/12 bg-emerald-50/[0.04] px-4 py-4"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-white">
+                          {getTwoPQRecordTitle(area, record)}
+                        </p>
+                        <span className="font-mono text-[11px] text-emerald-100/48">
+                          {record.id}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-emerald-50/70">
+                        {getTwoPQRecordSubtitle(area, record) || "Linked entity"}
+                      </p>
+                      {noteByRecordId?.[record.id] ? (
+                        <p className="mt-2 text-xs text-emerald-100/52">
+                          {noteByRecordId[record.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                      >
+                        <Link href={getRecordHref(record)}>
+                          Open
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => onSelect(record)}
+                        disabled={pendingRecordId === record.id}
+                        className="border border-emerald-200/12 bg-[linear-gradient(180deg,rgba(110,231,183,0.98),rgba(16,185,129,0.96))] text-emerald-950 shadow-[0_14px_40px_rgba(16,185,129,0.24)]"
+                      >
+                        {pendingRecordId === record.id ? "Linking..." : selectLabel}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function normalizeDateInput(value?: string) {
   if (!value) {
     return "";
@@ -113,14 +334,19 @@ function normalizeDateInput(value?: string) {
 
 function toFormState(
   record?: Partial<TwoPQRecord>,
-  defaults?: { institutionId?: string; doctorId?: string }
+  defaults?: {
+    institutionId?: string;
+    doctorId?: string;
+    patientId?: string;
+    caseLabel?: string;
+  }
 ): FormState {
   return {
     ...EMPTY_FORM_STATE,
     institutionId: record?.institutionId ?? defaults?.institutionId ?? "",
     doctorId: record?.doctorId ?? defaults?.doctorId ?? "",
-    patientId: record?.patientId ?? "",
-    caseLabel: record?.caseLabel ?? "",
+    patientId: record?.patientId ?? defaults?.patientId ?? "",
+    caseLabel: record?.caseLabel ?? defaults?.caseLabel ?? "",
     caseStatus: record?.caseStatus ?? "",
     caseType: record?.caseType ?? "",
     priority: record?.priority ?? "",
@@ -179,6 +405,8 @@ export function TwoPQRecordWorkbench({
   institutions,
   doctors,
   patients,
+  preloadedBatch,
+  preloadedCase,
   mode = "edit",
 }: {
   areaKey: TwoPQAreaKey;
@@ -186,6 +414,8 @@ export function TwoPQRecordWorkbench({
   institutions: Array<{ id: string; name: string }>;
   doctors: Array<{ id: string; fullName: string; institutionId: string }>;
   patients: Array<{ id: string; fullName: string; institutionId: string; doctorId: string }>;
+  preloadedBatch?: TwoPQListItem | null;
+  preloadedCase?: TwoPQListItem | null;
   mode?: "create" | "edit";
 }) {
   const area = getTwoPQAreaConfig(areaKey)!;
@@ -199,17 +429,46 @@ export function TwoPQRecordWorkbench({
     adminContext.role === "institution_doctor" ? adminContext.doctorId : undefined;
   const defaults = useMemo(
     () => ({
-      institutionId: scopedInstitutionId ?? detail?.record.institutionId,
-      doctorId: scopedDoctorId ?? detail?.record.doctorId,
+      institutionId:
+        scopedInstitutionId ??
+        detail?.record.institutionId ??
+        preloadedBatch?.institutionId ??
+        preloadedCase?.institutionId,
+      doctorId:
+        scopedDoctorId ??
+        detail?.record.doctorId ??
+        preloadedBatch?.doctorId ??
+        preloadedCase?.doctorId,
+      patientId: detail?.record.patientId ?? preloadedCase?.patientId ?? preloadedBatch?.patientId,
+      caseLabel: areaKey === "sampling" ? preloadedCase?.caseLabel : undefined,
     }),
-    [detail?.record.doctorId, detail?.record.institutionId, scopedDoctorId, scopedInstitutionId]
+    [
+      areaKey,
+      detail?.record.doctorId,
+      detail?.record.institutionId,
+      detail?.record.patientId,
+      preloadedBatch?.doctorId,
+      preloadedBatch?.institutionId,
+      preloadedBatch?.patientId,
+      preloadedCase?.caseLabel,
+      preloadedCase?.doctorId,
+      preloadedCase?.institutionId,
+      preloadedCase?.patientId,
+      scopedDoctorId,
+      scopedInstitutionId,
+    ]
   );
   const [state, setState] = useState<FormState>(() => toFormState(detail?.record, defaults));
   const [pendingAction, setPendingAction] = useState<
     null | "create" | "replace" | "update" | "delete"
   >(null);
+  const [pendingRelationRecordId, setPendingRelationRecordId] = useState<string | null>(null);
+  const [relationDialog, setRelationDialog] = useState<RelationDialogKey | null>(null);
+  const [relationQuery, setRelationQuery] = useState("");
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [createdRecordId, setCreatedRecordId] = useState<string | null>(null);
+  const [draftBatch, setDraftBatch] = useState<TwoPQListItem | null>(() => preloadedBatch ?? null);
+  const [draftCase, setDraftCase] = useState<TwoPQListItem | null>(() => preloadedCase ?? null);
 
   const sourceState = useMemo(
     () => toFormState(detail?.record, defaults),
@@ -259,6 +518,81 @@ export function TwoPQRecordWorkbench({
   const canReplace = mode === "create" ? false : Boolean(detail?.record.canReplace);
   const canUpdate = mode === "create" ? false : Boolean(detail?.record.canUpdate);
   const canDelete = mode === "create" ? false : Boolean(detail?.record.canDelete);
+  const batchArea = getTwoPQAreaConfig("sequencing")!;
+  const caseArea = getTwoPQAreaConfig("cases")!;
+  const samplingArea = getTwoPQAreaConfig("sampling")!;
+  const linkedBatch = mode === "create" ? draftBatch : detail?.linkedBatch ?? null;
+  const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
+  const linkedCases = detail?.linkedCases ?? [];
+  const linkedSamplings = detail?.linkedSamplings ?? [];
+  const loadBatchCandidates = relationDialog === "case-parent-batch";
+  const loadCaseCandidates =
+    relationDialog === "sampling-parent-case" || relationDialog === "sequencing-child-case";
+  const loadSamplingCandidates = relationDialog === "case-child-sampling";
+  const batchesQuery = useQuery({
+    queryKey: ["2pq-relation-records", "sequencing"],
+    queryFn: () => sdkFetch<{ records: TwoPQListItem[] }>("/2pq/sequencing"),
+    enabled: loadBatchCandidates,
+    staleTime: 30_000,
+  });
+  const casesQuery = useQuery({
+    queryKey: ["2pq-relation-records", "cases"],
+    queryFn: () => sdkFetch<{ records: TwoPQListItem[] }>("/2pq/cases"),
+    enabled: loadCaseCandidates,
+    staleTime: 30_000,
+  });
+  const samplingsQuery = useQuery({
+    queryKey: ["2pq-relation-records", "sampling"],
+    queryFn: () => sdkFetch<{ records: TwoPQListItem[] }>("/2pq/sampling"),
+    enabled: loadSamplingCandidates,
+    staleTime: 30_000,
+  });
+
+  const linkedCaseIds = useMemo(() => new Set(linkedCases.map((record) => record.id)), [linkedCases]);
+  const linkedSamplingIds = useMemo(
+    () => new Set(linkedSamplings.map((record) => record.id)),
+    [linkedSamplings]
+  );
+  const batchCandidates = useMemo(
+    () => (batchesQuery.data?.records ?? []).filter((record) => record.id !== linkedBatch?.id),
+    [batchesQuery.data?.records, linkedBatch?.id]
+  );
+  const sequencingCaseCandidates = useMemo(
+    () => (casesQuery.data?.records ?? []).filter((record) => !linkedCaseIds.has(record.id)),
+    [casesQuery.data?.records, linkedCaseIds]
+  );
+  const parentCaseCandidates = useMemo(
+    () => (casesQuery.data?.records ?? []).filter((record) => record.id !== linkedCase?.id),
+    [casesQuery.data?.records, linkedCase?.id]
+  );
+  const samplingCandidates = useMemo(
+    () => (samplingsQuery.data?.records ?? []).filter((record) => !linkedSamplingIds.has(record.id)),
+    [linkedSamplingIds, samplingsQuery.data?.records]
+  );
+  const sequencingCaseNotes = useMemo(
+    () =>
+      Object.fromEntries(
+        sequencingCaseCandidates.map((record) => [
+          record.id,
+          record.batchId && record.batchId !== detail?.record.id
+            ? `Currently linked to batch ${record.batchId}. Linking here will move it.`
+            : "This case will become a child of the current batch.",
+        ])
+      ),
+    [detail?.record.id, sequencingCaseCandidates]
+  );
+  const samplingNotes = useMemo(
+    () =>
+      Object.fromEntries(
+        samplingCandidates.map((record) => [
+          record.id,
+          record.caseId && record.caseId !== detail?.record.id
+            ? `Currently linked to case ${record.caseId}. Linking here will move it.`
+            : "This sampling record will become a child of the current case.",
+        ])
+      ),
+    [detail?.record.id, samplingCandidates]
+  );
 
   function buildPayload(keys: TwoPQMutableFieldKey[]) {
     return keys.reduce<Record<string, string>>((payload, key) => {
@@ -284,6 +618,233 @@ export function TwoPQRecordWorkbench({
     return true;
   }
 
+  function pushToast(tone: ActionToastState["tone"], message: string) {
+    setToast({
+      id: Date.now(),
+      tone,
+      message,
+    });
+  }
+
+  function syncDraftScope(
+    current: FormState,
+    parent: Pick<TwoPQListItem, "institutionId" | "doctorId" | "patientId">,
+    options?: { caseLabel?: string; patientId?: string }
+  ) {
+    const scopeChanged =
+      current.institutionId !== parent.institutionId || current.doctorId !== parent.doctorId;
+
+    return {
+      ...current,
+      institutionId: parent.institutionId,
+      doctorId: parent.doctorId,
+      patientId:
+        options?.patientId ?? (scopeChanged ? parent.patientId ?? "" : current.patientId),
+      caseLabel: options?.caseLabel ?? current.caseLabel,
+    };
+  }
+
+  function openRelationDialog(nextDialog: RelationDialogKey) {
+    setRelationQuery("");
+    setRelationDialog(nextDialog);
+  }
+
+  function handleRelationDialogChange(open: boolean) {
+    if (open) {
+      return;
+    }
+
+    setRelationDialog(null);
+    setRelationQuery("");
+  }
+
+  async function performRelationRequest(
+    recordId: string,
+    request: () => Promise<unknown>,
+    successMessage: string,
+    failureMessage: string
+  ) {
+    setPendingRelationRecordId(recordId);
+    try {
+      await request();
+      setRelationDialog(null);
+      setRelationQuery("");
+      pushToast("success", successMessage);
+      router.refresh();
+    } catch {
+      pushToast("error", failureMessage);
+    } finally {
+      setPendingRelationRecordId(null);
+    }
+  }
+
+  function handleDraftBatchSelection(record: TwoPQListItem) {
+    setDraftBatch(record);
+    setState((current) => syncDraftScope(current, record));
+    setRelationDialog(null);
+    setRelationQuery("");
+    pushToast("success", "Batch preloaded for the new case.");
+  }
+
+  function handleDraftCaseSelection(record: TwoPQListItem) {
+    setDraftCase(record);
+    setState((current) =>
+      syncDraftScope(current, record, {
+        caseLabel: record.caseLabel ?? current.caseLabel,
+        patientId: record.patientId ?? "",
+      })
+    );
+    setRelationDialog(null);
+    setRelationQuery("");
+    pushToast("success", "Case preloaded for the new sampling record.");
+  }
+
+  function handleClearDraftBatch() {
+    setDraftBatch(null);
+    pushToast("success", "Batch removed from the draft case.");
+  }
+
+  function handleClearDraftCase() {
+    setDraftCase(null);
+    pushToast("success", "Case removed from the draft sampling record.");
+  }
+
+  async function handleLinkBatchToCase(record: TwoPQListItem) {
+    if (mode === "create") {
+      handleDraftBatchSelection(record);
+      return;
+    }
+
+    if (!detail) {
+      return;
+    }
+
+    await performRelationRequest(
+      record.id,
+      () => sdkFetch(`/2pq/relations/batches/${record.id}/cases/${detail.record.id}`, { method: "POST" }),
+      "Batch linked to case.",
+      "Unable to link the selected batch."
+    );
+  }
+
+  async function handleUnlinkBatchFromCase() {
+    if (mode === "create") {
+      handleClearDraftBatch();
+      return;
+    }
+
+    if (!detail || !linkedBatch) {
+      return;
+    }
+
+    await performRelationRequest(
+      linkedBatch.id,
+      () =>
+        sdkFetch(`/2pq/relations/batches/${linkedBatch.id}/cases/${detail.record.id}`, {
+          method: "DELETE",
+        }),
+      "Batch unlinked from case.",
+      "Unable to unlink the batch."
+    );
+  }
+
+  async function handleLinkCaseToSampling(record: TwoPQListItem) {
+    if (mode === "create") {
+      handleDraftCaseSelection(record);
+      return;
+    }
+
+    if (!detail) {
+      return;
+    }
+
+    await performRelationRequest(
+      record.id,
+      () => sdkFetch(`/2pq/relations/cases/${record.id}/samplings/${detail.record.id}`, { method: "POST" }),
+      "Case linked to sampling.",
+      "Unable to link the selected case."
+    );
+  }
+
+  async function handleUnlinkCaseFromSampling() {
+    if (mode === "create") {
+      handleClearDraftCase();
+      return;
+    }
+
+    if (!detail || !linkedCase) {
+      return;
+    }
+
+    await performRelationRequest(
+      linkedCase.id,
+      () =>
+        sdkFetch(`/2pq/relations/cases/${linkedCase.id}/samplings/${detail.record.id}`, {
+          method: "DELETE",
+        }),
+      "Case unlinked from sampling.",
+      "Unable to unlink the case."
+    );
+  }
+
+  async function handleLinkExistingCase(record: TwoPQListItem) {
+    if (!detail) {
+      return;
+    }
+
+    await performRelationRequest(
+      record.id,
+      () => sdkFetch(`/2pq/relations/batches/${detail.record.id}/cases/${record.id}`, { method: "POST" }),
+      "Case linked to batch.",
+      "Unable to link the selected case."
+    );
+  }
+
+  async function handleUnlinkExistingCase(record: TwoPQListItem) {
+    if (!detail) {
+      return;
+    }
+
+    await performRelationRequest(
+      record.id,
+      () =>
+        sdkFetch(`/2pq/relations/batches/${detail.record.id}/cases/${record.id}`, {
+          method: "DELETE",
+        }),
+      "Case unlinked from batch.",
+      "Unable to unlink the case."
+    );
+  }
+
+  async function handleLinkExistingSampling(record: TwoPQListItem) {
+    if (!detail) {
+      return;
+    }
+
+    await performRelationRequest(
+      record.id,
+      () => sdkFetch(`/2pq/relations/cases/${detail.record.id}/samplings/${record.id}`, { method: "POST" }),
+      "Sampling linked to case.",
+      "Unable to link the selected sampling."
+    );
+  }
+
+  async function handleUnlinkExistingSampling(record: TwoPQListItem) {
+    if (!detail) {
+      return;
+    }
+
+    await performRelationRequest(
+      record.id,
+      () =>
+        sdkFetch(`/2pq/relations/cases/${detail.record.id}/samplings/${record.id}`, {
+          method: "DELETE",
+        }),
+      "Sampling unlinked from case.",
+      "Unable to unlink the sampling."
+    );
+  }
+
   async function handleCreate() {
     if (!validateRequiredFields()) {
       return;
@@ -291,23 +852,23 @@ export function TwoPQRecordWorkbench({
 
     setPendingAction("create");
     try {
+      const payload = buildPayload(getFieldKeys(areaKey));
+      if (areaKey === "cases" && draftBatch?.id) {
+        payload.batchId = draftBatch.id;
+      }
+      if (areaKey === "sampling" && draftCase?.id) {
+        payload.caseId = draftCase.id;
+      }
+
       const response = await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}`, {
         method: "POST",
-        body: JSON.stringify(buildPayload(getFieldKeys(areaKey))),
+        body: JSON.stringify(payload),
       });
       setCreatedRecordId(response.record.id);
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: `${area.label} record created.`,
-      });
+      pushToast("success", `${area.label} record created.`);
     } catch {
       setCreatedRecordId(null);
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: `Unable to create ${area.label.toLowerCase()} record.`,
-      });
+      pushToast("error", `Unable to create ${area.label.toLowerCase()} record.`);
       setPendingAction(null);
     }
   }
@@ -331,18 +892,10 @@ export function TwoPQRecordWorkbench({
         method: "PUT",
         body: JSON.stringify(buildPayload(getFieldKeys(areaKey))),
       });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: `${area.label} record replaced.`,
-      });
+      pushToast("success", `${area.label} record replaced.`);
       router.refresh();
     } catch {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: `Unable to replace ${area.label.toLowerCase()} record.`,
-      });
+      pushToast("error", `Unable to replace ${area.label.toLowerCase()} record.`);
     } finally {
       setPendingAction(null);
     }
@@ -359,18 +912,10 @@ export function TwoPQRecordWorkbench({
         method: "PATCH",
         body: JSON.stringify(buildPayload(changedKeys)),
       });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message: `${area.label} record updated.`,
-      });
+      pushToast("success", `${area.label} record updated.`);
       router.refresh();
     } catch {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: `Unable to update ${area.label.toLowerCase()} record.`,
-      });
+      pushToast("error", `Unable to update ${area.label.toLowerCase()} record.`);
     } finally {
       setPendingAction(null);
     }
@@ -389,18 +934,74 @@ export function TwoPQRecordWorkbench({
       router.push(area.route);
       router.refresh();
     } catch {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message: `Unable to delete ${area.label.toLowerCase()} record.`,
-      });
+      pushToast("error", `Unable to delete ${area.label.toLowerCase()} record.`);
       setPendingAction(null);
     }
   }
 
+  const canManageRelations = mode === "create" ? true : Boolean(detail?.record.canUpdate);
+
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <RelationSelectionDialog
+        open={relationDialog === "case-parent-batch"}
+        onOpenChange={handleRelationDialogChange}
+        area={batchArea}
+        title="Link Batch"
+        description="Select the sequencing batch that should act as the parent entity for this case."
+        records={batchCandidates}
+        loading={batchesQuery.isFetching}
+        pendingRecordId={pendingRelationRecordId}
+        query={relationQuery}
+        onQueryChange={setRelationQuery}
+        onSelect={(record) => void handleLinkBatchToCase(record)}
+        selectLabel={mode === "create" ? "Use batch" : "Link batch"}
+      />
+      <RelationSelectionDialog
+        open={relationDialog === "sampling-parent-case"}
+        onOpenChange={handleRelationDialogChange}
+        area={caseArea}
+        title="Link Case"
+        description="Select the parent case that should own this sampling record."
+        records={parentCaseCandidates}
+        loading={casesQuery.isFetching}
+        pendingRecordId={pendingRelationRecordId}
+        query={relationQuery}
+        onQueryChange={setRelationQuery}
+        onSelect={(record) => void handleLinkCaseToSampling(record)}
+        selectLabel={mode === "create" ? "Use case" : "Link case"}
+      />
+      <RelationSelectionDialog
+        open={relationDialog === "sequencing-child-case"}
+        onOpenChange={handleRelationDialogChange}
+        area={caseArea}
+        title="Link Existing Case"
+        description="Attach an existing case to this sequencing batch. If the case already belongs to another batch, it will be moved."
+        records={sequencingCaseCandidates}
+        loading={casesQuery.isFetching}
+        pendingRecordId={pendingRelationRecordId}
+        query={relationQuery}
+        onQueryChange={setRelationQuery}
+        onSelect={(record) => void handleLinkExistingCase(record)}
+        selectLabel="Link case"
+        noteByRecordId={sequencingCaseNotes}
+      />
+      <RelationSelectionDialog
+        open={relationDialog === "case-child-sampling"}
+        onOpenChange={handleRelationDialogChange}
+        area={samplingArea}
+        title="Link Existing Sampling"
+        description="Attach an existing sampling record to this case. If it already belongs to another case, it will be moved."
+        records={samplingCandidates}
+        loading={samplingsQuery.isFetching}
+        pendingRecordId={pendingRelationRecordId}
+        query={relationQuery}
+        onQueryChange={setRelationQuery}
+        onSelect={(record) => void handleLinkExistingSampling(record)}
+        selectLabel="Link sampling"
+        noteByRecordId={samplingNotes}
+      />
       {createdRecordId ? (
         <div className="pointer-events-none fixed inset-0 z-[85] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-background/36 backdrop-blur-[3px]" />
@@ -579,6 +1180,284 @@ export function TwoPQRecordWorkbench({
         ) : null}
 
         <div className={mode === "create" ? "grid gap-4 pb-40 md:pb-44" : "grid gap-4"}>
+          {areaKey === "sequencing" ? (
+            <RelationSection
+              title="Linked cases"
+              subtitle="Children entities"
+              actions={
+                mode === "create" ? (
+                  <span className="rounded-full border border-emerald-200/12 bg-emerald-50/[0.04] px-3 py-1 text-xs text-emerald-100/54">
+                    Create this batch first to start linking cases.
+                  </span>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openRelationDialog("sequencing-child-case")}
+                      disabled={!canManageRelations || pendingRelationRecordId !== null}
+                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Link existing
+                    </Button>
+                    <Button
+                      size="sm"
+                      asChild
+                      className="border border-emerald-200/12 bg-[linear-gradient(180deg,rgba(110,231,183,0.98),rgba(16,185,129,0.96))] text-emerald-950 shadow-[0_14px_40px_rgba(16,185,129,0.24)]"
+                    >
+                      <Link href={`${caseArea.route}/new?batchId=${encodeURIComponent(detail!.record.id)}`}>
+                        <Plus className="h-3.5 w-3.5" />
+                        New case
+                      </Link>
+                    </Button>
+                  </>
+                )
+              }
+            >
+              {mode === "create" ? (
+                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                  Save the sequencing batch, then link existing cases or create a new child case with
+                  the batch preloaded.
+                </div>
+              ) : linkedCases.length === 0 ? (
+                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                  No cases are linked to this batch yet.
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {linkedCases.map((record) => (
+                    <LinkedEntityCard
+                      key={record.id}
+                      record={record}
+                      badge="Case"
+                      actions={
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                          >
+                            <Link href={getRecordHref(record)}>
+                              Open
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleUnlinkExistingCase(record)}
+                            disabled={!canManageRelations || pendingRelationRecordId === record.id}
+                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                          >
+                            {pendingRelationRecordId === record.id ? "Unlinking..." : "Unlink"}
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </RelationSection>
+          ) : null}
+
+          {areaKey === "cases" ? (
+            <RelationSection
+              title="Linked Batch"
+              subtitle="Parent entity"
+              actions={
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openRelationDialog("case-parent-batch")}
+                    disabled={!canManageRelations || pendingRelationRecordId !== null}
+                    className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    {linkedBatch ? "Change batch" : "Link batch"}
+                  </Button>
+                  {linkedBatch ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleUnlinkBatchFromCase()}
+                      disabled={!canManageRelations || pendingRelationRecordId === linkedBatch.id}
+                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    >
+                      {pendingRelationRecordId === linkedBatch.id ? "Unlinking..." : "Unlink"}
+                    </Button>
+                  ) : null}
+                </>
+              }
+            >
+              {linkedBatch ? (
+                <LinkedEntityCard
+                  record={linkedBatch}
+                  badge="Batch"
+                  note="The batch is the parent entity. Unlinking removes the relationship only."
+                  actions={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    >
+                      <Link href={getRecordHref(linkedBatch)}>
+                        Open
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                  No parent batch is linked to this case yet.
+                </div>
+              )}
+            </RelationSection>
+          ) : null}
+
+          {areaKey === "cases" ? (
+            <RelationSection
+              title="Linked samplings"
+              subtitle="Children entities"
+              actions={
+                mode === "create" ? (
+                  <span className="rounded-full border border-emerald-200/12 bg-emerald-50/[0.04] px-3 py-1 text-xs text-emerald-100/54">
+                    Create this case first to start linking samplings.
+                  </span>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openRelationDialog("case-child-sampling")}
+                      disabled={!canManageRelations || pendingRelationRecordId !== null}
+                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Link existing
+                    </Button>
+                    <Button
+                      size="sm"
+                      asChild
+                      className="border border-emerald-200/12 bg-[linear-gradient(180deg,rgba(110,231,183,0.98),rgba(16,185,129,0.96))] text-emerald-950 shadow-[0_14px_40px_rgba(16,185,129,0.24)]"
+                    >
+                      <Link href={`${samplingArea.route}/new?caseId=${encodeURIComponent(detail!.record.id)}`}>
+                        <Plus className="h-3.5 w-3.5" />
+                        New sampling
+                      </Link>
+                    </Button>
+                  </>
+                )
+              }
+            >
+              {mode === "create" ? (
+                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                  Save the case, then link existing sampling records or create a new child sampling
+                  with this case preloaded.
+                </div>
+              ) : linkedSamplings.length === 0 ? (
+                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                  No samplings are linked to this case yet.
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {linkedSamplings.map((record) => (
+                    <LinkedEntityCard
+                      key={record.id}
+                      record={record}
+                      badge="Sampling"
+                      actions={
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                          >
+                            <Link href={getRecordHref(record)}>
+                              Open
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleUnlinkExistingSampling(record)}
+                            disabled={!canManageRelations || pendingRelationRecordId === record.id}
+                            className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                          >
+                            {pendingRelationRecordId === record.id ? "Unlinking..." : "Unlink"}
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </RelationSection>
+          ) : null}
+
+          {areaKey === "sampling" ? (
+            <RelationSection
+              title="Linked Case"
+              subtitle="Parent entity"
+              actions={
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openRelationDialog("sampling-parent-case")}
+                    disabled={!canManageRelations || pendingRelationRecordId !== null}
+                    className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    {linkedCase ? "Change case" : "Link case"}
+                  </Button>
+                  {linkedCase ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleUnlinkCaseFromSampling()}
+                      disabled={!canManageRelations || pendingRelationRecordId === linkedCase.id}
+                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    >
+                      {pendingRelationRecordId === linkedCase.id ? "Unlinking..." : "Unlink"}
+                    </Button>
+                  ) : null}
+                </>
+              }
+            >
+              {linkedCase ? (
+                <LinkedEntityCard
+                  record={linkedCase}
+                  badge="Case"
+                  note="The case is the parent entity. Unlinking removes the relationship only."
+                  actions={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+                    >
+                      <Link href={getRecordHref(linkedCase)}>
+                        Open
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="rounded-[1.35rem] border border-dashed border-emerald-200/12 bg-emerald-50/[0.03] px-4 py-5 text-sm text-emerald-50/70">
+                  No parent case is linked to this sampling record yet.
+                </div>
+              )}
+            </RelationSection>
+          ) : null}
+
           {area.fieldGroups.map((group) => (
             <section
               key={group.title}

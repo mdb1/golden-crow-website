@@ -551,6 +551,41 @@ export function TwoPQDashboard({
         />
       </section>
 
+      <section className="glass-panel border-emerald-400/22 bg-[linear-gradient(145deg,rgba(7,35,25,0.96),rgba(9,24,18,0.94)_54%,rgba(16,185,129,0.16))] px-5 py-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="section-eyebrow text-emerald-100/72">2PQ links</p>
+            <h2 className="font-heading text-2xl font-semibold text-emerald-50">
+              Linked entities
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-emerald-50/70">
+              Open the three related CRUD areas together: sequencing batches, cases, and sampling
+              children.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {[
+              { label: "2PQ Sequencing", href: "/2pq-dashboard/sequencing" },
+              { label: "2PQ Cases", href: "/2pq-dashboard/cases" },
+              { label: "2PQ Sampling", href: "/2pq-dashboard/sampling" },
+            ].map((item) => (
+              <Button
+                key={item.href}
+                variant="outline"
+                size="sm"
+                asChild
+                className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
+              >
+                <Link href={item.href}>
+                  {item.label}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="glass-panel overflow-hidden px-5 py-5">
         <div className="flex flex-col gap-2">
           <p className="section-eyebrow">Workflow map</p>

@@ -212,6 +212,10 @@ export interface TwoPQRecord {
   institutionId: string;
   doctorId: string;
   patientId?: string;
+  batchId?: string;
+  caseId?: string;
+  linkedCaseIds?: string[];
+  linkedSamplingIds?: string[];
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -273,6 +277,10 @@ export interface TwoPQDetailRecord {
   institution: InstitutionRecord | null;
   doctor: DoctorListItem | null;
   patient: PatientListItem | null;
+  linkedBatch: TwoPQListItem | null;
+  linkedCase: TwoPQListItem | null;
+  linkedCases: TwoPQListItem[];
+  linkedSamplings: TwoPQListItem[];
 }
 
 // CommunityPost — mirrors Firestore posts collection

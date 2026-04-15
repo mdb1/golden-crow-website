@@ -16,6 +16,7 @@ import { HelperBanner } from "@/components/helper-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
 
@@ -226,6 +227,11 @@ export default function LoginPage() {
             )}
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="pt-1">
+            <span className="rounded-full border border-border/70 bg-background/55 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Backoffice v{BACKOFFICE_VERSION}
+            </span>
+          </div>
         </div>
       )}
 
@@ -295,6 +301,12 @@ export default function LoginPage() {
               </Button>
             </div>
           </form>
+
+          <div className="pt-1">
+            <span className="rounded-full border border-border/70 bg-background/55 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Backoffice v{BACKOFFICE_VERSION}
+            </span>
+          </div>
         </div>
       )}
     </div>

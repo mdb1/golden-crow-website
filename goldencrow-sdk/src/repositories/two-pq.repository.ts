@@ -1,5 +1,5 @@
 import { adminDb } from "../config/firebase.js";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type Transaction } from "firebase-admin/firestore";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { normalizeRoleEmail } from "./roles.repository.js";
 import type {
@@ -25,6 +25,8 @@ type TwoPQMutationInput = {
   institutionId?: string;
   doctorId?: string;
   patientId?: string;
+  batchId?: string;
+  caseId?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -146,6 +148,7 @@ const AREA_CONFIG: Record<
     prefix: "CASE",
     requiredFields: ["institutionId", "doctorId", "caseLabel", "caseStatus", "sampleId"],
     searchableFields: [
+      "batchId",
       "caseLabel",
       "caseStatus",
       "sampleId",
@@ -168,6 +171,7 @@ const AREA_CONFIG: Record<
       "processingStatus",
     ],
     searchableFields: [
+      "caseId",
       "caseLabel",
       "sampleId",
       "sampleType",
@@ -266,6 +270,8 @@ const AREA_CONFIG: Record<
 
 const DEFAULT_RECORD_FIELDS: Array<keyof TwoPQRecord> = [
   "patientId",
+  "batchId",
+  "caseId",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -317,6 +323,32 @@ function hasOwnKey<T extends object>(value: T, key: keyof T) {
 
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+
+  if (normalized.length === 0) {
+    return undefined;
+  }
+
+  return Array.from(new Set(normalized));
+}
+
+function uniqueIds(values: Array<string | undefined | null>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeOptionalString(value))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
 }
 
 function normalizeIsoDateString(value: unknown) {
@@ -478,7 +510,7 @@ function toTwoPQRecord(
     normalizeOptionalString(data.updatedAt) ?? now
   );
 
-  return DEFAULT_RECORD_FIELDS.reduce<TwoPQRecord>((record, field) => {
+  const record = DEFAULT_RECORD_FIELDS.reduce<TwoPQRecord>((record, field) => {
     const normalized = normalizeOptionalString(data[field]);
     if (normalized) {
       record[field] = normalized as never;
@@ -495,6 +527,18 @@ function toTwoPQRecord(
         ? areaKey
         : areaKey,
   });
+
+  const linkedCaseIds = normalizeStringArray(data.linkedCaseIds);
+  if (linkedCaseIds) {
+    record.linkedCaseIds = linkedCaseIds;
+  }
+
+  const linkedSamplingIds = normalizeStringArray(data.linkedSamplingIds);
+  if (linkedSamplingIds) {
+    record.linkedSamplingIds = linkedSamplingIds;
+  }
+
+  return record;
 }
 
 async function getNextTwoPQId(areaKey: TwoPQAreaKey) {
@@ -797,6 +841,402 @@ async function getTwoPQRecord(areaKey: TwoPQAreaKey, recordId: string) {
   return toTwoPQRecord(recordId, areaKey, snapshot.data() as Record<string, unknown>);
 }
 
+function getTwoPQRecordRef(areaKey: TwoPQAreaKey, recordId: string) {
+  return adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId);
+}
+
+function getTwoPQSortLabel(record: Pick<
+  TwoPQRecord,
+  "id" | "caseLabel" | "sampleId" | "shipmentId" | "runId" | "reportCode" | "clientName"
+>) {
+  return (
+    record.clientName ??
+    record.reportCode ??
+    record.runId ??
+    record.shipmentId ??
+    record.sampleId ??
+    record.caseLabel ??
+    record.id
+  );
+}
+
+async function buildListItemsForRecords(
+  context: AdminContext,
+  records: TwoPQRecord[]
+): Promise<TwoPQListItem[]> {
+  const visibleRecords = records.filter((record) => canViewTwoPQRecord(context, record));
+  if (visibleRecords.length === 0) {
+    return [];
+  }
+
+  const [institutions, doctors, patients] = await Promise.all([
+    Promise.all(
+      uniqueIds(visibleRecords.map((record) => record.institutionId)).map((institutionId) =>
+        getInstitutionById(institutionId)
+      )
+    ),
+    Promise.all(
+      uniqueIds(visibleRecords.map((record) => record.doctorId)).map((doctorId) =>
+        getDoctorById(doctorId)
+      )
+    ),
+    Promise.all(
+      uniqueIds(visibleRecords.map((record) => record.patientId)).map((patientId) =>
+        getPatientById(patientId)
+      )
+    ),
+  ]);
+
+  const institutionNameById = new Map(
+    institutions
+      .filter((institution): institution is InstitutionRecord => Boolean(institution))
+      .map((institution) => [institution.id, institution.name])
+  );
+  const doctorById = new Map(
+    doctors
+      .filter((doctor): doctor is DoctorRecord => Boolean(doctor))
+      .map((doctor) => [doctor.id, doctor])
+  );
+  const patientById = new Map(
+    patients
+      .filter((patient): patient is PatientRecord => Boolean(patient))
+      .map((patient) => [patient.id, patient])
+  );
+
+  return visibleRecords
+    .map((record) =>
+      buildListItem(context, record, {
+        institutionName: institutionNameById.get(record.institutionId),
+        doctorName: doctorById.get(record.doctorId)?.fullName,
+        patientName: patientById.get(record.patientId ?? "")?.fullName,
+      })
+    )
+    .sort((left, right) => getTwoPQSortLabel(left).localeCompare(getTwoPQSortLabel(right)));
+}
+
+async function getTwoPQListItemForContext(
+  context: AdminContext,
+  areaKey: TwoPQAreaKey,
+  recordId: string
+) {
+  const record = await getTwoPQRecord(areaKey, recordId);
+  if (!record) {
+    return null;
+  }
+
+  const [listItem] = await buildListItemsForRecords(context, [record]);
+  return listItem ?? null;
+}
+
+async function getTwoPQRecordsByIds(areaKey: TwoPQAreaKey, recordIds: string[]) {
+  const uniqueRecordIds = uniqueIds(recordIds);
+  if (uniqueRecordIds.length === 0) {
+    return [] as TwoPQRecord[];
+  }
+
+  const records = await Promise.all(
+    uniqueRecordIds.map((recordId) => getTwoPQRecord(areaKey, recordId))
+  );
+
+  return records.filter((record): record is TwoPQRecord => Boolean(record));
+}
+
+async function getTwoPQChildrenByParentField(
+  areaKey: "cases" | "sampling",
+  parentField: "batchId" | "caseId",
+  parentId: string
+) {
+  const snapshot = await adminDb
+    .collection(AREA_CONFIG[areaKey].collectionKey)
+    .where(parentField, "==", parentId)
+    .get();
+
+  return snapshot.docs.map((doc) => toTwoPQRecord(doc.id, areaKey, doc.data() as Record<string, unknown>));
+}
+
+function validateParentChildScope(
+  parent: Pick<TwoPQRecord, "institutionId" | "doctorId" | "patientId">,
+  child: Pick<TwoPQRecord, "institutionId" | "doctorId" | "patientId">,
+  options: {
+    parentLabel: string;
+    childLabel: string;
+    enforcePatientMatch?: boolean;
+  }
+) {
+  if (parent.institutionId !== child.institutionId) {
+    throw new AdminRepositoryError(
+      `${options.parentLabel} and ${options.childLabel} must belong to the same institution.`,
+      400
+    );
+  }
+
+  if (parent.doctorId !== child.doctorId) {
+    throw new AdminRepositoryError(
+      `${options.parentLabel} and ${options.childLabel} must belong to the same doctor lane.`,
+      400
+    );
+  }
+
+  if (
+    options.enforcePatientMatch &&
+    parent.patientId &&
+    child.patientId &&
+    parent.patientId !== child.patientId
+  ) {
+    throw new AdminRepositoryError(
+      `${options.parentLabel} and ${options.childLabel} must reference the same patient when both are set.`,
+      400
+    );
+  }
+}
+
+async function linkCaseToBatchInTransaction(
+  transaction: Transaction,
+  context: AdminContext,
+  batchId: string,
+  caseRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "patientId" | "batchId">,
+  now: string
+) {
+  const batchRef = getTwoPQRecordRef("sequencing", batchId);
+  const batchSnapshot = await transaction.get(batchRef);
+  if (!batchSnapshot.exists) {
+    throw new AdminRepositoryError("Batch not found.", 404);
+  }
+
+  const batch = toTwoPQRecord(
+    batchId,
+    "sequencing",
+    batchSnapshot.data() as Record<string, unknown>
+  );
+
+  if (!canWriteTwoPQRecord(context, batch)) {
+    throw new AdminRepositoryError("You cannot modify this batch.", 403);
+  }
+
+  validateParentChildScope(batch, caseRecord, {
+    parentLabel: "Batch",
+    childLabel: "Case",
+  });
+
+  if (caseRecord.batchId && caseRecord.batchId !== batchId) {
+    transaction.set(
+      getTwoPQRecordRef("sequencing", caseRecord.batchId),
+      {
+        linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
+        updatedAt: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true }
+    );
+  }
+
+  transaction.set(
+    batchRef,
+    {
+      linkedCaseIds: FieldValue.arrayUnion(caseRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+}
+
+async function unlinkCaseFromBatchInTransaction(
+  transaction: Transaction,
+  context: AdminContext,
+  batchId: string,
+  caseRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "batchId">,
+  now: string
+) {
+  const batchRef = getTwoPQRecordRef("sequencing", batchId);
+  const batchSnapshot = await transaction.get(batchRef);
+  if (!batchSnapshot.exists) {
+    throw new AdminRepositoryError("Batch not found.", 404);
+  }
+
+  const batch = toTwoPQRecord(
+    batchId,
+    "sequencing",
+    batchSnapshot.data() as Record<string, unknown>
+  );
+
+  if (!canWriteTwoPQRecord(context, batch)) {
+    throw new AdminRepositoryError("You cannot modify this batch.", 403);
+  }
+
+  transaction.set(
+    batchRef,
+    {
+      linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+}
+
+async function linkSamplingToCaseInTransaction(
+  transaction: Transaction,
+  context: AdminContext,
+  caseId: string,
+  samplingRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "patientId" | "caseId">,
+  now: string
+) {
+  const caseRef = getTwoPQRecordRef("cases", caseId);
+  const caseSnapshot = await transaction.get(caseRef);
+  if (!caseSnapshot.exists) {
+    throw new AdminRepositoryError("Case not found.", 404);
+  }
+
+  const caseRecord = toTwoPQRecord(caseId, "cases", caseSnapshot.data() as Record<string, unknown>);
+
+  if (!canWriteTwoPQRecord(context, caseRecord)) {
+    throw new AdminRepositoryError("You cannot modify this case.", 403);
+  }
+
+  validateParentChildScope(caseRecord, samplingRecord, {
+    parentLabel: "Case",
+    childLabel: "Sampling",
+    enforcePatientMatch: true,
+  });
+
+  if (samplingRecord.caseId && samplingRecord.caseId !== caseId) {
+    transaction.set(
+      getTwoPQRecordRef("cases", samplingRecord.caseId),
+      {
+        linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+        updatedAt: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true }
+    );
+  }
+
+  transaction.set(
+    caseRef,
+    {
+      linkedSamplingIds: FieldValue.arrayUnion(samplingRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+}
+
+async function unlinkSamplingFromCaseInTransaction(
+  transaction: Transaction,
+  context: AdminContext,
+  caseId: string,
+  samplingRecord: Pick<TwoPQRecord, "id" | "institutionId" | "doctorId" | "caseId">,
+  now: string
+) {
+  const caseRef = getTwoPQRecordRef("cases", caseId);
+  const caseSnapshot = await transaction.get(caseRef);
+  if (!caseSnapshot.exists) {
+    throw new AdminRepositoryError("Case not found.", 404);
+  }
+
+  const caseRecord = toTwoPQRecord(caseId, "cases", caseSnapshot.data() as Record<string, unknown>);
+
+  if (!canWriteTwoPQRecord(context, caseRecord)) {
+    throw new AdminRepositoryError("You cannot modify this case.", 403);
+  }
+
+  transaction.set(
+    caseRef,
+    {
+      linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+}
+
+function mergeRecordsById(records: TwoPQRecord[]) {
+  const byId = new Map<string, TwoPQRecord>();
+  for (const record of records) {
+    byId.set(record.id, record);
+  }
+  return Array.from(byId.values());
+}
+
+async function loadLinkedCasesForBatch(record: TwoPQRecord) {
+  const [recordsById, recordsByQuery] = await Promise.all([
+    getTwoPQRecordsByIds("cases", record.linkedCaseIds ?? []),
+    getTwoPQChildrenByParentField("cases", "batchId", record.id),
+  ]);
+
+  return mergeRecordsById([...recordsById, ...recordsByQuery]);
+}
+
+async function loadLinkedSamplingsForCase(record: TwoPQRecord) {
+  const [recordsById, recordsByQuery] = await Promise.all([
+    getTwoPQRecordsByIds("sampling", record.linkedSamplingIds ?? []),
+    getTwoPQChildrenByParentField("sampling", "caseId", record.id),
+  ]);
+
+  return mergeRecordsById([...recordsById, ...recordsByQuery]);
+}
+
+async function validateCurrentRelationsForRecord(areaKey: TwoPQAreaKey, record: TwoPQRecord) {
+  if (areaKey === "sequencing") {
+    const linkedCases = await loadLinkedCasesForBatch(record);
+    for (const linkedCase of linkedCases) {
+      if (linkedCase.batchId !== record.id) {
+        continue;
+      }
+
+      validateParentChildScope(record, linkedCase, {
+        parentLabel: "Batch",
+        childLabel: "Case",
+      });
+    }
+    return;
+  }
+
+  if (areaKey === "cases") {
+    if (record.batchId) {
+      const linkedBatch = await getTwoPQRecord("sequencing", record.batchId);
+      if (!linkedBatch) {
+        throw new AdminRepositoryError("Linked batch not found.", 404);
+      }
+
+      validateParentChildScope(linkedBatch, record, {
+        parentLabel: "Batch",
+        childLabel: "Case",
+      });
+    }
+
+    const linkedSamplings = await loadLinkedSamplingsForCase(record);
+    for (const linkedSampling of linkedSamplings) {
+      if (linkedSampling.caseId !== record.id) {
+        continue;
+      }
+
+      validateParentChildScope(record, linkedSampling, {
+        parentLabel: "Case",
+        childLabel: "Sampling",
+        enforcePatientMatch: true,
+      });
+    }
+    return;
+  }
+
+  if (areaKey === "sampling" && record.caseId) {
+    const linkedCase = await getTwoPQRecord("cases", record.caseId);
+    if (!linkedCase) {
+      throw new AdminRepositoryError("Linked case not found.", 404);
+    }
+
+    validateParentChildScope(linkedCase, record, {
+      parentLabel: "Case",
+      childLabel: "Sampling",
+      enforcePatientMatch: true,
+    });
+  }
+}
+
 export async function listTwoPQRecordsForContext(
   context: AdminContext,
   areaKey: TwoPQAreaKey,
@@ -827,7 +1267,7 @@ export async function listTwoPQRecordsForContext(
   const patientById = new Map(patients.map((patient) => [patient.id, patient]));
   const normalizedQuery = filters?.query?.trim().toLowerCase() ?? "";
 
-  return recordSnapshot.docs
+  const filteredRecords = recordSnapshot.docs
     .map((doc) => toTwoPQRecord(doc.id, areaKey, doc.data() as Record<string, unknown>))
     .filter((record) => canViewTwoPQRecord(context, record))
     .filter((record) => {
@@ -859,7 +1299,9 @@ export async function listTwoPQRecordsForContext(
         .toLowerCase();
 
       return haystack.includes(normalizedQuery);
-    })
+    });
+
+  return filteredRecords
     .map((record) =>
       buildListItem(context, record, {
         institutionName: institutionNameById.get(record.institutionId),
@@ -867,11 +1309,7 @@ export async function listTwoPQRecordsForContext(
         patientName: patientById.get(record.patientId ?? "")?.fullName,
       })
     )
-    .sort((left, right) => {
-      const leftLabel = left.caseLabel ?? left.clientName ?? left.reportCode ?? left.id;
-      const rightLabel = right.caseLabel ?? right.clientName ?? right.reportCode ?? right.id;
-      return leftLabel.localeCompare(rightLabel);
-    });
+    .sort((left, right) => getTwoPQSortLabel(left).localeCompare(getTwoPQSortLabel(right)));
 }
 
 export async function createTwoPQRecordForContext(
@@ -920,13 +1358,58 @@ export async function createTwoPQRecordForContext(
     "replace"
   );
 
-  await adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId).set({
+  const requestedBatchId =
+    areaKey === "cases" ? normalizeOptionalString(payload.batchId) : undefined;
+  const requestedCaseId =
+    areaKey === "sampling" ? normalizeOptionalString(payload.caseId) : undefined;
+  const writeDocument: TwoPQRecord = {
     ...document,
+    ...(requestedBatchId ? { batchId: requestedBatchId } : {}),
+    ...(requestedCaseId ? { caseId: requestedCaseId } : {}),
     createdByEmail: context.email,
     updatedByEmail: context.email,
-  });
+  };
+  const recordRef = getTwoPQRecordRef(areaKey, recordId);
 
-  return document;
+  if (requestedBatchId || requestedCaseId) {
+    await adminDb.runTransaction(async (transaction) => {
+      transaction.set(recordRef, writeDocument);
+
+      if (requestedBatchId) {
+        await linkCaseToBatchInTransaction(
+          transaction,
+          context,
+          requestedBatchId,
+          {
+            id: recordId,
+            institutionId: writeDocument.institutionId,
+            doctorId: writeDocument.doctorId,
+            patientId: writeDocument.patientId,
+          },
+          now
+        );
+      }
+
+      if (requestedCaseId) {
+        await linkSamplingToCaseInTransaction(
+          transaction,
+          context,
+          requestedCaseId,
+          {
+            id: recordId,
+            institutionId: writeDocument.institutionId,
+            doctorId: writeDocument.doctorId,
+            patientId: writeDocument.patientId,
+          },
+          now
+        );
+      }
+    });
+  } else {
+    await recordRef.set(writeDocument);
+  }
+
+  return writeDocument;
 }
 
 export async function getTwoPQDetailForContext(
@@ -943,11 +1426,24 @@ export async function getTwoPQDetailForContext(
     throw new AdminRepositoryError("You cannot view this record.", 403);
   }
 
-  const [institution, doctor, patient] = await Promise.all([
+  const [institution, doctor, patient, linkedBatch, linkedCase, linkedCases, linkedSamplings] =
+    await Promise.all([
     getInstitutionById(record.institutionId),
     getDoctorById(record.doctorId),
     record.patientId ? getPatientById(record.patientId) : Promise.resolve(null),
-  ]);
+      areaKey === "cases" && record.batchId
+        ? getTwoPQListItemForContext(context, "sequencing", record.batchId)
+        : Promise.resolve(null),
+      areaKey === "sampling" && record.caseId
+        ? getTwoPQListItemForContext(context, "cases", record.caseId)
+        : Promise.resolve(null),
+      areaKey === "sequencing"
+        ? loadLinkedCasesForBatch(record).then((records) => buildListItemsForRecords(context, records))
+        : Promise.resolve([]),
+      areaKey === "cases"
+        ? loadLinkedSamplingsForCase(record).then((records) => buildListItemsForRecords(context, records))
+        : Promise.resolve([]),
+    ]);
 
   return {
     record: buildListItem(context, record, {
@@ -968,6 +1464,10 @@ export async function getTwoPQDetailForContext(
           doctorEmail: doctor?.authEmail,
         })
       : null,
+    linkedBatch,
+    linkedCase,
+    linkedCases,
+    linkedSamplings,
   };
 }
 
@@ -1028,6 +1528,8 @@ export async function replaceTwoPQRecordForContext(
   nextRecord.createdByEmail = existing.createdByEmail;
   nextRecord.updatedAt = new Date().toISOString();
   nextRecord.updatedByEmail = context.email;
+
+  await validateCurrentRelationsForRecord(areaKey, nextRecord);
 
   await adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId).set(nextRecord);
   return nextRecord;
@@ -1092,6 +1594,8 @@ export async function updateTwoPQRecordForContext(
     }
   }
 
+  await validateCurrentRelationsForRecord(areaKey, nextRecord);
+
   await adminDb
     .collection(AREA_CONFIG[areaKey].collectionKey)
     .doc(recordId)
@@ -1100,6 +1604,136 @@ export async function updateTwoPQRecordForContext(
     });
 
   return nextRecord;
+}
+
+export async function linkCaseToBatchForContext(
+  context: AdminContext,
+  batchId: string,
+  caseId: string
+): Promise<{ success: true }> {
+  const caseRecord = await getTwoPQRecord("cases", caseId);
+  if (!caseRecord) {
+    throw new AdminRepositoryError("Case not found.", 404);
+  }
+
+  if (!canWriteTwoPQRecord(context, caseRecord)) {
+    throw new AdminRepositoryError("You cannot modify this case.", 403);
+  }
+
+  const now = new Date().toISOString();
+  await adminDb.runTransaction(async (transaction) => {
+    await linkCaseToBatchInTransaction(transaction, context, batchId, caseRecord, now);
+    transaction.set(
+      getTwoPQRecordRef("cases", caseId),
+      {
+        batchId,
+        updatedAt: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true }
+    );
+  });
+
+  return { success: true };
+}
+
+export async function unlinkCaseFromBatchForContext(
+  context: AdminContext,
+  batchId: string,
+  caseId: string
+): Promise<{ success: true }> {
+  const caseRecord = await getTwoPQRecord("cases", caseId);
+  if (!caseRecord) {
+    throw new AdminRepositoryError("Case not found.", 404);
+  }
+
+  if (!canWriteTwoPQRecord(context, caseRecord)) {
+    throw new AdminRepositoryError("You cannot modify this case.", 403);
+  }
+
+  const now = new Date().toISOString();
+  await adminDb.runTransaction(async (transaction) => {
+    await unlinkCaseFromBatchInTransaction(transaction, context, batchId, caseRecord, now);
+
+    if (caseRecord.batchId === batchId) {
+      transaction.set(
+        getTwoPQRecordRef("cases", caseId),
+        {
+          batchId: FieldValue.delete(),
+          updatedAt: now,
+          updatedByEmail: context.email,
+        },
+        { merge: true }
+      );
+    }
+  });
+
+  return { success: true };
+}
+
+export async function linkSamplingToCaseForContext(
+  context: AdminContext,
+  caseId: string,
+  samplingId: string
+): Promise<{ success: true }> {
+  const samplingRecord = await getTwoPQRecord("sampling", samplingId);
+  if (!samplingRecord) {
+    throw new AdminRepositoryError("Sampling not found.", 404);
+  }
+
+  if (!canWriteTwoPQRecord(context, samplingRecord)) {
+    throw new AdminRepositoryError("You cannot modify this sampling record.", 403);
+  }
+
+  const now = new Date().toISOString();
+  await adminDb.runTransaction(async (transaction) => {
+    await linkSamplingToCaseInTransaction(transaction, context, caseId, samplingRecord, now);
+    transaction.set(
+      getTwoPQRecordRef("sampling", samplingId),
+      {
+        caseId,
+        updatedAt: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true }
+    );
+  });
+
+  return { success: true };
+}
+
+export async function unlinkSamplingFromCaseForContext(
+  context: AdminContext,
+  caseId: string,
+  samplingId: string
+): Promise<{ success: true }> {
+  const samplingRecord = await getTwoPQRecord("sampling", samplingId);
+  if (!samplingRecord) {
+    throw new AdminRepositoryError("Sampling not found.", 404);
+  }
+
+  if (!canWriteTwoPQRecord(context, samplingRecord)) {
+    throw new AdminRepositoryError("You cannot modify this sampling record.", 403);
+  }
+
+  const now = new Date().toISOString();
+  await adminDb.runTransaction(async (transaction) => {
+    await unlinkSamplingFromCaseInTransaction(transaction, context, caseId, samplingRecord, now);
+
+    if (samplingRecord.caseId === caseId) {
+      transaction.set(
+        getTwoPQRecordRef("sampling", samplingId),
+        {
+          caseId: FieldValue.delete(),
+          updatedAt: now,
+          updatedByEmail: context.email,
+        },
+        { merge: true }
+      );
+    }
+  });
+
+  return { success: true };
 }
 
 export async function deleteTwoPQRecordForContext(
@@ -1116,6 +1750,85 @@ export async function deleteTwoPQRecordForContext(
     throw new AdminRepositoryError("You cannot delete this record.", 403);
   }
 
-  await adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId).delete();
+  const now = new Date().toISOString();
+
+  if (areaKey === "sequencing") {
+    const linkedCases = await loadLinkedCasesForBatch(record);
+
+    for (const linkedCase of linkedCases) {
+      if (linkedCase.batchId === record.id && !canWriteTwoPQRecord(context, linkedCase)) {
+        throw new AdminRepositoryError("You cannot unlink every case in this batch.", 403);
+      }
+    }
+
+    await adminDb.runTransaction(async (transaction) => {
+      for (const linkedCase of linkedCases) {
+        if (linkedCase.batchId !== record.id) {
+          continue;
+        }
+
+        transaction.set(
+          getTwoPQRecordRef("cases", linkedCase.id),
+          {
+            batchId: FieldValue.delete(),
+            updatedAt: now,
+            updatedByEmail: context.email,
+          },
+          { merge: true }
+        );
+      }
+
+      transaction.delete(getTwoPQRecordRef(areaKey, recordId));
+    });
+
+    return { success: true };
+  }
+
+  if (areaKey === "cases") {
+    const linkedSamplings = await loadLinkedSamplingsForCase(record);
+
+    for (const linkedSampling of linkedSamplings) {
+      if (linkedSampling.caseId === record.id && !canWriteTwoPQRecord(context, linkedSampling)) {
+        throw new AdminRepositoryError("You cannot unlink every sampling linked to this case.", 403);
+      }
+    }
+
+    await adminDb.runTransaction(async (transaction) => {
+      if (record.batchId) {
+        await unlinkCaseFromBatchInTransaction(transaction, context, record.batchId, record, now);
+      }
+
+      for (const linkedSampling of linkedSamplings) {
+        if (linkedSampling.caseId !== record.id) {
+          continue;
+        }
+
+        transaction.set(
+          getTwoPQRecordRef("sampling", linkedSampling.id),
+          {
+            caseId: FieldValue.delete(),
+            updatedAt: now,
+            updatedByEmail: context.email,
+          },
+          { merge: true }
+        );
+      }
+
+      transaction.delete(getTwoPQRecordRef(areaKey, recordId));
+    });
+
+    return { success: true };
+  }
+
+  if (areaKey === "sampling" && record.caseId) {
+    await adminDb.runTransaction(async (transaction) => {
+      await unlinkSamplingFromCaseInTransaction(transaction, context, record.caseId!, record, now);
+      transaction.delete(getTwoPQRecordRef(areaKey, recordId));
+    });
+
+    return { success: true };
+  }
+
+  await getTwoPQRecordRef(areaKey, recordId).delete();
   return { success: true };
 }

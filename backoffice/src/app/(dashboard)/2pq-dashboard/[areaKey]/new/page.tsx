@@ -5,18 +5,48 @@ import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { Button } from "@/components/ui/button";
+import type { TwoPQDetailRecord } from "@/lib/two-pq-areas";
 import { getTwoPQAreaConfig } from "@/lib/two-pq-areas";
+import { sdkFetchServer } from "@/lib/sdk-server";
 import { getTwoPQLookupData } from "@/lib/two-pq-server";
 
 export default async function TwoPQAreaCreatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ areaKey: string }>;
+  searchParams: Promise<{ batchId?: string; caseId?: string }>;
 }) {
   const { areaKey } = await params;
+  const { batchId, caseId } = await searchParams;
   const area = getTwoPQAreaConfig(areaKey);
   if (!area) {
     notFound();
+  }
+
+  let preloadedBatch: TwoPQDetailRecord["record"] | null = null;
+  let preloadedCase: TwoPQDetailRecord["record"] | null = null;
+
+  if (area.key === "cases" && batchId) {
+    try {
+      const detail = await sdkFetchServer<TwoPQDetailRecord>(
+        `/2pq/sequencing/${encodeURIComponent(batchId)}`
+      );
+      preloadedBatch = detail.record;
+    } catch {
+      preloadedBatch = null;
+    }
+  }
+
+  if (area.key === "sampling" && caseId) {
+    try {
+      const detail = await sdkFetchServer<TwoPQDetailRecord>(
+        `/2pq/cases/${encodeURIComponent(caseId)}`
+      );
+      preloadedCase = detail.record;
+    } catch {
+      preloadedCase = null;
+    }
   }
 
   const lookupData = await getTwoPQLookupData();
@@ -46,6 +76,8 @@ export default async function TwoPQAreaCreatePage({
         institutions={lookupData.institutions}
         doctors={lookupData.doctors}
         patients={lookupData.patients}
+        preloadedBatch={preloadedBatch}
+        preloadedCase={preloadedCase}
         mode="create"
       />
     </div>
