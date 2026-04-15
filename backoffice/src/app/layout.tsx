@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Public_Sans, Space_Grotesk } from "next/font/google";
+import Script from "next/script";
 import { APPEARANCE_STORAGE_KEY } from "@/lib/appearance";
 import "./globals.css";
 
@@ -25,6 +26,20 @@ export const metadata: Metadata = {
     "Pocket Genes Admin moderation console for accounts, community, reports, and learning operations.",
 };
 
+const themeBootstrapScript = `
+  (function () {
+    try {
+      var stored = window.localStorage.getItem("${APPEARANCE_STORAGE_KEY}");
+      var theme = stored === "light" || stored === "dark" ? stored : "light";
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    } catch (error) {
+      document.documentElement.dataset.theme = "light";
+      document.documentElement.style.colorScheme = "light";
+    }
+  })();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,23 +53,9 @@ export default function RootLayout({
       className={`${publicSans.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
     >
       <body className="font-sans antialiased">
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function () {
-                try {
-                  var stored = window.localStorage.getItem("${APPEARANCE_STORAGE_KEY}");
-                  var theme = stored === "light" || stored === "dark" ? stored : "light";
-                  document.documentElement.dataset.theme = theme;
-                  document.documentElement.style.colorScheme = theme;
-                } catch (error) {
-                  document.documentElement.dataset.theme = "light";
-                  document.documentElement.style.colorScheme = "light";
-                }
-              })();
-            `,
-          }}
-        />
+        <Script id="theme-bootstrap" strategy="beforeInteractive">
+          {themeBootstrapScript}
+        </Script>
         {children}
       </body>
     </html>
