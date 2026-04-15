@@ -689,12 +689,13 @@ export function TwoPQRecordWorkbench({
   }
 
   function handleErrorLogOpen() {
-    if (!toast?.details) {
+    const details = toast?.details;
+    if (!details) {
       return;
     }
 
     setCopiedErrorLog(false);
-    setLatestErrorLog((current) => current ?? { title: "Request log", details: toast.details });
+    setLatestErrorLog((current) => current ?? { title: "Request log", details });
     setIsErrorLogOpen(true);
   }
 
