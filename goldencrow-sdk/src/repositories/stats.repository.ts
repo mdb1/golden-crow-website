@@ -11,6 +11,7 @@ export interface DashboardStats {
   reports: {
     reportCodes: number;
     uploadedReports: number;
+    fileStorage: number;
     reportOwners: number;
   };
   community: {
@@ -31,6 +32,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     communityUsersSnap,
     reportCodesSnap,
     uploadedReportsSnap,
+    fileStorageSnap,
     reportOwnersSnap,
     postsSnap,
     commentsSnap,
@@ -43,6 +45,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     adminDb.collection("community_users").count().get(),
     adminDb.collection("report_codes").count().get(),
     adminDb.collection("uploaded_reports").count().get(),
+    adminDb.collection("file_storage").count().get(),
     adminDb.collection("report_owners").count().get(),
     adminDb.collection("community_posts").count().get(),
     adminDb.collectionGroup("comments").count().get(),
@@ -64,6 +67,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     reports: {
       reportCodes: reportCodesSnap.data().count,
       uploadedReports: uploadedReportsSnap.data().count,
+      fileStorage: fileStorageSnap.data().count,
       reportOwners: reportOwnersSnap.data().count,
     },
     community: {

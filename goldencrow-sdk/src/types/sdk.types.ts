@@ -7,6 +7,7 @@ export type ModerationCollectionKey =
   | "community_posts"
   | "report_codes"
   | "uploaded_reports"
+  | "file_storage"
   | "report_owners"
   | "user_progress";
 export type ModerationSubcollectionKey = "comments" | "events";
@@ -320,6 +321,7 @@ export interface DnaReport {
   downloadUrl: string | null;
   createdAt?: string;
   uploadedReportId?: string;
+  linkedFileId?: string | null;
   fileName?: string | null;
   providerFormat?: string | null;
   providerName?: string | null;

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { CommunityUserWorkbench } from "@/components/community/community-user-workbench";
+import { FileStorageWorkbench } from "@/components/file-storage/file-storage-workbench";
 import { PublicProfileWorkbench } from "@/components/community/public-profile-workbench";
 import { DocumentWorkbench } from "@/components/document-workbench";
 import { HelperBanner } from "@/components/helper-banner";
@@ -16,6 +17,7 @@ import {
 import { sdkFetchServer } from "@/lib/sdk-server";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 import { isCollectionKey } from "@/lib/moderation-utils";
+import { parseStoredFileRecord } from "@/lib/file-storage";
 import { parseReportOwnerRecord } from "@/lib/report-admin";
 
 export default async function CollectionDocumentPage({
@@ -96,6 +98,25 @@ export default async function CollectionDocumentPage({
           affect what people see in the community experience.
         </HelperBanner>
         <PublicProfileWorkbench document={document} />
+      </div>
+    );
+  }
+
+  if (resolvedSearchParams.raw !== "1" && collectionKey === "file_storage") {
+    const file = parseStoredFileRecord(document);
+
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHero
+          eyebrow={section?.label ?? "Reports"}
+          title={file.fileName || document.id}
+          description="Typed stored-file manager for the Firebase file_storage collection, with JSON validation and linked-report context."
+        />
+        <HelperBanner title="Manage stored files with the typed editor first." tone="green">
+          Use this screen to review creator ownership, linked report code state,
+          and JSON validity before editing the stored file content itself.
+        </HelperBanner>
+        <FileStorageWorkbench document={document} />
       </div>
     );
   }

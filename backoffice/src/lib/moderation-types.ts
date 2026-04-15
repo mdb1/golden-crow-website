@@ -22,6 +22,7 @@ export type CollectionKey =
   | "community_posts"
   | "report_codes"
   | "uploaded_reports"
+  | "file_storage"
   | "report_owners"
   | "user_progress";
 export type SubcollectionKey = "comments" | "events";
@@ -147,6 +148,7 @@ export interface AdminReportRecord {
   downloadUrl: string | null;
   createdAt?: string;
   uploadedReportId?: string;
+  linkedFileId?: string | null;
   fileName?: string | null;
   providerFormat?: string | null;
   providerName?: string | null;
@@ -186,6 +188,7 @@ export interface DashboardStats {
   reports: {
     reportCodes: number;
     uploadedReports: number;
+    fileStorage: number;
     reportOwners: number;
   };
   community: {

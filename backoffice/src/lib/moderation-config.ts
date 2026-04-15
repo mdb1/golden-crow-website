@@ -8,6 +8,7 @@ import {
   FileBadge2,
   FileCode2,
   FileSearch,
+  FolderOpen,
   KeyRound,
   LayoutDashboard,
   MessagesSquare,
@@ -68,7 +69,7 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
     key: "reports",
     label: "Reports",
-    description: "Report codes, uploaded reports, and owner records.",
+    description: "Report codes, uploaded reports, stored files, and owner records.",
     visibleRoles: FULL_ADMIN_ROLES,
   },
   {
@@ -317,7 +318,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionConfig> = {
         ],
       };
     },
-    getRelatedLinks: (documentId, data) => {
+    getRelatedLinks: (_documentId, data) => {
       const links: RelatedRecordLink[] = [];
       const authorId = getString(data.authorId);
       if (authorId) {
@@ -429,6 +430,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionConfig> = {
     getRelatedLinks: (_documentId, data) => {
       const links: RelatedRecordLink[] = [];
       const reportCode = getString(data.reportCode) ?? getString(data.report_code);
+      const linkedFileId = getString(data.linkedFileId) ?? getString(data.linked_file_id);
       const ownerId =
         getString(data.reportOwnerId) ??
         getString(data.report_owner_id) ??
@@ -446,8 +448,93 @@ export const COLLECTIONS: Record<CollectionKey, CollectionConfig> = {
         );
       }
 
+      if (linkedFileId) {
+        links.push(
+          documentLink(
+            "file_storage",
+            linkedFileId,
+            "Stored file",
+            "Open the linked file_storage document.",
+            "green"
+          )
+        );
+      }
+
       if (ownerId) {
         links.push(...sameUserLinks(ownerId));
+      }
+
+      return links;
+    },
+  },
+  file_storage: {
+    key: "file_storage",
+    section: "reports",
+    navLabel: "File Storage",
+    title: "File storage",
+    description:
+      "Reusable stored files backing report operations, with creator scope, JSON content, and linked-report metadata.",
+    helperTitle: "Use file storage as the canonical stored-file manager.",
+    helperBody:
+      "Browse every stored file in Firebase, verify JSON validity, inspect creator ownership, and follow linked report codes before editing content.",
+    accent: "green",
+    icon: FolderOpen,
+    getBrowseRecord: (document) => {
+      const linkedReportCode =
+        getString(document.data.linked_report_code) ?? getString(document.data.linked_report_id);
+      const creatorEmail = getString(document.data.creator_email);
+      const fileType = getString(document.data.file_type);
+      const rawContent = getString(document.data.file_content) ?? "";
+      const hasValidJson = (() => {
+        try {
+          JSON.parse(
+            rawContent
+              .replace(/[\u2018\u2019\u2032]/g, "'")
+              .replace(/[\u201C\u201D\u2033]/g, '"')
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+
+      return {
+        title: getString(document.data.file_name) ?? document.id,
+        subtitle:
+          compactList([
+            creatorEmail,
+            fileType?.toUpperCase(),
+            linkedReportCode ? `Linked to ${linkedReportCode}` : "Orphan",
+          ]) || "Stored file record",
+        code: document.id,
+        timestamp: document.data.last_modified_date ?? document.data.creation_date,
+        badges: [
+          {
+            label: linkedReportCode ? "Linked" : "Orphan",
+            tone: linkedReportCode ? "green" : "amber",
+          },
+          {
+            label: hasValidJson ? "JSON valid" : "JSON invalid",
+            tone: hasValidJson ? "green" : "red",
+          },
+        ],
+      };
+    },
+    getRelatedLinks: (_documentId, data) => {
+      const links: RelatedRecordLink[] = [];
+      const linkedReportCode =
+        getString(data.linked_report_code) ?? getString(data.linked_report_id);
+
+      if (linkedReportCode) {
+        links.push(
+          documentLink(
+            "report_codes",
+            linkedReportCode,
+            "Linked report code",
+            "Open the report code attached to this stored file.",
+            "green"
+          )
+        );
       }
 
       return links;
@@ -676,7 +763,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     section: "reports",
     label: "Reports",
     href: "/reports",
-    description: "Codes, uploads, owners",
+    description: "Codes, uploads, stored files, owners",
     icon: FileCode2,
     visibleRoles: FULL_ADMIN_ROLES,
   },
@@ -694,6 +781,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/collections/uploaded_reports",
     description: "uploaded_reports",
     icon: FileSearch,
+    visibleRoles: FULL_ADMIN_ROLES,
+  },
+  {
+    section: "reports",
+    label: "File Storage",
+    href: "/collections/file_storage",
+    description: "file_storage",
+    icon: FolderOpen,
     visibleRoles: FULL_ADMIN_ROLES,
   },
   {

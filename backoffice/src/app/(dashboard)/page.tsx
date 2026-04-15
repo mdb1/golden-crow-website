@@ -3,6 +3,7 @@ import {
   Building2,
   Dna,
   FileCode2,
+  FolderOpen,
   KeyRound,
   MessagesSquare,
   Sparkles,
@@ -166,7 +167,7 @@ export default async function DashboardPage() {
           <MetricCard
             icon={FileCode2}
             title="Reports"
-            description="Report codes, uploaded reports, and owner administration."
+            description="Report codes, uploaded reports, stored files, and owner administration."
             value={`${stats.reports.reportCodes} codes`}
             href="/reports"
             tone="green"
@@ -232,6 +233,14 @@ export default async function DashboardPage() {
             description="Direct moderation of uploaded report records and status fields."
             value={stats.reports.uploadedReports}
             href="/collections/uploaded_reports"
+            tone="green"
+          />
+          <MetricCard
+            icon={FolderOpen}
+            title="Stored files"
+            description="Cross-user file storage inventory with linked report context."
+            value={stats.reports.fileStorage}
+            href="/collections/file_storage"
             tone="green"
           />
           <MetricCard

@@ -19,6 +19,7 @@ interface UploadedReportDoc {
   provider_name?: string | null;
   tracking_progress_status?: string | null;
   download_url?: string | null;
+  linked_file_id?: string | null;
   upload_version_count?: unknown;
   date_created?: unknown;
   date_modified?: unknown;
@@ -135,6 +136,7 @@ function toDnaReport(
       normalizeDateValue(uploadedReport?.date_modified) ??
       normalizeDateValue(uploadedReport?.date_created),
     uploadedReportId: normalizeString(reportCode.uploaded_report_id),
+    linkedFileId: normalizeString(uploadedReport?.linked_file_id) ?? null,
     fileName: normalizeString(uploadedReport?.file_name) ?? null,
     providerFormat: normalizeString(uploadedReport?.provider_format) ?? null,
     providerName: normalizeString(uploadedReport?.provider_name) ?? null,

@@ -47,6 +47,10 @@ const COLLECTION_CONFIG: Record<ModerationCollectionKey, CollectionConfig> = {
     path: "uploaded_reports",
     orderByField: "date_modified",
   },
+  file_storage: {
+    path: "file_storage",
+    orderByField: "last_modified_date",
+  },
   report_owners: {
     path: "report_owners",
     orderByField: "updatedAt",

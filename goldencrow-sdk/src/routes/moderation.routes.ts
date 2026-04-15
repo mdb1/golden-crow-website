@@ -20,6 +20,7 @@ const CollectionKeySchema = z.enum([
   "community_posts",
   "report_codes",
   "uploaded_reports",
+  "file_storage",
   "report_owners",
   "user_progress",
 ]);

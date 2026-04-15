@@ -1,4 +1,4 @@
-import { FileBadge2, FileCode2, FileSearch } from "lucide-react";
+import { FileBadge2, FileCode2, FileSearch, FolderOpen } from "lucide-react";
 import { HelperBanner } from "@/components/helper-banner";
 import { MetricCard } from "@/components/metric-card";
 import { PageHero } from "@/components/page-hero";
@@ -10,12 +10,13 @@ export default function ReportsPage() {
       <PageHero
         eyebrow="Reports"
         title="Pick a user for report operations"
-        description="Start with the person you need to moderate, then drill into that user’s report owner state and linked report codes."
+        description="Start with the person you need to moderate, then drill into that user’s report owner state, linked report codes, or the global stored-file inventory."
       />
       <HelperBanner title="Keep report operations explicit." tone="green">
         Reports are user-scoped operational records. Choose the target user
-        first, then use raw workbenches only when you need to edit the Firebase
-        documents directly.
+        first, or jump straight into file storage when you need to manage the
+        shared stored-file inventory across all creators. Use raw workbenches
+        only when you need to edit the Firebase documents directly.
       </HelperBanner>
       <UserScopePicker scope="reports" />
       <div className="grid gap-3">
@@ -31,6 +32,13 @@ export default function ReportsPage() {
           title="Uploaded reports"
           description="File-level records, provider format, tracking status, and ownership metadata."
           href="/collections/uploaded_reports"
+          tone="green"
+        />
+        <MetricCard
+          icon={FolderOpen}
+          title="File storage"
+          description="Reusable stored files with JSON content, creator ownership, and linked report codes."
+          href="/collections/file_storage"
           tone="green"
         />
         <MetricCard

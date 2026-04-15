@@ -693,6 +693,17 @@ export function UploadedReportWorkbench({
                     </p>
                   </Link>
                 ) : null}
+                {report.linkedFileId ? (
+                  <Link
+                    href={`/collections/file_storage/${report.linkedFileId}`}
+                    className="rounded-xl border border-border/70 bg-card/50 px-3 py-3 transition-colors hover:border-primary/35"
+                  >
+                    <p className="text-sm font-medium text-foreground">Open stored file</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Review the linked file_storage record that can back this uploaded report.
+                    </p>
+                  </Link>
+                ) : null}
                 {report.downloadUrl ? (
                   <a
                     href={report.downloadUrl}
@@ -730,6 +741,12 @@ export function UploadedReportWorkbench({
                     {formatDateTime(report.dateModified) ?? "No timestamp"}
                   </dd>
                 </div>
+                {report.linkedFileId ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Linked file id</dt>
+                    <dd className="font-mono text-xs text-foreground">{report.linkedFileId}</dd>
+                  </div>
+                ) : null}
               </dl>
             </div>
           </div>
@@ -758,6 +775,15 @@ export function UploadedReportWorkbench({
                     label: "Report user view",
                     href: `/reports/users/${ownerId}`,
                     description: "Open the linked user-scoped reports screen.",
+                  },
+                ]
+              : []),
+            ...(report.linkedFileId
+              ? [
+                  {
+                    label: "Stored file",
+                    href: `/collections/file_storage/${report.linkedFileId}`,
+                    description: "Open the linked stored file manager screen.",
                   },
                 ]
               : []),

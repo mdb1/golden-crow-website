@@ -122,6 +122,14 @@ export function ReportDetailWorkbench({
       });
     }
 
+    if (report.linkedFileId) {
+      links.push({
+        label: "Stored file",
+        href: `/collections/file_storage/${report.linkedFileId}`,
+        description: "Inspect the linked file_storage document behind this report.",
+      });
+    }
+
     if (report.ownerPublicProfileId) {
       links.push({
         label: "Public profile",
@@ -134,6 +142,7 @@ export function ReportDetailWorkbench({
   }, [
     effectiveOwnerId,
     effectiveUploadedReportId,
+    report.linkedFileId,
     report.ownerPublicProfileId,
   ]);
 
@@ -369,6 +378,17 @@ export function ReportDetailWorkbench({
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Use the dedicated route for a narrower uploaded-report workflow.
+                    </p>
+                  </Link>
+                ) : null}
+                {report.linkedFileId ? (
+                  <Link
+                    href={`/collections/file_storage/${report.linkedFileId}`}
+                    className="rounded-xl border border-border/70 bg-card/50 px-3 py-3 transition-colors hover:border-primary/35"
+                  >
+                    <p className="text-sm font-medium text-foreground">Open stored file</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Inspect the canonical stored file attached to this report.
                     </p>
                   </Link>
                 ) : null}

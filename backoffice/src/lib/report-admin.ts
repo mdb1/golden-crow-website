@@ -46,6 +46,7 @@ export interface UploadedReportRecord {
   id: string;
   fileName: string;
   downloadUrl: string;
+  linkedFileId: string;
   uploadVersionCount: number;
   providerFormat: string;
   providerName: string;
@@ -104,6 +105,7 @@ export function parseUploadedReportRecord(
     id: document.id,
     fileName: getString(data.file_name) ?? document.id,
     downloadUrl: getString(data.download_url) ?? "",
+    linkedFileId: getString(data.linked_file_id) ?? "",
     uploadVersionCount: getNumber(data.upload_version_count) ?? 1,
     providerFormat: getString(data.provider_format) ?? "",
     providerName: getString(data.provider_name) ?? "",

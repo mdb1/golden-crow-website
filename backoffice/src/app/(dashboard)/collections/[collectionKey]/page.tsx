@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { CollectionBrowser } from "@/components/collection-browser";
+import { FileStorageBrowser } from "@/components/file-storage/file-storage-browser";
 import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { ReportCodesBrowser } from "@/components/reports/report-codes-browser";
@@ -35,6 +36,8 @@ export default async function CollectionPage({
       </HelperBanner>
       {collectionKey === "report_codes" ? (
         <ReportCodesBrowser />
+      ) : collectionKey === "file_storage" ? (
+        <FileStorageBrowser />
       ) : (
         <CollectionBrowser collectionKey={collectionKey} />
       )}

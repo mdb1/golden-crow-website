@@ -376,6 +376,7 @@ export function isCollectionKey(value: string): value is import("./moderation-ty
     "community_posts",
     "report_codes",
     "uploaded_reports",
+    "file_storage",
     "report_owners",
     "user_progress",
   ].includes(value);

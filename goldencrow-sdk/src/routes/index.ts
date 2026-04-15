@@ -12,6 +12,7 @@ import { areasRoutes } from "./areas.routes.js";
 import { rolesRoutes } from "./roles.routes.js";
 import { twoPQRoutes } from "./two-pq.routes.js";
 import { gymRoutes } from "./gym-index.routes.js";
+import { fileStorageRoutes } from "./file-storage.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -26,5 +27,6 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(statsRoutes);
   await fastify.register(lessonRoutes);
   await fastify.register(moderationRoutes);
+  await fastify.register(fileStorageRoutes);
   await fastify.register(gymRoutes, { prefix: "/gym" });
 }
