@@ -318,7 +318,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionConfig> = {
         ],
       };
     },
-    getRelatedLinks: (_documentId, data) => {
+    getRelatedLinks: (documentId, data) => {
       const links: RelatedRecordLink[] = [];
       const authorId = getString(data.authorId);
       if (authorId) {
