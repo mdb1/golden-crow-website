@@ -17,6 +17,7 @@ import {
   Save,
   Sparkles,
   Trash2,
+  Copy,
 } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -45,7 +46,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import {
   type TwoPQAreaConfig,
   type TwoPQAreaKey,
@@ -64,6 +65,10 @@ type RelationDialogKey =
   | "sampling-parent-case"
   | "sequencing-child-case"
   | "case-child-sampling";
+type ErrorLogState = {
+  title: string;
+  details: string;
+};
 
 const CREATION_CONFETTI = [
   { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
@@ -476,6 +481,9 @@ export function TwoPQRecordWorkbench({
   const [relationDialog, setRelationDialog] = useState<RelationDialogKey | null>(null);
   const [relationQuery, setRelationQuery] = useState("");
   const [toast, setToast] = useState<ActionToastState | null>(null);
+  const [latestErrorLog, setLatestErrorLog] = useState<ErrorLogState | null>(null);
+  const [isErrorLogOpen, setIsErrorLogOpen] = useState(false);
+  const [copiedErrorLog, setCopiedErrorLog] = useState(false);
   const [createdRecordId, setCreatedRecordId] = useState<string | null>(null);
   const [draftBatch, setDraftBatch] = useState<TwoPQListItem | null>(() => preloadedBatch ?? null);
   const [draftCase, setDraftCase] = useState<TwoPQListItem | null>(() => preloadedCase ?? null);
@@ -628,12 +636,79 @@ export function TwoPQRecordWorkbench({
     return true;
   }
 
-  function pushToast(tone: ActionToastState["tone"], message: string) {
+  function pushToast(
+    tone: ActionToastState["tone"],
+    message: string,
+    options?: {
+      details?: string;
+      durationMs?: number;
+    }
+  ) {
     setToast({
       id: Date.now(),
       tone,
       message,
+      details: options?.details,
+      durationMs: options?.durationMs,
     });
+  }
+
+  function getErrorPresentation(error: unknown, fallbackMessage: string) {
+    if (error instanceof SdkRequestError) {
+      return {
+        message: `${fallbackMessage} ${error.message}`.trim(),
+        details: error.details,
+      };
+    }
+
+    if (error instanceof Error) {
+      const details = `${error.name}: ${error.message}`;
+      return {
+        message: `${fallbackMessage} ${error.message}`.trim(),
+        details,
+      };
+    }
+
+    return {
+      message: fallbackMessage,
+      details: fallbackMessage,
+    };
+  }
+
+  function pushErrorToast(error: unknown, fallbackMessage: string, title = "Request log") {
+    const presentation = getErrorPresentation(error, fallbackMessage);
+    setLatestErrorLog({
+      title,
+      details: presentation.details,
+    });
+    setCopiedErrorLog(false);
+    pushToast("error", presentation.message, {
+      details: presentation.details,
+      durationMs: 10_000,
+    });
+  }
+
+  function handleErrorLogOpen() {
+    if (!toast?.details) {
+      return;
+    }
+
+    setCopiedErrorLog(false);
+    setLatestErrorLog((current) => current ?? { title: "Request log", details: toast.details });
+    setIsErrorLogOpen(true);
+  }
+
+  async function handleCopyErrorLog() {
+    if (!latestErrorLog?.details) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(latestErrorLog.details);
+      setCopiedErrorLog(true);
+    } catch {
+      pushToast("error", "Unable to copy the error log.", { durationMs: 7000 });
+    }
   }
 
   function syncDraftScope(
@@ -672,7 +747,8 @@ export function TwoPQRecordWorkbench({
     recordId: string,
     request: () => Promise<unknown>,
     successMessage: string,
-    failureMessage: string
+    failureMessage: string,
+    logTitle = "Relation request log"
   ) {
     setPendingRelationRecordId(recordId);
     try {
@@ -681,8 +757,8 @@ export function TwoPQRecordWorkbench({
       setRelationQuery("");
       pushToast("success", successMessage);
       router.refresh();
-    } catch {
-      pushToast("error", failureMessage);
+    } catch (error) {
+      pushErrorToast(error, failureMessage, logTitle);
     } finally {
       setPendingRelationRecordId(null);
     }
@@ -733,7 +809,8 @@ export function TwoPQRecordWorkbench({
       record.id,
       () => sdkFetch(`/2pq/relations/batches/${record.id}/cases/${detail.record.id}`, { method: "POST" }),
       "Batch linked to case.",
-      "Unable to link the selected batch."
+      "Unable to link the selected batch.",
+      "Link batch to case"
     );
   }
 
@@ -754,7 +831,8 @@ export function TwoPQRecordWorkbench({
           method: "DELETE",
         }),
       "Batch unlinked from case.",
-      "Unable to unlink the batch."
+      "Unable to unlink the batch.",
+      "Unlink batch from case"
     );
   }
 
@@ -772,7 +850,8 @@ export function TwoPQRecordWorkbench({
       record.id,
       () => sdkFetch(`/2pq/relations/cases/${record.id}/samplings/${detail.record.id}`, { method: "POST" }),
       "Case linked to sampling.",
-      "Unable to link the selected case."
+      "Unable to link the selected case.",
+      "Link case to sampling"
     );
   }
 
@@ -793,7 +872,8 @@ export function TwoPQRecordWorkbench({
           method: "DELETE",
         }),
       "Case unlinked from sampling.",
-      "Unable to unlink the case."
+      "Unable to unlink the case.",
+      "Unlink case from sampling"
     );
   }
 
@@ -806,7 +886,8 @@ export function TwoPQRecordWorkbench({
       record.id,
       () => sdkFetch(`/2pq/relations/batches/${detail.record.id}/cases/${record.id}`, { method: "POST" }),
       "Case linked to batch.",
-      "Unable to link the selected case."
+      "Unable to link the selected case.",
+      "Link case to batch"
     );
   }
 
@@ -822,7 +903,8 @@ export function TwoPQRecordWorkbench({
           method: "DELETE",
         }),
       "Case unlinked from batch.",
-      "Unable to unlink the case."
+      "Unable to unlink the case.",
+      "Unlink case from batch"
     );
   }
 
@@ -835,7 +917,8 @@ export function TwoPQRecordWorkbench({
       record.id,
       () => sdkFetch(`/2pq/relations/cases/${detail.record.id}/samplings/${record.id}`, { method: "POST" }),
       "Sampling linked to case.",
-      "Unable to link the selected sampling."
+      "Unable to link the selected sampling.",
+      "Link sampling to case"
     );
   }
 
@@ -851,7 +934,8 @@ export function TwoPQRecordWorkbench({
           method: "DELETE",
         }),
       "Sampling unlinked from case.",
-      "Unable to unlink the sampling."
+      "Unable to unlink the sampling.",
+      "Unlink sampling from case"
     );
   }
 
@@ -876,9 +960,13 @@ export function TwoPQRecordWorkbench({
       });
       setCreatedRecordId(response.record.id);
       pushToast("success", `${area.label} record created.`);
-    } catch {
+    } catch (error) {
       setCreatedRecordId(null);
-      pushToast("error", `Unable to create ${area.label.toLowerCase()} record.`);
+      pushErrorToast(
+        error,
+        `Unable to create ${area.label.toLowerCase()} record.`,
+        `Create ${area.label} record`
+      );
       setPendingAction(null);
     }
   }
@@ -904,8 +992,12 @@ export function TwoPQRecordWorkbench({
       });
       pushToast("success", `${area.label} record replaced.`);
       router.refresh();
-    } catch {
-      pushToast("error", `Unable to replace ${area.label.toLowerCase()} record.`);
+    } catch (error) {
+      pushErrorToast(
+        error,
+        `Unable to replace ${area.label.toLowerCase()} record.`,
+        `Replace ${area.label} record`
+      );
     } finally {
       setPendingAction(null);
     }
@@ -924,8 +1016,12 @@ export function TwoPQRecordWorkbench({
       });
       pushToast("success", `${area.label} record updated.`);
       router.refresh();
-    } catch {
-      pushToast("error", `Unable to update ${area.label.toLowerCase()} record.`);
+    } catch (error) {
+      pushErrorToast(
+        error,
+        `Unable to update ${area.label.toLowerCase()} record.`,
+        `Update ${area.label} record`
+      );
     } finally {
       setPendingAction(null);
     }
@@ -943,8 +1039,12 @@ export function TwoPQRecordWorkbench({
       });
       router.push(area.route);
       router.refresh();
-    } catch {
-      pushToast("error", `Unable to delete ${area.label.toLowerCase()} record.`);
+    } catch (error) {
+      pushErrorToast(
+        error,
+        `Unable to delete ${area.label.toLowerCase()} record.`,
+        `Delete ${area.label} record`
+      );
       setPendingAction(null);
     }
   }
@@ -953,7 +1053,61 @@ export function TwoPQRecordWorkbench({
 
   return (
     <div className="flex flex-col gap-5">
-      <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <ActionToast
+        toast={toast}
+        onDismiss={() => setToast(null)}
+        onViewLog={toast?.tone === "error" && toast.details ? handleErrorLogOpen : null}
+      />
+      <Dialog
+        open={Boolean(latestErrorLog) && isErrorLogOpen}
+        onOpenChange={(open) => {
+          setIsErrorLogOpen(open);
+          if (!open) {
+            setCopiedErrorLog(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl rounded-[2rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(255,255,255,0.98)_45%,rgba(240,253,244,0.96))] p-0 shadow-[0_32px_120px_rgba(15,23,42,0.16)]">
+          <DialogHeader className="border-b border-emerald-100 px-6 py-5">
+            <DialogTitle className="font-heading text-2xl font-semibold text-emerald-950">
+              {latestErrorLog?.title ?? "Request log"}
+            </DialogTitle>
+            <DialogDescription className="text-emerald-900/65">
+              Full request error log. You can copy this message for debugging.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-6 py-5">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleCopyErrorLog()}
+                className="border border-emerald-100 bg-[linear-gradient(180deg,rgba(240,253,244,0.98),rgba(220,252,231,0.98))] text-emerald-950 shadow-[0_12px_30px_rgba(187,247,208,0.32)]"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {copiedErrorLog ? "Copied" : "Copy error"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsErrorLogOpen(false);
+                  setCopiedErrorLog(false);
+                }}
+                className="border-emerald-100 bg-white/80 text-emerald-900 hover:bg-emerald-50"
+              >
+                Close
+              </Button>
+            </div>
+            <Textarea
+              readOnly
+              value={latestErrorLog?.details ?? ""}
+              className="min-h-[24rem] resize-none border-emerald-100 bg-white/88 font-mono text-xs leading-5 text-emerald-950"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
       <RelationSelectionDialog
         open={relationDialog === "case-parent-batch"}
         onOpenChange={handleRelationDialogChange}

@@ -2,29 +2,37 @@
 
 import { useEffect } from "react";
 import { CheckCircle2, CircleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface ActionToastState {
   id: number;
   tone: "success" | "error";
   message: string;
+  details?: string;
+  durationMs?: number;
 }
 
 export function ActionToast({
   toast,
   onDismiss,
+  onViewLog,
 }: {
   toast: ActionToastState | null;
   onDismiss: () => void;
+  onViewLog?: (() => void) | null;
 }) {
   useEffect(() => {
     if (!toast) {
       return;
     }
 
-    const timeout = window.setTimeout(onDismiss, 2800);
+    const timeout = window.setTimeout(
+      onDismiss,
+      toast.durationMs ?? (toast.tone === "error" ? 9000 : 2800)
+    );
     return () => window.clearTimeout(timeout);
-  }, [toast?.id]);
+  }, [onDismiss, toast]);
 
   if (!toast) {
     return null;
@@ -59,6 +67,19 @@ export function ActionToast({
             {toast.tone === "success" ? "Saved" : "Action failed"}
           </p>
           <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
+          {toast.tone === "error" && toast.details && onViewLog ? (
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onViewLog}
+                className="h-8 border-destructive/25 bg-white/85 text-destructive hover:bg-destructive/5"
+              >
+                View log
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
