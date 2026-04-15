@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
@@ -73,6 +73,60 @@ const TwoPQMutationSchema = z.object({
   notes: z.string().optional(),
 });
 
+function buildUnexpectedRouteErrorPayload(
+  error: unknown,
+  request: Pick<FastifyRequest, "method" | "url" | "params" | "query" | "body">
+) {
+  const baseError =
+    error instanceof Error ? error : new Error(typeof error === "string" ? error : "Unexpected error");
+
+  return {
+    error: baseError.message || "Unexpected internal error.",
+    errorName: baseError.name || "Error",
+    hint: "Check the request payload, linked entity scope, and the stack trace below.",
+    request: {
+      method: request.method,
+      url: request.url,
+      params: request.params,
+      query: request.query,
+      body: request.body,
+    },
+    stack: baseError.stack,
+  };
+}
+
+function sendTwoPQRouteError(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  error: unknown
+) {
+  if (isAdminRepositoryError(error)) {
+    return reply.status(error.statusCode).send({
+      error: error.message,
+      errorName: error.name,
+      statusCode: error.statusCode,
+      hint: "This request was rejected by a 2PQ validation or permission rule.",
+      request: {
+        method: request.method,
+        url: request.url,
+        params: request.params,
+        query: request.query,
+        body: request.body,
+      },
+    });
+  }
+
+  const payload = buildUnexpectedRouteErrorPayload(error, request);
+  request.log.error(
+    {
+      err: error,
+      request: payload.request,
+    },
+    "Unhandled 2PQ route error"
+  );
+  return reply.status(500).send(payload);
+}
+
 export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -128,11 +182,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send({ record });
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -160,11 +210,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(detail);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -194,11 +240,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send({ record });
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -228,11 +270,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send({ record });
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -260,11 +298,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -292,11 +326,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -324,11 +354,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -356,11 +382,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );
@@ -388,11 +410,7 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(result);
       } catch (error) {
-        if (isAdminRepositoryError(error)) {
-          return reply.status(error.statusCode).send({ error: error.message });
-        }
-
-        throw error;
+        return sendTwoPQRouteError(request, reply, error);
       }
     }
   );

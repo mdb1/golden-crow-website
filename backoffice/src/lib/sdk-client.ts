@@ -47,17 +47,18 @@ async function buildSdkRequestError(
 ) {
   const rawText = await response.text();
   let parsedMessage: string | undefined;
+  let parsedBody: Record<string, unknown> | undefined;
 
   if (rawText) {
     try {
-      const parsed = JSON.parse(rawText) as Record<string, unknown>;
-      if (typeof parsed.error === "string" && parsed.error.trim()) {
-        parsedMessage = parsed.error.trim();
-      } else if (typeof parsed.message === "string" && parsed.message.trim()) {
-        parsedMessage = parsed.message.trim();
+      parsedBody = JSON.parse(rawText) as Record<string, unknown>;
+      if (typeof parsedBody.error === "string" && parsedBody.error.trim()) {
+        parsedMessage = parsedBody.error.trim();
+      } else if (typeof parsedBody.message === "string" && parsedBody.message.trim()) {
+        parsedMessage = parsedBody.message.trim();
       }
     } catch {
-      parsedMessage = undefined;
+      parsedBody = undefined;
     }
   }
 
@@ -68,7 +69,16 @@ async function buildSdkRequestError(
   const details = [
     `Request: ${method} ${path}`,
     `Status: ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`,
-    rawText ? `Response:\n${rawText}` : null,
+    parsedBody && typeof parsedBody.errorName === "string"
+      ? `Error name: ${parsedBody.errorName}`
+      : null,
+    parsedBody && typeof parsedBody.statusCode === "number"
+      ? `SDK status code: ${parsedBody.statusCode}`
+      : null,
+    parsedBody && typeof parsedBody.hint === "string"
+      ? `Hint: ${parsedBody.hint}`
+      : null,
+    parsedBody ? `Response JSON:\n${JSON.stringify(parsedBody, null, 2)}` : rawText ? `Response:\n${rawText}` : null,
   ]
     .filter(Boolean)
     .join("\n\n");

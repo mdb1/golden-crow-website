@@ -1039,7 +1039,7 @@ async function linkCaseToBatchInTransaction(
       getTwoPQRecordRef("sequencing", caseRecord.parent_batch),
       {
         children_cases: FieldValue.arrayRemove(caseRecord.id),
-        linkedCaseIds: FieldValue.delete(),
+        linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1051,7 +1051,7 @@ async function linkCaseToBatchInTransaction(
     batchRef,
     {
       children_cases: FieldValue.arrayUnion(caseRecord.id),
-      linkedCaseIds: FieldValue.delete(),
+      linkedCaseIds: FieldValue.arrayUnion(caseRecord.id),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1086,7 +1086,7 @@ async function unlinkCaseFromBatchInTransaction(
     batchRef,
     {
       children_cases: FieldValue.arrayRemove(caseRecord.id),
-      linkedCaseIds: FieldValue.delete(),
+      linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1124,7 +1124,7 @@ async function linkSamplingToCaseInTransaction(
       getTwoPQRecordRef("cases", samplingRecord.parent_case),
       {
         children_sampling: FieldValue.arrayRemove(samplingRecord.id),
-        linkedSamplingIds: FieldValue.delete(),
+        linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1136,7 +1136,7 @@ async function linkSamplingToCaseInTransaction(
     caseRef,
     {
       children_sampling: FieldValue.arrayUnion(samplingRecord.id),
-      linkedSamplingIds: FieldValue.delete(),
+      linkedSamplingIds: FieldValue.arrayUnion(samplingRecord.id),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1167,7 +1167,7 @@ async function unlinkSamplingFromCaseInTransaction(
     caseRef,
     {
       children_sampling: FieldValue.arrayRemove(samplingRecord.id),
-      linkedSamplingIds: FieldValue.delete(),
+      linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1384,10 +1384,10 @@ export async function createTwoPQRecordForContext(
     areaKey === "cases" ? normalizeOptionalString(payload.parent_batch) : undefined;
   const requestedCaseId =
     areaKey === "sampling" ? normalizeOptionalString(payload.parent_case) : undefined;
-  const writeDocument: TwoPQRecord = {
+  const writeDocument: TwoPQRecord & { batchId?: string; caseId?: string } = {
     ...document,
-    ...(requestedBatchId ? { parent_batch: requestedBatchId } : {}),
-    ...(requestedCaseId ? { parent_case: requestedCaseId } : {}),
+    ...(requestedBatchId ? { parent_batch: requestedBatchId, batchId: requestedBatchId } : {}),
+    ...(requestedCaseId ? { parent_case: requestedCaseId, caseId: requestedCaseId } : {}),
     createdByEmail: context.email,
     updatedByEmail: context.email,
   };
@@ -1649,7 +1649,7 @@ export async function linkCaseToBatchForContext(
       getTwoPQRecordRef("cases", caseId),
       {
         parent_batch: batchId,
-        batchId: FieldValue.delete(),
+        batchId,
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1682,8 +1682,8 @@ export async function unlinkCaseFromBatchForContext(
       transaction.set(
         getTwoPQRecordRef("cases", caseId),
         {
-          parent_batch: FieldValue.delete(),
-          batchId: FieldValue.delete(),
+          parent_batch: null,
+          batchId: null,
           updatedAt: now,
           updatedByEmail: context.email,
         },
@@ -1716,7 +1716,7 @@ export async function linkSamplingToCaseForContext(
       getTwoPQRecordRef("sampling", samplingId),
       {
         parent_case: caseId,
-        caseId: FieldValue.delete(),
+        caseId,
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1749,8 +1749,8 @@ export async function unlinkSamplingFromCaseForContext(
       transaction.set(
         getTwoPQRecordRef("sampling", samplingId),
         {
-          parent_case: FieldValue.delete(),
-          caseId: FieldValue.delete(),
+          parent_case: null,
+          caseId: null,
           updatedAt: now,
           updatedByEmail: context.email,
         },
@@ -1796,8 +1796,8 @@ export async function deleteTwoPQRecordForContext(
         transaction.set(
           getTwoPQRecordRef("cases", linkedCase.id),
           {
-            parent_batch: FieldValue.delete(),
-            batchId: FieldValue.delete(),
+            parent_batch: null,
+            batchId: null,
             updatedAt: now,
             updatedByEmail: context.email,
           },
@@ -1833,8 +1833,8 @@ export async function deleteTwoPQRecordForContext(
         transaction.set(
           getTwoPQRecordRef("sampling", linkedSampling.id),
           {
-            parent_case: FieldValue.delete(),
-            caseId: FieldValue.delete(),
+            parent_case: null,
+            caseId: null,
             updatedAt: now,
             updatedByEmail: context.email,
           },
