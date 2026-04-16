@@ -128,7 +128,7 @@ export function TwoPQDashboardHome({
         ))}
       </section>
 
-      <section className="glass-panel border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] px-5 py-5 shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:bg-[linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]">
+      <section className="glass-panel border-emerald-100 [background:linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] px-5 py-5 shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:[background:linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]">
         <div className="flex flex-col gap-5">
           <div>
             <p className="section-eyebrow text-emerald-900/55 dark:text-emerald-100/72">2PQ circuit</p>
@@ -145,7 +145,7 @@ export function TwoPQDashboardHome({
             {linkedEntityAreas.map((area) => (
               <article
                 key={area.key}
-                className="flex h-full flex-col gap-4 rounded-[1.7rem] border border-emerald-100 bg-white/82 px-5 py-5 shadow-[0_12px_32px_rgba(220,252,231,0.82)] dark:border-emerald-300/18 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(16,185,129,0.12))] dark:shadow-none"
+                className="flex h-full flex-col gap-4 rounded-[1.7rem] border border-emerald-100 [background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(240,253,244,0.82))] px-5 py-5 shadow-[0_12px_32px_rgba(220,252,231,0.82)] dark:border-emerald-300/18 dark:[background:linear-gradient(180deg,rgba(7,30,22,0.98),rgba(8,38,27,0.96)_52%,rgba(5,150,105,0.18))] dark:shadow-none"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-900 dark:bg-emerald-400/14 dark:text-emerald-50">
                   <area.icon className="h-5 w-5" />

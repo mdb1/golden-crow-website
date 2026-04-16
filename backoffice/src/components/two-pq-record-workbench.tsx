@@ -138,7 +138,7 @@ function getRecordHref(record: TwoPQListItem) {
 const RELATION_STRIP_CLASSNAME =
   "order-last col-span-full -mx-1 flex flex-row gap-4 overflow-x-auto px-1 pb-1 pt-2";
 const RELATION_SECTION_CLASSNAME =
-  "min-w-[22rem] max-w-[28rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:bg-[linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]";
+  "min-w-[22rem] max-w-[28rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-emerald-100 [background:linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:[background:linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]";
 const RELATION_SECONDARY_BUTTON_CLASSNAME =
   "border-emerald-100 bg-white/80 text-emerald-900 shadow-[0_10px_24px_rgba(220,252,231,0.78)] hover:bg-emerald-50 dark:border-emerald-200/18 dark:bg-emerald-950/24 dark:text-emerald-50 dark:shadow-none dark:hover:bg-emerald-900/34";
 const RELATION_PRIMARY_BUTTON_CLASSNAME =
@@ -146,7 +146,7 @@ const RELATION_PRIMARY_BUTTON_CLASSNAME =
 const RELATION_HINT_CLASSNAME =
   "rounded-full border border-emerald-100 bg-white/72 px-3 py-1 text-xs text-emerald-900/55 shadow-[0_8px_22px_rgba(220,252,231,0.68)] dark:border-emerald-200/18 dark:bg-emerald-950/24 dark:text-emerald-50/72 dark:shadow-none";
 const RELATION_EMPTY_STATE_CLASSNAME =
-  "rounded-[1.35rem] border border-dashed border-emerald-100 bg-white/72 px-4 py-5 text-sm text-emerald-900/65 dark:border-emerald-300/18 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(16,185,129,0.1))] dark:text-emerald-50/72";
+  "rounded-[1.35rem] border border-dashed border-emerald-100 [background:linear-gradient(180deg,rgba(255,255,255,0.72),rgba(240,253,244,0.72))] px-4 py-5 text-sm text-emerald-900/65 dark:border-emerald-300/18 dark:[background:linear-gradient(180deg,rgba(7,30,22,0.92),rgba(6,78,59,0.48))] dark:text-emerald-50/72";
 
 function RelationSection({
   title,
@@ -191,7 +191,7 @@ function LinkedEntityCard({
   const subtitle = linkedArea ? getTwoPQRecordSubtitle(linkedArea, record) : "";
 
   return (
-    <div className="rounded-[1.35rem] border border-emerald-100 bg-white/82 px-4 py-4 shadow-[0_12px_32px_rgba(220,252,231,0.82)] dark:border-emerald-300/18 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(16,185,129,0.12))] dark:shadow-none">
+    <div className="rounded-[1.35rem] border border-emerald-100 [background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(240,253,244,0.82))] px-4 py-4 shadow-[0_12px_32px_rgba(220,252,231,0.82)] dark:border-emerald-300/18 dark:[background:linear-gradient(180deg,rgba(7,30,22,0.98),rgba(8,38,27,0.96)_52%,rgba(5,150,105,0.18))] dark:shadow-none">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -259,12 +259,12 @@ function RelationSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-hidden rounded-[2rem] border border-emerald-100 bg-[linear-gradient(155deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_56%,rgba(220,252,231,0.94))] p-0 text-emerald-950 shadow-[0_34px_120px_rgba(187,247,208,0.36)]">
-        <DialogHeader className="border-b border-emerald-100 px-6 py-5">
-          <DialogTitle className="font-heading text-2xl font-semibold text-emerald-950">
+      <DialogContent className="max-w-3xl overflow-hidden rounded-[2rem] border border-emerald-100 [background:linear-gradient(155deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_56%,rgba(220,252,231,0.94))] p-0 text-emerald-950 shadow-[0_34px_120px_rgba(187,247,208,0.36)] dark:border-emerald-400/28 dark:[background:linear-gradient(150deg,rgba(6,35,24,0.98),rgba(8,38,27,0.96)_48%,rgba(5,150,105,0.18))] dark:text-emerald-50 dark:shadow-[0_30px_110px_rgba(6,95,70,0.42)]">
+        <DialogHeader className="border-b border-emerald-100 px-6 py-5 dark:border-emerald-300/16">
+          <DialogTitle className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
             {title}
           </DialogTitle>
-          <DialogDescription className="text-emerald-900/65">
+          <DialogDescription className="text-emerald-900/65 dark:text-emerald-50/68">
             {description}
           </DialogDescription>
         </DialogHeader>
@@ -273,7 +273,7 @@ function RelationSelectionDialog({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder={`Search ${area.label.toLowerCase()}...`}
-            className="border-emerald-100 bg-white/82 text-emerald-950 placeholder:text-emerald-900/35"
+            className="border-emerald-100 bg-white/82 text-emerald-950 placeholder:text-emerald-900/35 dark:border-emerald-300/18 dark:bg-emerald-950/32 dark:text-emerald-50 dark:placeholder:text-emerald-50/32"
           />
           <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
             {loading ? (
@@ -288,23 +288,23 @@ function RelationSelectionDialog({
               filteredRecords.map((record) => (
                 <div
                   key={record.id}
-                  className="rounded-[1.35rem] border border-emerald-100 bg-white/82 px-4 py-4 shadow-[0_10px_28px_rgba(220,252,231,0.76)]"
+                  className="rounded-[1.35rem] border border-emerald-100 [background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(240,253,244,0.82))] px-4 py-4 shadow-[0_10px_28px_rgba(220,252,231,0.76)] dark:border-emerald-300/18 dark:[background:linear-gradient(180deg,rgba(7,30,22,0.98),rgba(8,38,27,0.96)_52%,rgba(5,150,105,0.18))] dark:shadow-none"
                 >
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-emerald-950">
+                        <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
                           {getTwoPQRecordTitle(area, record)}
                         </p>
-                        <span className="font-mono text-[11px] text-emerald-900/48">
+                        <span className="font-mono text-[11px] text-emerald-900/48 dark:text-emerald-50/58">
                           {record.id}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-emerald-900/68">
+                      <p className="mt-1 text-sm text-emerald-900/68 dark:text-emerald-50/72">
                         {getTwoPQRecordSubtitle(area, record) || "Linked entity"}
                       </p>
                       {noteByRecordId?.[record.id] ? (
-                        <p className="mt-2 text-xs text-emerald-900/52">
+                        <p className="mt-2 text-xs text-emerald-900/52 dark:text-emerald-50/58">
                           {noteByRecordId[record.id]}
                         </p>
                       ) : null}
