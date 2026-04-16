@@ -1638,24 +1638,62 @@ export async function linkCaseToBatchForContext(
     throw new AdminRepositoryError("Case not found.", 404);
   }
 
+  const batchRecord = await getTwoPQRecord("sequencing", batchId);
+  if (!batchRecord) {
+    throw new AdminRepositoryError("Batch not found.", 404);
+  }
+
   if (!canWriteTwoPQRecord(context, caseRecord)) {
     throw new AdminRepositoryError("You cannot modify this case.", 403);
   }
 
+  if (!canWriteTwoPQRecord(context, batchRecord)) {
+    throw new AdminRepositoryError("You cannot modify this batch.", 403);
+  }
+
+  validateParentChildScope(batchRecord, caseRecord, {
+    parentLabel: "Batch",
+    childLabel: "Case",
+  });
+
   const now = new Date().toISOString();
-  await adminDb.runTransaction(async (transaction) => {
-    await linkCaseToBatchInTransaction(transaction, context, batchId, caseRecord, now);
-    transaction.set(
-      getTwoPQRecordRef("cases", caseId),
+  const batch = adminDb.batch();
+
+  if (caseRecord.parent_batch && caseRecord.parent_batch !== batchId) {
+    batch.set(
+      getTwoPQRecordRef("sequencing", caseRecord.parent_batch),
       {
-        parent_batch: batchId,
-        batchId,
+        children_cases: FieldValue.arrayRemove(caseRecord.id),
+        linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
         updatedAt: now,
         updatedByEmail: context.email,
       },
       { merge: true }
     );
-  });
+  }
+
+  batch.set(
+    getTwoPQRecordRef("sequencing", batchId),
+    {
+      children_cases: FieldValue.arrayUnion(caseRecord.id),
+      linkedCaseIds: FieldValue.arrayUnion(caseRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+  batch.set(
+    getTwoPQRecordRef("cases", caseId),
+    {
+      parent_batch: batchId,
+      batchId,
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
 
   return { success: true };
 }
@@ -1670,27 +1708,47 @@ export async function unlinkCaseFromBatchForContext(
     throw new AdminRepositoryError("Case not found.", 404);
   }
 
+  const batchRecord = await getTwoPQRecord("sequencing", batchId);
+  if (!batchRecord) {
+    throw new AdminRepositoryError("Batch not found.", 404);
+  }
+
   if (!canWriteTwoPQRecord(context, caseRecord)) {
     throw new AdminRepositoryError("You cannot modify this case.", 403);
   }
 
-  const now = new Date().toISOString();
-  await adminDb.runTransaction(async (transaction) => {
-    await unlinkCaseFromBatchInTransaction(transaction, context, batchId, caseRecord, now);
+  if (!canWriteTwoPQRecord(context, batchRecord)) {
+    throw new AdminRepositoryError("You cannot modify this batch.", 403);
+  }
 
-    if (caseRecord.parent_batch === batchId) {
-      transaction.set(
-        getTwoPQRecordRef("cases", caseId),
-        {
-          parent_batch: null,
-          batchId: null,
-          updatedAt: now,
-          updatedByEmail: context.email,
-        },
-        { merge: true }
-      );
-    }
-  });
+  const now = new Date().toISOString();
+  const batch = adminDb.batch();
+
+  batch.set(
+    getTwoPQRecordRef("sequencing", batchId),
+    {
+      children_cases: FieldValue.arrayRemove(caseRecord.id),
+      linkedCaseIds: FieldValue.arrayRemove(caseRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+
+  if (caseRecord.parent_batch === batchId) {
+    batch.set(
+      getTwoPQRecordRef("cases", caseId),
+      {
+        parent_batch: null,
+        batchId: null,
+        updatedAt: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
 
   return { success: true };
 }
@@ -1705,24 +1763,63 @@ export async function linkSamplingToCaseForContext(
     throw new AdminRepositoryError("Sampling not found.", 404);
   }
 
+  const caseRecord = await getTwoPQRecord("cases", caseId);
+  if (!caseRecord) {
+    throw new AdminRepositoryError("Case not found.", 404);
+  }
+
   if (!canWriteTwoPQRecord(context, samplingRecord)) {
     throw new AdminRepositoryError("You cannot modify this sampling record.", 403);
   }
 
+  if (!canWriteTwoPQRecord(context, caseRecord)) {
+    throw new AdminRepositoryError("You cannot modify this case.", 403);
+  }
+
+  validateParentChildScope(caseRecord, samplingRecord, {
+    parentLabel: "Case",
+    childLabel: "Sampling",
+    enforcePatientMatch: true,
+  });
+
   const now = new Date().toISOString();
-  await adminDb.runTransaction(async (transaction) => {
-    await linkSamplingToCaseInTransaction(transaction, context, caseId, samplingRecord, now);
-    transaction.set(
-      getTwoPQRecordRef("sampling", samplingId),
+  const batch = adminDb.batch();
+
+  if (samplingRecord.parent_case && samplingRecord.parent_case !== caseId) {
+    batch.set(
+      getTwoPQRecordRef("cases", samplingRecord.parent_case),
       {
-        parent_case: caseId,
-        caseId,
+        children_sampling: FieldValue.arrayRemove(samplingRecord.id),
+        linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
         updatedAt: now,
         updatedByEmail: context.email,
       },
       { merge: true }
     );
-  });
+  }
+
+  batch.set(
+    getTwoPQRecordRef("cases", caseId),
+    {
+      children_sampling: FieldValue.arrayUnion(samplingRecord.id),
+      linkedSamplingIds: FieldValue.arrayUnion(samplingRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+  batch.set(
+    getTwoPQRecordRef("sampling", samplingId),
+    {
+      parent_case: caseId,
+      caseId,
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
 
   return { success: true };
 }
@@ -1737,27 +1834,47 @@ export async function unlinkSamplingFromCaseForContext(
     throw new AdminRepositoryError("Sampling not found.", 404);
   }
 
+  const caseRecord = await getTwoPQRecord("cases", caseId);
+  if (!caseRecord) {
+    throw new AdminRepositoryError("Case not found.", 404);
+  }
+
   if (!canWriteTwoPQRecord(context, samplingRecord)) {
     throw new AdminRepositoryError("You cannot modify this sampling record.", 403);
   }
 
-  const now = new Date().toISOString();
-  await adminDb.runTransaction(async (transaction) => {
-    await unlinkSamplingFromCaseInTransaction(transaction, context, caseId, samplingRecord, now);
+  if (!canWriteTwoPQRecord(context, caseRecord)) {
+    throw new AdminRepositoryError("You cannot modify this case.", 403);
+  }
 
-    if (samplingRecord.parent_case === caseId) {
-      transaction.set(
-        getTwoPQRecordRef("sampling", samplingId),
-        {
-          parent_case: null,
-          caseId: null,
-          updatedAt: now,
-          updatedByEmail: context.email,
-        },
-        { merge: true }
-      );
-    }
-  });
+  const now = new Date().toISOString();
+  const batch = adminDb.batch();
+
+  batch.set(
+    getTwoPQRecordRef("cases", caseId),
+    {
+      children_sampling: FieldValue.arrayRemove(samplingRecord.id),
+      linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+      updatedAt: now,
+      updatedByEmail: context.email,
+    },
+    { merge: true }
+  );
+
+  if (samplingRecord.parent_case === caseId) {
+    batch.set(
+      getTwoPQRecordRef("sampling", samplingId),
+      {
+        parent_case: null,
+        caseId: null,
+        updatedAt: now,
+        updatedByEmail: context.email,
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
 
   return { success: true };
 }

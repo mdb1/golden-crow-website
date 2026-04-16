@@ -69,6 +69,10 @@ async function buildSdkRequestError(
   const details = [
     `Request: ${method} ${path}`,
     `Status: ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`,
+    `Response content-type: ${response.headers.get("content-type") ?? "unknown"}`,
+    response.headers.get("x-vercel-id")
+      ? `Vercel request id: ${response.headers.get("x-vercel-id")}`
+      : null,
     parsedBody && typeof parsedBody.errorName === "string"
       ? `Error name: ${parsedBody.errorName}`
       : null,
@@ -78,7 +82,11 @@ async function buildSdkRequestError(
     parsedBody && typeof parsedBody.hint === "string"
       ? `Hint: ${parsedBody.hint}`
       : null,
-    parsedBody ? `Response JSON:\n${JSON.stringify(parsedBody, null, 2)}` : rawText ? `Response:\n${rawText}` : null,
+    parsedBody
+      ? `Response JSON:\n${JSON.stringify(parsedBody, null, 2)}`
+      : rawText
+        ? `Response:\n${rawText}`
+        : "Response body: <empty>",
   ]
     .filter(Boolean)
     .join("\n\n");

@@ -38,10 +38,18 @@ async function buildSdkServerError(response: Response, method: string, path: str
   return new Error(
     [
       `SDK ${method} ${path} failed: ${message}`,
+      `Response content-type: ${response.headers.get("content-type") ?? "unknown"}`,
+      response.headers.get("x-vercel-id")
+        ? `Vercel request id: ${response.headers.get("x-vercel-id")}`
+        : null,
       parsedBody && typeof parsedBody.errorName === "string"
         ? `Error name: ${parsedBody.errorName}`
         : null,
-      parsedBody ? `Response JSON:\n${JSON.stringify(parsedBody, null, 2)}` : rawText ? `Response:\n${rawText}` : null,
+      parsedBody
+        ? `Response JSON:\n${JSON.stringify(parsedBody, null, 2)}`
+        : rawText
+          ? `Response:\n${rawText}`
+          : "Response body: <empty>",
     ]
       .filter(Boolean)
       .join("\n\n")
