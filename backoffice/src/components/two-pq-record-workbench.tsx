@@ -138,15 +138,15 @@ function getRecordHref(record: TwoPQListItem) {
 const RELATION_STRIP_CLASSNAME =
   "order-last col-span-full -mx-1 flex flex-row gap-4 overflow-x-auto px-1 pb-1 pt-2";
 const RELATION_SECTION_CLASSNAME =
-  "min-w-[22rem] max-w-[28rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] shadow-[0_18px_56px_rgba(187,247,208,0.32)]";
+  "min-w-[22rem] max-w-[28rem] shrink-0 overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:bg-[linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]";
 const RELATION_SECONDARY_BUTTON_CLASSNAME =
-  "border-emerald-100 bg-white/80 text-emerald-900 shadow-[0_10px_24px_rgba(220,252,231,0.78)] hover:bg-emerald-50";
+  "border-emerald-100 bg-white/80 text-emerald-900 shadow-[0_10px_24px_rgba(220,252,231,0.78)] hover:bg-emerald-50 dark:border-emerald-200/18 dark:bg-emerald-950/24 dark:text-emerald-50 dark:shadow-none dark:hover:bg-emerald-900/34";
 const RELATION_PRIMARY_BUTTON_CLASSNAME =
-  "border border-emerald-100 bg-[linear-gradient(180deg,rgba(240,253,244,0.98),rgba(220,252,231,0.98))] text-emerald-950 shadow-[0_14px_32px_rgba(187,247,208,0.38)] hover:brightness-[1.01]";
+  "border border-emerald-100 bg-[linear-gradient(180deg,rgba(240,253,244,0.98),rgba(220,252,231,0.98))] text-emerald-950 shadow-[0_14px_32px_rgba(187,247,208,0.38)] hover:brightness-[1.01] dark:border-emerald-200/18 dark:bg-[linear-gradient(180deg,rgba(6,35,24,0.98),rgba(16,80,58,0.94))] dark:text-emerald-50 dark:shadow-none dark:hover:brightness-[1.06]";
 const RELATION_HINT_CLASSNAME =
-  "rounded-full border border-emerald-100 bg-white/72 px-3 py-1 text-xs text-emerald-900/55 shadow-[0_8px_22px_rgba(220,252,231,0.68)]";
+  "rounded-full border border-emerald-100 bg-white/72 px-3 py-1 text-xs text-emerald-900/55 shadow-[0_8px_22px_rgba(220,252,231,0.68)] dark:border-emerald-200/18 dark:bg-emerald-950/24 dark:text-emerald-50/72 dark:shadow-none";
 const RELATION_EMPTY_STATE_CLASSNAME =
-  "rounded-[1.35rem] border border-dashed border-emerald-100 bg-white/72 px-4 py-5 text-sm text-emerald-900/65";
+  "rounded-[1.35rem] border border-dashed border-emerald-100 bg-white/72 px-4 py-5 text-sm text-emerald-900/65 dark:border-emerald-300/18 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(16,185,129,0.1))] dark:text-emerald-50/72";
 
 function RelationSection({
   title,
@@ -161,10 +161,10 @@ function RelationSection({
 }) {
   return (
     <section className={RELATION_SECTION_CLASSNAME}>
-      <div className="flex flex-col gap-3 border-b border-emerald-200/70 px-5 py-4">
+      <div className="flex flex-col gap-3 border-b border-emerald-200/70 px-5 py-4 dark:border-emerald-300/16">
         <div>
-          <h3 className="font-heading text-lg font-semibold text-emerald-950">{title}</h3>
-          <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-900/45">
+          <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">{title}</h3>
+          <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-900/45 dark:text-emerald-50/56">
             {subtitle}
           </p>
         </div>
@@ -191,18 +191,18 @@ function LinkedEntityCard({
   const subtitle = linkedArea ? getTwoPQRecordSubtitle(linkedArea, record) : "";
 
   return (
-    <div className="rounded-[1.35rem] border border-emerald-100 bg-white/82 px-4 py-4 shadow-[0_12px_32px_rgba(220,252,231,0.82)]">
+    <div className="rounded-[1.35rem] border border-emerald-100 bg-white/82 px-4 py-4 shadow-[0_12px_32px_rgba(220,252,231,0.82)] dark:border-emerald-300/18 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(16,185,129,0.12))] dark:shadow-none">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-900">
+            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/18 dark:bg-emerald-400/12 dark:text-emerald-50">
               {badge}
             </Badge>
-            <span className="font-mono text-[11px] text-emerald-900/52">{record.id}</span>
+            <span className="font-mono text-[11px] text-emerald-900/52 dark:text-emerald-50/58">{record.id}</span>
           </div>
-          <p className="mt-3 text-base font-semibold text-emerald-950">{title}</p>
-          <p className="mt-1 text-sm text-emerald-900/68">{subtitle || "Linked entity"}</p>
-          {note ? <p className="mt-2 text-xs text-emerald-900/52">{note}</p> : null}
+          <p className="mt-3 text-base font-semibold text-emerald-950 dark:text-emerald-50">{title}</p>
+          <p className="mt-1 text-sm text-emerald-900/68 dark:text-emerald-50/72">{subtitle || "Linked entity"}</p>
+          {note ? <p className="mt-2 text-xs text-emerald-900/52 dark:text-emerald-50/58">{note}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
