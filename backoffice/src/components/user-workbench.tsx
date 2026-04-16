@@ -119,7 +119,7 @@ export function UserWorkbench({
     setStatusMessage(null);
 
     try {
-      await sdkFetch(`/users/${user.uid}`, {
+      await sdkFetch(`/users/${encodeURIComponent(user.uid)}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
@@ -145,7 +145,7 @@ export function UserWorkbench({
     setStatusMessage(null);
 
     try {
-      await sdkFetch(`/users/${user.uid}`, {
+      await sdkFetch(`/users/${encodeURIComponent(user.uid)}`, {
         method: "DELETE",
       });
       router.push("/users");

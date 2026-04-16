@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RotateCcw, Save } from "lucide-react";
+import { RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
@@ -21,7 +21,14 @@ import {
   type PatientListItem,
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
-import { getRoleBadgeVariant, ROLE_CAPABILITY_LINES } from "@/lib/areas-ui";
+import {
+  canCreateRoleUi,
+  canEditRoleUi,
+  getRoleBadgeVariant,
+  getRoleCreateRestrictionMessage,
+  getRoleEditRestrictionMessage,
+  ROLE_CAPABILITY_LINES,
+} from "@/lib/areas-ui";
 import { sdkFetch } from "@/lib/sdk-client";
 import { compactList } from "@/lib/moderation-utils";
 
@@ -38,10 +45,10 @@ type RoleFormState = {
 
 function toRoleFormState(
   record?: RoleManagementRecord | null,
-  defaults?: { institutionId?: string; doctorId?: string }
+  defaults?: { email?: string; institutionId?: string; doctorId?: string }
 ): RoleFormState {
   return {
-    email: record?.email ?? "",
+    email: record?.email ?? defaults?.email ?? "",
     role: record?.role ?? "institution_admin",
     institutionId: record?.institutionId ?? defaults?.institutionId ?? "",
     doctorId: record?.doctorId ?? defaults?.doctorId ?? "",
@@ -62,22 +69,37 @@ export function RoleWorkbench({
   doctors,
   patients,
   mode = "edit",
+  initialEmail,
 }: {
   roleRecord?: RoleManagementRecord | null;
   institutions: InstitutionRecord[];
   doctors: DoctorListItem[];
   patients: PatientListItem[];
   mode?: "create" | "edit";
+  initialEmail?: string;
 }) {
   const adminContext = useAdminContext();
   const router = useRouter();
-  const defaults = {
-    institutionId:
-      adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
-        ? adminContext.institutionId
-        : undefined,
-    doctorId: adminContext.role === "institution_doctor" ? adminContext.doctorId : undefined,
-  };
+  const defaults = useMemo(
+    () => ({
+      email: initialEmail?.trim() || undefined,
+      institutionId:
+        adminContext.role === "institution_admin" ||
+        adminContext.role === "institution_doctor"
+          ? adminContext.institutionId
+          : undefined,
+      doctorId:
+        adminContext.role === "institution_doctor"
+          ? adminContext.doctorId
+          : undefined,
+    }),
+    [
+      adminContext.doctorId,
+      adminContext.institutionId,
+      adminContext.role,
+      initialEmail,
+    ]
+  );
   const initialRole =
     mode === "create"
       ? getAssignableRoleOptions(adminContext.role)[0]?.value ?? "patient"
@@ -97,6 +119,18 @@ export function RoleWorkbench({
     [defaults, initialRole, roleRecord]
   );
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const isEditable =
+    mode === "create"
+      ? canCreateRoleUi(adminContext)
+      : roleRecord
+        ? canEditRoleUi(adminContext, roleRecord)
+        : false;
+  const restrictionMessage =
+    !isEditable && mode === "create"
+      ? getRoleCreateRestrictionMessage(adminContext)
+      : !isEditable && roleRecord
+        ? getRoleEditRestrictionMessage(adminContext, roleRecord)
+        : null;
   const roleOptions = getAssignableRoleOptions(adminContext.role);
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
@@ -295,7 +329,7 @@ export function RoleWorkbench({
               variant="outline"
               size="sm"
               onClick={() => setState(sourceState)}
-              disabled={!changed || pending}
+              disabled={!changed || pending || !isEditable}
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reset
@@ -303,7 +337,7 @@ export function RoleWorkbench({
             <Button
               size="sm"
               onClick={() => void handleSave()}
-              disabled={pending || !changed}
+              disabled={pending || !changed || !isEditable}
             >
               <Save className="h-3.5 w-3.5" />
               {pending
@@ -317,6 +351,12 @@ export function RoleWorkbench({
           </div>
         </div>
 
+        {restrictionMessage ? (
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            {restrictionMessage}
+          </div>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="role-email">User email</Label>
@@ -326,7 +366,7 @@ export function RoleWorkbench({
               onChange={(event) =>
                 setState((current) => ({ ...current, email: event.target.value }))
               }
-              disabled={mode === "edit"}
+              disabled={mode === "edit" || !isEditable}
             />
           </div>
           <div className="space-y-2">
@@ -336,6 +376,7 @@ export function RoleWorkbench({
               value={state.role}
               onChange={(role) => applyRoleDefaults(role as RoleManagementRecord["role"])}
               placeholder="Select role"
+              disabled={!isEditable}
             />
           </div>
           <div className="space-y-2">
@@ -350,6 +391,7 @@ export function RoleWorkbench({
                 setState((current) => ({ ...current, isActive: value !== "inactive" }))
               }
               placeholder="Select role state"
+              disabled={!isEditable}
             />
           </div>
           <div className="space-y-2">
@@ -360,6 +402,7 @@ export function RoleWorkbench({
               onChange={(event) =>
                 setState((current) => ({ ...current, displayName: event.target.value }))
               }
+              disabled={!isEditable}
             />
           </div>
 
@@ -380,6 +423,7 @@ export function RoleWorkbench({
                 placeholder="Select institution"
                 emptyLabel="No institution"
                 disabled={
+                  !isEditable ||
                   adminContext.role === "institution_admin" ||
                   adminContext.role === "institution_doctor"
                 }
@@ -408,7 +452,7 @@ export function RoleWorkbench({
                 }}
                 placeholder="Select doctor"
                 emptyLabel="No doctor"
-                disabled={adminContext.role === "institution_doctor"}
+                disabled={!isEditable || adminContext.role === "institution_doctor"}
               />
             </div>
           ) : null}
@@ -431,6 +475,7 @@ export function RoleWorkbench({
                 }}
                 placeholder="Select patient"
                 emptyLabel="No patient"
+                disabled={!isEditable}
               />
             </div>
           ) : null}
@@ -443,6 +488,7 @@ export function RoleWorkbench({
               onChange={(event) =>
                 setState((current) => ({ ...current, notes: event.target.value }))
               }
+              disabled={!isEditable}
             />
           </div>
         </div>

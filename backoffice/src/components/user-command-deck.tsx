@@ -84,53 +84,60 @@ export function UserCommandDeck() {
             No users match the current search.
           </div>
         ) : (
-          users.map((user) => (
-            <div
-              key={user.uid}
-              className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_160px_auto] lg:items-center"
-            >
+          users.map((user) => {
+            const userHref = `/users/${encodeURIComponent(user.uid)}`;
+
+            return (
+              <div
+                key={user.uid}
+                className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_160px_auto] lg:items-center"
+              >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-medium text-foreground">
+                    <Link
+                      href={userHref}
+                      className="font-medium text-foreground transition-colors hover:text-primary"
+                    >
                       {user.displayName || user.email || user.uid}
-                    </h3>
+                    </Link>
                     <VerifiedUserBadge summary={toVerificationSummary(user)} />
                     <span className="font-mono text-xs text-muted-foreground">
                       {user.uid}
                     </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {user.email}
+                  </p>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {user.email}
-                </p>
-              </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={user.disabled ? "destructive" : "success"}>
-                  {user.disabled ? "Disabled" : "Active"}
-                </Badge>
-                <Badge variant={user.onboardingCompleted ? "success" : "warning"}>
-                  {user.onboardingCompleted ? "Onboarded" : "Needs onboarding"}
-                </Badge>
-              </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={user.disabled ? "destructive" : "success"}>
+                    {user.disabled ? "Disabled" : "Active"}
+                  </Badge>
+                  <Badge variant={user.onboardingCompleted ? "success" : "warning"}>
+                    {user.onboardingCompleted ? "Onboarded" : "Needs onboarding"}
+                  </Badge>
+                </div>
 
-              <div className="text-sm text-muted-foreground">
-                <p>{formatDateTime(user.lastSignInAt) ?? "No sign-in yet"}</p>
-                <p className="mt-1">
-                  {[user.country, user.conditions[0]].filter(Boolean).join(" • ") ||
-                    "No profile hints"}
-                </p>
-              </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>{formatDateTime(user.lastSignInAt) ?? "No sign-in yet"}</p>
+                  <p className="mt-1">
+                    {[user.country, user.conditions[0]].filter(Boolean).join(" • ") ||
+                      "No profile hints"}
+                  </p>
+                </div>
 
-              <div className="flex lg:justify-end">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/users/${user.uid}`}>
-                    Open
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
+                <div className="flex lg:justify-end">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={userHref}>
+                      Open
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </section>

@@ -57,10 +57,14 @@ export const columns: ColumnDef<AdminUser>[] = [
   {
     id: "actions",
     header: "",
-    cell: ({ row }) => (
-      <Button variant="ghost" size="sm" asChild>
-        <Link href={`/users/${row.original.uid}`}>View</Link>
-      </Button>
-    ),
+    cell: ({ row }) => {
+      const userHref = `/users/${encodeURIComponent(row.original.uid)}`;
+
+      return (
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={userHref}>View</Link>
+        </Button>
+      );
+    },
   },
 ];

@@ -59,7 +59,7 @@ export function UserEditDialog({ user }: UserEditDialogProps) {
 
   const mutation = useMutation({
     mutationFn: (body: EditFormValues) =>
-      sdkFetch(`/users/${user.uid}`, {
+      sdkFetch(`/users/${encodeURIComponent(user.uid)}`, {
         method: "PUT",
         body: JSON.stringify(body),
       }),

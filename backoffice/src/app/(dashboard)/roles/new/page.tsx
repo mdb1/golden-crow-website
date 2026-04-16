@@ -11,11 +11,16 @@ import { getAssignableRoleOptions } from "@/lib/admin-areas";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
-export default async function NewRolePage() {
+export default async function NewRolePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
   const adminContext = await getAdminContextServer();
   if (getAssignableRoleOptions(adminContext.role).length === 0) {
     redirect("/roles");
   }
+  const { email } = await searchParams;
 
   const [institutionsPayload, doctorsPayload, patientsPayload] = await Promise.all([
     sdkFetchServer<{ institutions: InstitutionRecord[] }>("/areas/institutions"),
@@ -38,6 +43,7 @@ export default async function NewRolePage() {
         institutions={institutionsPayload.institutions}
         doctors={doctorsPayload.doctors}
         patients={patientsPayload.patients}
+        initialEmail={email}
       />
     </div>
   );

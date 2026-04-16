@@ -31,7 +31,7 @@ export function UserDeleteDialog({ user }: UserDeleteDialogProps) {
 
   const mutation = useMutation({
     mutationFn: () =>
-      sdkFetch<CascadeDeleteResult>(`/users/${user.uid}`, {
+      sdkFetch<CascadeDeleteResult>(`/users/${encodeURIComponent(user.uid)}`, {
         method: "DELETE",
       }),
     onSuccess: (result) => {

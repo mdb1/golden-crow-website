@@ -3,7 +3,9 @@ import type {
   AdminRole,
   DoctorListItem,
   PatientListItem,
+  RoleManagementRecord,
 } from "@/lib/admin-areas";
+import { getAssignableRoleOptions } from "@/lib/admin-areas";
 
 export function getRoleBadgeVariant(role: AdminRole) {
   if (role === "full_admin") {
@@ -106,6 +108,74 @@ export function canEditPatientUi(
     context.institutionId === patient.institutionId &&
     context.doctorId === patient.doctorId
   );
+}
+
+type RoleScopeRecord = Pick<
+  RoleManagementRecord,
+  "role" | "institutionId" | "doctorId" | "bootstrap"
+>;
+
+export function canCreateRoleUi(context: AdminContextRecord) {
+  return getAssignableRoleOptions(context.role).length > 0;
+}
+
+export function canEditRoleUi(
+  context: AdminContextRecord,
+  roleRecord: RoleScopeRecord
+) {
+  if (roleRecord.bootstrap) {
+    return false;
+  }
+
+  if (context.role === "full_admin") {
+    return true;
+  }
+
+  if (context.role === "institution_admin") {
+    return (
+      roleRecord.role !== "full_admin" &&
+      Boolean(roleRecord.institutionId) &&
+      context.institutionId === roleRecord.institutionId
+    );
+  }
+
+  return (
+    context.role === "institution_doctor" &&
+    roleRecord.role === "patient" &&
+    context.institutionId === roleRecord.institutionId &&
+    context.doctorId === roleRecord.doctorId
+  );
+}
+
+export function getRoleCreateRestrictionMessage(context: AdminContextRecord) {
+  if (context.role === "patient") {
+    return "Patients cannot create role assignments.";
+  }
+
+  return "The current scope cannot create role assignments.";
+}
+
+export function getRoleEditRestrictionMessage(
+  context: AdminContextRecord,
+  roleRecord: RoleScopeRecord
+) {
+  if (roleRecord.bootstrap) {
+    return "Bootstrap role assignments are locked in the UI and stay outside the normal reassignment flow.";
+  }
+
+  if (context.role === "institution_admin") {
+    if (roleRecord.role === "full_admin") {
+      return "Institution admins cannot modify full-admin role assignments.";
+    }
+
+    return "This role assignment sits outside your institution scope.";
+  }
+
+  if (context.role === "institution_doctor") {
+    return "Doctors can only modify patient role assignments tied to their own doctor scope.";
+  }
+
+  return "The current role cannot modify role assignments.";
 }
 
 export function formatInstitutionScope(

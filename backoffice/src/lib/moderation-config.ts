@@ -93,40 +93,42 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
 ];
 
 function sameUserLinks(userId: string): RelatedRecordLink[] {
+  const encodedUserId = encodeURIComponent(userId);
+
   return [
     {
       label: "Auth user",
-      href: `/users/${userId}`,
+      href: `/users/${encodedUserId}`,
       description: "Firebase Auth state and private profile fields.",
       tone: "blue",
     },
     {
       label: "Private profile",
-      href: `/collections/profiles/${userId}`,
+      href: `/collections/profiles/${encodedUserId}`,
       description: "profiles/{uid} moderation workbench.",
       tone: "blue",
     },
     {
       label: "Public profile",
-      href: `/collections/public_profiles/${userId}`,
+      href: `/collections/public_profiles/${encodedUserId}`,
       description: "public_profiles/{uid} community-facing profile.",
       tone: "rose",
     },
     {
       label: "Community user",
-      href: `/collections/community_users/${userId}`,
+      href: `/collections/community_users/${encodedUserId}`,
       description: "community_users/{uid} identity and activity state.",
       tone: "rose",
     },
     {
       label: "Report owner",
-      href: `/collections/report_owners/${userId}`,
+      href: `/collections/report_owners/${encodedUserId}`,
       description: "report_owners/{uid} report administration profile.",
       tone: "green",
     },
     {
       label: "Learning progress",
-      href: `/collections/user_progress/${userId}`,
+      href: `/collections/user_progress/${encodedUserId}`,
       description: "user_progress/{uid} learning record.",
       tone: "green",
     },
