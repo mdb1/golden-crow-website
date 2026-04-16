@@ -853,33 +853,79 @@ async function syncParentRelationForRecord(
       return;
     }
 
+    const previousBatchRef = previousBatchId
+      ? getTwoPQRecordRef("sequencing", previousBatchId)
+      : null;
+    const nextBatchRef =
+      nextBatchId && nextBatchId !== previousBatchId
+        ? getTwoPQRecordRef("sequencing", nextBatchId)
+        : null;
+
+    const [previousBatchSnapshot, nextBatchSnapshot] = await Promise.all([
+      previousBatchRef ? transaction.get(previousBatchRef) : Promise.resolve(null),
+      nextBatchRef ? transaction.get(nextBatchRef) : Promise.resolve(null),
+    ]);
+
     if (previousBatchId) {
-      await unlinkCaseFromBatchInTransaction(
-        transaction,
-        context,
+      if (!previousBatchSnapshot?.exists) {
+        throw new AdminRepositoryError("Batch not found.", 404);
+      }
+
+      const previousBatch = toTwoPQRecord(
         previousBatchId,
+        "sequencing",
+        previousBatchSnapshot.data() as Record<string, unknown>
+      );
+      if (!canWriteTwoPQRecord(context, previousBatch)) {
+        throw new AdminRepositoryError("You cannot modify this batch.", 403);
+      }
+    }
+
+    if (nextBatchId) {
+      const nextBatchSnapshotToUse =
+        nextBatchId === previousBatchId ? previousBatchSnapshot : nextBatchSnapshot;
+      if (!nextBatchSnapshotToUse?.exists) {
+        throw new AdminRepositoryError("Batch not found.", 404);
+      }
+
+      const nextBatch = toTwoPQRecord(
+        nextBatchId,
+        "sequencing",
+        nextBatchSnapshotToUse.data() as Record<string, unknown>
+      );
+      if (!canWriteTwoPQRecord(context, nextBatch)) {
+        throw new AdminRepositoryError("You cannot modify this batch.", 403);
+      }
+
+      validateParentChildScope(nextBatch, nextRecord, {
+        parentLabel: "Batch",
+        childLabel: "Case",
+      });
+    }
+
+    if (previousBatchId) {
+      transaction.set(
+        previousBatchRef!,
         {
-          id: existing.id,
-          institutionId: existing.institutionId,
-          doctorId: existing.doctorId,
-          parent_batch: previousBatchId,
+          children_cases: FieldValue.arrayRemove(existing.id),
+          linkedCaseIds: FieldValue.arrayRemove(existing.id),
+          updatedAt: now,
+          updatedByEmail: context.email,
         },
-        now
+        { merge: true }
       );
     }
 
     if (nextBatchId) {
-      await linkCaseToBatchInTransaction(
-        transaction,
-        context,
-        nextBatchId,
+      transaction.set(
+        getTwoPQRecordRef("sequencing", nextBatchId),
         {
-          id: nextRecord.id,
-          institutionId: nextRecord.institutionId,
-          doctorId: nextRecord.doctorId,
-          patientId: nextRecord.patientId,
+          children_cases: FieldValue.arrayUnion(nextRecord.id),
+          linkedCaseIds: FieldValue.arrayUnion(nextRecord.id),
+          updatedAt: now,
+          updatedByEmail: context.email,
         },
-        now
+        { merge: true }
       );
     }
 
@@ -897,33 +943,78 @@ async function syncParentRelationForRecord(
     return;
   }
 
+  const previousCaseRef = previousCaseId ? getTwoPQRecordRef("cases", previousCaseId) : null;
+  const nextCaseRef =
+    nextCaseId && nextCaseId !== previousCaseId
+      ? getTwoPQRecordRef("cases", nextCaseId)
+      : null;
+
+  const [previousCaseSnapshot, nextCaseSnapshot] = await Promise.all([
+    previousCaseRef ? transaction.get(previousCaseRef) : Promise.resolve(null),
+    nextCaseRef ? transaction.get(nextCaseRef) : Promise.resolve(null),
+  ]);
+
   if (previousCaseId) {
-    await unlinkSamplingFromCaseInTransaction(
-      transaction,
-      context,
+    if (!previousCaseSnapshot?.exists) {
+      throw new AdminRepositoryError("Case not found.", 404);
+    }
+
+    const previousCase = toTwoPQRecord(
       previousCaseId,
+      "cases",
+      previousCaseSnapshot.data() as Record<string, unknown>
+    );
+    if (!canWriteTwoPQRecord(context, previousCase)) {
+      throw new AdminRepositoryError("You cannot modify this case.", 403);
+    }
+  }
+
+  if (nextCaseId) {
+    const nextCaseSnapshotToUse =
+      nextCaseId === previousCaseId ? previousCaseSnapshot : nextCaseSnapshot;
+    if (!nextCaseSnapshotToUse?.exists) {
+      throw new AdminRepositoryError("Case not found.", 404);
+    }
+
+    const nextCase = toTwoPQRecord(
+      nextCaseId,
+      "cases",
+      nextCaseSnapshotToUse.data() as Record<string, unknown>
+    );
+    if (!canWriteTwoPQRecord(context, nextCase)) {
+      throw new AdminRepositoryError("You cannot modify this case.", 403);
+    }
+
+    validateParentChildScope(nextCase, nextRecord, {
+      parentLabel: "Case",
+      childLabel: "Sampling",
+      enforcePatientMatch: true,
+    });
+  }
+
+  if (previousCaseId) {
+    transaction.set(
+      previousCaseRef!,
       {
-        id: existing.id,
-        institutionId: existing.institutionId,
-        doctorId: existing.doctorId,
-        parent_case: previousCaseId,
+        children_sampling: FieldValue.arrayRemove(existing.id),
+        linkedSamplingIds: FieldValue.arrayRemove(existing.id),
+        updatedAt: now,
+        updatedByEmail: context.email,
       },
-      now
+      { merge: true }
     );
   }
 
   if (nextCaseId) {
-    await linkSamplingToCaseInTransaction(
-      transaction,
-      context,
-      nextCaseId,
+    transaction.set(
+      getTwoPQRecordRef("cases", nextCaseId),
       {
-        id: nextRecord.id,
-        institutionId: nextRecord.institutionId,
-        doctorId: nextRecord.doctorId,
-        patientId: nextRecord.patientId,
+        children_sampling: FieldValue.arrayUnion(nextRecord.id),
+        linkedSamplingIds: FieldValue.arrayUnion(nextRecord.id),
+        updatedAt: now,
+        updatedByEmail: context.email,
       },
-      now
+      { merge: true }
     );
   }
 }
@@ -1538,8 +1629,6 @@ export async function createTwoPQRecordForContext(
 
   if (requestedBatchId || requestedCaseId) {
     await adminDb.runTransaction(async (transaction) => {
-      transaction.set(recordRef, writeDocument);
-
       if (requestedBatchId) {
         await linkCaseToBatchInTransaction(
           transaction,
@@ -1569,6 +1658,8 @@ export async function createTwoPQRecordForContext(
           now
         );
       }
+
+      transaction.set(recordRef, writeDocument);
     });
   } else {
     await recordRef.set(writeDocument);

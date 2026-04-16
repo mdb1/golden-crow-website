@@ -50,8 +50,29 @@ async function proxyRequest(
 
   const responseHeaders = new Headers(response.headers);
   responseHeaders.delete("content-encoding");
+  const responseBuffer = await response.arrayBuffer();
 
-  return new Response(response.body, {
+  if (!response.ok && responseBuffer.byteLength === 0) {
+    responseHeaders.set("content-type", "application/json; charset=utf-8");
+    return new Response(
+      JSON.stringify({
+        error: `SDK returned an empty ${response.status} response.`,
+        errorName: "SdkProxyError",
+        hint: "The upstream SDK failed before returning a response body. Use the Vercel request id to inspect the SDK logs.",
+        upstream: {
+          method,
+          path: `/${sdkPath.join("/")}`,
+          targetUrl: targetUrl.toString(),
+        },
+      }),
+      {
+        status: response.status,
+        headers: responseHeaders,
+      }
+    );
+  }
+
+  return new Response(responseBuffer, {
     status: response.status,
     headers: responseHeaders,
   });
