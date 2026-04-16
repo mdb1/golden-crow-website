@@ -255,7 +255,7 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
     helperTitle: "Case records are now live Firebase documents.",
     helperBody:
       "Create establishes a new case document. Replace writes the full document shape. Update patches only changed fields. Delete removes the document from Firestore.",
-    searchPlaceholder: "Search cases by label, sample, shipment, status, priority, or patient...",
+    searchPlaceholder: "Search cases by label, status, tracking, priority, or patient...",
     createLabel: "New case",
     roleAccess: ASSIGNED_SCOPE_ACCESS,
     fieldGroups: [
@@ -326,23 +326,8 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
       },
       {
         title: "Linked logistics",
-        description: "IDs used by downstream sampling, shipment, and report steps.",
+        description: "Tracking and scheduling fields used by downstream shipment and report steps.",
         fields: [
-          {
-            key: "sampleId",
-            label: "Sample ID",
-            type: "text",
-            required: true,
-            placeholder: "SAMP-00012",
-            description: "Primary sample identifier tied to the case.",
-          },
-          {
-            key: "shipmentId",
-            label: "Shipment ID",
-            type: "text",
-            placeholder: "SHIP-00003",
-            description: "Outbound or inbound shipment reference.",
-          },
           {
             key: "trackingNumber",
             label: "Tracking number",

@@ -471,6 +471,23 @@ export function TwoPQDashboard({
   adminContext: AdminContextRecord;
   metrics: TwoPQDashboardMetrics;
 }) {
+  const linkedEntityAreas = [
+    {
+      area: TWO_PQ_WORKFLOW_AREAS.find((workflowArea) => workflowArea.key === "sequencing_runs")!,
+      href: "/2pq-dashboard/sequencing",
+      label: "2PQ Sequencing",
+    },
+    {
+      area: TWO_PQ_WORKFLOW_AREAS.find((workflowArea) => workflowArea.key === "cases")!,
+      href: "/2pq-dashboard/cases",
+      label: "2PQ Cases",
+    },
+    {
+      area: TWO_PQ_WORKFLOW_AREAS.find((workflowArea) => workflowArea.key === "samples")!,
+      href: "/2pq-dashboard/sampling",
+      label: "2PQ Sampling",
+    },
+  ] as const;
   const sequencingArea = TWO_PQ_WORKFLOW_AREAS.find(
     (area) => area.key === "sequencing_runs"
   )!;
@@ -551,37 +568,70 @@ export function TwoPQDashboard({
         />
       </section>
 
-      <section className="glass-panel border-emerald-400/22 bg-[linear-gradient(145deg,rgba(7,35,25,0.96),rgba(9,24,18,0.94)_54%,rgba(16,185,129,0.16))] px-5 py-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <section className="glass-panel border-emerald-400/28 bg-[linear-gradient(145deg,rgba(7,35,25,0.98),rgba(9,28,20,0.96)_48%,rgba(16,185,129,0.18))] px-5 py-5 shadow-[0_24px_80px_-52px_rgba(16,185,129,0.85)]">
+        <div className="flex flex-col gap-5">
           <div>
             <p className="section-eyebrow text-emerald-100/72">2PQ links</p>
             <h2 className="font-heading text-2xl font-semibold text-emerald-50">
               Linked entities
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-emerald-50/70">
-              Open the three related CRUD areas together: sequencing batches, cases, and sampling
-              children.
+              Cases, sampling, and sequencing now live together in one greener dashboard section so
+              the parent-child relationship is obvious before you open an area.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {[
-              { label: "2PQ Sequencing", href: "/2pq-dashboard/sequencing" },
-              { label: "2PQ Cases", href: "/2pq-dashboard/cases" },
-              { label: "2PQ Sampling", href: "/2pq-dashboard/sampling" },
-            ].map((item) => (
-              <Button
-                key={item.href}
-                variant="outline"
-                size="sm"
-                asChild
-                className="border-emerald-200/14 bg-emerald-950/20 text-emerald-50 hover:bg-emerald-900/32"
-              >
-                <Link href={item.href}>
-                  {item.label}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            ))}
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {linkedEntityAreas.map(({ area, href, label }) => {
+              const currentAccess = getRoleAccess(area, adminContext.role);
+              return (
+                <article
+                  key={href}
+                  className="flex h-full flex-col gap-4 rounded-[1.65rem] border border-emerald-300/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(16,185,129,0.1))] px-4 py-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/14 text-emerald-50">
+                      <area.icon className="h-5 w-5" />
+                    </div>
+                    <Badge variant={currentAccess.capabilities.length > 0 ? "success" : "outline"}>
+                      {currentAccess.capabilities.length > 0 ? "Accessible" : "Locked"}
+                    </Badge>
+                  </div>
+
+                  <div>
+                    <h3 className="font-heading text-xl font-semibold text-emerald-50">{label}</h3>
+                    <p className="mt-1 text-sm text-emerald-50/72">{area.summary}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {area.chips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="inline-flex items-center rounded-full border border-emerald-300/18 bg-emerald-400/12 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-50"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+
+                  <p className="text-sm text-emerald-50/74">{currentAccess.note}</p>
+
+                  <div className="mt-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="border-emerald-200/16 bg-emerald-950/24 text-emerald-50 hover:bg-emerald-900/34"
+                    >
+                      <Link href={href}>
+                        Open
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
