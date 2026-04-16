@@ -50,7 +50,7 @@ npm run dev
 
 ## Authentication
 
-Login uses Google OAuth restricted to emails in the SDK's `TEAM_ALLOWLIST`. Non-allowlisted Google accounts see an access denied page.
+Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLOWLIST` and to users with an active admin role assignment in Firebase (for example `full_admin`, `institution_admin`, or `institution_doctor`).
 
 ## Sections
 

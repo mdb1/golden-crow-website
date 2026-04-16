@@ -11,13 +11,14 @@ export default function AccessDeniedPage() {
           Access denied
         </h1>
         <p className="text-sm text-muted-foreground">
-          This account authenticated successfully, but it is not on the Pocket
-          Genes Admin allowlist.
+          This account authenticated successfully, but it does not have active
+          backoffice access.
         </p>
       </div>
       <HelperBanner title="Why this happens" tone="amber">
-        Creating a Firebase account is not enough. Admin access is granted only
-        to emails approved by the backend team allowlist.
+        Creating a Firebase account is not enough. Backoffice access is granted
+        through either the backend allowlist or an active admin role assignment
+        such as full admin, institution admin, or institution doctor.
       </HelperBanner>
       <Button asChild variant="outline" className="w-full">
         <Link href="/login">Back to Sign In</Link>

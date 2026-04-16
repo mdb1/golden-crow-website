@@ -164,7 +164,7 @@ export default function LoginPage() {
     } catch (err) {
       console.error("Email signup error:", err);
       setError(
-        "Email sign up failed. Account creation alone does not grant admin access."
+        "Email sign up failed. Account creation alone is not enough; the email still needs allowlist access or an active admin role."
       );
     } finally {
       setLoading(null);
@@ -243,14 +243,16 @@ export default function LoginPage() {
               Admin Sign In
             </h1>
             <p className="text-sm text-muted-foreground">
-              Sign in to the moderation console with a Google or email-based team
+              Sign in to the moderation console with a Google or email-based admin
               account.
             </p>
           </div>
 
           <HelperBanner title="Access is still backend-controlled." tone="blue">
-            Google sign-in, email sign-in, and email sign-up only work if the
-            authenticated account is on the team allowlist.
+            Google sign-in, email sign-in, and email sign-up work when the
+            authenticated email is on the team allowlist or has an active Firebase
+            role assignment such as full admin, institution admin, or institution
+            doctor.
           </HelperBanner>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

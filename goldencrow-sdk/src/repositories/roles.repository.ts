@@ -20,8 +20,29 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
   patient: [],
 };
 
+const BACKOFFICE_ROLES = new Set<AdminRole>([
+  "full_admin",
+  "institution_admin",
+  "institution_doctor",
+]);
+
 export function normalizeRoleEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function canRoleAccessBackoffice(record: Pick<UserRoleRecord, "role" | "isActive"> | null) {
+  return Boolean(record?.isActive && BACKOFFICE_ROLES.has(record.role));
+}
+
+function resolveBackofficeProjectAccess(
+  email: string,
+  options?: { includeMydnamap?: boolean }
+) {
+  const projectAccess = new Set(resolveProjectAccess(email));
+  if (options?.includeMydnamap) {
+    projectAccess.add("mydnamap");
+  }
+  return [...projectAccess];
 }
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -211,8 +232,9 @@ export async function resolveAdminContext(input: {
   }
 
   const roleRecord = await getUserRoleByEmail(normalizedEmail);
+  const roleCanAccessBackoffice = canRoleAccessBackoffice(roleRecord);
 
-  if (roleRecord) {
+  if (roleRecord && roleCanAccessBackoffice) {
     return {
       email: normalizedEmail,
       uid,
@@ -221,8 +243,10 @@ export async function resolveAdminContext(input: {
       doctorId: roleRecord.doctorId,
       patientId: roleRecord.patientId,
       isBootstrap: false,
-      canAccessBackoffice: roleRecord.isActive && roleRecord.role !== "patient",
-      projectAccess: resolveProjectAccess(normalizedEmail),
+      canAccessBackoffice: true,
+      projectAccess: resolveBackofficeProjectAccess(normalizedEmail, {
+        includeMydnamap: true,
+      }),
     };
   }
 
@@ -233,7 +257,23 @@ export async function resolveAdminContext(input: {
       role: "full_admin",
       isBootstrap: true,
       canAccessBackoffice: true,
-      projectAccess: resolveProjectAccess(normalizedEmail),
+      projectAccess: resolveBackofficeProjectAccess(normalizedEmail, {
+        includeMydnamap: true,
+      }),
+    };
+  }
+
+  if (roleRecord) {
+    return {
+      email: normalizedEmail,
+      uid,
+      role: roleRecord.role,
+      institutionId: roleRecord.institutionId,
+      doctorId: roleRecord.doctorId,
+      patientId: roleRecord.patientId,
+      isBootstrap: false,
+      canAccessBackoffice: false,
+      projectAccess: resolveBackofficeProjectAccess(normalizedEmail),
     };
   }
 
