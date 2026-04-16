@@ -6,13 +6,76 @@ import {
   getAdminCapabilities,
   resolveAdminContext,
 } from "../repositories/roles.repository.js";
+import {
+  completeProfileSetup,
+  createEligibleEmailAccount,
+  getEmailSignupEligibility,
+  getProfileSetupState,
+  isProfileSetupError,
+} from "../repositories/profile-setup.repository.js";
 
 const LoginBodySchema = z.object({
   idToken: z.string().min(1, "idToken is required"),
 });
 
+const EmailSignupEligibilitySchema = z.object({
+  email: z.string().email(),
+});
+
+const EmailSignupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6).max(128),
+});
+
+const CompleteProfileSchema = z.object({
+  fullName: z.string().trim().min(1).max(100),
+  username: z.string().trim().min(3).max(32),
+  iconName: z.string().trim().min(1).max(100),
+  iconColorHex: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/),
+  ownerProfession: z.string().max(120).optional(),
+  ownerCompany: z.string().max(120).optional(),
+  ownerContactNumber: z.string().max(30).optional(),
+  ownerBio: z.string().max(600).optional(),
+  gender: z.string().max(50).optional(),
+  condition: z.string().max(120).optional(),
+});
+
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.post(
+    "/auth/email-signup/eligibility",
+    {
+      schema: {
+        body: EmailSignupEligibilitySchema,
+      },
+    },
+    async (request, reply) => {
+      const eligibility = await getEmailSignupEligibility(request.body.email);
+      return reply.send(eligibility);
+    }
+  );
+
+  f.post(
+    "/auth/email-signup",
+    {
+      schema: {
+        body: EmailSignupSchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await createEligibleEmailAccount(request.body);
+        return reply.status(201).send(result);
+      } catch (error) {
+        if (isProfileSetupError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
 
   f.post(
     "/auth/login",
@@ -72,4 +135,50 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       capabilities: getAdminCapabilities(request.adminContext),
     });
   });
+
+  f.get("/auth/profile-setup", async (request, reply) => {
+    if (!request.adminContext || !request.user?.uid) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const state = await getProfileSetupState(request.user.uid);
+      return reply.send({ state });
+    } catch (error) {
+      if (isProfileSetupError(error)) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+  f.put(
+    "/auth/profile-setup",
+    {
+      schema: {
+        body: CompleteProfileSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext || !request.user?.uid) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const state = await completeProfileSetup(
+          request.user.uid,
+          request.adminContext.role,
+          request.body
+        );
+        return reply.send({ state });
+      } catch (error) {
+        if (isProfileSetupError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
 }

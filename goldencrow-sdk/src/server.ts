@@ -13,7 +13,13 @@ import { authMiddleware } from "./middleware/auth.js";
 import { ENV } from "./config/env.js";
 
 // Routes exempt from session cookie auth
-const PUBLIC_PATHS = new Set(["/health", "/auth/login", "/auth/logout"]);
+const PUBLIC_PATHS = new Set([
+  "/health",
+  "/auth/login",
+  "/auth/logout",
+  "/auth/email-signup",
+  "/auth/email-signup/eligibility",
+]);
 
 export async function buildServer() {
   const fastify = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
@@ -32,7 +38,8 @@ export async function buildServer() {
 
   // Global auth hook — runs before every route handler
   fastify.addHook("onRequest", async (request, reply) => {
-    if (PUBLIC_PATHS.has(request.url)) return;
+    const requestPath = request.url.split("?")[0] ?? request.url;
+    if (PUBLIC_PATHS.has(requestPath)) return;
     await authMiddleware(request, reply);
   });
 

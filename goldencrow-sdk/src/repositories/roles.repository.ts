@@ -6,6 +6,7 @@ import type {
   AdminRole,
   DoctorRecord,
   PatientRecord,
+  ProjectKey,
   RoleManagementRecord,
   UserRoleRecord,
 } from "../types/sdk.types.js";
@@ -37,12 +38,44 @@ function canRoleAccessBackoffice(record: Pick<UserRoleRecord, "role" | "isActive
 function resolveBackofficeProjectAccess(
   email: string,
   options?: { includeMydnamap?: boolean }
-) {
-  const projectAccess = new Set(resolveProjectAccess(email));
+): ProjectKey[] {
+  const projectAccess = new Set<ProjectKey>(resolveProjectAccess(email));
   if (options?.includeMydnamap) {
     projectAccess.add("mydnamap");
   }
   return [...projectAccess];
+}
+
+export interface BackofficeEmailAccess {
+  email: string;
+  roleRecord: UserRoleRecord | null;
+  viaAllowlist: boolean;
+  viaRoleAssignment: boolean;
+  canAccessBackoffice: boolean;
+  projectAccess: ProjectKey[];
+}
+
+export async function getBackofficeEmailAccess(
+  email: string
+): Promise<BackofficeEmailAccess> {
+  const normalizedEmail = normalizeRoleEmail(email);
+  const roleRecord = normalizedEmail ? await getUserRoleByEmail(normalizedEmail) : null;
+  const viaAllowlist = normalizedEmail ? TEAM_ALLOWLIST.has(normalizedEmail) : false;
+  const viaRoleAssignment = canRoleAccessBackoffice(roleRecord);
+  const canAccessBackoffice = viaAllowlist || viaRoleAssignment;
+
+  return {
+    email: normalizedEmail,
+    roleRecord,
+    viaAllowlist,
+    viaRoleAssignment,
+    canAccessBackoffice,
+    projectAccess: normalizedEmail
+      ? resolveBackofficeProjectAccess(normalizedEmail, {
+          includeMydnamap: canAccessBackoffice,
+        })
+      : [],
+  };
 }
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -231,10 +264,10 @@ export async function resolveAdminContext(input: {
     return null;
   }
 
-  const roleRecord = await getUserRoleByEmail(normalizedEmail);
-  const roleCanAccessBackoffice = canRoleAccessBackoffice(roleRecord);
+  const access = await getBackofficeEmailAccess(normalizedEmail);
+  const roleRecord = access.roleRecord;
 
-  if (roleRecord && roleCanAccessBackoffice) {
+  if (roleRecord && access.viaRoleAssignment) {
     return {
       email: normalizedEmail,
       uid,
@@ -244,22 +277,18 @@ export async function resolveAdminContext(input: {
       patientId: roleRecord.patientId,
       isBootstrap: false,
       canAccessBackoffice: true,
-      projectAccess: resolveBackofficeProjectAccess(normalizedEmail, {
-        includeMydnamap: true,
-      }),
+      projectAccess: access.projectAccess,
     };
   }
 
-  if (TEAM_ALLOWLIST.has(normalizedEmail)) {
+  if (access.viaAllowlist) {
     return {
       email: normalizedEmail,
       uid,
       role: "full_admin",
       isBootstrap: true,
       canAccessBackoffice: true,
-      projectAccess: resolveBackofficeProjectAccess(normalizedEmail, {
-        includeMydnamap: true,
-      }),
+      projectAccess: access.projectAccess,
     };
   }
 
@@ -273,7 +302,7 @@ export async function resolveAdminContext(input: {
       patientId: roleRecord.patientId,
       isBootstrap: false,
       canAccessBackoffice: false,
-      projectAccess: resolveBackofficeProjectAccess(normalizedEmail),
+      projectAccess: access.projectAccess,
     };
   }
 

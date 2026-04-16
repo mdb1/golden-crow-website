@@ -50,7 +50,7 @@ npm run dev
 
 ## Authentication
 
-Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLOWLIST` and to users with an active admin role assignment in Firebase (for example `full_admin`, `institution_admin`, or `institution_doctor`).
+Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLOWLIST` and to users with an active admin role assignment in Firebase (for example `full_admin`, `institution_admin`, or `institution_doctor`). Email account creation now checks that access first, creates the auth account only after approval, and then sends the authenticated user into a complete-profile flow that writes the required Firebase profile documents.
 
 ## Sections
 
