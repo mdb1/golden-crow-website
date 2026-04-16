@@ -33,9 +33,11 @@ const themeBootstrapScript = `
       var theme = stored === "light" || stored === "dark" ? stored : "light";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
+      document.documentElement.classList.toggle("dark", theme === "dark");
     } catch (error) {
       document.documentElement.dataset.theme = "light";
       document.documentElement.style.colorScheme = "light";
+      document.documentElement.classList.remove("dark");
     }
   })();
 `;

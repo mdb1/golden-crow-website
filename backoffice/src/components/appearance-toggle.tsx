@@ -13,6 +13,7 @@ import {
 function applyAppearance(mode: AppearanceMode) {
   document.documentElement.dataset.theme = mode;
   document.documentElement.style.colorScheme = mode;
+  document.documentElement.classList.toggle("dark", mode === "dark");
   window.localStorage.setItem(APPEARANCE_STORAGE_KEY, mode);
 }
 
