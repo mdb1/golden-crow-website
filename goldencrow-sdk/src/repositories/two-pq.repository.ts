@@ -762,14 +762,50 @@ function applyMutation(
     nextRecord[field] = normalized as never;
   }
 
+  for (const relationField of ["parent_batch", "parent_case"] as const) {
+    if (!hasOwnKey(payload, relationField)) {
+      continue;
+    }
+
+    const normalized = normalizeFieldValue(relationField, payload[relationField]);
+    if (!normalized) {
+      delete nextRecord[relationField];
+      continue;
+    }
+
+    nextRecord[relationField] = normalized as never;
+  }
+
   return nextRecord;
+}
+
+function buildStoredRecordDocument(nextRecord: TwoPQRecord): Record<string, unknown> {
+  const document: Record<string, unknown> = { ...nextRecord };
+
+  if (nextRecord.parent_batch) {
+    document.batchId = nextRecord.parent_batch;
+  }
+
+  if (nextRecord.parent_case) {
+    document.caseId = nextRecord.parent_case;
+  }
+
+  if (nextRecord.children_cases) {
+    document.linkedCaseIds = nextRecord.children_cases;
+  }
+
+  if (nextRecord.children_sampling) {
+    document.linkedSamplingIds = nextRecord.children_sampling;
+  }
+
+  return document;
 }
 
 function buildMergeWriteDocument(
   nextRecord: TwoPQRecord,
   payload: TwoPQMutationInput
 ): Record<string, unknown> {
-  const document: Record<string, unknown> = { ...nextRecord };
+  const document: Record<string, unknown> = buildStoredRecordDocument(nextRecord);
 
   for (const field of MUTABLE_FIELDS) {
     if (!hasOwnKey(payload, field)) {
@@ -782,7 +818,114 @@ function buildMergeWriteDocument(
     }
   }
 
+  for (const relationField of ["parent_batch", "parent_case"] as const) {
+    if (!hasOwnKey(payload, relationField)) {
+      continue;
+    }
+
+    const normalized = normalizeFieldValue(relationField, payload[relationField]);
+    if (!normalized) {
+      document[relationField] = FieldValue.delete();
+      document[relationField === "parent_batch" ? "batchId" : "caseId"] = FieldValue.delete();
+      continue;
+    }
+
+    document[relationField] = normalized;
+    document[relationField === "parent_batch" ? "batchId" : "caseId"] = normalized;
+  }
+
   return document;
+}
+
+async function syncParentRelationForRecord(
+  transaction: Transaction,
+  context: AdminContext,
+  areaKey: TwoPQAreaKey,
+  existing: TwoPQRecord,
+  nextRecord: TwoPQRecord,
+  now: string
+) {
+  if (areaKey === "cases") {
+    const previousBatchId = existing.parent_batch;
+    const nextBatchId = nextRecord.parent_batch;
+
+    if (previousBatchId === nextBatchId) {
+      return;
+    }
+
+    if (previousBatchId) {
+      await unlinkCaseFromBatchInTransaction(
+        transaction,
+        context,
+        previousBatchId,
+        {
+          id: existing.id,
+          institutionId: existing.institutionId,
+          doctorId: existing.doctorId,
+          parent_batch: previousBatchId,
+        },
+        now
+      );
+    }
+
+    if (nextBatchId) {
+      await linkCaseToBatchInTransaction(
+        transaction,
+        context,
+        nextBatchId,
+        {
+          id: nextRecord.id,
+          institutionId: nextRecord.institutionId,
+          doctorId: nextRecord.doctorId,
+          patientId: nextRecord.patientId,
+        },
+        now
+      );
+    }
+
+    return;
+  }
+
+  if (areaKey !== "sampling") {
+    return;
+  }
+
+  const previousCaseId = existing.parent_case;
+  const nextCaseId = nextRecord.parent_case;
+
+  if (previousCaseId === nextCaseId) {
+    return;
+  }
+
+  if (previousCaseId) {
+    await unlinkSamplingFromCaseInTransaction(
+      transaction,
+      context,
+      previousCaseId,
+      {
+        id: existing.id,
+        institutionId: existing.institutionId,
+        doctorId: existing.doctorId,
+        parent_case: previousCaseId,
+      },
+      now
+    );
+  }
+
+  if (nextCaseId) {
+    await linkSamplingToCaseInTransaction(
+      transaction,
+      context,
+      nextCaseId,
+      {
+        id: nextRecord.id,
+        institutionId: nextRecord.institutionId,
+        doctorId: nextRecord.doctorId,
+        patientId: nextRecord.patientId,
+      },
+      now
+    );
+  }
 }
 
 function buildListItem(
@@ -1527,13 +1670,14 @@ export async function replaceTwoPQRecordForContext(
   const nextRecord = applyMutation(
     areaKey,
     {
+      ...existing,
       ...buildEmptyRecord(
         existing.id,
         areaKey,
         scopedIds.institutionId,
         scopedIds.doctorId,
         existing.createdAt,
-        new Date().toISOString()
+        existing.updatedAt
       ),
       createdByEmail: existing.createdByEmail,
       updatedByEmail: context.email,
@@ -1553,7 +1697,18 @@ export async function replaceTwoPQRecordForContext(
 
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
 
-  await adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId).set(nextRecord);
+  const now = nextRecord.updatedAt;
+  const recordRef = adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId);
+
+  if (areaKey === "cases" || areaKey === "sampling") {
+    await adminDb.runTransaction(async (transaction) => {
+      await syncParentRelationForRecord(transaction, context, areaKey, existing, nextRecord, now);
+      transaction.set(recordRef, buildStoredRecordDocument(nextRecord));
+    });
+  } else {
+    await recordRef.set(buildStoredRecordDocument(nextRecord));
+  }
+
   return nextRecord;
 }
 
@@ -1618,12 +1773,26 @@ export async function updateTwoPQRecordForContext(
 
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
 
-  await adminDb
-    .collection(AREA_CONFIG[areaKey].collectionKey)
-    .doc(recordId)
-    .set(buildMergeWriteDocument(nextRecord, payload), {
+  const recordRef = adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId);
+  const writeDocument = buildMergeWriteDocument(nextRecord, payload);
+
+  if (areaKey === "cases" || areaKey === "sampling") {
+    await adminDb.runTransaction(async (transaction) => {
+      await syncParentRelationForRecord(
+        transaction,
+        context,
+        areaKey,
+        existing,
+        nextRecord,
+        nextRecord.updatedAt
+      );
+      transaction.set(recordRef, writeDocument, { merge: true });
+    });
+  } else {
+    await recordRef.set(writeDocument, {
       merge: true,
     });
+  }
 
   return nextRecord;
 }

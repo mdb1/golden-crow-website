@@ -12,7 +12,12 @@ function hasRequestBody(body: RequestInit["body"]) {
   return true;
 }
 
-async function buildSdkServerError(response: Response, method: string, path: string) {
+async function buildSdkServerError(
+  response: Response,
+  method: string,
+  path: string,
+  requestBodyDetails?: string
+) {
   const rawText = await response.text();
   let parsedMessage: string | undefined;
   let parsedBody: Record<string, unknown> | undefined;
@@ -38,6 +43,7 @@ async function buildSdkServerError(response: Response, method: string, path: str
   return new Error(
     [
       `SDK ${method} ${path} failed: ${message}`,
+      requestBodyDetails ? `Request body:\n${requestBodyDetails}` : null,
       `Response content-type: ${response.headers.get("content-type") ?? "unknown"}`,
       response.headers.get("x-vercel-id")
         ? `Vercel request id: ${response.headers.get("x-vercel-id")}`
@@ -114,7 +120,16 @@ export async function sdkFetchServer<T = unknown>(
   });
 
   if (!res.ok) {
-    throw await buildSdkServerError(res, method, path);
+    let requestBodyDetails: string | undefined;
+    if (typeof init?.body === "string" && init.body.trim()) {
+      try {
+        requestBodyDetails = JSON.stringify(JSON.parse(init.body), null, 2);
+      } catch {
+        requestBodyDetails = init.body;
+      }
+    }
+
+    throw await buildSdkServerError(res, method, path, requestBodyDetails);
   }
 
   if (res.status === 204) {

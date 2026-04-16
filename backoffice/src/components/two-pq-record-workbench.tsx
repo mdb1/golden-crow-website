@@ -765,6 +765,27 @@ export function TwoPQRecordWorkbench({
     }
   }
 
+  async function performRelationPatch(
+    targetAreaKey: TwoPQAreaKey,
+    recordId: string,
+    payload: Partial<Record<"parent_batch" | "parent_case", string>>,
+    successMessage: string,
+    failureMessage: string,
+    logTitle = "Relation update log"
+  ) {
+    await performRelationRequest(
+      recordId,
+      () =>
+        sdkFetch(`/2pq/${targetAreaKey}/${recordId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        }),
+      successMessage,
+      failureMessage,
+      logTitle
+    );
+  }
+
   function handleDraftBatchSelection(record: TwoPQListItem) {
     setDraftBatch(record);
     setState((current) => syncDraftScope(current, record));
@@ -806,9 +827,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
-      record.id,
-      () => sdkFetch(`/2pq/relations/batches/${record.id}/cases/${detail.record.id}`, { method: "POST" }),
+    await performRelationPatch(
+      "cases",
+      detail.record.id,
+      { parent_batch: record.id },
       "Batch linked to case.",
       "Unable to link the selected batch.",
       "Link batch to case"
@@ -825,12 +847,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
-      linkedBatch.id,
-      () =>
-        sdkFetch(`/2pq/relations/batches/${linkedBatch.id}/cases/${detail.record.id}`, {
-          method: "DELETE",
-        }),
+    await performRelationPatch(
+      "cases",
+      detail.record.id,
+      { parent_batch: "" },
       "Batch unlinked from case.",
       "Unable to unlink the batch.",
       "Unlink batch from case"
@@ -847,9 +867,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
-      record.id,
-      () => sdkFetch(`/2pq/relations/cases/${record.id}/samplings/${detail.record.id}`, { method: "POST" }),
+    await performRelationPatch(
+      "sampling",
+      detail.record.id,
+      { parent_case: record.id },
       "Case linked to sampling.",
       "Unable to link the selected case.",
       "Link case to sampling"
@@ -866,12 +887,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
-      linkedCase.id,
-      () =>
-        sdkFetch(`/2pq/relations/cases/${linkedCase.id}/samplings/${detail.record.id}`, {
-          method: "DELETE",
-        }),
+    await performRelationPatch(
+      "sampling",
+      detail.record.id,
+      { parent_case: "" },
       "Case unlinked from sampling.",
       "Unable to unlink the case.",
       "Unlink case from sampling"
@@ -883,9 +902,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
+    await performRelationPatch(
+      "cases",
       record.id,
-      () => sdkFetch(`/2pq/relations/batches/${detail.record.id}/cases/${record.id}`, { method: "POST" }),
+      { parent_batch: detail.record.id },
       "Case linked to batch.",
       "Unable to link the selected case.",
       "Link case to batch"
@@ -897,12 +917,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
+    await performRelationPatch(
+      "cases",
       record.id,
-      () =>
-        sdkFetch(`/2pq/relations/batches/${detail.record.id}/cases/${record.id}`, {
-          method: "DELETE",
-        }),
+      { parent_batch: "" },
       "Case unlinked from batch.",
       "Unable to unlink the case.",
       "Unlink case from batch"
@@ -914,9 +932,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
+    await performRelationPatch(
+      "sampling",
       record.id,
-      () => sdkFetch(`/2pq/relations/cases/${detail.record.id}/samplings/${record.id}`, { method: "POST" }),
+      { parent_case: detail.record.id },
       "Sampling linked to case.",
       "Unable to link the selected sampling.",
       "Link sampling to case"
@@ -928,12 +947,10 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    await performRelationRequest(
+    await performRelationPatch(
+      "sampling",
       record.id,
-      () =>
-        sdkFetch(`/2pq/relations/cases/${detail.record.id}/samplings/${record.id}`, {
-          method: "DELETE",
-        }),
+      { parent_case: "" },
       "Sampling unlinked from case.",
       "Unable to unlink the sampling.",
       "Unlink sampling from case"

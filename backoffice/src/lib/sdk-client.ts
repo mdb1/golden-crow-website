@@ -43,7 +43,8 @@ function hasRequestBody(body: RequestInit["body"]) {
 async function buildSdkRequestError(
   response: Response,
   method: string,
-  path: string
+  path: string,
+  requestBodyDetails?: string
 ) {
   const rawText = await response.text();
   let parsedMessage: string | undefined;
@@ -68,6 +69,7 @@ async function buildSdkRequestError(
     "SDK request failed.";
   const details = [
     `Request: ${method} ${path}`,
+    requestBodyDetails ? `Request body:\n${requestBodyDetails}` : null,
     `Status: ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`,
     `Response content-type: ${response.headers.get("content-type") ?? "unknown"}`,
     response.headers.get("x-vercel-id")
@@ -127,7 +129,16 @@ export async function sdkFetch<T = unknown>(
   });
 
   if (!res.ok) {
-    throw await buildSdkRequestError(res, method, path);
+    let requestBodyDetails: string | undefined;
+    if (typeof init?.body === "string" && init.body.trim()) {
+      try {
+        requestBodyDetails = JSON.stringify(JSON.parse(init.body), null, 2);
+      } catch {
+        requestBodyDetails = init.body;
+      }
+    }
+
+    throw await buildSdkRequestError(res, method, path, requestBodyDetails);
   }
 
   if (res.status === 204) {
