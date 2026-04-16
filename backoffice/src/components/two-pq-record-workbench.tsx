@@ -18,6 +18,7 @@ import {
   Sparkles,
   Trash2,
   Copy,
+  X,
 } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -37,6 +38,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DialogClose,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -684,7 +686,7 @@ export function TwoPQRecordWorkbench({
     setCopiedErrorLog(false);
     pushToast("error", presentation.message, {
       details: presentation.details,
-      durationMs: 10_000,
+      durationMs: 20_000,
     });
   }
 
@@ -1022,7 +1024,7 @@ export function TwoPQRecordWorkbench({
   }
 
   async function handleUpdate() {
-    if (!detail || !changed) {
+    if (!detail || !changed || !validateRequiredFields()) {
       return;
     }
 
@@ -1085,14 +1087,28 @@ export function TwoPQRecordWorkbench({
           }
         }}
       >
-        <DialogContent className="max-w-4xl rounded-[2rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(255,255,255,0.98)_45%,rgba(240,253,244,0.96))] p-0 shadow-[0_32px_120px_rgba(15,23,42,0.16)]">
-          <DialogHeader className="border-b border-emerald-100 px-6 py-5">
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-4xl rounded-[2rem] border border-emerald-100 bg-[linear-gradient(160deg,rgba(249,253,250,0.98),rgba(255,255,255,0.98)_45%,rgba(240,253,244,0.96))] p-0 shadow-[0_32px_120px_rgba(15,23,42,0.16)]"
+        >
+          <DialogHeader className="relative border-b border-emerald-100 px-6 py-5 pr-16">
             <DialogTitle className="font-heading text-2xl font-semibold text-emerald-950">
               {latestErrorLog?.title ?? "Request log"}
             </DialogTitle>
             <DialogDescription className="text-emerald-900/65">
               Full request error log. You can copy this message for debugging.
             </DialogDescription>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute right-5 top-5 h-9 w-9 rounded-full text-emerald-950 hover:bg-emerald-100/80"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close error log</span>
+              </Button>
+            </DialogClose>
           </DialogHeader>
           <div className="space-y-4 px-6 py-5">
             <div className="flex flex-wrap gap-2">

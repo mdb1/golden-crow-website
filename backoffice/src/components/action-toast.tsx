@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { CheckCircle2, CircleAlert } from "lucide-react";
+import { CheckCircle2, CircleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ export function ActionToast({
 
     const timeout = window.setTimeout(
       onDismiss,
-      toast.durationMs ?? (toast.tone === "error" ? 9000 : 2800)
+      toast.durationMs ?? (toast.tone === "error" ? 15000 : 2800)
     );
     return () => window.clearTimeout(timeout);
   }, [onDismiss, toast]);
@@ -81,6 +81,21 @@ export function ActionToast({
             </div>
           ) : null}
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={onDismiss}
+          className={cn(
+            "h-8 w-8 shrink-0 rounded-full",
+            toast.tone === "success"
+              ? "text-emerald-800 hover:bg-emerald-100/80"
+              : "text-destructive hover:bg-destructive/8"
+          )}
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Dismiss</span>
+        </Button>
       </div>
     </div>
   );
