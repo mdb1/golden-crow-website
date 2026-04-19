@@ -37,6 +37,7 @@ export interface TwoPQRecord {
   parent_case?: string;
   children_cases?: string[];
   children_sampling?: string[];
+  three_letter_code?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -93,6 +94,7 @@ export type TwoPQMutableFieldKey = Exclude<
   | "parent_case"
   | "children_cases"
   | "children_sampling"
+  | "three_letter_code"
   | "createdAt"
   | "updatedAt"
   | "createdByEmail"

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -42,6 +42,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -71,6 +72,7 @@ type ErrorLogState = {
   title: string;
   details: string;
 };
+type ThreeLetterCodeModalMode = "manual" | "random" | "remove";
 
 const CREATION_CONFETTI = [
   { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
@@ -147,6 +149,61 @@ const RELATION_HINT_CLASSNAME =
   "rounded-full border border-emerald-100 bg-white/72 px-3 py-1 text-xs text-emerald-900/55 shadow-[0_8px_22px_rgba(220,252,231,0.68)] dark:border-emerald-200/18 dark:bg-emerald-950/24 dark:text-emerald-50/72 dark:shadow-none";
 const RELATION_EMPTY_STATE_CLASSNAME =
   "rounded-[1.35rem] border border-dashed border-emerald-100 [background:linear-gradient(180deg,rgba(255,255,255,0.72),rgba(240,253,244,0.72))] px-4 py-5 text-sm text-emerald-900/65 dark:border-emerald-300/18 dark:[background:linear-gradient(180deg,rgba(7,30,22,0.92),rgba(6,78,59,0.48))] dark:text-emerald-50/72";
+const THREE_LETTER_CODE_SECTION_CLASSNAME =
+  "col-span-full overflow-hidden rounded-[1.75rem] border border-fuchsia-100 [background:linear-gradient(160deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_46%,rgba(244,214,255,0.92))] shadow-[0_18px_56px_rgba(232,121,249,0.18)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(168,85,247,0.88)]";
+const THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME =
+  "border border-fuchsia-100 bg-[linear-gradient(180deg,rgba(252,231,243,0.98),rgba(245,208,254,0.98))] text-fuchsia-950 shadow-[0_14px_34px_rgba(232,121,249,0.22)] hover:brightness-[1.02] dark:border-fuchsia-200/18 dark:bg-[linear-gradient(180deg,rgba(69,28,88,0.98),rgba(88,28,135,0.94))] dark:text-fuchsia-50 dark:shadow-none dark:hover:brightness-[1.06]";
+const THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME =
+  "border-fuchsia-100 bg-white/82 text-fuchsia-950 shadow-[0_10px_24px_rgba(250,232,255,0.78)] hover:bg-fuchsia-50 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:shadow-none dark:hover:bg-fuchsia-900/34";
+const THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME =
+  "rounded-[1.35rem] border border-dashed border-fuchsia-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.74),rgba(252,231,243,0.74))] px-4 py-5 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/20 dark:[background:linear-gradient(180deg,rgba(48,20,56,0.92),rgba(88,28,135,0.36))] dark:text-fuchsia-50/76";
+
+function normalizeThreeLetterCodeInput(value: string) {
+  return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+}
+
+function generateRandomThreeLetterCode(excludedValue?: string) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const normalizedExcludedValue = excludedValue?.trim().toUpperCase();
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const candidate = Array.from({ length: 3 }, () =>
+      alphabet[Math.floor(Math.random() * alphabet.length)]
+    ).join("");
+    if (candidate !== normalizedExcludedValue) {
+      return candidate;
+    }
+  }
+
+  return normalizedExcludedValue === "AAA" ? "ZZZ" : "AAA";
+}
+
+function ThreeLetterCodeVisualizer({
+  code,
+  placeholder = "•",
+}: {
+  code?: string;
+  placeholder?: string;
+}) {
+  const normalizedCode = normalizeThreeLetterCodeInput(code ?? "");
+  const glyphs = Array.from(
+    { length: 3 },
+    (_, index) => normalizedCode[index] ?? placeholder
+  );
+
+  return (
+    <div className="flex items-center gap-3">
+      {glyphs.map((glyph, index) => (
+        <div
+          key={`${glyph}-${index}`}
+          className="flex h-14 w-14 items-center justify-center rounded-[1.1rem] border border-black/8 bg-white/92 text-xl font-black uppercase tracking-[0.08em] text-black shadow-[0_12px_28px_rgba(255,255,255,0.28)] dark:bg-white/88"
+        >
+          {glyph}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function RelationSection({
   title,
@@ -489,6 +546,17 @@ export function TwoPQRecordWorkbench({
   const [createdRecordId, setCreatedRecordId] = useState<string | null>(null);
   const [draftBatch, setDraftBatch] = useState<TwoPQListItem | null>(() => preloadedBatch ?? null);
   const [draftCase, setDraftCase] = useState<TwoPQListItem | null>(() => preloadedCase ?? null);
+  const [threeLetterCode, setThreeLetterCode] = useState(
+    () => detail?.record.three_letter_code ?? ""
+  );
+  const [threeLetterCodeModal, setThreeLetterCodeModal] =
+    useState<ThreeLetterCodeModalMode | null>(null);
+  const [threeLetterCodeDraft, setThreeLetterCodeDraft] = useState("");
+  const [pendingThreeLetterCodeAction, setPendingThreeLetterCodeAction] = useState(false);
+
+  useEffect(() => {
+    setThreeLetterCode(detail?.record.three_letter_code ?? "");
+  }, [detail?.record.three_letter_code]);
 
   const sourceState = useMemo(
     () => toFormState(detail?.record, defaults),
@@ -541,6 +609,11 @@ export function TwoPQRecordWorkbench({
   const batchArea = getTwoPQAreaConfig("sequencing")!;
   const caseArea = getTwoPQAreaConfig("cases")!;
   const samplingArea = getTwoPQAreaConfig("sampling")!;
+  const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
+  const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
+  const normalizedThreeLetterCodeDraft = normalizeThreeLetterCodeInput(threeLetterCodeDraft);
+  const canConfirmThreeLetterCode =
+    threeLetterCodeModal === "remove" ? hasThreeLetterCode : normalizedThreeLetterCodeDraft.length === 3;
   const linkedBatch = mode === "create" ? draftBatch : detail?.linkedBatch ?? null;
   const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
   const linkedCases = detail?.linkedCases ?? [];
@@ -711,6 +784,76 @@ export function TwoPQRecordWorkbench({
       setCopiedErrorLog(true);
     } catch {
       pushToast("error", "Unable to copy the error log.", { durationMs: 7000 });
+    }
+  }
+
+  function openThreeLetterCodeModal(mode: ThreeLetterCodeModalMode) {
+    if (mode === "manual") {
+      setThreeLetterCodeDraft(normalizedThreeLetterCode);
+    } else if (mode === "random") {
+      setThreeLetterCodeDraft(generateRandomThreeLetterCode(normalizedThreeLetterCode));
+    } else {
+      setThreeLetterCodeDraft(normalizedThreeLetterCode);
+    }
+
+    setThreeLetterCodeModal(mode);
+  }
+
+  function closeThreeLetterCodeModal(force = false) {
+    if (pendingThreeLetterCodeAction && !force) {
+      return;
+    }
+
+    setThreeLetterCodeModal(null);
+    setThreeLetterCodeDraft("");
+  }
+
+  function regenerateThreeLetterCodeDraft() {
+    setThreeLetterCodeDraft(
+      generateRandomThreeLetterCode(
+        normalizedThreeLetterCodeDraft || normalizedThreeLetterCode
+      )
+    );
+  }
+
+  async function handleThreeLetterCodeConfirm() {
+    if (!detail || !threeLetterCodeModal || !canConfirmThreeLetterCode) {
+      return;
+    }
+
+    const nextThreeLetterCode =
+      threeLetterCodeModal === "remove" ? "" : normalizedThreeLetterCodeDraft;
+
+    setPendingThreeLetterCodeAction(true);
+    try {
+      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}/${detail.record.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          three_letter_code: nextThreeLetterCode,
+        }),
+      });
+
+      setThreeLetterCode(nextThreeLetterCode);
+      closeThreeLetterCodeModal(true);
+      pushToast(
+        "success",
+        threeLetterCodeModal === "remove"
+          ? "Three letter code removed."
+          : hasThreeLetterCode
+            ? "Three letter code updated."
+            : "Three letter code saved."
+      );
+      router.refresh();
+    } catch (error) {
+      pushErrorToast(
+        error,
+        threeLetterCodeModal === "remove"
+          ? "Unable to remove the three letter code."
+          : "Unable to save the three letter code.",
+        "Three letter code request"
+      );
+    } finally {
+      setPendingThreeLetterCodeAction(false);
     }
   }
 
@@ -1140,6 +1283,142 @@ export function TwoPQRecordWorkbench({
               className="min-h-[24rem] resize-none border-emerald-100 bg-white/88 font-mono text-xs leading-5 text-emerald-950"
             />
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={threeLetterCodeModal !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeThreeLetterCodeModal();
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-2xl overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+        >
+          <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+              {threeLetterCodeModal === "remove"
+                ? "Remove three letter code"
+                : threeLetterCodeModal === "random"
+                  ? "Generate random three letter code"
+                  : hasThreeLetterCode
+                    ? "Edit three letter code"
+                    : "Add three letter code"}
+            </DialogTitle>
+            <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
+              {threeLetterCodeModal === "remove"
+                ? "This will clear the unique three-letter shortcut stored on the case document."
+                : "This short letter-only identifier is unique to the case and is stored in Firebase as three_letter_code."}
+            </DialogDescription>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => closeThreeLetterCodeModal()}
+              disabled={pendingThreeLetterCodeAction}
+              className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close three letter code modal</span>
+            </Button>
+          </DialogHeader>
+          <div className="space-y-5 px-6 py-5">
+            <div className="rounded-[1.4rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                Preview
+              </p>
+              <div className="mt-4">
+                <ThreeLetterCodeVisualizer
+                  code={
+                    threeLetterCodeModal === "remove"
+                      ? normalizedThreeLetterCode
+                      : normalizedThreeLetterCodeDraft
+                  }
+                />
+              </div>
+              <p className="mt-4 text-sm text-fuchsia-950/70 dark:text-fuchsia-50/72">
+                {threeLetterCodeModal === "remove"
+                  ? "Removing it frees the code so another case can use it later."
+                  : "Exactly three letters. The code is always stored and shown in uppercase."}
+              </p>
+            </div>
+
+            {threeLetterCodeModal === "manual" ? (
+              <div className="space-y-2">
+                <Label htmlFor="three-letter-code-input">Three letter code</Label>
+                <Input
+                  id="three-letter-code-input"
+                  value={threeLetterCodeDraft}
+                  onChange={(event) =>
+                    setThreeLetterCodeDraft(normalizeThreeLetterCodeInput(event.target.value))
+                  }
+                  placeholder="ABC"
+                  autoComplete="off"
+                  maxLength={3}
+                  disabled={pendingThreeLetterCodeAction}
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Letters only. Use this when you want to reserve a specific short code for the case.
+                </p>
+              </div>
+            ) : null}
+
+            {threeLetterCodeModal === "random" ? (
+              <div className="space-y-3">
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                  <p className="text-sm text-fuchsia-950/72 dark:text-fuchsia-50/72">
+                    A random candidate is ready. If you want another option before saving, generate a new suggestion.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={regenerateThreeLetterCodeDraft}
+                  disabled={pendingThreeLetterCodeAction}
+                  className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Regenerate
+                </Button>
+              </div>
+            ) : null}
+
+            {threeLetterCodeModal === "remove" ? (
+              <div className="rounded-[1.25rem] border border-fuchsia-200/90 bg-white/72 px-4 py-4 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/18 dark:bg-fuchsia-950/24 dark:text-fuchsia-50/72">
+                This case will no longer display a three letter code until a new one is assigned.
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter className="border-fuchsia-100/90 bg-white/55 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closeThreeLetterCodeModal()}
+              disabled={pendingThreeLetterCodeAction}
+              className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleThreeLetterCodeConfirm()}
+              disabled={!canConfirmThreeLetterCode || pendingThreeLetterCodeAction}
+              className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+            >
+              {pendingThreeLetterCodeAction ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : threeLetterCodeModal === "remove" ? (
+                <Trash2 className="h-4 w-4" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Confirm
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       <RelationSelectionDialog
@@ -1658,6 +1937,87 @@ export function TwoPQRecordWorkbench({
             </RelationSection>
           ) : null}
             </div>
+          ) : null}
+
+          {areaKey === "cases" && mode !== "create" ? (
+            <section className={THREE_LETTER_CODE_SECTION_CLASSNAME}>
+              <div className="flex flex-col gap-4 border-b border-fuchsia-200/70 px-5 py-5 dark:border-fuchsia-300/16 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-heading text-lg font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                      Three letter code
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                    >
+                      {hasThreeLetterCode ? "Assigned" : "Not assigned"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/74">
+                    A unique three-letter shorthand for this 2PQ case. Use it as a quick visual
+                    identifier when operators need a short code instead of the full case label.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openThreeLetterCodeModal("manual")}
+                    disabled={pendingThreeLetterCodeAction}
+                    className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+                  >
+                    {hasThreeLetterCode ? "Edit" : "Add manually"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => openThreeLetterCodeModal("random")}
+                    disabled={pendingThreeLetterCodeAction}
+                    className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate random
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openThreeLetterCodeModal("remove")}
+                    disabled={!hasThreeLetterCode || pendingThreeLetterCodeAction}
+                    className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[auto,1fr] lg:items-center">
+                {hasThreeLetterCode ? (
+                  <>
+                    <div className="rounded-[1.45rem] border border-fuchsia-100 bg-white/70 px-4 py-4 shadow-[0_16px_38px_rgba(250,232,255,0.62)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                      <ThreeLetterCodeVisualizer code={normalizedThreeLetterCode} />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-fuchsia-950 dark:text-fuchsia-50">
+                        {normalizedThreeLetterCode} is active for this case.
+                      </p>
+                      <p className="text-sm text-fuchsia-950/70 dark:text-fuchsia-50/72">
+                        The code is stored on the case document as <code>three_letter_code</code>
+                        and stays available here for quick reference.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className={`${THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME} lg:col-span-2`}>
+                    No three letter code has been assigned yet. Add one manually or generate a new
+                    random code to reserve a unique shorthand for this case.
+                  </div>
+                )}
+              </div>
+            </section>
           ) : null}
 
           {area.fieldGroups.map((group) => (

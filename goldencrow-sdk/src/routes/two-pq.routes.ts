@@ -30,6 +30,7 @@ const TwoPQMutationSchema = z.object({
   patientId: z.string().optional(),
   parent_batch: z.string().optional(),
   parent_case: z.string().optional(),
+  three_letter_code: z.string().optional(),
   caseLabel: z.string().optional(),
   caseStatus: z.string().optional(),
   caseType: z.string().optional(),

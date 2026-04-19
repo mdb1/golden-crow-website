@@ -27,6 +27,7 @@ type TwoPQMutationInput = {
   patientId?: string;
   parent_batch?: string;
   parent_case?: string;
+  three_letter_code?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -74,6 +75,7 @@ const MUTABLE_FIELDS: Array<keyof TwoPQMutationInput> = [
   "institutionId",
   "doctorId",
   "patientId",
+  "three_letter_code",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -149,6 +151,7 @@ const AREA_CONFIG: Record<
     requiredFields: ["institutionId", "doctorId", "caseLabel", "caseStatus"],
     searchableFields: [
       "parent_batch",
+      "three_letter_code",
       "caseLabel",
       "caseStatus",
       "trackingNumber",
@@ -270,6 +273,7 @@ const DEFAULT_RECORD_FIELDS: Array<keyof TwoPQRecord> = [
   "patientId",
   "parent_batch",
   "parent_case",
+  "three_letter_code",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -363,7 +367,28 @@ function normalizeIsoDateString(value: unknown) {
   return candidate.toISOString();
 }
 
+function normalizeThreeLetterCode(value: unknown) {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const uppercased = normalized.toUpperCase();
+  if (!/^[A-Z]{3}$/.test(uppercased)) {
+    throw new AdminRepositoryError(
+      "three_letter_code must contain exactly 3 letters.",
+      400
+    );
+  }
+
+  return uppercased;
+}
+
 function normalizeFieldValue(field: keyof TwoPQMutationInput, value: unknown) {
+  if (field === "three_letter_code") {
+    return normalizeThreeLetterCode(value);
+  }
+
   if (ISO_DATE_FIELDS.has(field)) {
     return normalizeIsoDateString(value);
   }
@@ -374,6 +399,37 @@ function normalizeFieldValue(field: keyof TwoPQMutationInput, value: unknown) {
   }
 
   return normalizeOptionalString(value);
+}
+
+function validateAreaSpecificPayload(areaKey: TwoPQAreaKey, payload: TwoPQMutationInput) {
+  if (areaKey !== "cases" && hasOwnKey(payload, "three_letter_code")) {
+    throw new AdminRepositoryError(
+      "three_letter_code is only supported for 2PQ case records.",
+      400
+    );
+  }
+}
+
+async function ensureUniqueCaseThreeLetterCode(
+  threeLetterCode?: string,
+  recordIdToExclude?: string
+) {
+  if (!threeLetterCode) {
+    return;
+  }
+
+  const snapshot = await adminDb
+    .collection(AREA_CONFIG.cases.collectionKey)
+    .where("three_letter_code", "==", threeLetterCode)
+    .get();
+
+  const conflict = snapshot.docs.find((doc) => doc.id !== recordIdToExclude);
+  if (conflict) {
+    throw new AdminRepositoryError(
+      `three_letter_code ${threeLetterCode} is already assigned to case ${conflict.id}.`,
+      409
+    );
+  }
 }
 
 function buildEmptyRecord(
@@ -1571,6 +1627,7 @@ export async function createTwoPQRecordForContext(
   areaKey: TwoPQAreaKey,
   payload: TwoPQMutationInput
 ): Promise<TwoPQRecord> {
+  validateAreaSpecificPayload(areaKey, payload);
   validateRequiredFields(areaKey, payload);
   const scopedIds = resolveScopedIds(context, null, payload);
 
@@ -1611,6 +1668,7 @@ export async function createTwoPQRecordForContext(
     },
     "replace"
   );
+  await ensureUniqueCaseThreeLetterCode(document.three_letter_code);
 
   const requestedBatchId =
     areaKey === "cases" ? normalizeOptionalString(payload.parent_batch) : undefined;
@@ -1731,6 +1789,7 @@ export async function replaceTwoPQRecordForContext(
   recordId: string,
   payload: TwoPQMutationInput
 ): Promise<TwoPQRecord> {
+  validateAreaSpecificPayload(areaKey, payload);
   const existing = await getTwoPQRecord(areaKey, recordId);
   if (!existing) {
     throw new AdminRepositoryError("Record not found.", 404);
@@ -1784,6 +1843,7 @@ export async function replaceTwoPQRecordForContext(
   nextRecord.updatedAt = new Date().toISOString();
   nextRecord.updatedByEmail = context.email;
 
+  await ensureUniqueCaseThreeLetterCode(nextRecord.three_letter_code, existing.id);
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
 
   const now = nextRecord.updatedAt;
@@ -1807,6 +1867,7 @@ export async function updateTwoPQRecordForContext(
   recordId: string,
   payload: TwoPQMutationInput
 ): Promise<TwoPQRecord> {
+  validateAreaSpecificPayload(areaKey, payload);
   const existing = await getTwoPQRecord(areaKey, recordId);
   if (!existing) {
     throw new AdminRepositoryError("Record not found.", 404);
@@ -1860,6 +1921,7 @@ export async function updateTwoPQRecordForContext(
     }
   }
 
+  await ensureUniqueCaseThreeLetterCode(nextRecord.three_letter_code, existing.id);
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
 
   const recordRef = adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId);
