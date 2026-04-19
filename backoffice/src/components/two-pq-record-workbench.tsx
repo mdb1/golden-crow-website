@@ -1393,13 +1393,13 @@ export function TwoPQRecordWorkbench({
               </div>
             ) : null}
           </div>
-          <DialogFooter className="border-fuchsia-100/90 bg-white/55 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+          <DialogFooter className="gap-3 border-fuchsia-100/90 bg-white/55 px-6 py-5 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
             <Button
               type="button"
               variant="outline"
               onClick={() => closeThreeLetterCodeModal()}
               disabled={pendingThreeLetterCodeAction}
-              className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
+              className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
             >
               Cancel
             </Button>
@@ -1407,7 +1407,7 @@ export function TwoPQRecordWorkbench({
               type="button"
               onClick={() => void handleThreeLetterCodeConfirm()}
               disabled={!canConfirmThreeLetterCode || pendingThreeLetterCodeAction}
-              className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+              className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
             >
               {pendingThreeLetterCodeAction ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
