@@ -1,7 +1,7 @@
 import type { ModerationDocumentRecord } from "./moderation-types";
 import { getString } from "./moderation-utils";
 
-export type StoredFileFormat = "mdm" | "ag" | "vcf" | "pdf";
+export type StoredFileFormat = "mdm" | "ag" | "vcf" | "pdf" | "2pq";
 
 export interface StoredFileRecord {
   id: string;
@@ -16,12 +16,13 @@ export interface StoredFileRecord {
   sourceData: Record<string, unknown>;
 }
 
-export const STORED_FILE_JSON_FORMAT_OPTIONS: StoredFileFormat[] = ["mdm", "ag"];
+export const STORED_FILE_JSON_FORMAT_OPTIONS: StoredFileFormat[] = ["mdm", "ag", "2pq"];
 export const STORED_FILE_ALL_FORMAT_OPTIONS: StoredFileFormat[] = [
   "mdm",
   "ag",
   "vcf",
   "pdf",
+  "2pq",
 ];
 
 export function normalizeStoredFileContent(value: string): string {
@@ -45,6 +46,8 @@ export function formatStoredFileType(value?: string | null) {
       return "VCF";
     case "pdf":
       return "PDF";
+    case "2pq":
+      return "2PQ";
     default:
       return normalized.toUpperCase();
   }
@@ -52,7 +55,7 @@ export function formatStoredFileType(value?: string | null) {
 
 export function isJsonBackedStoredFileType(value?: string | null) {
   const normalized = getString(value)?.toLowerCase();
-  return normalized === "mdm" || normalized === "ag";
+  return normalized === "mdm" || normalized === "ag" || normalized === "2pq";
 }
 
 export function parseStoredFileRecord(

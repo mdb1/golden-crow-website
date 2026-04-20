@@ -28,6 +28,7 @@ type TwoPQMutationInput = {
   parent_batch?: string;
   parent_case?: string;
   three_letter_code?: string;
+  stored_file_id?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -76,6 +77,7 @@ const MUTABLE_FIELDS: Array<keyof TwoPQMutationInput> = [
   "doctorId",
   "patientId",
   "three_letter_code",
+  "stored_file_id",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -274,6 +276,7 @@ const DEFAULT_RECORD_FIELDS: Array<keyof TwoPQRecord> = [
   "parent_batch",
   "parent_case",
   "three_letter_code",
+  "stored_file_id",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -405,6 +408,13 @@ function validateAreaSpecificPayload(areaKey: TwoPQAreaKey, payload: TwoPQMutati
   if (areaKey !== "cases" && hasOwnKey(payload, "three_letter_code")) {
     throw new AdminRepositoryError(
       "three_letter_code is only supported for 2PQ case records.",
+      400
+    );
+  }
+
+  if (areaKey !== "cases" && hasOwnKey(payload, "stored_file_id")) {
+    throw new AdminRepositoryError(
+      "stored_file_id is only supported for 2PQ case records.",
       400
     );
   }

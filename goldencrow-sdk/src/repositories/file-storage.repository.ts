@@ -171,6 +171,38 @@ function resolveLinkedReportCode(data: StoredFileDoc): string | undefined {
   return normalizeString(data.linked_report_code) ?? normalizeString(data.linked_report_id);
 }
 
+function buildStoredFilePayload(
+  nextData: StoredFileDoc,
+  options?: {
+    existingData?: StoredFileDoc;
+    timestamp?: string;
+  }
+) {
+  const nextTimestamp = options?.timestamp ?? new Date().toISOString();
+  const nextContent = normalizeString(nextData.file_content) ?? "";
+
+  const payload: StoredFileDoc = {
+    ...nextData,
+    file_name: normalizeString(nextData.file_name) ?? null,
+    creator_email: normalizeString(nextData.creator_email)?.toLowerCase() ?? null,
+    file_type: normalizeString(nextData.file_type)?.toLowerCase() ?? null,
+    file_content: compactJsonString(nextContent),
+    creation_date:
+      normalizeDateValue(nextData.creation_date) ??
+      normalizeDateValue(options?.existingData?.creation_date) ??
+      nextTimestamp,
+    last_modified_date: nextTimestamp,
+  };
+
+  if (normalizeString(payload.linked_report_code)) {
+    delete payload.linked_report_id;
+  } else if (payload.linked_report_id !== undefined) {
+    payload.linked_report_id = normalizeString(payload.linked_report_id) ?? null;
+  }
+
+  return payload;
+}
+
 export async function listStoredFileDocuments(): Promise<ModerationDocumentRecord[]> {
   const snapshot = await adminDb.collection("file_storage").get();
 
@@ -190,6 +222,20 @@ export async function getStoredFileDocument(
   return toRecord(snapshot.id, (snapshot.data() ?? {}) as Record<string, unknown>);
 }
 
+export async function createStoredFileDocument(
+  data: Record<string, unknown>
+): Promise<{ document: ModerationDocumentRecord }> {
+  const storedFileRef = adminDb.collection("file_storage").doc();
+  const payload = buildStoredFilePayload(data as StoredFileDoc);
+
+  await storedFileRef.set(payload as DocumentData, { merge: false });
+
+  const snapshot = await storedFileRef.get();
+  return {
+    document: toRecord(snapshot.id, (snapshot.data() ?? {}) as Record<string, unknown>),
+  };
+}
+
 export async function updateStoredFileDocument(
   fileId: string,
   data: Record<string, unknown>
@@ -203,27 +249,9 @@ export async function updateStoredFileDocument(
 
   const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
   const nextData = { ...existingData, ...data } as StoredFileDoc;
-  const nextTimestamp = new Date().toISOString();
-  const nextContent = normalizeString(nextData.file_content) ?? "";
-
-  const payload: StoredFileDoc = {
-    ...nextData,
-    file_name: normalizeString(nextData.file_name) ?? null,
-    creator_email: normalizeString(nextData.creator_email)?.toLowerCase() ?? null,
-    file_type: normalizeString(nextData.file_type)?.toLowerCase() ?? null,
-    file_content: compactJsonString(nextContent),
-    creation_date:
-      normalizeDateValue(nextData.creation_date) ??
-      normalizeDateValue(existingData.creation_date) ??
-      nextTimestamp,
-    last_modified_date: nextTimestamp,
-  };
-
-  if (normalizeString(payload.linked_report_code)) {
-    delete payload.linked_report_id;
-  } else if (payload.linked_report_id !== undefined) {
-    payload.linked_report_id = normalizeString(payload.linked_report_id) ?? null;
-  }
+  const payload = buildStoredFilePayload(nextData, {
+    existingData,
+  });
 
   let linkedReportVersionBumped = false;
 

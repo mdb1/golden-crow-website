@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { canManageLegacyModeration } from "../repositories/roles.repository.js";
 import {
+  createStoredFileDocument,
   getStoredFileDocument,
   listStoredFileDocuments,
   StoredFileValidationError,
@@ -26,6 +27,27 @@ export async function fileStorageRoutes(fastify: FastifyInstance): Promise<void>
     const documents = await listStoredFileDocuments();
     return reply.send({ documents });
   });
+
+  f.post(
+    "/file-storage",
+    {
+      schema: {
+        body: RawDocumentBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await createStoredFileDocument(request.body.data);
+        return reply.send(result);
+      } catch (error) {
+        if (error instanceof StoredFileValidationError) {
+          return reply.status(400).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
 
   f.get(
     "/file-storage/:fileId",

@@ -217,6 +217,7 @@ export interface TwoPQRecord {
   children_cases?: string[];
   children_sampling?: string[];
   three_letter_code?: string;
+  stored_file_id?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;

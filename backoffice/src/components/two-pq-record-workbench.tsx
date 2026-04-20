@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -9,8 +9,12 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
+  FileCode2,
   FlaskConical,
+  FolderOpen,
   Link2,
   LoaderCircle,
   Plus,
@@ -153,6 +157,26 @@ type MultiSamplingEditProcessState = {
   errorTitle?: string;
   errorDetails?: string;
 };
+type TwoPQFileStorageSnapshot = {
+  main_case: {
+    id: string;
+    sibling_case_ids: string[];
+    parent_batch_id: string | null;
+    children_sampling_ids: string[];
+    last_updated: string;
+  };
+  entities: {
+    batches: Array<Record<string, unknown>>;
+    cases: Array<Record<string, unknown>>;
+    samplings: Array<Record<string, unknown>>;
+  };
+};
+type PublishFileStorageModalState = {
+  status: "loading" | "ready" | "publishing";
+  fileName: string;
+  snapshot: TwoPQFileStorageSnapshot | null;
+  preview: string;
+};
 const MULTI_SAMPLING_EDITABLE_FIELD_SET = new Set<MultiSamplingEditableFieldKey>(
   MULTI_SAMPLING_EDITABLE_FIELD_KEYS
 );
@@ -240,6 +264,14 @@ const THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME =
   "border-fuchsia-100 bg-white/82 text-fuchsia-950 shadow-[0_10px_24px_rgba(250,232,255,0.78)] hover:bg-fuchsia-50 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:shadow-none dark:hover:bg-fuchsia-900/34";
 const THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME =
   "rounded-[1.35rem] border border-dashed border-fuchsia-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.74),rgba(252,231,243,0.74))] px-4 py-5 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/20 dark:[background:linear-gradient(180deg,rgba(48,20,56,0.92),rgba(88,28,135,0.36))] dark:text-fuchsia-50/76";
+const FILE_STORAGE_SECTION_CLASSNAME =
+  "col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_44%,rgba(224,231,255,0.94))] shadow-[0_24px_72px_rgba(99,102,241,0.16)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_46%,rgba(79,70,229,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.88)]";
+const FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME =
+  "border border-indigo-100 bg-[linear-gradient(180deg,rgba(224,231,255,0.98),rgba(199,210,254,0.98))] text-indigo-950 shadow-[0_14px_34px_rgba(99,102,241,0.18)] hover:brightness-[1.02] dark:border-indigo-200/18 dark:bg-[linear-gradient(180deg,rgba(49,46,129,0.98),rgba(67,56,202,0.94))] dark:text-indigo-50 dark:shadow-none dark:hover:brightness-[1.06]";
+const FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME =
+  "border-indigo-100 bg-white/82 text-indigo-950 shadow-[0_10px_24px_rgba(224,231,255,0.86)] hover:bg-indigo-50 dark:border-indigo-200/18 dark:bg-indigo-950/28 dark:text-indigo-50 dark:shadow-none dark:hover:bg-indigo-900/34";
+const FILE_STORAGE_EMPTY_STATE_CLASSNAME =
+  "rounded-[1.35rem] border border-dashed border-indigo-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.76),rgba(224,231,255,0.76))] px-4 py-5 text-sm text-indigo-950/74 dark:border-indigo-300/20 dark:[background:linear-gradient(180deg,rgba(18,22,48,0.92),rgba(67,56,202,0.3))] dark:text-indigo-50/76";
 const AUTO_SAMPLING_MIN_COPIES = 1;
 const AUTO_SAMPLING_MAX_COPIES = 15;
 
@@ -275,6 +307,183 @@ function buildAutoSamplingPreviewItems(threeLetterCode: string, copies: number):
 function buildExpectedCaseLabelFromThreeLetterCode(threeLetterCode: string) {
   const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
   return normalizedThreeLetterCode.length === 3 ? `${normalizedThreeLetterCode}XXX` : "";
+}
+
+function toNullableTrimmedString(value?: string) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function uniqueStringValues(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+}
+
+function buildSnapshotScope(record: Pick<TwoPQRecord, "institutionId" | "doctorId" | "patientId">) {
+  return {
+    institutionId: record.institutionId,
+    doctorId: record.doctorId,
+    patientId: toNullableTrimmedString(record.patientId),
+  };
+}
+
+function buildSnapshotAudit(
+  record: Pick<TwoPQRecord, "createdByEmail" | "updatedByEmail">
+) {
+  return {
+    createdByEmail: toNullableTrimmedString(record.createdByEmail),
+    updatedByEmail: toNullableTrimmedString(record.updatedByEmail),
+  };
+}
+
+function buildSnapshotTimestamps(
+  record: Pick<TwoPQRecord, "createdAt" | "updatedAt">
+) {
+  return {
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
+function buildCaseSnapshotRecord(
+  record: TwoPQListItem,
+  samplingIds: string[]
+) {
+  return {
+    id: record.id,
+    kind: "case",
+    scope: buildSnapshotScope(record),
+    identity: {
+      caseLabel: toNullableTrimmedString(record.caseLabel),
+    },
+    classification: {
+      caseType: toNullableTrimmedString(record.caseType),
+    },
+    status: {
+      caseStatus: toNullableTrimmedString(record.caseStatus),
+      priority: toNullableTrimmedString(record.priority),
+    },
+    logistics: {
+      trackingNumber: toNullableTrimmedString(record.trackingNumber),
+      requestedAt: toNullableTrimmedString(record.requestedAt),
+      dueAt: toNullableTrimmedString(record.dueAt),
+    },
+    relations: {
+      batchId: toNullableTrimmedString(record.parent_batch),
+      samplingIds,
+    },
+    notes: toNullableTrimmedString(record.notes),
+    timestamps: buildSnapshotTimestamps(record),
+    audit: buildSnapshotAudit(record),
+  };
+}
+
+function buildBatchSnapshotRecord(record: TwoPQListItem, caseIds: string[]) {
+  return {
+    id: record.id,
+    kind: "batch",
+    scope: buildSnapshotScope(record),
+    identity: {
+      batchLabel:
+        toNullableTrimmedString(record.caseLabel) ??
+        toNullableTrimmedString(record.runId) ??
+        record.id,
+      runId: toNullableTrimmedString(record.runId),
+    },
+    status: {
+      analysisStatus: toNullableTrimmedString(record.analysisStatus),
+    },
+    execution: {
+      platform: toNullableTrimmedString(record.platform),
+      scheduling: toNullableTrimmedString(record.scheduling),
+      providerName: toNullableTrimmedString(record.providerName),
+      providerFormat: toNullableTrimmedString(record.providerFormat),
+      contactName: toNullableTrimmedString(record.contactName),
+      contactEmail: toNullableTrimmedString(record.contactEmail),
+      phoneNumber: toNullableTrimmedString(record.phoneNumber),
+    },
+    relations: {
+      caseIds,
+    },
+    notes: toNullableTrimmedString(record.notes),
+    timestamps: buildSnapshotTimestamps(record),
+    audit: buildSnapshotAudit(record),
+  };
+}
+
+function buildSamplingSnapshotRecord(record: TwoPQListItem) {
+  return {
+    id: record.id,
+    kind: "sampling",
+    scope: buildSnapshotScope(record),
+    identity: {
+      sampleId: toNullableTrimmedString(record.sampleId),
+      caseLabelSnapshot: toNullableTrimmedString(record.caseLabel),
+    },
+    specimen: {
+      sampleType: toNullableTrimmedString(record.sampleType),
+    },
+    status: {
+      processingStatus: toNullableTrimmedString(record.processingStatus),
+      qcStatus: toNullableTrimmedString(record.qcStatus),
+    },
+    dates: {
+      collectionDate: toNullableTrimmedString(record.collectionDate),
+      receptionDate: toNullableTrimmedString(record.receptionDate),
+      runId: toNullableTrimmedString(record.runId),
+    },
+    relations: {
+      caseId: toNullableTrimmedString(record.parent_case),
+    },
+    notes: toNullableTrimmedString(record.notes),
+    timestamps: buildSnapshotTimestamps(record),
+    audit: buildSnapshotAudit(record),
+  };
+}
+
+function buildTwoPQFileStorageSnapshot({
+  currentCase,
+  linkedBatch,
+  linkedSamplings,
+  siblingCases,
+}: {
+  currentCase: TwoPQListItem;
+  linkedBatch: TwoPQListItem | null;
+  linkedSamplings: TwoPQListItem[];
+  siblingCases: TwoPQListItem[];
+}): TwoPQFileStorageSnapshot {
+  const siblingCaseIds = siblingCases.map((record) => record.id);
+  const caseSamplingIds = linkedSamplings.map((record) => record.id);
+  const allCases = [
+    currentCase,
+    ...siblingCases.filter((record) => record.id !== currentCase.id),
+  ];
+  const allCaseIds = uniqueStringValues(allCases.map((record) => record.id));
+
+  return {
+    main_case: {
+      id: currentCase.id,
+      sibling_case_ids: siblingCaseIds,
+      parent_batch_id: toNullableTrimmedString(currentCase.parent_batch),
+      children_sampling_ids: caseSamplingIds,
+      last_updated: currentCase.updatedAt,
+    },
+    entities: {
+      batches: linkedBatch ? [buildBatchSnapshotRecord(linkedBatch, allCaseIds)] : [],
+      cases: allCases.map((record) =>
+        buildCaseSnapshotRecord(
+          record,
+          record.id === currentCase.id ? caseSamplingIds : record.children_sampling ?? []
+        )
+      ),
+      samplings: linkedSamplings.map((record) => buildSamplingSnapshotRecord(record)),
+    },
+  };
 }
 
 function isAutoSamplingFormComplete(config: AutoSamplingFormState) {
@@ -723,6 +932,11 @@ export function TwoPQRecordWorkbench({
   );
   const [multiSamplingEditProcess, setMultiSamplingEditProcess] =
     useState<MultiSamplingEditProcessState | null>(null);
+  const [publishFileStorageModal, setPublishFileStorageModal] =
+    useState<PublishFileStorageModalState | null>(null);
+  const [isPublishFileStoragePreviewExpanded, setIsPublishFileStoragePreviewExpanded] =
+    useState(false);
+  const publishFileStorageRequestIdRef = useRef(0);
 
   useEffect(() => {
     setThreeLetterCode(detail?.record.three_letter_code ?? "");
@@ -745,6 +959,9 @@ export function TwoPQRecordWorkbench({
     setIsMultiSamplingEditOpen(false);
     setMultiSamplingEditForm(buildInitialMultiSamplingEditFormState());
     setMultiSamplingEditProcess(null);
+    publishFileStorageRequestIdRef.current += 1;
+    setPublishFileStorageModal(null);
+    setIsPublishFileStoragePreviewExpanded(false);
     setPendingCaseLabelCorrection(false);
   }, [detail?.record.caseLabel, detail?.record.id]);
 
@@ -850,6 +1067,11 @@ export function TwoPQRecordWorkbench({
   const expectedCaseLabelFromThreeLetterCode =
     buildExpectedCaseLabelFromThreeLetterCode(normalizedThreeLetterCode);
   const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
+  const fileStorageSnapshotFileName =
+    buildExpectedCaseLabelFromThreeLetterCode(normalizedThreeLetterCode) ||
+    detail?.record.caseLabel?.trim() ||
+    detail?.record.id ||
+    "";
   const hasCaseLabelMismatchWarning =
     areaKey === "cases" &&
     mode !== "create" &&
@@ -932,6 +1154,15 @@ export function TwoPQRecordWorkbench({
   const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
   const linkedCases = detail?.linkedCases ?? [];
   const linkedSamplings = detail?.linkedSamplings ?? [];
+  const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
+  const hasStoredFileId = Boolean(storedFileId);
+  const hasFileStorageAccess = adminContext.role === "full_admin";
+  const canOpenPublishFileStorageModal =
+    areaKey === "cases" && mode !== "create" && hasThreeLetterCode && Boolean(detail);
+  const canPublishCaseToFileStorage =
+    canOpenPublishFileStorageModal &&
+    hasFileStorageAccess &&
+    Boolean(detail?.record.canUpdate);
   const canApplyMultiSamplingEdit =
     Boolean(detail?.record.canUpdate) &&
     linkedSamplings.length > 0 &&
@@ -1226,6 +1457,127 @@ export function TwoPQRecordWorkbench({
 
   function closeMultiSamplingEditModal() {
     setIsMultiSamplingEditOpen(false);
+  }
+
+  function closePublishFileStorageModal(force = false) {
+    if (publishFileStorageModal?.status === "publishing" && !force) {
+      return;
+    }
+
+    publishFileStorageRequestIdRef.current += 1;
+    setPublishFileStorageModal(null);
+    setIsPublishFileStoragePreviewExpanded(false);
+  }
+
+  async function openPublishFileStorageModal() {
+    if (!detail || !canOpenPublishFileStorageModal || !fileStorageSnapshotFileName) {
+      return;
+    }
+
+    const requestId = publishFileStorageRequestIdRef.current + 1;
+    publishFileStorageRequestIdRef.current = requestId;
+    setIsPublishFileStoragePreviewExpanded(false);
+    setPublishFileStorageModal({
+      status: "loading",
+      fileName: fileStorageSnapshotFileName,
+      snapshot: null,
+      preview: "",
+    });
+
+    try {
+      const siblingCases =
+        detail.record.parent_batch || linkedBatch?.id
+          ? (
+              await sdkFetch<{ records: TwoPQListItem[] }>("/2pq/cases")
+            ).records.filter(
+              (record) =>
+                record.parent_batch === (detail.record.parent_batch ?? linkedBatch?.id) &&
+                record.id !== detail.record.id
+            )
+          : [];
+      const snapshot = buildTwoPQFileStorageSnapshot({
+        currentCase: detail.record,
+        linkedBatch,
+        linkedSamplings,
+        siblingCases,
+      });
+      const preview = JSON.stringify(snapshot, null, 2);
+
+      if (publishFileStorageRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setPublishFileStorageModal({
+        status: "ready",
+        fileName: fileStorageSnapshotFileName,
+        snapshot,
+        preview,
+      });
+    } catch (error) {
+      if (publishFileStorageRequestIdRef.current !== requestId) {
+        return;
+      }
+      setPublishFileStorageModal(null);
+      pushErrorToast(
+        error,
+        "Unable to prepare the file-storage snapshot preview.",
+        "Prepare file-storage snapshot"
+      );
+    }
+  }
+
+  async function handlePublishToFileStorage() {
+    if (!detail || !publishFileStorageModal?.snapshot || !publishFileStorageModal.preview) {
+      return;
+    }
+
+    const modalState = publishFileStorageModal;
+    setPublishFileStorageModal({
+      ...modalState,
+      status: "publishing",
+    });
+
+    try {
+      const timestamp = new Date().toISOString();
+      const createResponse = await sdkFetch<{ document: { id: string } }>("/file-storage", {
+        method: "POST",
+        body: JSON.stringify({
+          data: {
+            file_name: modalState.fileName,
+            creator_email: adminContext.email,
+            linked_report_id: null,
+            file_type: "2pq",
+            file_content: modalState.preview,
+            creation_date: timestamp,
+            last_modified_date: timestamp,
+          },
+        }),
+      });
+
+      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/cases/${detail.record.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          stored_file_id: createResponse.document.id,
+        }),
+      });
+
+      closePublishFileStorageModal(true);
+      pushToast(
+        "success",
+        `Case snapshot published to file storage as ${modalState.fileName}.`
+      );
+      router.refresh();
+    } catch (error) {
+      setPublishFileStorageModal({
+        ...modalState,
+        status: "ready",
+      });
+      pushErrorToast(
+        error,
+        "Unable to publish this case snapshot to file storage.",
+        "Publish to File Storage"
+      );
+    }
   }
 
   function updateAutoSamplingConfig<Key extends keyof AutoSamplingFormState>(
@@ -2353,6 +2705,174 @@ export function TwoPQRecordWorkbench({
                 <Save className="h-4 w-4" />
               )}
               Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={publishFileStorageModal !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePublishFileStorageModal();
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="h-[min(56rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_50%,rgba(224,231,255,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.2)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_48%,rgba(79,70,229,0.2))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.34)]"
+        >
+          <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+              Publish to File Storage
+            </DialogTitle>
+            <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
+              Build a JSON snapshot from the current case, its linked batch, and its child
+              samplings, then publish that snapshot into the reusable file storage collection.
+            </DialogDescription>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => closePublishFileStorageModal()}
+              disabled={publishFileStorageModal?.status === "publishing"}
+              className="absolute right-5 top-5 h-9 w-9 rounded-full text-indigo-950 hover:bg-indigo-100/80 dark:text-indigo-50 dark:hover:bg-indigo-900/36"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close publish to file storage modal</span>
+            </Button>
+          </DialogHeader>
+
+          <div className="min-h-0 overflow-y-auto overscroll-contain">
+            {publishFileStorageModal?.status === "loading" ? (
+              <div className="flex min-h-full flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-indigo-200/90 bg-white/78 text-indigo-700 shadow-[0_18px_44px_rgba(165,180,252,0.34)] dark:border-indigo-300/18 dark:bg-indigo-950/24 dark:text-indigo-200 dark:shadow-none">
+                  <LoaderCircle className="h-7 w-7 animate-spin" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/54 dark:text-indigo-50/58">
+                    Building snapshot
+                  </p>
+                  <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    Preparing the publish_file_storage_modal preview
+                  </h3>
+                  <p className="max-w-xl text-sm text-indigo-950/68 dark:text-indigo-50/72">
+                    Pulling the latest linked case graph and generating the JSON snapshot preview
+                    for file storage.
+                  </p>
+                </div>
+              </div>
+            ) : publishFileStorageModal ? (
+              <div className="space-y-6 px-6 py-5">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[1.25rem] border border-indigo-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                      File name
+                    </p>
+                    <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                      {publishFileStorageModal.fileName}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.25rem] border border-indigo-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                      Case ID
+                    </p>
+                    <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                      {detail?.record.id}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.25rem] border border-indigo-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                      Snapshot nodes
+                    </p>
+                    <p className="mt-2 text-sm text-indigo-950 dark:text-indigo-50">
+                      {publishFileStorageModal.snapshot?.entities.batches.length ?? 0} batch,{" "}
+                      {publishFileStorageModal.snapshot?.entities.cases.length ?? 0} case,{" "}
+                      {publishFileStorageModal.snapshot?.entities.samplings.length ?? 0} sampling
+                    </p>
+                  </div>
+                </div>
+
+                {changed ? (
+                  <div className="rounded-[1.25rem] border border-amber-200/90 bg-amber-50/86 px-4 py-4 text-sm text-amber-950/82 dark:border-amber-300/22 dark:bg-amber-500/12 dark:text-amber-100/84">
+                    Unsaved edits in this workbench are not included in the snapshot. Publish uses
+                    the saved case detail currently loaded from Firebase.
+                  </div>
+                ) : null}
+
+                <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                        Snapshot JSON preview
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-950/68 dark:text-indigo-50/72">
+                        Scroll the preview below to inspect the autogenerated case snapshot before
+                        it is published into file storage.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setIsPublishFileStoragePreviewExpanded((current) => !current)
+                      }
+                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                    >
+                      {isPublishFileStoragePreviewExpanded ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                      {isPublishFileStoragePreviewExpanded ? "Compact preview" : "Expand preview"}
+                    </Button>
+                  </div>
+                  <Textarea
+                    readOnly
+                    value={publishFileStorageModal.preview}
+                    className={`mt-4 resize-none border-indigo-100 bg-white/90 font-mono text-xs leading-6 text-indigo-950 dark:border-indigo-200/18 dark:bg-indigo-950/32 dark:text-indigo-50 ${
+                      isPublishFileStoragePreviewExpanded
+                        ? "min-h-[34rem] max-h-[68vh]"
+                        : "min-h-[20rem] max-h-[26rem]"
+                    } overflow-y-auto`}
+                  />
+                </div>
+
+                <div className="rounded-[1.35rem] border border-indigo-100 bg-white/72 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:text-indigo-50/72">
+                  Publishing creates a new <span className="font-mono">file_storage</span> record
+                  and writes the returned document id into{" "}
+                  <span className="font-mono">stored_file_id</span> on this case.
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePublishFileStorageModal()}
+              disabled={publishFileStorageModal?.status === "publishing"}
+              className={`${FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handlePublishToFileStorage()}
+              disabled={
+                !publishFileStorageModal?.snapshot ||
+                publishFileStorageModal.status === "loading" ||
+                publishFileStorageModal.status === "publishing"
+              }
+              className={`${FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              {publishFileStorageModal?.status === "publishing" ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileCode2 className="h-4 w-4" />
+              )}
+              Publish
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3821,6 +4341,99 @@ export function TwoPQRecordWorkbench({
             </RelationSection>
           ) : null}
             </div>
+          ) : null}
+
+          {areaKey === "cases" && mode !== "create" && hasThreeLetterCode ? (
+            <section className={FILE_STORAGE_SECTION_CLASSNAME}>
+              <div className="flex flex-col gap-4 border-b border-indigo-200/70 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                      Publish to File Storage
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className="border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
+                    >
+                      {hasStoredFileId ? "Published" : "Not published"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 max-w-3xl text-sm text-indigo-950/72 dark:text-indigo-50/74">
+                    Generate a reusable JSON snapshot of this case, its parent batch, and its child
+                    samplings, then publish that snapshot into the Firebase{" "}
+                    <code>file_storage</code> collection.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {hasStoredFileId && hasFileStorageAccess ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                    >
+                      <Link href={`/collections/file_storage/${storedFileId}`}>
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        Show in File Storage
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void openPublishFileStorageModal()}
+                    disabled={!canPublishCaseToFileStorage}
+                    className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
+                  >
+                    <FileCode2 className="h-3.5 w-3.5" />
+                    Publish to File Storage
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1.1fr),minmax(0,1fr),minmax(0,1fr)]">
+                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                    6-character file name
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                    {fileStorageSnapshotFileName}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    Derived from the case three-letter code as the canonical publish name.
+                  </p>
+                </div>
+                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Stored file status
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                    {hasStoredFileId
+                      ? "A stored file is already linked to this case."
+                      : "No stored file has been published yet."}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    {!hasFileStorageAccess
+                      ? "Only full admins can open or publish file_storage documents from this section."
+                      : hasStoredFileId
+                      ? "Publishing again creates a new file and replaces the stored_file_id pointer on this case."
+                      : "Publishing will create a new file and save its document id on this case as stored_file_id."}
+                  </p>
+                </div>
+                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                    stored_file_id
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                    {hasStoredFileId ? storedFileId : "Not saved yet"}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    This field is written back into the case entity in Firebase after publish.
+                  </p>
+                </div>
+              </div>
+            </section>
           ) : null}
 
           {areaKey === "cases" && mode !== "create" ? (
