@@ -1582,9 +1582,18 @@ export function TwoPQRecordWorkbench({
 
     const nextThreeLetterCode =
       threeLetterCodeModal === "remove" ? "" : normalizedThreeLetterCodeDraft;
+    const nextCaseLabel = nextThreeLetterCode
+      ? buildExpectedCaseLabelFromThreeLetterCode(nextThreeLetterCode)
+      : "";
 
     if (mode === "create" && areaKey === "cases") {
       setThreeLetterCode(nextThreeLetterCode);
+      if (nextCaseLabel) {
+        setState((current) => ({
+          ...current,
+          caseLabel: nextCaseLabel,
+        }));
+      }
       closeThreeLetterCodeModal(true);
       pushToast(
         "success",
@@ -1607,10 +1616,17 @@ export function TwoPQRecordWorkbench({
         method: "PATCH",
         body: JSON.stringify({
           three_letter_code: nextThreeLetterCode,
+          ...(nextCaseLabel ? { caseLabel: nextCaseLabel } : {}),
         }),
       });
 
       setThreeLetterCode(nextThreeLetterCode);
+      if (nextCaseLabel) {
+        setState((current) => ({
+          ...current,
+          caseLabel: nextCaseLabel,
+        }));
+      }
       closeThreeLetterCodeModal(true);
       pushToast(
         "success",
