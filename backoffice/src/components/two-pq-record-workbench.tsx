@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CheckCircle2,
+  FlaskConical,
   Link2,
   LoaderCircle,
   Plus,
@@ -48,6 +49,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import {
@@ -73,6 +81,36 @@ type ErrorLogState = {
   details: string;
 };
 type ThreeLetterCodeModalMode = "manual" | "random" | "remove";
+type AutoSamplingFormState = {
+  caseLabel: string;
+  sampleType: string;
+  processingStatus: string;
+  collectionDate: string;
+  receptionDate: string;
+  runId: string;
+  qcStatus: string;
+  notes: string;
+};
+type AutoSamplingPreviewItem = {
+  order: number;
+  threeNumberCode: string;
+  sixCharacterCode: string;
+};
+type AutoSamplingProcessItem = AutoSamplingPreviewItem & {
+  attempts: number;
+  status: "pending" | "running" | "success" | "error";
+  samplingRecordId?: string;
+  errorTitle?: string;
+  errorDetails?: string;
+};
+type AutoSamplingProcessState = {
+  config: AutoSamplingFormState;
+  items: AutoSamplingProcessItem[];
+  status: "running" | "paused" | "validating" | "success";
+  currentIndex: number | null;
+  errorTitle?: string;
+  errorDetails?: string;
+};
 
 const CREATION_CONFETTI = [
   { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
@@ -157,6 +195,45 @@ const THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME =
   "border-fuchsia-100 bg-white/82 text-fuchsia-950 shadow-[0_10px_24px_rgba(250,232,255,0.78)] hover:bg-fuchsia-50 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:shadow-none dark:hover:bg-fuchsia-900/34";
 const THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME =
   "rounded-[1.35rem] border border-dashed border-fuchsia-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.74),rgba(252,231,243,0.74))] px-4 py-5 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/20 dark:[background:linear-gradient(180deg,rgba(48,20,56,0.92),rgba(88,28,135,0.36))] dark:text-fuchsia-50/76";
+const AUTO_SAMPLING_MIN_COPIES = 1;
+const AUTO_SAMPLING_MAX_COPIES = 15;
+
+function clampAutoSamplingCopies(value: number) {
+  if (!Number.isFinite(value)) {
+    return AUTO_SAMPLING_MIN_COPIES;
+  }
+
+  return Math.min(AUTO_SAMPLING_MAX_COPIES, Math.max(AUTO_SAMPLING_MIN_COPIES, Math.trunc(value)));
+}
+
+function formatThreeNumberCode(value: number) {
+  return String(Math.max(0, Math.trunc(value))).padStart(3, "0");
+}
+
+function buildSixCharacterCode(threeLetterCode: string, order: number) {
+  return `${normalizeThreeLetterCodeInput(threeLetterCode)}${formatThreeNumberCode(order)}`;
+}
+
+function buildAutoSamplingPreviewItems(threeLetterCode: string, copies: number): AutoSamplingPreviewItem[] {
+  const normalizedCopies = clampAutoSamplingCopies(copies);
+  return Array.from({ length: normalizedCopies }, (_, index) => {
+    const order = index + 1;
+    const threeNumberCode = formatThreeNumberCode(order);
+    return {
+      order,
+      threeNumberCode,
+      sixCharacterCode: buildSixCharacterCode(threeLetterCode, order),
+    };
+  });
+}
+
+function isAutoSamplingFormComplete(config: AutoSamplingFormState) {
+  return Boolean(
+    config.caseLabel.trim() &&
+      config.sampleType.trim() &&
+      config.processingStatus.trim()
+  );
+}
 
 function normalizeThreeLetterCodeInput(value: string) {
   return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
@@ -553,10 +630,53 @@ export function TwoPQRecordWorkbench({
     useState<ThreeLetterCodeModalMode | null>(null);
   const [threeLetterCodeDraft, setThreeLetterCodeDraft] = useState("");
   const [pendingThreeLetterCodeAction, setPendingThreeLetterCodeAction] = useState(false);
+  const [isAutoSamplingSetupOpen, setIsAutoSamplingSetupOpen] = useState(false);
+  const [autoSamplingConfig, setAutoSamplingConfig] = useState<AutoSamplingFormState>(() => ({
+    caseLabel: detail?.record.caseLabel ?? "",
+    sampleType: "",
+    processingStatus: "awaiting_reception",
+    collectionDate: "",
+    receptionDate: "",
+    runId: "",
+    qcStatus: "",
+    notes: "",
+  }));
+  const [autoSamplingCopies, setAutoSamplingCopies] = useState(AUTO_SAMPLING_MIN_COPIES);
+  const [autoSamplingProcess, setAutoSamplingProcess] = useState<AutoSamplingProcessState | null>(
+    null
+  );
 
   useEffect(() => {
     setThreeLetterCode(detail?.record.three_letter_code ?? "");
   }, [detail?.record.three_letter_code]);
+
+  useEffect(() => {
+    setAutoSamplingConfig({
+      caseLabel: detail?.record.caseLabel ?? "",
+      sampleType: "",
+      processingStatus: "awaiting_reception",
+      collectionDate: "",
+      receptionDate: "",
+      runId: "",
+      qcStatus: "",
+      notes: "",
+    });
+    setAutoSamplingCopies(AUTO_SAMPLING_MIN_COPIES);
+    setIsAutoSamplingSetupOpen(false);
+    setAutoSamplingProcess(null);
+  }, [detail?.record.caseLabel, detail?.record.id]);
+
+  useEffect(() => {
+    if (autoSamplingProcess?.status !== "success") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAutoSamplingProcess(null);
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [autoSamplingProcess?.status]);
 
   const sourceState = useMemo(
     () => toFormState(detail?.record, defaults),
@@ -609,11 +729,70 @@ export function TwoPQRecordWorkbench({
   const batchArea = getTwoPQAreaConfig("sequencing")!;
   const caseArea = getTwoPQAreaConfig("cases")!;
   const samplingArea = getTwoPQAreaConfig("sampling")!;
+  const autoSamplingProcessingOptions =
+    samplingArea.fieldGroups
+      .flatMap((group) => group.fields)
+      .find((field) => field.key === "processingStatus")?.options ?? [];
   const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
   const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
   const normalizedThreeLetterCodeDraft = normalizeThreeLetterCodeInput(threeLetterCodeDraft);
   const canConfirmThreeLetterCode =
     threeLetterCodeModal === "remove" ? hasThreeLetterCode : normalizedThreeLetterCodeDraft.length === 3;
+  const autoSamplingPreviewItems = useMemo(
+    () => buildAutoSamplingPreviewItems(normalizedThreeLetterCode, autoSamplingCopies),
+    [autoSamplingCopies, normalizedThreeLetterCode]
+  );
+  const autoSamplingInventoryQuery = useQuery({
+    queryKey: ["2pq-auto-sampling-records"],
+    queryFn: () => sdkFetch<{ records: TwoPQListItem[] }>("/2pq/sampling"),
+    enabled:
+      areaKey === "cases" &&
+      mode !== "create" &&
+      hasThreeLetterCode &&
+      (isAutoSamplingSetupOpen || Boolean(autoSamplingProcess)),
+    staleTime: 30_000,
+  });
+  const existingSamplingSampleIds = useMemo(
+    () =>
+      new Set(
+        (autoSamplingInventoryQuery.data?.records ?? [])
+          .map((record) => record.sampleId?.trim().toUpperCase())
+          .filter((sampleId): sampleId is string => Boolean(sampleId))
+      ),
+    [autoSamplingInventoryQuery.data?.records]
+  );
+  const autoSamplingConflictingCodes = useMemo(
+    () =>
+      autoSamplingPreviewItems
+        .filter((item) => existingSamplingSampleIds.has(item.sixCharacterCode))
+        .map((item) => item.sixCharacterCode),
+    [autoSamplingPreviewItems, existingSamplingSampleIds]
+  );
+  const canGenerateAutoSampling =
+    Boolean(detail?.record.canUpdate) &&
+    isAutoSamplingFormComplete(autoSamplingConfig) &&
+    autoSamplingConflictingCodes.length === 0 &&
+    !autoSamplingInventoryQuery.isFetching &&
+    !autoSamplingInventoryQuery.isError &&
+    !autoSamplingProcess;
+  const autoSamplingSuccessfulCount =
+    autoSamplingProcess?.items.filter((item) => item.status === "success").length ?? 0;
+  const autoSamplingErroredCount =
+    autoSamplingProcess?.items.filter((item) => item.status === "error").length ?? 0;
+  const autoSamplingPendingCount =
+    autoSamplingProcess?.items.filter((item) => item.status === "pending").length ?? 0;
+  const autoSamplingProgressPercent = autoSamplingProcess
+    ? autoSamplingProcess.status === "success"
+      ? 100
+      : autoSamplingProcess.status === "validating"
+        ? 96
+        : Math.max(
+            4,
+            Math.round(
+              (autoSamplingSuccessfulCount / Math.max(autoSamplingProcess.items.length, 1)) * 100
+            )
+          )
+    : 0;
   const linkedBatch = mode === "create" ? draftBatch : detail?.linkedBatch ?? null;
   const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
   const linkedCases = detail?.linkedCases ?? [];
@@ -855,6 +1034,327 @@ export function TwoPQRecordWorkbench({
     } finally {
       setPendingThreeLetterCodeAction(false);
     }
+  }
+
+  function openAutoSamplingSetupModal() {
+    if (!detail) {
+      return;
+    }
+
+    setAutoSamplingConfig({
+      caseLabel: detail.record.caseLabel ?? "",
+      sampleType: "",
+      processingStatus: autoSamplingProcessingOptions[0]?.value ?? "awaiting_reception",
+      collectionDate: "",
+      receptionDate: "",
+      runId: "",
+      qcStatus: "",
+      notes: "",
+    });
+    setAutoSamplingCopies(AUTO_SAMPLING_MIN_COPIES);
+    setIsAutoSamplingSetupOpen(true);
+  }
+
+  function closeAutoSamplingSetupModal() {
+    setIsAutoSamplingSetupOpen(false);
+  }
+
+  function updateAutoSamplingConfig<Key extends keyof AutoSamplingFormState>(
+    key: Key,
+    value: AutoSamplingFormState[Key]
+  ) {
+    setAutoSamplingConfig((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function handleAutoSamplingCopiesChange(value: number) {
+    setAutoSamplingCopies(clampAutoSamplingCopies(value));
+  }
+
+  function openAutoSamplingProcessErrorLog() {
+    if (!autoSamplingProcess?.errorDetails) {
+      return;
+    }
+
+    setLatestErrorLog({
+      title: autoSamplingProcess.errorTitle ?? "Auto sampling error",
+      details: autoSamplingProcess.errorDetails,
+    });
+    setCopiedErrorLog(false);
+    setIsErrorLogOpen(true);
+  }
+
+  async function lookupSamplingBySampleId(sampleId: string) {
+    const response = await sdkFetch<{ records: TwoPQListItem[] }>(
+      `/2pq/sampling?query=${encodeURIComponent(sampleId)}`
+    );
+
+    return response.records.find(
+      (record) => record.sampleId?.trim().toUpperCase() === sampleId.toUpperCase()
+    );
+  }
+
+  function buildAutoSamplingPayload(config: AutoSamplingFormState, sampleId: string) {
+    if (!detail) {
+      throw new Error("Case detail is required to generate linked samplings.");
+    }
+
+    const payload: Record<string, string> = {
+      institutionId: detail.record.institutionId,
+      doctorId: detail.record.doctorId,
+      parent_case: detail.record.id,
+      caseLabel: config.caseLabel.trim(),
+      sampleId,
+      sampleType: config.sampleType.trim(),
+      processingStatus: config.processingStatus.trim(),
+    };
+
+    if (detail.record.patientId) {
+      payload.patientId = detail.record.patientId;
+    }
+    if (config.collectionDate) {
+      payload.collectionDate = config.collectionDate;
+    }
+    if (config.receptionDate) {
+      payload.receptionDate = config.receptionDate;
+    }
+    if (config.runId.trim()) {
+      payload.runId = config.runId.trim();
+    }
+    if (config.qcStatus.trim()) {
+      payload.qcStatus = config.qcStatus.trim();
+    }
+    if (config.notes.trim()) {
+      payload.notes = config.notes.trim();
+    }
+
+    return payload;
+  }
+
+  async function validateAutoSamplingProcess(items: AutoSamplingProcessItem[]) {
+    if (!detail) {
+      throw new Error("Case detail is required for validation.");
+    }
+
+    const caseDetail = await sdkFetch<TwoPQDetailRecord>(`/2pq/cases/${detail.record.id}`);
+    const linkedSamplingIds = new Set(caseDetail.linkedSamplings.map((record) => record.id));
+
+    for (const item of items) {
+      if (!item.samplingRecordId) {
+        throw new Error(`Sampling ${item.sixCharacterCode} is missing a created record id.`);
+      }
+
+      const samplingDetail = await sdkFetch<TwoPQDetailRecord>(
+        `/2pq/sampling/${item.samplingRecordId}`
+      );
+      const linkedSampleId = samplingDetail.record.sampleId?.trim().toUpperCase() ?? "";
+
+      if (linkedSampleId !== item.sixCharacterCode) {
+        throw new Error(
+          `Sampling ${item.sixCharacterCode} was created with sample ID ${linkedSampleId || "<empty>"}.`
+        );
+      }
+
+      if (samplingDetail.record.parent_case !== detail.record.id) {
+        throw new Error(
+          `Sampling ${item.sixCharacterCode} is linked to case ${samplingDetail.record.parent_case ?? "<none>"} instead of ${detail.record.id}.`
+        );
+      }
+
+      if (!linkedSamplingIds.has(item.samplingRecordId)) {
+        throw new Error(
+          `Current case ${detail.record.id} does not list sampling ${item.samplingRecordId} in linked samplings.`
+        );
+      }
+    }
+  }
+
+  async function finalizeAutoSamplingProcess(
+    items: AutoSamplingProcessItem[],
+    config: AutoSamplingFormState
+  ) {
+    setAutoSamplingProcess({
+      config,
+      items,
+      status: "validating",
+      currentIndex: null,
+    });
+
+    try {
+      await validateAutoSamplingProcess(items);
+      await autoSamplingInventoryQuery.refetch();
+      router.refresh();
+      pushToast(
+        "success",
+        `${items.length} sampling record${items.length === 1 ? "" : "s"} created and linked.`
+      );
+      setAutoSamplingProcess({
+        config,
+        items,
+        status: "success",
+        currentIndex: null,
+      });
+    } catch (error) {
+      const presentation = getErrorPresentation(error, "Final validation failed.");
+      setAutoSamplingProcess({
+        config,
+        items,
+        status: "paused",
+        currentIndex: null,
+        errorTitle: "Auto sampling validation",
+        errorDetails: presentation.details,
+      });
+    }
+  }
+
+  async function runAutoSamplingProcess(
+    items: AutoSamplingProcessItem[],
+    config: AutoSamplingFormState,
+    startIndex: number
+  ) {
+    if (!detail) {
+      return;
+    }
+
+    const nextItems = items.map((item) => ({ ...item }));
+
+    for (let index = startIndex; index < nextItems.length; index += 1) {
+      if (nextItems[index].status === "success") {
+        continue;
+      }
+
+      nextItems[index] = {
+        ...nextItems[index],
+        attempts: nextItems[index].attempts + 1,
+        status: "running",
+        errorTitle: undefined,
+        errorDetails: undefined,
+      };
+      setAutoSamplingProcess({
+        config,
+        items: [...nextItems],
+        status: "running",
+        currentIndex: index,
+      });
+
+      try {
+        const existingSampling = await lookupSamplingBySampleId(nextItems[index].sixCharacterCode);
+        if (existingSampling) {
+          if (existingSampling.parent_case !== detail.record.id) {
+            throw new Error(
+              `Sample ID ${nextItems[index].sixCharacterCode} is already used by sampling ${existingSampling.id}.`
+            );
+          }
+
+          nextItems[index] = {
+            ...nextItems[index],
+            status: "success",
+            samplingRecordId: existingSampling.id,
+          };
+          setAutoSamplingProcess({
+            config,
+            items: [...nextItems],
+            status: "running",
+            currentIndex: index,
+          });
+          continue;
+        }
+
+        const response = await sdkFetch<{ record: TwoPQRecord }>("/2pq/sampling", {
+          method: "POST",
+          body: JSON.stringify(
+            buildAutoSamplingPayload(config, nextItems[index].sixCharacterCode)
+          ),
+        });
+
+        nextItems[index] = {
+          ...nextItems[index],
+          status: "success",
+          samplingRecordId: response.record.id,
+        };
+        setAutoSamplingProcess({
+          config,
+          items: [...nextItems],
+          status: "running",
+          currentIndex: index,
+        });
+      } catch (error) {
+        const presentation = getErrorPresentation(
+          error,
+          `Unable to create sampling ${nextItems[index].sixCharacterCode}.`
+        );
+        nextItems[index] = {
+          ...nextItems[index],
+          status: "error",
+          errorTitle: `Create ${nextItems[index].sixCharacterCode}`,
+          errorDetails: presentation.details,
+        };
+        setAutoSamplingProcess({
+          config,
+          items: [...nextItems],
+          status: "paused",
+          currentIndex: index,
+          errorTitle: `Create ${nextItems[index].sixCharacterCode}`,
+          errorDetails: presentation.details,
+        });
+        return;
+      }
+    }
+
+    await finalizeAutoSamplingProcess(nextItems, config);
+  }
+
+  function handleStartAutoSamplingProcess() {
+    if (!detail || !canGenerateAutoSampling) {
+      return;
+    }
+
+    const config: AutoSamplingFormState = {
+      caseLabel: autoSamplingConfig.caseLabel.trim(),
+      sampleType: autoSamplingConfig.sampleType.trim(),
+      processingStatus: autoSamplingConfig.processingStatus.trim(),
+      collectionDate: autoSamplingConfig.collectionDate,
+      receptionDate: autoSamplingConfig.receptionDate,
+      runId: autoSamplingConfig.runId.trim(),
+      qcStatus: autoSamplingConfig.qcStatus.trim(),
+      notes: autoSamplingConfig.notes.trim(),
+    };
+    const items: AutoSamplingProcessItem[] = autoSamplingPreviewItems.map((item) => ({
+      ...item,
+      attempts: 0,
+      status: "pending",
+    }));
+
+    setIsAutoSamplingSetupOpen(false);
+    setAutoSamplingProcess({
+      config,
+      items,
+      status: "running",
+      currentIndex: 0,
+    });
+    void runAutoSamplingProcess(items, config, 0);
+  }
+
+  function handleRetryAutoSamplingProcess() {
+    if (!autoSamplingProcess) {
+      return;
+    }
+
+    if (autoSamplingProcess.currentIndex === null) {
+      void finalizeAutoSamplingProcess(
+        autoSamplingProcess.items.map((item) => ({ ...item })),
+        autoSamplingProcess.config
+      );
+      return;
+    }
+
+    void runAutoSamplingProcess(
+      autoSamplingProcess.items.map((item) => ({ ...item })),
+      autoSamplingProcess.config,
+      autoSamplingProcess.currentIndex
+    );
   }
 
   function syncDraftScope(
@@ -1421,6 +1921,529 @@ export function TwoPQRecordWorkbench({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={isAutoSamplingSetupOpen} onOpenChange={setIsAutoSamplingSetupOpen}>
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-5xl overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+        >
+          <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+              Add multiple samplings at once
+            </DialogTitle>
+            <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
+              Configure one sampling template, then generate sequential sampling records linked to
+              the current case one by one.
+            </DialogDescription>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={closeAutoSamplingSetupModal}
+              className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close multiple sampling modal</span>
+            </Button>
+          </DialogHeader>
+
+          <div className="space-y-6 px-6 py-5">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                  Parent case ID
+                </p>
+                <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                  {detail?.record.id}
+                </p>
+              </div>
+              <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                  Three letter code
+                </p>
+                <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                  {normalizedThreeLetterCode}
+                </p>
+              </div>
+              <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                  Sample ID pattern
+                </p>
+                <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                  {autoSamplingPreviewItems[0]?.sixCharacterCode}...
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="auto-sampling-case-label">Case label</Label>
+                <Input
+                  id="auto-sampling-case-label"
+                  value={autoSamplingConfig.caseLabel}
+                  onChange={(event) => updateAutoSamplingConfig("caseLabel", event.target.value)}
+                  placeholder="CMS-2026-001"
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  This label is written into every generated sampling record.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auto-sampling-sample-type">Sample type</Label>
+                <Input
+                  id="auto-sampling-sample-type"
+                  value={autoSamplingConfig.sampleType}
+                  onChange={(event) => updateAutoSamplingConfig("sampleType", event.target.value)}
+                  placeholder="Blood"
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Required. This value is copied into each sampling.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Processing status</Label>
+                <Select
+                  value={autoSamplingConfig.processingStatus}
+                  onValueChange={(value) => updateAutoSamplingConfig("processingStatus", value)}
+                >
+                  <SelectTrigger className="w-full border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50">
+                    <SelectValue placeholder="Select processing status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {autoSamplingProcessingOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Required. All generated samplings start with this processing state.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auto-sampling-run-id">Run ID</Label>
+                <Input
+                  id="auto-sampling-run-id"
+                  value={autoSamplingConfig.runId}
+                  onChange={(event) => updateAutoSamplingConfig("runId", event.target.value)}
+                  placeholder="SEQ-0007"
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Optional batch or sequencing run pointer.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auto-sampling-collection-date">Collection date</Label>
+                <Input
+                  id="auto-sampling-collection-date"
+                  type="date"
+                  value={autoSamplingConfig.collectionDate}
+                  onChange={(event) =>
+                    updateAutoSamplingConfig("collectionDate", event.target.value)
+                  }
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Optional collection date copied into every generated record.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auto-sampling-reception-date">Reception date</Label>
+                <Input
+                  id="auto-sampling-reception-date"
+                  type="date"
+                  value={autoSamplingConfig.receptionDate}
+                  onChange={(event) =>
+                    updateAutoSamplingConfig("receptionDate", event.target.value)
+                  }
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Optional reception date copied into every generated record.
+                </p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="auto-sampling-qc-status">QC status</Label>
+                <Input
+                  id="auto-sampling-qc-status"
+                  value={autoSamplingConfig.qcStatus}
+                  onChange={(event) => updateAutoSamplingConfig("qcStatus", event.target.value)}
+                  placeholder="Passed"
+                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                />
+                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                  Optional quality-control outcome shared by the generated set.
+                </p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="auto-sampling-notes">Notes</Label>
+                <Textarea
+                  id="auto-sampling-notes"
+                  value={autoSamplingConfig.notes}
+                  onChange={(event) => updateAutoSamplingConfig("notes", event.target.value)}
+                  placeholder="Reception issues, missing tubes, or extraction notes..."
+                  className="min-h-[7rem] border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="space-y-2">
+                  <Label htmlFor="auto-sampling-copies">Number of copies</Label>
+                  <Input
+                    id="auto-sampling-copies"
+                    type="number"
+                    min={AUTO_SAMPLING_MIN_COPIES}
+                    max={AUTO_SAMPLING_MAX_COPIES}
+                    value={autoSamplingCopies}
+                    onChange={(event) =>
+                      handleAutoSamplingCopiesChange(Number.parseInt(event.target.value || "1", 10))
+                    }
+                    className="w-32 border-fuchsia-100 bg-white/92 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
+                  />
+                </div>
+                <div className="w-full lg:max-w-xl">
+                  <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    <span>1</span>
+                    <span>{autoSamplingCopies}</span>
+                    <span>15</span>
+                  </div>
+                  <input
+                    id="auto-sampling-slider"
+                    type="range"
+                    min={AUTO_SAMPLING_MIN_COPIES}
+                    max={AUTO_SAMPLING_MAX_COPIES}
+                    step={1}
+                    value={autoSamplingCopies}
+                    onChange={(event) =>
+                      handleAutoSamplingCopiesChange(Number.parseInt(event.target.value, 10))
+                    }
+                    className="h-3 w-full cursor-pointer accent-fuchsia-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-heading text-lg font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                    6 character codes to be generated
+                  </h3>
+                  <p className="mt-1 text-sm text-fuchsia-950/68 dark:text-fuchsia-50/72">
+                    Each sequential sampling will use the current case three-letter code plus its
+                    matching 3 number code as the final sample ID.
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                >
+                  {autoSamplingPreviewItems.length} planned
+                </Badge>
+              </div>
+
+              {autoSamplingInventoryQuery.isFetching ? (
+                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                  Validating existing sampling IDs before generation...
+                </div>
+              ) : null}
+
+              {autoSamplingInventoryQuery.isError ? (
+                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                  Existing sampling IDs could not be validated right now. Fix the connection issue
+                  before running this batch.
+                </div>
+              ) : null}
+
+              {autoSamplingConflictingCodes.length > 0 ? (
+                <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                  These sample IDs already exist and block generation:{" "}
+                  <span className="font-mono">{autoSamplingConflictingCodes.join(", ")}</span>
+                </div>
+              ) : null}
+
+              {!isAutoSamplingFormComplete(autoSamplingConfig) ? (
+                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                  Fill the required fields: case label, sample type, and processing status.
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {autoSamplingPreviewItems.map((item) => (
+                  <div
+                    key={item.sixCharacterCode}
+                    className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge
+                        variant="outline"
+                        className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                      >
+                        {item.threeNumberCode}
+                      </Badge>
+                      <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
+                        #{item.order}
+                      </span>
+                    </div>
+                    <p className="mt-3 font-mono text-xl font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
+                      {item.sixCharacterCode}
+                    </p>
+                    <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
+                      Sample ID to be created for this sequential sampling slot.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 border-fuchsia-100/90 bg-white/55 px-6 py-5 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeAutoSamplingSetupModal}
+              className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleStartAutoSamplingProcess}
+              disabled={!canGenerateAutoSampling}
+              className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              <FlaskConical className="h-4 w-4" />
+              Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(autoSamplingProcess)}
+        onOpenChange={(open) => {
+          if (
+            !open &&
+            autoSamplingProcess &&
+            autoSamplingProcess.status !== "running" &&
+            autoSamplingProcess.status !== "validating" &&
+            autoSamplingProcess.status !== "success"
+          ) {
+            setAutoSamplingProcess(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-5xl overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+        >
+          {autoSamplingProcess?.status === "success" ? (
+            <div className="relative overflow-hidden px-6 py-10 text-center">
+              {CREATION_CONFETTI.map((particle, index) => (
+                <span
+                  key={`auto-sampling-success-${particle.left}-${particle.delay}-${index}`}
+                  className="two-pq-confetti absolute h-3 w-3 rounded-[5px]"
+                  style={{
+                    left: particle.left,
+                    top: particle.top,
+                    background: particle.color,
+                    animationDelay: particle.delay,
+                    animationDuration: particle.duration,
+                  }}
+                />
+              ))}
+              <div className="relative flex flex-col items-center">
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-200/18 text-emerald-50 shadow-[0_0_0_14px_rgba(74,222,128,0.12)]">
+                  <span className="two-pq-success-ring absolute inset-0 rounded-full border border-emerald-200/55" />
+                  <CheckCircle2 className="h-12 w-12" />
+                </div>
+                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-950/62 dark:text-fuchsia-50/72">
+                  Auto Sampling Creation Modal
+                </p>
+                <h3 className="mt-2 font-heading text-3xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                  Sequential sampling batch completed
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/76">
+                  All {autoSamplingProcess.items.length} sampling records were created, validated,
+                  and linked to case <span className="font-mono">{detail?.record.id}</span>.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
+                <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                  Auto sampling creation modal
+                </DialogTitle>
+                <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
+                  Sampling records are generated sequentially with the current case as their linked
+                  parent case.
+                </DialogDescription>
+                {autoSamplingProcess?.status === "paused" ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setAutoSamplingProcess(null)}
+                    className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close auto sampling creation modal</span>
+                  </Button>
+                ) : null}
+              </DialogHeader>
+
+              <div className="space-y-5 px-6 py-5">
+                <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Process progress
+                      </p>
+                      <p className="mt-2 text-sm text-fuchsia-950/72 dark:text-fuchsia-50/72">
+                        {autoSamplingProcess?.status === "running"
+                          ? `Creating ${autoSamplingProcess.items[autoSamplingProcess.currentIndex ?? 0]?.sixCharacterCode ?? ""} right now.`
+                          : autoSamplingProcess?.status === "validating"
+                            ? "Running the final validation pass across every created sampling."
+                            : "The process is paused. Review the error, then retry from the blocked step."}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                    >
+                      {autoSamplingProgressPercent}%
+                    </Badge>
+                  </div>
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-fuchsia-100/90 dark:bg-fuchsia-950/50">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,rgba(217,70,239,0.92),rgba(168,85,247,0.96))] transition-[width] duration-300"
+                      style={{ width: `${autoSamplingProgressPercent}%` }}
+                    />
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[1.15rem] border border-fuchsia-100 bg-white/78 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Created
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                        {autoSamplingSuccessfulCount}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.15rem] border border-fuchsia-100 bg-white/78 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Pending
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                        {autoSamplingPendingCount}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.15rem] border border-fuchsia-100 bg-white/78 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Blocked
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                        {autoSamplingErroredCount}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {autoSamplingProcess?.status === "paused" ? (
+                  <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                    {autoSamplingProcess.errorTitle ?? "Auto sampling paused"}. Retry continues from
+                    the blocked sequential step.
+                  </div>
+                ) : null}
+
+                <div className="grid max-h-[420px] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+                  {autoSamplingProcess?.items.map((item) => (
+                    <div
+                      key={`auto-sampling-process-${item.sixCharacterCode}`}
+                      className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              item.status === "success"
+                                ? "success"
+                                : item.status === "error"
+                                  ? "destructive"
+                                  : item.status === "running"
+                                    ? "brand"
+                                    : "outline"
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                          <span className="font-mono text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
+                            {item.threeNumberCode}
+                          </span>
+                        </div>
+                        <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
+                          Attempt {item.attempts}
+                        </span>
+                      </div>
+                      <p className="mt-3 font-mono text-lg font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
+                        {item.sixCharacterCode}
+                      </p>
+                      <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
+                        Sample ID for sequential slot #{item.order}.
+                      </p>
+                      {item.samplingRecordId ? (
+                        <p className="mt-3 text-xs text-fuchsia-950/68 dark:text-fuchsia-50/68">
+                          Created record:{" "}
+                          <span className="font-mono">{item.samplingRecordId}</span>
+                        </p>
+                      ) : null}
+                      {item.status === "error" ? (
+                        <p className="mt-3 text-xs text-destructive">
+                          Generation paused on this item. Inspect the error log for details.
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {autoSamplingProcess?.status === "paused" ? (
+                <DialogFooter className="gap-3 border-fuchsia-100/90 bg-white/55 px-6 py-5 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openAutoSamplingProcessErrorLog}
+                    disabled={!autoSamplingProcess.errorDetails}
+                    className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+                  >
+                    <Copy className="h-4 w-4" />
+                    Inspect error
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleRetryAutoSamplingProcess}
+                    className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Retry
+                  </Button>
+                </DialogFooter>
+              ) : null}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <RelationSelectionDialog
         open={relationDialog === "case-parent-batch"}
         onOpenChange={handleRelationDialogChange}
@@ -1680,6 +2703,18 @@ export function TwoPQRecordWorkbench({
                       <Plus className="h-3.5 w-3.5" />
                       Link existing
                     </Button>
+                    {hasThreeLetterCode ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={openAutoSamplingSetupModal}
+                        disabled={!canManageRelations || Boolean(autoSamplingProcess)}
+                        className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+                      >
+                        <FlaskConical className="h-3.5 w-3.5" />
+                        Add multiple samplings at once
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
                       asChild
