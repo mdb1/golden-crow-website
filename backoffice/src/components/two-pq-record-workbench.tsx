@@ -171,12 +171,14 @@ type TwoPQFileStorageSnapshot = {
     samplings: Array<Record<string, unknown>>;
   };
 };
+type FileStorageModalMode = "publish" | "update";
 type PublishFileStorageModalState = {
+  mode: FileStorageModalMode;
   status: "loading" | "ready" | "publishing";
   fileName: string;
   snapshot: TwoPQFileStorageSnapshot | null;
   preview: string;
-  autoPublish: boolean;
+  autoSubmit: boolean;
 };
 type StoredFileDocumentRecord = {
   id: string;
@@ -1341,6 +1343,9 @@ export function TwoPQRecordWorkbench({
     formatDateTimeWithSeconds(caseLastUpdatedDate) ?? "Not available";
   const formattedStoredFileLastModifiedDate =
     formatDateTimeWithSeconds(storedFileLastModifiedDate);
+  const fileStoragePrimaryActionLabel = hasStoredFileId
+    ? "Update in File Storage"
+    : "Publish to File Storage";
 
   useEffect(() => {
     if (isPublishedAsReportCode) {
@@ -1669,20 +1674,26 @@ export function TwoPQRecordWorkbench({
     setIsPublishReportCodeModalOpen(false);
   }
 
-  async function openPublishFileStorageModal(autoPublish = false) {
+  async function openPublishFileStorageModal(options?: {
+    mode?: FileStorageModalMode;
+    autoSubmit?: boolean;
+  }) {
     if (!detail || !canOpenPublishFileStorageModal || !fileStorageSnapshotFileName) {
       return;
     }
 
+    const mode = options?.mode ?? (hasStoredFileId ? "update" : "publish");
+    const autoSubmit = options?.autoSubmit ?? false;
     const requestId = publishFileStorageRequestIdRef.current + 1;
     publishFileStorageRequestIdRef.current = requestId;
     setIsPublishFileStoragePreviewExpanded(false);
     setPublishFileStorageModal({
+      mode,
       status: "loading",
       fileName: fileStorageSnapshotFileName,
       snapshot: null,
       preview: "",
-      autoPublish,
+      autoSubmit,
     });
 
     try {
@@ -1709,11 +1720,12 @@ export function TwoPQRecordWorkbench({
       }
 
       setPublishFileStorageModal({
+        mode,
         status: "ready",
         fileName: fileStorageSnapshotFileName,
         snapshot,
         preview,
-        autoPublish,
+        autoSubmit,
       });
     } catch (error) {
       if (publishFileStorageRequestIdRef.current !== requestId) {
@@ -1739,49 +1751,74 @@ export function TwoPQRecordWorkbench({
     setPublishFileStorageModal({
       ...modalState,
       status: "publishing",
-      autoPublish: false,
+      autoSubmit: false,
     });
 
     try {
       const timestamp = new Date().toISOString();
-      const createResponse = await sdkFetch<{ document: { id: string } }>("/file-storage", {
-        method: "POST",
-        body: JSON.stringify({
-          data: {
-            file_name: modalState.fileName,
-            creator_email: adminContext.email,
-            linked_report_id: null,
-            file_type: "2pq",
-            file_content: modalState.preview,
-            creation_date: timestamp,
-            last_modified_date: timestamp,
-          },
-        }),
-      });
+      if (modalState.mode === "update") {
+        if (!storedFileId) {
+          throw new Error("No stored_file_id is linked to this case.");
+        }
 
-      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/cases/${detail.record.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          stored_file_id: createResponse.document.id,
-        }),
-      });
+        await sdkFetch<{ document: { id: string } }>(`/file-storage/${storedFileId}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            data: {
+              file_name: modalState.fileName,
+              creator_email: adminContext.email,
+              file_type: "2pq",
+              file_content: modalState.preview,
+              last_modified_date: timestamp,
+            },
+          }),
+        });
+
+        await storedFileDocumentQuery.refetch();
+      } else {
+        const createResponse = await sdkFetch<{ document: { id: string } }>("/file-storage", {
+          method: "POST",
+          body: JSON.stringify({
+            data: {
+              file_name: modalState.fileName,
+              creator_email: adminContext.email,
+              linked_report_id: null,
+              file_type: "2pq",
+              file_content: modalState.preview,
+              creation_date: timestamp,
+              last_modified_date: timestamp,
+            },
+          }),
+        });
+
+        await sdkFetch<{ record: TwoPQRecord }>(`/2pq/cases/${detail.record.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            stored_file_id: createResponse.document.id,
+          }),
+        });
+      }
 
       closePublishFileStorageModal(true);
       pushToast(
         "success",
-        `Case snapshot published to file storage as ${modalState.fileName}.`
+        modalState.mode === "update"
+          ? `Case snapshot updated in file storage as ${modalState.fileName}.`
+          : `Case snapshot published to file storage as ${modalState.fileName}.`
       );
       router.refresh();
     } catch (error) {
       setPublishFileStorageModal({
         ...modalState,
         status: "ready",
-        autoPublish: false,
+        autoSubmit: false,
       });
       pushErrorToast(
         error,
-        "Unable to publish this case snapshot to file storage.",
-        "Publish to File Storage"
+        modalState.mode === "update"
+          ? "Unable to update this case snapshot in file storage."
+          : "Unable to publish this case snapshot to file storage.",
+        modalState.mode === "update" ? "Update in File Storage" : "Publish to File Storage"
       );
     }
   }
@@ -1790,7 +1827,7 @@ export function TwoPQRecordWorkbench({
     if (
       !publishFileStorageModal ||
       publishFileStorageModal.status !== "ready" ||
-      !publishFileStorageModal.autoPublish
+      !publishFileStorageModal.autoSubmit
     ) {
       return;
     }
@@ -1798,11 +1835,11 @@ export function TwoPQRecordWorkbench({
     const modalState = publishFileStorageModal;
     setPublishFileStorageModal({
       ...modalState,
-      autoPublish: false,
+      autoSubmit: false,
     });
     void handlePublishToFileStorage({
       ...modalState,
-      autoPublish: false,
+      autoSubmit: false,
     });
   }, [publishFileStorageModal]);
 
@@ -2988,11 +3025,14 @@ export function TwoPQRecordWorkbench({
         >
           <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-              Publish to File Storage
+              {publishFileStorageModal?.mode === "update"
+                ? "Update in File Storage"
+                : "Publish to File Storage"}
             </DialogTitle>
             <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
-              Build a JSON snapshot from the current case, its linked batch, and its child
-              samplings, then publish that snapshot into the reusable file storage collection.
+              {publishFileStorageModal?.mode === "update"
+                ? "Build a fresh JSON snapshot from the current case, its linked batch, and its child samplings, then update the existing file_storage record in place."
+                : "Build a JSON snapshot from the current case, its linked batch, and its child samplings, then publish that snapshot into the reusable file storage collection."}
             </DialogDescription>
             <Button
               type="button"
@@ -3003,7 +3043,11 @@ export function TwoPQRecordWorkbench({
               className="absolute right-5 top-5 h-9 w-9 rounded-full text-indigo-950 hover:bg-indigo-100/80 dark:text-indigo-50 dark:hover:bg-indigo-900/36"
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">Close publish to file storage modal</span>
+              <span className="sr-only">
+                {publishFileStorageModal?.mode === "update"
+                  ? "Close update in file storage modal"
+                  : "Close publish to file storage modal"}
+              </span>
             </Button>
           </DialogHeader>
 
@@ -3018,11 +3062,14 @@ export function TwoPQRecordWorkbench({
                     Building snapshot
                   </p>
                   <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
-                    Preparing the publish_file_storage_modal preview
+                    {publishFileStorageModal?.mode === "update"
+                      ? "Preparing the update preview"
+                      : "Preparing the publish preview"}
                   </h3>
                   <p className="max-w-xl text-sm text-indigo-950/68 dark:text-indigo-50/72">
-                    Pulling the latest linked case graph and generating the JSON snapshot preview
-                    for file storage.
+                    {publishFileStorageModal?.mode === "update"
+                      ? "Pulling the latest linked case graph and generating the JSON snapshot preview that will replace the current stored file contents."
+                      : "Pulling the latest linked case graph and generating the JSON snapshot preview for file storage."}
                   </p>
                 </div>
               </div>
@@ -3059,8 +3106,8 @@ export function TwoPQRecordWorkbench({
 
                 {changed ? (
                   <div className="rounded-[1.25rem] border border-amber-200/90 bg-amber-50/86 px-4 py-4 text-sm text-amber-950/82 dark:border-amber-300/22 dark:bg-amber-500/12 dark:text-amber-100/84">
-                    Unsaved edits in this workbench are not included in the snapshot. Publish uses
-                    the saved case detail currently loaded from Firebase.
+                    Unsaved edits in this workbench are not included in the snapshot. This flow
+                    uses the saved case detail currently loaded from Firebase.
                   </div>
                 ) : null}
 
@@ -3071,8 +3118,9 @@ export function TwoPQRecordWorkbench({
                         Snapshot JSON preview
                       </h3>
                       <p className="mt-1 text-sm text-indigo-950/68 dark:text-indigo-50/72">
-                        Scroll the preview below to inspect the autogenerated case snapshot before
-                        it is published into file storage.
+                        {publishFileStorageModal.mode === "update"
+                          ? "Scroll the preview below to inspect the autogenerated case snapshot before it overwrites the current file storage snapshot."
+                          : "Scroll the preview below to inspect the autogenerated case snapshot before it is published into file storage."}
                       </p>
                     </div>
                     <Button
@@ -3104,9 +3152,19 @@ export function TwoPQRecordWorkbench({
                 </div>
 
                 <div className="rounded-[1.35rem] border border-indigo-100 bg-white/72 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:text-indigo-50/72">
-                  Publishing creates a new <span className="font-mono">file_storage</span> record
-                  and writes the returned document id into{" "}
-                  <span className="font-mono">stored_file_id</span> on this case.
+                  {publishFileStorageModal.mode === "update" ? (
+                    <>
+                      Updating rewrites the existing <span className="font-mono">file_storage</span>{" "}
+                      record in place and keeps the current{" "}
+                      <span className="font-mono">stored_file_id</span> linked to this case.
+                    </>
+                  ) : (
+                    <>
+                      Publishing creates a new <span className="font-mono">file_storage</span>{" "}
+                      record and writes the returned document id into{" "}
+                      <span className="font-mono">stored_file_id</span> on this case.
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}
@@ -3137,7 +3195,7 @@ export function TwoPQRecordWorkbench({
               ) : (
                 <FileCode2 className="h-4 w-4" />
               )}
-              Publish
+              {publishFileStorageModal?.mode === "update" ? "Update" : "Publish"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -4982,9 +5040,11 @@ export function TwoPQRecordWorkbench({
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
-                    Generate a reusable JSON snapshot of this case, its parent batch, and its child
-                    samplings, then publish that snapshot into the Firebase{" "}
-                    <code>file_storage</code> collection.
+                    {hasStoredFileId
+                      ? "Inspect the current stored snapshot metadata, then update the linked Firebase "
+                      : "Generate a reusable JSON snapshot of this case, its parent batch, and its child samplings, then publish that snapshot into the Firebase "}
+                    <code>file_storage</code>
+                    {hasStoredFileId ? " document in place." : " collection."}
                   </p>
                 </button>
                 <div className="flex flex-wrap gap-2">
@@ -5005,12 +5065,16 @@ export function TwoPQRecordWorkbench({
                   <Button
                     type="button"
                     size="sm"
-                    onClick={() => void openPublishFileStorageModal()}
+                    onClick={() =>
+                      void openPublishFileStorageModal({
+                        mode: hasStoredFileId ? "update" : "publish",
+                      })
+                    }
                     disabled={!canPublishCaseToFileStorage}
                     className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
                   >
                     <FileCode2 className="h-3.5 w-3.5" />
-                    Publish to File Storage
+                    {fileStoragePrimaryActionLabel}
                   </Button>
                 </div>
               </div>
@@ -5037,24 +5101,24 @@ export function TwoPQRecordWorkbench({
                         ? "A stored file is already linked to this case."
                         : "No stored file has been published yet."}
                     </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    {!hasFileStorageAccess
-                      ? "Only full admins can open or publish file_storage documents from this section."
-                      : hasStoredFileId
-                        ? "Publishing again creates a new file and replaces the stored_file_id pointer on this case."
-                        : "Publishing will create a new file and save its document id on this case as stored_file_id."}
-                  </p>
-                  {hasStoredFileId ? (
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                      Stored file last updated:{" "}
-                      <span className="font-medium text-indigo-950 dark:text-indigo-50">
-                        {storedFileDocumentQuery.isLoading
-                          ? "Checking..."
-                          : formattedStoredFileLastModifiedDate ?? "Not available"}
-                      </span>
+                      {!hasFileStorageAccess
+                        ? "Only full admins can open, publish, or update file_storage documents from this section."
+                        : hasStoredFileId
+                          ? "Updating rewrites the current file_storage snapshot in place and keeps this case linked to the same stored_file_id."
+                          : "Publishing will create a new file and save its document id on this case as stored_file_id."}
                     </p>
-                  ) : null}
-                </div>
+                    {hasStoredFileId ? (
+                      <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                        Stored file last updated:{" "}
+                        <span className="font-medium text-indigo-950 dark:text-indigo-50">
+                          {storedFileDocumentQuery.isLoading
+                            ? "Checking..."
+                            : formattedStoredFileLastModifiedDate ?? "Not available"}
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
                   <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
                       stored_file_id
@@ -5081,7 +5145,7 @@ export function TwoPQRecordWorkbench({
                           <span className="font-medium">
                             {formattedStoredFileLastModifiedDate ?? "at an unknown time"}
                           </span>
-                          . Publish again so the file storage snapshot reflects the latest case
+                          . Update it so the file storage snapshot reflects the latest case
                           information.
                         </p>
                       </div>
@@ -5089,12 +5153,16 @@ export function TwoPQRecordWorkbench({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => void openPublishFileStorageModal(true)}
+                        onClick={() =>
+                          void openPublishFileStorageModal({
+                            mode: "update",
+                            autoSubmit: true,
+                          })
+                        }
                         disabled={!canPublishCaseToFileStorage}
                         className="h-9 shrink-0 border border-amber-300/90 bg-white/90 px-4 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
                       >
-                        <FileCode2 className="h-4 w-4" />
-                        Correct
+                        Update
                       </Button>
                     </div>
                   </div>
