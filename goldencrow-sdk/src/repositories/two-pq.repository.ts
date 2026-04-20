@@ -277,6 +277,7 @@ const DEFAULT_RECORD_FIELDS: Array<keyof TwoPQRecord> = [
   "parent_case",
   "three_letter_code",
   "stored_file_id",
+  "last_updated_date",
   "caseLabel",
   "caseStatus",
   "caseType",
@@ -460,7 +461,14 @@ function buildEmptyRecord(
     doctorId,
     createdAt,
     updatedAt,
+    ...(areaKey === "cases" ? { last_updated_date: updatedAt } : {}),
   };
+}
+
+function setCaseLastUpdatedDate(record: TwoPQRecord, timestamp: string) {
+  if (record.areaKey === "cases") {
+    record.last_updated_date = timestamp;
+  }
 }
 
 function toDoctorRecord(id: string, data: Record<string, unknown>): DoctorRecord {
@@ -1062,6 +1070,7 @@ async function syncParentRelationForRecord(
       {
         children_sampling: FieldValue.arrayRemove(existing.id),
         linkedSamplingIds: FieldValue.arrayRemove(existing.id),
+        last_updated_date: now,
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1075,6 +1084,7 @@ async function syncParentRelationForRecord(
       {
         children_sampling: FieldValue.arrayUnion(nextRecord.id),
         linkedSamplingIds: FieldValue.arrayUnion(nextRecord.id),
+        last_updated_date: now,
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1423,6 +1433,7 @@ async function linkSamplingToCaseInTransaction(
       {
         children_sampling: FieldValue.arrayRemove(samplingRecord.id),
         linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+        last_updated_date: now,
         updatedAt: now,
         updatedByEmail: context.email,
       },
@@ -1435,6 +1446,7 @@ async function linkSamplingToCaseInTransaction(
     {
       children_sampling: FieldValue.arrayUnion(samplingRecord.id),
       linkedSamplingIds: FieldValue.arrayUnion(samplingRecord.id),
+      last_updated_date: now,
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1466,6 +1478,7 @@ async function unlinkSamplingFromCaseInTransaction(
     {
       children_sampling: FieldValue.arrayRemove(samplingRecord.id),
       linkedSamplingIds: FieldValue.arrayRemove(samplingRecord.id),
+      last_updated_date: now,
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -1679,6 +1692,7 @@ export async function createTwoPQRecordForContext(
     "replace"
   );
   await ensureUniqueCaseThreeLetterCode(document.three_letter_code);
+  setCaseLastUpdatedDate(document, now);
 
   const requestedBatchId =
     areaKey === "cases" ? normalizeOptionalString(payload.parent_batch) : undefined;
@@ -1852,6 +1866,7 @@ export async function replaceTwoPQRecordForContext(
   nextRecord.createdByEmail = existing.createdByEmail;
   nextRecord.updatedAt = new Date().toISOString();
   nextRecord.updatedByEmail = context.email;
+  setCaseLastUpdatedDate(nextRecord, nextRecord.updatedAt);
 
   await ensureUniqueCaseThreeLetterCode(nextRecord.three_letter_code, existing.id);
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
@@ -1924,6 +1939,7 @@ export async function updateTwoPQRecordForContext(
 
   nextRecord.updatedAt = new Date().toISOString();
   nextRecord.updatedByEmail = context.email;
+  setCaseLastUpdatedDate(nextRecord, nextRecord.updatedAt);
 
   for (const field of AREA_CONFIG[areaKey].requiredFields) {
     if (!nextRecord[field]) {
@@ -2017,6 +2033,7 @@ export async function linkCaseToBatchForContext(
     {
       parent_batch: batchId,
       batchId,
+      last_updated_date: now,
       updatedAt: now,
       updatedByEmail: context.email,
     },
@@ -2071,6 +2088,7 @@ export async function unlinkCaseFromBatchForContext(
       {
         parent_batch: null,
         batchId: null,
+        last_updated_date: now,
         updatedAt: now,
         updatedByEmail: context.email,
       },

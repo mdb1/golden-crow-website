@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
+import { formatDateTime } from "@/lib/moderation-utils";
 import {
   type TwoPQAreaConfig,
   type TwoPQAreaKey,
@@ -334,6 +335,15 @@ function buildExpectedCaseLabelFromThreeLetterCode(threeLetterCode: string) {
 
 function getTrimmedUnknownString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function toTimestampOrNull(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function resolveStoredFileLinkedReportCode(document: StoredFileDocumentRecord | null | undefined) {
@@ -1255,6 +1265,21 @@ export function TwoPQRecordWorkbench({
   });
   const storedFileDocument = storedFileDocumentQuery.data ?? null;
   const storedFileLinkedReportCode = resolveStoredFileLinkedReportCode(storedFileDocument);
+  const storedFileLastModifiedDate =
+    getTrimmedUnknownString(storedFileDocument?.data.last_modified_date) ??
+    getTrimmedUnknownString(storedFileDocument?.data.creation_date) ??
+    "";
+  const caseLastUpdatedDate =
+    detail?.record.last_updated_date?.trim() ?? detail?.record.updatedAt?.trim() ?? "";
+  const caseLastUpdatedTimestamp = toTimestampOrNull(caseLastUpdatedDate);
+  const storedFileLastModifiedTimestamp = toTimestampOrNull(storedFileLastModifiedDate);
+  const isStoredFileSnapshotStale =
+    hasStoredFileId &&
+    storedFileDocumentQuery.isSuccess &&
+    Boolean(storedFileDocument) &&
+    caseLastUpdatedTimestamp !== null &&
+    storedFileLastModifiedTimestamp !== null &&
+    caseLastUpdatedTimestamp > storedFileLastModifiedTimestamp;
   const reportCodeStatus = reportCodeStatusQuery.data ?? null;
   const reportCodeLinkedFileId = reportCodeStatus?.linkedFileId?.trim() ?? "";
   const isStoredFileDocumentMissing =
@@ -1294,6 +1319,8 @@ export function TwoPQRecordWorkbench({
     !reportCodeStatusQuery.isError &&
     !reportCodePublishConflictMessage &&
     !isPublishedAsReportCode;
+  const formattedCaseLastUpdatedDate = formatDateTime(caseLastUpdatedDate) ?? "Not available";
+  const formattedStoredFileLastModifiedDate = formatDateTime(storedFileLastModifiedDate);
 
   useEffect(() => {
     if (isPublishedAsReportCode) {
@@ -4247,67 +4274,77 @@ export function TwoPQRecordWorkbench({
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{area.summary}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setState(sourceState)}
-              disabled={!changed || pendingAction !== null}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </Button>
-            {mode === "create" ? null : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleReplace()}
-                  disabled={!canReplace || !changed || pendingAction !== null}
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  {pendingAction === "replace" ? "Replacing..." : "Replace"}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => void handleUpdate()}
-                  disabled={!canUpdate || !changed || pendingAction !== null}
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  {pendingAction === "update" ? "Updating..." : "Update"}
-                </Button>
-                {canDelete ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={pendingAction !== null}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogMedia className="bg-destructive/12 text-destructive">
-                          <AlertTriangle className="h-5 w-5" />
-                        </AlertDialogMedia>
-                        <AlertDialogTitle>Delete {area.label} record?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This removes the Firestore document from <code>{area.collectionKey}</code>.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          onClick={() => void handleDelete()}
-                        >
-                          Delete record
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : null}
-              </>
-            )}
+          <div className="flex flex-col items-start gap-3 lg:items-end">
+            {area.key === "cases" && mode !== "create" ? (
+              <div className="rounded-[1rem] border border-border/70 bg-background/72 px-4 py-3 text-left shadow-sm lg:text-right">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Case Last Updated
+                </p>
+                <p className="mt-1 text-sm font-medium text-foreground">{formattedCaseLastUpdatedDate}</p>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setState(sourceState)}
+                disabled={!changed || pendingAction !== null}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </Button>
+              {mode === "create" ? null : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleReplace()}
+                    disabled={!canReplace || !changed || pendingAction !== null}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {pendingAction === "replace" ? "Replacing..." : "Replace"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => void handleUpdate()}
+                    disabled={!canUpdate || !changed || pendingAction !== null}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {pendingAction === "update" ? "Updating..." : "Update"}
+                  </Button>
+                  {canDelete ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={pendingAction !== null}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogMedia className="bg-destructive/12 text-destructive">
+                            <AlertTriangle className="h-5 w-5" />
+                          </AlertDialogMedia>
+                          <AlertDialogTitle>Delete {area.label} record?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This removes the Firestore document from <code>{area.collectionKey}</code>.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => void handleDelete()}
+                          >
+                            Delete record
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -4954,14 +4991,24 @@ export function TwoPQRecordWorkbench({
                         ? "A stored file is already linked to this case."
                         : "No stored file has been published yet."}
                     </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    {!hasFileStorageAccess
+                      ? "Only full admins can open or publish file_storage documents from this section."
+                      : hasStoredFileId
+                        ? "Publishing again creates a new file and replaces the stored_file_id pointer on this case."
+                        : "Publishing will create a new file and save its document id on this case as stored_file_id."}
+                  </p>
+                  {hasStoredFileId ? (
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                      {!hasFileStorageAccess
-                        ? "Only full admins can open or publish file_storage documents from this section."
-                        : hasStoredFileId
-                          ? "Publishing again creates a new file and replaces the stored_file_id pointer on this case."
-                          : "Publishing will create a new file and save its document id on this case as stored_file_id."}
+                      Stored file last updated:{" "}
+                      <span className="font-medium text-indigo-950 dark:text-indigo-50">
+                        {storedFileDocumentQuery.isLoading
+                          ? "Checking..."
+                          : formattedStoredFileLastModifiedDate ?? "Not available"}
+                      </span>
                     </p>
-                  </div>
+                  ) : null}
+                </div>
                   <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
                       stored_file_id
@@ -4972,6 +5019,25 @@ export function TwoPQRecordWorkbench({
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                       This field is written back into the case entity in Firebase after publish.
                     </p>
+                  </div>
+                </div>
+              ) : null}
+              {isStoredFileSnapshotStale ? (
+                <div className="px-5 pb-5">
+                  <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                      <p>
+                        The current stored file snapshot may be out of date. This case was updated{" "}
+                        <span className="font-medium">{formattedCaseLastUpdatedDate}</span>, while
+                        the published stored file was last updated{" "}
+                        <span className="font-medium">
+                          {formattedStoredFileLastModifiedDate ?? "at an unknown time"}
+                        </span>
+                        . Publish again so the file storage snapshot reflects the latest case
+                        information.
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : null}
