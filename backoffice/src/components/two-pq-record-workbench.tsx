@@ -1924,7 +1924,7 @@ export function TwoPQRecordWorkbench({
       <Dialog open={isAutoSamplingSetupOpen} onOpenChange={setIsAutoSamplingSetupOpen}>
         <DialogContent
           showCloseButton={false}
-          className="max-w-5xl overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+          className="max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
         >
           <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
@@ -1946,7 +1946,7 @@ export function TwoPQRecordWorkbench({
             </Button>
           </DialogHeader>
 
-          <div className="space-y-6 px-6 py-5">
+          <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-5">
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
@@ -2180,31 +2180,33 @@ export function TwoPQRecordWorkbench({
                 </div>
               ) : null}
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {autoSamplingPreviewItems.map((item) => (
-                  <div
-                    key={item.sixCharacterCode}
-                    className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge
-                        variant="outline"
-                        className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
-                      >
-                        {item.threeNumberCode}
-                      </Badge>
-                      <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
-                        #{item.order}
-                      </span>
+              <div className="-mx-1 overflow-x-auto pb-1">
+                <div className="grid min-w-max grid-flow-col auto-cols-[minmax(17rem,19rem)] gap-3 px-1 sm:auto-cols-[minmax(18rem,20rem)]">
+                  {autoSamplingPreviewItems.map((item) => (
+                    <div
+                      key={item.sixCharacterCode}
+                      className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <Badge
+                          variant="outline"
+                          className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                        >
+                          {item.threeNumberCode}
+                        </Badge>
+                        <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
+                          #{item.order}
+                        </span>
+                      </div>
+                      <p className="mt-3 font-mono text-xl font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
+                        {item.sixCharacterCode}
+                      </p>
+                      <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
+                        Sample ID to be created for this sequential sampling slot.
+                      </p>
                     </div>
-                    <p className="mt-3 font-mono text-xl font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
-                      {item.sixCharacterCode}
-                    </p>
-                    <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
-                      Sample ID to be created for this sequential sampling slot.
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
