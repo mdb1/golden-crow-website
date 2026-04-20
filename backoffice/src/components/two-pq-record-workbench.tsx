@@ -2703,18 +2703,6 @@ export function TwoPQRecordWorkbench({
                       <Plus className="h-3.5 w-3.5" />
                       Link existing
                     </Button>
-                    {hasThreeLetterCode ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={openAutoSamplingSetupModal}
-                        disabled={!canManageRelations || Boolean(autoSamplingProcess)}
-                        className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
-                      >
-                        <FlaskConical className="h-3.5 w-3.5" />
-                        Add multiple samplings at once
-                      </Button>
-                    ) : null}
                     <Button
                       size="sm"
                       asChild
@@ -2854,6 +2842,18 @@ export function TwoPQRecordWorkbench({
                       <Plus className="h-3.5 w-3.5" />
                       Link existing
                     </Button>
+                    {hasThreeLetterCode ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={openAutoSamplingSetupModal}
+                        disabled={!canManageRelations || Boolean(autoSamplingProcess)}
+                        className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+                      >
+                        <FlaskConical className="h-3.5 w-3.5" />
+                        Add multiple samplings at once
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
                       asChild
