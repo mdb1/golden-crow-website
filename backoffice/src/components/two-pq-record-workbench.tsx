@@ -1924,7 +1924,7 @@ export function TwoPQRecordWorkbench({
       <Dialog open={isAutoSamplingSetupOpen} onOpenChange={setIsAutoSamplingSetupOpen}>
         <DialogContent
           showCloseButton={false}
-          className="max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+          className="h-[min(54rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
         >
           <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
@@ -1946,8 +1946,9 @@ export function TwoPQRecordWorkbench({
             </Button>
           </DialogHeader>
 
-          <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-5">
-            <div className="grid gap-3 md:grid-cols-3">
+          <div className="min-h-0 overflow-y-auto overscroll-contain">
+            <div className="space-y-6 px-6 py-5">
+              <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
                   Parent case ID
@@ -1972,9 +1973,9 @@ export function TwoPQRecordWorkbench({
                   {autoSamplingPreviewItems[0]?.sixCharacterCode}...
                 </p>
               </div>
-            </div>
+              </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="auto-sampling-case-label">Case label</Label>
                 <Input
@@ -2095,117 +2096,118 @@ export function TwoPQRecordWorkbench({
                   className="min-h-[7rem] border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
                 />
               </div>
-            </div>
+              </div>
 
-            <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div className="space-y-2">
-                  <Label htmlFor="auto-sampling-copies">Number of copies</Label>
-                  <Input
-                    id="auto-sampling-copies"
-                    type="number"
-                    min={AUTO_SAMPLING_MIN_COPIES}
-                    max={AUTO_SAMPLING_MAX_COPIES}
-                    value={autoSamplingCopies}
-                    onChange={(event) =>
-                      handleAutoSamplingCopiesChange(Number.parseInt(event.target.value || "1", 10))
-                    }
-                    className="w-32 border-fuchsia-100 bg-white/92 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
-                  />
-                </div>
-                <div className="w-full lg:max-w-xl">
-                  <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
-                    <span>1</span>
-                    <span>{autoSamplingCopies}</span>
-                    <span>15</span>
+              <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="space-y-2">
+                    <Label htmlFor="auto-sampling-copies">Number of copies</Label>
+                    <Input
+                      id="auto-sampling-copies"
+                      type="number"
+                      min={AUTO_SAMPLING_MIN_COPIES}
+                      max={AUTO_SAMPLING_MAX_COPIES}
+                      value={autoSamplingCopies}
+                      onChange={(event) =>
+                        handleAutoSamplingCopiesChange(Number.parseInt(event.target.value || "1", 10))
+                      }
+                      className="w-32 border-fuchsia-100 bg-white/92 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
+                    />
                   </div>
-                  <input
-                    id="auto-sampling-slider"
-                    type="range"
-                    min={AUTO_SAMPLING_MIN_COPIES}
-                    max={AUTO_SAMPLING_MAX_COPIES}
-                    step={1}
-                    value={autoSamplingCopies}
-                    onChange={(event) =>
-                      handleAutoSamplingCopiesChange(Number.parseInt(event.target.value, 10))
-                    }
-                    className="h-3 w-full cursor-pointer accent-fuchsia-600"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-heading text-lg font-semibold text-fuchsia-950 dark:text-fuchsia-50">
-                    6 character codes to be generated
-                  </h3>
-                  <p className="mt-1 text-sm text-fuchsia-950/68 dark:text-fuchsia-50/72">
-                    Each sequential sampling will use the current case three-letter code plus its
-                    matching 3 number code as the final sample ID.
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
-                >
-                  {autoSamplingPreviewItems.length} planned
-                </Badge>
-              </div>
-
-              {autoSamplingInventoryQuery.isFetching ? (
-                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
-                  Validating existing sampling IDs before generation...
-                </div>
-              ) : null}
-
-              {autoSamplingInventoryQuery.isError ? (
-                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
-                  Existing sampling IDs could not be validated right now. Fix the connection issue
-                  before running this batch.
-                </div>
-              ) : null}
-
-              {autoSamplingConflictingCodes.length > 0 ? (
-                <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
-                  These sample IDs already exist and block generation:{" "}
-                  <span className="font-mono">{autoSamplingConflictingCodes.join(", ")}</span>
-                </div>
-              ) : null}
-
-              {!isAutoSamplingFormComplete(autoSamplingConfig) ? (
-                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
-                  Fill the required fields: case label, sample type, and processing status.
-                </div>
-              ) : null}
-
-              <div className="-mx-1 overflow-x-auto pb-1">
-                <div className="grid min-w-max grid-flow-col auto-cols-[minmax(17rem,19rem)] gap-3 px-1 sm:auto-cols-[minmax(18rem,20rem)]">
-                  {autoSamplingPreviewItems.map((item) => (
-                    <div
-                      key={item.sixCharacterCode}
-                      className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <Badge
-                          variant="outline"
-                          className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
-                        >
-                          {item.threeNumberCode}
-                        </Badge>
-                        <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
-                          #{item.order}
-                        </span>
-                      </div>
-                      <p className="mt-3 font-mono text-xl font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
-                        {item.sixCharacterCode}
-                      </p>
-                      <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
-                        Sample ID to be created for this sequential sampling slot.
-                      </p>
+                  <div className="w-full lg:max-w-xl">
+                    <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                      <span>1</span>
+                      <span>{autoSamplingCopies}</span>
+                      <span>15</span>
                     </div>
-                  ))}
+                    <input
+                      id="auto-sampling-slider"
+                      type="range"
+                      min={AUTO_SAMPLING_MIN_COPIES}
+                      max={AUTO_SAMPLING_MAX_COPIES}
+                      step={1}
+                      value={autoSamplingCopies}
+                      onChange={(event) =>
+                        handleAutoSamplingCopiesChange(Number.parseInt(event.target.value, 10))
+                      }
+                      className="h-3 w-full cursor-pointer accent-fuchsia-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                      6 character codes to be generated
+                    </h3>
+                    <p className="mt-1 text-sm text-fuchsia-950/68 dark:text-fuchsia-50/72">
+                      Each sequential sampling will use the current case three-letter code plus its
+                      matching 3 number code as the final sample ID.
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                  >
+                    {autoSamplingPreviewItems.length} planned
+                  </Badge>
+                </div>
+
+                {autoSamplingInventoryQuery.isFetching ? (
+                  <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                    Validating existing sampling IDs before generation...
+                  </div>
+                ) : null}
+
+                {autoSamplingInventoryQuery.isError ? (
+                  <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                    Existing sampling IDs could not be validated right now. Fix the connection issue
+                    before running this batch.
+                  </div>
+                ) : null}
+
+                {autoSamplingConflictingCodes.length > 0 ? (
+                  <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                    These sample IDs already exist and block generation:{" "}
+                    <span className="font-mono">{autoSamplingConflictingCodes.join(", ")}</span>
+                  </div>
+                ) : null}
+
+                {!isAutoSamplingFormComplete(autoSamplingConfig) ? (
+                  <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                    Fill the required fields: case label, sample type, and processing status.
+                  </div>
+                ) : null}
+
+                <div className="-mx-1 overflow-x-auto pb-1">
+                  <div className="grid min-w-max grid-flow-col auto-cols-[minmax(17rem,19rem)] gap-3 px-1 sm:auto-cols-[minmax(18rem,20rem)]">
+                    {autoSamplingPreviewItems.map((item) => (
+                      <div
+                        key={item.sixCharacterCode}
+                        className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <Badge
+                            variant="outline"
+                            className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                          >
+                            {item.threeNumberCode}
+                          </Badge>
+                          <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
+                            #{item.order}
+                          </span>
+                        </div>
+                        <p className="mt-3 font-mono text-xl font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
+                          {item.sixCharacterCode}
+                        </p>
+                        <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
+                          Sample ID to be created for this sequential sampling slot.
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
