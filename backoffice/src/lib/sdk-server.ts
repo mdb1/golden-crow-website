@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
 function hasRequestBody(body: RequestInit["body"]) {
   if (body == null) {
@@ -62,28 +63,12 @@ async function buildSdkServerError(
   );
 }
 
-function resolveProxyBaseUrl(headerStore: Headers): string {
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  if (host) {
-    const protocol =
-      headerStore.get("x-forwarded-proto") ??
-      (host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "http://localhost:3001";
-}
-
 function resolveSdkTargetUrl(headerStore: Headers, path: string): string {
-  const sdkBaseUrl =
-    process.env.GOLDENCROW_SDK_URL?.replace(/\/$/, "") ??
-    process.env.NEXT_PUBLIC_SDK_URL?.replace(/\/$/, "");
+  const sdkBaseUrl = resolveSdkBaseUrl({
+    currentHost: headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? undefined,
+  });
 
-  if (sdkBaseUrl) {
-    return `${sdkBaseUrl}${path}`;
-  }
-
-  return `${resolveProxyBaseUrl(headerStore)}/api/sdk${path}`;
+  return `${sdkBaseUrl}${path}`;
 }
 
 /**

@@ -1,17 +1,15 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-const SDK_URL =
-  process.env.GOLDENCROW_SDK_URL ??
-  process.env.NEXT_PUBLIC_SDK_URL ??
-  "http://localhost:3000";
+import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
 async function proxyRequest(
   request: Request,
   context: { params: Promise<{ sdkPath: string[] }> }
 ) {
   const { sdkPath } = await context.params;
-  const targetUrl = new URL(`${SDK_URL}/${sdkPath.join("/")}`);
+  const incomingRequestHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? undefined;
+  const sdkBaseUrl = resolveSdkBaseUrl({ currentHost: incomingRequestHost });
+  const targetUrl = new URL(`${sdkBaseUrl}/${sdkPath.join("/")}`);
   targetUrl.search = new URL(request.url).search;
 
   const headers = new Headers(request.headers);
