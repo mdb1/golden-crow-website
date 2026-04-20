@@ -1263,14 +1263,15 @@ export function TwoPQRecordWorkbench({
     storedFileLinkedReportCode !== expectedCaseLabelFromThreeLetterCode;
   const hasReportCodeFileConflict =
     Boolean(reportCodeLinkedFileId) && reportCodeLinkedFileId !== storedFileId;
+  const reportCodeOwnerId = reportCodeStatus?.userId?.trim() ?? "";
   const hasReportCodeOwnershipConflict =
-    Boolean(reportCodeStatus?.userId) && reportCodeStatus.userId !== adminContext.uid;
+    Boolean(reportCodeOwnerId) && reportCodeOwnerId !== adminContext.uid;
   const reportCodePublishConflictMessage = hasStoredFileReportCodeConflict
     ? `This stored file is already linked to report code ${storedFileLinkedReportCode}.`
     : hasReportCodeFileConflict
       ? `Report code ${expectedCaseLabelFromThreeLetterCode} already points to stored file ${reportCodeLinkedFileId}.`
       : hasReportCodeOwnershipConflict
-        ? `Report code ${expectedCaseLabelFromThreeLetterCode} already belongs to another owner (${reportCodeStatus?.userId}).`
+        ? `Report code ${expectedCaseLabelFromThreeLetterCode} already belongs to another owner (${reportCodeOwnerId}).`
         : null;
   const isReportCodeStatusLoading =
     storedFileDocumentQuery.isLoading || reportCodeStatusQuery.isLoading;

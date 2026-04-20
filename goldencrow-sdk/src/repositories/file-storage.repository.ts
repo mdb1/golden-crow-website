@@ -252,6 +252,8 @@ export async function updateStoredFileDocument(
   const payload = buildStoredFilePayload(nextData, {
     existingData,
   });
+  const nextTimestamp =
+    normalizeDateValue(payload.last_modified_date) ?? new Date().toISOString();
 
   let linkedReportVersionBumped = false;
 
