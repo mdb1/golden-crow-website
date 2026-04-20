@@ -177,6 +177,7 @@ type PublishFileStorageModalState = {
   fileName: string;
   snapshot: TwoPQFileStorageSnapshot | null;
   preview: string;
+  autoPublish: boolean;
 };
 type StoredFileDocumentRecord = {
   id: string;
@@ -1649,7 +1650,7 @@ export function TwoPQRecordWorkbench({
     setIsPublishReportCodeModalOpen(false);
   }
 
-  async function openPublishFileStorageModal() {
+  async function openPublishFileStorageModal(autoPublish = false) {
     if (!detail || !canOpenPublishFileStorageModal || !fileStorageSnapshotFileName) {
       return;
     }
@@ -1662,6 +1663,7 @@ export function TwoPQRecordWorkbench({
       fileName: fileStorageSnapshotFileName,
       snapshot: null,
       preview: "",
+      autoPublish,
     });
 
     try {
@@ -1692,6 +1694,7 @@ export function TwoPQRecordWorkbench({
         fileName: fileStorageSnapshotFileName,
         snapshot,
         preview,
+        autoPublish,
       });
     } catch (error) {
       if (publishFileStorageRequestIdRef.current !== requestId) {
@@ -1706,15 +1709,18 @@ export function TwoPQRecordWorkbench({
     }
   }
 
-  async function handlePublishToFileStorage() {
-    if (!detail || !publishFileStorageModal?.snapshot || !publishFileStorageModal.preview) {
+  async function handlePublishToFileStorage(
+    modalStateOverride?: PublishFileStorageModalState
+  ) {
+    const modalState = modalStateOverride ?? publishFileStorageModal;
+    if (!detail || !modalState?.snapshot || !modalState.preview) {
       return;
     }
 
-    const modalState = publishFileStorageModal;
     setPublishFileStorageModal({
       ...modalState,
       status: "publishing",
+      autoPublish: false,
     });
 
     try {
@@ -1751,6 +1757,7 @@ export function TwoPQRecordWorkbench({
       setPublishFileStorageModal({
         ...modalState,
         status: "ready",
+        autoPublish: false,
       });
       pushErrorToast(
         error,
@@ -1759,6 +1766,26 @@ export function TwoPQRecordWorkbench({
       );
     }
   }
+
+  useEffect(() => {
+    if (
+      !publishFileStorageModal ||
+      publishFileStorageModal.status !== "ready" ||
+      !publishFileStorageModal.autoPublish
+    ) {
+      return;
+    }
+
+    const modalState = publishFileStorageModal;
+    setPublishFileStorageModal({
+      ...modalState,
+      autoPublish: false,
+    });
+    void handlePublishToFileStorage({
+      ...modalState,
+      autoPublish: false,
+    });
+  }, [publishFileStorageModal]);
 
   async function handlePublishAsReportCode() {
     if (!detail || !storedFileId || !expectedCaseLabelFromThreeLetterCode) {
@@ -5025,18 +5052,31 @@ export function TwoPQRecordWorkbench({
               {isStoredFileSnapshotStale ? (
                 <div className="px-5 pb-5">
                   <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
-                      <p>
-                        The current stored file snapshot may be out of date. This case was updated{" "}
-                        <span className="font-medium">{formattedCaseLastUpdatedDate}</span>, while
-                        the published stored file was last updated{" "}
-                        <span className="font-medium">
-                          {formattedStoredFileLastModifiedDate ?? "at an unknown time"}
-                        </span>
-                        . Publish again so the file storage snapshot reflects the latest case
-                        information.
-                      </p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                        <p>
+                          The current stored file snapshot may be out of date. This case was updated{" "}
+                          <span className="font-medium">{formattedCaseLastUpdatedDate}</span>, while
+                          the published stored file was last updated{" "}
+                          <span className="font-medium">
+                            {formattedStoredFileLastModifiedDate ?? "at an unknown time"}
+                          </span>
+                          . Publish again so the file storage snapshot reflects the latest case
+                          information.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void openPublishFileStorageModal(true)}
+                        disabled={!canPublishCaseToFileStorage}
+                        className="h-9 shrink-0 border border-amber-300/90 bg-white/90 px-4 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
+                      >
+                        <FileCode2 className="h-4 w-4" />
+                        Correct
+                      </Button>
                     </div>
                   </div>
                 </div>
