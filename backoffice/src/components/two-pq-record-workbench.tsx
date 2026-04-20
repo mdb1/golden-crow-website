@@ -972,6 +972,7 @@ export function TwoPQRecordWorkbench({
   const [isFileStorageSectionExpanded, setIsFileStorageSectionExpanded] = useState(true);
   const [isPublishFileStoragePreviewExpanded, setIsPublishFileStoragePreviewExpanded] =
     useState(false);
+  const [isReportCodeSectionExpanded, setIsReportCodeSectionExpanded] = useState(true);
   const [isPublishReportCodeModalOpen, setIsPublishReportCodeModalOpen] = useState(false);
   const [pendingPublishReportCode, setPendingPublishReportCode] = useState(false);
   const publishFileStorageRequestIdRef = useRef(0);
@@ -1001,6 +1002,7 @@ export function TwoPQRecordWorkbench({
     setPublishFileStorageModal(null);
     setIsFileStorageSectionExpanded(true);
     setIsPublishFileStoragePreviewExpanded(false);
+    setIsReportCodeSectionExpanded(true);
     setIsPublishReportCodeModalOpen(false);
     setPendingPublishReportCode(false);
     setPendingCaseLabelCorrection(false);
@@ -1292,6 +1294,12 @@ export function TwoPQRecordWorkbench({
     !reportCodeStatusQuery.isError &&
     !reportCodePublishConflictMessage &&
     !isPublishedAsReportCode;
+
+  useEffect(() => {
+    if (isPublishedAsReportCode) {
+      setIsReportCodeSectionExpanded(false);
+    }
+  }, [isPublishedAsReportCode]);
   const canApplyMultiSamplingEdit =
     Boolean(detail?.record.canUpdate) &&
     linkedSamplings.length > 0 &&
@@ -4972,8 +4980,17 @@ export function TwoPQRecordWorkbench({
 
           {areaKey === "cases" && mode !== "create" && hasThreeLetterCode && hasStoredFileId ? (
             <section className={REPORT_CODE_PUBLISH_SECTION_CLASSNAME}>
-              <div className="flex flex-col gap-4 border-b border-indigo-200/70 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between">
-                <div>
+              <div
+                className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
+                  isReportCodeSectionExpanded ? "border-b border-indigo-200/70" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsReportCodeSectionExpanded((current) => !current)}
+                  aria-expanded={isReportCodeSectionExpanded}
+                  className="group max-w-3xl text-left"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
                       Publish as report code
@@ -4989,23 +5006,30 @@ export function TwoPQRecordWorkbench({
                       {!hasFileStorageAccess
                         ? "Restricted"
                         : isStoredFileDocumentMissing
-                        ? "Missing file"
-                        : isReportCodeStatusLoading
-                          ? "Checking"
-                          : isPublishedAsReportCode
-                            ? "Published"
-                            : reportCodePublishConflictMessage
-                              ? "Conflict"
-                              : "Not published"}
+                          ? "Missing file"
+                          : isReportCodeStatusLoading
+                            ? "Checking"
+                            : isPublishedAsReportCode
+                              ? "Published"
+                              : reportCodePublishConflictMessage
+                                ? "Conflict"
+                                : "Not published"}
                     </Badge>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200/80 bg-white/72 text-indigo-950 transition-transform duration-200 group-hover:bg-white/90 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50 dark:group-hover:bg-indigo-400/16">
+                      {isReportCodeSectionExpanded ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </span>
                   </div>
-                  <p className="mt-2 max-w-3xl text-sm text-indigo-950/72 dark:text-indigo-50/74">
+                  <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
                     Promote the current <code>file_storage</code> snapshot into a reusable 2PQ
                     report code using the current signed-in admin as the report owner. The report
                     code for this case is derived from the three-letter code as{" "}
                     <code>{expectedCaseLabelFromThreeLetterCode}</code>.
                   </p>
-                </div>
+                </button>
                 <div className="flex flex-wrap gap-2">
                   {isPublishedAsReportCode && hasFileStorageAccess ? (
                     <Button
@@ -5050,90 +5074,94 @@ export function TwoPQRecordWorkbench({
                 </div>
               </div>
 
-              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr),minmax(0,1fr)]">
-                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Report code
-                  </p>
-                  <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
-                    {expectedCaseLabelFromThreeLetterCode}
-                  </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    This is the 6-character code derived from the active three-letter code plus{" "}
-                    <span className="font-mono">XXX</span>.
-                  </p>
-                </div>
-                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Owner and source
-                  </p>
-                  <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
-                    {adminContext.email}
-                  </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    The new report code will use the current admin user as owner, with provider
-                    format <span className="font-mono">2pq</span> and stored file{" "}
-                    <span className="font-mono">{storedFileId}</span>.
-                  </p>
-                </div>
-                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Current linkage
-                  </p>
-                  <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
-                    {isStoredFileDocumentMissing
-                      ? "Stored file document missing."
-                      : !hasFileStorageAccess
-                        ? "Only full admins can inspect or publish report-code linkage from this section."
-                      : isReportCodeStatusLoading
-                        ? "Checking current publish state..."
-                        : isPublishedAsReportCode
-                          ? "Report code already resolves back to this stored file."
-                          : reportCodePublishConflictMessage
-                            ? reportCodePublishConflictMessage
-                            : "No report code has been linked yet."}
-                  </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    file_storage linked code:{" "}
-                    <span className="font-mono">
-                      {storedFileLinkedReportCode || "Not linked yet"}
-                    </span>
-                    {" · "}uploaded report id:{" "}
-                    <span className="font-mono">
-                      {reportCodeStatus?.uploadedReportId ?? "Not created yet"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {hasFileStorageAccess &&
-              (storedFileDocumentQuery.isError || reportCodeStatusQuery.isError) ? (
-                <div className="px-5 pb-5">
-                  <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
-                        <p>
-                          Unable to verify the latest report-code publish state right now. Retry
-                          the status check before publishing.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          void storedFileDocumentQuery.refetch();
-                          void reportCodeStatusQuery.refetch();
-                        }}
-                        className="h-9 shrink-0 border border-amber-300/90 bg-white/90 px-4 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        Retry status
-                      </Button>
+              {isReportCodeSectionExpanded ? (
+                <>
+                  <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr),minmax(0,1fr)]">
+                    <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                        Report code
+                      </p>
+                      <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                        {expectedCaseLabelFromThreeLetterCode}
+                      </p>
+                      <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                        This is the 6-character code derived from the active three-letter code plus{" "}
+                        <span className="font-mono">XXX</span>.
+                      </p>
+                    </div>
+                    <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                        Owner and source
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                        {adminContext.email}
+                      </p>
+                      <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                        The new report code will use the current admin user as owner, with provider
+                        format <span className="font-mono">2pq</span> and stored file{" "}
+                        <span className="font-mono">{storedFileId}</span>.
+                      </p>
+                    </div>
+                    <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                        Current linkage
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                        {isStoredFileDocumentMissing
+                          ? "Stored file document missing."
+                          : !hasFileStorageAccess
+                            ? "Only full admins can inspect or publish report-code linkage from this section."
+                          : isReportCodeStatusLoading
+                            ? "Checking current publish state..."
+                            : isPublishedAsReportCode
+                              ? "Report code already resolves back to this stored file."
+                              : reportCodePublishConflictMessage
+                                ? reportCodePublishConflictMessage
+                                : "No report code has been linked yet."}
+                      </p>
+                      <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                        file_storage linked code:{" "}
+                        <span className="font-mono">
+                          {storedFileLinkedReportCode || "Not linked yet"}
+                        </span>
+                        {" · "}uploaded report id:{" "}
+                        <span className="font-mono">
+                          {reportCodeStatus?.uploadedReportId ?? "Not created yet"}
+                        </span>
+                      </p>
                     </div>
                   </div>
-                </div>
+
+                  {hasFileStorageAccess &&
+                  (storedFileDocumentQuery.isError || reportCodeStatusQuery.isError) ? (
+                    <div className="px-5 pb-5">
+                      <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                            <p>
+                              Unable to verify the latest report-code publish state right now. Retry
+                              the status check before publishing.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              void storedFileDocumentQuery.refetch();
+                              void reportCodeStatusQuery.refetch();
+                            }}
+                            className="h-9 shrink-0 border border-amber-300/90 bg-white/90 px-4 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            Retry status
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </section>
           ) : null}
