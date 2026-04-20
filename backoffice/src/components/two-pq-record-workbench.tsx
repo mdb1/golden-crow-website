@@ -265,7 +265,7 @@ const THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME =
 const THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME =
   "rounded-[1.35rem] border border-dashed border-fuchsia-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.74),rgba(252,231,243,0.74))] px-4 py-5 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/20 dark:[background:linear-gradient(180deg,rgba(48,20,56,0.92),rgba(88,28,135,0.36))] dark:text-fuchsia-50/76";
 const FILE_STORAGE_SECTION_CLASSNAME =
-  "col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_44%,rgba(224,231,255,0.94))] shadow-[0_24px_72px_rgba(99,102,241,0.16)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_46%,rgba(79,70,229,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.88)]";
+  "order-[10000] col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_44%,rgba(224,231,255,0.94))] shadow-[0_24px_72px_rgba(99,102,241,0.16)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_46%,rgba(79,70,229,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.88)]";
 const FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME =
   "border border-indigo-100 bg-[linear-gradient(180deg,rgba(224,231,255,0.98),rgba(199,210,254,0.98))] text-indigo-950 shadow-[0_14px_34px_rgba(99,102,241,0.18)] hover:brightness-[1.02] dark:border-indigo-200/18 dark:bg-[linear-gradient(180deg,rgba(49,46,129,0.98),rgba(67,56,202,0.94))] dark:text-indigo-50 dark:shadow-none dark:hover:brightness-[1.06]";
 const FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME =
