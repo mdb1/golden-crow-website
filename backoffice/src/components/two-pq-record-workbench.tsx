@@ -2306,7 +2306,7 @@ export function TwoPQRecordWorkbench({
       <Dialog open={isMultiSamplingEditOpen} onOpenChange={setIsMultiSamplingEditOpen}>
         <DialogContent
           showCloseButton={false}
-          className="h-[min(54rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+          className="h-[min(54rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-[min(96vw,92rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
         >
           <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
@@ -2378,16 +2378,16 @@ export function TwoPQRecordWorkbench({
                 </div>
 
                 <div className="mt-4 rounded-[1.35rem] border border-fuchsia-100 bg-white/76 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
-                  <Table className="min-w-[48rem]">
+                  <Table className="min-w-[76rem]">
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-20 px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
                           Apply
                         </TableHead>
-                        <TableHead className="px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
+                        <TableHead className="min-w-[22rem] px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
                           Field
                         </TableHead>
-                        <TableHead className="min-w-[18rem] px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
+                        <TableHead className="min-w-[30rem] px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
                           New value
                         </TableHead>
                       </TableRow>
@@ -2410,7 +2410,7 @@ export function TwoPQRecordWorkbench({
                             />
                           </TableCell>
                           <TableCell className="px-4 py-3 align-top whitespace-normal">
-                            <div className="min-w-0">
+                            <div className="min-w-0 max-w-[24rem]">
                               <p className="font-medium text-fuchsia-950 dark:text-fuchsia-50">
                                 {field.label}
                               </p>
@@ -2427,7 +2427,7 @@ export function TwoPQRecordWorkbench({
                               }
                               type={field.type === "date" ? "date" : "text"}
                               placeholder={field.placeholder ?? `New ${field.label.toLowerCase()}`}
-                              className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                              className="min-w-[30rem] border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
                               disabled={!multiSamplingEditForm[field.key].enabled}
                             />
                           </TableCell>
