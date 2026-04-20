@@ -2911,7 +2911,7 @@ export function TwoPQRecordWorkbench({
       >
         <DialogContent
           showCloseButton={false}
-          className="h-[min(56rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_50%,rgba(224,231,255,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.2)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_48%,rgba(79,70,229,0.2))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.34)]"
+          className="h-[min(56rem,calc(100vh-1.5rem))] w-[min(96vw,84rem)] max-h-[calc(100vh-1.5rem)] max-w-[calc(100%-2rem)] sm:max-w-[min(96vw,84rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_50%,rgba(224,231,255,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.2)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_48%,rgba(79,70,229,0.2))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.34)]"
         >
           <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
