@@ -272,6 +272,11 @@ function buildAutoSamplingPreviewItems(threeLetterCode: string, copies: number):
   });
 }
 
+function buildExpectedCaseLabelFromThreeLetterCode(threeLetterCode: string) {
+  const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
+  return normalizedThreeLetterCode.length === 3 ? `${normalizedThreeLetterCode}XXX` : "";
+}
+
 function isAutoSamplingFormComplete(config: AutoSamplingFormState) {
   return Boolean(
     config.caseLabel.trim() &&
@@ -696,6 +701,7 @@ export function TwoPQRecordWorkbench({
     useState<ThreeLetterCodeModalMode | null>(null);
   const [threeLetterCodeDraft, setThreeLetterCodeDraft] = useState("");
   const [pendingThreeLetterCodeAction, setPendingThreeLetterCodeAction] = useState(false);
+  const [pendingCaseLabelCorrection, setPendingCaseLabelCorrection] = useState(false);
   const [isAutoSamplingSetupOpen, setIsAutoSamplingSetupOpen] = useState(false);
   const [autoSamplingConfig, setAutoSamplingConfig] = useState<AutoSamplingFormState>(() => ({
     caseLabel: detail?.record.caseLabel ?? "",
@@ -739,6 +745,7 @@ export function TwoPQRecordWorkbench({
     setIsMultiSamplingEditOpen(false);
     setMultiSamplingEditForm(buildInitialMultiSamplingEditFormState());
     setMultiSamplingEditProcess(null);
+    setPendingCaseLabelCorrection(false);
   }, [detail?.record.caseLabel, detail?.record.id]);
 
   useEffect(() => {
@@ -840,7 +847,15 @@ export function TwoPQRecordWorkbench({
     [multiSamplingEditableFields]
   );
   const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
+  const expectedCaseLabelFromThreeLetterCode =
+    buildExpectedCaseLabelFromThreeLetterCode(normalizedThreeLetterCode);
   const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
+  const hasCaseLabelMismatchWarning =
+    areaKey === "cases" &&
+    mode !== "create" &&
+    hasThreeLetterCode &&
+    Boolean(expectedCaseLabelFromThreeLetterCode) &&
+    state.caseLabel.trim() !== expectedCaseLabelFromThreeLetterCode;
   const normalizedThreeLetterCodeDraft = normalizeThreeLetterCodeInput(threeLetterCodeDraft);
   const canConfirmThreeLetterCode =
     threeLetterCodeModal === "remove" ? hasThreeLetterCode : normalizedThreeLetterCodeDraft.length === 3;
@@ -2091,6 +2106,45 @@ export function TwoPQRecordWorkbench({
         `Delete ${area.label} record`
       );
       setPendingAction(null);
+    }
+  }
+
+  async function handleCorrectCaseLabelToThreeLetterCode() {
+    if (
+      !detail ||
+      areaKey !== "cases" ||
+      !expectedCaseLabelFromThreeLetterCode ||
+      !hasCaseLabelMismatchWarning
+    ) {
+      return;
+    }
+
+    setPendingCaseLabelCorrection(true);
+    try {
+      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}/${detail.record.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          caseLabel: expectedCaseLabelFromThreeLetterCode,
+        }),
+      });
+
+      setState((current) => ({
+        ...current,
+        caseLabel: expectedCaseLabelFromThreeLetterCode,
+      }));
+      pushToast(
+        "success",
+        `Case label corrected to ${expectedCaseLabelFromThreeLetterCode}.`
+      );
+      router.refresh();
+    } catch (error) {
+      pushErrorToast(
+        error,
+        "Unable to correct the case label.",
+        "Correct case label"
+      );
+    } finally {
+      setPendingCaseLabelCorrection(false);
     }
   }
 
@@ -3870,6 +3924,7 @@ export function TwoPQRecordWorkbench({
                           : field.options;
                   const disabled =
                     pendingAction !== null ||
+                    pendingCaseLabelCorrection ||
                     (field.key === "institutionId" && Boolean(scopedInstitutionId)) ||
                     (field.key === "doctorId" && Boolean(scopedDoctorId));
 
@@ -3929,6 +3984,34 @@ export function TwoPQRecordWorkbench({
                         />
                       )}
                       <p className="text-xs text-muted-foreground">{field.description}</p>
+                      {field.key === "caseLabel" && hasCaseLabelMismatchWarning ? (
+                        <div className="rounded-[1.15rem] border border-amber-300/90 bg-amber-50/90 px-3 py-3 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                              <p>
+                                Case label must match the active three letter code. Expected value:{" "}
+                                <span className="font-mono font-semibold">
+                                  {expectedCaseLabelFromThreeLetterCode}
+                                </span>
+                                .
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => void handleCorrectCaseLabelToThreeLetterCode()}
+                              disabled={pendingCaseLabelCorrection || pendingAction !== null}
+                              className="h-9 shrink-0 border border-amber-300/90 bg-[linear-gradient(180deg,rgba(254,249,195,0.98),rgba(253,230,138,0.98))] px-4 text-amber-950 shadow-[0_10px_24px_rgba(251,191,36,0.2)] hover:brightness-[1.02] dark:border-amber-300/30 dark:bg-[linear-gradient(180deg,rgba(146,64,14,0.92),rgba(202,138,4,0.9))] dark:text-amber-50 dark:shadow-none"
+                            >
+                              {pendingCaseLabelCorrection ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                              ) : null}
+                              Correct
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
