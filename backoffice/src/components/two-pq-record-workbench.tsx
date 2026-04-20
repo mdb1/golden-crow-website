@@ -62,6 +62,7 @@ import {
   type TwoPQAreaConfig,
   type TwoPQAreaKey,
   type TwoPQDetailRecord,
+  type TwoPQFieldConfig,
   type TwoPQListItem,
   type TwoPQMutableFieldKey,
   type TwoPQRecord,
@@ -69,6 +70,14 @@ import {
   getTwoPQRecordSubtitle,
   getTwoPQRecordTitle,
 } from "@/lib/two-pq-areas";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type FormState = Record<TwoPQMutableFieldKey, string>;
 type RelationDialogKey =
@@ -111,6 +120,42 @@ type AutoSamplingProcessState = {
   errorTitle?: string;
   errorDetails?: string;
 };
+const MULTI_SAMPLING_EDITABLE_FIELD_KEYS = [
+  "caseLabel",
+  "sampleType",
+  "processingStatus",
+  "collectionDate",
+  "receptionDate",
+  "runId",
+  "qcStatus",
+  "notes",
+] as const satisfies readonly TwoPQMutableFieldKey[];
+type MultiSamplingEditableFieldKey = (typeof MULTI_SAMPLING_EDITABLE_FIELD_KEYS)[number];
+type MultiSamplingEditFieldState = {
+  enabled: boolean;
+  value: string;
+};
+type MultiSamplingEditFormState = Record<MultiSamplingEditableFieldKey, MultiSamplingEditFieldState>;
+type MultiSamplingEditProcessItem = {
+  order: number;
+  samplingRecordId: string;
+  sampleId: string;
+  attempts: number;
+  status: "pending" | "running" | "success" | "error";
+  errorTitle?: string;
+  errorDetails?: string;
+};
+type MultiSamplingEditProcessState = {
+  patch: Partial<Record<MultiSamplingEditableFieldKey, string>>;
+  items: MultiSamplingEditProcessItem[];
+  status: "running" | "paused" | "validating" | "success";
+  currentIndex: number | null;
+  errorTitle?: string;
+  errorDetails?: string;
+};
+const MULTI_SAMPLING_EDITABLE_FIELD_SET = new Set<MultiSamplingEditableFieldKey>(
+  MULTI_SAMPLING_EDITABLE_FIELD_KEYS
+);
 
 const CREATION_CONFETTI = [
   { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
@@ -233,6 +278,27 @@ function isAutoSamplingFormComplete(config: AutoSamplingFormState) {
       config.sampleType.trim() &&
       config.processingStatus.trim()
   );
+}
+
+function buildInitialMultiSamplingEditFormState(): MultiSamplingEditFormState {
+  return MULTI_SAMPLING_EDITABLE_FIELD_KEYS.reduce((nextState, key) => {
+    nextState[key] = {
+      enabled: false,
+      value: "",
+    };
+    return nextState;
+  }, {} as MultiSamplingEditFormState);
+}
+
+function buildMultiSamplingEditPatch(formState: MultiSamplingEditFormState) {
+  return MULTI_SAMPLING_EDITABLE_FIELD_KEYS.reduce<
+    Partial<Record<MultiSamplingEditableFieldKey, string>>
+  >((patch, key) => {
+    if (formState[key].enabled) {
+      patch[key] = formState[key].value;
+    }
+    return patch;
+  }, {});
 }
 
 function normalizeThreeLetterCodeInput(value: string) {
@@ -645,6 +711,12 @@ export function TwoPQRecordWorkbench({
   const [autoSamplingProcess, setAutoSamplingProcess] = useState<AutoSamplingProcessState | null>(
     null
   );
+  const [isMultiSamplingEditOpen, setIsMultiSamplingEditOpen] = useState(false);
+  const [multiSamplingEditForm, setMultiSamplingEditForm] = useState<MultiSamplingEditFormState>(
+    () => buildInitialMultiSamplingEditFormState()
+  );
+  const [multiSamplingEditProcess, setMultiSamplingEditProcess] =
+    useState<MultiSamplingEditProcessState | null>(null);
 
   useEffect(() => {
     setThreeLetterCode(detail?.record.three_letter_code ?? "");
@@ -664,6 +736,9 @@ export function TwoPQRecordWorkbench({
     setAutoSamplingCopies(AUTO_SAMPLING_MIN_COPIES);
     setIsAutoSamplingSetupOpen(false);
     setAutoSamplingProcess(null);
+    setIsMultiSamplingEditOpen(false);
+    setMultiSamplingEditForm(buildInitialMultiSamplingEditFormState());
+    setMultiSamplingEditProcess(null);
   }, [detail?.record.caseLabel, detail?.record.id]);
 
   useEffect(() => {
@@ -677,6 +752,18 @@ export function TwoPQRecordWorkbench({
 
     return () => window.clearTimeout(timeoutId);
   }, [autoSamplingProcess?.status]);
+
+  useEffect(() => {
+    if (multiSamplingEditProcess?.status !== "success") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setMultiSamplingEditProcess(null);
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [multiSamplingEditProcess?.status]);
 
   const sourceState = useMemo(
     () => toFormState(detail?.record, defaults),
@@ -733,6 +820,25 @@ export function TwoPQRecordWorkbench({
     samplingArea.fieldGroups
       .flatMap((group) => group.fields)
       .find((field) => field.key === "processingStatus")?.options ?? [];
+  const multiSamplingEditableFields = useMemo(
+    () =>
+      samplingArea.fieldGroups
+        .flatMap((group) => group.fields)
+        .filter(
+          (
+            field
+          ): field is TwoPQFieldConfig & { key: MultiSamplingEditableFieldKey } =>
+            MULTI_SAMPLING_EDITABLE_FIELD_SET.has(field.key as MultiSamplingEditableFieldKey)
+        ),
+    [samplingArea.fieldGroups]
+  );
+  const multiSamplingFieldLabelByKey = useMemo(
+    () =>
+      Object.fromEntries(
+        multiSamplingEditableFields.map((field) => [field.key, field.label])
+      ) as Record<MultiSamplingEditableFieldKey, string>,
+    [multiSamplingEditableFields]
+  );
   const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
   const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
   const normalizedThreeLetterCodeDraft = normalizeThreeLetterCodeInput(threeLetterCodeDraft);
@@ -768,6 +874,20 @@ export function TwoPQRecordWorkbench({
         .map((item) => item.sixCharacterCode),
     [autoSamplingPreviewItems, existingSamplingSampleIds]
   );
+  const multiSamplingEditPatch = useMemo(
+    () => buildMultiSamplingEditPatch(multiSamplingEditForm),
+    [multiSamplingEditForm]
+  );
+  const multiSamplingEditPatchEntries = useMemo(
+    () =>
+      Object.entries(multiSamplingEditPatch) as [MultiSamplingEditableFieldKey, string][],
+    [multiSamplingEditPatch]
+  );
+  const multiSamplingEditSelectedFieldLabels = useMemo(
+    () =>
+      multiSamplingEditPatchEntries.map(([key]) => multiSamplingFieldLabelByKey[key] ?? key),
+    [multiSamplingEditPatchEntries, multiSamplingFieldLabelByKey]
+  );
   const canGenerateAutoSampling =
     Boolean(detail?.record.canUpdate) &&
     isAutoSamplingFormComplete(autoSamplingConfig) &&
@@ -797,6 +917,31 @@ export function TwoPQRecordWorkbench({
   const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
   const linkedCases = detail?.linkedCases ?? [];
   const linkedSamplings = detail?.linkedSamplings ?? [];
+  const canApplyMultiSamplingEdit =
+    Boolean(detail?.record.canUpdate) &&
+    linkedSamplings.length > 0 &&
+    multiSamplingEditPatchEntries.length > 0 &&
+    !multiSamplingEditProcess;
+  const multiSamplingEditSuccessfulCount =
+    multiSamplingEditProcess?.items.filter((item) => item.status === "success").length ?? 0;
+  const multiSamplingEditErroredCount =
+    multiSamplingEditProcess?.items.filter((item) => item.status === "error").length ?? 0;
+  const multiSamplingEditPendingCount =
+    multiSamplingEditProcess?.items.filter((item) => item.status === "pending").length ?? 0;
+  const multiSamplingEditProgressPercent = multiSamplingEditProcess
+    ? multiSamplingEditProcess.status === "success"
+      ? 100
+      : multiSamplingEditProcess.status === "validating"
+        ? 96
+        : Math.max(
+            4,
+            Math.round(
+              (multiSamplingEditSuccessfulCount /
+                Math.max(multiSamplingEditProcess.items.length, 1)) *
+                100
+            )
+          )
+    : 0;
   const loadBatchCandidates = relationDialog === "case-parent-batch";
   const loadCaseCandidates =
     relationDialog === "sampling-parent-case" || relationDialog === "sequencing-child-case";
@@ -1059,6 +1204,15 @@ export function TwoPQRecordWorkbench({
     setIsAutoSamplingSetupOpen(false);
   }
 
+  function openMultiSamplingEditModal() {
+    setMultiSamplingEditForm(buildInitialMultiSamplingEditFormState());
+    setIsMultiSamplingEditOpen(true);
+  }
+
+  function closeMultiSamplingEditModal() {
+    setIsMultiSamplingEditOpen(false);
+  }
+
   function updateAutoSamplingConfig<Key extends keyof AutoSamplingFormState>(
     key: Key,
     value: AutoSamplingFormState[Key]
@@ -1073,6 +1227,29 @@ export function TwoPQRecordWorkbench({
     setAutoSamplingCopies(clampAutoSamplingCopies(value));
   }
 
+  function toggleMultiSamplingEditField(key: MultiSamplingEditableFieldKey, enabled: boolean) {
+    setMultiSamplingEditForm((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        enabled,
+      },
+    }));
+  }
+
+  function updateMultiSamplingEditFieldValue(
+    key: MultiSamplingEditableFieldKey,
+    value: string
+  ) {
+    setMultiSamplingEditForm((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        value,
+      },
+    }));
+  }
+
   function openAutoSamplingProcessErrorLog() {
     if (!autoSamplingProcess?.errorDetails) {
       return;
@@ -1081,6 +1258,19 @@ export function TwoPQRecordWorkbench({
     setLatestErrorLog({
       title: autoSamplingProcess.errorTitle ?? "Auto sampling error",
       details: autoSamplingProcess.errorDetails,
+    });
+    setCopiedErrorLog(false);
+    setIsErrorLogOpen(true);
+  }
+
+  function openMultiSamplingEditProcessErrorLog() {
+    if (!multiSamplingEditProcess?.errorDetails) {
+      return;
+    }
+
+    setLatestErrorLog({
+      title: multiSamplingEditProcess.errorTitle ?? "Multi sampling edit error",
+      details: multiSamplingEditProcess.errorDetails,
     });
     setCopiedErrorLog(false);
     setIsErrorLogOpen(true);
@@ -1354,6 +1544,198 @@ export function TwoPQRecordWorkbench({
       autoSamplingProcess.items.map((item) => ({ ...item })),
       autoSamplingProcess.config,
       autoSamplingProcess.currentIndex
+    );
+  }
+
+  async function validateMultiSamplingEditProcess(
+    items: MultiSamplingEditProcessItem[],
+    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>
+  ) {
+    if (!detail) {
+      throw new Error("Case detail is required for validation.");
+    }
+
+    const patchEntries = Object.entries(patch) as [MultiSamplingEditableFieldKey, string][];
+    const caseDetail = await sdkFetch<TwoPQDetailRecord>(`/2pq/cases/${detail.record.id}`);
+    const linkedSamplingIds = new Set(caseDetail.linkedSamplings.map((record) => record.id));
+
+    for (const item of items) {
+      const samplingDetail = await sdkFetch<TwoPQDetailRecord>(
+        `/2pq/sampling/${item.samplingRecordId}`
+      );
+
+      if (samplingDetail.record.parent_case !== detail.record.id) {
+        throw new Error(
+          `Sampling ${item.sampleId} is linked to case ${samplingDetail.record.parent_case ?? "<none>"} instead of ${detail.record.id}.`
+        );
+      }
+
+      if (!linkedSamplingIds.has(item.samplingRecordId)) {
+        throw new Error(
+          `Current case ${detail.record.id} does not list sampling ${item.samplingRecordId} in linked samplings.`
+        );
+      }
+
+      for (const [fieldKey, nextValue] of patchEntries) {
+        const currentValue = samplingDetail.record[fieldKey] ?? "";
+        if (currentValue !== nextValue) {
+          throw new Error(
+            `Sampling ${item.sampleId} has ${multiSamplingFieldLabelByKey[fieldKey] ?? fieldKey} value ${currentValue || "<empty>"} instead of ${nextValue || "<empty>"}.`
+          );
+        }
+      }
+    }
+  }
+
+  async function finalizeMultiSamplingEditProcess(
+    items: MultiSamplingEditProcessItem[],
+    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>
+  ) {
+    setMultiSamplingEditProcess({
+      patch,
+      items,
+      status: "validating",
+      currentIndex: null,
+    });
+
+    try {
+      await validateMultiSamplingEditProcess(items, patch);
+      router.refresh();
+      pushToast(
+        "success",
+        `${items.length} child sampling record${items.length === 1 ? "" : "s"} updated.`
+      );
+      setMultiSamplingEditProcess({
+        patch,
+        items,
+        status: "success",
+        currentIndex: null,
+      });
+    } catch (error) {
+      const presentation = getErrorPresentation(error, "Final validation failed.");
+      setMultiSamplingEditProcess({
+        patch,
+        items,
+        status: "paused",
+        currentIndex: null,
+        errorTitle: "Multi sampling edit validation",
+        errorDetails: presentation.details,
+      });
+    }
+  }
+
+  async function runMultiSamplingEditProcess(
+    items: MultiSamplingEditProcessItem[],
+    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>,
+    startIndex: number
+  ) {
+    const nextItems = items.map((item) => ({ ...item }));
+
+    for (let index = startIndex; index < nextItems.length; index += 1) {
+      if (nextItems[index].status === "success") {
+        continue;
+      }
+
+      nextItems[index] = {
+        ...nextItems[index],
+        attempts: nextItems[index].attempts + 1,
+        status: "running",
+        errorTitle: undefined,
+        errorDetails: undefined,
+      };
+      setMultiSamplingEditProcess({
+        patch,
+        items: [...nextItems],
+        status: "running",
+        currentIndex: index,
+      });
+
+      try {
+        await sdkFetch<{ record: TwoPQRecord }>(
+          `/2pq/sampling/${nextItems[index].samplingRecordId}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(patch),
+          }
+        );
+
+        nextItems[index] = {
+          ...nextItems[index],
+          status: "success",
+        };
+        setMultiSamplingEditProcess({
+          patch,
+          items: [...nextItems],
+          status: "running",
+          currentIndex: index,
+        });
+      } catch (error) {
+        const presentation = getErrorPresentation(
+          error,
+          `Unable to update sampling ${nextItems[index].sampleId}.`
+        );
+        nextItems[index] = {
+          ...nextItems[index],
+          status: "error",
+          errorTitle: `Update ${nextItems[index].sampleId}`,
+          errorDetails: presentation.details,
+        };
+        setMultiSamplingEditProcess({
+          patch,
+          items: [...nextItems],
+          status: "paused",
+          currentIndex: index,
+          errorTitle: `Update ${nextItems[index].sampleId}`,
+          errorDetails: presentation.details,
+        });
+        return;
+      }
+    }
+
+    await finalizeMultiSamplingEditProcess(nextItems, patch);
+  }
+
+  function handleStartMultiSamplingEditProcess() {
+    if (!detail || !canApplyMultiSamplingEdit || multiSamplingEditPatchEntries.length === 0) {
+      return;
+    }
+
+    const patch = { ...multiSamplingEditPatch };
+    const items: MultiSamplingEditProcessItem[] = linkedSamplings.map((record, index) => ({
+      order: index + 1,
+      samplingRecordId: record.id,
+      sampleId: record.sampleId?.trim() || record.id,
+      attempts: 0,
+      status: "pending",
+    }));
+
+    setIsMultiSamplingEditOpen(false);
+    setMultiSamplingEditProcess({
+      patch,
+      items,
+      status: "running",
+      currentIndex: 0,
+    });
+    void runMultiSamplingEditProcess(items, patch, 0);
+  }
+
+  function handleRetryMultiSamplingEditProcess() {
+    if (!multiSamplingEditProcess) {
+      return;
+    }
+
+    if (multiSamplingEditProcess.currentIndex === null) {
+      void finalizeMultiSamplingEditProcess(
+        multiSamplingEditProcess.items.map((item) => ({ ...item })),
+        multiSamplingEditProcess.patch
+      );
+      return;
+    }
+
+    void runMultiSamplingEditProcess(
+      multiSamplingEditProcess.items.map((item) => ({ ...item })),
+      multiSamplingEditProcess.patch,
+      multiSamplingEditProcess.currentIndex
     );
   }
 
@@ -1921,6 +2303,178 @@ export function TwoPQRecordWorkbench({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={isMultiSamplingEditOpen} onOpenChange={setIsMultiSamplingEditOpen}>
+        <DialogContent
+          showCloseButton={false}
+          className="h-[min(54rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+        >
+          <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+              Multi sampling edit modal
+            </DialogTitle>
+            <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
+              Select the sampling fields to patch across every linked child sampling at once. Only
+              checked rows will be applied.
+            </DialogDescription>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={closeMultiSamplingEditModal}
+              className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close multi sampling edit modal</span>
+            </Button>
+          </DialogHeader>
+
+          <div className="min-h-0 overflow-y-auto overscroll-contain">
+            <div className="space-y-6 px-6 py-5">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    Parent case ID
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                    {detail?.record.id}
+                  </p>
+                </div>
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    Linked samplings
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                    {linkedSamplings.length}
+                  </p>
+                </div>
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    Fields selected
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                    {multiSamplingEditPatchEntries.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                      Sampling fields
+                    </h3>
+                    <p className="mt-1 text-sm text-fuchsia-950/68 dark:text-fuchsia-50/72">
+                      Row structure is checkbox, field label, then the new value to write into
+                      every linked child sampling. Leave a checked value empty if you want to clear
+                      that field.
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                  >
+                    {linkedSamplings.length} targets
+                  </Badge>
+                </div>
+
+                <div className="mt-4 rounded-[1.35rem] border border-fuchsia-100 bg-white/76 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                  <Table className="min-w-[48rem]">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-20 px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
+                          Apply
+                        </TableHead>
+                        <TableHead className="px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
+                          Field
+                        </TableHead>
+                        <TableHead className="min-w-[18rem] px-4 py-3 text-fuchsia-950/62 dark:text-fuchsia-50/68">
+                          New value
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {multiSamplingEditableFields.map((field) => (
+                        <TableRow
+                          key={`multi-sampling-edit-${field.key}`}
+                          className="border-fuchsia-100/80 hover:bg-fuchsia-50/42 dark:border-fuchsia-300/12 dark:hover:bg-fuchsia-950/18"
+                        >
+                          <TableCell className="px-4 py-3 align-top">
+                            <input
+                              aria-label={`Apply ${field.label} to all linked samplings`}
+                              type="checkbox"
+                              checked={multiSamplingEditForm[field.key].enabled}
+                              onChange={(event) =>
+                                toggleMultiSamplingEditField(field.key, event.target.checked)
+                              }
+                              className="mt-1 h-4 w-4 rounded border border-fuchsia-200 bg-white text-fuchsia-600 shadow-sm outline-none ring-offset-0 focus:ring-2 focus:ring-fuchsia-300 dark:border-fuchsia-300/22 dark:bg-fuchsia-950/24"
+                            />
+                          </TableCell>
+                          <TableCell className="px-4 py-3 align-top whitespace-normal">
+                            <div className="min-w-0">
+                              <p className="font-medium text-fuchsia-950 dark:text-fuchsia-50">
+                                {field.label}
+                              </p>
+                              <p className="mt-1 text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                                {field.description}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 align-top whitespace-normal">
+                            <Input
+                              value={multiSamplingEditForm[field.key].value}
+                              onChange={(event) =>
+                                updateMultiSamplingEditFieldValue(field.key, event.target.value)
+                              }
+                              type={field.type === "date" ? "date" : "text"}
+                              placeholder={field.placeholder ?? `New ${field.label.toLowerCase()}`}
+                              className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                              disabled={!multiSamplingEditForm[field.key].enabled}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {multiSamplingEditPatchEntries.length === 0 ? (
+                <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
+                  Turn on at least one checkbox before applying a bulk update.
+                </div>
+              ) : (
+                <div className="rounded-[1.35rem] border border-fuchsia-100 bg-white/72 px-4 py-4 text-sm text-fuchsia-950/72 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:text-fuchsia-50/72">
+                  Fields queued for bulk edit:{" "}
+                  <span className="font-medium">
+                    {multiSamplingEditSelectedFieldLabels.join(", ")}
+                  </span>
+                  .
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 border-fuchsia-100/90 bg-white/55 px-6 py-5 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeMultiSamplingEditModal}
+              className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleStartMultiSamplingEditProcess}
+              disabled={!canApplyMultiSamplingEdit}
+              className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              <Save className="h-4 w-4" />
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isAutoSamplingSetupOpen} onOpenChange={setIsAutoSamplingSetupOpen}>
         <DialogContent
           showCloseButton={false}
@@ -2450,6 +3004,222 @@ export function TwoPQRecordWorkbench({
           )}
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={Boolean(multiSamplingEditProcess)}
+        onOpenChange={(open) => {
+          if (
+            !open &&
+            multiSamplingEditProcess &&
+            multiSamplingEditProcess.status !== "running" &&
+            multiSamplingEditProcess.status !== "validating" &&
+            multiSamplingEditProcess.status !== "success"
+          ) {
+            setMultiSamplingEditProcess(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="h-[min(48rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
+        >
+          {multiSamplingEditProcess?.status === "success" ? (
+            <div className="relative overflow-hidden px-6 py-10 text-center">
+              {CREATION_CONFETTI.map((particle, index) => (
+                <span
+                  key={`multi-sampling-edit-success-${particle.left}-${particle.delay}-${index}`}
+                  className="two-pq-confetti absolute h-3 w-3 rounded-[5px]"
+                  style={{
+                    left: particle.left,
+                    top: particle.top,
+                    background: particle.color,
+                    animationDelay: particle.delay,
+                    animationDuration: particle.duration,
+                  }}
+                />
+              ))}
+              <div className="relative flex flex-col items-center">
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-200/18 text-emerald-50 shadow-[0_0_0_14px_rgba(74,222,128,0.12)]">
+                  <span className="two-pq-success-ring absolute inset-0 rounded-full border border-emerald-200/55" />
+                  <CheckCircle2 className="h-12 w-12" />
+                </div>
+                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-950/62 dark:text-fuchsia-50/72">
+                  Multi Sampling Edit Modal
+                </p>
+                <h3 className="mt-2 font-heading text-3xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                  Bulk sampling update completed
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/76">
+                  All {multiSamplingEditProcess.items.length} linked samplings were updated and
+                  validated for case <span className="font-mono">{detail?.record.id}</span>.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <DialogHeader className="relative border-b border-fuchsia-100 px-6 py-5 pr-16 dark:border-fuchsia-300/16">
+                <DialogTitle className="font-heading text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                  Multi sampling edit progress
+                </DialogTitle>
+                <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
+                  Checked fields are being patched across the current case child samplings one by
+                  one.
+                </DialogDescription>
+                {multiSamplingEditProcess?.status === "paused" ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setMultiSamplingEditProcess(null)}
+                    className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close multi sampling edit progress</span>
+                  </Button>
+                ) : null}
+              </DialogHeader>
+
+              <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+                <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Process progress
+                      </p>
+                      <p className="mt-2 text-sm text-fuchsia-950/72 dark:text-fuchsia-50/72">
+                        {multiSamplingEditProcess?.status === "running"
+                          ? `Updating ${multiSamplingEditProcess.items[multiSamplingEditProcess.currentIndex ?? 0]?.sampleId ?? ""} right now.`
+                          : multiSamplingEditProcess?.status === "validating"
+                            ? "Running the final validation pass across every updated child sampling."
+                            : "The process is paused. Review the error, then retry from the blocked step."}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-fuchsia-200 bg-white/72 text-fuchsia-950 dark:border-fuchsia-300/18 dark:bg-fuchsia-400/10 dark:text-fuchsia-50"
+                    >
+                      {multiSamplingEditProgressPercent}%
+                    </Badge>
+                  </div>
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-fuchsia-100/90 dark:bg-fuchsia-950/50">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,rgba(217,70,239,0.92),rgba(168,85,247,0.96))] transition-[width] duration-300"
+                      style={{ width: `${multiSamplingEditProgressPercent}%` }}
+                    />
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[1.15rem] border border-fuchsia-100 bg-white/78 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Updated
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                        {multiSamplingEditSuccessfulCount}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.15rem] border border-fuchsia-100 bg-white/78 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Pending
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                        {multiSamplingEditPendingCount}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.15rem] border border-fuchsia-100 bg-white/78 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                        Blocked
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-fuchsia-950 dark:text-fuchsia-50">
+                        {multiSamplingEditErroredCount}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-[1.15rem] border border-fuchsia-100 bg-white/76 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                      Fields being applied
+                    </p>
+                    <p className="mt-2 text-sm text-fuchsia-950/72 dark:text-fuchsia-50/72">
+                      {multiSamplingEditSelectedFieldLabels.length > 0
+                        ? multiSamplingEditSelectedFieldLabels.join(", ")
+                        : "No fields selected."}
+                    </p>
+                  </div>
+                </div>
+
+                {multiSamplingEditProcess?.status === "paused" ? (
+                  <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                    {multiSamplingEditProcess.errorTitle ?? "Multi sampling edit paused"}. Retry
+                    continues from the blocked child sampling.
+                  </div>
+                ) : null}
+
+                <div className="-mx-1 overflow-x-auto pb-1">
+                  <div className="grid min-w-max grid-flow-col auto-cols-[minmax(17rem,19rem)] gap-3 px-1 sm:auto-cols-[minmax(18rem,20rem)]">
+                    {multiSamplingEditProcess?.items.map((item) => (
+                      <div
+                        key={`multi-sampling-edit-process-${item.samplingRecordId}`}
+                        className="rounded-[1.35rem] border border-fuchsia-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.56)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <Badge
+                            variant={
+                              item.status === "success"
+                                ? "success"
+                                : item.status === "error"
+                                  ? "destructive"
+                                  : item.status === "running"
+                                    ? "brand"
+                                    : "outline"
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                          <span className="text-xs text-fuchsia-950/58 dark:text-fuchsia-50/58">
+                            Attempt {item.attempts}
+                          </span>
+                        </div>
+                        <p className="mt-3 font-mono text-lg font-semibold tracking-[0.08em] text-fuchsia-950 dark:text-fuchsia-50">
+                          {item.sampleId}
+                        </p>
+                        <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
+                          Child sampling #{item.order} with record id{" "}
+                          <span className="font-mono">{item.samplingRecordId}</span>.
+                        </p>
+                        {item.status === "error" ? (
+                          <p className="mt-3 text-xs text-destructive">
+                            Update paused on this sampling. Inspect the error log for details.
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {multiSamplingEditProcess?.status === "paused" ? (
+                <DialogFooter className="gap-3 border-fuchsia-100/90 bg-white/55 px-6 py-5 dark:border-fuchsia-300/14 dark:bg-fuchsia-950/16">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openMultiSamplingEditProcessErrorLog}
+                    disabled={!multiSamplingEditProcess.errorDetails}
+                    className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+                  >
+                    <Copy className="h-4 w-4" />
+                    Inspect error
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleRetryMultiSamplingEditProcess}
+                    className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Retry
+                  </Button>
+                </DialogFooter>
+              ) : null}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <RelationSelectionDialog
         open={relationDialog === "case-parent-batch"}
         onOpenChange={handleRelationDialogChange}
@@ -2848,12 +3618,31 @@ export function TwoPQRecordWorkbench({
                       <Plus className="h-3.5 w-3.5" />
                       Link existing
                     </Button>
-                    {hasThreeLetterCode ? (
+                    {linkedSamplings.length > 0 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={openMultiSamplingEditModal}
+                        disabled={
+                          !canManageRelations ||
+                          Boolean(autoSamplingProcess) ||
+                          Boolean(multiSamplingEditProcess)
+                        }
+                        className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        Edit multiple samplings at once
+                      </Button>
+                    ) : hasThreeLetterCode ? (
                       <Button
                         type="button"
                         size="sm"
                         onClick={openAutoSamplingSetupModal}
-                        disabled={!canManageRelations || Boolean(autoSamplingProcess)}
+                        disabled={
+                          !canManageRelations ||
+                          Boolean(autoSamplingProcess) ||
+                          Boolean(multiSamplingEditProcess)
+                        }
                         className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
                       >
                         <FlaskConical className="h-3.5 w-3.5" />
