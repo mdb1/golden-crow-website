@@ -3069,7 +3069,7 @@ export function TwoPQRecordWorkbench({
       >
         <DialogContent
           showCloseButton={false}
-          className="max-w-3xl overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(241,245,255,0.98),rgba(232,239,255,0.98)_52%,rgba(218,228,255,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(79,70,229,0.18)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,20,56,0.98),rgba(29,36,84,0.96)_48%,rgba(99,102,241,0.24))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.34)]"
+          className="w-[min(96vw,70rem)] max-w-[min(96vw,70rem)] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(241,245,255,0.98),rgba(232,239,255,0.98)_52%,rgba(218,228,255,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(79,70,229,0.18)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,20,56,0.98),rgba(29,36,84,0.96)_48%,rgba(99,102,241,0.24))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.34)]"
         >
           <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
@@ -3092,7 +3092,7 @@ export function TwoPQRecordWorkbench({
               <span className="sr-only">Close publish as report code modal</span>
             </Button>
           </DialogHeader>
-          <div className="space-y-5 px-6 py-5">
+          <div className="space-y-5 px-7 py-6 sm:px-8">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
@@ -3169,13 +3169,13 @@ export function TwoPQRecordWorkbench({
               </div>
             ) : null}
           </div>
-          <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
+          <DialogFooter className="gap-4 border-indigo-100/90 bg-white/55 px-7 py-6 sm:px-8 dark:border-indigo-300/14 dark:bg-indigo-950/16">
             <Button
               type="button"
               variant="outline"
               onClick={() => closePublishReportCodeModal()}
               disabled={pendingPublishReportCode}
-              className={`${FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+              className={`${FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME} h-12 px-7`}
             >
               Cancel
             </Button>
@@ -3183,7 +3183,7 @@ export function TwoPQRecordWorkbench({
               type="button"
               onClick={() => void handlePublishAsReportCode()}
               disabled={!canPublishAsReportCode}
-              className={`${FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+              className={`${FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME} h-12 px-8 sm:px-10`}
             >
               {pendingPublishReportCode ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
