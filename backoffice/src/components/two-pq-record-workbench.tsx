@@ -1576,12 +1576,30 @@ export function TwoPQRecordWorkbench({
   }
 
   async function handleThreeLetterCodeConfirm() {
-    if (!detail || !threeLetterCodeModal || !canConfirmThreeLetterCode) {
+    if (!threeLetterCodeModal || !canConfirmThreeLetterCode) {
       return;
     }
 
     const nextThreeLetterCode =
       threeLetterCodeModal === "remove" ? "" : normalizedThreeLetterCodeDraft;
+
+    if (mode === "create" && areaKey === "cases") {
+      setThreeLetterCode(nextThreeLetterCode);
+      closeThreeLetterCodeModal(true);
+      pushToast(
+        "success",
+        threeLetterCodeModal === "remove"
+          ? "Three letter code removed from the draft case."
+          : hasThreeLetterCode
+            ? "Three letter code updated for the draft case."
+            : "Three letter code saved for the draft case."
+      );
+      return;
+    }
+
+    if (!detail) {
+      return;
+    }
 
     setPendingThreeLetterCodeAction(true);
     try {
@@ -2664,6 +2682,9 @@ export function TwoPQRecordWorkbench({
       if (areaKey === "cases" && draftBatch?.id) {
         payload.parent_batch = draftBatch.id;
       }
+      if (areaKey === "cases" && normalizedThreeLetterCode) {
+        payload.three_letter_code = normalizedThreeLetterCode;
+      }
       if (areaKey === "sampling" && draftCase?.id) {
         payload.parent_case = draftCase.id;
       }
@@ -2899,8 +2920,12 @@ export function TwoPQRecordWorkbench({
             </DialogTitle>
             <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
               {threeLetterCodeModal === "remove"
-                ? "This will clear the unique three-letter shortcut stored on the case document."
-                : "This short letter-only identifier is unique to the case and is stored in Firebase as three_letter_code."}
+                ? mode === "create"
+                  ? "This will clear the unique three-letter shortcut currently staged for the new case."
+                  : "This will clear the unique three-letter shortcut stored on the case document."
+                : mode === "create"
+                  ? "This short letter-only identifier is unique to the case and will be stored in Firebase as three_letter_code when the record is created."
+                  : "This short letter-only identifier is unique to the case and is stored in Firebase as three_letter_code."}
             </DialogDescription>
             <Button
               type="button"
@@ -2930,7 +2955,9 @@ export function TwoPQRecordWorkbench({
               </div>
               <p className="mt-4 text-sm text-fuchsia-950/70 dark:text-fuchsia-50/72">
                 {threeLetterCodeModal === "remove"
-                  ? "Removing it frees the code so another case can use it later."
+                  ? mode === "create"
+                    ? "Removing it clears the staged value so the new case will be created without a three letter code."
+                    : "Removing it frees the code so another case can use it later."
                   : "Exactly three letters. The code is always stored and shown in uppercase."}
               </p>
             </div>
@@ -2979,7 +3006,9 @@ export function TwoPQRecordWorkbench({
 
             {threeLetterCodeModal === "remove" ? (
               <div className="rounded-[1.25rem] border border-fuchsia-200/90 bg-white/72 px-4 py-4 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/18 dark:bg-fuchsia-950/24 dark:text-fuchsia-50/72">
-                This case will no longer display a three letter code until a new one is assigned.
+                {mode === "create"
+                  ? "This new case will no longer carry a staged three letter code until a new one is assigned."
+                  : "This case will no longer display a three letter code until a new one is assigned."}
               </div>
             ) : null}
           </div>
@@ -4812,7 +4841,7 @@ export function TwoPQRecordWorkbench({
             </div>
           ) : null}
 
-          {areaKey === "cases" && mode !== "create" ? (
+          {areaKey === "cases" ? (
             <section className={THREE_LETTER_CODE_SECTION_CLASSNAME}>
               <div className="flex flex-col gap-4 border-b border-fuchsia-200/70 px-5 py-5 dark:border-fuchsia-300/16 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -4828,8 +4857,9 @@ export function TwoPQRecordWorkbench({
                     </Badge>
                   </div>
                   <p className="mt-2 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/74">
-                    A unique three-letter shorthand for this 2PQ case. Use it as a quick visual
-                    identifier when operators need a short code instead of the full case label.
+                    {mode === "create"
+                      ? "Stage a unique three-letter shorthand for this new 2PQ case before it is created. The code will be written into Firebase as part of the initial case document."
+                      : "A unique three-letter shorthand for this 2PQ case. Use it as a quick visual identifier when operators need a short code instead of the full case label."}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -4875,18 +4905,30 @@ export function TwoPQRecordWorkbench({
                     </div>
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-fuchsia-950 dark:text-fuchsia-50">
-                        {normalizedThreeLetterCode} is active for this case.
+                        {mode === "create"
+                          ? `${normalizedThreeLetterCode} is staged for this new case.`
+                          : `${normalizedThreeLetterCode} is active for this case.`}
                       </p>
                       <p className="text-sm text-fuchsia-950/70 dark:text-fuchsia-50/72">
-                        The code is stored on the case document as <code>three_letter_code</code>
-                        and stays available here for quick reference.
+                        {mode === "create" ? (
+                          <>
+                            The code will be stored on the new case document as{" "}
+                            <code>three_letter_code</code> when you tap <span className="font-medium">Create Record</span>.
+                          </>
+                        ) : (
+                          <>
+                            The code is stored on the case document as <code>three_letter_code</code>
+                            and stays available here for quick reference.
+                          </>
+                        )}
                       </p>
                     </div>
                   </>
                 ) : (
                   <div className={`${THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME} lg:col-span-2`}>
-                    No three letter code has been assigned yet. Add one manually or generate a new
-                    random code to reserve a unique shorthand for this case.
+                    {mode === "create"
+                      ? "No three letter code is staged yet. Add one manually or generate a new random code so the case is created with its shorthand already assigned."
+                      : "No three letter code has been assigned yet. Add one manually or generate a new random code to reserve a unique shorthand for this case."}
                   </div>
                 )}
               </div>
