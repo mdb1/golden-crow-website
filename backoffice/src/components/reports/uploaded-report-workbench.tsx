@@ -59,6 +59,8 @@ function toEditableProviderFormat(value: string): ReportProviderFormat | "" {
   switch (value.trim().toLowerCase()) {
     case "ag":
       return "ag";
+    case "2pq":
+      return "2pq";
     case "mdm":
       return "mdm";
     case "pdf":

@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { AdminRole } from "./admin-areas";
 
 export type AccentTone = "blue" | "rose" | "green" | "red" | "amber" | "neutral";
-export type ReportSourceKey = "myDNAMap" | "ActyonGenomics" | "vcf";
+export type ReportSourceKey = "myDNAMap" | "ActyonGenomics" | "vcf" | "2pq";
 export type AdminSectionKey =
   | "mission"
   | "accounts"

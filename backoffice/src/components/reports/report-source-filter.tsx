@@ -7,13 +7,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type SourceFilter = "all" | "myDNAMap" | "ActyonGenomics" | "vcf";
+export type SourceFilter = "all" | "myDNAMap" | "ActyonGenomics" | "vcf" | "2pq";
 
 const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "All Sources" },
   { value: "myDNAMap", label: "PocketGenes" },
   { value: "ActyonGenomics", label: "ActyonGenomics" },
   { value: "vcf", label: "VCF" },
+  { value: "2pq", label: "2PQ" },
 ];
 
 interface ReportSourceFilterProps {

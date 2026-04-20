@@ -177,6 +177,27 @@ type PublishFileStorageModalState = {
   snapshot: TwoPQFileStorageSnapshot | null;
   preview: string;
 };
+type StoredFileDocumentRecord = {
+  id: string;
+  data: Record<string, unknown>;
+};
+type ReportCodeStatusRecord = {
+  id: string;
+  code: string;
+  userId: string;
+  linkedFileId?: string | null;
+  uploadedReportId?: string;
+  fileName?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  providerFormat?: string | null;
+};
+type PublishReportCodeResult = {
+  reportCode: string;
+  uploadedReportId: string;
+  fileId: string;
+  created: boolean;
+};
 const MULTI_SAMPLING_EDITABLE_FIELD_SET = new Set<MultiSamplingEditableFieldKey>(
   MULTI_SAMPLING_EDITABLE_FIELD_KEYS
 );
@@ -266,6 +287,8 @@ const THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME =
   "rounded-[1.35rem] border border-dashed border-fuchsia-200/90 [background:linear-gradient(180deg,rgba(255,255,255,0.74),rgba(252,231,243,0.74))] px-4 py-5 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/20 dark:[background:linear-gradient(180deg,rgba(48,20,56,0.92),rgba(88,28,135,0.36))] dark:text-fuchsia-50/76";
 const FILE_STORAGE_SECTION_CLASSNAME =
   "order-[10000] col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(246,248,255,0.98),rgba(238,242,255,0.98)_44%,rgba(224,231,255,0.94))] shadow-[0_24px_72px_rgba(99,102,241,0.16)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(18,22,48,0.98),rgba(27,33,70,0.96)_46%,rgba(79,70,229,0.24))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.88)]";
+const REPORT_CODE_PUBLISH_SECTION_CLASSNAME =
+  "order-[10001] col-span-full overflow-hidden rounded-[1.9rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(241,245,255,0.99),rgba(232,239,255,0.98)_44%,rgba(218,228,255,0.94))] shadow-[0_24px_72px_rgba(79,70,229,0.18)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(17,20,56,0.98),rgba(29,36,84,0.96)_46%,rgba(99,102,241,0.28))] dark:shadow-[0_24px_80px_-52px_rgba(99,102,241,0.9)]";
 const FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME =
   "border border-indigo-100 bg-[linear-gradient(180deg,rgba(224,231,255,0.98),rgba(199,210,254,0.98))] text-indigo-950 shadow-[0_14px_34px_rgba(99,102,241,0.18)] hover:brightness-[1.02] dark:border-indigo-200/18 dark:bg-[linear-gradient(180deg,rgba(49,46,129,0.98),rgba(67,56,202,0.94))] dark:text-indigo-50 dark:shadow-none dark:hover:brightness-[1.06]";
 const FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME =
@@ -307,6 +330,18 @@ function buildAutoSamplingPreviewItems(threeLetterCode: string, copies: number):
 function buildExpectedCaseLabelFromThreeLetterCode(threeLetterCode: string) {
   const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
   return normalizedThreeLetterCode.length === 3 ? `${normalizedThreeLetterCode}XXX` : "";
+}
+
+function getTrimmedUnknownString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function resolveStoredFileLinkedReportCode(document: StoredFileDocumentRecord | null | undefined) {
+  return (
+    getTrimmedUnknownString(document?.data.linked_report_code) ??
+    getTrimmedUnknownString(document?.data.linked_report_id) ??
+    ""
+  );
 }
 
 function toNullableTrimmedString(value?: string) {
@@ -936,6 +971,8 @@ export function TwoPQRecordWorkbench({
     useState<PublishFileStorageModalState | null>(null);
   const [isPublishFileStoragePreviewExpanded, setIsPublishFileStoragePreviewExpanded] =
     useState(false);
+  const [isPublishReportCodeModalOpen, setIsPublishReportCodeModalOpen] = useState(false);
+  const [pendingPublishReportCode, setPendingPublishReportCode] = useState(false);
   const publishFileStorageRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -962,6 +999,8 @@ export function TwoPQRecordWorkbench({
     publishFileStorageRequestIdRef.current += 1;
     setPublishFileStorageModal(null);
     setIsPublishFileStoragePreviewExpanded(false);
+    setIsPublishReportCodeModalOpen(false);
+    setPendingPublishReportCode(false);
     setPendingCaseLabelCorrection(false);
   }, [detail?.record.caseLabel, detail?.record.id]);
 
@@ -1159,10 +1198,97 @@ export function TwoPQRecordWorkbench({
   const hasFileStorageAccess = adminContext.role === "full_admin";
   const canOpenPublishFileStorageModal =
     areaKey === "cases" && mode !== "create" && hasThreeLetterCode && Boolean(detail);
+  const canOpenPublishReportCodeModal =
+    areaKey === "cases" &&
+    mode !== "create" &&
+    hasThreeLetterCode &&
+    hasStoredFileId &&
+    Boolean(detail);
   const canPublishCaseToFileStorage =
     canOpenPublishFileStorageModal &&
     hasFileStorageAccess &&
     Boolean(detail?.record.canUpdate);
+  const storedFileDocumentQuery = useQuery({
+    queryKey: ["2pq-case-stored-file", storedFileId],
+    queryFn: async () => {
+      try {
+        return (
+          await sdkFetch<{ document: StoredFileDocumentRecord }>(`/file-storage/${storedFileId}`)
+        ).document;
+      } catch (error) {
+        if (error instanceof SdkRequestError && error.status === 404) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    enabled: canOpenPublishReportCodeModal && hasFileStorageAccess,
+    staleTime: 30_000,
+  });
+  const reportCodeStatusQuery = useQuery({
+    queryKey: ["2pq-case-report-code-status", expectedCaseLabelFromThreeLetterCode],
+    queryFn: async () => {
+      try {
+        return (
+          await sdkFetch<{ report: ReportCodeStatusRecord }>(
+            `/reports/${expectedCaseLabelFromThreeLetterCode}`
+          )
+        ).report;
+      } catch (error) {
+        if (error instanceof SdkRequestError && error.status === 404) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    enabled:
+      canOpenPublishReportCodeModal &&
+      hasFileStorageAccess &&
+      Boolean(expectedCaseLabelFromThreeLetterCode),
+    staleTime: 30_000,
+  });
+  const storedFileDocument = storedFileDocumentQuery.data ?? null;
+  const storedFileLinkedReportCode = resolveStoredFileLinkedReportCode(storedFileDocument);
+  const reportCodeStatus = reportCodeStatusQuery.data ?? null;
+  const reportCodeLinkedFileId = reportCodeStatus?.linkedFileId?.trim() ?? "";
+  const isStoredFileDocumentMissing =
+    canOpenPublishReportCodeModal &&
+    hasFileStorageAccess &&
+    storedFileDocumentQuery.isSuccess &&
+    !storedFileDocument;
+  const hasStoredFileReportCodeConflict =
+    Boolean(storedFileLinkedReportCode) &&
+    storedFileLinkedReportCode !== expectedCaseLabelFromThreeLetterCode;
+  const hasReportCodeFileConflict =
+    Boolean(reportCodeLinkedFileId) && reportCodeLinkedFileId !== storedFileId;
+  const hasReportCodeOwnershipConflict =
+    Boolean(reportCodeStatus?.userId) && reportCodeStatus.userId !== adminContext.uid;
+  const reportCodePublishConflictMessage = hasStoredFileReportCodeConflict
+    ? `This stored file is already linked to report code ${storedFileLinkedReportCode}.`
+    : hasReportCodeFileConflict
+      ? `Report code ${expectedCaseLabelFromThreeLetterCode} already points to stored file ${reportCodeLinkedFileId}.`
+      : hasReportCodeOwnershipConflict
+        ? `Report code ${expectedCaseLabelFromThreeLetterCode} already belongs to another owner (${reportCodeStatus?.userId}).`
+        : null;
+  const isReportCodeStatusLoading =
+    storedFileDocumentQuery.isLoading || reportCodeStatusQuery.isLoading;
+  const isPublishedAsReportCode =
+    Boolean(reportCodeStatus) &&
+    reportCodeLinkedFileId === storedFileId &&
+    !hasReportCodeOwnershipConflict;
+  const canPublishAsReportCode =
+    canOpenPublishReportCodeModal &&
+    hasFileStorageAccess &&
+    Boolean(detail?.record.canUpdate) &&
+    !pendingPublishReportCode &&
+    !isStoredFileDocumentMissing &&
+    !isReportCodeStatusLoading &&
+    !storedFileDocumentQuery.isError &&
+    !reportCodeStatusQuery.isError &&
+    !reportCodePublishConflictMessage &&
+    !isPublishedAsReportCode;
   const canApplyMultiSamplingEdit =
     Boolean(detail?.record.canUpdate) &&
     linkedSamplings.length > 0 &&
@@ -1469,6 +1595,22 @@ export function TwoPQRecordWorkbench({
     setIsPublishFileStoragePreviewExpanded(false);
   }
 
+  function openPublishReportCodeModal() {
+    if (!canOpenPublishReportCodeModal) {
+      return;
+    }
+
+    setIsPublishReportCodeModalOpen(true);
+  }
+
+  function closePublishReportCodeModal(force = false) {
+    if (pendingPublishReportCode && !force) {
+      return;
+    }
+
+    setIsPublishReportCodeModalOpen(false);
+  }
+
   async function openPublishFileStorageModal() {
     if (!detail || !canOpenPublishFileStorageModal || !fileStorageSnapshotFileName) {
       return;
@@ -1577,6 +1719,45 @@ export function TwoPQRecordWorkbench({
         "Unable to publish this case snapshot to file storage.",
         "Publish to File Storage"
       );
+    }
+  }
+
+  async function handlePublishAsReportCode() {
+    if (!detail || !storedFileId || !expectedCaseLabelFromThreeLetterCode) {
+      return;
+    }
+
+    setPendingPublishReportCode(true);
+
+    try {
+      const response = await sdkFetch<PublishReportCodeResult>(
+        "/reports/publish-from-file-storage",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            fileId: storedFileId,
+            reportCode: expectedCaseLabelFromThreeLetterCode,
+          }),
+        }
+      );
+
+      closePublishReportCodeModal(true);
+      pushToast(
+        "success",
+        response.created
+          ? `Report code ${response.reportCode} is now linked to the stored file.`
+          : `Report code ${response.reportCode} was synchronized to the stored file.`
+      );
+      await Promise.all([storedFileDocumentQuery.refetch(), reportCodeStatusQuery.refetch()]);
+      router.refresh();
+    } catch (error) {
+      pushErrorToast(
+        error,
+        "Unable to publish this stored file as a report code.",
+        "Publish as report code"
+      );
+    } finally {
+      setPendingPublishReportCode(false);
     }
   }
 
@@ -2871,6 +3052,142 @@ export function TwoPQRecordWorkbench({
                 <LoaderCircle className="h-4 w-4 animate-spin" />
               ) : (
                 <FileCode2 className="h-4 w-4" />
+              )}
+              Publish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isPublishReportCodeModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePublishReportCodeModal();
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-3xl overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(241,245,255,0.98),rgba(232,239,255,0.98)_52%,rgba(218,228,255,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(79,70,229,0.18)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,20,56,0.98),rgba(29,36,84,0.96)_48%,rgba(99,102,241,0.24))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.34)]"
+        >
+          <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+              Publish as report code
+            </DialogTitle>
+            <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
+              This will ensure the current stored file is linked to report code{" "}
+              <span className="font-mono">{expectedCaseLabelFromThreeLetterCode}</span> and will
+              use the signed-in admin as the report owner.
+            </DialogDescription>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => closePublishReportCodeModal()}
+              disabled={pendingPublishReportCode}
+              className="absolute right-5 top-5 h-9 w-9 rounded-full text-indigo-950 hover:bg-indigo-100/80 dark:text-indigo-50 dark:hover:bg-indigo-900/36"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close publish as report code modal</span>
+            </Button>
+          </DialogHeader>
+          <div className="space-y-5 px-6 py-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                  Report code
+                </p>
+                <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                  {expectedCaseLabelFromThreeLetterCode}
+                </p>
+                <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                  Derived from the current case three-letter code using the fixed{" "}
+                  <span className="font-mono">XXX</span> suffix.
+                </p>
+              </div>
+              <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                  Stored file
+                </p>
+                <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                  {storedFileId}
+                </p>
+                <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                  Provider format will be saved as <span className="font-mono">2pq</span> and the
+                  file name will stay synced to this stored file snapshot.
+                </p>
+              </div>
+              <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                  Report owner
+                </p>
+                <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                  {adminContext.email}
+                </p>
+                <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                  The current admin user will be written into the report-code ownership fields and
+                  the uploaded-report owner metadata.
+                </p>
+              </div>
+              <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                  Current publish state
+                </p>
+                <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                  {isStoredFileDocumentMissing
+                    ? "The stored file document can no longer be found."
+                    : isReportCodeStatusLoading
+                      ? "Checking the current report-code linkage..."
+                      : isPublishedAsReportCode
+                        ? "This report code already resolves to the current stored file."
+                        : reportCodePublishConflictMessage
+                          ? reportCodePublishConflictMessage
+                          : reportCodeStatus
+                            ? "An existing report record will be synchronized to this stored file."
+                            : "A fresh report code and uploaded-report link will be created."}
+                </p>
+                <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                  linked report on file_storage:{" "}
+                  <span className="font-mono">
+                    {storedFileLinkedReportCode || "Not linked yet"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {reportCodePublishConflictMessage || isStoredFileDocumentMissing ? (
+              <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                  <p>
+                    {isStoredFileDocumentMissing
+                      ? "The case points to a stored_file_id that no longer exists, so report-code publishing is blocked until the file is republished."
+                      : reportCodePublishConflictMessage}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closePublishReportCodeModal()}
+              disabled={pendingPublishReportCode}
+              className={`${FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handlePublishAsReportCode()}
+              disabled={!canPublishAsReportCode}
+              className={`${FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
+            >
+              {pendingPublishReportCode ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Link2 className="h-4 w-4" />
               )}
               Publish
             </Button>
@@ -4629,6 +4946,174 @@ export function TwoPQRecordWorkbench({
                   </p>
                 </div>
               </div>
+            </section>
+          ) : null}
+
+          {areaKey === "cases" && mode !== "create" && hasThreeLetterCode && hasStoredFileId ? (
+            <section className={REPORT_CODE_PUBLISH_SECTION_CLASSNAME}>
+              <div className="flex flex-col gap-4 border-b border-indigo-200/70 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                      Publish as report code
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className={
+                        reportCodePublishConflictMessage || isStoredFileDocumentMissing
+                          ? "border-amber-300 bg-amber-50/90 text-amber-950 dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50"
+                          : "border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
+                      }
+                    >
+                      {!hasFileStorageAccess
+                        ? "Restricted"
+                        : isStoredFileDocumentMissing
+                        ? "Missing file"
+                        : isReportCodeStatusLoading
+                          ? "Checking"
+                          : isPublishedAsReportCode
+                            ? "Published"
+                            : reportCodePublishConflictMessage
+                              ? "Conflict"
+                              : "Not published"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 max-w-3xl text-sm text-indigo-950/72 dark:text-indigo-50/74">
+                    Promote the current <code>file_storage</code> snapshot into a reusable 2PQ
+                    report code using the current signed-in admin as the report owner. The report
+                    code for this case is derived from the three-letter code as{" "}
+                    <code>{expectedCaseLabelFromThreeLetterCode}</code>.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {isPublishedAsReportCode && hasFileStorageAccess ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                    >
+                      <Link href={`/reports/${expectedCaseLabelFromThreeLetterCode}`}>
+                        <Link2 className="h-3.5 w-3.5" />
+                        Show report code
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {isPublishedAsReportCode &&
+                  hasFileStorageAccess &&
+                  reportCodeStatus?.uploadedReportId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
+                    >
+                      <Link href={`/reports/uploads/${reportCodeStatus.uploadedReportId}`}>
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        Show uploaded report
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => openPublishReportCodeModal()}
+                    disabled={!canPublishAsReportCode}
+                    className={FILE_STORAGE_PRIMARY_BUTTON_CLASSNAME}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Publish as report code
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr),minmax(0,1fr)]">
+                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Report code
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                    {expectedCaseLabelFromThreeLetterCode}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    This is the 6-character code derived from the active three-letter code plus{" "}
+                    <span className="font-mono">XXX</span>.
+                  </p>
+                </div>
+                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Owner and source
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                    {adminContext.email}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    The new report code will use the current admin user as owner, with provider
+                    format <span className="font-mono">2pq</span> and stored file{" "}
+                    <span className="font-mono">{storedFileId}</span>.
+                  </p>
+                </div>
+                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Current linkage
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                    {isStoredFileDocumentMissing
+                      ? "Stored file document missing."
+                      : !hasFileStorageAccess
+                        ? "Only full admins can inspect or publish report-code linkage from this section."
+                      : isReportCodeStatusLoading
+                        ? "Checking current publish state..."
+                        : isPublishedAsReportCode
+                          ? "Report code already resolves back to this stored file."
+                          : reportCodePublishConflictMessage
+                            ? reportCodePublishConflictMessage
+                            : "No report code has been linked yet."}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                    file_storage linked code:{" "}
+                    <span className="font-mono">
+                      {storedFileLinkedReportCode || "Not linked yet"}
+                    </span>
+                    {" · "}uploaded report id:{" "}
+                    <span className="font-mono">
+                      {reportCodeStatus?.uploadedReportId ?? "Not created yet"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {hasFileStorageAccess &&
+              (storedFileDocumentQuery.isError || reportCodeStatusQuery.isError) ? (
+                <div className="px-5 pb-5">
+                  <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                        <p>
+                          Unable to verify the latest report-code publish state right now. Retry
+                          the status check before publishing.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          void storedFileDocumentQuery.refetch();
+                          void reportCodeStatusQuery.refetch();
+                        }}
+                        className="h-9 shrink-0 border border-amber-300/90 bg-white/90 px-4 text-amber-950 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-950/30 dark:text-amber-50 dark:hover:bg-amber-900/30"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Retry status
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : null}
         </div>

@@ -1,6 +1,7 @@
 import { FieldValue, type Query } from "firebase-admin/firestore";
 import { adminDb } from "../config/firebase.js";
 import type { DnaReport, SourceKey } from "../types/sdk.types.js";
+import { AdminRepositoryError } from "./admin-errors.js";
 
 interface ReportCodeDoc {
   owner_id?: string;
@@ -23,6 +24,17 @@ interface UploadedReportDoc {
   upload_version_count?: unknown;
   date_created?: unknown;
   date_modified?: unknown;
+}
+
+interface StoredFileDoc {
+  file_name?: string | null;
+  creator_email?: string | null;
+  linked_report_code?: string | null;
+  linked_report_id?: string | null;
+  file_type?: string | null;
+  file_content?: string | null;
+  creation_date?: unknown;
+  last_modified_date?: unknown;
 }
 
 function normalizeUploadVersionCount(value: unknown): number {
@@ -98,6 +110,10 @@ function normalizeSource(uploadedReport?: UploadedReportDoc): SourceKey {
   const providerFormat = normalizeString(uploadedReport?.provider_format)?.toLowerCase();
   const providerName = normalizeString(uploadedReport?.provider_name)?.toLowerCase() ?? "";
 
+  if (providerFormat === "2pq" || providerName.includes("2pq")) {
+    return "2pq";
+  }
+
   if (providerFormat === "ag" || providerName.includes("actyon")) {
     return "ActyonGenomics";
   }
@@ -119,6 +135,83 @@ function resolveReportOwnerId(
     normalizeString(uploadedReport?.owner_community_user_id) ??
     ""
   );
+}
+
+function normalizeReportCode(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function resolveLinkedReportCode(storedFile?: StoredFileDoc) {
+  return (
+    normalizeString(storedFile?.linked_report_code) ??
+    normalizeString(storedFile?.linked_report_id)
+  );
+}
+
+function validatePublishAsReportCodeInputs(input: {
+  fileId: string;
+  reportCode: string;
+  ownerId: string;
+  ownerEmail: string;
+}) {
+  const fileId = normalizeString(input.fileId);
+  if (!fileId) {
+    throw new AdminRepositoryError("Stored file id is required.", 400);
+  }
+
+  const reportCode = normalizeReportCode(input.reportCode);
+  if (!/^[A-Z0-9]{6}$/.test(reportCode)) {
+    throw new AdminRepositoryError(
+      "Report code must be exactly 6 uppercase alphanumeric characters.",
+      400
+    );
+  }
+
+  const ownerId = normalizeString(input.ownerId);
+  if (!ownerId) {
+    throw new AdminRepositoryError("Report owner id is required.", 400);
+  }
+
+  const ownerEmail = normalizeString(input.ownerEmail)?.toLowerCase();
+  if (!ownerEmail) {
+    throw new AdminRepositoryError("Report owner email is required.", 400);
+  }
+
+  return {
+    fileId,
+    reportCode,
+    ownerId,
+    ownerEmail,
+  };
+}
+
+function buildUploadedReportPayload(options: {
+  existingData?: UploadedReportDoc;
+  fileId: string;
+  fileName: string;
+  reportCode: string;
+  ownerId: string;
+  ownerEmail: string;
+}) {
+  const existingData = options.existingData ?? {};
+
+  return {
+    ...existingData,
+    file_name: options.fileName,
+    download_url: normalizeString(existingData.download_url) ?? "",
+    linked_file_id: options.fileId,
+    upload_version_count: normalizeUploadVersionCount(existingData.upload_version_count),
+    provider_format: "2pq",
+    provider_name: options.ownerEmail,
+    report_code: options.reportCode,
+    report_owner_id: options.ownerId,
+    owner_name: options.ownerEmail,
+    owner_email: options.ownerEmail,
+    owner_community_user_id: options.ownerId,
+    owner_public_profile_id: options.ownerId,
+    date_created: existingData.date_created ?? FieldValue.serverTimestamp(),
+    date_modified: FieldValue.serverTimestamp(),
+  } satisfies UploadedReportDoc;
 }
 
 function toDnaReport(
@@ -326,4 +419,150 @@ export async function deleteReport(
     console.error(`[deleteReport] Failed to delete report ${reportId}:`, err);
     return { success: false, storageDeleted: false };
   }
+}
+
+export async function publishStoredFileAsReportCode(input: {
+  fileId: string;
+  reportCode: string;
+  ownerId: string;
+  ownerEmail: string;
+}): Promise<{
+  reportCode: string;
+  uploadedReportId: string;
+  fileId: string;
+  created: boolean;
+}> {
+  const normalizedInput = validatePublishAsReportCodeInputs(input);
+  const timestamp = new Date().toISOString();
+
+  const fileRef = adminDb.collection("file_storage").doc(normalizedInput.fileId);
+  const reportCodeRef = adminDb.collection("report_codes").doc(normalizedInput.reportCode);
+  const communityUserRef = adminDb.collection("community_users").doc(normalizedInput.ownerId);
+  const uploadedReportsCollection = adminDb.collection("uploaded_reports");
+
+  return adminDb.runTransaction(async (transaction) => {
+    const storedFileSnapshot = await transaction.get(fileRef);
+    if (!storedFileSnapshot.exists) {
+      throw new AdminRepositoryError("Stored file not found.", 404);
+    }
+
+    const storedFile = (storedFileSnapshot.data() ?? {}) as StoredFileDoc;
+    const storedFileType = normalizeString(storedFile.file_type)?.toLowerCase();
+    if (storedFileType !== "2pq") {
+      throw new AdminRepositoryError(
+        "Only 2PQ stored files can be published as report codes from this screen.",
+        400
+      );
+    }
+
+    const storedFileContent = normalizeString(storedFile.file_content);
+    if (!storedFileContent) {
+      throw new AdminRepositoryError("Stored file content is empty.", 400);
+    }
+
+    try {
+      JSON.parse(storedFileContent);
+    } catch {
+      throw new AdminRepositoryError("Stored file content must be valid JSON.", 400);
+    }
+
+    const linkedReportCode = resolveLinkedReportCode(storedFile);
+    if (linkedReportCode && linkedReportCode !== normalizedInput.reportCode) {
+      throw new AdminRepositoryError(
+        `Stored file is already linked to report code ${linkedReportCode}.`,
+        409
+      );
+    }
+
+    const reportCodeSnapshot = await transaction.get(reportCodeRef);
+    const existingReportCode = reportCodeSnapshot.exists
+      ? (reportCodeSnapshot.data() as ReportCodeDoc)
+      : null;
+    const existingOwnerId = normalizeString(existingReportCode?.owner_id);
+    if (existingOwnerId && existingOwnerId !== normalizedInput.ownerId) {
+      throw new AdminRepositoryError(
+        `Report code ${normalizedInput.reportCode} already belongs to another owner.`,
+        409
+      );
+    }
+
+    let uploadedReportRef = uploadedReportsCollection.doc();
+    let uploadedReportData: UploadedReportDoc | undefined;
+    let created = !reportCodeSnapshot.exists;
+
+    const existingUploadedReportId = normalizeString(existingReportCode?.uploaded_report_id);
+    if (existingUploadedReportId) {
+      uploadedReportRef = uploadedReportsCollection.doc(existingUploadedReportId);
+      const uploadedReportSnapshot = await transaction.get(uploadedReportRef);
+
+      if (uploadedReportSnapshot.exists) {
+        uploadedReportData = uploadedReportSnapshot.data() as UploadedReportDoc;
+        const linkedFileId = normalizeString(uploadedReportData.linked_file_id);
+        if (linkedFileId && linkedFileId !== normalizedInput.fileId) {
+          throw new AdminRepositoryError(
+            `Report code ${normalizedInput.reportCode} already points to another stored file.`,
+            409
+          );
+        }
+
+        const uploadedOwnerId =
+          normalizeString(uploadedReportData.report_owner_id) ??
+          normalizeString(uploadedReportData.owner_community_user_id) ??
+          normalizeString(uploadedReportData.owner_public_profile_id);
+        if (uploadedOwnerId && uploadedOwnerId !== normalizedInput.ownerId) {
+          throw new AdminRepositoryError(
+            `Uploaded report for ${normalizedInput.reportCode} belongs to another owner.`,
+            409
+          );
+        }
+
+        created = false;
+      }
+    }
+
+    const fileName =
+      normalizeString(storedFile.file_name) ?? normalizedInput.reportCode;
+    const uploadedReportPayload = buildUploadedReportPayload({
+      existingData: uploadedReportData,
+      fileId: normalizedInput.fileId,
+      fileName,
+      reportCode: normalizedInput.reportCode,
+      ownerId: normalizedInput.ownerId,
+      ownerEmail: normalizedInput.ownerEmail,
+    });
+
+    transaction.set(uploadedReportRef, uploadedReportPayload, { merge: false });
+    transaction.set(
+      reportCodeRef,
+      {
+        owner_id: normalizedInput.ownerId,
+        uploaded_report_id: uploadedReportRef.id,
+      },
+      { merge: false }
+    );
+    transaction.update(fileRef, {
+      linked_report_code: normalizedInput.reportCode,
+      linked_report_id: FieldValue.delete(),
+      last_modified_date: timestamp,
+    });
+
+    const communityUserSnapshot = await transaction.get(communityUserRef);
+    if (communityUserSnapshot.exists) {
+      transaction.set(
+        communityUserRef,
+        {
+          owned_reports: FieldValue.arrayUnion(uploadedReportRef.id),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    return {
+      reportCode: normalizedInput.reportCode,
+      uploadedReportId: uploadedReportRef.id,
+      fileId: normalizedInput.fileId,
+      created,
+    };
+  });
 }

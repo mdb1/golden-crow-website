@@ -9,7 +9,7 @@ import {
 import Link from "next/link";
 
 // Type copied from goldencrow-sdk/src/types/sdk.types.ts to avoid SDK source coupling
-export type SourceKey = "myDNAMap" | "ActyonGenomics" | "vcf";
+export type SourceKey = "myDNAMap" | "ActyonGenomics" | "vcf" | "2pq";
 
 export interface DnaReport {
   id: string;

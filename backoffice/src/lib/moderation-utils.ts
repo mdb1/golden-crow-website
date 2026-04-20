@@ -58,6 +58,7 @@ const REPORT_SOURCE_META: Record<
   myDNAMap: { label: "PocketGenes", color: "#E5517D" },
   ActyonGenomics: { label: "ActyonGenomics", color: "#0097A7" },
   vcf: { label: "VCF", color: "#FF9E2C" },
+  "2pq": { label: "2PQ", color: "#6366F1" },
 };
 
 const REPORT_STATUS_COLORS: Record<string, string> = {
@@ -363,6 +364,8 @@ export function formatReportFormat(providerFormat?: string | null) {
       return "VCF";
     case "pdf":
       return "PDF";
+    case "2pq":
+      return "2PQ";
     default:
       return normalized.toUpperCase();
   }

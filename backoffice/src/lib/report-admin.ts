@@ -1,7 +1,7 @@
 import type { ModerationDocumentRecord } from "./moderation-types";
 import { getBoolean, getString, pickFirstString } from "./moderation-utils";
 
-export type ReportProviderFormat = "mdm" | "ag" | "vcf" | "pdf";
+export type ReportProviderFormat = "mdm" | "ag" | "vcf" | "pdf" | "2pq";
 export type TrackingProgressStatusValue =
   | "waiting_on_patient"
   | "sample_taken"
@@ -14,6 +14,7 @@ export const REPORT_PROVIDER_FORMAT_OPTIONS: ReportProviderFormat[] = [
   "ag",
   "vcf",
   "pdf",
+  "2pq",
 ];
 
 export const TRACKING_PROGRESS_STATUS_OPTIONS: Array<{
@@ -139,6 +140,8 @@ export function normalizeProviderFormat(value: string): ReportProviderFormat {
       return "mdm";
     case "pdf":
       return "pdf";
+    case "2pq":
+      return "2pq";
     default:
       return "vcf";
   }

@@ -35,6 +35,7 @@ const SOURCE_DESCRIPTIONS: Record<AdminReportRecord["source"], string> = {
   myDNAMap: "Report uploaded via the PocketGenes mobile app.",
   ActyonGenomics: "Report from ActyonGenomics laboratory partner.",
   vcf: "Variant Call Format file - raw genomic variant data.",
+  "2pq": "2PQ stored snapshot linked through file storage and report-code resolution.",
 };
 
 function toEditableState(document: ModerationDocumentRecord): EditableReportCodeState {

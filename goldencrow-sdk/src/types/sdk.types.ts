@@ -1,5 +1,5 @@
 // SourceKey — matches report_codes.source field values
-export type SourceKey = "myDNAMap" | "ActyonGenomics" | "vcf";
+export type SourceKey = "myDNAMap" | "ActyonGenomics" | "vcf" | "2pq";
 export type ModerationCollectionKey =
   | "profiles"
   | "public_profiles"

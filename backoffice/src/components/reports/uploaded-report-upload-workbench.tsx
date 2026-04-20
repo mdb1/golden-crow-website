@@ -18,7 +18,7 @@ import { sdkFetch } from "@/lib/sdk-client";
 import type { ReportProviderFormat, UploadedReportRecord } from "@/lib/report-admin";
 import { isReportReadyToDownload, normalizeProviderFormat } from "@/lib/report-admin";
 
-const PROVIDER_FORMAT_OPTIONS: ReportProviderFormat[] = ["mdm", "ag", "vcf", "pdf"];
+const PROVIDER_FORMAT_OPTIONS: ReportProviderFormat[] = ["mdm", "ag", "vcf", "pdf", "2pq"];
 
 function buildPayload(report: UploadedReportRecord, overrides: Record<string, unknown>) {
   return {
