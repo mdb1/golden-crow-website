@@ -4,10 +4,20 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save } from "lucide-react";
+import { LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
 import { ReportPill } from "@/components/reports/report-pill";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import type {
   AdminReportRecord,
   ModerationDocumentRecord,
@@ -85,6 +95,8 @@ export function FileStorageWorkbench({
     Partial<Record<StoredFileFieldKey, string>>
   >({});
   const [pending, setPending] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
 
   const file = useMemo(() => parseStoredFileRecord(sourceDocument), [sourceDocument]);
@@ -112,6 +124,7 @@ export function FileStorageWorkbench({
   }, [isJsonValid, state.fileContent]);
   const showNormalizationHint = normalizedContent !== state.fileContent;
   const isJsonFormat = isJsonBackedStoredFileType(state.fileType);
+  const canDeleteFile = isStoredFileOrphan(file);
 
   const { data: linkedReportResult, isLoading: isLinkedReportLoading } = useQuery({
     queryKey: ["reports", linkedReportKey],
@@ -238,6 +251,32 @@ export function FileStorageWorkbench({
     }
   }
 
+  async function handleDelete() {
+    setDeletePending(true);
+
+    try {
+      await sdkFetch<{ success: boolean }>(`/file-storage/${file.id}`, {
+        method: "DELETE",
+      });
+      setDeleteOpen(false);
+      router.push(`/collections/file_storage?deleted=1&fileId=${encodeURIComponent(file.id)}`);
+    } catch (error) {
+      setDeleteOpen(false);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message:
+          error instanceof SdkRequestError
+            ? error.message
+            : "Unable to delete the stored file.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
+        durationMs: 10000,
+      });
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
@@ -287,8 +326,24 @@ export function FileStorageWorkbench({
               <Save className="h-3.5 w-3.5" />
               {pending ? "Saving..." : "Save file"}
             </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              disabled={deletePending || !canDeleteFile}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
           </div>
         </div>
+
+        {!canDeleteFile ? (
+          <div className="rounded-2xl border border-red-300/60 bg-red-50/90 px-4 py-3 text-sm text-red-950 dark:border-red-400/24 dark:bg-red-950/22 dark:text-red-50">
+            This stored file is currently linked to a report and cannot be deleted here. Remove the
+            report link first, then delete the orphaned file.
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <ReportPill label={formatStoredFileType(file.fileType)} color="#4E8FBB" />
@@ -566,6 +621,38 @@ export function FileStorageWorkbench({
         title="Developer raw stored-file editor"
         description="Use this only for schema recovery, legacy link cleanup, or fields not represented in the typed stored-file manager."
       />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete stored file {file.fileName || file.id}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the stored file from Firebase and return you to the file
+              storage browser. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePending}>Keep file</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => void handleDelete()}
+              disabled={deletePending || !canDeleteFile}
+            >
+              {deletePending ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete file
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, RefreshCcw, Search, X } from "lucide-react";
 import { ReportPill } from "@/components/reports/report-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,8 +66,27 @@ function sortDocuments(
 }
 
 export function FileStorageBrowser() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("date");
+  const [deletedFileNotice, setDeletedFileNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("deleted") !== "1") {
+      return;
+    }
+
+    setDeletedFileNotice(searchParams.get("fileId") ?? "");
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("deleted");
+    nextParams.delete("fileId");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }, [pathname, router, searchParams]);
 
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["file-storage-browser"],
@@ -123,6 +143,29 @@ export function FileStorageBrowser() {
 
   return (
     <section className="flex flex-col gap-4">
+      {deletedFileNotice !== null ? (
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-red-300/70 bg-red-50/92 px-4 py-3 text-red-950 shadow-[0_14px_34px_rgba(239,68,68,0.12)] dark:border-red-400/28 dark:bg-red-950/28 dark:text-red-50">
+          <div>
+            <p className="text-sm font-semibold">File deleted</p>
+            <p className="mt-1 text-sm text-red-950/82 dark:text-red-50/82">
+              {deletedFileNotice
+                ? `Stored file ${deletedFileNotice} was deleted successfully.`
+                : "The stored file was deleted successfully."}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setDeletedFileNotice(null)}
+            className="h-8 w-8 shrink-0 rounded-full text-red-800 hover:bg-red-100/85 dark:text-red-100 dark:hover:bg-red-900/32"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Dismiss delete notice</span>
+          </Button>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <label className="relative block w-full max-w-2xl">

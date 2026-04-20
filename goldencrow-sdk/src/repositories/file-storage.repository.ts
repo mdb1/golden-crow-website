@@ -19,6 +19,7 @@ interface StoredFileDoc extends Record<string, unknown> {
 }
 
 export class StoredFileValidationError extends Error {}
+export class StoredFileDeleteBlockedError extends Error {}
 
 function normalizeString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -299,4 +300,40 @@ export async function updateStoredFileDocument(
     document: await getStoredFileDocument(fileId),
     linkedReportVersionBumped,
   };
+}
+
+export async function deleteStoredFileDocument(fileId: string): Promise<boolean> {
+  const storedFileRef = adminDb.collection("file_storage").doc(fileId);
+  const snapshot = await storedFileRef.get();
+
+  if (!snapshot.exists) {
+    return false;
+  }
+
+  const existingData = (snapshot.data() ?? {}) as StoredFileDoc;
+  const linkedReportCode = resolveLinkedReportCode(existingData);
+  if (linkedReportCode) {
+    throw new StoredFileDeleteBlockedError(
+      `Stored file ${fileId} is linked to report code ${linkedReportCode}. Remove that report link before deleting this file.`
+    );
+  }
+
+  const uploadedReportSnapshot = await adminDb
+    .collection("uploaded_reports")
+    .where("linked_file_id", "==", fileId)
+    .limit(1)
+    .get();
+
+  if (!uploadedReportSnapshot.empty) {
+    const uploadedReportData = uploadedReportSnapshot.docs[0]?.data() ?? {};
+    const reportCode = normalizeString(uploadedReportData.report_code);
+    throw new StoredFileDeleteBlockedError(
+      reportCode
+        ? `Stored file ${fileId} is still referenced by uploaded report ${reportCode}. Remove that link before deleting this file.`
+        : `Stored file ${fileId} is still referenced by an uploaded report. Remove that link before deleting this file.`
+    );
+  }
+
+  await storedFileRef.delete();
+  return true;
 }

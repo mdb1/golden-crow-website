@@ -4,8 +4,10 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { canManageLegacyModeration } from "../repositories/roles.repository.js";
 import {
   createStoredFileDocument,
+  deleteStoredFileDocument,
   getStoredFileDocument,
   listStoredFileDocuments,
+  StoredFileDeleteBlockedError,
   StoredFileValidationError,
   updateStoredFileDocument,
 } from "../repositories/file-storage.repository.js";
@@ -85,6 +87,31 @@ export async function fileStorageRoutes(fastify: FastifyInstance): Promise<void>
       } catch (error) {
         if (error instanceof StoredFileValidationError) {
           return reply.status(400).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.delete(
+    "/file-storage/:fileId",
+    {
+      schema: {
+        params: z.object({ fileId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const deleted = await deleteStoredFileDocument(request.params.fileId);
+        if (!deleted) {
+          return reply.status(404).send({ error: "Stored file not found" });
+        }
+
+        return reply.send({ success: true });
+      } catch (error) {
+        if (error instanceof StoredFileDeleteBlockedError) {
+          return reply.status(409).send({ error: error.message });
         }
 
         throw error;
