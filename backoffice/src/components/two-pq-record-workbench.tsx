@@ -1000,13 +1000,13 @@ export function TwoPQRecordWorkbench({
     setMultiSamplingEditProcess(null);
     publishFileStorageRequestIdRef.current += 1;
     setPublishFileStorageModal(null);
-    setIsFileStorageSectionExpanded(true);
+    setIsFileStorageSectionExpanded(!(detail?.record.stored_file_id?.trim() ?? ""));
     setIsPublishFileStoragePreviewExpanded(false);
     setIsReportCodeSectionExpanded(true);
     setIsPublishReportCodeModalOpen(false);
     setPendingPublishReportCode(false);
     setPendingCaseLabelCorrection(false);
-  }, [detail?.record.caseLabel, detail?.record.id]);
+  }, [detail?.record.caseLabel, detail?.record.id, detail?.record.stored_file_id]);
 
   useEffect(() => {
     if (autoSamplingProcess?.status !== "success") {
