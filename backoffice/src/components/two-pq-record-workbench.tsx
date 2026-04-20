@@ -969,6 +969,7 @@ export function TwoPQRecordWorkbench({
     useState<MultiSamplingEditProcessState | null>(null);
   const [publishFileStorageModal, setPublishFileStorageModal] =
     useState<PublishFileStorageModalState | null>(null);
+  const [isFileStorageSectionExpanded, setIsFileStorageSectionExpanded] = useState(true);
   const [isPublishFileStoragePreviewExpanded, setIsPublishFileStoragePreviewExpanded] =
     useState(false);
   const [isPublishReportCodeModalOpen, setIsPublishReportCodeModalOpen] = useState(false);
@@ -998,6 +999,7 @@ export function TwoPQRecordWorkbench({
     setMultiSamplingEditProcess(null);
     publishFileStorageRequestIdRef.current += 1;
     setPublishFileStorageModal(null);
+    setIsFileStorageSectionExpanded(true);
     setIsPublishFileStoragePreviewExpanded(false);
     setIsPublishReportCodeModalOpen(false);
     setPendingPublishReportCode(false);
@@ -4859,8 +4861,17 @@ export function TwoPQRecordWorkbench({
 
           {areaKey === "cases" && mode !== "create" && hasThreeLetterCode ? (
             <section className={FILE_STORAGE_SECTION_CLASSNAME}>
-              <div className="flex flex-col gap-4 border-b border-indigo-200/70 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between">
-                <div>
+              <div
+                className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
+                  isFileStorageSectionExpanded ? "border-b border-indigo-200/70" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsFileStorageSectionExpanded((current) => !current)}
+                  aria-expanded={isFileStorageSectionExpanded}
+                  className="group max-w-3xl text-left"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
                       Publish to File Storage
@@ -4871,13 +4882,20 @@ export function TwoPQRecordWorkbench({
                     >
                       {hasStoredFileId ? "Published" : "Not published"}
                     </Badge>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-indigo-200/80 bg-white/72 text-indigo-950 transition-transform duration-200 group-hover:bg-white/90 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50 dark:group-hover:bg-indigo-400/16">
+                      {isFileStorageSectionExpanded ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </span>
                   </div>
-                  <p className="mt-2 max-w-3xl text-sm text-indigo-950/72 dark:text-indigo-50/74">
+                  <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
                     Generate a reusable JSON snapshot of this case, its parent batch, and its child
                     samplings, then publish that snapshot into the Firebase{" "}
                     <code>file_storage</code> collection.
                   </p>
-                </div>
+                </button>
                 <div className="flex flex-wrap gap-2">
                   {hasStoredFileId && hasFileStorageAccess ? (
                     <Button
@@ -4906,47 +4924,49 @@ export function TwoPQRecordWorkbench({
                 </div>
               </div>
 
-              <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1.1fr),minmax(0,1fr),minmax(0,1fr)]">
-                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                    6-character file name
-                  </p>
-                  <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
-                    {fileStorageSnapshotFileName}
-                  </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    Derived from the case three-letter code as the canonical publish name.
-                  </p>
+              {isFileStorageSectionExpanded ? (
+                <div className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1.1fr),minmax(0,1fr),minmax(0,1fr)]">
+                  <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                      6-character file name
+                    </p>
+                    <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                      {fileStorageSnapshotFileName}
+                    </p>
+                    <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                      Derived from the case three-letter code as the canonical publish name.
+                    </p>
+                  </div>
+                  <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                      Stored file status
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
+                      {hasStoredFileId
+                        ? "A stored file is already linked to this case."
+                        : "No stored file has been published yet."}
+                    </p>
+                    <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                      {!hasFileStorageAccess
+                        ? "Only full admins can open or publish file_storage documents from this section."
+                        : hasStoredFileId
+                          ? "Publishing again creates a new file and replaces the stored_file_id pointer on this case."
+                          : "Publishing will create a new file and save its document id on this case as stored_file_id."}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
+                      stored_file_id
+                    </p>
+                    <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
+                      {hasStoredFileId ? storedFileId : "Not saved yet"}
+                    </p>
+                    <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
+                      This field is written back into the case entity in Firebase after publish.
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Stored file status
-                  </p>
-                  <p className="mt-2 text-sm font-medium text-indigo-950 dark:text-indigo-50">
-                    {hasStoredFileId
-                      ? "A stored file is already linked to this case."
-                      : "No stored file has been published yet."}
-                  </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    {!hasFileStorageAccess
-                      ? "Only full admins can open or publish file_storage documents from this section."
-                      : hasStoredFileId
-                        ? "Publishing again creates a new file and replaces the stored_file_id pointer on this case."
-                        : "Publishing will create a new file and save its document id on this case as stored_file_id."}
-                  </p>
-                </div>
-                <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-950/52 dark:text-indigo-50/58">
-                    stored_file_id
-                  </p>
-                  <p className="mt-2 font-mono text-sm text-indigo-950 dark:text-indigo-50">
-                    {hasStoredFileId ? storedFileId : "Not saved yet"}
-                  </p>
-                  <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                    This field is written back into the case entity in Firebase after publish.
-                  </p>
-                </div>
-              </div>
+              ) : null}
             </section>
           ) : null}
 
