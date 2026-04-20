@@ -62,7 +62,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
-import { formatDateTime } from "@/lib/moderation-utils";
 import {
   type TwoPQAreaConfig,
   type TwoPQAreaKey,
@@ -203,6 +202,7 @@ type PublishReportCodeResult = {
 const MULTI_SAMPLING_EDITABLE_FIELD_SET = new Set<MultiSamplingEditableFieldKey>(
   MULTI_SAMPLING_EDITABLE_FIELD_KEYS
 );
+const STORED_FILE_FRESHNESS_TOLERANCE_MS = 60_000;
 
 const CREATION_CONFETTI = [
   { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
@@ -345,6 +345,22 @@ function toTimestampOrNull(value?: string) {
 
   const timestamp = new Date(value).getTime();
   return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function formatDateTimeWithSeconds(value?: string) {
+  const timestamp = toTimestampOrNull(value);
+  if (timestamp === null) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(timestamp));
 }
 
 function resolveStoredFileLinkedReportCode(document: StoredFileDocumentRecord | null | undefined) {
@@ -1280,7 +1296,8 @@ export function TwoPQRecordWorkbench({
     Boolean(storedFileDocument) &&
     caseLastUpdatedTimestamp !== null &&
     storedFileLastModifiedTimestamp !== null &&
-    caseLastUpdatedTimestamp > storedFileLastModifiedTimestamp;
+    caseLastUpdatedTimestamp - storedFileLastModifiedTimestamp >
+      STORED_FILE_FRESHNESS_TOLERANCE_MS;
   const reportCodeStatus = reportCodeStatusQuery.data ?? null;
   const reportCodeLinkedFileId = reportCodeStatus?.linkedFileId?.trim() ?? "";
   const isStoredFileDocumentMissing =
@@ -1320,8 +1337,10 @@ export function TwoPQRecordWorkbench({
     !reportCodeStatusQuery.isError &&
     !reportCodePublishConflictMessage &&
     !isPublishedAsReportCode;
-  const formattedCaseLastUpdatedDate = formatDateTime(caseLastUpdatedDate) ?? "Not available";
-  const formattedStoredFileLastModifiedDate = formatDateTime(storedFileLastModifiedDate);
+  const formattedCaseLastUpdatedDate =
+    formatDateTimeWithSeconds(caseLastUpdatedDate) ?? "Not available";
+  const formattedStoredFileLastModifiedDate =
+    formatDateTimeWithSeconds(storedFileLastModifiedDate);
 
   useEffect(() => {
     if (isPublishedAsReportCode) {
