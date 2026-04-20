@@ -530,6 +530,7 @@ export async function publishStoredFileAsReportCode(input: {
       ownerId: normalizedInput.ownerId,
       ownerEmail: normalizedInput.ownerEmail,
     });
+    const communityUserSnapshot = await transaction.get(communityUserRef);
 
     transaction.set(uploadedReportRef, uploadedReportPayload, { merge: false });
     transaction.set(
@@ -546,7 +547,6 @@ export async function publishStoredFileAsReportCode(input: {
       last_modified_date: timestamp,
     });
 
-    const communityUserSnapshot = await transaction.get(communityUserRef);
     if (communityUserSnapshot.exists) {
       transaction.set(
         communityUserRef,
