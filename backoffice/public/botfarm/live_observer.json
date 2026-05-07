@@ -1,7 +1,191 @@
 {
-  "generated_at": "2026-05-07 11:20:28 -0300",
-  "new_observations": 3,
+  "generated_at": "2026-05-07 11:35:28 -0300",
+  "new_observations": 19,
   "observations": [
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_subject.txt",
+      "summary": "Golden Crow night analysis - 2026-05-07"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_body.txt",
+      "summary": "Updated dashboard: https://golden-crow-backoffice.vercel.app/botfarm | - Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00."
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/Golden_Crow_morning_digest_2026-05-07.txt",
+      "summary": "Meta Ads capture result: completed. | Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | 0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_recipients.txt",
+      "summary": "santi@goldencrowvs.com | support@goldencrowvs.com | federico0812@gmail.com"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/whatsapp_summary.txt",
+      "summary": "- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorro | - Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_wri"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_preview.md",
+      "summary": "- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorro | - Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_wri"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/whatsapp_summary_manual-emma-botfarm-link-contract-20260507.txt",
+      "summary": "extra_messages_sent=no"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_subject.txt",
+      "summary": "Golden Crow night analysis - 2026-05-07"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_body.txt",
+      "summary": "Updated dashboard: https://golden-crow-backoffice.vercel.app/botfarm | - Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00."
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/Golden_Crow_morning_digest_2026-05-07.txt",
+      "summary": "Meta Ads capture result: completed. | Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | 0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_recipients.txt",
+      "summary": "santi@goldencrowvs.com | support@goldencrowvs.com | federico0812@gmail.com"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary.txt",
+      "summary": "- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorro | - Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_wri"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_preview.md",
+      "summary": "- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorro | - Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_wri"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/logs/email_assistant_history_log.txt",
+      "summary": "source=/Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/email_section.txt | source=/Users/federicobustosfierro/goldencrow automata/diego - campaign_performance_analyst/reports/20260507-064501-23812/email_section.txt | source=/Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/email_section.txt"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/latest_nightly_email_preview.md",
+      "summary": "- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorro | - Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_wri"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/latest_nightly_email_attachment.txt",
+      "summary": "Meta Ads capture result: completed. | Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | 0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/latest_whatsapp_summary.txt",
+      "summary": "- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorro | - Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_wri"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/gmail_delivery_manual-emma-botfarm-link-contract-20260507-v2.txt",
+      "summary": "attachment_attached=no | recipients_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_recipients.txt | run_id=manual-emma-botfarm-link-contract-20260507-v2"
+    },
+    {
+      "observed_at": "2026-05-07 11:35:28 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary_manual-emma-botfarm-link-contract-20260507-v2.txt",
+      "summary": "extra_messages_sent=no"
+    },
+    {
+      "observed_at": "2026-05-07 11:25:28 -0300",
+      "actor": "lucas - web_developer",
+      "category": "report",
+      "status": "success",
+      "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v2/web_dashboard_build_report.md",
+      "summary": "botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 11:25:28 -0300",
+      "actor": "lucas - web_developer",
+      "category": "report",
+      "status": "success",
+      "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v3/web_dashboard_build_report.md",
+      "summary": "botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 11:25:28 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
+      "summary": "botfarm_sync_status=synced | botfarm_sync_status=synced | botfarm_sync_status=synced | botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 11:25:28 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/run_full_flow.log",
+      "summary": "[2026-05-07 11:22:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-sleek-botfarm-ui-20260507-v2 | [2026-05-07 11:22:27 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-sleek-botfarm-ui-20260507-v2 | [2026-05-07 11:22:57 -0300] Lucas web dashboard flow started. run_id=manual-lucas-sleek-botfarm-ui-20260507-v3 | [2026-05-07 11:22:58 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-sleek-botfarm-ui-20260507-v3"
+    },
     {
       "observed_at": "2026-05-07 11:20:28 -0300",
       "actor": "lucas - web_developer",
@@ -457,190 +641,6 @@
       "status": "risk",
       "path": "lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt",
       "summary": "whatsapp_employee_of_day_failed | reason=required combined image and caption media message was not visible as sent"
-    },
-    {
-      "observed_at": "2026-05-07 10:25:23 -0300",
-      "actor": "lisa - photographer",
-      "category": "log",
-      "status": "risk",
-      "path": "lisa - photographer/logs/run_full_flow.log",
-      "summary": "diff --git a/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +++ b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent"
-    },
-    {
-      "observed_at": "2026-05-07 10:25:23 -0300",
-      "actor": "lisa - photographer",
-      "category": "cron",
-      "status": "risk",
-      "path": "lisa - photographer/logs/cron.log",
-      "summary": "diff --git a/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +++ b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent"
-    },
-    {
-      "observed_at": "2026-05-07 10:20:22 -0300",
-      "actor": "lisa - photographer",
-      "category": "log",
-      "status": "success",
-      "path": "lisa - photographer/logs/run_full_flow.log",
-      "summary": "APPLESCRIPT\" in /Users/federicobustosfierro/goldencrow automata | succeeded in 639ms: | redispatched to accept=image/* files=1"
-    },
-    {
-      "observed_at": "2026-05-07 10:20:22 -0300",
-      "actor": "lisa - photographer",
-      "category": "cron",
-      "status": "success",
-      "path": "lisa - photographer/logs/cron.log",
-      "summary": "APPLESCRIPT\" in /Users/federicobustosfierro/goldencrow automata | succeeded in 639ms: | redispatched to accept=image/* files=1"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "risk",
-      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_consumption_matrix.tsv",
-      "summary": "23 camila - crm_manager Camila crm_manager 59 100 100 88 33 29385 0 0 0 high_value_low_resource protect and reuse this workflow /Users/federicobustosfierro/goldencrow automata/camila - crm_manager/logs/crm_history_log.txt | /Users/federicobustosfierro/goldencr | 24 gala - product_growth_analyst Gala product_growth_analyst 45 100 100 91 9 8454 0 0 0 high_value_low_resource protect and reuse this workflow /Users/federicobustosfierro/goldencrow automata/gala - product_growth_analyst/growth/daily_growth_metrics.tsv | /Use | 25 max - accountant Max accountant 41 100 100 92 8 3959 0 0 0 high_value_l"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/disk_cleanup_report.tsv",
-      "summary": "codex_runtime /Users/federicobustosfierro/goldencrow automata/.codex-subprocess/generated_images 82255872 0 82255872 removed nested Codex runtime generated_images is disposable after the run artifacts are written | codex_runtime /Users/federicobustosfierro/goldencrow automata/sam - community_manager/.codex-subprocess/generated_images 6217728 0 6217728 removed nested Codex runtime generated_images is disposable after the run artifacts are written | python_cache /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/scripts/__pycache__ 36864 0 36864 removed __pycache__ is gen"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/disk_inventory.tsv",
-      "summary": "rafael - resource_analyser 634880 598016 -36864 584.0 KiB | riley - employee_reward_evaluator 593920 593920 0 580.0 KiB | clara - hr_manager 442368 442368 0 432.0 KiB"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/simulator_inventory.tsv",
-      "summary": "iOS-26-2 iPad Air 13-inch (M3) C395A4BD-DDFA-42FA-92E6-0D480E621A6D Shutdown True 18341888 17.5 MiB no kept | iOS-26-2 iPad Air 11-inch (M3) E7E3A64D-A967-4504-86A9-9AA81D76D868 Shutdown True 18341888 17.5 MiB no kept | iOS-16-2 iPhone SE (3rd generation) 7F0C18F9-6811-462A-B420-8355221EBB30 Shutdown True 2024-03-11T17:05:49Z 13819904 13.2 MiB no kept"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/bench/latest_improvement_bench.txt",
-      "summary": "efficiency_score=31 | reason=highest resource/value risk in Rafael's combined matrix | recommended_action=improvement_bench"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_analysis_report.md",
-      "summary": "- Camila (crm_manager): resource=59, value=100, efficiency=88, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Gala (product_growth_analyst): resource=45, value=100, efficiency=91, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Max (accountant): resource=41, value=100, efficiency=92, quadrant=high_value_low_resource, action=protect and reuse this workflow"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "risk",
-      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/email_section.txt",
-      "summary": "Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Employee resource attribution: local proxy from logs/reports/generated media plus Riley value scores unless ChatGPT analytics exposes per-employee detail."
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/latest_resource_analysis_report.md",
-      "summary": "- Camila (crm_manager): resource=59, value=100, efficiency=88, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Gala (product_growth_analyst): resource=45, value=100, efficiency=91, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Max (accountant): resource=41, value=100, efficiency=92, quadrant=high_value_low_resource, action=protect and reuse this workflow"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/latest_disk_cleanup_report.tsv",
-      "summary": "codex_runtime /Users/federicobustosfierro/goldencrow automata/.codex-subprocess/generated_images 82255872 0 82255872 removed nested Codex runtime generated_images is disposable after the run artifacts are written | codex_runtime /Users/federicobustosfierro/goldencrow automata/sam - community_manager/.codex-subprocess/generated_images 6217728 0 6217728 removed nested Codex runtime generated_images is disposable after the run artifacts are written | python_cache /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/scripts/__pycache__ 36864 0 36864 removed __pycache__ is gen"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/latest_disk_inventory.tsv",
-      "summary": "rafael - resource_analyser 634880 598016 -36864 584.0 KiB | riley - employee_reward_evaluator 593920 593920 0 580.0 KiB | clara - hr_manager 442368 442368 0 432.0 KiB"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/latest_simulator_inventory.tsv",
-      "summary": "iOS-26-2 iPad Air 13-inch (M3) C395A4BD-DDFA-42FA-92E6-0D480E621A6D Shutdown True 18341888 17.5 MiB no kept | iOS-26-2 iPad Air 11-inch (M3) E7E3A64D-A967-4504-86A9-9AA81D76D868 Shutdown True 18341888 17.5 MiB no kept | iOS-16-2 iPhone SE (3rd generation) 7F0C18F9-6811-462A-B420-8355221EBB30 Shutdown True 2024-03-11T17:05:49Z 13819904 13.2 MiB no kept"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "risk",
-      "path": "rafael - resource_analyser/logs/resource_consumption_history_log.txt",
-      "summary": "warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient | warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient | warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "success",
-      "path": "rafael - resource_analyser/logs/run_full_flow.log",
-      "summary": "[2026-05-07 10:10:02 -0300] Rafael resource analyser flow started. run_id=manual-rafael-disk-hygiene-image-cache-final-20260507 | [2026-05-07 10:10:02 -0300] Skipping Codex analytics browser capture because RAFAEL_SKIP_ANALYTICS=1. | Rafael wrote resource analysis: /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_analysis_report.md | [2026-05-07 10:10:33 -0300] Rafael resource analyser flow finished. run_id=manual-rafael-disk-hygiene-image-cache-final-20260507"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "success",
-      "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_manifest.txt",
-      "summary": "team_photo_created | created_at=2026-05-07T10:13:52-0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "success",
-      "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_status.txt",
-      "summary": "team_photo_created"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "success",
-      "path": "lisa - photographer/reports/20260507-100001-60984/employee_of_day_caption.txt",
-      "summary": "Motivo: 6 success signal types; recent work matches role; created downstream value/handoff"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "success",
-      "path": "lisa - photographer/reports/20260507-100001-60984/employee_of_day_selection.txt",
-      "summary": "reason=6 success signal types; recent work matches role; created downstream value/handoff"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "lucas - web_developer",
-      "category": "report",
-      "status": "success",
-      "path": "lucas - web_developer/reports/manual-lucas-botfarm-publish-20260507/web_dashboard_build_report.md",
-      "summary": "botfarm_sync_status=synced"
-    },
-    {
-      "observed_at": "2026-05-07 10:15:22 -0300",
-      "actor": "lucas - web_developer",
-      "category": "log",
-      "status": "success",
-      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
-      "summary": "botfarm_sync_status=synced"
     }
   ]
 }

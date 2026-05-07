@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-07 11:22:58 -0300",
-  "run_id": "manual-lucas-sleek-botfarm-ui-20260507-v3",
+  "generated_at": "2026-05-07 11:36:18 -0300",
+  "run_id": "manual-lucas-business-funnel-layout-20260507",
   "root": "/Users/federicobustosfierro/goldencrow automata",
   "metrics": {
     "employees": "25",
@@ -349,15 +349,23 @@
       "appereance_file": "emma - email_assistant/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 09:11:28",
+          "time": "2026-05-07 11:33:41",
           "category": "email",
           "actor": "emma - email_assistant",
-          "title": "Whatsapp Summary Manual Emma Whatsapp Policy Fix 20260507 0910",
-          "path": "emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/whatsapp_summary_manual-emma-whatsapp-policy-fix-20260507-0910.txt",
-          "snippet": "whatsapp_summary_checked result=sent chat_name=Golden Crow VS message_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/whatsapp_summary.txt message_count=1 extra_messages_sent=no run_id=manual-emma-w"
+          "title": "Whatsapp Summary Manual Emma Botfarm Link Contract 20260507 V2",
+          "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary_manual-emma-botfarm-link-contract-20260507-v2.txt",
+          "snippet": "whatsapp_summary_checked result=skipped reason=EMMA_SKIP_WHATSAPP=1 chat_name=Golden Crow VS message_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary.txt message_count=0 extra_messag"
         },
         {
-          "time": "2026-05-07 09:08:10",
+          "time": "2026-05-07 11:33:41",
+          "category": "email",
+          "actor": "emma - email_assistant",
+          "title": "Gmail Delivery Manual Emma Botfarm Link Contract 20260507 V2",
+          "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/gmail_delivery_manual-emma-botfarm-link-contract-20260507-v2.txt",
+          "snippet": "gmail_delivery_skipped result=skipped reason=EMMA_SKIP_EMAIL=1 subject_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_subject.txt body_file=/Users/federicobustosfierro/goldencrow auto"
+        },
+        {
+          "time": "2026-05-07 11:33:26",
           "category": "email",
           "actor": "emma - email_assistant",
           "title": "Latest Whatsapp Summary",
@@ -365,23 +373,23 @@
           "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
         },
         {
-          "time": "2026-05-07 09:08:10",
+          "time": "2026-05-07 11:33:26",
           "category": "email",
           "actor": "emma - email_assistant",
           "title": "Latest Nightly Email Attachment",
           "path": "emma - email_assistant/reports/latest_nightly_email_attachment.txt",
-          "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Vera - Innov"
+          "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Updated oper"
         },
         {
-          "time": "2026-05-07 09:08:10",
+          "time": "2026-05-07 11:33:26",
           "category": "email",
           "actor": "emma - email_assistant",
           "title": "Latest Nightly Email Preview",
           "path": "emma - email_assistant/reports/latest_nightly_email_preview.md",
-          "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-whatsapp-policy-fix-20260507-0910 to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow morning digest for today. T"
+          "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-botfarm-link-contract-20260507-v2 to=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow mor"
         },
         {
-          "time": "2026-05-07 09:08:10",
+          "time": "2026-05-07 11:33:26",
           "category": "email",
           "actor": "emma - email_assistant",
           "title": "Email Assistant History Log",
@@ -389,28 +397,20 @@
           "snippet": "Emma email assistant history log --- timestamp=2026-05-06 13:57:29 -0300 run_id=manual-emma-smoke phase=email_composed preview=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-smoke/nightly_email_preview.md subject_file=/Users/federicobus"
         },
         {
-          "time": "2026-05-07 09:08:10",
+          "time": "2026-05-07 11:33:26",
           "category": "email",
           "actor": "emma - email_assistant",
           "title": "Nightly Email Preview",
-          "path": "emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/nightly_email_preview.md",
-          "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-whatsapp-policy-fix-20260507-0910 to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow morning digest for today. T"
+          "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_preview.md",
+          "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-botfarm-link-contract-20260507-v2 to=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow mor"
         },
         {
-          "time": "2026-05-07 09:08:10",
+          "time": "2026-05-07 11:33:26",
           "category": "email",
           "actor": "emma - email_assistant",
           "title": "Whatsapp Summary",
-          "path": "emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/whatsapp_summary.txt",
+          "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary.txt",
           "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
-        },
-        {
-          "time": "2026-05-07 09:08:10",
-          "category": "email",
-          "actor": "emma - email_assistant",
-          "title": "Nightly Email Recipients",
-          "path": "emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/nightly_email_recipients.txt",
-          "snippet": "santi@goldencrowvs.com support@goldencrowvs.com"
         }
       ]
     },
@@ -658,7 +658,7 @@
       "appereance_file": "lucas - web_developer/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 11:22:57",
+          "time": "2026-05-07 11:36:18",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Run Full Flow",
@@ -666,12 +666,52 @@
           "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
         },
         {
-          "time": "2026-05-07 11:22:57",
+          "time": "2026-05-07 11:36:18",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Web Dashboard History Log",
           "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
           "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
+        },
+        {
+          "time": "2026-05-07 11:35:28",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer Daemon",
+          "path": "lucas - web_developer/logs/live_observer_daemon.log",
+          "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
+        },
+        {
+          "time": "2026-05-07 11:35:28",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer Summary",
+          "path": "lucas - web_developer/logs/live_observer_summary.md",
+          "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 11:35:28 -0300 - 2026-05-07 11:35:28 -0300 | activity | emma - email_assistant | emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_subject.txt: Golden Crow night analysis - 2026-05-07 - 2026"
+        },
+        {
+          "time": "2026-05-07 11:35:28",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer State",
+          "path": "lucas - web_developer/logs/live_observer_state.json",
+          "snippet": "{ \"last_observed_at\": \"2026-05-07 11:35:28 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
+        },
+        {
+          "time": "2026-05-07 11:35:28",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer Feed",
+          "path": "lucas - web_developer/logs/live_observer_feed.tsv",
+          "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
+        },
+        {
+          "time": "2026-05-07 11:22:58",
+          "category": "report",
+          "actor": "lucas - web_developer",
+          "title": "Web Dashboard Build Report",
+          "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v3/web_dashboard_build_report.md",
+          "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-sleek-botfarm-ui-20260507-v3 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_develope"
         },
         {
           "time": "2026-05-07 11:22:27",
@@ -680,46 +720,6 @@
           "title": "Web Dashboard Build Report",
           "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v2/web_dashboard_build_report.md",
           "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-sleek-botfarm-ui-20260507-v2 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_develope"
-        },
-        {
-          "time": "2026-05-07 11:20:52",
-          "category": "file",
-          "actor": "lucas - web_developer",
-          "title": "What Your Role Is",
-          "path": "lucas - web_developer/what_your_role_is.txt",
-          "snippet": "Role note from Jeff Employee: Lucas Role: web_developer Your daily responsibility: Build and refresh the local Golden Crow dashboard from shared database, employee logs, evaluations, emails, tickets, and event history. Also expose an Ads Cycle view from `ads_shared/`, showing Oli"
-        },
-        {
-          "time": "2026-05-07 11:20:28",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer Daemon",
-          "path": "lucas - web_developer/logs/live_observer_daemon.log",
-          "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
-        },
-        {
-          "time": "2026-05-07 11:20:28",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer Summary",
-          "path": "lucas - web_developer/logs/live_observer_summary.md",
-          "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 11:20:28 -0300 - 2026-05-07 11:20:28 -0300 | success | lucas - web_developer | lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507/web_dashboard_build_report.md: botfarm_sync_status=synced - 2026-05-07 11:20:28 "
-        },
-        {
-          "time": "2026-05-07 11:20:28",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer State",
-          "path": "lucas - web_developer/logs/live_observer_state.json",
-          "snippet": "{ \"last_observed_at\": \"2026-05-07 11:20:28 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
-        },
-        {
-          "time": "2026-05-07 11:20:28",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer Feed",
-          "path": "lucas - web_developer/logs/live_observer_feed.tsv",
-          "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
         }
       ]
     },
@@ -759,56 +759,7 @@
       "next_action": "Role note from Jeff Employee: Max Role: accountant Your daily responsibility: Track daily company costs, currently limited to Meta Ads spend. What Jeff expects ",
       "portrait": "assets/portraits/max_-_accountant.jpg",
       "appereance_file": "max - accountant/employee_appereance.txt",
-      "recent_history": [
-        {
-          "time": "2026-05-07 08:30:02",
-          "category": "log",
-          "actor": "max - accountant",
-          "title": "Cron",
-          "path": "max - accountant/logs/cron.log",
-          "snippet": "[2026-05-07 08:30:01 -0300] Max accounting flow started. run_id=20260507-083001-26619 Max recorded Meta Ads cost: USD 10.00 (estimated_from_active_meta_ads_daily_budget) [2026-05-07 08:30:02 -0300] Max accounting flow finished. run_id=20260507-083001-26619"
-        },
-        {
-          "time": "2026-05-07 08:30:02",
-          "category": "log",
-          "actor": "max - accountant",
-          "title": "Run Full Flow",
-          "path": "max - accountant/logs/run_full_flow.log",
-          "snippet": "[2026-05-06 12:31:25 -0300] Max accounting flow started. run_id=20260506-123125-94539 Max recorded Meta Ads cost: USD 10.00 (estimated_from_active_meta_ads_daily_budget) [2026-05-06 12:31:25 -0300] Max accounting flow finished. run_id=20260506-123125-94539 [2026-05-07 08:30:01 -0"
-        },
-        {
-          "time": "2026-05-07 08:30:02",
-          "category": "log",
-          "actor": "max - accountant",
-          "title": "Accounting History Log",
-          "path": "max - accountant/logs/accounting_history_log.txt",
-          "snippet": "Max accounting history log This file is append-only. Max adds one section per daily cost review. --- date=2026-05-06 timestamp=2026-05-06 12:31:25 -0300 run_id=20260506-123125-94539 meta_ads_cost=USD 10.00 basis=estimated_from_active_meta_ads_daily_budget source=/Users/federicobu"
-        },
-        {
-          "time": "2026-05-07 08:30:02",
-          "category": "report",
-          "actor": "max - accountant",
-          "title": "Daily Cost Report",
-          "path": "max - accountant/reports/20260507-083001-26619/daily_cost_report.md",
-          "snippet": "# Max Daily Cost Report date=2026-05-07 run_id=20260507-083001-26619 ## Company Cost - Meta Ads: USD 10.00 - basis: estimated_from_active_meta_ads_daily_budget - confidence: medium - source: /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generado"
-        },
-        {
-          "time": "2026-05-07 08:30:02",
-          "category": "report",
-          "actor": "max - accountant",
-          "title": "Meta Ads Cost Snapshot",
-          "path": "max - accountant/reports/20260507-083001-26619/meta_ads_cost_snapshot.tsv",
-          "snippet": "date run_id cost_source currency amount basis confidence source note recorded_at 2026-05-07 20260507-083001-26619 Meta Ads USD 10.00 estimated_from_active_meta_ads_daily_budget medium /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/publi"
-        },
-        {
-          "time": "2026-05-07 08:30:02",
-          "category": "file",
-          "actor": "max - accountant",
-          "title": "Meta Ads Cost Ledger",
-          "path": "max - accountant/ledger/meta_ads_cost_ledger.tsv",
-          "snippet": "date run_id cost_source currency amount basis confidence source note recorded_at 2026-05-06 20260506-123125-94539 Meta Ads USD 10.00 estimated_from_active_meta_ads_daily_budget medium /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/publi"
-        }
-      ]
+      "recent_history": []
     },
     {
       "folder": "mia - engagement_manager",
@@ -3241,7 +3192,7 @@
   },
   "events": [
     {
-      "time": "2026-05-07 11:22:57",
+      "time": "2026-05-07 11:36:18",
       "category": "log",
       "actor": "lucas - web_developer",
       "title": "Run Full Flow",
@@ -3249,12 +3200,228 @@
       "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
     },
     {
-      "time": "2026-05-07 11:22:57",
+      "time": "2026-05-07 11:36:18",
       "category": "log",
       "actor": "lucas - web_developer",
       "title": "Web Dashboard History Log",
       "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
       "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
+    },
+    {
+      "time": "2026-05-07 11:35:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Daemon",
+      "path": "lucas - web_developer/logs/live_observer_daemon.log",
+      "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
+    },
+    {
+      "time": "2026-05-07 11:35:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Summary",
+      "path": "lucas - web_developer/logs/live_observer_summary.md",
+      "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 11:35:28 -0300 - 2026-05-07 11:35:28 -0300 | activity | emma - email_assistant | emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_subject.txt: Golden Crow night analysis - 2026-05-07 - 2026"
+    },
+    {
+      "time": "2026-05-07 11:35:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer State",
+      "path": "lucas - web_developer/logs/live_observer_state.json",
+      "snippet": "{ \"last_observed_at\": \"2026-05-07 11:35:28 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
+    },
+    {
+      "time": "2026-05-07 11:35:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Feed",
+      "path": "lucas - web_developer/logs/live_observer_feed.tsv",
+      "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
+    },
+    {
+      "time": "2026-05-07 11:33:41",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Whatsapp Summary Manual Emma Botfarm Link Contract 20260507 V2",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary_manual-emma-botfarm-link-contract-20260507-v2.txt",
+      "snippet": "whatsapp_summary_checked result=skipped reason=EMMA_SKIP_WHATSAPP=1 chat_name=Golden Crow VS message_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary.txt message_count=0 extra_messag"
+    },
+    {
+      "time": "2026-05-07 11:33:41",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Gmail Delivery Manual Emma Botfarm Link Contract 20260507 V2",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/gmail_delivery_manual-emma-botfarm-link-contract-20260507-v2.txt",
+      "snippet": "gmail_delivery_skipped result=skipped reason=EMMA_SKIP_EMAIL=1 subject_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_subject.txt body_file=/Users/federicobustosfierro/goldencrow auto"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Latest Whatsapp Summary",
+      "path": "emma - email_assistant/reports/latest_whatsapp_summary.txt",
+      "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Latest Nightly Email Attachment",
+      "path": "emma - email_assistant/reports/latest_nightly_email_attachment.txt",
+      "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Updated oper"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Latest Nightly Email Preview",
+      "path": "emma - email_assistant/reports/latest_nightly_email_preview.md",
+      "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-botfarm-link-contract-20260507-v2 to=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow mor"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Email Assistant History Log",
+      "path": "emma - email_assistant/logs/email_assistant_history_log.txt",
+      "snippet": "Emma email assistant history log --- timestamp=2026-05-06 13:57:29 -0300 run_id=manual-emma-smoke phase=email_composed preview=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-smoke/nightly_email_preview.md subject_file=/Users/federicobus"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Preview",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_preview.md",
+      "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-botfarm-link-contract-20260507-v2 to=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow mor"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Whatsapp Summary",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/whatsapp_summary.txt",
+      "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Recipients",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_recipients.txt",
+      "snippet": "santi@goldencrowvs.com support@goldencrowvs.com federico0812@gmail.com"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Golden Crow Morning Digest 2026 05 07",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/Golden_Crow_morning_digest_2026-05-07.txt",
+      "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Updated oper"
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Body",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_body.txt",
+      "snippet": "Hi Santi and team, Attached is the Golden Crow morning digest for today. Updated dashboard: https://golden-crow-backoffice.vercel.app/botfarm Top signals: - Tomorrow priority: Mateo should produce higher-quality target rows and Bruno should define the exact first outreach metric "
+    },
+    {
+      "time": "2026-05-07 11:33:26",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Subject",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_subject.txt",
+      "snippet": "Golden Crow night analysis - 2026-05-07"
+    },
+    {
+      "time": "2026-05-07 11:32:58",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Whatsapp Summary Manual Emma Botfarm Link Contract 20260507",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/whatsapp_summary_manual-emma-botfarm-link-contract-20260507.txt",
+      "snippet": "whatsapp_summary_checked result=skipped reason=EMMA_SKIP_WHATSAPP=1 chat_name=Golden Crow VS message_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/whatsapp_summary.txt message_count=0 extra_messages_"
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Preview",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_preview.md",
+      "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-botfarm-link-contract-20260507 to=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow mornin"
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Whatsapp Summary",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/whatsapp_summary.txt",
+      "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Recipients",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_recipients.txt",
+      "snippet": "santi@goldencrowvs.com support@goldencrowvs.com federico0812@gmail.com"
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Golden Crow Morning Digest 2026 05 07",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/Golden_Crow_morning_digest_2026-05-07.txt",
+      "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Updated oper"
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Body",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_body.txt",
+      "snippet": "Hi Santi and team, Attached is the Golden Crow morning digest for today. Updated dashboard: https://golden-crow-backoffice.vercel.app/botfarm Top signals: - Tomorrow priority: Mateo should produce higher-quality target rows and Bruno should define the exact first outreach metric "
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Nightly Email Subject",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_subject.txt",
+      "snippet": "Golden Crow night analysis - 2026-05-07"
+    },
+    {
+      "time": "2026-05-07 11:31:56",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "What Your Role Is",
+      "path": "emma - email_assistant/what_your_role_is.txt",
+      "snippet": "Role note from Jeff Employee: Emma Role: email_assistant Your daily responsibility: Collect late-night analyst reports, send one consolidated Gmail digest to Golden Crow stakeholders, and send one useful reduced WhatsApp highlights report when it corresponds and is outside quiet "
+    },
+    {
+      "time": "2026-05-07 11:31:48",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Readme",
+      "path": "emma - email_assistant/README.md",
+      "snippet": "# Emma - Email Assistant Emma sends the night analyst digest and a concise WhatsApp highlight when it is useful and outside quiet hours. The late-night and early-morning analysts do not message WhatsApp. Vera, Hugo, Gala, Nora, Riley, Rafael, Diego, and Camila each write a report"
+    },
+    {
+      "time": "2026-05-07 11:30:54",
+      "category": "email",
+      "actor": "emma - email_assistant",
+      "title": "Agents",
+      "path": "emma - email_assistant/AGENTS.md",
+      "snippet": "# Emma Operating Contract - Collect Vera, Hugo, Gala, Nora, Riley, Rafael, Diego, and Camila's latest report sections. - Compose one concise stakeholder email body plus one safe dated digest attachment. - Use Gmail in Safari only. - Use the logged `federico@goldencrowvs.com` acco"
+    },
+    {
+      "time": "2026-05-07 11:22:58",
+      "category": "report",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard Build Report",
+      "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v3/web_dashboard_build_report.md",
+      "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-sleek-botfarm-ui-20260507-v3 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_develope"
     },
     {
       "time": "2026-05-07 11:22:27",
@@ -3271,38 +3438,6 @@
       "title": "What Your Role Is",
       "path": "lucas - web_developer/what_your_role_is.txt",
       "snippet": "Role note from Jeff Employee: Lucas Role: web_developer Your daily responsibility: Build and refresh the local Golden Crow dashboard from shared database, employee logs, evaluations, emails, tickets, and event history. Also expose an Ads Cycle view from `ads_shared/`, showing Oli"
-    },
-    {
-      "time": "2026-05-07 11:20:28",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Daemon",
-      "path": "lucas - web_developer/logs/live_observer_daemon.log",
-      "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
-    },
-    {
-      "time": "2026-05-07 11:20:28",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Summary",
-      "path": "lucas - web_developer/logs/live_observer_summary.md",
-      "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 11:20:28 -0300 - 2026-05-07 11:20:28 -0300 | success | lucas - web_developer | lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507/web_dashboard_build_report.md: botfarm_sync_status=synced - 2026-05-07 11:20:28 "
-    },
-    {
-      "time": "2026-05-07 11:20:28",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer State",
-      "path": "lucas - web_developer/logs/live_observer_state.json",
-      "snippet": "{ \"last_observed_at\": \"2026-05-07 11:20:28 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
-    },
-    {
-      "time": "2026-05-07 11:20:28",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Feed",
-      "path": "lucas - web_developer/logs/live_observer_feed.tsv",
-      "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
     },
     {
       "time": "2026-05-07 11:19:53",
@@ -4836,38 +4971,6 @@
       "time": "2026-05-07 09:08:10",
       "category": "email",
       "actor": "emma - email_assistant",
-      "title": "Latest Whatsapp Summary",
-      "path": "emma - email_assistant/reports/latest_whatsapp_summary.txt",
-      "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
-    },
-    {
-      "time": "2026-05-07 09:08:10",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Latest Nightly Email Attachment",
-      "path": "emma - email_assistant/reports/latest_nightly_email_attachment.txt",
-      "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Vera - Innov"
-    },
-    {
-      "time": "2026-05-07 09:08:10",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Latest Nightly Email Preview",
-      "path": "emma - email_assistant/reports/latest_nightly_email_preview.md",
-      "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-whatsapp-policy-fix-20260507-0910 to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow morning digest for today. T"
-    },
-    {
-      "time": "2026-05-07 09:08:10",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Email Assistant History Log",
-      "path": "emma - email_assistant/logs/email_assistant_history_log.txt",
-      "snippet": "Emma email assistant history log --- timestamp=2026-05-06 13:57:29 -0300 run_id=manual-emma-smoke phase=email_composed preview=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-smoke/nightly_email_preview.md subject_file=/Users/federicobus"
-    },
-    {
-      "time": "2026-05-07 09:08:10",
-      "category": "email",
-      "actor": "emma - email_assistant",
       "title": "Nightly Email Preview",
       "path": "emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/nightly_email_preview.md",
       "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-whatsapp-policy-fix-20260507-0910 to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Attached is the Golden Crow morning digest for today. T"
@@ -4911,30 +5014,6 @@
       "title": "Nightly Email Subject",
       "path": "emma - email_assistant/reports/manual-emma-whatsapp-policy-fix-20260507-0910/nightly_email_subject.txt",
       "snippet": "Golden Crow night analysis - 2026-05-07"
-    },
-    {
-      "time": "2026-05-07 09:03:30",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Readme",
-      "path": "emma - email_assistant/README.md",
-      "snippet": "# Emma - Email Assistant Emma sends the night analyst digest and a concise WhatsApp highlight when it is useful and outside quiet hours. The late-night and early-morning analysts do not message WhatsApp. Vera, Hugo, Gala, Nora, Riley, Rafael, Diego, and Camila each write a report"
-    },
-    {
-      "time": "2026-05-07 09:00:26",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "What Your Role Is",
-      "path": "emma - email_assistant/what_your_role_is.txt",
-      "snippet": "Role note from Jeff Employee: Emma Role: email_assistant Your daily responsibility: Collect late-night analyst reports, send one consolidated Gmail digest to Golden Crow stakeholders, and send one useful reduced WhatsApp highlights report when it corresponds and is outside quiet "
-    },
-    {
-      "time": "2026-05-07 09:00:26",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Agents",
-      "path": "emma - email_assistant/AGENTS.md",
-      "snippet": "# Emma Operating Contract - Collect Vera, Hugo, Gala, Nora, Riley, Rafael, Diego, and Camila's latest report sections. - Compose one concise stakeholder email body plus one safe dated digest attachment. - Use Gmail in Safari only. - Use the logged `federico@goldencrowvs.com` acco"
     },
     {
       "time": "2026-05-07 08:57:59",
@@ -5191,137 +5270,21 @@
       "title": "Nightly Email Subject",
       "path": "emma - email_assistant/reports/manual-emma-safe-body-check-20260507-084759/nightly_email_subject.txt",
       "snippet": "Golden Crow night analysis - 2026-05-07"
-    },
-    {
-      "time": "2026-05-07 08:47:30",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Preview",
-      "path": "emma - email_assistant/reports/manual-emma-safe-body-check-20260507-084727/nightly_email_preview.md",
-      "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=manual-emma-safe-body-check to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM des"
-    },
-    {
-      "time": "2026-05-07 08:47:30",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Whatsapp Summary",
-      "path": "emma - email_assistant/reports/manual-emma-safe-body-check-20260507-084727/whatsapp_summary.txt",
-      "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
-    },
-    {
-      "time": "2026-05-07 08:47:30",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Recipients",
-      "path": "emma - email_assistant/reports/manual-emma-safe-body-check-20260507-084727/nightly_email_recipients.txt",
-      "snippet": "santi@goldencrowvs.com support@goldencrowvs.com"
-    },
-    {
-      "time": "2026-05-07 08:47:30",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Body",
-      "path": "emma - email_assistant/reports/manual-emma-safe-body-check-20260507-084727/nightly_email_body.txt",
-      "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Vera - Innov"
-    },
-    {
-      "time": "2026-05-07 08:47:30",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Subject",
-      "path": "emma - email_assistant/reports/manual-emma-safe-body-check-20260507-084727/nightly_email_subject.txt",
-      "snippet": "Golden Crow night analysis - 2026-05-07"
-    },
-    {
-      "time": "2026-05-07 08:45:02",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Cron",
-      "path": "lucas - web_developer/logs/cron.log",
-      "snippet": "[2026-05-07 08:45:00 -0300] Lucas web dashboard flow started. run_id=20260507-084500-26803 Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-07 08:45:02 -0300] Lucas web dashboard flow finished. run_id=2026"
-    },
-    {
-      "time": "2026-05-07 08:45:02",
-      "category": "report",
-      "actor": "lucas - web_developer",
-      "title": "Web Dashboard Build Report",
-      "path": "lucas - web_developer/reports/20260507-084500-26803/web_dashboard_build_report.md",
-      "snippet": "# Lucas Web Dashboard Build Report run_id=20260507-084500-26803 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=24 tables=8 events=260 emails=12 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/data.json"
-    },
-    {
-      "time": "2026-05-07 08:30:02",
-      "category": "log",
-      "actor": "max - accountant",
-      "title": "Cron",
-      "path": "max - accountant/logs/cron.log",
-      "snippet": "[2026-05-07 08:30:01 -0300] Max accounting flow started. run_id=20260507-083001-26619 Max recorded Meta Ads cost: USD 10.00 (estimated_from_active_meta_ads_daily_budget) [2026-05-07 08:30:02 -0300] Max accounting flow finished. run_id=20260507-083001-26619"
-    },
-    {
-      "time": "2026-05-07 08:30:02",
-      "category": "log",
-      "actor": "max - accountant",
-      "title": "Run Full Flow",
-      "path": "max - accountant/logs/run_full_flow.log",
-      "snippet": "[2026-05-06 12:31:25 -0300] Max accounting flow started. run_id=20260506-123125-94539 Max recorded Meta Ads cost: USD 10.00 (estimated_from_active_meta_ads_daily_budget) [2026-05-06 12:31:25 -0300] Max accounting flow finished. run_id=20260506-123125-94539 [2026-05-07 08:30:01 -0"
-    },
-    {
-      "time": "2026-05-07 08:30:02",
-      "category": "log",
-      "actor": "max - accountant",
-      "title": "Accounting History Log",
-      "path": "max - accountant/logs/accounting_history_log.txt",
-      "snippet": "Max accounting history log This file is append-only. Max adds one section per daily cost review. --- date=2026-05-06 timestamp=2026-05-06 12:31:25 -0300 run_id=20260506-123125-94539 meta_ads_cost=USD 10.00 basis=estimated_from_active_meta_ads_daily_budget source=/Users/federicobu"
-    },
-    {
-      "time": "2026-05-07 08:30:02",
-      "category": "report",
-      "actor": "max - accountant",
-      "title": "Daily Cost Report",
-      "path": "max - accountant/reports/20260507-083001-26619/daily_cost_report.md",
-      "snippet": "# Max Daily Cost Report date=2026-05-07 run_id=20260507-083001-26619 ## Company Cost - Meta Ads: USD 10.00 - basis: estimated_from_active_meta_ads_daily_budget - confidence: medium - source: /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generado"
-    },
-    {
-      "time": "2026-05-07 08:30:02",
-      "category": "report",
-      "actor": "max - accountant",
-      "title": "Meta Ads Cost Snapshot",
-      "path": "max - accountant/reports/20260507-083001-26619/meta_ads_cost_snapshot.tsv",
-      "snippet": "date run_id cost_source currency amount basis confidence source note recorded_at 2026-05-07 20260507-083001-26619 Meta Ads USD 10.00 estimated_from_active_meta_ads_daily_budget medium /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/publi"
-    },
-    {
-      "time": "2026-05-07 08:30:02",
-      "category": "file",
-      "actor": "max - accountant",
-      "title": "Meta Ads Cost Ledger",
-      "path": "max - accountant/ledger/meta_ads_cost_ledger.tsv",
-      "snippet": "date run_id cost_source currency amount basis confidence source note recorded_at 2026-05-06 20260506-123125-94539 Meta Ads USD 10.00 estimated_from_active_meta_ads_daily_budget medium /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/publi"
-    },
-    {
-      "time": "2026-05-07 08:16:13",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Cron",
-      "path": "emma - email_assistant/logs/cron.log",
-      "snippet": "[2026-05-07 08:15:01 -0300] Emma email assistant flow started. run_id=20260507-081501-25925 Emma composed nightly email preview: /Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/20260507-081501-25925/nightly_email_preview.md OpenAI Codex v0.128.0 (re"
-    },
-    {
-      "time": "2026-05-07 08:16:02",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Gmail Delivery 20260507 081501 25925",
-      "path": "emma - email_assistant/reports/20260507-081501-25925/gmail_delivery_20260507-081501-25925.txt",
-      "snippet": "gmail_delivery_checked result=blocked reason=body_contains_local_paths_and_internal_tooling_references from_account_seen=federico@goldencrowvs.com run_id=20260507-081501-25925"
-    },
-    {
-      "time": "2026-05-07 08:15:02",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Preview",
-      "path": "emma - email_assistant/reports/20260507-081501-25925/nightly_email_preview.md",
-      "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=20260507-081501-25925 to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design re"
     }
   ],
   "emails": [
+    {
+      "time": "2026-05-07 11:33:26",
+      "subject": "Golden Crow night analysis - 2026-05-07",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507-v2/nightly_email_preview.md",
+      "body": "# Emma Nightly Email Preview\n\ndate=2026-05-07\nrun_id=manual-emma-botfarm-link-contract-20260507-v2\n\nto=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com\nsubject=Golden Crow night analysis - 2026-05-07\n\n```text\nHi Santi and team,\n\nAttached is the Golden Crow morning digest for today.\n\nUpdated dashboard: https://golden-crow-backoffice.vercel.app/botfarm\n\nTop signals:\n- Tomorrow priority: Mateo should produce higher-quality target rows and Bruno should define the exact first outreach metric before any external contact.\n- Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00.\n- Recommendation: Performance is usable: preserve the best-performing angle and test one controlled creative variation.\n- Improvement bench: Diana (documentation_writer) because resource=94, value=50, efficiency=31.\n\nEmma\nGolden Crow email assistant\n```\n\n## Email Attachment\n\nattachment=Golden_Crow_morning_digest_2026-05-07.txt\n\n```text\nHi Santi and team,\n\nHere is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync.\n\nUpdated operations dashboard: https://golden-crow-backoffice.vercel.app/botfarm\n\nVera - Innovation Analyst\nMain recommendation: start with Notion for operating knowledge, Linear for issue/cycle visibility, and HubSpot only when Mateo has enough qualified leads to justify CRM discipline.\nWhy: current work is visible in files and crons, but hard for humans to inspect quickly. A wiki + issue tracker + later CRM would make strategy, ownership, follow-ups, and decisions easier to audit.\nSuggested next experiment: create one Notion operating wiki and one Linear cycle for sales acquisition before buying heavier tooling.\n\nHugo - Integration Analyst\nMain process improvement: standardize handoff files. Paula should produce product context, Bruno should turn it into execution metrics, Mateo should turn it into lead research, and Emma should digest night reports.\nHighest-risk gap: the sales chain can drift if Paula, Bruno, and Mateo each interpret the market differently.\n\nGala - Product Growth Analyst\nConfirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63.\nExisting client/proof rows tracked: 4. Main issue: No confirmed new client evidence was found today.\nTomorrow priority: Mateo should produce higher-quality target rows and Bruno should define the exact first outreach metric before any external contact.\n\nNora - Designer\nImages reviewed: 3.\nKey directives:\n\nCOMPOSITION: 1080x1080 square; premium black/gold scene; single operator pain moment + single clean software UI hero; avoid split chaos; clear foreground/midground/background depth.\nHIERARCHY: one dominant headline, one short support line, one CTA; headline owns attention, UI proves solution, human emotion supports only.\nTYPOGRAPHY: bold condensed uppercase headline; max 2 lines; support copy 34–42px minimum; CTA 42–54px; no tiny AI text inside UI.\nTEXT_LAYOUT: text-panel coverage under 35%; 24px internal text padding; align panels to grid; avoid stacked competing boxes; no text over faces/hands/product UI.\nSAFE_AREAS: 56px outer safe margin on all sides; CTA fully inside lower safe zone; keep brand mark away from headline box collision.\nCONTRAST_COLOR: black base, gold accents, white headline; use gold only for borders/CTA/highlight glows; suppress muddy browns and overexposed yellow portals.\nCTA: one rectangular gold button, bottom-right or bottom-center; short Spanish imperative: “PEDÍ INFO”, “EMPEZÁ TU SISTEMA”, “AGENDÁ UNA DEMO”.\nBRAND_SYSTEM: consistent “GOLDEN CROW” top-left, same scale/spacing; premium custom software for gyms/fitness/service operators; no random logos.\nVISUAL_HOOK: show pain as controlled clutter, not tornado spam; UI must look organized, modern, credible.\n\nRiley - Employee Reward Evaluator\nBest performer: Lisa (photographer) score=100. 6 success signal types; recent work matches role; created downstream value/handoff\nWorst performer: Andy (code_keeper) score=81. 4 problem signal types\nMost value provided: Bruno (business_strategist) value_score=100. 2 success signal types; recent work matches role; created downstream value/handoff\n\nRafael - Resource Analyser\nWarning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient\nAnalytics page result: skipped. Analytics capture skipped by RAFAEL_SKIP_ANALYTICS=1.\nMost consuming employees: Lisa (photographer) resource=100 value=100 efficiency=80; Sam (community_manager) resource=100 value=100 efficiency=70; Abby (coach) resource=94 value=100 efficiency=71\nMost productive employees: Max (accountant) resource=41 value=100 efficiency=92; Gala (product_growth_analyst) resource=45 value=100 efficiency=91; Camila (crm_manager) resource=59 value=100 efficiency=88\nLeast productive employees: Diana (documentation_writer) resource=94 value=50 efficiency=31; Andy (code_keeper) resource=70 value=91 efficiency=69; Sam (community_manager) resource=100 value=100 efficiency=70\nImprovement bench: Diana (documentation_writer) because resource=94, value=50, efficiency=31.\nDisk hygiene: high. free_space=26.6GiB, free_percent=5.8. Workspace went from 775.8 MiB to 660.6 MiB; cleanup recovered 115.2 MiB.\nFree space: before 26.5 GiB, after 26.6 GiB.\nSimulator review candidates: 5. Available simulator devices are not deleted automatically unless Federico explicitly authorizes that cleanup.\n\nDiego - Campaign Performance Analyst\nMeta Ads capture result: completed.\nCampaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown.\nCreative signal: best_text=unknown; best_image_style=colorful illustrated ad thumbnails with bold Spanish creative; comments=unknown.\nRecommendation: Performance is usable: preserve the best-performing angle and test one controlled creative variation.\nFeedback written for Sam, Olivia, and Nora.\n\nCamila - CRM Manager\nShared database synced: employees=25, pipeline_rows=65.\nBusiness metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00.\nCost/performance context: meta_spend_usd=10.00, campaign_ctr_avg=unknown, cost_per_lead_avg=unknown, resource_warning=low, improvement_bench=Mia.\nOpen outcome tickets this run: 2.\n\nSuggested morning action:\n0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm\n1. Decide whether to test Notion/Linear as an operating layer.\n2. Keep Paula -> Bruno -> Mateo as one sales chain with explicit handoff files.\n3. Treat client/revenue growth as evidence-based only: no confirmed client without a tracked proof.\n4. Use Diego and Nora's creative feedback before making the next ad creative.\n5. Review Riley's employee-of-the-day signal before the morning team update.\n6. Review Rafael's improvement bench before expanding high-cost work.\n7. Use Camila's shared metrics as the business truth: qualified leads, outreach, replies, meetings, proposals, clients, revenue.\n8. Use Diego's campaign results to steer Sam, Olivia, and Nora before making the next ad creative.\n\nEmma\nGolden Crow email assistant\n```\n\n## WhatsApp Summary\n\n```text\nEmma - resumen matinal Golden Crow\nFecha: 2026-05-07\n\nHighlights importantes:\n- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorrow priority: Mateo should produce higher-quality target rows...\n- Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown.\n- Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_writer) because resource=94, value=50, efficiency=31.\n- Equipo: Best performer: Lisa (photographer) score=100. 6 success signal types; recent work matches role; created downstream value/handoff | Worst performer: Andy (code_keeper) score=81. 4 problem signal types | Most value provided: Bruno (business_strategist) value_score=100. 2 success signal types; recent work matches role; created downstream value/handoff\n- Operaciones: Main process improvement: standardize handoff files. Paula should produce product context, Bruno should turn it into execution metrics, Mateo should turn it into lead research, and Emma should digest night reports. | Main recommendation: start with Notion for operating knowledge, Linear for issue/cycle visibility,...\n\nDashboard actualizado: https://golden-crow-backoffice.vercel.app/botfarm\n\nDetalle completo: Emma lo deja en el email largo para Santi y Support.\n```\n\n## Sources\n\n- /Users/federicobustosfierro/goldencrow automata/vera - innovation_analyst/reports/20260507-010001-85241/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/hugo - integration_analyst/reports/20260507-020001-15634/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/gala - product_growth_analyst/reports/20260507-030001-17629/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/nora - designer/reports/20260507-040001-19778/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/riley - employee_reward_evaluator/reports/20260507-050001-21472/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/diego - campaign_performance_analyst/reports/20260507-064501-23812/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/email_section.txt\n"
+    },
+    {
+      "time": "2026-05-07 11:32:24",
+      "subject": "Golden Crow night analysis - 2026-05-07",
+      "path": "emma - email_assistant/reports/manual-emma-botfarm-link-contract-20260507/nightly_email_preview.md",
+      "body": "# Emma Nightly Email Preview\n\ndate=2026-05-07\nrun_id=manual-emma-botfarm-link-contract-20260507\n\nto=santi@goldencrowvs.com, support@goldencrowvs.com, federico0812@gmail.com\nsubject=Golden Crow night analysis - 2026-05-07\n\n```text\nHi Santi and team,\n\nAttached is the Golden Crow morning digest for today.\n\nUpdated dashboard: https://golden-crow-backoffice.vercel.app/botfarm\n\nTop signals:\n- Tomorrow priority: Mateo should produce higher-quality target rows and Bruno should define the exact first outreach metric before any external contact.\n- Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00.\n- Recommendation: Performance is usable: preserve the best-performing angle and test one controlled creative variation.\n- Improvement bench: Diana (documentation_writer) because resource=94, value=50, efficiency=31.\n\nEmma\nGolden Crow email assistant\n```\n\n## Email Attachment\n\nattachment=Golden_Crow_morning_digest_2026-05-07.txt\n\n```text\nHi Santi and team,\n\nHere is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync.\n\nUpdated operations dashboard: https://golden-crow-backoffice.vercel.app/botfarm\n\nVera - Innovation Analyst\nMain recommendation: start with Notion for operating knowledge, Linear for issue/cycle visibility, and HubSpot only when Mateo has enough qualified leads to justify CRM discipline.\nWhy: current work is visible in files and crons, but hard for humans to inspect quickly. A wiki + issue tracker + later CRM would make strategy, ownership, follow-ups, and decisions easier to audit.\nSuggested next experiment: create one Notion operating wiki and one Linear cycle for sales acquisition before buying heavier tooling.\n\nHugo - Integration Analyst\nMain process improvement: standardize handoff files. Paula should produce product context, Bruno should turn it into execution metrics, Mateo should turn it into lead research, and Emma should digest night reports.\nHighest-risk gap: the sales chain can drift if Paula, Bruno, and Mateo each interpret the market differently.\n\nGala - Product Growth Analyst\nConfirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63.\nExisting client/proof rows tracked: 4. Main issue: No confirmed new client evidence was found today.\nTomorrow priority: Mateo should produce higher-quality target rows and Bruno should define the exact first outreach metric before any external contact.\n\nNora - Designer\nImages reviewed: 3.\nKey directives:\n\nCOMPOSITION: 1080x1080 square; premium black/gold scene; single operator pain moment + single clean software UI hero; avoid split chaos; clear foreground/midground/background depth.\nHIERARCHY: one dominant headline, one short support line, one CTA; headline owns attention, UI proves solution, human emotion supports only.\nTYPOGRAPHY: bold condensed uppercase headline; max 2 lines; support copy 34–42px minimum; CTA 42–54px; no tiny AI text inside UI.\nTEXT_LAYOUT: text-panel coverage under 35%; 24px internal text padding; align panels to grid; avoid stacked competing boxes; no text over faces/hands/product UI.\nSAFE_AREAS: 56px outer safe margin on all sides; CTA fully inside lower safe zone; keep brand mark away from headline box collision.\nCONTRAST_COLOR: black base, gold accents, white headline; use gold only for borders/CTA/highlight glows; suppress muddy browns and overexposed yellow portals.\nCTA: one rectangular gold button, bottom-right or bottom-center; short Spanish imperative: “PEDÍ INFO”, “EMPEZÁ TU SISTEMA”, “AGENDÁ UNA DEMO”.\nBRAND_SYSTEM: consistent “GOLDEN CROW” top-left, same scale/spacing; premium custom software for gyms/fitness/service operators; no random logos.\nVISUAL_HOOK: show pain as controlled clutter, not tornado spam; UI must look organized, modern, credible.\nNEGATIVE_PROMPT: illegible microtext, distorted faces/hands, fake receipts overload, floating WhatsApp chaos, duplicate CTAs, messy dashboards, cropped heads, text touching borders.\n\nRiley - Employee Reward Evaluator\nBest performer: Lisa (photographer) score=100. 6 success signal types; recent work matches role; created downstream value/handoff\nWorst performer: Andy (code_keeper) score=81. 4 problem signal types\nMost value provided: Bruno (business_strategist) value_score=100. 2 success signal types; recent work matches role; created downstream value/handoff\n\nRafael - Resource Analyser\nWarning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient\nAnalytics page result: skipped. Analytics capture skipped by RAFAEL_SKIP_ANALYTICS=1.\nMost consuming employees: Lisa (photographer) resource=100 value=100 efficiency=80; Sam (community_manager) resource=100 value=100 efficiency=70; Abby (coach) resource=94 value=100 efficiency=71\nMost productive employees: Max (accountant) resource=41 value=100 efficiency=92; Gala (product_growth_analyst) resource=45 value=100 efficiency=91; Camila (crm_manager) resource=59 value=100 efficiency=88\nLeast productive employees: Diana (documentation_writer) resource=94 value=50 efficiency=31; Andy (code_keeper) resource=70 value=91 efficiency=69; Sam (community_manager) resource=100 value=100 efficiency=70\nImprovement bench: Diana (documentation_writer) because resource=94, value=50, efficiency=31.\nDisk hygiene: high. free_space=26.6GiB, free_percent=5.8. Workspace went from 775.8 MiB to 660.6 MiB; cleanup recovered 115.2 MiB.\nFree space: before 26.5 GiB, after 26.6 GiB.\nSimulator review candidates: 5. Available simulator devices are not deleted automatically unless Federico explicitly authorizes that cleanup.\n\nDiego - Campaign Performance Analyst\nMeta Ads capture result: completed.\nCampaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown.\nCreative signal: best_text=unknown; best_image_style=colorful illustrated ad thumbnails with bold Spanish creative; comments=unknown.\nRecommendation: Performance is usable: preserve the best-performing angle and test one controlled creative variation.\nFeedback written for Sam, Olivia, and Nora.\n\nCamila - CRM Manager\nShared database synced: employees=25, pipeline_rows=65.\nBusiness metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00.\nCost/performance context: meta_spend_usd=10.00, campaign_ctr_avg=unknown, cost_per_lead_avg=unknown, resource_warning=low, improvement_bench=Mia.\nOpen outcome tickets this run: 2.\n\nSuggested morning action:\n0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm\n1. Decide whether to test Notion/Linear as an operating layer.\n2. Keep Paula -> Bruno -> Mateo as one sales chain with explicit handoff files.\n3. Treat client/revenue growth as evidence-based only: no confirmed client without a tracked proof.\n4. Use Diego and Nora's creative feedback before making the next ad creative.\n5. Review Riley's employee-of-the-day signal before the morning team update.\n6. Review Rafael's improvement bench before expanding high-cost work.\n7. Use Camila's shared metrics as the business truth: qualified leads, outreach, replies, meetings, proposals, clients, revenue.\n8. Use Diego's campaign results to steer Sam, Olivia, and Nora before making the next ad creative.\n\nEmma\nGolden Crow email assistant\n```\n\n## WhatsApp Summary\n\n```text\nEmma - resumen matinal Golden Crow\nFecha: 2026-05-07\n\nHighlights importantes:\n- Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Tomorrow priority: Mateo should produce higher-quality target rows...\n- Ads/creativo: Meta Ads capture result: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown.\n- Recursos: Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench: Diana (documentation_writer) because resource=94, value=50, efficiency=31.\n- Equipo: Best performer: Lisa (photographer) score=100. 6 success signal types; recent work matches role; created downstream value/handoff | Worst performer: Andy (code_keeper) score=81. 4 problem signal types | Most value provided: Bruno (business_strategist) value_score=100. 2 success signal types; recent work matches role; created downstream value/handoff\n- Operaciones: Main process improvement: standardize handoff files. Paula should produce product context, Bruno should turn it into execution metrics, Mateo should turn it into lead research, and Emma should digest night reports. | Main recommendation: start with Notion for operating knowledge, Linear for issue/cycle visibility,...\n\nDashboard actualizado: https://golden-crow-backoffice.vercel.app/botfarm\n\nDetalle completo: Emma lo deja en el email largo para Santi y Support.\n```\n\n## Sources\n\n- /Users/federicobustosfierro/goldencrow automata/vera - innovation_analyst/reports/20260507-010001-85241/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/hugo - integration_analyst/reports/20260507-020001-15634/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/gala - product_growth_analyst/reports/20260507-030001-17629/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/nora - designer/reports/20260507-040001-19778/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/riley - employee_reward_evaluator/reports/20260507-050001-21472/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/diego - campaign_performance_analyst/reports/20260507-064501-23812/email_section.txt\n- /Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/email_section.txt\n"
+    },
     {
       "time": "2026-05-07 09:08:10",
       "subject": "Golden Crow night analysis - 2026-05-07",

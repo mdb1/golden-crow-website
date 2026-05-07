@@ -151,10 +151,51 @@ function setView(view) {
     button.classList.toggle("active", button.dataset.view === view);
   });
   render();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
 
 function pageIntro(copy) {
   return `<p>${esc(copy)}</p>`;
+}
+
+function businessFunnelCard(label, value, detail, index = 0) {
+  return `
+    <article class="funnel-step fade-in" style="--accent: ${accents[index % accents.length]}">
+      <div class="funnel-index">${String(index + 1).padStart(2, "0")}</div>
+      <div>
+        <h4>${esc(label)}</h4>
+        <strong>${esc(value)}</strong>
+        <p>${esc(detail)}</p>
+      </div>
+    </article>
+  `;
+}
+
+function businessFunnel(m) {
+  const steps = [
+    ["Pipeline", m.pipeline_rows, "Total rows in the active business pipeline."],
+    ["Qualified", m.qualified_leads, "Prospects that passed the current qualification filter."],
+    ["Outreach", m.outreach_sent, "Messages actually moved from draft to sent."],
+    ["Replies", m.replies, "Responses received from the market."],
+    ["Meetings", m.meetings, "Booked conversations or next-step calls."],
+    ["Closed", m.clients_closed, `Clients closed. Revenue USD ${m.revenue}.`],
+  ];
+  return `
+    <section class="section funnel-section">
+      <div class="section-title">
+        <div>
+          <h3>Business Funnel</h3>
+          ${pageIntro("Sales progress is shown as one horizontal flow on desktop and a clean vertical flow on mobile.")}
+        </div>
+        ${navButton("Open database", "database")}
+      </div>
+      <div class="funnel-track">
+        ${steps.map((step, index) => businessFunnelCard(step[0], step[1], step[2], index)).join("")}
+      </div>
+    </section>
+  `;
 }
 
 function renderOverview() {
@@ -188,6 +229,8 @@ function renderOverview() {
       ${metricCard("Revenue USD", m.revenue, 4)}
       ${metricCard("Resource warning", m.resource_warning, 5)}
     </div>
+
+    ${businessFunnel(m)}
 
     <section class="section">
       <div class="section-title">
