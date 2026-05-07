@@ -1,7 +1,327 @@
 {
-  "generated_at": "2026-05-07 11:35:28 -0300",
-  "new_observations": 19,
+  "generated_at": "2026-05-07 12:25:32 -0300",
+  "new_observations": 2,
   "observations": [
+    {
+      "observed_at": "2026-05-07 12:25:32 -0300",
+      "actor": "goldencrow_shared",
+      "category": "stakeholder_request",
+      "status": "activity",
+      "path": "goldencrow_shared/stakeholder_requests/README.md",
+      "summary": "Lucas may write here. Employees receive a copied directive inside their own `reports/<RUN_ID>/` folder when the listener processes a request. | The queue is local-first. Dashboard submissions go to the localhost Lucas server, which writes files here, then a launchd polling listener runs `lucas - web_developer/scripts/process_stakeholder_requests.py --once`. | External communication still follows `goldencrow_shared/stakeholder_communication_policy.txt`: one useful WhatsApp explanation is allowed when outside quiet hours, otherwise the processor writes a no-send marker and continues local handli"
+    },
+    {
+      "observed_at": "2026-05-07 12:25:32 -0300",
+      "actor": "goldencrow_shared",
+      "category": "stakeholder_request",
+      "status": "risk",
+      "path": "goldencrow_shared/stakeholder_requests/requests.tsv",
+      "summary": "request_id created_at updated_at stakeholder employee_folder employee_display priority desired_outcome message_preview status current_stage source run_id report_dir directive_file whatsapp_result codex_result last_error claimed_at completed_at message_count"
+    },
+    {
+      "observed_at": "2026-05-07 12:15:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "activity",
+      "path": "sara - recruiter/reports/20260507-120001-13580/hiring_approval_check_20260507-120001-13580_1.txt",
+      "summary": "rejected_by= | evidence_summary=In Golden Crow VS, after Sara's Nina - qa_reviewer hiring request, Federico Bustos Fierro replied \"jajajaj si, aprobado\" at 12:01 PM; no rejection was observed. | checked_at=2026-05-07 12:12:10 -0300"
+    },
+    {
+      "observed_at": "2026-05-07 12:15:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "success",
+      "path": "sara - recruiter/reports/20260507-120001-13580/hired_employee_20260507-120001-13580.txt",
+      "summary": "approved_by=Federico Bustos Fierro | cron_installed=no"
+    },
+    {
+      "observed_at": "2026-05-07 12:15:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "log",
+      "status": "success",
+      "path": "sara - recruiter/logs/hiring_history_log.txt",
+      "summary": "phase=approval_request_sent | request_sent_at=2026-05-07 12:00:01 -0300 | approved_by=Federico Bustos Fierro | approved_by=Federico Bustos Fierro"
+    },
+    {
+      "observed_at": "2026-05-07 12:15:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "log",
+      "status": "success",
+      "path": "sara - recruiter/logs/run_full_flow.log",
+      "summary": "patch: completed | Done. I checked WhatsApp Web in Safari, did not send anything, and wrote the marker: | Done. I checked WhatsApp Web in Safari, did not send anything, and wrote the marker: | [2026-05-07 12:13:10 -0300] Sara full flow finished. run_id=20260507-120001-13580"
+    },
+    {
+      "observed_at": "2026-05-07 12:15:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "cron",
+      "status": "success",
+      "path": "sara - recruiter/logs/cron.log",
+      "summary": "patch: completed | Done. I checked WhatsApp Web in Safari, did not send anything, and wrote the marker: | Done. I checked WhatsApp Web in Safari, did not send anything, and wrote the marker: | [2026-05-07 12:13:10 -0300] Sara full flow finished. run_id=20260507-120001-13580"
+    },
+    {
+      "observed_at": "2026-05-07 12:05:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "risk",
+      "path": "sara - recruiter/reports/20260507-120001-13580/hiring_approval_request_20260507-120001-13580.txt",
+      "summary": "hiring_approval_request_sent | request_sent_at=2026-05-07 12:00:01 -0300 | failed_recipients= | extra_messages_sent=no"
+    },
+    {
+      "observed_at": "2026-05-07 12:05:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "log",
+      "status": "success",
+      "path": "sara - recruiter/logs/hiring_history_log.txt",
+      "summary": "phase=proposal_created | phase=proposal_created | phase=approval_request_sent | request_sent_at=2026-05-07 12:00:01 -0300"
+    },
+    {
+      "observed_at": "2026-05-07 12:05:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "log",
+      "status": "risk",
+      "path": "sara - recruiter/logs/run_full_flow.log",
+      "summary": "+request_sent_at=2026-05-07 12:00:01 -0300 | +failed_recipients= | +extra_messages_sent=no | Sent exactly one WhatsApp Web message to the group chat `Golden Crow VS`."
+    },
+    {
+      "observed_at": "2026-05-07 12:05:31 -0300",
+      "actor": "sara - recruiter",
+      "category": "cron",
+      "status": "risk",
+      "path": "sara - recruiter/logs/cron.log",
+      "summary": "+request_sent_at=2026-05-07 12:00:01 -0300 | +failed_recipients= | +extra_messages_sent=no | Sent exactly one WhatsApp Web message to the group chat `Golden Crow VS`."
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "activity",
+      "path": "sara - recruiter/reports/20260507-120001-13580/workforce_snapshot.md",
+      "summary": "``` | ## Geoff Cron Report | /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/manual-geoff-sales-team-refresh-2/cron_orchestration_report.md"
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "risk",
+      "path": "sara - recruiter/reports/20260507-120001-13580/hiring_proposal.md",
+      "summary": "Mission: Check every employee's latest outputs, logs, markers, generated images, and scripts for broken states before the day moves forward. | Reason: The company now has multiple autonomous bots creating files, images, Trello updates, WhatsApp messages, and crons. A QA reviewer reduces silent failures."
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "risk",
+      "path": "sara - recruiter/reports/20260507-120001-13580/stakeholder_message.txt",
+      "summary": "Rol: Check every employee's latest outputs, logs, markers, generated images, and scripts for broken states before the day moves forward. | Motivo: The company now has multiple autonomous bots creating files, images, Trello updates, WhatsApp messages, and crons. A QA reviewer reduces silent failures. Cron sugerido: 12:00 (requiere Federico disponible y revision de Geoff antes de instalar)."
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "report",
+      "status": "risk",
+      "path": "sara - recruiter/reports/20260507-120001-13580/proposal.env",
+      "summary": "daily_mission=Check every employee's latest outputs, logs, markers, generated images, and scripts for broken states before the day moves forward. | reason_to_hire=The company now has multiple autonomous bots creating files, images, Trello updates, WhatsApp messages, and crons. A QA reviewer reduces silent failures."
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "log",
+      "status": "success",
+      "path": "sara - recruiter/logs/hiring_history_log.txt",
+      "summary": "phase=proposal_created | phase=proposal_created | phase=proposal_created | phase=proposal_created"
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "log",
+      "status": "risk",
+      "path": "sara - recruiter/logs/run_full_flow.log",
+      "summary": "- Rejections, requested changes, ambiguous replies, missing delivery evidence, or wrong chat evidence must keep the external action off. | - Contact exactly the approved person/company once. | - Block sending if the message is generic, confusing, duplicative, missing evidence, overlong for the channel, or mostly noise. | - Write a marker before exiting that states result=sent, result=skipped, result=blocked, or result=delivery_failed."
+    },
+    {
+      "observed_at": "2026-05-07 12:00:30 -0300",
+      "actor": "sara - recruiter",
+      "category": "cron",
+      "status": "risk",
+      "path": "sara - recruiter/logs/cron.log",
+      "summary": "- Rejections, requested changes, ambiguous replies, missing delivery evidence, or wrong chat evidence must keep the external action off. | - Contact exactly the approved person/company once. | - Block sending if the message is generic, confusing, duplicative, missing evidence, overlong for the channel, or mostly noise. | - Write a marker before exiting that states result=sent, result=skipped, result=blocked, or result=delivery_failed."
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/nightly_email_subject.txt",
+      "summary": "Golden Crow night analysis - 2026-05-07"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/nightly_email_body.txt",
+      "summary": "Updated dashboard: https://golden-crow-backoffice.vercel.app/botfarm | - Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00."
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/Golden_Crow_morning_digest_2026-05-07.txt",
+      "summary": "Meta Ads capture result: completed. | Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | 0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/nightly_email_recipients.txt",
+      "summary": "santi@goldencrowvs.com | support@goldencrowvs.com | federico0812@gmail.com"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/whatsapp_summary.txt",
+      "summary": "- Pipeline ventas/clientes: Business metrics: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Next | - Ads y creativo: Campaign data capture: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos y capacidad: Resource warning: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench area: docu"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/nightly_email_preview.md",
+      "summary": "0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm | - Pipeline ventas/clientes: Business metrics: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Next | - Ads y creativo: Campaign data capture: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos y capacidad: Resource war"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/gmail_delivery_manual-emma-whatsapp-process-framing-20260507.txt",
+      "summary": "attachment_attached=no | recipients_file=/Users/federicobustosfierro/goldencrow automata/emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/nightly_email_recipients.txt | run_id=manual-emma-whatsapp-process-framing-20260507"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507/whatsapp_summary_manual-emma-whatsapp-process-framing-20260507.txt",
+      "summary": "extra_messages_sent=no"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/nightly_email_subject.txt",
+      "summary": "Golden Crow night analysis - 2026-05-07"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/nightly_email_body.txt",
+      "summary": "Updated dashboard: https://golden-crow-backoffice.vercel.app/botfarm | - Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00."
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/Golden_Crow_morning_digest_2026-05-07.txt",
+      "summary": "Meta Ads capture result: completed. | Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | 0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/nightly_email_recipients.txt",
+      "summary": "santi@goldencrowvs.com | support@goldencrowvs.com | federico0812@gmail.com"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/whatsapp_summary.txt",
+      "summary": "- Pipeline ventas/clientes: Business metrics: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Next | - Ads y creativo: Campaign data capture: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos y capacidad: Resource warning: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench area: docu"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/nightly_email_preview.md",
+      "summary": "0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm | - Pipeline ventas/clientes: Business metrics: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Next | - Ads y creativo: Campaign data capture: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos y capacidad: Resource war"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "activity",
+      "path": "emma - email_assistant/logs/email_assistant_history_log.txt",
+      "summary": "source=/Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/email_section.txt | source=/Users/federicobustosfierro/goldencrow automata/diego - campaign_performance_analyst/reports/20260507-064501-23812/email_section.txt | source=/Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/email_section.txt"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/latest_nightly_email_preview.md",
+      "summary": "0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm | - Pipeline ventas/clientes: Business metrics: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Next | - Ads y creativo: Campaign data capture: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos y capacidad: Resource war"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/latest_nightly_email_attachment.txt",
+      "summary": "Meta Ads capture result: completed. | Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | 0. Open the updated botfarm dashboard before making operating decisions: https://golden-crow-backoffice.vercel.app/botfarm"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "risk",
+      "path": "emma - email_assistant/reports/latest_whatsapp_summary.txt",
+      "summary": "- Pipeline ventas/clientes: Business metrics: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today: 0. Revenue status: unknown. Pipeline rows: 63. | Next | - Ads y creativo: Campaign data capture: completed. | Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. | - Recursos y capacidad: Resource warning: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Improvement bench area: docu"
+    },
+    {
+      "observed_at": "2026-05-07 11:45:29 -0300",
+      "actor": "emma - email_assistant",
+      "category": "email",
+      "status": "success",
+      "path": "emma - email_assistant/reports/manual-emma-whatsapp-process-framing-20260507-v2/whatsapp_summary_manual-emma-whatsapp-process-framing-20260507-v2.txt",
+      "summary": "extra_messages_sent=no"
+    },
+    {
+      "observed_at": "2026-05-07 11:40:29 -0300",
+      "actor": "lucas - web_developer",
+      "category": "report",
+      "status": "success",
+      "path": "lucas - web_developer/reports/manual-lucas-business-funnel-layout-20260507/web_dashboard_build_report.md",
+      "summary": "botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 11:40:29 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
+      "summary": "botfarm_sync_status=synced | botfarm_sync_status=synced | botfarm_sync_status=synced | botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 11:40:29 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/run_full_flow.log",
+      "summary": "[2026-05-07 11:22:57 -0300] Lucas web dashboard flow started. run_id=manual-lucas-sleek-botfarm-ui-20260507-v3 | [2026-05-07 11:22:58 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-sleek-botfarm-ui-20260507-v3 | [2026-05-07 11:36:18 -0300] Lucas web dashboard flow started. run_id=manual-lucas-business-funnel-layout-20260507 | [2026-05-07 11:36:18 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-business-funnel-layout-20260507"
+    },
     {
       "observed_at": "2026-05-07 11:35:28 -0300",
       "actor": "emma - email_assistant",
@@ -321,326 +641,6 @@
       "status": "success",
       "path": "geoff - orchestrator/logs/cron.log",
       "summary": "[2026-05-07 11:00:00 -0300] Geoff cron orchestration started. run_id=20260507-110000-96917 | Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/20260507-110000-96917/cron_orchestration_report.md | [2026-05-07 11:00:00 -0300] Geoff cron orchestration finished. run_id=20260507-110000-96917"
-    },
-    {
-      "observed_at": "2026-05-07 10:55:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/notion_workspace_update_manual-diana-ads-shared-notion-20260507.txt",
-      "summary": "result=blocked"
-    },
-    {
-      "observed_at": "2026-05-07 10:55:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "log",
-      "status": "risk",
-      "path": "diana - documentation_writer/logs/run_full_flow.log",
-      "summary": "Blocked marker written at: | Notion desktop was available and logged in, and the `Golden Crow Operating Wiki` page was found, but the desktop editor did not accept reliable edits. Per the execution contract, I stopped and recorded `result=blocked` rather than making an uncertain update. | [2026-05-07 10:53:46 -0300] Notion workspace update did not complete. result=blocked | [2026-05-07 10:53:46 -0300] Diana Notion update did not complete cleanly. status=1 result=blocked"
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/notion_update_brief.md",
-      "summary": "- Jeff: whatsapp_report_not_sent | recipient=Federico Bustos Fierro | whatsapp_report_failed | recipient=Golden Crow VS | - Emma: whatsapp_summary_checked | result=sent | Emma - resumen matinal Golden Crow | Fecha: 2026-05-07 | - [ ] Make sales reporting show leads, approved outreach, outreach sent, replies, meetings, proposals, clients, and revenue. | - [ ] bruno - business_strategist: Get stakeholder approval or explicitly mark why outreach is blocked."
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/daily_updates_for_notion.tsv",
-      "summary": "2026-05-07 Camila camila - crm_manager reviewed Camila - CRM Manager | Shared database synced: employees=25, pipeline_rows=65. | employees=25 | pipeline_rows=65 Keep the relevant Notion section current from this evidence. | 2026-05-07 Diego diego - campaign_performance_analyst reviewed capture_result=completed | campaign_name=Campaña 2 de Abril | Diego - Campaign Performance Analyst | Meta Ads capture result: completed. Keep the relevant Notion section current from this evidence. | 2026-05-07 Jeff jeff - project_manager reviewed whatsapp_report_not_sent | recipient=Federico Bustos Fierro | wha"
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/issue_tracking_for_notion.tsv",
-      "summary": "ticket_id priority status owner business_metric issue next_action last_updated | 20032c34a696 high open bruno - business_strategist outreach_sent Move stakeholder-approved outreach from draft to sent Get stakeholder approval or explicitly mark why outreach is blocked. 2026-05-07 09:52:09 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "success",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/sales_reporting_for_notion.tsv",
-      "summary": "date qualified_leads approved_outreach outreach_sent replies meetings proposals clients_closed revenue_usd pipeline_summary next_sales_action"
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "campaign",
-      "status": "activity",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/campaign_reporting_for_notion.tsv",
-      "summary": "date campaign spend_usd impressions ctr leads cost_per_lead creative_signal next_action | 2026-05-07 Campaña 2 de Abril 13.17 2006 unknown unknown unknown colorful illustrated ad thumbnails with bold Spanish creative Performance is usable: preserve the best-performing angle and test one controlled creative variation."
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "activity",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/ads_cycle_for_notion.tsv",
-      "summary": "2026-05-07 text_content olivia - content_writer yes /Users/federicobustosfierro/goldencrow automata/ads_shared/text_content/latest_text_content.md # Olivia Ads Shared Text Content artifact_type=text_content ads_shared_contract_version=1 date=2026-05-07 run_id= | 2026-05-07 visual_design_directives nora - designer yes /Users/federicobustosfierro/goldencrow automata/ads_shared/visual_design_directives/latest_visual_design_directives.md # Nora Ads Shared Visual Design Directives artifact_type=visual_design_directives ads | 2026-05-07 final_ad_output sam - community_manager yes /Users/federicobust"
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/latest_notion_update_brief.md",
-      "summary": "- Jeff: whatsapp_report_not_sent | recipient=Federico Bustos Fierro | whatsapp_report_failed | recipient=Golden Crow VS | - Emma: whatsapp_summary_checked | result=sent | Emma - resumen matinal Golden Crow | Fecha: 2026-05-07 | - [ ] Make sales reporting show leads, approved outreach, outreach sent, replies, meetings, proposals, clients, and revenue. | - [ ] bruno - business_strategist: Get stakeholder approval or explicitly mark why outreach is blocked."
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "log",
-      "status": "activity",
-      "path": "diana - documentation_writer/logs/documentation_writer_history_log.txt",
-      "summary": "pipeline_rows=65 | decision_rows=0 | ads_shared_cycle_rows=3"
-    },
-    {
-      "observed_at": "2026-05-07 10:50:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "log",
-      "status": "risk",
-      "path": "diana - documentation_writer/logs/run_full_flow.log",
-      "summary": "mcp: computer-use/click started | mcp: computer-use/click (completed) | mcp: computer-use/click started | mcp: computer-use/click (failed)"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "olivia - content_writer",
-      "category": "report",
-      "status": "success",
-      "path": "olivia - content_writer/reports/20260506-200001-27702/final_content_templates.txt",
-      "summary": "updated_by=Olivia | - Use these texts as the main copy reference for the next AI-created ads. | - Checked Patito, Federico Bustos Fierro, Manu Herrera, and cani after 2026-05-06 20:00:01 -0300. Original request was present/delivered in the requested chats; Federico replied \"los veo correctos, me gustan las propuestas\" at 8:06 PM, but no chat contained a "
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "olivia - content_writer",
-      "category": "report",
-      "status": "success",
-      "path": "olivia - content_writer/reports/20260506-200001-27702/sam_handoff_note.txt",
-      "summary": "updated_at=2026-05-07 10:43:45 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "olivia - content_writer",
-      "category": "log",
-      "status": "success",
-      "path": "olivia - content_writer/feedback/latest_copy_preference_map.txt",
-      "summary": "updated_at=2026-05-07 10:43:45 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "olivia - content_writer",
-      "category": "log",
-      "status": "success",
-      "path": "olivia - content_writer/logs/stakeholder_feedback_history.txt",
-      "summary": "evidence_summary=Checked Patito, Federico Bustos Fierro, Manu Herrera, and cani after 2026-05-06 20:00:01 -0300. Original request was present/delivered in the requested chats; Federico replied \"los veo correctos, me gustan las propuestas\" at 8:06 PM, but no ch | phase=final_templates_created | evidence_summary=Checked Patito, Federico Bustos Fierro, Manu Herrera, and cani after 2026-05-06 20:00:01 -0300. Original request was present/delivered in the requested chats; Federico replied \"los veo correctos, me gustan las propuestas\" at 8:06 PM, but no ch"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "olivia - content_writer",
-      "category": "report",
-      "status": "activity",
-      "path": "olivia - content_writer/reports/20260506-200001-27702/content_summary.md",
-      "summary": "sam_handoff=/Users/federicobustosfierro/goldencrow automata/sam - community_manager/content_writer_handoff.txt | feedback_checks=6 | dry_run=no"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "nora - designer",
-      "category": "report",
-      "status": "success",
-      "path": "nora - designer/reports/20260507-040001-19778/designer_suggestions.txt",
-      "summary": "Last updated: 2026-05-07 10:43:51 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "nora - designer",
-      "category": "log",
-      "status": "success",
-      "path": "nora - designer/design_reviews/designer_suggestions.txt",
-      "summary": "Last updated: 2026-05-07 10:43:51 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "sam - community_manager",
-      "category": "campaign",
-      "status": "success",
-      "path": "sam - community_manager/anuncios_generados/latest_designer_suggestions.txt",
-      "summary": "Last updated: 2026-05-07 10:43:51 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "nora - designer",
-      "category": "report",
-      "status": "success",
-      "path": "nora - designer/reports/20260507-040001-19778/email_section.txt",
-      "summary": "Reviewed Sam's latest 3 images and wrote design directives into Sam's designer_suggestions.txt."
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "nora - designer",
-      "category": "log",
-      "status": "activity",
-      "path": "nora - designer/logs/designer_history.log",
-      "summary": "target=/Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/latest_designer_suggestions.txt | ads_shared_design_directives=/Users/federicobustosfierro/goldencrow automata/ads_shared/visual_design_directives/2026-05-07/2026-05-07__manual-ads-shared-seed-nora-20260507__nora__design_ai_directives.md | ads_shared_latest_visual_design_directives=/Users/federicobustosfierro/goldencrow automata/ads_shared/visual_design_directives/latest_visual_design_directives.md"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_update_brief.md",
-      "summary": "- Jeff: whatsapp_report_not_sent | recipient=Federico Bustos Fierro | whatsapp_report_failed | recipient=Golden Crow VS | - Emma: whatsapp_summary_checked | result=sent | Emma - resumen matinal Golden Crow | Fecha: 2026-05-07 | - [ ] Make sales reporting show leads, approved outreach, outreach sent, replies, meetings, proposals, clients, and revenue. | - [ ] bruno - business_strategist: Get stakeholder approval or explicitly mark why outreach is blocked."
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/daily_updates_for_notion.tsv",
-      "summary": "2026-05-07 Camila camila - crm_manager reviewed Camila - CRM Manager | Shared database synced: employees=25, pipeline_rows=65. | employees=25 | pipeline_rows=65 Keep the relevant Notion section current from this evidence. | 2026-05-07 Diego diego - campaign_performance_analyst reviewed capture_result=completed | campaign_name=Campaña 2 de Abril | Diego - Campaign Performance Analyst | Meta Ads capture result: completed. Keep the relevant Notion section current from this evidence. | 2026-05-07 Jeff jeff - project_manager reviewed whatsapp_report_not_sent | recipient=Federico Bustos Fierro | wha"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/issue_tracking_for_notion.tsv",
-      "summary": "ticket_id priority status owner business_metric issue next_action last_updated | 20032c34a696 high open bruno - business_strategist outreach_sent Move stakeholder-approved outreach from draft to sent Get stakeholder approval or explicitly mark why outreach is blocked. 2026-05-07 09:52:09 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "success",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/sales_reporting_for_notion.tsv",
-      "summary": "date qualified_leads approved_outreach outreach_sent replies meetings proposals clients_closed revenue_usd pipeline_summary next_sales_action"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "campaign",
-      "status": "activity",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/campaign_reporting_for_notion.tsv",
-      "summary": "date campaign spend_usd impressions ctr leads cost_per_lead creative_signal next_action | 2026-05-07 Campaña 2 de Abril 13.17 2006 unknown unknown unknown colorful illustrated ad thumbnails with bold Spanish creative Performance is usable: preserve the best-performing angle and test one controlled creative variation."
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "activity",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/ads_cycle_for_notion.tsv",
-      "summary": "2026-05-07 text_content olivia - content_writer yes /Users/federicobustosfierro/goldencrow automata/ads_shared/text_content/latest_text_content.md # Olivia Ads Shared Text Content artifact_type=text_content ads_shared_contract_version=1 date=2026-05-07 run_id= | 2026-05-07 visual_design_directives nora - designer yes /Users/federicobustosfierro/goldencrow automata/ads_shared/visual_design_directives/latest_visual_design_directives.md # Nora Ads Shared Visual Design Directives artifact_type=visual_design_directives ads | 2026-05-07 final_ad_output sam - community_manager yes /Users/federicobust"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "risk",
-      "path": "diana - documentation_writer/reports/latest_notion_update_brief.md",
-      "summary": "- Jeff: whatsapp_report_not_sent | recipient=Federico Bustos Fierro | whatsapp_report_failed | recipient=Golden Crow VS | - Emma: whatsapp_summary_checked | result=sent | Emma - resumen matinal Golden Crow | Fecha: 2026-05-07 | - [ ] Make sales reporting show leads, approved outreach, outreach sent, replies, meetings, proposals, clients, and revenue. | - [ ] bruno - business_strategist: Get stakeholder approval or explicitly mark why outreach is blocked."
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "log",
-      "status": "activity",
-      "path": "diana - documentation_writer/logs/documentation_writer_history_log.txt",
-      "summary": "pipeline_rows=65 | decision_rows=0 | ads_shared_cycle_rows=3"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "log",
-      "status": "success",
-      "path": "diana - documentation_writer/logs/run_full_flow.log",
-      "summary": "[2026-05-07 09:51:58 -0300] Diana documentation writer flow finished. run_id=manual-diana-notion-initial-20260507 result=updated | [2026-05-07 10:45:21 -0300] Diana documentation writer flow started. run_id=manual-diana-ads-shared-20260507 | Diana wrote Notion update brief: /Users/federicobustosfierro/goldencrow automata/diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_update_brief.md | [2026-05-07 10:45:21 -0300] Skipping Notion app update because DIANA_BUILD_ONLY=1."
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "report",
-      "status": "activity",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_workspace_update_manual-diana-ads-shared-20260507.txt",
-      "summary": "reason=DIANA_BUILD_ONLY=1 | run_id=manual-diana-ads-shared-20260507 | checked_at=2026-05-07 10:45:21 -0300"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "lucas - web_developer",
-      "category": "report",
-      "status": "success",
-      "path": "lucas - web_developer/reports/manual-lucas-ads-shared-20260507/web_dashboard_build_report.md",
-      "summary": "botfarm_sync_status=synced"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "lucas - web_developer",
-      "category": "log",
-      "status": "success",
-      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
-      "summary": "botfarm_sync_status=synced | botfarm_sync_status=synced | botfarm_sync_status=synced"
-    },
-    {
-      "observed_at": "2026-05-07 10:45:24 -0300",
-      "actor": "lucas - web_developer",
-      "category": "log",
-      "status": "success",
-      "path": "lucas - web_developer/logs/run_full_flow.log",
-      "summary": "[2026-05-07 10:20:59 -0300] Lucas web dashboard flow started. run_id=manual-lucas-botfarm-base-path-fix-20260507 | [2026-05-07 10:21:00 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-botfarm-base-path-fix-20260507 | [2026-05-07 10:45:21 -0300] Lucas web dashboard flow started. run_id=manual-lucas-ads-shared-20260507 | [2026-05-07 10:45:22 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-ads-shared-20260507"
-    },
-    {
-      "observed_at": "2026-05-07 10:30:23 -0300",
-      "actor": "lisa - photographer",
-      "category": "log",
-      "status": "risk",
-      "path": "lisa - photographer/logs/run_full_flow.log",
-      "summary": "+whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent | I did not send a second message. I wrote the required failure marker at [whatsapp_employee_of_day_20260507-100001-60984_failed.txt](/Users/federicobustosfierro/goldencrow%20automata/lisa%20-%20photographer/reports/20260507-100001-60984/whatsapp_employee_of_day | [2026-05-07 10:25:32 -0300] WhatsApp employee-of-day send failed. Marker: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984"
-    },
-    {
-      "observed_at": "2026-05-07 10:30:23 -0300",
-      "actor": "lisa - photographer",
-      "category": "cron",
-      "status": "risk",
-      "path": "lisa - photographer/logs/cron.log",
-      "summary": "+whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent | I did not send a second message. I wrote the required failure marker at [whatsapp_employee_of_day_20260507-100001-60984_failed.txt](/Users/federicobustosfierro/goldencrow%20automata/lisa%20-%20photographer/reports/20260507-100001-60984/whatsapp_employee_of_day | [2026-05-07 10:25:32 -0300] WhatsApp employee-of-day send failed. Marker: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984"
-    },
-    {
-      "observed_at": "2026-05-07 10:25:23 -0300",
-      "actor": "lucas - web_developer",
-      "category": "report",
-      "status": "success",
-      "path": "lucas - web_developer/reports/manual-lucas-botfarm-base-path-fix-20260507/web_dashboard_build_report.md",
-      "summary": "botfarm_sync_status=synced"
-    },
-    {
-      "observed_at": "2026-05-07 10:25:23 -0300",
-      "actor": "lucas - web_developer",
-      "category": "log",
-      "status": "success",
-      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
-      "summary": "botfarm_sync_status=synced | botfarm_sync_status=synced"
-    },
-    {
-      "observed_at": "2026-05-07 10:25:23 -0300",
-      "actor": "lucas - web_developer",
-      "category": "log",
-      "status": "success",
-      "path": "lucas - web_developer/logs/run_full_flow.log",
-      "summary": "[2026-05-07 10:14:33 -0300] Lucas web dashboard flow started. run_id=manual-lucas-botfarm-publish-20260507 | [2026-05-07 10:14:34 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-botfarm-publish-20260507 | [2026-05-07 10:20:59 -0300] Lucas web dashboard flow started. run_id=manual-lucas-botfarm-base-path-fix-20260507 | [2026-05-07 10:21:00 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-botfarm-base-path-fix-20260507"
-    },
-    {
-      "observed_at": "2026-05-07 10:25:23 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "risk",
-      "path": "lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt",
-      "summary": "whatsapp_employee_of_day_failed | reason=required combined image and caption media message was not visible as sent"
     }
   ]
 }

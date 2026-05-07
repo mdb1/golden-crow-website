@@ -221,6 +221,24 @@ input:focus-visible {
   gap: 8px;
 }
 
+.request-signal {
+  min-height: 38px;
+  padding: 9px 11px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.3;
+  background: rgba(255, 253, 247, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.request-signal.hot {
+  color: #6d4b10;
+  background: #fff6d9;
+  border-color: rgba(201, 152, 42, 0.55);
+}
+
 .actions button,
 .tool-button,
 .text-link,
@@ -244,6 +262,12 @@ input:focus-visible {
   border-color: rgba(201, 152, 42, 0.55);
   box-shadow: 0 10px 24px rgba(201, 152, 42, 0.14);
   transform: translateY(-1px);
+}
+
+.tool-button.primary {
+  color: #fff;
+  background: #1b2a38;
+  border-color: #1b2a38;
 }
 
 .content {
@@ -520,6 +544,170 @@ input:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   gap: 16px;
+}
+
+.request-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 1.1fr) minmax(260px, .55fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.terminal-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  color: #ecf3f8;
+  background: #111a24;
+  border: 1px solid #263544;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.terminal-card .section-title h3,
+.terminal-card .field-label {
+  color: #f8fbff;
+}
+
+.terminal-card .section-title p,
+.terminal-card .path {
+  color: #9eb0bf;
+}
+
+.terminal-card .search,
+.terminal-card select,
+.terminal-card input {
+  color: #f5f8fb;
+  background: #192635;
+  border-color: #354657;
+}
+
+.terminal-input {
+  width: 100%;
+  min-height: 150px;
+  padding: 13px 14px;
+  color: #f5f8fb;
+  resize: vertical;
+  background: #0b1219;
+  border: 1px solid #354657;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.45;
+}
+
+.terminal-input::placeholder,
+.terminal-card .search::placeholder {
+  color: #8799aa;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(190px, 1.2fr) minmax(120px, .55fr);
+  gap: 10px;
+}
+
+.form-grid label,
+.terminal-card label {
+  display: grid;
+  gap: 7px;
+}
+
+.hub-notice {
+  min-height: 22px;
+  color: #c8d6df;
+  font-size: 13px;
+}
+
+.request-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.request-grid {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+}
+
+.request-card {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent, var(--gold));
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.request-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.request-status-row span {
+  padding: 5px 8px;
+  color: #4b596c;
+  font-size: 12px;
+  font-weight: 800;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.message-feed {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  padding: 10px;
+  overflow: auto;
+  background: #f8fafc;
+  border: 1px solid #e4e9f0;
+  border-radius: 8px;
+}
+
+.message-bubble {
+  max-width: 92%;
+  padding: 10px 11px;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+}
+
+.message-bubble.stakeholder {
+  justify-self: end;
+  background: #fff9e6;
+  border-color: #d8bc62;
+}
+
+.message-bubble.employee {
+  justify-self: start;
+  background: #eefaf8;
+  border-color: #b7d7d3;
+}
+
+.message-bubble.system {
+  justify-self: center;
+  max-width: 100%;
+  background: #eef2f7;
+}
+
+.message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.message-bubble p {
+  margin: 7px 0 0;
+  color: #233142;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .focus-grid {
@@ -946,7 +1134,8 @@ th {
   }
 
   .overview-hero,
-  .split {
+  .split,
+  .request-layout {
     grid-template-columns: 1fr;
   }
 
@@ -984,6 +1173,8 @@ th {
   .metric-grid,
   .employee-grid,
   .artifact-grid,
+  .form-grid,
+  .request-grid,
   .funnel-track {
     grid-template-columns: 1fr;
   }

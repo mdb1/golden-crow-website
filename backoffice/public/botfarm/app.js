@@ -1,6 +1,7 @@
 const state = {
   data: null,
   listener: { observations: [] },
+  requests: { requests: [], counts: {} },
   view: "overview",
   query: "",
   activeTable: "daily_business_metrics",
@@ -141,8 +142,37 @@ async function loadData() {
   } catch (_) {
     state.listener = { observations: [] };
   }
+  await loadRequests();
   $("#generatedAt").textContent = `Updated ${state.data.generated_at}`;
   render();
+}
+
+async function loadRequests() {
+  try {
+    const response = await fetch(`api/stakeholder-requests?ts=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`api ${response.status}`);
+    state.requests = await response.json();
+  } catch (_) {
+    try {
+      const fallback = await fetch(`stakeholder_requests.json?ts=${Date.now()}`, { cache: "no-store" });
+      if (!fallback.ok) throw new Error(`fallback ${fallback.status}`);
+      state.requests = await fallback.json();
+    } catch (__) {
+      state.requests = state.data?.stakeholder_requests || { requests: [], counts: {} };
+    }
+  }
+  updateRequestSignal();
+}
+
+function updateRequestSignal() {
+  const signal = $("#requestSignal");
+  if (!signal) return;
+  const counts = state.requests?.counts || {};
+  const pending = Number(counts.pending || 0);
+  const running = Number(counts.running || 0);
+  const total = (state.requests?.requests || []).length;
+  signal.textContent = `Requests: ${pending + running}/${total}`;
+  signal.classList.toggle("hot", pending + running > 0);
 }
 
 function setView(view) {
@@ -198,8 +228,19 @@ function businessFunnel(m) {
   `;
 }
 
+function requestCounts() {
+  const counts = state.requests?.counts || {};
+  return {
+    pending: Number(counts.pending || 0),
+    running: Number(counts.running || 0),
+    completed: Number(counts.completed || 0),
+    failed: Number(counts.failed || 0) + Number(counts.blocked || 0),
+  };
+}
+
 function renderOverview() {
   const m = state.data.metrics;
+  const requestStats = requestCounts();
   const openTickets = state.data.tables.tickets?.rows?.filter((row) => row.status !== "closed") || [];
   const topEmployees = employees().slice().sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 5);
   title.textContent = "Overview";
@@ -228,6 +269,7 @@ function renderOverview() {
       ${metricCard("Meta spend", m.meta_spend, 3)}
       ${metricCard("Revenue USD", m.revenue, 4)}
       ${metricCard("Resource warning", m.resource_warning, 5)}
+      ${metricCard("Stakeholder queue", `${requestStats.pending + requestStats.running} active`, 6)}
     </div>
 
     ${businessFunnel(m)}
@@ -238,7 +280,7 @@ function renderOverview() {
           <h3>Priority Cards</h3>
           ${pageIntro("The top operational surfaces are separated into cards instead of raw table dumps.")}
         </div>
-        ${navButton("Open all tickets", "tickets")}
+        <div class="button-row">${navButton("Stakeholder hub", "stakeholders")}${navButton("Open all tickets", "tickets")}</div>
       </div>
       <div class="grid focus-grid">
         ${ticketCards(openTickets.slice(0, 3))}
@@ -282,6 +324,131 @@ function renderOverview() {
         ${navButton("Open event feed", "events")}
       </div>
       ${eventList(state.data.events.slice(0, 6), "overview-event")}
+    </section>
+  `;
+}
+
+function employeeOptions() {
+  return employees().map((employee) => (
+    `<option value="${esc(employee.folder)}">${esc(employee.display_name)} - ${esc(employee.role)}</option>`
+  )).join("");
+}
+
+function requestStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (/completed/.test(text)) return "good";
+  if (/failed|blocked/.test(text)) return "bad";
+  if (/running|pending/.test(text)) return "warn";
+  return statusClass(status);
+}
+
+function requestCard(request, index) {
+  const messages = request.messages || [];
+  const thread = messages.map((message) => `
+    <div class="message-bubble ${esc(message.author_type || "system")}">
+      <div class="message-meta">
+        <strong>${esc(message.author || "unknown")}</strong>
+        <span>${esc(message.channel || "dashboard")}</span>
+        <time>${esc(message.time || "")}</time>
+      </div>
+      <p>${esc(message.body || "")}</p>
+    </div>
+  `).join("");
+  return `
+    <article class="request-card fade-in" style="--accent: ${accents[index % accents.length]}">
+      <div class="section-title">
+        <div>
+          <h3>${esc(request.employee_display || request.employee_folder || "Employee")}</h3>
+          <div class="path">${esc(request.request_id || "")}</div>
+        </div>
+        <span class="badge ${requestStatusClass(request.status)}">${esc(request.status || "unknown")}</span>
+      </div>
+      <div class="request-status-row">
+        <span>${esc(request.stakeholder || "unknown stakeholder")}</span>
+        <span>${esc(request.priority || "normal")}</span>
+        <span>${esc(request.current_stage || "queued")}</span>
+        <span>${esc(request.updated_at || request.created_at || "")}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">Desired outcome</span>
+        <p class="copy">${esc(request.desired_outcome || "Not recorded.")}</p>
+      </div>
+      <div class="message-feed">${thread || `<div class="empty">No messages recorded.</div>`}</div>
+      <div class="button-row">
+        ${request.report_dir ? searchButton("Employee evidence", "events", request.report_dir) : ""}
+        ${searchButton("Employee profile", "employees", request.employee_folder || request.employee_display)}
+      </div>
+    </article>
+  `;
+}
+
+function renderStakeholderHub() {
+  title.textContent = "Stakeholder Hub";
+  const stats = requestCounts();
+  const rows = (state.requests?.requests || []).filter((request) => (
+    matches(`${request.request_id} ${request.stakeholder} ${request.employee_folder} ${request.employee_display} ${request.message_preview} ${request.status} ${(request.messages || []).map((message) => message.body).join(" ")}`)
+  ));
+  content.innerHTML = `
+    <section class="section request-layout">
+      <form class="terminal-card" data-stakeholder-form="1">
+        <div class="section-title">
+          <div>
+            <h3>Command Input</h3>
+            ${pageIntro("Stakeholder instructions become queued local employee runs with visible thread history.")}
+          </div>
+          <span class="badge ${stats.pending + stats.running ? "warn" : "good"}">${stats.pending + stats.running} active</span>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span class="field-label">Stakeholder</span>
+            <input name="stakeholder" class="search" placeholder="Federico" required>
+          </label>
+          <label>
+            <span class="field-label">Employee</span>
+            <select name="employee_folder" class="search" required>${employeeOptions()}</select>
+          </label>
+          <label>
+            <span class="field-label">Priority</span>
+            <select name="priority" class="search">
+              <option value="normal">normal</option>
+              <option value="high">high</option>
+              <option value="urgent">urgent</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          <span class="field-label">Desired outcome</span>
+          <input name="desired_outcome" class="search" placeholder="meeting booked, campaign improved, reliability fixed">
+        </label>
+        <label>
+          <span class="field-label">Terminal message</span>
+          <textarea name="message" class="terminal-input" rows="7" placeholder="$ tell the employee what should change" required></textarea>
+        </label>
+        <div class="button-row">
+          <button type="submit" class="tool-button primary">Queue employee run</button>
+          <button type="button" class="tool-button" data-refresh-requests="1">Refresh requests</button>
+        </div>
+        <div id="hubNotice" class="hub-notice" aria-live="polite"></div>
+      </form>
+
+      <div class="request-summary">
+        ${metricCard("Pending", stats.pending, 0)}
+        ${metricCard("Running", stats.running, 1)}
+        ${metricCard("Completed", stats.completed, 2)}
+        ${metricCard("Blocked/failed", stats.failed, 3)}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <div>
+          <h3>${rows.length} Request Threads</h3>
+          ${pageIntro(state.requests?.generated_at || "Waiting for local request feed.")}
+        </div>
+      </div>
+      <div class="grid request-grid">
+        ${rows.map(requestCard).join("") || `<div class="empty">No stakeholder requests matched.</div>`}
+      </div>
     </section>
   `;
 }
@@ -712,6 +879,7 @@ function render() {
   const map = {
     overview: renderOverview,
     employees: renderEmployees,
+    stakeholders: renderStakeholderHub,
     database: renderDatabase,
     ads: renderAdsCycle,
     events: renderEvents,
@@ -792,7 +960,48 @@ content.addEventListener("click", (event) => {
   if (copyJson && navigator.clipboard) {
     navigator.clipboard.writeText(JSON.stringify(state.data, null, 2));
   }
+
+  const refreshRequests = event.target.closest("[data-refresh-requests]");
+  if (refreshRequests) {
+    loadRequests().then(render);
+  }
 });
+
+content.addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-stakeholder-form]");
+  if (!form) return;
+  event.preventDefault();
+  const notice = $("#hubNotice");
+  const submitButton = form.querySelector('button[type="submit"]');
+  const payload = Object.fromEntries(new FormData(form).entries());
+  submitButton.disabled = true;
+  if (notice) notice.textContent = "Queueing...";
+  try {
+    const response = await fetch("api/stakeholder-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || `request failed ${response.status}`);
+    }
+    form.reset();
+    await loadRequests();
+    if (notice) notice.textContent = `Queued ${result.request?.request_id || "request"}.`;
+    renderStakeholderHub();
+  } catch (error) {
+    if (notice) notice.textContent = `Could not queue request: ${error.message}`;
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+setInterval(() => {
+  loadRequests().then(() => {
+    if (state.view === "stakeholders" || state.view === "overview") render();
+  });
+}, 10000);
 
 loadData().catch((error) => {
   content.innerHTML = `<div class="empty">Could not load dashboard data: ${esc(error.message)}</div>`;
