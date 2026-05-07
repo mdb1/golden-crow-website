@@ -14,26 +14,32 @@
         <div class="brand-mark">GC</div>
         <div>
           <h1>Golden Crow</h1>
-          <p>Botfarm operations dashboard</p>
+          <p>Botfarm operations</p>
         </div>
       </div>
-      <label class="search-label" for="globalSearch">Search</label>
-      <input id="globalSearch" class="search" type="search" placeholder="employee, ticket, metric">
+
+      <div class="search-block">
+        <label class="search-label" for="globalSearch">Search</label>
+        <input id="globalSearch" class="search" type="search" placeholder="employee, ticket, metric">
+      </div>
+
       <nav class="nav" aria-label="Dashboard sections">
-        <button data-view="overview" class="active">Overview</button>
-        <button data-view="employees">Employees</button>
-        <button data-view="database">Company Database</button>
-        <button data-view="ads">Ads Cycle</button>
-        <button data-view="events">Events</button>
-        <button data-view="listener">Live Listener</button>
-        <button data-view="emails">Emma Emails</button>
-        <button data-view="tickets">Tickets</button>
-        <button data-view="operations">Operations</button>
+        <button data-view="overview" class="active"><span>Overview</span><small>Pulse and priorities</small></button>
+        <button data-view="employees"><span>Employees</span><small>Profiles and state</small></button>
+        <button data-view="database"><span>Company Database</span><small>Tables and exports</small></button>
+        <button data-view="ads"><span>Ads Cycle</span><small>Olivia, Nora, Sam</small></button>
+        <button data-view="events"><span>Events</span><small>File activity</small></button>
+        <button data-view="listener"><span>Live Listener</span><small>Observed changes</small></button>
+        <button data-view="emails"><span>Emma Emails</span><small>Morning reports</small></button>
+        <button data-view="tickets"><span>Tickets</span><small>Open work</small></button>
+        <button data-view="operations"><span>Operations</span><small>Cron and raw data</small></button>
       </nav>
+
       <div class="sidebar-foot">
         <span id="generatedAt">Loading</span>
       </div>
     </aside>
+
     <main class="main">
       <header class="topbar">
         <div>
@@ -41,13 +47,14 @@
           <h2 id="pageTitle">Overview</h2>
         </div>
         <div class="actions">
-          <button id="reloadData">Reload data</button>
-          <button id="downloadJson">Download JSON</button>
+          <button id="reloadData" type="button">Reload data</button>
+          <button id="downloadJson" type="button">Download JSON</button>
         </div>
       </header>
       <section id="content" class="content" aria-live="polite"></section>
     </main>
   </div>
+
   <script src="app.js"></script>
 </body>
 </html>

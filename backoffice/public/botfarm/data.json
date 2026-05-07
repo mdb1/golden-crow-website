@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-07 10:45:22 -0300",
-  "run_id": "manual-lucas-ads-shared-20260507",
+  "generated_at": "2026-05-07 11:22:58 -0300",
+  "run_id": "manual-lucas-sleek-botfarm-ui-20260507-v3",
   "root": "/Users/federicobustosfierro/goldencrow automata",
   "metrics": {
     "employees": "25",
@@ -188,30 +188,6 @@
           "title": "Company Database Sync Report",
           "path": "camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/company_database_sync_report.md",
           "snippet": "# Company Database Sync Report run_id=manual-camila-after-diana-documentation-writer-20260507 employees=25 pipeline_rows=65 new_qualified_leads=26 outreach_sent=0 replies_received=0 meetings_booked=0 proposals_sent=0 clients_closed=0 revenue_generated_usd=0.00 meta_spend_usd=10.0"
-        },
-        {
-          "time": "2026-05-07 07:15:00",
-          "category": "log",
-          "actor": "camila - crm_manager",
-          "title": "Cron",
-          "path": "camila - crm_manager/logs/cron.log",
-          "snippet": "[2026-05-07 07:15:00 -0300] Camila CRM flow started. run_id=20260507-071500-24708 Company database synced: /Users/federicobustosfierro/goldencrow automata/company_database [2026-05-07 07:15:00 -0300] Camila CRM flow finished. run_id=20260507-071500-24708"
-        },
-        {
-          "time": "2026-05-07 07:15:00",
-          "category": "report",
-          "actor": "camila - crm_manager",
-          "title": "Email Section",
-          "path": "camila - crm_manager/reports/20260507-071500-24708/email_section.txt",
-          "snippet": "Camila - CRM Manager Shared database synced: employees=24, pipeline_rows=65. Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. Cost/performance context: meta_spend_usd=10.00, c"
-        },
-        {
-          "time": "2026-05-07 07:15:00",
-          "category": "report",
-          "actor": "camila - crm_manager",
-          "title": "Company Database Sync Report",
-          "path": "camila - crm_manager/reports/20260507-071500-24708/company_database_sync_report.md",
-          "snippet": "# Company Database Sync Report run_id=20260507-071500-24708 employees=24 pipeline_rows=65 new_qualified_leads=26 outreach_sent=0 replies_received=0 meetings_booked=0 proposals_sent=0 clients_closed=0 revenue_generated_usd=0.00 meta_spend_usd=10.00 resource_warning=low improvement"
         }
       ]
     },
@@ -248,38 +224,6 @@
           "title": "Current Payroll",
           "path": "clara - hr_manager/payroll/current_payroll.tsv",
           "snippet": "folder display_name role performance_state recent_problem_count recent_success_count recent_file_count problems recent_successes role_summary path last_reviewed Abby - coach Abby coach healthy 0 8 12 healthy in Abby - coach/logs/coaching_history_log.txt | finished in Abby - coach"
-        },
-        {
-          "time": "2026-05-07 08:00:02",
-          "category": "log",
-          "actor": "clara - hr_manager",
-          "title": "Cron",
-          "path": "clara - hr_manager/logs/cron.log",
-          "snippet": "[2026-05-07 08:00:01 -0300] Clara HR flow started. run_id=20260507-080001-25693 Clara updated payroll for 24 employees: /Users/federicobustosfierro/goldencrow automata/clara - hr_manager/payroll/current_payroll.tsv [2026-05-07 08:00:02 -0300] Clara HR flow finished. run_id=202605"
-        },
-        {
-          "time": "2026-05-07 08:00:02",
-          "category": "log",
-          "actor": "clara - hr_manager",
-          "title": "Run Full Flow",
-          "path": "clara - hr_manager/logs/run_full_flow.log",
-          "snippet": "[2026-05-06 12:31:31 -0300] Clara HR flow started. run_id=20260506-123131-94559 Clara updated payroll for 8 employees: /Users/federicobustosfierro/goldencrow automata/clara - hr_manager/payroll/current_payroll.tsv [2026-05-06 12:31:31 -0300] Clara HR flow finished. run_id=2026050"
-        },
-        {
-          "time": "2026-05-07 08:00:02",
-          "category": "hr",
-          "actor": "clara - hr_manager",
-          "title": "Hr History Log",
-          "path": "clara - hr_manager/logs/hr_history_log.txt",
-          "snippet": "Clara HR history log This file is append-only. Clara adds one section per payroll review. --- date=2026-05-06 timestamp=2026-05-06 12:31:31 -0300 run_id=20260506-123131-94559 employees=8 employee=Abby folder=Abby - coach state=healthy problems=0 employee=Clara folder=clara - hr_m"
-        },
-        {
-          "time": "2026-05-07 08:00:02",
-          "category": "hr",
-          "actor": "clara - hr_manager",
-          "title": "Hr Employee Report",
-          "path": "clara - hr_manager/reports/20260507-080001-25693/hr_employee_report.md",
-          "snippet": "# Clara HR Employee Report date=2026-05-07 run_id=20260507-080001-25693 ## Abby (coach) - folder: Abby - coach - performance: healthy - recent problems: none - recent successes: healthy in Abby - coach/logs/coaching_history_log.txt | finished in Abby - coach/logs/run_full_flow.lo"
         }
       ]
     },
@@ -302,15 +246,7 @@
       "appereance_file": "diana - documentation_writer/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 10:45:21",
-          "category": "report",
-          "actor": "diana - documentation_writer",
-          "title": "Notion Workspace Update Manual Diana Ads Shared 20260507",
-          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_workspace_update_manual-diana-ads-shared-20260507.txt",
-          "snippet": "notion_update_checked result=skipped reason=DIANA_BUILD_ONLY=1 run_id=manual-diana-ads-shared-20260507 checked_at=2026-05-07 10:45:21 -0300"
-        },
-        {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:53:46",
           "category": "log",
           "actor": "diana - documentation_writer",
           "title": "Run Full Flow",
@@ -318,7 +254,15 @@
           "snippet": "[2026-05-07 09:43:17 -0300] Diana documentation writer flow started. run_id=manual-diana-build-only-20260507 Diana wrote Notion update brief: /Users/federicobustosfierro/goldencrow automata/diana - documentation_writer/reports/manual-diana-build-only-20260507/notion_update_brief."
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:53:42",
+          "category": "report",
+          "actor": "diana - documentation_writer",
+          "title": "Notion Workspace Update Manual Diana Ads Shared Notion 20260507",
+          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/notion_workspace_update_manual-diana-ads-shared-notion-20260507.txt",
+          "snippet": "notion_update_checked result=blocked reason=Notion desktop app did not accept reliable edits central_page=Golden Crow Operating Wiki external_tool=Notion desktop app run_id=manual-diana-ads-shared-notion-20260507 checked_at=2026-05-07 10:53:42 -0300"
+        },
+        {
+          "time": "2026-05-07 10:45:33",
           "category": "log",
           "actor": "diana - documentation_writer",
           "title": "Documentation Writer History Log",
@@ -326,43 +270,43 @@
           "snippet": "--- timestamp=2026-05-07 09:43:17 -0300 run_id=manual-diana-build-only-20260507 operating_date=2026-05-07 brief=/Users/federicobustosfierro/goldencrow automata/diana - documentation_writer/reports/manual-diana-build-only-20260507/notion_update_brief.md employee_rows=24 open_ticke"
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:45:33",
           "category": "report",
           "actor": "diana - documentation_writer",
           "title": "Latest Notion Update Brief",
           "path": "diana - documentation_writer/reports/latest_notion_update_brief.md",
-          "snippet": "# Diana Notion Update Brief operating_date=2026-05-07 run_id=manual-diana-ads-shared-20260507 ## Notion Structure Goal Use one central page titled `Golden Crow Operating Wiki` with clear links to Daily Operating Log, Issue Tracking, Sales Reporting, Campaign and Creative, Ads Sha"
+          "snippet": "# Diana Notion Update Brief operating_date=2026-05-07 run_id=manual-diana-ads-shared-notion-20260507 ## Notion Structure Goal Use one central page titled `Golden Crow Operating Wiki` with clear links to Daily Operating Log, Issue Tracking, Sales Reporting, Campaign and Creative, "
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:45:33",
           "category": "report",
           "actor": "diana - documentation_writer",
           "title": "Ads Cycle For Notion",
-          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/ads_cycle_for_notion.tsv",
+          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/ads_cycle_for_notion.tsv",
           "snippet": "date stage owner status artifact summary next_action 2026-05-07 text_content olivia - content_writer yes /Users/federicobustosfierro/goldencrow automata/ads_shared/text_content/latest_text_content.md # Olivia Ads Shared Text Content artifact_type=text_content ads_shared_contract_"
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:45:33",
           "category": "campaign",
           "actor": "diana - documentation_writer",
           "title": "Campaign Reporting For Notion",
-          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/campaign_reporting_for_notion.tsv",
+          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/campaign_reporting_for_notion.tsv",
           "snippet": "date campaign spend_usd impressions ctr leads cost_per_lead creative_signal next_action 2026-05-07 Campaña 2 de Abril 13.17 2006 unknown unknown unknown colorful illustrated ad thumbnails with bold Spanish creative Performance is usable: preserve the best-performing angle and tes"
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:45:33",
           "category": "report",
           "actor": "diana - documentation_writer",
           "title": "Sales Reporting For Notion",
-          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/sales_reporting_for_notion.tsv",
+          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/sales_reporting_for_notion.tsv",
           "snippet": "date qualified_leads approved_outreach outreach_sent replies meetings proposals clients_closed revenue_usd pipeline_summary next_sales_action 2026-05-07 26 0 0 0 0 0 0 0.00 pipeline_rows=65; statuses: qualified_lead=26, lead_research=22, not_found=5, verified_current=3, website_c"
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 10:45:33",
           "category": "report",
           "actor": "diana - documentation_writer",
           "title": "Issue Tracking For Notion",
-          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/issue_tracking_for_notion.tsv",
+          "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/issue_tracking_for_notion.tsv",
           "snippet": "ticket_id priority status owner business_metric issue next_action last_updated 20032c34a696 high open bruno - business_strategist outreach_sent Move stakeholder-approved outreach from draft to sent Get stakeholder approval or explicitly mark why outreach is blocked. 2026-05-07 09"
         }
       ]
@@ -384,72 +328,7 @@
       "next_action": "Open Ads Manager and capture verified CTR, spend, leads, and CPL.; Open Ads Manager and capture verified CTR, spend, leads, and CPL.",
       "portrait": "assets/portraits/diego_-_campaign_performance_analyst.jpg",
       "appereance_file": "diego - campaign_performance_analyst/employee_appereance.txt",
-      "recent_history": [
-        {
-          "time": "2026-05-07 06:47:23",
-          "category": "log",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Cron",
-          "path": "diego - campaign_performance_analyst/logs/cron.log",
-          "snippet": "[2026-05-07 06:45:01 -0300] Diego campaign performance flow started. run_id=20260507-064501-23812 OpenAI Codex v0.128.0 (research preview) -------- workdir: /Users/federicobustosfierro/goldencrow automata model: gpt-5.5 provider: openai approval: never sandbox: danger-full-access"
-        },
-        {
-          "time": "2026-05-07 06:47:23",
-          "category": "log",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Run Full Flow",
-          "path": "diego - campaign_performance_analyst/logs/run_full_flow.log",
-          "snippet": "[2026-05-06 16:40:07 -0300] Diego campaign performance flow started. run_id=manual-diego-smoke [2026-05-06 16:40:08 -0300] Skipping Meta Ads browser capture because DIEGO_SKIP_META=1. Diego wrote campaign performance report: /Users/federicobustosfierro/goldencrow automata/diego -"
-        },
-        {
-          "time": "2026-05-07 06:47:23",
-          "category": "campaign",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Campaign Performance History Log",
-          "path": "diego - campaign_performance_analyst/logs/campaign_performance_history_log.txt",
-          "snippet": "Diego campaign performance history --- timestamp=2026-05-06 16:40:08 -0300 run_id=manual-diego-smoke result=skipped campaign_results=/Users/federicobustosfierro/goldencrow automata/company_database/campaign_results.tsv report=/Users/federicobustosfierro/goldencrow automata/diego "
-        },
-        {
-          "time": "2026-05-07 06:47:23",
-          "category": "campaign",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Latest Campaign Performance Report",
-          "path": "diego - campaign_performance_analyst/reports/latest_campaign_performance_report.md",
-          "snippet": "# Diego Campaign Performance Report date=2026-05-07 run_id=20260507-064501-23812 capture_result=completed campaign_name=Campaña 2 de Abril spend_usd=13.17 impressions=2006 clicks=unknown ctr=unknown leads=unknown cost_per_lead=unknown best_text=unknown best_image_style=colorful i"
-        },
-        {
-          "time": "2026-05-07 06:47:23",
-          "category": "report",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Email Section",
-          "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/email_section.txt",
-          "snippet": "Diego - Campaign Performance Analyst Meta Ads capture result: completed. Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. Creative signal: best_text=unknown; best_image_style=colorful illustrated ad thumbnails"
-        },
-        {
-          "time": "2026-05-07 06:47:23",
-          "category": "campaign",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Campaign Performance Report",
-          "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/campaign_performance_report.md",
-          "snippet": "# Diego Campaign Performance Report date=2026-05-07 run_id=20260507-064501-23812 capture_result=completed campaign_name=Campaña 2 de Abril spend_usd=13.17 impressions=2006 clicks=unknown ctr=unknown leads=unknown cost_per_lead=unknown best_text=unknown best_image_style=colorful i"
-        },
-        {
-          "time": "2026-05-07 06:47:06",
-          "category": "report",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Meta Ads Capture Marker",
-          "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/meta_ads_capture_marker.txt",
-          "snippet": "meta_ads_capture_checked result=completed snapshot=/Users/federicobustosfierro/goldencrow automata/diego - campaign_performance_analyst/reports/20260507-064501-23812/meta_ads_snapshot.txt reason= run_id=20260507-064501-23812"
-        },
-        {
-          "time": "2026-05-07 06:47:06",
-          "category": "report",
-          "actor": "diego - campaign_performance_analyst",
-          "title": "Meta Ads Snapshot",
-          "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/meta_ads_snapshot.txt",
-          "snippet": "meta_ads_snapshot_checked result=completed url=https://adsmanager.facebook.com/adsmanager/manage/campaigns?global_scope_id=772939575852008&business_id=772939575852008&act=1535039944274277# captured_at=2026-05-07 06:46:52 -03 campaign_name=Campaña 2 de Abril campaign_id=unknown sp"
-        }
-      ]
+      "recent_history": []
     },
     {
       "folder": "emma - email_assistant",
@@ -573,7 +452,15 @@
       "appereance_file": "geoff - orchestrator/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
+          "category": "log",
+          "actor": "geoff - orchestrator",
+          "title": "Cron",
+          "path": "geoff - orchestrator/logs/cron.log",
+          "snippet": "[2026-05-07 11:00:00 -0300] Geoff cron orchestration started. run_id=20260507-110000-96917 Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/20260507-110000-96917/cron_orchestration_report.md [2026-05-07 11:00:00 -0300] Geoff cr"
+        },
+        {
+          "time": "2026-05-07 11:00:00",
           "category": "log",
           "actor": "geoff - orchestrator",
           "title": "Run Full Flow",
@@ -581,15 +468,15 @@
           "snippet": "[2026-05-06 12:10:16 -0300] Geoff cron orchestration started. run_id=20260506-121016-92809 Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/20260506-121016-92809/cron_orchestration_report.md [2026-05-06 12:10:16 -0300] Geoff cr"
         },
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
           "category": "report",
           "actor": "geoff - orchestrator",
           "title": "Latest Cron Orchestration Report",
           "path": "geoff - orchestrator/reports/latest_cron_orchestration_report.md",
-          "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=manual-geoff-after-diana-documentation-writer-20260507 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (mac"
+          "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=20260507-110000-96917 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (macos_crontab) - andy - code_keeper "
         },
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
           "category": "log",
           "actor": "geoff - orchestrator",
           "title": "Cron Orchestration History Log",
@@ -597,44 +484,36 @@
           "snippet": "Geoff cron orchestration history log This file is append-only. Geoff adds one section per cron review. --- date=2026-05-06 timestamp=2026-05-06 12:10:16 -0300 run_id=20260506-121016-92809 goldencrow_crons=4 conflicts=0 sara_proposal=/Users/federicobustosfierro/goldencrow automata"
         },
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
           "category": "report",
           "actor": "geoff - orchestrator",
           "title": "Cron Orchestration Report",
-          "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_orchestration_report.md",
-          "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=manual-geoff-after-diana-documentation-writer-20260507 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (mac"
+          "path": "geoff - orchestrator/reports/20260507-110000-96917/cron_orchestration_report.md",
+          "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=20260507-110000-96917 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (macos_crontab) - andy - code_keeper "
         },
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
           "category": "report",
           "actor": "geoff - orchestrator",
           "title": "Cron Conflicts",
-          "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_conflicts.tsv",
+          "path": "geoff - orchestrator/reports/20260507-110000-96917/cron_conflicts.tsv",
           "snippet": "hour minute owners count"
         },
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
           "category": "report",
           "actor": "geoff - orchestrator",
           "title": "Employee Inventory",
-          "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/employee_inventory.tsv",
+          "path": "geoff - orchestrator/reports/20260507-110000-96917/employee_inventory.tsv",
           "snippet": "folder display_name role has_run_full_flow has_cron cron_count cron_schedules path Abby - coach Abby coach yes yes 1 30 9 * * * (macos_crontab) /Users/federicobustosfierro/goldencrow automata/Abby - coach andy - code_keeper Andy code_keeper yes yes 1 15 0 * * * (macos_crontab) /U"
         },
         {
-          "time": "2026-05-07 09:52:09",
+          "time": "2026-05-07 11:00:00",
           "category": "report",
           "actor": "geoff - orchestrator",
           "title": "Goldencrow Cron Map",
-          "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/goldencrow_cron_map.tsv",
+          "path": "geoff - orchestrator/reports/20260507-110000-96917/goldencrow_cron_map.tsv",
           "snippet": "owner minute hour source automation_id command jeff - project_manager 0 23 macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/federicobustosfierro/goldencrow automata/"
-        },
-        {
-          "time": "2026-05-07 09:52:09",
-          "category": "report",
-          "actor": "geoff - orchestrator",
-          "title": "Cron Map",
-          "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_map.tsv",
-          "snippet": "owner minute hour dom month dow goldencrow source automation_id command adapt-mobile 0 13,14,15,16 * * 1-5 False macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/fed"
         }
       ]
     },
@@ -695,68 +574,68 @@
       "appereance_file": "lisa - photographer/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 10:25:32",
-          "category": "log",
-          "actor": "lisa - photographer",
-          "title": "Cron",
-          "path": "lisa - photographer/logs/cron.log",
-          "snippet": "[2026-05-07 10:00:01 -0300] Lisa full flow started. run_id=20260507-100001-60984 [2026-05-07 10:00:01 -0300] Report directory: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984 Lisa wrote 25 employee appereance files and report: /Us"
-        },
-        {
-          "time": "2026-05-07 10:25:32",
-          "category": "log",
-          "actor": "lisa - photographer",
-          "title": "Run Full Flow",
-          "path": "lisa - photographer/logs/run_full_flow.log",
-          "snippet": "[2026-05-06 11:55:17 -0300] Lisa full flow started. run_id=20260506-115517-92032 [2026-05-06 11:55:18 -0300] Report directory: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260506-115517-92032 Lisa wrote 4 employee appereance files and report: /Use"
-        },
-        {
-          "time": "2026-05-07 10:25:18",
+          "time": "2026-05-07 11:10:48",
           "category": "report",
           "actor": "lisa - photographer",
-          "title": "Whatsapp Employee Of Day 20260507 100001 60984 Failed",
-          "path": "lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt",
-          "snippet": "whatsapp_employee_of_day_failed recipient=Golden Crow VS message_channel=WhatsApp Web image_file=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits/lisa_-_photographer/portrait.jpg reason=required combined image and caption media message was no"
+          "title": "Caption Validation History",
+          "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/caption_validation_history.log",
+          "snippet": "--- date=2026-05-07 timestamp=2026-05-07 11:10:48 -0300 run_id=manual-lisa-caption-contract-validation employees=Abby,Andy,Bruno,Camila,Clara,Diana,Diego,Emma,Gala,Geoff,Hugo,Jeff,Lisa,Lucas,Mateo,Max,Mia,Nora,Olivia,Paula,Rafael,Riley,Sam,Sara,Vera appereance_file=/Users/federic"
         },
         {
-          "time": "2026-05-07 10:14:27",
+          "time": "2026-05-07 11:10:48",
           "category": "report",
           "actor": "lisa - photographer",
-          "title": "Employee Of Day Selection",
-          "path": "lisa - photographer/reports/20260507-100001-60984/employee_of_day_selection.txt",
-          "snippet": "employee_of_day_selected run_id=20260507-100001-60984 name=Lisa folder=lisa - photographer role=photographer score=100 reason=6 success signal types; recent work matches role; created downstream value/handoff portrait=/Users/federicobustosfierro/goldencrow automata/lisa - photogr"
+          "title": "Whatsapp Caption",
+          "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/whatsapp_caption.txt",
+          "snippet": "Foto de equipo Golden Crow - 2026-05-07 Imagen actualizada del equipo completo de hoy. Integrantes (25): - Abby, Andy, Bruno, Camila, Clara, Diana, Diego, Emma - Gala, Geoff, Hugo, Jeff, Lisa, Lucas, Mateo, Max - Mia, Nora, Olivia, Paula, Rafael, Riley, Sam, Sara - Vera Empleado "
         },
         {
-          "time": "2026-05-07 10:14:27",
+          "time": "2026-05-07 11:10:48",
           "category": "report",
           "actor": "lisa - photographer",
-          "title": "Employee Of Day Caption",
-          "path": "lisa - photographer/reports/20260507-100001-60984/employee_of_day_caption.txt",
-          "snippet": "Empleado del dia: Lisa (photographer) Score: 100/100 Motivo: 6 success signal types; recent work matches role; created downstream value/handoff"
+          "title": "Team Photo Prompt",
+          "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/team_photo_prompt.txt",
+          "snippet": "Create one polished AI-generated cartoon team portrait of the current Golden Crow automata team in a playful creative studio setting. The image should be stylized, colorful, friendly, and clearly cartoon-like, not a realistic corporate office productivity photo. Make the people v"
         },
         {
-          "time": "2026-05-07 10:14:08",
+          "time": "2026-05-07 11:10:48",
           "category": "report",
           "actor": "lisa - photographer",
-          "title": "Team Photo Status",
-          "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_status.txt",
-          "snippet": "team_photo_created image_file=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/team_photos/20260507-100001-60984_goldencrow_team_office.jpg manifest=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984/team_photo_man"
+          "title": "Employee Appereance Report",
+          "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/employee_appereance_report.md",
+          "snippet": "# Lisa Employee Appereance Report date=2026-05-07 run_id=manual-lisa-caption-contract-validation These are AI visual personas for generated team imagery, not verified real-world physical appearance. ## Abby (coach) - folder: Abby - coach - appereance file: /Users/federicobustosfi"
         },
         {
-          "time": "2026-05-07 10:14:08",
+          "time": "2026-05-07 11:10:48",
           "category": "report",
           "actor": "lisa - photographer",
-          "title": "Team Photo Manifest",
-          "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_manifest.txt",
-          "snippet": "team_photo_created run_id=20260507-100001-60984 image_file=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/team_photos/20260507-100001-60984_goldencrow_team_office.jpg roster=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-"
+          "title": "Team Roster",
+          "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/team_roster.tsv",
+          "snippet": "display_name folder role physical_traits personality_traits wardrobe_and_props office_scene_cues daily_role appereance_file Abby Abby - coach coach Cartoon avatar of a Middle Eastern performance coach, olive skin, short wavy dark hair, expressive eyes, approachable smile, grounde"
         },
         {
-          "time": "2026-05-07 10:08:33",
-          "category": "report",
+          "time": "2026-05-07 11:10:17",
+          "category": "file",
           "actor": "lisa - photographer",
-          "title": "Employee Portrait Status",
-          "path": "lisa - photographer/reports/20260507-100001-60984/employee_portrait_status.txt",
-          "snippet": "employee_portraits_ready run_id=20260507-100001-60984 missing_count=0 generated_this_run=2 portrait_dir=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits manifest=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/2026"
+          "title": "Readme",
+          "path": "lisa - photographer/README.md",
+          "snippet": "# Lisa Photographer Lisa is the morning photographer for the Golden Crow automata workspace. She runs every day at 10:00 AM. Her job is to keep each employee's visual persona documented, create missing individual employee portraits, and generate one current team image in an offic"
+        },
+        {
+          "time": "2026-05-07 11:10:17",
+          "category": "file",
+          "actor": "lisa - photographer",
+          "title": "What Your Role Is",
+          "path": "lisa - photographer/what_your_role_is.txt",
+          "snippet": "Role note from Jeff Employee: Lisa Role: photographer Your daily responsibility: Maintain employee appearance files, generate the morning team photo, and send the updated team image to Golden Crow VS with a useful caption. Non-negotiable WhatsApp rule: - The default Lisa message "
+        },
+        {
+          "time": "2026-05-07 11:10:17",
+          "category": "file",
+          "actor": "lisa - photographer",
+          "title": "Agents",
+          "path": "lisa - photographer/AGENTS.md",
+          "snippet": "# Lisa Photographer Instructions These instructions apply to `/Users/federicobustosfierro/goldencrow automata/lisa - photographer`. ## Identity You are Lisa, Golden Crow's photographer bot. Your job is to make the team visible. Every morning you maintain each employee's visual pe"
         }
       ]
     },
@@ -779,7 +658,7 @@
       "appereance_file": "lucas - web_developer/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 11:22:57",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Run Full Flow",
@@ -787,7 +666,7 @@
           "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
         },
         {
-          "time": "2026-05-07 10:45:21",
+          "time": "2026-05-07 11:22:57",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Web Dashboard History Log",
@@ -795,7 +674,15 @@
           "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
         },
         {
-          "time": "2026-05-07 10:40:25",
+          "time": "2026-05-07 11:22:27",
+          "category": "report",
+          "actor": "lucas - web_developer",
+          "title": "Web Dashboard Build Report",
+          "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v2/web_dashboard_build_report.md",
+          "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-sleek-botfarm-ui-20260507-v2 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_develope"
+        },
+        {
+          "time": "2026-05-07 11:20:52",
           "category": "file",
           "actor": "lucas - web_developer",
           "title": "What Your Role Is",
@@ -803,15 +690,7 @@
           "snippet": "Role note from Jeff Employee: Lucas Role: web_developer Your daily responsibility: Build and refresh the local Golden Crow dashboard from shared database, employee logs, evaluations, emails, tickets, and event history. Also expose an Ads Cycle view from `ads_shared/`, showing Oli"
         },
         {
-          "time": "2026-05-07 10:40:25",
-          "category": "file",
-          "actor": "lucas - web_developer",
-          "title": "Agents",
-          "path": "lucas - web_developer/AGENTS.md",
-          "snippet": "# Lucas Operating Contract - Build a useful local dashboard, not a marketing page. - Read existing files; do not invent status, performance, revenue, leads, or problems. - Treat `company_database` as the business source of truth. - Treat `ads_shared` as the read-only source for t"
-        },
-        {
-          "time": "2026-05-07 10:40:24",
+          "time": "2026-05-07 11:20:28",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Live Observer Daemon",
@@ -819,23 +698,23 @@
           "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
         },
         {
-          "time": "2026-05-07 10:40:24",
+          "time": "2026-05-07 11:20:28",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Live Observer Summary",
           "path": "lucas - web_developer/logs/live_observer_summary.md",
-          "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 10:40:24 -0300 - 2026-05-07 10:30:23 -0300 | risk | lisa - photographer | lisa - photographer/logs/run_full_flow.log: +whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible a"
+          "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 11:20:28 -0300 - 2026-05-07 11:20:28 -0300 | success | lucas - web_developer | lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507/web_dashboard_build_report.md: botfarm_sync_status=synced - 2026-05-07 11:20:28 "
         },
         {
-          "time": "2026-05-07 10:40:24",
+          "time": "2026-05-07 11:20:28",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Live Observer State",
           "path": "lucas - web_developer/logs/live_observer_state.json",
-          "snippet": "{ \"last_observed_at\": \"2026-05-07 10:40:24 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
+          "snippet": "{ \"last_observed_at\": \"2026-05-07 11:20:28 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
         },
         {
-          "time": "2026-05-07 10:30:23",
+          "time": "2026-05-07 11:20:28",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Live Observer Feed",
@@ -969,6 +848,22 @@
       "appereance_file": "nora - designer/employee_appereance.txt",
       "recent_history": [
         {
+          "time": "2026-05-07 11:03:57",
+          "category": "file",
+          "actor": "nora - designer",
+          "title": "What Your Role Is",
+          "path": "nora - designer/what_your_role_is.txt",
+          "snippet": "Role note from Jeff Employee: Nora Role: designer Your daily responsibility: Review Sam's latest three generated ad images through ChatGPT, write compact design-AI directives, and hand them to Sam for the next creative run. Your canonical handoff to Sam is `ads_shared/visual_desi"
+        },
+        {
+          "time": "2026-05-07 11:03:57",
+          "category": "file",
+          "actor": "nora - designer",
+          "title": "Agents",
+          "path": "nora - designer/AGENTS.md",
+          "snippet": "# Nora Operating Contract - Use the latest three Sam-created image files, excluding contact sheets and test scratch files. - Use Safari and ChatGPT at `https://chatgpt.com/#`. - Do not use the OpenAI API, MCPs, or command-line image analysis for the actual design critique. - Ask "
+        },
+        {
           "time": "2026-05-07 10:43:51",
           "category": "log",
           "actor": "nora - designer",
@@ -999,22 +894,6 @@
           "title": "Designer Suggestions",
           "path": "nora - designer/reports/20260507-040001-19778/designer_suggestions.txt",
           "snippet": "Designer suggestions for Sam Last updated: 2026-05-07 10:43:51 -0300 Run id: manual-ads-shared-seed-nora-20260507 Produced by: Nora Selected Sam images reviewed: - /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/20260506-224304-43592_gol"
-        },
-        {
-          "time": "2026-05-07 10:40:25",
-          "category": "file",
-          "actor": "nora - designer",
-          "title": "What Your Role Is",
-          "path": "nora - designer/what_your_role_is.txt",
-          "snippet": "Role note from Jeff Employee: Nora Role: designer Your daily responsibility: Review Sam's latest three generated ad images through ChatGPT, write compact design-AI directives, and hand them to Sam for the next creative run. Your canonical handoff to Sam is `ads_shared/visual_desi"
-        },
-        {
-          "time": "2026-05-07 10:40:25",
-          "category": "file",
-          "actor": "nora - designer",
-          "title": "Agents",
-          "path": "nora - designer/AGENTS.md",
-          "snippet": "# Nora Operating Contract - Use the latest three Sam-created image files, excluding contact sheets and test scratch files. - Use Safari and ChatGPT at `https://chatgpt.com/#`. - Do not use the OpenAI API, MCPs, or command-line image analysis for the actual design critique. - Ask "
         }
       ]
     },
@@ -1036,6 +915,22 @@
       "portrait": "assets/portraits/olivia_-_content_writer.jpg",
       "appereance_file": "olivia - content_writer/employee_appereance.txt",
       "recent_history": [
+        {
+          "time": "2026-05-07 11:03:57",
+          "category": "file",
+          "actor": "olivia - content_writer",
+          "title": "What Your Role Is",
+          "path": "olivia - content_writer/what_your_role_is.txt",
+          "snippet": "Role note from Jeff Employee: Olivia Role: content_writer Your daily responsibility: Improve Sam's reference ad copy through short A/B copy games, map stakeholder preferences, and hand off final templates for the next ads. Your canonical handoff to Sam is `ads_shared/text_content"
+        },
+        {
+          "time": "2026-05-07 11:03:57",
+          "category": "file",
+          "actor": "olivia - content_writer",
+          "title": "Agents",
+          "path": "olivia - content_writer/AGENTS.md",
+          "snippet": "# Olivia Content Writer You are Olivia, Golden Crow's content writer bot. ## Mission Create stronger reference copy for Sam's Meta ad generation workflow. ## Daily Rules 1. Read Sam's current `textos_referencia.txt`. 2. Draft improved ad text templates with sharper pain, proof, o"
+        },
         {
           "time": "2026-05-07 10:43:45",
           "category": "report",
@@ -1075,22 +970,6 @@
           "title": "Final Content Templates",
           "path": "olivia - content_writer/reports/20260506-200001-27702/final_content_templates.txt",
           "snippet": "Golden Crow reference ad copy templates updated_by=Olivia run_id=manual-ads-shared-seed-olivia-20260507 How Sam must use this file: - Use these texts as the main copy reference for the next AI-created ads. - Prefer the image text, headline, and primary text from these templates o"
-        },
-        {
-          "time": "2026-05-07 10:40:25",
-          "category": "file",
-          "actor": "olivia - content_writer",
-          "title": "What Your Role Is",
-          "path": "olivia - content_writer/what_your_role_is.txt",
-          "snippet": "Role note from Jeff Employee: Olivia Role: content_writer Your daily responsibility: Improve Sam's reference ad copy through short A/B copy games, map stakeholder preferences, and hand off final templates for the next ads. Your canonical handoff to Sam is `ads_shared/text_content"
-        },
-        {
-          "time": "2026-05-07 10:40:25",
-          "category": "file",
-          "actor": "olivia - content_writer",
-          "title": "Agents",
-          "path": "olivia - content_writer/AGENTS.md",
-          "snippet": "# Olivia Content Writer You are Olivia, Golden Crow's content writer bot. ## Mission Create stronger reference copy for Sam's Meta ad generation workflow. ## Daily Rules 1. Read Sam's current `textos_referencia.txt`. 2. Draft improved ad text templates with sharper pain, proof, o"
         }
       ]
     },
@@ -1235,15 +1114,7 @@
       "appereance_file": "sam - community_manager/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 10:43:51",
-          "category": "campaign",
-          "actor": "sam - community_manager",
-          "title": "Latest Designer Suggestions",
-          "path": "sam - community_manager/anuncios_generados/latest_designer_suggestions.txt",
-          "snippet": "Designer suggestions for Sam Last updated: 2026-05-07 10:43:51 -0300 Run id: manual-ads-shared-seed-nora-20260507 Produced by: Nora Selected Sam images reviewed: - /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/20260506-224304-43592_gol"
-        },
-        {
-          "time": "2026-05-07 10:39:50",
+          "time": "2026-05-07 11:03:57",
           "category": "file",
           "actor": "sam - community_manager",
           "title": "What Your Role Is",
@@ -1251,12 +1122,20 @@
           "snippet": "Role note from Jeff Employee: Sam Role: community_manager Your daily responsibility: Create fresh Golden Crow Meta ads, ask for approval through WhatsApp, publish when approved, and leave clear logs/markers. Non-negotiable Meta Ads checks: - Use Olivia/content_writer's latest con"
         },
         {
-          "time": "2026-05-07 10:39:50",
+          "time": "2026-05-07 11:03:57",
           "category": "file",
           "actor": "sam - community_manager",
           "title": "Agents",
           "path": "sam - community_manager/AGENTS.md",
           "snippet": "# Golden Crow Automata Instructions These instructions apply to `/Users/federicobustosfierro/goldencrow automata`. ## Trigger Phrase When Federico says `run the workflow`, run the local Meta Ads queue workflow: ```bash cd \"/Users/federicobustosfierro/goldencrow automata\" ./run_fi"
+        },
+        {
+          "time": "2026-05-07 10:43:51",
+          "category": "campaign",
+          "actor": "sam - community_manager",
+          "title": "Latest Designer Suggestions",
+          "path": "sam - community_manager/anuncios_generados/latest_designer_suggestions.txt",
+          "snippet": "Designer suggestions for Sam Last updated: 2026-05-07 10:43:51 -0300 Run id: manual-ads-shared-seed-nora-20260507 Produced by: Nora Selected Sam images reviewed: - /Users/federicobustosfierro/goldencrow automata/sam - community_manager/anuncios_generados/20260506-224304-43592_gol"
         }
       ]
     },
@@ -3362,15 +3241,295 @@
   },
   "events": [
     {
-      "time": "2026-05-07 10:45:21",
-      "category": "report",
-      "actor": "diana - documentation_writer",
-      "title": "Notion Workspace Update Manual Diana Ads Shared 20260507",
-      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_workspace_update_manual-diana-ads-shared-20260507.txt",
-      "snippet": "notion_update_checked result=skipped reason=DIANA_BUILD_ONLY=1 run_id=manual-diana-ads-shared-20260507 checked_at=2026-05-07 10:45:21 -0300"
+      "time": "2026-05-07 11:22:57",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Run Full Flow",
+      "path": "lucas - web_developer/logs/run_full_flow.log",
+      "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
     },
     {
-      "time": "2026-05-07 10:45:21",
+      "time": "2026-05-07 11:22:57",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard History Log",
+      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
+      "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
+    },
+    {
+      "time": "2026-05-07 11:22:27",
+      "category": "report",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard Build Report",
+      "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507-v2/web_dashboard_build_report.md",
+      "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-sleek-botfarm-ui-20260507-v2 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_develope"
+    },
+    {
+      "time": "2026-05-07 11:20:52",
+      "category": "file",
+      "actor": "lucas - web_developer",
+      "title": "What Your Role Is",
+      "path": "lucas - web_developer/what_your_role_is.txt",
+      "snippet": "Role note from Jeff Employee: Lucas Role: web_developer Your daily responsibility: Build and refresh the local Golden Crow dashboard from shared database, employee logs, evaluations, emails, tickets, and event history. Also expose an Ads Cycle view from `ads_shared/`, showing Oli"
+    },
+    {
+      "time": "2026-05-07 11:20:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Daemon",
+      "path": "lucas - web_developer/logs/live_observer_daemon.log",
+      "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
+    },
+    {
+      "time": "2026-05-07 11:20:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Summary",
+      "path": "lucas - web_developer/logs/live_observer_summary.md",
+      "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 11:20:28 -0300 - 2026-05-07 11:20:28 -0300 | success | lucas - web_developer | lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507/web_dashboard_build_report.md: botfarm_sync_status=synced - 2026-05-07 11:20:28 "
+    },
+    {
+      "time": "2026-05-07 11:20:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer State",
+      "path": "lucas - web_developer/logs/live_observer_state.json",
+      "snippet": "{ \"last_observed_at\": \"2026-05-07 11:20:28 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
+    },
+    {
+      "time": "2026-05-07 11:20:28",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Feed",
+      "path": "lucas - web_developer/logs/live_observer_feed.tsv",
+      "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
+    },
+    {
+      "time": "2026-05-07 11:19:53",
+      "category": "file",
+      "actor": "lucas - web_developer",
+      "title": "Readme",
+      "path": "lucas - web_developer/README.md",
+      "snippet": "# Lucas - Web Developer Lucas owns the Golden Crow botfarm company dashboard. He runs every day at 8:45 AM, after Emma and Max, and regenerates a static webpage that centralizes: - current employee profiles; - employee role, score, problems, next action, and recent history; - sha"
+    },
+    {
+      "time": "2026-05-07 11:19:48",
+      "category": "file",
+      "actor": "lucas - web_developer",
+      "title": "Agents",
+      "path": "lucas - web_developer/AGENTS.md",
+      "snippet": "# Lucas Operating Contract - Build a useful local dashboard, not a marketing page. - Read existing files; do not invent status, performance, revenue, leads, or problems. - Treat `company_database` as the business source of truth. - Treat `ads_shared` as the read-only source for t"
+    },
+    {
+      "time": "2026-05-07 11:19:27",
+      "category": "report",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard Build Report",
+      "path": "lucas - web_developer/reports/manual-lucas-sleek-botfarm-ui-20260507/web_dashboard_build_report.md",
+      "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-sleek-botfarm-ui-20260507 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/s"
+    },
+    {
+      "time": "2026-05-07 11:10:48",
+      "category": "report",
+      "actor": "lisa - photographer",
+      "title": "Caption Validation History",
+      "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/caption_validation_history.log",
+      "snippet": "--- date=2026-05-07 timestamp=2026-05-07 11:10:48 -0300 run_id=manual-lisa-caption-contract-validation employees=Abby,Andy,Bruno,Camila,Clara,Diana,Diego,Emma,Gala,Geoff,Hugo,Jeff,Lisa,Lucas,Mateo,Max,Mia,Nora,Olivia,Paula,Rafael,Riley,Sam,Sara,Vera appereance_file=/Users/federic"
+    },
+    {
+      "time": "2026-05-07 11:10:48",
+      "category": "report",
+      "actor": "lisa - photographer",
+      "title": "Whatsapp Caption",
+      "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/whatsapp_caption.txt",
+      "snippet": "Foto de equipo Golden Crow - 2026-05-07 Imagen actualizada del equipo completo de hoy. Integrantes (25): - Abby, Andy, Bruno, Camila, Clara, Diana, Diego, Emma - Gala, Geoff, Hugo, Jeff, Lisa, Lucas, Mateo, Max - Mia, Nora, Olivia, Paula, Rafael, Riley, Sam, Sara - Vera Empleado "
+    },
+    {
+      "time": "2026-05-07 11:10:48",
+      "category": "report",
+      "actor": "lisa - photographer",
+      "title": "Team Photo Prompt",
+      "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/team_photo_prompt.txt",
+      "snippet": "Create one polished AI-generated cartoon team portrait of the current Golden Crow automata team in a playful creative studio setting. The image should be stylized, colorful, friendly, and clearly cartoon-like, not a realistic corporate office productivity photo. Make the people v"
+    },
+    {
+      "time": "2026-05-07 11:10:48",
+      "category": "report",
+      "actor": "lisa - photographer",
+      "title": "Employee Appereance Report",
+      "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/employee_appereance_report.md",
+      "snippet": "# Lisa Employee Appereance Report date=2026-05-07 run_id=manual-lisa-caption-contract-validation These are AI visual personas for generated team imagery, not verified real-world physical appearance. ## Abby (coach) - folder: Abby - coach - appereance file: /Users/federicobustosfi"
+    },
+    {
+      "time": "2026-05-07 11:10:48",
+      "category": "report",
+      "actor": "lisa - photographer",
+      "title": "Team Roster",
+      "path": "lisa - photographer/reports/manual-lisa-caption-contract-validation/team_roster.tsv",
+      "snippet": "display_name folder role physical_traits personality_traits wardrobe_and_props office_scene_cues daily_role appereance_file Abby Abby - coach coach Cartoon avatar of a Middle Eastern performance coach, olive skin, short wavy dark hair, expressive eyes, approachable smile, grounde"
+    },
+    {
+      "time": "2026-05-07 11:10:17",
+      "category": "file",
+      "actor": "lisa - photographer",
+      "title": "Readme",
+      "path": "lisa - photographer/README.md",
+      "snippet": "# Lisa Photographer Lisa is the morning photographer for the Golden Crow automata workspace. She runs every day at 10:00 AM. Her job is to keep each employee's visual persona documented, create missing individual employee portraits, and generate one current team image in an offic"
+    },
+    {
+      "time": "2026-05-07 11:10:17",
+      "category": "file",
+      "actor": "lisa - photographer",
+      "title": "What Your Role Is",
+      "path": "lisa - photographer/what_your_role_is.txt",
+      "snippet": "Role note from Jeff Employee: Lisa Role: photographer Your daily responsibility: Maintain employee appearance files, generate the morning team photo, and send the updated team image to Golden Crow VS with a useful caption. Non-negotiable WhatsApp rule: - The default Lisa message "
+    },
+    {
+      "time": "2026-05-07 11:10:17",
+      "category": "file",
+      "actor": "lisa - photographer",
+      "title": "Agents",
+      "path": "lisa - photographer/AGENTS.md",
+      "snippet": "# Lisa Photographer Instructions These instructions apply to `/Users/federicobustosfierro/goldencrow automata/lisa - photographer`. ## Identity You are Lisa, Golden Crow's photographer bot. Your job is to make the team visible. Every morning you maintain each employee's visual pe"
+    },
+    {
+      "time": "2026-05-07 11:06:08",
+      "category": "ads_cycle",
+      "actor": "ads_shared",
+      "title": "Agents",
+      "path": "ads_shared/AGENTS.md",
+      "snippet": "# Ads Shared Agent Contract This folder is a shared ads handoff, not a general scratchpad. ## Edit Permissions - Olivia may edit only `text_content/` and append her stage rows to `cycle_index.tsv`. - Nora may edit only `visual_design_directives/` and append her stage rows to `cyc"
+    },
+    {
+      "time": "2026-05-07 11:03:57",
+      "category": "file",
+      "actor": "olivia - content_writer",
+      "title": "What Your Role Is",
+      "path": "olivia - content_writer/what_your_role_is.txt",
+      "snippet": "Role note from Jeff Employee: Olivia Role: content_writer Your daily responsibility: Improve Sam's reference ad copy through short A/B copy games, map stakeholder preferences, and hand off final templates for the next ads. Your canonical handoff to Sam is `ads_shared/text_content"
+    },
+    {
+      "time": "2026-05-07 11:03:57",
+      "category": "file",
+      "actor": "olivia - content_writer",
+      "title": "Agents",
+      "path": "olivia - content_writer/AGENTS.md",
+      "snippet": "# Olivia Content Writer You are Olivia, Golden Crow's content writer bot. ## Mission Create stronger reference copy for Sam's Meta ad generation workflow. ## Daily Rules 1. Read Sam's current `textos_referencia.txt`. 2. Draft improved ad text templates with sharper pain, proof, o"
+    },
+    {
+      "time": "2026-05-07 11:03:57",
+      "category": "file",
+      "actor": "nora - designer",
+      "title": "What Your Role Is",
+      "path": "nora - designer/what_your_role_is.txt",
+      "snippet": "Role note from Jeff Employee: Nora Role: designer Your daily responsibility: Review Sam's latest three generated ad images through ChatGPT, write compact design-AI directives, and hand them to Sam for the next creative run. Your canonical handoff to Sam is `ads_shared/visual_desi"
+    },
+    {
+      "time": "2026-05-07 11:03:57",
+      "category": "file",
+      "actor": "nora - designer",
+      "title": "Agents",
+      "path": "nora - designer/AGENTS.md",
+      "snippet": "# Nora Operating Contract - Use the latest three Sam-created image files, excluding contact sheets and test scratch files. - Use Safari and ChatGPT at `https://chatgpt.com/#`. - Do not use the OpenAI API, MCPs, or command-line image analysis for the actual design critique. - Ask "
+    },
+    {
+      "time": "2026-05-07 11:03:57",
+      "category": "file",
+      "actor": "sam - community_manager",
+      "title": "What Your Role Is",
+      "path": "sam - community_manager/what_your_role_is.txt",
+      "snippet": "Role note from Jeff Employee: Sam Role: community_manager Your daily responsibility: Create fresh Golden Crow Meta ads, ask for approval through WhatsApp, publish when approved, and leave clear logs/markers. Non-negotiable Meta Ads checks: - Use Olivia/content_writer's latest con"
+    },
+    {
+      "time": "2026-05-07 11:03:57",
+      "category": "file",
+      "actor": "sam - community_manager",
+      "title": "Agents",
+      "path": "sam - community_manager/AGENTS.md",
+      "snippet": "# Golden Crow Automata Instructions These instructions apply to `/Users/federicobustosfierro/goldencrow automata`. ## Trigger Phrase When Federico says `run the workflow`, run the local Meta Ads queue workflow: ```bash cd \"/Users/federicobustosfierro/goldencrow automata\" ./run_fi"
+    },
+    {
+      "time": "2026-05-07 11:03:34",
+      "category": "ads_cycle",
+      "actor": "ads_shared",
+      "title": "Readme",
+      "path": "ads_shared/README.md",
+      "snippet": "# Ads Shared `ads_shared/` is the canonical daily handoff for Golden Crow ad work. Sam is the final output owner for Meta ads, so his work must start from the latest files here before he creates images, prepares Meta drafts, asks for approval, or activates a campaign. ## Ownershi"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "log",
+      "actor": "geoff - orchestrator",
+      "title": "Cron",
+      "path": "geoff - orchestrator/logs/cron.log",
+      "snippet": "[2026-05-07 11:00:00 -0300] Geoff cron orchestration started. run_id=20260507-110000-96917 Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/20260507-110000-96917/cron_orchestration_report.md [2026-05-07 11:00:00 -0300] Geoff cr"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "log",
+      "actor": "geoff - orchestrator",
+      "title": "Run Full Flow",
+      "path": "geoff - orchestrator/logs/run_full_flow.log",
+      "snippet": "[2026-05-06 12:10:16 -0300] Geoff cron orchestration started. run_id=20260506-121016-92809 Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/20260506-121016-92809/cron_orchestration_report.md [2026-05-06 12:10:16 -0300] Geoff cr"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "report",
+      "actor": "geoff - orchestrator",
+      "title": "Latest Cron Orchestration Report",
+      "path": "geoff - orchestrator/reports/latest_cron_orchestration_report.md",
+      "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=20260507-110000-96917 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (macos_crontab) - andy - code_keeper "
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "log",
+      "actor": "geoff - orchestrator",
+      "title": "Cron Orchestration History Log",
+      "path": "geoff - orchestrator/logs/cron_orchestration_history_log.txt",
+      "snippet": "Geoff cron orchestration history log This file is append-only. Geoff adds one section per cron review. --- date=2026-05-06 timestamp=2026-05-06 12:10:16 -0300 run_id=20260506-121016-92809 goldencrow_crons=4 conflicts=0 sara_proposal=/Users/federicobustosfierro/goldencrow automata"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "report",
+      "actor": "geoff - orchestrator",
+      "title": "Cron Orchestration Report",
+      "path": "geoff - orchestrator/reports/20260507-110000-96917/cron_orchestration_report.md",
+      "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=20260507-110000-96917 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (macos_crontab) - andy - code_keeper "
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "report",
+      "actor": "geoff - orchestrator",
+      "title": "Cron Conflicts",
+      "path": "geoff - orchestrator/reports/20260507-110000-96917/cron_conflicts.tsv",
+      "snippet": "hour minute owners count"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "report",
+      "actor": "geoff - orchestrator",
+      "title": "Employee Inventory",
+      "path": "geoff - orchestrator/reports/20260507-110000-96917/employee_inventory.tsv",
+      "snippet": "folder display_name role has_run_full_flow has_cron cron_count cron_schedules path Abby - coach Abby coach yes yes 1 30 9 * * * (macos_crontab) /Users/federicobustosfierro/goldencrow automata/Abby - coach andy - code_keeper Andy code_keeper yes yes 1 15 0 * * * (macos_crontab) /U"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "report",
+      "actor": "geoff - orchestrator",
+      "title": "Goldencrow Cron Map",
+      "path": "geoff - orchestrator/reports/20260507-110000-96917/goldencrow_cron_map.tsv",
+      "snippet": "owner minute hour source automation_id command jeff - project_manager 0 23 macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/federicobustosfierro/goldencrow automata/"
+    },
+    {
+      "time": "2026-05-07 11:00:00",
+      "category": "report",
+      "actor": "geoff - orchestrator",
+      "title": "Cron Map",
+      "path": "geoff - orchestrator/reports/20260507-110000-96917/cron_map.tsv",
+      "snippet": "owner minute hour dom month dow goldencrow source automation_id command adapt-mobile 0 13,14,15,16 * * 1-5 False macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/fed"
+    },
+    {
+      "time": "2026-05-07 10:53:46",
       "category": "log",
       "actor": "diana - documentation_writer",
       "title": "Run Full Flow",
@@ -3378,7 +3537,15 @@
       "snippet": "[2026-05-07 09:43:17 -0300] Diana documentation writer flow started. run_id=manual-diana-build-only-20260507 Diana wrote Notion update brief: /Users/federicobustosfierro/goldencrow automata/diana - documentation_writer/reports/manual-diana-build-only-20260507/notion_update_brief."
     },
     {
-      "time": "2026-05-07 10:45:21",
+      "time": "2026-05-07 10:53:42",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Notion Workspace Update Manual Diana Ads Shared Notion 20260507",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/notion_workspace_update_manual-diana-ads-shared-notion-20260507.txt",
+      "snippet": "notion_update_checked result=blocked reason=Notion desktop app did not accept reliable edits central_page=Golden Crow Operating Wiki external_tool=Notion desktop app run_id=manual-diana-ads-shared-notion-20260507 checked_at=2026-05-07 10:53:42 -0300"
+    },
+    {
+      "time": "2026-05-07 10:45:33",
       "category": "log",
       "actor": "diana - documentation_writer",
       "title": "Documentation Writer History Log",
@@ -3386,12 +3553,76 @@
       "snippet": "--- timestamp=2026-05-07 09:43:17 -0300 run_id=manual-diana-build-only-20260507 operating_date=2026-05-07 brief=/Users/federicobustosfierro/goldencrow automata/diana - documentation_writer/reports/manual-diana-build-only-20260507/notion_update_brief.md employee_rows=24 open_ticke"
     },
     {
-      "time": "2026-05-07 10:45:21",
+      "time": "2026-05-07 10:45:33",
       "category": "report",
       "actor": "diana - documentation_writer",
       "title": "Latest Notion Update Brief",
       "path": "diana - documentation_writer/reports/latest_notion_update_brief.md",
-      "snippet": "# Diana Notion Update Brief operating_date=2026-05-07 run_id=manual-diana-ads-shared-20260507 ## Notion Structure Goal Use one central page titled `Golden Crow Operating Wiki` with clear links to Daily Operating Log, Issue Tracking, Sales Reporting, Campaign and Creative, Ads Sha"
+      "snippet": "# Diana Notion Update Brief operating_date=2026-05-07 run_id=manual-diana-ads-shared-notion-20260507 ## Notion Structure Goal Use one central page titled `Golden Crow Operating Wiki` with clear links to Daily Operating Log, Issue Tracking, Sales Reporting, Campaign and Creative, "
+    },
+    {
+      "time": "2026-05-07 10:45:33",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Ads Cycle For Notion",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/ads_cycle_for_notion.tsv",
+      "snippet": "date stage owner status artifact summary next_action 2026-05-07 text_content olivia - content_writer yes /Users/federicobustosfierro/goldencrow automata/ads_shared/text_content/latest_text_content.md # Olivia Ads Shared Text Content artifact_type=text_content ads_shared_contract_"
+    },
+    {
+      "time": "2026-05-07 10:45:33",
+      "category": "campaign",
+      "actor": "diana - documentation_writer",
+      "title": "Campaign Reporting For Notion",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/campaign_reporting_for_notion.tsv",
+      "snippet": "date campaign spend_usd impressions ctr leads cost_per_lead creative_signal next_action 2026-05-07 Campaña 2 de Abril 13.17 2006 unknown unknown unknown colorful illustrated ad thumbnails with bold Spanish creative Performance is usable: preserve the best-performing angle and tes"
+    },
+    {
+      "time": "2026-05-07 10:45:33",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Sales Reporting For Notion",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/sales_reporting_for_notion.tsv",
+      "snippet": "date qualified_leads approved_outreach outreach_sent replies meetings proposals clients_closed revenue_usd pipeline_summary next_sales_action 2026-05-07 26 0 0 0 0 0 0 0.00 pipeline_rows=65; statuses: qualified_lead=26, lead_research=22, not_found=5, verified_current=3, website_c"
+    },
+    {
+      "time": "2026-05-07 10:45:33",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Issue Tracking For Notion",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/issue_tracking_for_notion.tsv",
+      "snippet": "ticket_id priority status owner business_metric issue next_action last_updated 20032c34a696 high open bruno - business_strategist outreach_sent Move stakeholder-approved outreach from draft to sent Get stakeholder approval or explicitly mark why outreach is blocked. 2026-05-07 09"
+    },
+    {
+      "time": "2026-05-07 10:45:33",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Daily Updates For Notion",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/daily_updates_for_notion.tsv",
+      "snippet": "date area owner status summary next_action 2026-05-07 Operating system diana - documentation_writer notion_update_prepared Golden Crow is standardizing wiki, issue tracking, and sales reporting inside Notion as the single operating tool. Maintain one central Notion front page wit"
+    },
+    {
+      "time": "2026-05-07 10:45:33",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Notion Update Brief",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-notion-20260507/notion_update_brief.md",
+      "snippet": "# Diana Notion Update Brief operating_date=2026-05-07 run_id=manual-diana-ads-shared-notion-20260507 ## Notion Structure Goal Use one central page titled `Golden Crow Operating Wiki` with clear links to Daily Operating Log, Issue Tracking, Sales Reporting, Campaign and Creative, "
+    },
+    {
+      "time": "2026-05-07 10:45:22",
+      "category": "report",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard Build Report",
+      "path": "lucas - web_developer/reports/manual-lucas-ads-shared-20260507/web_dashboard_build_report.md",
+      "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-ads-shared-20260507 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/da"
+    },
+    {
+      "time": "2026-05-07 10:45:21",
+      "category": "report",
+      "actor": "diana - documentation_writer",
+      "title": "Notion Workspace Update Manual Diana Ads Shared 20260507",
+      "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_workspace_update_manual-diana-ads-shared-20260507.txt",
+      "snippet": "notion_update_checked result=skipped reason=DIANA_BUILD_ONLY=1 run_id=manual-diana-ads-shared-20260507 checked_at=2026-05-07 10:45:21 -0300"
     },
     {
       "time": "2026-05-07 10:45:21",
@@ -3440,22 +3671,6 @@
       "title": "Notion Update Brief",
       "path": "diana - documentation_writer/reports/manual-diana-ads-shared-20260507/notion_update_brief.md",
       "snippet": "# Diana Notion Update Brief operating_date=2026-05-07 run_id=manual-diana-ads-shared-20260507 ## Notion Structure Goal Use one central page titled `Golden Crow Operating Wiki` with clear links to Daily Operating Log, Issue Tracking, Sales Reporting, Campaign and Creative, Ads Sha"
-    },
-    {
-      "time": "2026-05-07 10:45:21",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Run Full Flow",
-      "path": "lucas - web_developer/logs/run_full_flow.log",
-      "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
-    },
-    {
-      "time": "2026-05-07 10:45:21",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Web Dashboard History Log",
-      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
-      "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
     },
     {
       "time": "2026-05-07 10:44:32",
@@ -3610,94 +3825,6 @@
       "snippet": "Golden Crow reference ad copy templates updated_by=Olivia run_id=manual-ads-shared-seed-olivia-20260507 How Sam must use this file: - Use these texts as the main copy reference for the next AI-created ads. - Prefer the image text, headline, and primary text from these templates o"
     },
     {
-      "time": "2026-05-07 10:40:25",
-      "category": "file",
-      "actor": "lucas - web_developer",
-      "title": "What Your Role Is",
-      "path": "lucas - web_developer/what_your_role_is.txt",
-      "snippet": "Role note from Jeff Employee: Lucas Role: web_developer Your daily responsibility: Build and refresh the local Golden Crow dashboard from shared database, employee logs, evaluations, emails, tickets, and event history. Also expose an Ads Cycle view from `ads_shared/`, showing Oli"
-    },
-    {
-      "time": "2026-05-07 10:40:25",
-      "category": "file",
-      "actor": "lucas - web_developer",
-      "title": "Agents",
-      "path": "lucas - web_developer/AGENTS.md",
-      "snippet": "# Lucas Operating Contract - Build a useful local dashboard, not a marketing page. - Read existing files; do not invent status, performance, revenue, leads, or problems. - Treat `company_database` as the business source of truth. - Treat `ads_shared` as the read-only source for t"
-    },
-    {
-      "time": "2026-05-07 10:40:25",
-      "category": "file",
-      "actor": "nora - designer",
-      "title": "What Your Role Is",
-      "path": "nora - designer/what_your_role_is.txt",
-      "snippet": "Role note from Jeff Employee: Nora Role: designer Your daily responsibility: Review Sam's latest three generated ad images through ChatGPT, write compact design-AI directives, and hand them to Sam for the next creative run. Your canonical handoff to Sam is `ads_shared/visual_desi"
-    },
-    {
-      "time": "2026-05-07 10:40:25",
-      "category": "file",
-      "actor": "nora - designer",
-      "title": "Agents",
-      "path": "nora - designer/AGENTS.md",
-      "snippet": "# Nora Operating Contract - Use the latest three Sam-created image files, excluding contact sheets and test scratch files. - Use Safari and ChatGPT at `https://chatgpt.com/#`. - Do not use the OpenAI API, MCPs, or command-line image analysis for the actual design critique. - Ask "
-    },
-    {
-      "time": "2026-05-07 10:40:25",
-      "category": "file",
-      "actor": "olivia - content_writer",
-      "title": "What Your Role Is",
-      "path": "olivia - content_writer/what_your_role_is.txt",
-      "snippet": "Role note from Jeff Employee: Olivia Role: content_writer Your daily responsibility: Improve Sam's reference ad copy through short A/B copy games, map stakeholder preferences, and hand off final templates for the next ads. Your canonical handoff to Sam is `ads_shared/text_content"
-    },
-    {
-      "time": "2026-05-07 10:40:25",
-      "category": "file",
-      "actor": "olivia - content_writer",
-      "title": "Agents",
-      "path": "olivia - content_writer/AGENTS.md",
-      "snippet": "# Olivia Content Writer You are Olivia, Golden Crow's content writer bot. ## Mission Create stronger reference copy for Sam's Meta ad generation workflow. ## Daily Rules 1. Read Sam's current `textos_referencia.txt`. 2. Draft improved ad text templates with sharper pain, proof, o"
-    },
-    {
-      "time": "2026-05-07 10:40:24",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Daemon",
-      "path": "lucas - web_developer/logs/live_observer_daemon.log",
-      "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
-    },
-    {
-      "time": "2026-05-07 10:40:24",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Summary",
-      "path": "lucas - web_developer/logs/live_observer_summary.md",
-      "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 10:40:24 -0300 - 2026-05-07 10:30:23 -0300 | risk | lisa - photographer | lisa - photographer/logs/run_full_flow.log: +whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible a"
-    },
-    {
-      "time": "2026-05-07 10:40:24",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer State",
-      "path": "lucas - web_developer/logs/live_observer_state.json",
-      "snippet": "{ \"last_observed_at\": \"2026-05-07 10:40:24 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
-    },
-    {
-      "time": "2026-05-07 10:39:50",
-      "category": "file",
-      "actor": "sam - community_manager",
-      "title": "What Your Role Is",
-      "path": "sam - community_manager/what_your_role_is.txt",
-      "snippet": "Role note from Jeff Employee: Sam Role: community_manager Your daily responsibility: Create fresh Golden Crow Meta ads, ask for approval through WhatsApp, publish when approved, and leave clear logs/markers. Non-negotiable Meta Ads checks: - Use Olivia/content_writer's latest con"
-    },
-    {
-      "time": "2026-05-07 10:39:50",
-      "category": "file",
-      "actor": "sam - community_manager",
-      "title": "Agents",
-      "path": "sam - community_manager/AGENTS.md",
-      "snippet": "# Golden Crow Automata Instructions These instructions apply to `/Users/federicobustosfierro/goldencrow automata`. ## Trigger Phrase When Federico says `run the workflow`, run the local Meta Ads queue workflow: ```bash cd \"/Users/federicobustosfierro/goldencrow automata\" ./run_fi"
-    },
-    {
       "time": "2026-05-07 10:39:04",
       "category": "file",
       "actor": "diana - documentation_writer",
@@ -3736,30 +3863,6 @@
       "title": "Readme",
       "path": "ads_shared/text_content/README.md",
       "snippet": "# Text Content Olivia writes the canonical copy handoff for Sam here. Sam must read `latest_text_content.md` before generating creative briefs or Meta ad copy. The file must contain Olivia template IDs, image text, Meta primary text, headlines, CTAs, stakeholder feedback notes, a"
-    },
-    {
-      "time": "2026-05-07 10:30:57",
-      "category": "ads_cycle",
-      "actor": "ads_shared",
-      "title": "Agents",
-      "path": "ads_shared/AGENTS.md",
-      "snippet": "# Ads Shared Agent Contract This folder is a shared ads handoff, not a general scratchpad. ## Edit Permissions - Olivia may edit only `text_content/` and append her stage rows to `cycle_index.tsv`. - Nora may edit only `visual_design_directives/` and append her stage rows to `cyc"
-    },
-    {
-      "time": "2026-05-07 10:30:57",
-      "category": "ads_cycle",
-      "actor": "ads_shared",
-      "title": "Readme",
-      "path": "ads_shared/README.md",
-      "snippet": "# Ads Shared `ads_shared/` is the canonical daily handoff for Golden Crow ad work. Sam is the final output owner for Meta ads, so his work must start from the latest files here before he creates images, prepares Meta drafts, asks for approval, or activates a campaign. ## Ownershi"
-    },
-    {
-      "time": "2026-05-07 10:30:23",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Feed",
-      "path": "lucas - web_developer/logs/live_observer_feed.tsv",
-      "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
     },
     {
       "time": "2026-05-07 10:25:32",
@@ -3832,14 +3935,6 @@
       "title": "Team Photo Manifest",
       "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_manifest.txt",
       "snippet": "team_photo_created run_id=20260507-100001-60984 image_file=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/team_photos/20260507-100001-60984_goldencrow_team_office.jpg roster=/Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-"
-    },
-    {
-      "time": "2026-05-07 10:13:54",
-      "category": "file",
-      "actor": "lucas - web_developer",
-      "title": "Readme",
-      "path": "lucas - web_developer/README.md",
-      "snippet": "# Lucas - Web Developer Lucas owns the Golden Crow botfarm company dashboard. He runs every day at 8:45 AM, after Emma and Max, and regenerates a static webpage that centralizes: - current employee profiles; - employee role, score, problems, next action, and recent history; - sha"
     },
     {
       "time": "2026-05-07 10:10:33",
@@ -4316,34 +4411,10 @@
     {
       "time": "2026-05-07 09:52:09",
       "category": "log",
-      "actor": "geoff - orchestrator",
-      "title": "Run Full Flow",
-      "path": "geoff - orchestrator/logs/run_full_flow.log",
-      "snippet": "[2026-05-06 12:10:16 -0300] Geoff cron orchestration started. run_id=20260506-121016-92809 Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/20260506-121016-92809/cron_orchestration_report.md [2026-05-06 12:10:16 -0300] Geoff cr"
-    },
-    {
-      "time": "2026-05-07 09:52:09",
-      "category": "log",
       "actor": "camila - crm_manager",
       "title": "Crm History Log",
       "path": "camila - crm_manager/logs/crm_history_log.txt",
       "snippet": "Camila CRM history --- timestamp=2026-05-06 16:40:15 -0300 run_id=manual-camila-smoke report=/Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-smoke/company_database_sync_report.md email_section=/Users/federicobustosfierro/goldencrow autom"
-    },
-    {
-      "time": "2026-05-07 09:52:09",
-      "category": "report",
-      "actor": "geoff - orchestrator",
-      "title": "Latest Cron Orchestration Report",
-      "path": "geoff - orchestrator/reports/latest_cron_orchestration_report.md",
-      "snippet": "# Geoff Cron Orchestration Report date=2026-05-07 run_id=manual-geoff-after-diana-documentation-writer-20260507 ## Employee Inventory Geoff starts by scanning every employee folder directly under `goldencrow automata`, not only cron owners. - Abby - coach (coach): 30 9 * * * (mac"
-    },
-    {
-      "time": "2026-05-07 09:52:09",
-      "category": "log",
-      "actor": "geoff - orchestrator",
-      "title": "Cron Orchestration History Log",
-      "path": "geoff - orchestrator/logs/cron_orchestration_history_log.txt",
-      "snippet": "Geoff cron orchestration history log This file is append-only. Geoff adds one section per cron review. --- date=2026-05-06 timestamp=2026-05-06 12:10:16 -0300 run_id=20260506-121016-92809 goldencrow_crons=4 conflicts=0 sara_proposal=/Users/federicobustosfierro/goldencrow automata"
     },
     {
       "time": "2026-05-07 09:52:09",
@@ -5248,198 +5319,6 @@
       "title": "Nightly Email Preview",
       "path": "emma - email_assistant/reports/20260507-081501-25925/nightly_email_preview.md",
       "snippet": "# Emma Nightly Email Preview date=2026-05-07 run_id=20260507-081501-25925 to=santi@goldencrowvs.com, support@goldencrowvs.com subject=Golden Crow night analysis - 2026-05-07 ```text Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design re"
-    },
-    {
-      "time": "2026-05-07 08:15:02",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Whatsapp Summary",
-      "path": "emma - email_assistant/reports/20260507-081501-25925/whatsapp_summary.txt",
-      "snippet": "Emma - resumen matinal Golden Crow Fecha: 2026-05-07 Highlights importantes: - Ventas/clientes: Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. | Confirmed new clients today:"
-    },
-    {
-      "time": "2026-05-07 08:15:02",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Recipients",
-      "path": "emma - email_assistant/reports/20260507-081501-25925/nightly_email_recipients.txt",
-      "snippet": "santi@goldencrowvs.com support@goldencrowvs.com"
-    },
-    {
-      "time": "2026-05-07 08:15:02",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Body",
-      "path": "emma - email_assistant/reports/20260507-081501-25925/nightly_email_body.txt",
-      "snippet": "Hi Santi and team, Here is the detailed night analysis from Vera, Hugo, Gala, Nora's 4AM design review, Riley's 5AM employee reward evaluation, Rafael's 6AM resource analysis, Diego's 6:45AM campaign performance readout, and Camila's 7:15AM CRM/business metrics sync. Emma also wr"
-    },
-    {
-      "time": "2026-05-07 08:15:02",
-      "category": "email",
-      "actor": "emma - email_assistant",
-      "title": "Nightly Email Subject",
-      "path": "emma - email_assistant/reports/20260507-081501-25925/nightly_email_subject.txt",
-      "snippet": "Golden Crow night analysis - 2026-05-07"
-    },
-    {
-      "time": "2026-05-07 08:00:02",
-      "category": "log",
-      "actor": "clara - hr_manager",
-      "title": "Cron",
-      "path": "clara - hr_manager/logs/cron.log",
-      "snippet": "[2026-05-07 08:00:01 -0300] Clara HR flow started. run_id=20260507-080001-25693 Clara updated payroll for 24 employees: /Users/federicobustosfierro/goldencrow automata/clara - hr_manager/payroll/current_payroll.tsv [2026-05-07 08:00:02 -0300] Clara HR flow finished. run_id=202605"
-    },
-    {
-      "time": "2026-05-07 08:00:02",
-      "category": "log",
-      "actor": "clara - hr_manager",
-      "title": "Run Full Flow",
-      "path": "clara - hr_manager/logs/run_full_flow.log",
-      "snippet": "[2026-05-06 12:31:31 -0300] Clara HR flow started. run_id=20260506-123131-94559 Clara updated payroll for 8 employees: /Users/federicobustosfierro/goldencrow automata/clara - hr_manager/payroll/current_payroll.tsv [2026-05-06 12:31:31 -0300] Clara HR flow finished. run_id=2026050"
-    },
-    {
-      "time": "2026-05-07 08:00:02",
-      "category": "hr",
-      "actor": "clara - hr_manager",
-      "title": "Hr History Log",
-      "path": "clara - hr_manager/logs/hr_history_log.txt",
-      "snippet": "Clara HR history log This file is append-only. Clara adds one section per payroll review. --- date=2026-05-06 timestamp=2026-05-06 12:31:31 -0300 run_id=20260506-123131-94559 employees=8 employee=Abby folder=Abby - coach state=healthy problems=0 employee=Clara folder=clara - hr_m"
-    },
-    {
-      "time": "2026-05-07 08:00:02",
-      "category": "hr",
-      "actor": "clara - hr_manager",
-      "title": "Hr Employee Report",
-      "path": "clara - hr_manager/reports/20260507-080001-25693/hr_employee_report.md",
-      "snippet": "# Clara HR Employee Report date=2026-05-07 run_id=20260507-080001-25693 ## Abby (coach) - folder: Abby - coach - performance: healthy - recent problems: none - recent successes: healthy in Abby - coach/logs/coaching_history_log.txt | finished in Abby - coach/logs/run_full_flow.lo"
-    },
-    {
-      "time": "2026-05-07 07:15:00",
-      "category": "log",
-      "actor": "camila - crm_manager",
-      "title": "Cron",
-      "path": "camila - crm_manager/logs/cron.log",
-      "snippet": "[2026-05-07 07:15:00 -0300] Camila CRM flow started. run_id=20260507-071500-24708 Company database synced: /Users/federicobustosfierro/goldencrow automata/company_database [2026-05-07 07:15:00 -0300] Camila CRM flow finished. run_id=20260507-071500-24708"
-    },
-    {
-      "time": "2026-05-07 07:15:00",
-      "category": "report",
-      "actor": "camila - crm_manager",
-      "title": "Email Section",
-      "path": "camila - crm_manager/reports/20260507-071500-24708/email_section.txt",
-      "snippet": "Camila - CRM Manager Shared database synced: employees=24, pipeline_rows=65. Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00. Cost/performance context: meta_spend_usd=10.00, c"
-    },
-    {
-      "time": "2026-05-07 07:15:00",
-      "category": "report",
-      "actor": "camila - crm_manager",
-      "title": "Company Database Sync Report",
-      "path": "camila - crm_manager/reports/20260507-071500-24708/company_database_sync_report.md",
-      "snippet": "# Company Database Sync Report run_id=20260507-071500-24708 employees=24 pipeline_rows=65 new_qualified_leads=26 outreach_sent=0 replies_received=0 meetings_booked=0 proposals_sent=0 clients_closed=0 revenue_generated_usd=0.00 meta_spend_usd=10.00 resource_warning=low improvement"
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "log",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Cron",
-      "path": "diego - campaign_performance_analyst/logs/cron.log",
-      "snippet": "[2026-05-07 06:45:01 -0300] Diego campaign performance flow started. run_id=20260507-064501-23812 OpenAI Codex v0.128.0 (research preview) -------- workdir: /Users/federicobustosfierro/goldencrow automata model: gpt-5.5 provider: openai approval: never sandbox: danger-full-access"
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "log",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Run Full Flow",
-      "path": "diego - campaign_performance_analyst/logs/run_full_flow.log",
-      "snippet": "[2026-05-06 16:40:07 -0300] Diego campaign performance flow started. run_id=manual-diego-smoke [2026-05-06 16:40:08 -0300] Skipping Meta Ads browser capture because DIEGO_SKIP_META=1. Diego wrote campaign performance report: /Users/federicobustosfierro/goldencrow automata/diego -"
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "campaign",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Campaign Performance History Log",
-      "path": "diego - campaign_performance_analyst/logs/campaign_performance_history_log.txt",
-      "snippet": "Diego campaign performance history --- timestamp=2026-05-06 16:40:08 -0300 run_id=manual-diego-smoke result=skipped campaign_results=/Users/federicobustosfierro/goldencrow automata/company_database/campaign_results.tsv report=/Users/federicobustosfierro/goldencrow automata/diego "
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "campaign",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Latest Campaign Performance Report",
-      "path": "diego - campaign_performance_analyst/reports/latest_campaign_performance_report.md",
-      "snippet": "# Diego Campaign Performance Report date=2026-05-07 run_id=20260507-064501-23812 capture_result=completed campaign_name=Campaña 2 de Abril spend_usd=13.17 impressions=2006 clicks=unknown ctr=unknown leads=unknown cost_per_lead=unknown best_text=unknown best_image_style=colorful i"
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "report",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Email Section",
-      "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/email_section.txt",
-      "snippet": "Diego - Campaign Performance Analyst Meta Ads capture result: completed. Campaign metrics: spend_usd=13.17, impressions=2006, clicks=unknown, ctr=unknown, leads=unknown, cost_per_lead=unknown. Creative signal: best_text=unknown; best_image_style=colorful illustrated ad thumbnails"
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "campaign",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Campaign Performance Report",
-      "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/campaign_performance_report.md",
-      "snippet": "# Diego Campaign Performance Report date=2026-05-07 run_id=20260507-064501-23812 capture_result=completed campaign_name=Campaña 2 de Abril spend_usd=13.17 impressions=2006 clicks=unknown ctr=unknown leads=unknown cost_per_lead=unknown best_text=unknown best_image_style=colorful i"
-    },
-    {
-      "time": "2026-05-07 06:47:23",
-      "category": "company_database",
-      "actor": "company_database",
-      "title": "Campaign Results",
-      "path": "company_database/campaign_results.tsv",
-      "snippet": "date run_id campaign_id campaign_name source spend_usd impressions clicks ctr leads cost_per_lead comments best_text best_image_style proof_file owner next_action last_updated 2026-05-06 manual-diego-smoke unknown unknown diego_meta_ads_safari unknown unknown unknown unknown unkn"
-    },
-    {
-      "time": "2026-05-07 06:47:06",
-      "category": "report",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Meta Ads Capture Marker",
-      "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/meta_ads_capture_marker.txt",
-      "snippet": "meta_ads_capture_checked result=completed snapshot=/Users/federicobustosfierro/goldencrow automata/diego - campaign_performance_analyst/reports/20260507-064501-23812/meta_ads_snapshot.txt reason= run_id=20260507-064501-23812"
-    },
-    {
-      "time": "2026-05-07 06:47:06",
-      "category": "report",
-      "actor": "diego - campaign_performance_analyst",
-      "title": "Meta Ads Snapshot",
-      "path": "diego - campaign_performance_analyst/reports/20260507-064501-23812/meta_ads_snapshot.txt",
-      "snippet": "meta_ads_snapshot_checked result=completed url=https://adsmanager.facebook.com/adsmanager/manage/campaigns?global_scope_id=772939575852008&business_id=772939575852008&act=1535039944274277# captured_at=2026-05-07 06:46:52 -03 campaign_name=Campaña 2 de Abril campaign_id=unknown sp"
-    },
-    {
-      "time": "2026-05-07 06:01:12",
-      "category": "log",
-      "actor": "rafael - resource_analyser",
-      "title": "Cron",
-      "path": "rafael - resource_analyser/logs/cron.log",
-      "snippet": "[2026-05-07 06:00:01 -0300] Rafael resource analyser flow started. run_id=20260507-060001-22680 OpenAI Codex v0.128.0 (research preview) -------- workdir: /Users/federicobustosfierro/goldencrow automata model: gpt-5.5 provider: openai approval: never sandbox: danger-full-access r"
-    },
-    {
-      "time": "2026-05-07 06:01:12",
-      "category": "report",
-      "actor": "rafael - resource_analyser",
-      "title": "Email Section",
-      "path": "rafael - resource_analyser/reports/20260507-060001-22680/email_section.txt",
-      "snippet": "Rafael - Resource Analyser Warning level: low. analytics captured, but remaining credit percentage was not visible Analytics page result: completed. Codex Analytics visible: 5 hour usage limit 99% remaining, weekly usage limit 61% remaining, GPT-5.3-Codex-Spark 5 hour and weekly "
-    },
-    {
-      "time": "2026-05-07 06:01:12",
-      "category": "resource",
-      "actor": "rafael - resource_analyser",
-      "title": "Resource Analysis Report",
-      "path": "rafael - resource_analyser/reports/20260507-060001-22680/resource_analysis_report.md",
-      "snippet": "# Rafael Resource Analysis date=2026-05-07 run_id=20260507-060001-22680 ## Official Analytics Snapshot - result: completed - period: 1M visible range 8 Apr-7 May 2026, grouped by day - warning_level: low - warning_reason: analytics captured, but remaining credit percentage was no"
-    },
-    {
-      "time": "2026-05-07 06:01:12",
-      "category": "resource",
-      "actor": "rafael - resource_analyser",
-      "title": "Resource Consumption Matrix",
-      "path": "rafael - resource_analyser/reports/20260507-060001-22680/resource_consumption_matrix.tsv",
-      "snippet": "rank_by_resource folder display_name role resource_index riley_score riley_value_score efficiency_score recent_file_count recent_bytes media_count heavy_signal_count problem_signal_count quadrant action evidence 1 lisa - photographer Lisa photographer 100 100 100 78 184 10779675 "
     }
   ],
   "emails": [
@@ -5627,6 +5506,12 @@
     },
     "recent_files": [
       {
+        "time": "2026-05-07 11:06:08",
+        "path": "ads_shared/AGENTS.md",
+        "stage": "AGENTS.md",
+        "summary": "# Ads Shared Agent Contract This folder is a shared ads handoff, not a general scratchpad. ## Edit Permissions - Olivia may edit only `text_content/` and append her stage rows to `cycle_index.tsv`. - Nora may edit only `visual_design_directives/` and append..."
+      },
+      {
         "time": "2026-05-07 10:44:32",
         "path": "ads_shared/cycle_index.tsv",
         "stage": "cycle_index.tsv",
@@ -5679,12 +5564,6 @@
         "path": "ads_shared/text_content/2026-05-07/2026-05-07__manual-ads-shared-seed-olivia-20260507__olivia__text_content.md",
         "stage": "text_content",
         "summary": "# Olivia Ads Shared Text Content artifact_type=text_content ads_shared_contract_version=1 date=2026-05-07 run_id=manual-ads-shared-seed-olivia-20260507 owner=olivia - content_writer authorized_editors=olivia - content_writer; nora - designer; sam -..."
-      },
-      {
-        "time": "2026-05-07 10:30:57",
-        "path": "ads_shared/AGENTS.md",
-        "stage": "AGENTS.md",
-        "summary": "# Ads Shared Agent Contract This folder is a shared ads handoff, not a general scratchpad. ## Edit Permissions - Olivia may edit only `text_content/` and append her stage rows to `cycle_index.tsv`. - Nora may edit only `visual_design_directives/` and append..."
       },
       {
         "time": "2026-05-07 00:32:04",
