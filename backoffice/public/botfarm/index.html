@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Golden Crow Botfarm Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">GC</div>
+        <div>
+          <h1>Golden Crow</h1>
+          <p>Botfarm operations dashboard</p>
+        </div>
+      </div>
+      <label class="search-label" for="globalSearch">Search</label>
+      <input id="globalSearch" class="search" type="search" placeholder="employee, ticket, metric">
+      <nav class="nav" aria-label="Dashboard sections">
+        <button data-view="overview" class="active">Overview</button>
+        <button data-view="employees">Employees</button>
+        <button data-view="database">Company Database</button>
+        <button data-view="events">Events</button>
+        <button data-view="listener">Live Listener</button>
+        <button data-view="emails">Emma Emails</button>
+        <button data-view="tickets">Tickets</button>
+        <button data-view="operations">Operations</button>
+      </nav>
+      <div class="sidebar-foot">
+        <span id="generatedAt">Loading</span>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Backoffice secondary flow</p>
+          <h2 id="pageTitle">Overview</h2>
+        </div>
+        <div class="actions">
+          <button id="reloadData">Reload data</button>
+          <button id="downloadJson">Download JSON</button>
+        </div>
+      </header>
+      <section id="content" class="content" aria-live="polite"></section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
