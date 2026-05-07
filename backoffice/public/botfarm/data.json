@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-07 10:14:34 -0300",
-  "run_id": "manual-lucas-botfarm-publish-20260507",
+  "generated_at": "2026-05-07 10:21:00 -0300",
+  "run_id": "manual-lucas-botfarm-base-path-fix-20260507",
   "root": "/Users/federicobustosfierro/goldencrow automata",
   "metrics": {
     "employees": "25",
@@ -752,14 +752,6 @@
           "title": "Email Section",
           "path": "hugo - integration_analyst/reports/20260507-020001-15634/email_section.txt",
           "snippet": "Hugo - Integration Analyst Main process improvement: standardize handoff files. Paula should produce product context, Bruno should turn it into execution metrics, Mateo should turn it into lead research, and Emma should digest night reports. Highest-risk gap: the sales chain can "
-        },
-        {
-          "time": "2026-05-07 02:00:04",
-          "category": "report",
-          "actor": "hugo - integration_analyst",
-          "title": "Integration Process Report",
-          "path": "hugo - integration_analyst/reports/20260507-020001-15634/integration_process_report.md",
-          "snippet": "# Hugo Integration Process Report date=2026-05-07 run_id=20260507-020001-15634 ## What Employees Appeared To Do In The Last Day ### Abby - coach - recent_files=12 - success_signals=2 - problem_signals=8 - evidence: - Abby - coach/logs/coaching_history_log.txt - Abby - coach/logs/"
         }
       ]
     },
@@ -801,7 +793,7 @@
       "appereance_file": "lisa - photographer/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 10:14:28",
+          "time": "2026-05-07 10:20:59",
           "category": "log",
           "actor": "lisa - photographer",
           "title": "Cron",
@@ -809,7 +801,7 @@
           "snippet": "[2026-05-07 10:00:01 -0300] Lisa full flow started. run_id=20260507-100001-60984 [2026-05-07 10:00:01 -0300] Report directory: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984 Lisa wrote 25 employee appereance files and report: /Us"
         },
         {
-          "time": "2026-05-07 10:14:28",
+          "time": "2026-05-07 10:20:59",
           "category": "log",
           "actor": "lisa - photographer",
           "title": "Run Full Flow",
@@ -885,7 +877,7 @@
       "appereance_file": "lucas - web_developer/employee_appereance.txt",
       "recent_history": [
         {
-          "time": "2026-05-07 10:14:33",
+          "time": "2026-05-07 10:20:59",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Run Full Flow",
@@ -893,12 +885,52 @@
           "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
         },
         {
-          "time": "2026-05-07 10:14:33",
+          "time": "2026-05-07 10:20:59",
           "category": "log",
           "actor": "lucas - web_developer",
           "title": "Web Dashboard History Log",
           "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
           "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
+        },
+        {
+          "time": "2026-05-07 10:20:22",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer Daemon",
+          "path": "lucas - web_developer/logs/live_observer_daemon.log",
+          "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
+        },
+        {
+          "time": "2026-05-07 10:20:22",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer Summary",
+          "path": "lucas - web_developer/logs/live_observer_summary.md",
+          "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 10:20:22 -0300 - 2026-05-07 10:20:22 -0300 | success | lisa - photographer | lisa - photographer/logs/run_full_flow.log: APPLESCRIPT\" in /Users/federicobustosfierro/goldencrow automata | succeeded in 639ms: | redispatched to acc"
+        },
+        {
+          "time": "2026-05-07 10:20:22",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer State",
+          "path": "lucas - web_developer/logs/live_observer_state.json",
+          "snippet": "{ \"last_observed_at\": \"2026-05-07 10:20:22 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
+        },
+        {
+          "time": "2026-05-07 10:20:22",
+          "category": "log",
+          "actor": "lucas - web_developer",
+          "title": "Live Observer Feed",
+          "path": "lucas - web_developer/logs/live_observer_feed.tsv",
+          "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
+        },
+        {
+          "time": "2026-05-07 10:14:34",
+          "category": "report",
+          "actor": "lucas - web_developer",
+          "title": "Web Dashboard Build Report",
+          "path": "lucas - web_developer/reports/manual-lucas-botfarm-publish-20260507/web_dashboard_build_report.md",
+          "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-botfarm-publish-20260507 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/si"
         },
         {
           "time": "2026-05-07 10:14:05",
@@ -907,46 +939,6 @@
           "title": "Agents",
           "path": "lucas - web_developer/AGENTS.md",
           "snippet": "# Lucas Operating Contract - Build a useful local dashboard, not a marketing page. - Read existing files; do not invent status, performance, revenue, leads, or problems. - Treat `company_database` as the business source of truth. - Treat Riley as the employee evaluation source. -"
-        },
-        {
-          "time": "2026-05-07 10:13:54",
-          "category": "file",
-          "actor": "lucas - web_developer",
-          "title": "Readme",
-          "path": "lucas - web_developer/README.md",
-          "snippet": "# Lucas - Web Developer Lucas owns the Golden Crow botfarm company dashboard. He runs every day at 8:45 AM, after Emma and Max, and regenerates a static webpage that centralizes: - current employee profiles; - employee role, score, problems, next action, and recent history; - sha"
-        },
-        {
-          "time": "2026-05-07 10:10:22",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer Daemon",
-          "path": "lucas - web_developer/logs/live_observer_daemon.log",
-          "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
-        },
-        {
-          "time": "2026-05-07 10:10:22",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer Summary",
-          "path": "lucas - web_developer/logs/live_observer_summary.md",
-          "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 10:10:22 -0300 - 2026-05-07 10:10:22 -0300 | activity | rafael - resource_analyser | rafael - resource_analyser/reports/manual-rafael-disk-hygiene-sim-inventory-20260507/analytics_snapshot.txt: raw_visible_summary=Analytics capt"
-        },
-        {
-          "time": "2026-05-07 10:10:22",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer State",
-          "path": "lucas - web_developer/logs/live_observer_state.json",
-          "snippet": "{ \"last_observed_at\": \"2026-05-07 10:10:22 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
-        },
-        {
-          "time": "2026-05-07 10:10:22",
-          "category": "log",
-          "actor": "lucas - web_developer",
-          "title": "Live Observer Feed",
-          "path": "lucas - web_developer/logs/live_observer_feed.tsv",
-          "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
         }
       ]
     },
@@ -3476,23 +3468,7 @@
   },
   "events": [
     {
-      "time": "2026-05-07 10:14:33",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Run Full Flow",
-      "path": "lucas - web_developer/logs/run_full_flow.log",
-      "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
-    },
-    {
-      "time": "2026-05-07 10:14:33",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Web Dashboard History Log",
-      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
-      "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
-    },
-    {
-      "time": "2026-05-07 10:14:28",
+      "time": "2026-05-07 10:20:59",
       "category": "log",
       "actor": "lisa - photographer",
       "title": "Cron",
@@ -3500,12 +3476,68 @@
       "snippet": "[2026-05-07 10:00:01 -0300] Lisa full flow started. run_id=20260507-100001-60984 [2026-05-07 10:00:01 -0300] Report directory: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984 Lisa wrote 25 employee appereance files and report: /Us"
     },
     {
-      "time": "2026-05-07 10:14:28",
+      "time": "2026-05-07 10:20:59",
       "category": "log",
       "actor": "lisa - photographer",
       "title": "Run Full Flow",
       "path": "lisa - photographer/logs/run_full_flow.log",
       "snippet": "[2026-05-06 11:55:17 -0300] Lisa full flow started. run_id=20260506-115517-92032 [2026-05-06 11:55:18 -0300] Report directory: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260506-115517-92032 Lisa wrote 4 employee appereance files and report: /Use"
+    },
+    {
+      "time": "2026-05-07 10:20:59",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Run Full Flow",
+      "path": "lucas - web_developer/logs/run_full_flow.log",
+      "snippet": "[2026-05-06 16:58:27 -0300] Lucas web dashboard flow started. run_id=manual-lucas-smoke Lucas built local dashboard: /Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/index.html [2026-05-06 16:58:27 -0300] Lucas web dashboard flow finished. run_id=manual-"
+    },
+    {
+      "time": "2026-05-07 10:20:59",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard History Log",
+      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
+      "snippet": "Lucas web dashboard history --- timestamp=2026-05-06 16:58:27 -0300 run_id=manual-lucas-smoke site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=22 tables=8 events=260 emails=8 --- timestamp=2026-05-06 17:02:08 -0300 run_id=manual-lucas-fina"
+    },
+    {
+      "time": "2026-05-07 10:20:22",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Daemon",
+      "path": "lucas - web_developer/logs/live_observer_daemon.log",
+      "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
+    },
+    {
+      "time": "2026-05-07 10:20:22",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Summary",
+      "path": "lucas - web_developer/logs/live_observer_summary.md",
+      "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 10:20:22 -0300 - 2026-05-07 10:20:22 -0300 | success | lisa - photographer | lisa - photographer/logs/run_full_flow.log: APPLESCRIPT\" in /Users/federicobustosfierro/goldencrow automata | succeeded in 639ms: | redispatched to acc"
+    },
+    {
+      "time": "2026-05-07 10:20:22",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer State",
+      "path": "lucas - web_developer/logs/live_observer_state.json",
+      "snippet": "{ \"last_observed_at\": \"2026-05-07 10:20:22 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
+    },
+    {
+      "time": "2026-05-07 10:20:22",
+      "category": "log",
+      "actor": "lucas - web_developer",
+      "title": "Live Observer Feed",
+      "path": "lucas - web_developer/logs/live_observer_feed.tsv",
+      "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
+    },
+    {
+      "time": "2026-05-07 10:14:34",
+      "category": "report",
+      "actor": "lucas - web_developer",
+      "title": "Web Dashboard Build Report",
+      "path": "lucas - web_developer/reports/manual-lucas-botfarm-publish-20260507/web_dashboard_build_report.md",
+      "snippet": "# Lucas Web Dashboard Build Report run_id=manual-lucas-botfarm-publish-20260507 site=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site employees=25 tables=8 events=260 emails=19 data=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/si"
     },
     {
       "time": "2026-05-07 10:14:27",
@@ -3674,38 +3706,6 @@
       "title": "Resource Consumption Matrix",
       "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_consumption_matrix.tsv",
       "snippet": "rank_by_resource folder display_name role resource_index riley_score riley_value_score efficiency_score recent_file_count recent_bytes media_count heavy_signal_count problem_signal_count quadrant action evidence 1 lisa - photographer Lisa photographer 100 100 100 80 201 11798077 "
-    },
-    {
-      "time": "2026-05-07 10:10:22",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Daemon",
-      "path": "lucas - web_developer/logs/live_observer_daemon.log",
-      "snippet": "observed=3 feed=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/logs/live_observer_feed.tsv site_json=/Users/federicobustosfierro/goldencrow automata/lucas - web_developer/site/live_observer.json observed=5 feed=/Users/federicobustosfierro/goldencrow automat"
-    },
-    {
-      "time": "2026-05-07 10:10:22",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Summary",
-      "path": "lucas - web_developer/logs/live_observer_summary.md",
-      "snippet": "# Live Golden Crow Log Listener Updated: 2026-05-07 10:10:22 -0300 - 2026-05-07 10:10:22 -0300 | activity | rafael - resource_analyser | rafael - resource_analyser/reports/manual-rafael-disk-hygiene-sim-inventory-20260507/analytics_snapshot.txt: raw_visible_summary=Analytics capt"
-    },
-    {
-      "time": "2026-05-07 10:10:22",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer State",
-      "path": "lucas - web_developer/logs/live_observer_state.json",
-      "snippet": "{ \"last_observed_at\": \"2026-05-07 10:10:22 -0300\", \"files\": { \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/cron.log\": { \"mtime_ns\": 1778157472264926707, \"size\": 1939703 }, \"/Users/federicobustosfierro/goldencrow automata/Abby - coach/logs/run_full_flow.log\":"
-    },
-    {
-      "time": "2026-05-07 10:10:22",
-      "category": "log",
-      "actor": "lucas - web_developer",
-      "title": "Live Observer Feed",
-      "path": "lucas - web_developer/logs/live_observer_feed.tsv",
-      "snippet": "observed_at actor category status path summary 2026-05-06 18:42:48 -0300 paula - product_owner cron risk paula - product_owner/logs/cron.log puter-use/list_apps (failed) | mcp: computer-use/get_app_state started | mcp: computer-use/get_app_state (completed) | patch: completed 202"
     },
     {
       "time": "2026-05-07 10:10:02",
@@ -5546,14 +5546,6 @@
       "title": "Email Section",
       "path": "hugo - integration_analyst/reports/20260507-020001-15634/email_section.txt",
       "snippet": "Hugo - Integration Analyst Main process improvement: standardize handoff files. Paula should produce product context, Bruno should turn it into execution metrics, Mateo should turn it into lead research, and Emma should digest night reports. Highest-risk gap: the sales chain can "
-    },
-    {
-      "time": "2026-05-07 02:00:04",
-      "category": "report",
-      "actor": "hugo - integration_analyst",
-      "title": "Integration Process Report",
-      "path": "hugo - integration_analyst/reports/20260507-020001-15634/integration_process_report.md",
-      "snippet": "# Hugo Integration Process Report date=2026-05-07 run_id=20260507-020001-15634 ## What Employees Appeared To Do In The Last Day ### Abby - coach - recent_files=12 - success_signals=2 - problem_signals=8 - evidence: - Abby - coach/logs/coaching_history_log.txt - Abby - coach/logs/"
     }
   ],
   "emails": [

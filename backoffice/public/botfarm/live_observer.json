@@ -1,7 +1,199 @@
 {
-  "generated_at": "2026-05-07 10:10:22 -0300",
-  "new_observations": 32,
+  "generated_at": "2026-05-07 10:20:22 -0300",
+  "new_observations": 2,
   "observations": [
+    {
+      "observed_at": "2026-05-07 10:20:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "log",
+      "status": "success",
+      "path": "lisa - photographer/logs/run_full_flow.log",
+      "summary": "APPLESCRIPT\" in /Users/federicobustosfierro/goldencrow automata | succeeded in 639ms: | redispatched to accept=image/* files=1"
+    },
+    {
+      "observed_at": "2026-05-07 10:20:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "cron",
+      "status": "success",
+      "path": "lisa - photographer/logs/cron.log",
+      "summary": "APPLESCRIPT\" in /Users/federicobustosfierro/goldencrow automata | succeeded in 639ms: | redispatched to accept=image/* files=1"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "risk",
+      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_consumption_matrix.tsv",
+      "summary": "23 camila - crm_manager Camila crm_manager 59 100 100 88 33 29385 0 0 0 high_value_low_resource protect and reuse this workflow /Users/federicobustosfierro/goldencrow automata/camila - crm_manager/logs/crm_history_log.txt | /Users/federicobustosfierro/goldencr | 24 gala - product_growth_analyst Gala product_growth_analyst 45 100 100 91 9 8454 0 0 0 high_value_low_resource protect and reuse this workflow /Users/federicobustosfierro/goldencrow automata/gala - product_growth_analyst/growth/daily_growth_metrics.tsv | /Use | 25 max - accountant Max accountant 41 100 100 92 8 3959 0 0 0 high_value_l"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/disk_cleanup_report.tsv",
+      "summary": "codex_runtime /Users/federicobustosfierro/goldencrow automata/.codex-subprocess/generated_images 82255872 0 82255872 removed nested Codex runtime generated_images is disposable after the run artifacts are written | codex_runtime /Users/federicobustosfierro/goldencrow automata/sam - community_manager/.codex-subprocess/generated_images 6217728 0 6217728 removed nested Codex runtime generated_images is disposable after the run artifacts are written | python_cache /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/scripts/__pycache__ 36864 0 36864 removed __pycache__ is gen"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/disk_inventory.tsv",
+      "summary": "rafael - resource_analyser 634880 598016 -36864 584.0 KiB | riley - employee_reward_evaluator 593920 593920 0 580.0 KiB | clara - hr_manager 442368 442368 0 432.0 KiB"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/simulator_inventory.tsv",
+      "summary": "iOS-26-2 iPad Air 13-inch (M3) C395A4BD-DDFA-42FA-92E6-0D480E621A6D Shutdown True 18341888 17.5 MiB no kept | iOS-26-2 iPad Air 11-inch (M3) E7E3A64D-A967-4504-86A9-9AA81D76D868 Shutdown True 18341888 17.5 MiB no kept | iOS-16-2 iPhone SE (3rd generation) 7F0C18F9-6811-462A-B420-8355221EBB30 Shutdown True 2024-03-11T17:05:49Z 13819904 13.2 MiB no kept"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/bench/latest_improvement_bench.txt",
+      "summary": "efficiency_score=31 | reason=highest resource/value risk in Rafael's combined matrix | recommended_action=improvement_bench"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_analysis_report.md",
+      "summary": "- Camila (crm_manager): resource=59, value=100, efficiency=88, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Gala (product_growth_analyst): resource=45, value=100, efficiency=91, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Max (accountant): resource=41, value=100, efficiency=92, quadrant=high_value_low_resource, action=protect and reuse this workflow"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "risk",
+      "path": "rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/email_section.txt",
+      "summary": "Warning level: medium. official analytics capture was blocked or skipped, so visibility is insufficient | Employee resource attribution: local proxy from logs/reports/generated media plus Riley value scores unless ChatGPT analytics exposes per-employee detail."
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/latest_resource_analysis_report.md",
+      "summary": "- Camila (crm_manager): resource=59, value=100, efficiency=88, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Gala (product_growth_analyst): resource=45, value=100, efficiency=91, quadrant=high_value_low_resource, action=protect and reuse this workflow | - Max (accountant): resource=41, value=100, efficiency=92, quadrant=high_value_low_resource, action=protect and reuse this workflow"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/latest_disk_cleanup_report.tsv",
+      "summary": "codex_runtime /Users/federicobustosfierro/goldencrow automata/.codex-subprocess/generated_images 82255872 0 82255872 removed nested Codex runtime generated_images is disposable after the run artifacts are written | codex_runtime /Users/federicobustosfierro/goldencrow automata/sam - community_manager/.codex-subprocess/generated_images 6217728 0 6217728 removed nested Codex runtime generated_images is disposable after the run artifacts are written | python_cache /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/scripts/__pycache__ 36864 0 36864 removed __pycache__ is gen"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/latest_disk_inventory.tsv",
+      "summary": "rafael - resource_analyser 634880 598016 -36864 584.0 KiB | riley - employee_reward_evaluator 593920 593920 0 580.0 KiB | clara - hr_manager 442368 442368 0 432.0 KiB"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "activity",
+      "path": "rafael - resource_analyser/reports/latest_simulator_inventory.tsv",
+      "summary": "iOS-26-2 iPad Air 13-inch (M3) C395A4BD-DDFA-42FA-92E6-0D480E621A6D Shutdown True 18341888 17.5 MiB no kept | iOS-26-2 iPad Air 11-inch (M3) E7E3A64D-A967-4504-86A9-9AA81D76D868 Shutdown True 18341888 17.5 MiB no kept | iOS-16-2 iPhone SE (3rd generation) 7F0C18F9-6811-462A-B420-8355221EBB30 Shutdown True 2024-03-11T17:05:49Z 13819904 13.2 MiB no kept"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "risk",
+      "path": "rafael - resource_analyser/logs/resource_consumption_history_log.txt",
+      "summary": "warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient | warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient | warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "rafael - resource_analyser",
+      "category": "resource",
+      "status": "success",
+      "path": "rafael - resource_analyser/logs/run_full_flow.log",
+      "summary": "[2026-05-07 10:10:02 -0300] Rafael resource analyser flow started. run_id=manual-rafael-disk-hygiene-image-cache-final-20260507 | [2026-05-07 10:10:02 -0300] Skipping Codex analytics browser capture because RAFAEL_SKIP_ANALYTICS=1. | Rafael wrote resource analysis: /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-image-cache-final-20260507/resource_analysis_report.md | [2026-05-07 10:10:33 -0300] Rafael resource analyser flow finished. run_id=manual-rafael-disk-hygiene-image-cache-final-20260507"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "report",
+      "status": "success",
+      "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_manifest.txt",
+      "summary": "team_photo_created | created_at=2026-05-07T10:13:52-0300"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "report",
+      "status": "success",
+      "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_status.txt",
+      "summary": "team_photo_created"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "report",
+      "status": "success",
+      "path": "lisa - photographer/reports/20260507-100001-60984/employee_of_day_caption.txt",
+      "summary": "Motivo: 6 success signal types; recent work matches role; created downstream value/handoff"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "report",
+      "status": "success",
+      "path": "lisa - photographer/reports/20260507-100001-60984/employee_of_day_selection.txt",
+      "summary": "reason=6 success signal types; recent work matches role; created downstream value/handoff"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lucas - web_developer",
+      "category": "report",
+      "status": "success",
+      "path": "lucas - web_developer/reports/manual-lucas-botfarm-publish-20260507/web_dashboard_build_report.md",
+      "summary": "botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
+      "summary": "botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/run_full_flow.log",
+      "summary": "[2026-05-07 09:53:42 -0300] Lucas web dashboard flow started. run_id=manual-lucas-after-diana-cache-cleanup-20260507 | [2026-05-07 09:53:43 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-after-diana-cache-cleanup-20260507 | [2026-05-07 10:14:33 -0300] Lucas web dashboard flow started. run_id=manual-lucas-botfarm-publish-20260507 | [2026-05-07 10:14:34 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-botfarm-publish-20260507"
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "log",
+      "status": "risk",
+      "path": "lisa - photographer/logs/run_full_flow.log",
+      "summary": "- Contact exactly the approved person/company once. | - Block sending if the message is generic, confusing, duplicative, missing evidence, overlong for the channel, or mostly noise. | - Write a marker before exiting that states result=sent, result=skipped, result=blocked, or result=delivery_failed. | I’m opening WhatsApp Web in Safari now and will inspect the visible page state before attempting any send. If it is logged out or the chat cannot be found, I’ll stop and write the failure marker."
+    },
+    {
+      "observed_at": "2026-05-07 10:15:22 -0300",
+      "actor": "lisa - photographer",
+      "category": "cron",
+      "status": "risk",
+      "path": "lisa - photographer/logs/cron.log",
+      "summary": "- Contact exactly the approved person/company once. | - Block sending if the message is generic, confusing, duplicative, missing evidence, overlong for the channel, or mostly noise. | - Write a marker before exiting that states result=sent, result=skipped, result=blocked, or result=delivery_failed. | I’m opening WhatsApp Web in Safari now and will inspect the visible page state before attempting any send. If it is logged out or the chat cannot be found, I’ll stop and write the failure marker."
+    },
     {
       "observed_at": "2026-05-07 10:10:22 -0300",
       "actor": "rafael - resource_analyser",
@@ -449,198 +641,6 @@
       "status": "activity",
       "path": "lisa - photographer/logs/team_photo_history_log.txt",
       "summary": "appereance_file=/Users/federicobustosfierro/goldencrow automata/sam - community_manager/employee_appereance.txt | appereance_file=/Users/federicobustosfierro/goldencrow automata/sara - recruiter/employee_appereance.txt | appereance_file=/Users/federicobustosfierro/goldencrow automata/vera - innovation_analyst/employee_appereance.txt"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "activity",
-      "path": "lisa - photographer/reports/20260507-100001-60984/employee_portrait_generation_manifest.txt",
-      "summary": "File changed without readable text."
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "activity",
-      "path": "lisa - photographer/reports/20260507-100001-60984/missing_employee_portraits.tsv",
-      "summary": "display_name folder role portrait_path profile_path | Andy andy - code_keeper code_keeper /Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits/andy_-_code_keeper/portrait.jpg /Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits/andy_-_code_keeper | Diana diana - documentation_writer documentation_writer /Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits/diana_-_documentation_writer/portrait.jpg /Users/federicobustosfierro/goldencrow automata/lisa - photographer/employe"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "activity",
-      "path": "lisa - photographer/reports/20260507-100001-60984/missing_employee_portraits_batch_1.tsv",
-      "summary": "display_name folder role portrait_path profile_path | Andy andy - code_keeper code_keeper /Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits/andy_-_code_keeper/portrait.jpg /Users/federicobustosfierro/goldencrow automata/lisa - photographer/employee_portraits/andy_-_code_keeper"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "log",
-      "status": "activity",
-      "path": "lisa - photographer/logs/run_full_flow.log",
-      "summary": "Input images: <Image 1: role; Image 2: role> (optional) | Scene/backdrop: <environment> | Subject: <main subject>"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "cron",
-      "status": "activity",
-      "path": "lisa - photographer/logs/cron.log",
-      "summary": "Input images: <Image 1: role; Image 2: role> (optional) | Scene/backdrop: <environment> | Subject: <main subject>"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "diana - documentation_writer",
-      "category": "log",
-      "status": "success",
-      "path": "diana - documentation_writer/logs/run_full_flow.log",
-      "summary": "Created/updated `Golden Crow Operating Wiki` in the Golden Crow Sales Team Docs area with the operating snapshot, navigation, daily log, issue tracking, sales reporting, campaign/creative section, decisions, runbook, metrics, and tomorrow checklist. | Wrote the success marker at: | [2026-05-07 09:51:58 -0300] Notion workspace update result=updated run_id=manual-diana-notion-initial-20260507 | [2026-05-07 09:51:58 -0300] Diana documentation writer flow finished. run_id=manual-diana-notion-initial-20260507 result=updated"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "company_database",
-      "category": "database",
-      "status": "success",
-      "path": "company_database/employees.tsv",
-      "summary": "nora - designer Nora designer Role note from Jeff Employee: Nora Role: designer Your daily responsibility: Review Sam's latest three generated ad images through ChatGPT, write compact design-AI directives, and hand them to Sam for the next creative run. What J | sam - community_manager Sam community_manager Role note from Jeff Employee: Sam Role: community_manager Your daily responsibility: Create fresh Golden Crow Meta ads, ask for approval through WhatsApp, publish when approved, and leave clear logs/markers. Non-ne"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "company_database",
-      "category": "database",
-      "status": "success",
-      "path": "company_database/stakeholder_decisions.tsv",
-      "summary": "decision_id date source_employee channel stakeholder decision_type status decision_text applies_to proof_file next_action last_updated"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "company_database",
-      "category": "database",
-      "status": "success",
-      "path": "company_database/client_pipeline.tsv",
-      "summary": "ee0b2fa0a5b2 Genesia Prenatal and NIPT mateo_sales_navigator mateo - sales_navigator qualified_lead Search LinkedIn Sales Navigator for Francisca Echeverria at Genesia; verify role, capture profile URL, and prepare a personalized non-sent opener. not_requested | f1e06b36b53c Gentrix Prenatal and NIPT mateo_sales_navigator mateo - sales_navigator qualified_lead Search LinkedIn Sales Navigator for Analia Silva at Gentrix; verify role, capture profile URL, and prepare a personalized non-sent opener. not_requested none no | f6a13043fa78 Genesia Prenatal and NIPT mateo_sales_navigator mateo - sales"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "company_database",
-      "category": "database",
-      "status": "success",
-      "path": "company_database/resource_usage.tsv",
-      "summary": "2026-05-06 manual-camila-after-emma-whatsapp-summary medium unknown unknown unknown see_rafael_matrix Sam /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/latest_resource_analysis_report.md Synced from Rafael latest resource a | 2026-05-06 manual-camila-after-andy-code-keeper medium unknown unknown unknown see_rafael_matrix Sam /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/latest_resource_analysis_report.md Synced from Rafael latest resource analys | 2026-05-07 20260507-071500-24708 low unknown unknown unknown see_rafael_ma"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "cron",
-      "status": "activity",
-      "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_map.tsv",
-      "summary": "mia - engagement_manager 0 21 * * * True macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/federicobustosfierro/goldencrow automata/mia - engageme | andy - code_keeper 15 0 * * * True macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/federicobustosfierro/goldencrow automata/andy - code_keeper\"\" | diana - documentation_writer 30 1 * * * True macos_crontab \"/bin/zsh -lc '"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "cron",
-      "status": "activity",
-      "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/goldencrow_cron_map.tsv",
-      "summary": "mia - engagement_manager 0 21 macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/federicobustosfierro/goldencrow automata/mia - engagement_manager\" | andy - code_keeper 15 0 macos_crontab \"/bin/zsh -lc 'export PATH=\"\"/opt/homebrew/bin:/usr/local/bin:/Applications/Codex.app/Contents/Resources:/usr/bin:/bin:/usr/sbin:/sbin\"\"; cd \"\"/Users/federicobustosfierro/goldencrow automata/andy - code_keeper\"\" && \"\"/User | diana - documentation_writer 30 1 macos_crontab \"/bin/zsh -lc 'export PATH"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "company_database",
-      "category": "database",
-      "status": "success",
-      "path": "company_database/daily_business_metrics.tsv",
-      "summary": "date new_qualified_leads stakeholder_approved_outreach outreach_sent replies_received meetings_booked proposals_sent clients_closed revenue_generated_usd meta_spend_usd campaign_ctr_avg cost_per_lead_avg resource_warning improvement_bench source_files notes"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "report",
-      "status": "activity",
-      "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/employee_inventory.tsv",
-      "summary": "sam - community_manager Sam community_manager yes yes 1 0 22 * * * (macos_crontab) /Users/federicobustosfierro/goldencrow automata/sam - community_manager | sara - recruiter Sara recruiter yes yes 1 0 12 * * * (macos_crontab) /Users/federicobustosfierro/goldencrow automata/sara - recruiter | vera - innovation_analyst Vera innovation_analyst yes yes 1 0 1 * * * (macos_crontab) /Users/federicobustosfierro/goldencrow automata/vera - innovation_analyst"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "company_database",
-      "category": "database",
-      "status": "risk",
-      "path": "company_database/tickets.tsv",
-      "summary": "ticket_id date owner_employee title status priority business_metric source external_link proof_file next_action last_updated | 20032c34a696 2026-05-07 bruno - business_strategist Move stakeholder-approved outreach from draft to sent open high outreach_sent company_database/client_pipeline.tsv company_database/client_pipeline.tsv Get stakeholder approval or explicitly mark why outreach | 4c098c767b09 2026-05-06 bruno - business_strategist Move stakeholder-approved outreach from draft to sent open high outreach_sent company_database/client_pipeline.tsv company_database/client_pipeline.tsv Get st"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "camila - crm_manager",
-      "category": "database",
-      "status": "success",
-      "path": "camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/company_database_sync_report.md",
-      "summary": "outreach_sent=0 | proposals_sent=0 | revenue_generated_usd=0.00"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "cron",
-      "status": "activity",
-      "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_conflicts.tsv",
-      "summary": "hour minute owners count"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "camila - crm_manager",
-      "category": "report",
-      "status": "success",
-      "path": "camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/email_section.txt",
-      "summary": "Shared database synced: employees=25, pipeline_rows=65. | Business metrics today: qualified_leads=26, approved_outreach=0, outreach_sent=0, replies=0, meetings=0, proposals=0, clients_closed=0, revenue_usd=0.00."
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "cron",
-      "status": "activity",
-      "path": "geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_orchestration_report.md",
-      "summary": "- geoff assessment: conflicting | ## Cron Change Rule | Future cron installation requires a direct WhatsApp availability message to Federico Bustos Fierro and Geoff schedule review before installation."
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "cron",
-      "status": "activity",
-      "path": "geoff - orchestrator/logs/cron_orchestration_history_log.txt",
-      "summary": "sara_proposal=/Users/federicobustosfierro/goldencrow automata/sara - recruiter/reports/20260506-121100-92894/proposal.env | sara_proposed_time=12:00 | sara_proposed_status=conflicting"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "cron",
-      "status": "activity",
-      "path": "geoff - orchestrator/reports/latest_cron_orchestration_report.md",
-      "summary": "- geoff assessment: conflicting | ## Cron Change Rule | Future cron installation requires a direct WhatsApp availability message to Federico Bustos Fierro and Geoff schedule review before installation."
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "camila - crm_manager",
-      "category": "log",
-      "status": "activity",
-      "path": "camila - crm_manager/logs/crm_history_log.txt",
-      "summary": "run_id=manual-camila-after-diana-documentation-writer-20260507 | report=/Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/company_database_sync_report.md | email_section=/Users/federicobustosfierro/goldencrow automata/camila - crm_manager/reports/manual-camila-after-diana-documentation-writer-20260507/email_section.txt"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "geoff - orchestrator",
-      "category": "log",
-      "status": "success",
-      "path": "geoff - orchestrator/logs/run_full_flow.log",
-      "summary": "[2026-05-06 22:27:04 -0300] Geoff cron orchestration finished. run_id=manual-geoff-after-andy-code-keeper | [2026-05-07 09:52:09 -0300] Geoff cron orchestration started. run_id=manual-geoff-after-diana-documentation-writer-20260507 | Geoff wrote cron report: /Users/federicobustosfierro/goldencrow automata/geoff - orchestrator/reports/manual-geoff-after-diana-documentation-writer-20260507/cron_orchestration_report.md | [2026-05-07 09:52:09 -0300] Geoff cron orchestration finished. run_id=manual-geoff-after-diana-documentation-writer-20260507"
-    },
-    {
-      "observed_at": "2026-05-07 09:55:16 -0300",
-      "actor": "camila - crm_manager",
-      "category": "log",
-      "status": "success",
-      "path": "camila - crm_manager/logs/run_full_flow.log",
-      "summary": "[2026-05-07 07:15:00 -0300] Camila CRM flow finished. run_id=20260507-071500-24708 | [2026-05-07 09:52:09 -0300] Camila CRM flow started. run_id=manual-camila-after-diana-documentation-writer-20260507 | Company database synced: /Users/federicobustosfierro/goldencrow automata/company_database | [2026-05-07 09:52:09 -0300] Camila CRM flow finished. run_id=manual-camila-after-diana-documentation-writer-20260507"
     }
   ]
 }
