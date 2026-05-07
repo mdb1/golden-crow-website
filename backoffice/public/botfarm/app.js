@@ -44,6 +44,18 @@ function metricCard(label, value, cls = "") {
   return `<div class="card metric ${cls}"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`;
 }
 
+function adsArtifactCard(key, label) {
+  const artifact = state.data.ads_shared?.latest?.[key] || {};
+  const ok = artifact.exists === "yes";
+  return `
+    <article class="card">
+      <div class="section-title"><h3>${esc(label)}</h3><span class="badge ${ok ? "good" : "bad"}">${ok ? "ready" : "missing"}</span></div>
+      <p class="eyebrow">${esc(artifact.path || "ads_shared")}</p>
+      <p>${esc(artifact.summary || "No artifact found.")}</p>
+    </article>
+  `;
+}
+
 function renderOverview() {
   const m = state.data.metrics;
   title.textContent = "Overview";
@@ -73,6 +85,14 @@ function renderOverview() {
         ${ticketList(state.data.tables.tickets?.rows?.slice(0, 5) || [])}
       </section>
     </div>
+    <section>
+      <div class="section-title"><h3>Ads Daily Cycle</h3><button class="tool-button" onclick="setView('ads')">Open ads cycle</button></div>
+      <div class="grid employee-grid">
+        ${adsArtifactCard("text_content", "Olivia Text")}
+        ${adsArtifactCard("visual_design_directives", "Nora Design")}
+        ${adsArtifactCard("final_ad_output", "Sam Final Output")}
+      </div>
+    </section>
     <section>
       <div class="section-title"><h3>Live Listener</h3><button class="tool-button" onclick="setView('listener')">Open feed</button></div>
       ${listenerList(5)}
@@ -171,6 +191,38 @@ function renderDatabase() {
   content.innerHTML = `<div class="tabs">${tableTabs()}</div>${renderTable(state.activeTable)}`;
 }
 
+function renderAdsCycle() {
+  title.textContent = "Ads Cycle";
+  const ads = state.data.ads_shared || {};
+  const rows = (ads.cycle_index || []).filter(row => matches(Object.values(row).join(" "))).slice().reverse();
+  const recent = (ads.recent_files || []).filter(row => matches(`${row.stage} ${row.path} ${row.summary}`));
+  content.innerHTML = `
+    <div class="grid employee-grid">
+      ${adsArtifactCard("text_content", "Olivia Text Content")}
+      ${adsArtifactCard("visual_design_directives", "Nora DESIGN_AI_DIRECTIVES")}
+      ${adsArtifactCard("final_ad_output", "Sam Final Ad Output")}
+    </div>
+    <section class="card">
+      <div class="section-title"><h3>Cycle Index</h3><span class="badge">${esc(ads.root || "ads_shared")}</span></div>
+      ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Run</th><th>Stage</th><th>Owner</th><th>Status</th><th>Next action</th><th>Artifact</th></tr></thead><tbody>${rows.map(row => `<tr><td>${esc(row.date)}</td><td>${esc(row.run_id)}</td><td>${esc(row.stage)}</td><td>${esc(row.owner)}</td><td>${esc(row.status)}</td><td>${esc(row.next_action)}</td><td>${esc(row.primary_artifact)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No ads_shared cycle rows yet.</div>`}
+    </section>
+    <section class="card">
+      <div class="section-title"><h3>Latest Canonical Files</h3><span class="badge">read-only</span></div>
+      <div class="split">
+        <pre class="code-box">${esc(ads.latest?.text_content?.body || "Missing Olivia text content.")}</pre>
+        <pre class="code-box">${esc(ads.latest?.visual_design_directives?.body || "Missing Nora design directives.")}</pre>
+      </div>
+      <pre class="code-box">${esc(ads.latest?.final_ad_output?.body || "Missing Sam final ad output.")}</pre>
+    </section>
+    <section>
+      <div class="section-title"><h3>Recent Ads Shared Files</h3></div>
+      <div class="timeline">
+        ${recent.map(row => `<article class="event"><div><div class="time">${esc(row.time)}</div><div class="category">${esc(row.stage)}</div></div><div class="actor">ads_shared</div><div><h4>${esc(row.path)}</h4><p>${esc(row.summary)}</p></div></article>`).join("") || `<div class="empty">No recent ads_shared files.</div>`}
+      </div>
+    </section>
+  `;
+}
+
 function eventFilters() {
   const cats = ["all", ...new Set(state.data.events.map(event => event.category))].sort();
   return cats.map(cat => `<button class="${state.eventCategory === cat ? "active" : ""}" onclick="state.eventCategory='${cat}'; renderEvents();">${esc(cat)}</button>`).join("");
@@ -263,6 +315,7 @@ function render() {
     overview: renderOverview,
     employees: renderEmployees,
     database: renderDatabase,
+    ads: renderAdsCycle,
     events: renderEvents,
     listener: renderListener,
     emails: renderEmails,

@@ -1,7 +1,71 @@
 {
-  "generated_at": "2026-05-07 10:20:22 -0300",
-  "new_observations": 2,
+  "generated_at": "2026-05-07 10:40:24 -0300",
+  "new_observations": 0,
   "observations": [
+    {
+      "observed_at": "2026-05-07 10:30:23 -0300",
+      "actor": "lisa - photographer",
+      "category": "log",
+      "status": "risk",
+      "path": "lisa - photographer/logs/run_full_flow.log",
+      "summary": "+whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent | I did not send a second message. I wrote the required failure marker at [whatsapp_employee_of_day_20260507-100001-60984_failed.txt](/Users/federicobustosfierro/goldencrow%20automata/lisa%20-%20photographer/reports/20260507-100001-60984/whatsapp_employee_of_day | [2026-05-07 10:25:32 -0300] WhatsApp employee-of-day send failed. Marker: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984"
+    },
+    {
+      "observed_at": "2026-05-07 10:30:23 -0300",
+      "actor": "lisa - photographer",
+      "category": "cron",
+      "status": "risk",
+      "path": "lisa - photographer/logs/cron.log",
+      "summary": "+whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent | I did not send a second message. I wrote the required failure marker at [whatsapp_employee_of_day_20260507-100001-60984_failed.txt](/Users/federicobustosfierro/goldencrow%20automata/lisa%20-%20photographer/reports/20260507-100001-60984/whatsapp_employee_of_day | [2026-05-07 10:25:32 -0300] WhatsApp employee-of-day send failed. Marker: /Users/federicobustosfierro/goldencrow automata/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984"
+    },
+    {
+      "observed_at": "2026-05-07 10:25:23 -0300",
+      "actor": "lucas - web_developer",
+      "category": "report",
+      "status": "success",
+      "path": "lucas - web_developer/reports/manual-lucas-botfarm-base-path-fix-20260507/web_dashboard_build_report.md",
+      "summary": "botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 10:25:23 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/web_dashboard_history_log.txt",
+      "summary": "botfarm_sync_status=synced | botfarm_sync_status=synced"
+    },
+    {
+      "observed_at": "2026-05-07 10:25:23 -0300",
+      "actor": "lucas - web_developer",
+      "category": "log",
+      "status": "success",
+      "path": "lucas - web_developer/logs/run_full_flow.log",
+      "summary": "[2026-05-07 10:14:33 -0300] Lucas web dashboard flow started. run_id=manual-lucas-botfarm-publish-20260507 | [2026-05-07 10:14:34 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-botfarm-publish-20260507 | [2026-05-07 10:20:59 -0300] Lucas web dashboard flow started. run_id=manual-lucas-botfarm-base-path-fix-20260507 | [2026-05-07 10:21:00 -0300] Lucas web dashboard flow finished. run_id=manual-lucas-botfarm-base-path-fix-20260507"
+    },
+    {
+      "observed_at": "2026-05-07 10:25:23 -0300",
+      "actor": "lisa - photographer",
+      "category": "report",
+      "status": "risk",
+      "path": "lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt",
+      "summary": "whatsapp_employee_of_day_failed | reason=required combined image and caption media message was not visible as sent"
+    },
+    {
+      "observed_at": "2026-05-07 10:25:23 -0300",
+      "actor": "lisa - photographer",
+      "category": "log",
+      "status": "risk",
+      "path": "lisa - photographer/logs/run_full_flow.log",
+      "summary": "diff --git a/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +++ b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent"
+    },
+    {
+      "observed_at": "2026-05-07 10:25:23 -0300",
+      "actor": "lisa - photographer",
+      "category": "cron",
+      "status": "risk",
+      "path": "lisa - photographer/logs/cron.log",
+      "summary": "diff --git a/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +++ b/lisa - photographer/reports/20260507-100001-60984/whatsapp_employee_of_day_20260507-100001-60984_failed.txt | +whatsapp_employee_of_day_failed | +reason=required combined image and caption media message was not visible as sent"
+    },
     {
       "observed_at": "2026-05-07 10:20:22 -0300",
       "actor": "lisa - photographer",
@@ -577,70 +641,6 @@
       "status": "activity",
       "path": "rafael - resource_analyser/reports/latest_disk_cleanup_report.tsv",
       "summary": "python_cache /Users/federicobustosfierro/goldencrow automata/diana - documentation_writer/scripts/__pycache__ 16384 0 16384 removed __pycache__ is generated interpreter/test cache | python_cache /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/scripts/__pycache__ 32768 0 32768 removed __pycache__ is generated interpreter/test cache | python_cache /Users/federicobustosfierro/goldencrow automata/jeff - project_manager/scripts/__pycache__ 32768 0 32768 removed __pycache__ is generated interpreter/test cache | python_cache /Users/federicobustosfierro/goldencrow automata/e"
-    },
-    {
-      "observed_at": "2026-05-07 10:05:18 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "activity",
-      "path": "rafael - resource_analyser/reports/latest_disk_inventory.tsv",
-      "summary": "riley - employee_reward_evaluator 602112 593920 -8192 580.0 KiB | clara - hr_manager 450560 442368 -8192 432.0 KiB | olivia - content_writer 438272 430080 -8192 420.0 KiB"
-    },
-    {
-      "observed_at": "2026-05-07 10:05:18 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "risk",
-      "path": "rafael - resource_analyser/logs/resource_consumption_history_log.txt",
-      "summary": "warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient | warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient | analytics_result=completed | warning_reason=official analytics capture was blocked or skipped, so visibility is insufficient"
-    },
-    {
-      "observed_at": "2026-05-07 10:05:18 -0300",
-      "actor": "rafael - resource_analyser",
-      "category": "resource",
-      "status": "success",
-      "path": "rafael - resource_analyser/logs/run_full_flow.log",
-      "summary": "[2026-05-07 10:03:49 -0300] Rafael resource analyser flow started. run_id=manual-rafael-disk-hygiene-20260507 | [2026-05-07 10:03:50 -0300] Skipping Codex analytics browser capture because RAFAEL_SKIP_ANALYTICS=1. | Rafael wrote resource analysis: /Users/federicobustosfierro/goldencrow automata/rafael - resource_analyser/reports/manual-rafael-disk-hygiene-20260507/resource_analysis_report.md | [2026-05-07 10:04:13 -0300] Rafael resource analyser flow finished. run_id=manual-rafael-disk-hygiene-20260507"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "success",
-      "path": "lisa - photographer/reports/20260507-100001-60984/team_roster.tsv",
-      "summary": "Sam sam - community_manager community_manager Cartoon avatar of a Latino creative director, tan skin, dark curly hair, expressive eyebrows, athletic build, fast hand gestures, bright gold hoop earring, unmistakably energetic silhouette. Social, persuasive, fas | Sara sara - recruiter recruiter Cartoon avatar of a South Asian recruiter, brown skin, long dark braid, round glasses, confident posture, friendly but sharp expression, animated people-person energy. Perceptive, diplomatic, structured, decisive, protective of  | Vera vera - innovation_analyst innovation_analyst Cartoon avatar of an Eas"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "success",
-      "path": "lisa - photographer/reports/20260507-100001-60984/employee_appereance_report.md",
-      "summary": "- role: Creates ads, asks for approval over WhatsApp, and publishes approved Meta campaigns. | - role: Evaluates company gaps, proposes one new employee, asks stakeholders for approval, and hires only when approved."
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "activity",
-      "path": "lisa - photographer/reports/20260507-100001-60984/team_photo_prompt.txt",
-      "summary": "- Vera, innovation_analyst: Cartoon avatar of an Eastern European innovation analyst with fair skin, silver pixie cut, curious gray eyes, tall lean silhouette, and a thoughtful chin-tap pose. Personality cues: Curious, skeptical, tool-aware, practical, allergi | Composition: | All team members visible together in one playful illustrated studio scene, natural spacing, no one cropped out, no duplicate people, no extra unnamed people. Use subtle black and gold Golden Crow atmosphere without relying on readable logos. Prioritize a diver"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "report",
-      "status": "activity",
-      "path": "lisa - photographer/reports/20260507-100001-60984/whatsapp_caption.txt",
-      "summary": "- Sam: community_manager | - Sara: recruiter | - Vera: innovation_analyst"
-    },
-    {
-      "observed_at": "2026-05-07 10:00:17 -0300",
-      "actor": "lisa - photographer",
-      "category": "log",
-      "status": "activity",
-      "path": "lisa - photographer/logs/team_photo_history_log.txt",
-      "summary": "appereance_file=/Users/federicobustosfierro/goldencrow automata/sam - community_manager/employee_appereance.txt | appereance_file=/Users/federicobustosfierro/goldencrow automata/sara - recruiter/employee_appereance.txt | appereance_file=/Users/federicobustosfierro/goldencrow automata/vera - innovation_analyst/employee_appereance.txt"
     }
   ]
 }
