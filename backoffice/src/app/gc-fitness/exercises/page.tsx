@@ -1,0 +1,43 @@
+// page.tsx — `/gc-fitness/exercises` list view (Server Component shell)
+//
+// Auth gate runs on the server BEFORE any client component mounts. Failure
+// modes:
+//   - missing/invalid cookie → redirect to `/gc-fitness/login`
+//   - allowlist denial → redirect to `/gc-fitness/forbidden`
+//   - misconfigured env vars → thrown error surfaces a Next.js 500 (the
+//     existing proxy.ts already prevents this on Vercel; local-dev without
+//     a service-account JSON throws here on purpose — operator sees a clear
+//     message, BLOCKERS item 7 deferral path)
+//
+// Once the trainer is verified, render `<ExerciseLibraryClient />` inside the
+// route group's local QueryClientProvider.
+
+import { redirect } from "next/navigation";
+
+import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { ExerciseLibraryClient } from "./client";
+import { ExerciseQueryProvider } from "./providers";
+
+export const dynamic = "force-dynamic";
+
+export default async function ExercisesPage() {
+  try {
+    await getCurrentTrainer();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Forbidden";
+    if (message === "Forbidden") {
+      redirect("/gc-fitness/login");
+    }
+    // Anything else (e.g. server misconfigured — missing env vars) is a
+    // real deployment bug; let Next.js render its error boundary.
+    throw err;
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+      <ExerciseQueryProvider>
+        <ExerciseLibraryClient />
+      </ExerciseQueryProvider>
+    </div>
+  );
+}
