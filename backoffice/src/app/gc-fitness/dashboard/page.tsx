@@ -66,7 +66,15 @@ export default async function GCFitnessDashboardPage() {
   const { decodedToken } = tokens;
   const displayName =
     decodedToken.name ?? decodedToken.email ?? "Trainer";
-  const role = (decodedToken as { role?: string }).role ?? "trainer";
+  // WR-05 fix (P02-REVIEW-FIX): verify the role custom claim explicitly. The
+  // previous default-to-"trainer" hid the case where a cookie was minted for
+  // a non-trainer user — they would see themselves as a trainer on the
+  // dashboard. Allowlist + role custom claim should agree; this is
+  // defense-in-depth (and a real check, not a default).
+  const role = (decodedToken as { role?: string }).role;
+  if (role !== "trainer") {
+    redirect("/gc-fitness/forbidden");
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-6">
