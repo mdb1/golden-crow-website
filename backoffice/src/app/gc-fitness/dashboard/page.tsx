@@ -24,17 +24,38 @@ export const dynamic = "force-dynamic";
 // The full GC Fitness dashboard (client roster, workout assignment,
 // chat) lands in Phase 11.
 export default async function GCFitnessDashboardPage() {
+  // CR-06 fix (P02-REVIEW-FIX): replace `process.env.X!` non-null assertions
+  // with explicit checks so a missing env var fails loudly rather than
+  // silently passing `undefined` into next-firebase-auth-edge.
+  const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
+  const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKeyB64 = process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY;
+  if (
+    !apiKey ||
+    !cookieSignatureKey ||
+    !projectId ||
+    !clientEmail ||
+    !privateKeyB64
+  ) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[gc-fitness/dashboard] server misconfigured — at least one required env var is unset.",
+    );
+    throw new Error(
+      "GC Fitness backoffice is misconfigured. Required env vars missing.",
+    );
+  }
+
   const tokens = await getTokens(await cookies(), {
-    apiKey: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY!,
+    apiKey,
     cookieName: "GcFitnessAuthToken",
-    cookieSignatureKeys: [process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY!],
+    cookieSignatureKeys: [cookieSignatureKey],
     serviceAccount: {
-      projectId: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID!,
-      clientEmail: process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL!,
-      privateKey: Buffer.from(
-        process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY!,
-        "base64",
-      ).toString("utf8"),
+      projectId,
+      clientEmail,
+      privateKey: Buffer.from(privateKeyB64, "base64").toString("utf8"),
     },
   });
 

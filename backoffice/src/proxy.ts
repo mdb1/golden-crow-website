@@ -70,6 +70,12 @@ export default async function proxy(request: NextRequest) {
     const clientEmail = process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL;
     const privateKeyB64 = process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY;
 
+    // CR-06 fix (P02-REVIEW-FIX): on missing env, return a hard 500 rather
+    // than silently redirecting to /gc-fitness/login. The previous redirect
+    // produced an infinite loop (login route runs without env check too,
+    // mints a cookie that the middleware then rejects, redirects to login,
+    // repeat) with no visible error to the trainer. A 500 + an explicit
+    // server log is loud enough to be diagnosed from Vercel logs.
     if (
       !cookieSignatureKey ||
       !apiKey ||
@@ -77,10 +83,21 @@ export default async function proxy(request: NextRequest) {
       !clientEmail ||
       !privateKeyB64
     ) {
-      // Misconfigured env in this environment → fail closed by redirecting
-      // to the login page. Logs (Vercel) surface the missing-env reason via
-      // the route handler's 500 if a request makes it that far.
-      return NextResponse.redirect(new URL("/gc-fitness/login", request.url));
+      const missing: string[] = [];
+      if (!cookieSignatureKey) missing.push("GC_FITNESS_COOKIE_SIGNATURE_KEY");
+      if (!apiKey) missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY");
+      if (!projectId) missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID");
+      if (!clientEmail) missing.push("GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL");
+      if (!privateKeyB64) missing.push("GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY");
+      // eslint-disable-next-line no-console
+      console.error(
+        "[gc-fitness/proxy] server misconfigured — missing env vars:",
+        missing.join(", "),
+      );
+      return new NextResponse(
+        "GC Fitness backoffice is misconfigured. Contact your administrator.",
+        { status: 500 },
+      );
     }
 
     return authMiddleware(request, {

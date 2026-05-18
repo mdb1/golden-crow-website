@@ -40,7 +40,55 @@ function parseAllowlist(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+// CR-06 fix (P02-REVIEW-FIX): explicit env-var guard. The previous code used
+// `process.env.X!` non-null assertions at five call sites — if any env var
+// was missing, the assertion would silently produce `undefined` and the
+// downstream library could sign cookies with an undefined key, producing
+// cookies that the middleware later fails to verify. Validate at the top of
+// the handler and return 500 with a clear log so misconfiguration is loud,
+// not silent.
+function readRequiredEnv(): {
+  apiKey: string;
+  cookieSignatureKey: string;
+  projectId: string;
+  clientEmail: string;
+  privateKeyB64: string;
+} | { error: string } {
+  const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
+  const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKeyB64 = process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY;
+  const missing: string[] = [];
+  if (!apiKey) missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY");
+  if (!cookieSignatureKey) missing.push("GC_FITNESS_COOKIE_SIGNATURE_KEY");
+  if (!projectId) missing.push("NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID");
+  if (!clientEmail) missing.push("GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL");
+  if (!privateKeyB64) missing.push("GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY");
+  if (missing.length > 0) {
+    return { error: `Missing required env vars: ${missing.join(", ")}` };
+  }
+  // Narrowed: every value is non-empty string here.
+  return {
+    apiKey: apiKey as string,
+    cookieSignatureKey: cookieSignatureKey as string,
+    projectId: projectId as string,
+    clientEmail: clientEmail as string,
+    privateKeyB64: privateKeyB64 as string,
+  };
+}
+
 export async function POST(request: Request) {
+  const env = readRequiredEnv();
+  if ("error" in env) {
+    // eslint-disable-next-line no-console
+    console.error("[gc-fitness/login] server misconfigured:", env.error);
+    return NextResponse.json(
+      { error: "Server misconfigured" },
+      { status: 500 },
+    );
+  }
+
   const allowlist = parseAllowlist(process.env.GC_FITNESS_TEAM_ALLOWLIST);
 
   const authHeader = request.headers.get("authorization") ?? "";
@@ -63,9 +111,9 @@ export async function POST(request: Request) {
     }
 
     return setAuthCookies(request.headers, {
-      apiKey: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY!,
+      apiKey: env.apiKey,
       cookieName: "GcFitnessAuthToken",
-      cookieSignatureKeys: [process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY!],
+      cookieSignatureKeys: [env.cookieSignatureKey],
       cookieSerializeOptions: {
         path: "/",
         httpOnly: true,
@@ -74,12 +122,9 @@ export async function POST(request: Request) {
         maxAge: 12 * 60 * 60 * 24,
       },
       serviceAccount: {
-        projectId: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID!,
-        clientEmail: process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL!,
-        privateKey: Buffer.from(
-          process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY!,
-          "base64",
-        ).toString("utf8"),
+        projectId: env.projectId,
+        clientEmail: env.clientEmail,
+        privateKey: Buffer.from(env.privateKeyB64, "base64").toString("utf8"),
       },
     });
   } catch {
