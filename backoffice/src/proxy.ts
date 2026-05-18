@@ -120,7 +120,14 @@ export default async function proxy(request: NextRequest) {
       },
       handleValidToken: async ({ decodedToken }, headers) => {
         const email = decodedToken.email?.toLowerCase();
-        if (!email || !allowlist.includes(email)) {
+        // WR-07 fix (P02-REVIEW-FIX): require role == "trainer" alongside
+        // the allowlist check. The allowlist and the role custom claim are
+        // the same source-of-truth in onBeforeUserCreated, but this is
+        // defense-in-depth: if a cookie was minted for a non-trainer user
+        // (provisioning bug, allowlist drift), the middleware now denies
+        // dashboard access. Pairs with WR-05 (dashboard page also checks).
+        const role = (decodedToken as { role?: string }).role;
+        if (!email || !allowlist.includes(email) || role !== "trainer") {
           return NextResponse.redirect(
             new URL("/gc-fitness/forbidden", request.url),
           );
