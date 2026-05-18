@@ -16,7 +16,7 @@
 
 import "@testing-library/jest-dom";
 
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
@@ -37,20 +37,26 @@ jest.mock("next/navigation", () => ({
 // '@/lib/gc-fitness/exercise-server-actions'`. With `"use server"` in the
 // real file, Next.js wraps them in a `serverAction` proxy at build time;
 // under Jest we bypass that and substitute plain async mocks.
-const mockCreateExercise = jest.fn(async () => ({ id: "custom-test-1" }));
-const mockUpdateExercise = jest.fn(async () => ({ ok: true as const }));
-const mockSoftDeleteExercise = jest.fn(async () => ({ ok: true as const }));
-const mockDuplicateExercise = jest.fn(async () => ({ id: "custom-dup-1" }));
-const mockMintUploadUrl = jest.fn(async () => ({
-  url: "https://storage.example.test/signed?token=abc",
-  gsPath: "gs://gcfitness-3476b.firebasestorage.app/exercises/custom-test-1.mp4",
-}));
+const mockCreateExercise = jest.fn<Promise<{ id: string }>, [unknown]>();
+const mockUpdateExercise = jest.fn<Promise<{ ok: true }>, [string, unknown]>();
+const mockSoftDeleteExercise = jest.fn<Promise<{ ok: true }>, [string]>();
+const mockDuplicateExercise = jest.fn<Promise<{ id: string }>, [string]>();
+const mockMintUploadUrl =
+  jest.fn<
+    Promise<{ url: string; gsPath: string }>,
+    [{ exerciseId: string; contentLength: number }]
+  >();
+
 jest.mock("@/lib/gc-fitness/exercise-server-actions", () => ({
-  createExercise: (...args: unknown[]) => mockCreateExercise(...args),
-  updateExercise: (...args: unknown[]) => mockUpdateExercise(...args),
-  softDeleteExercise: (...args: unknown[]) => mockSoftDeleteExercise(...args),
-  duplicateExercise: (...args: unknown[]) => mockDuplicateExercise(...args),
-  mintExerciseMediaUploadUrl: (...args: unknown[]) => mockMintUploadUrl(...args),
+  createExercise: (input: unknown) => mockCreateExercise(input),
+  updateExercise: (id: string, input: unknown) =>
+    mockUpdateExercise(id, input),
+  softDeleteExercise: (id: string) => mockSoftDeleteExercise(id),
+  duplicateExercise: (id: string) => mockDuplicateExercise(id),
+  mintExerciseMediaUploadUrl: (input: {
+    exerciseId: string;
+    contentLength: number;
+  }) => mockMintUploadUrl(input),
 }));
 
 // --- Mock sonner toasts (sonner needs a DOM container that's harder to wire
@@ -102,6 +108,15 @@ const mockFetch = jest.fn(
 );
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCreateExercise.mockResolvedValue({ id: "custom-test-1" });
+  mockUpdateExercise.mockResolvedValue({ ok: true });
+  mockSoftDeleteExercise.mockResolvedValue({ ok: true });
+  mockDuplicateExercise.mockResolvedValue({ id: "custom-dup-1" });
+  mockMintUploadUrl.mockResolvedValue({
+    url: "https://storage.example.test/signed?token=abc",
+    gsPath:
+      "gs://gcfitness-3476b.firebasestorage.app/exercises/custom-test-1.mp4",
+  });
   (global as unknown as { fetch: typeof mockFetch }).fetch = mockFetch;
 });
 
@@ -185,20 +200,50 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
   });
 });
 
+// Shared defaults for edit-mode renders (T4/T6/T7) — the dropzone is
+// active only when an exerciseId is present (see ExerciseForm "save
+// first, then upload" UX decision).
+const EDIT_MODE_DEFAULTS = {
+  name: { en: "Test", es: "" },
+  description: { en: "Test description.", es: "" },
+  muscleGroups: ["chest"],
+  equipment: ["barbell"],
+  mediaURL: null,
+  thumbnailURL: null,
+  source: "trainer" as const,
+  ownerId: "test-trainer",
+  version: 1,
+};
+
 describe("MediaUploadDropzone — three-layer validation", () => {
   it("T4: rejects a .gif with UI-SPEC toast + opens conversion affordance", async () => {
-    const user = userEvent.setup();
-    render(<ExerciseForm mode="create" />);
+    render(
+      <ExerciseForm
+        mode="edit"
+        exerciseId="custom-test-trainer-1"
+        defaultValues={EDIT_MODE_DEFAULTS}
+      />,
+    );
 
     // Find the file input inside the dropzone. We bypass dnd-kit clicking
     // since jsdom doesn't simulate file drops naturally; uploading via the
     // input is functionally identical for validation.
-    const fileInput = screen
-      .getByLabelText(/demonstration video/i)
-      .querySelector("input[type='file']") as HTMLInputElement;
-    expect(fileInput).toBeTruthy();
+    const fileInput = screen.getByTestId(
+      "media-upload-input",
+    ) as HTMLInputElement;
 
-    await user.upload(fileInput, makeGifFile());
+    // userEvent.upload enforces the input's `accept="video/mp4"` attr and
+    // silently drops a `.gif` before the change event fires — fine in real
+    // browsers, but our three-layer dropzone validation is supposed to
+    // reject GIFs at the *handler* layer too (defense in depth: an OS
+    // file dialog may let the user pick anything; a drag-and-drop bypass
+    // the accept attribute entirely; etc.). To exercise the rejection
+    // path we set `files` directly and fire a change event.
+    Object.defineProperty(fileInput, "files", {
+      value: [makeGifFile()],
+      configurable: true,
+    });
+    fireEvent.change(fileInput);
 
     expect(mockToastError).toHaveBeenCalledWith(
       "GIFs aren't supported. Please convert to MP4 first.",
@@ -222,11 +267,17 @@ describe("MediaUploadDropzone — three-layer validation", () => {
 
   it("T6: rejects a 30 MB MP4 with UI-SPEC size copy", async () => {
     const user = userEvent.setup();
-    render(<ExerciseForm mode="create" />);
+    render(
+      <ExerciseForm
+        mode="edit"
+        exerciseId="custom-test-trainer-1"
+        defaultValues={EDIT_MODE_DEFAULTS}
+      />,
+    );
 
-    const fileInput = screen
-      .getByLabelText(/demonstration video/i)
-      .querySelector("input[type='file']") as HTMLInputElement;
+    const fileInput = screen.getByTestId(
+      "media-upload-input",
+    ) as HTMLInputElement;
 
     const tooBig = makeMp4File(30 * 1024 * 1024);
     await user.upload(fileInput, tooBig);
@@ -241,23 +292,13 @@ describe("MediaUploadDropzone — three-layer validation", () => {
       <ExerciseForm
         mode="edit"
         exerciseId="custom-test-trainer-1"
-        defaultValues={{
-          name: { en: "Test", es: "" },
-          description: { en: "Test description.", es: "" },
-          muscleGroups: ["chest"],
-          equipment: ["barbell"],
-          mediaURL: null,
-          thumbnailURL: null,
-          source: "trainer",
-          ownerId: "test-trainer",
-          version: 1,
-        }}
+        defaultValues={EDIT_MODE_DEFAULTS}
       />,
     );
 
-    const fileInput = screen
-      .getByLabelText(/demonstration video/i)
-      .querySelector("input[type='file']") as HTMLInputElement;
+    const fileInput = screen.getByTestId(
+      "media-upload-input",
+    ) as HTMLInputElement;
 
     const validMp4 = makeMp4File(5 * 1024 * 1024);
     await act(async () => {

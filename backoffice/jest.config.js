@@ -27,6 +27,14 @@ module.exports = {
   testEnvironment: "node",
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
   testPathIgnorePatterns: ["/node_modules/", "/.next/"],
+  // Component tests rely on jsdom + a handful of DOM APIs jsdom does not
+  // ship (ResizeObserver, scrollIntoView, matchMedia, pointer-capture).
+  // `setupFilesAfterEnv` runs AFTER the test framework is installed —
+  // required because the polyfills must be on `globalThis` before any
+  // component's mount-time code runs (cmdk's Command primitive newing up
+  // ResizeObserver on mount, etc.). Under `testEnvironment: "node"`
+  // (server-action tests) the DOM-conditional shims are silently inert.
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   transform: {
     // Use a Jest-specific tsconfig that overrides `moduleResolution: bundler`
     // (Next.js default — incompatible with ts-jest) and sets a `rootDir` so
