@@ -24,13 +24,25 @@ import { gcFitnessAuth } from "@/lib/firebase/gc-fitness-admin";
 // The Authorization-header transport (rather than a JSON body field) is
 // REQUIRED — the library reads the idToken from `request.headers` by default.
 
-const ALLOWLIST = (process.env.GC_FITNESS_TEAM_ALLOWLIST ?? "")
-  .toLowerCase()
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+// CR-03 fix (P02-REVIEW-FIX): the allowlist is now parsed INSIDE the POST
+// handler on every invocation, not once at module load. The previous
+// module-scope `ALLOWLIST` constant cached the env var for the lifetime of
+// the warm Vercel container, so a removal from GC_FITNESS_TEAM_ALLOWLIST
+// would continue to mint valid session cookies for that email until the
+// container recycled (potentially hours on a low-traffic site). The
+// middleware (proxy.ts) already reads the env var per-request; this brings
+// the cookie-mint path in line with that contract.
+function parseAllowlist(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .toLowerCase()
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export async function POST(request: Request) {
+  const allowlist = parseAllowlist(process.env.GC_FITNESS_TEAM_ALLOWLIST);
+
   const authHeader = request.headers.get("authorization") ?? "";
   const idToken = authHeader.toLowerCase().startsWith("bearer ")
     ? authHeader.slice(7).trim()
@@ -46,7 +58,7 @@ export async function POST(request: Request) {
   try {
     const decoded = await gcFitnessAuth().verifyIdToken(idToken);
     const email = decoded.email?.toLowerCase();
-    if (!email || !ALLOWLIST.includes(email)) {
+    if (!email || !allowlist.includes(email)) {
       return NextResponse.json({ error: "Not on allowlist" }, { status: 403 });
     }
 
