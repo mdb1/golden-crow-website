@@ -40,5 +40,10 @@ module.exports = {
   },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    // `server-only` is a Next.js build-time guard module that throws if it
+    // ends up in a client bundle. It is not resolvable under plain Jest;
+    // we substitute a no-op so server modules can be required directly
+    // by unit tests.
+    "^server-only$": "<rootDir>/src/lib/test-utils/server-only-stub.ts",
   },
 };

@@ -3,6 +3,7 @@ import "server-only";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getStorage, type Storage } from "firebase-admin/storage";
 
 // Server-only Firebase Admin SDK initializer for the gc-fitness Firebase
 // project (`gcfitness-3476b`). The `import "server-only"` directive on line 1
@@ -56,4 +57,14 @@ export function gcFitnessAuth(): Auth {
 
 export function gcFitnessFirestore(): Firestore {
   return getFirestore(getOrInit());
+}
+
+// Scoped Cloud Storage accessor — first consumer is P03-05's
+// `mintExerciseMediaUploadUrl` Server Action (v4 signed URLs for trainer
+// MP4 uploads to `gs://gcfitness-3476b.firebasestorage.app/exercises/*`).
+// Using a wrapper instead of `getStorage(gcFitnessAdminApp())` at the call
+// site keeps the multi-app pattern consistent and gives the Jest tests a
+// clean module-level mock target.
+export function gcFitnessStorage(): Storage {
+  return getStorage(getOrInit());
 }
