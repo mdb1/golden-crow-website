@@ -255,16 +255,17 @@ describe("assignTemplate", () => {
     mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
     mockSet.mockResolvedValue(undefined);
 
-    await assignTemplate({
-      // The Zod schema doesn't accept trainerId — but if a hostile caller
-      // sneaks one in via Object.assign or similar, the Server Action
-      // overrides with session.uid regardless.
+    // The Zod schema doesn't define trainerId — Zod will silently drop it.
+    // If a hostile caller sneaks one in, the Server Action still uses
+    // `getCurrentTrainer().uid` for the written field. We cast to `unknown`
+    // so the test compiles without a typed shape.
+    const hostileInput: unknown = {
       templateId: "tpl-abc",
       clientId: CLIENT_UID,
       scheduledFor: "2026-06-01",
-      // @ts-expect-error — intentionally extra
       trainerId: "evil-uid",
-    });
+    };
+    await assignTemplate(hostileInput);
 
     const payload = mockSet.mock.calls[0][0];
     expect(payload.trainerId).toBe(ALLOWED_UID);
@@ -490,12 +491,12 @@ describe("editAssignmentScheduledFor", () => {
   it("rejects edit with templateSnapshot in input (Zod .strict() — WTPL-07)", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
 
+    const hostileEdit: unknown = {
+      scheduledFor: "2026-06-15",
+      templateSnapshot: { name: { en: "evil", es: "evil" } },
+    };
     await expect(
-      editAssignmentScheduledFor("asg-abc", {
-        scheduledFor: "2026-06-15",
-        // @ts-expect-error — extra field, must be rejected by Zod .strict()
-        templateSnapshot: { name: { en: "evil", es: "evil" } },
-      }),
+      editAssignmentScheduledFor("asg-abc", hostileEdit),
     ).rejects.toThrow();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
