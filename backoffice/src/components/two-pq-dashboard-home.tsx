@@ -35,9 +35,9 @@ export function TwoPQDashboardHome({
       eyebrow: "Scope",
       value: metrics.institutions,
       description: "Institutions visible to this role",
-      createLabel: "+ new institution",
+      createLabel: "+ New Institution",
       createHref: "/areas/institutions/new",
-      browseLabel: "open institutions",
+      browseLabel: "Open Institutions",
       browseHref: "/areas/institutions",
       canCreate: canCreateInstitutionUi(adminContext),
       disabledTitle: "Only full admins can create institutions.",
@@ -47,9 +47,9 @@ export function TwoPQDashboardHome({
       eyebrow: "Scope",
       value: metrics.doctors,
       description: "Doctors available for 2PQ ownership",
-      createLabel: "+ new doctor",
+      createLabel: "+ New Doctor",
       createHref: "/areas/doctors/new",
-      browseLabel: "open doctors",
+      browseLabel: "Open Doctors",
       browseHref: "/areas/doctors",
       canCreate: canCreateDoctorUi(adminContext),
       disabledTitle: "Only full admins and institution admins can create doctors.",
@@ -59,9 +59,9 @@ export function TwoPQDashboardHome({
       eyebrow: "Scope",
       value: metrics.patients,
       description: "Patients available for linkage",
-      createLabel: "+ new patient",
+      createLabel: "+ New Patient",
       createHref: "/areas/patients/new",
-      browseLabel: "open patients",
+      browseLabel: "Open Patients",
       browseHref: "/areas/patients",
       canCreate: canCreatePatientUi(adminContext),
       disabledTitle:
@@ -72,9 +72,9 @@ export function TwoPQDashboardHome({
       eyebrow: "Access",
       value: metrics.roles,
       description: "Role records defining the active lane",
-      createLabel: "+ new role",
+      createLabel: "+ New Role",
       createHref: "/roles/new",
-      browseLabel: "open roles",
+      browseLabel: "Open Roles",
       browseHref: "/roles",
       canCreate: getAssignableRoleOptions(adminContext.role).length > 0,
       disabledTitle: "The current role cannot create role assignments.",
@@ -97,55 +97,66 @@ export function TwoPQDashboardHome({
         }
       />
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {scopeCards.map((card) => (
-          <article key={card.key} className="glass-panel flex flex-col px-4 py-4">
-            <p className="section-eyebrow">{card.eyebrow}</p>
-            <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
-              {card.value}
-            </p>
-            <p className="text-sm text-muted-foreground">{card.description}</p>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <p className="section-eyebrow">Scoped areas</p>
+          <h2 className="font-heading text-2xl font-semibold text-foreground">Core scope controls</h2>
+          <p className="max-w-4xl text-sm text-muted-foreground">
+            Review the live institutions, doctors, patients, and role assignments tied to this
+            lane, then jump straight into creation or management from the dashboard.
+          </p>
+        </div>
 
-            <div className="mt-4 flex flex-col gap-2">
-              {card.canCreate ? (
-                <Button size="sm" className="w-full justify-between rounded-xl" asChild>
-                  <Link href={card.createHref}>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {scopeCards.map((card) => (
+            <article key={card.key} className="glass-panel flex flex-col px-4 py-4">
+              <p className="section-eyebrow">{card.eyebrow}</p>
+              <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
+                {card.value}
+              </p>
+              <p className="text-sm text-muted-foreground">{card.description}</p>
+
+              <div className="mt-4 flex flex-col gap-2">
+                {card.canCreate ? (
+                  <Button size="sm" className="w-full justify-between rounded-xl" asChild>
+                    <Link href={card.createHref}>
+                      <span className="flex items-center gap-2">
+                        <PlusCircle className="h-4 w-4" />
+                        {card.createLabel}
+                      </span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="w-full justify-between rounded-xl"
+                    disabled
+                    title={card.disabledTitle}
+                  >
                     <span className="flex items-center gap-2">
                       <PlusCircle className="h-4 w-4" />
                       {card.createLabel}
                     </span>
                     <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              ) : (
+                  </Button>
+                )}
+
                 <Button
+                  variant="outline"
                   size="sm"
                   className="w-full justify-between rounded-xl"
-                  disabled
-                  title={card.disabledTitle}
+                  asChild
                 >
-                  <span className="flex items-center gap-2">
-                    <PlusCircle className="h-4 w-4" />
-                    {card.createLabel}
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
+                  <Link href={card.browseHref}>
+                    <span>{card.browseLabel}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </Button>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-between rounded-xl"
-                asChild
-              >
-                <Link href={card.browseHref}>
-                  <span>{card.browseLabel}</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </article>
-        ))}
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="glass-panel border-emerald-100 [background:linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] px-5 py-5 shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:[background:linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]">
