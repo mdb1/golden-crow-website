@@ -20,6 +20,10 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
     expect(FirestoreCollections.workoutAssignments).toBe("workout_assignments");
   });
 
+  it("workoutLogs is 'workout_logs' (P05-01 — same-commit invariant w/ Collections.swift)", () => {
+    expect(FirestoreCollections.workoutLogs).toBe("workout_logs");
+  });
+
   it("exercises is 'exercises' (carried over from P03)", () => {
     expect(FirestoreCollections.exercises).toBe("exercises");
   });
