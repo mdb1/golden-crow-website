@@ -6,6 +6,7 @@ const state = {
   query: "",
   activeTable: "daily_business_metrics",
   eventCategory: "all",
+  incidentSeverity: "active",
   expanded: new Set()
 };
 
@@ -75,7 +76,9 @@ function scoreClass(value) {
 
 function statusClass(value) {
   const text = String(value || "").toLowerCase();
-  if (/healthy|completed|ready|sent|synced|yes|success/.test(text)) return "good";
+  if (/critical|high|urgent/.test(text)) return "bad";
+  if (/medium|warning|monitor|current|pending|running|waiting/.test(text)) return "warn";
+  if (/healthy|completed|ready|sent|synced|yes|success|done|passed|approved|active/.test(text)) return "good";
   if (/failed|blocked|missing|error|bad|no/.test(text)) return "bad";
   return "warn";
 }
@@ -90,6 +93,10 @@ function normalizeActor(value) {
 
 function employees() {
   return state.data?.employees || [];
+}
+
+function incidents() {
+  return state.data?.incidents || state.data?.tables?.incidents?.rows || [];
 }
 
 function actorEmployee(actor) {
@@ -228,6 +235,121 @@ function businessFunnel(m) {
   `;
 }
 
+function coreResultRows() {
+  const payload = state.data?.core_results || {};
+  const current = payload.current_rows || [];
+  const currentHasDueResult = current.some((row) => ["pass", "fail"].includes(row.status));
+  return currentHasDueResult ? current : (payload.latest_due_rows || current);
+}
+
+function allCoreResultRows() {
+  return state.data?.core_results?.rows || [];
+}
+
+function coreStatusClass(status) {
+  const text = String(status || "").toLowerCase();
+  if (text === "pass") return "good";
+  if (text === "fail") return "bad";
+  if (text === "pending") return "warn";
+  return "neutral";
+}
+
+function coreResultCard(row, index) {
+  const key = keyFor("core-result", `${row.date}-${row.employee_name}-${row.status}`);
+  return `
+    <article class="core-card fade-in ${coreStatusClass(row.status)}" style="--accent: ${accents[index % accents.length]}">
+      <div class="core-check">
+        <span class="check-symbol">${row.status === "pass" ? "✓" : row.status === "fail" ? "!" : "…"}</span>
+        <div>
+          <h4>${esc(row.employee_name)}</h4>
+          <span class="badge ${coreStatusClass(row.status)}">${esc(row.status || "unknown")}</span>
+        </div>
+      </div>
+      <p class="copy strong">${esc(row.required_result || "Required result missing.")}</p>
+      <div class="field">
+        <span class="field-label">How it worked</span>
+        ${expandableText(row.how_it_worked || "Not recorded.", `${key}-how`, 180)}
+      </div>
+      <div class="field">
+        <span class="field-label">Evidence</span>
+        ${expandableText(row.evidence_file || row.evidence_summary || "No same-day evidence.", `${key}-evidence`, 180)}
+      </div>
+      <div class="field">
+        <span class="field-label">Next action</span>
+        ${expandableText(row.next_action || "Not recorded.", `${key}-next`, 170)}
+      </div>
+    </article>
+  `;
+}
+
+function coreResultSummary() {
+  const payload = state.data?.core_results || {};
+  const rows = coreResultRows();
+  const failures = rows.filter((row) => row.status === "fail").length;
+  const passes = rows.filter((row) => row.status === "pass").length;
+  const pending = rows.filter((row) => row.status === "pending").length;
+  return `
+    <section class="section core-results">
+      <div class="section-title">
+        <div>
+          <h3>Core Result Checklist</h3>
+          ${pageIntro(`Daily hard check for Mateo, Mia, and Sam. Showing ${rows[0]?.date || payload.current_date || "today"}; current date is ${payload.current_date || "unknown"}. Passes=${passes}; failures=${failures}; pending=${pending}.`)}
+        </div>
+        ${navButton("Open day-by-day", "results")}
+      </div>
+      <div class="grid core-grid">
+        ${rows.map(coreResultCard).join("") || `<div class="empty">Core result checklist is unavailable.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCoreResults() {
+  title.textContent = "Core Results";
+  const payload = state.data?.core_results || {};
+  const rows = allCoreResultRows().filter((row) => matches(Object.values(row).join(" ")));
+  content.innerHTML = `
+    ${coreResultSummary()}
+    <section class="section">
+      <div class="section-title">
+        <div>
+          <h3>Day-by-day Validation</h3>
+          ${pageIntro("Only three rows matter here: Mateo sent LinkedIn outreach, Mia uploaded Instagram posts, and Sam created/staged Meta ads. Drafts, local images, and reports do not pass.")}
+        </div>
+        <span class="badge ${payload.current_failures?.length ? "bad" : "good"}">${esc(payload.current_failures?.length || 0)} current failures</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Owner</th>
+              <th>Status</th>
+              <th>Required result</th>
+              <th>How it worked</th>
+              <th>Evidence</th>
+              <th>Next action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${esc(row.date)}</td>
+                <td>${esc(row.employee_name)}</td>
+                <td><span class="badge ${coreStatusClass(row.status)}">${esc(row.status)}</span></td>
+                <td>${esc(row.required_result)}</td>
+                <td>${esc(row.how_it_worked)}</td>
+                <td>${esc(row.evidence_file || row.evidence_summary)}</td>
+                <td>${esc(row.next_action)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function requestCounts() {
   const counts = state.requests?.counts || {};
   return {
@@ -238,9 +360,39 @@ function requestCounts() {
   };
 }
 
+function incidentCounts() {
+  const rows = incidents();
+  const active = rows.filter((row) => ["open", "monitor"].includes(String(row.status || "").toLowerCase()));
+  const high = active.filter((row) => ["critical", "high"].includes(String(row.severity || "").toLowerCase()));
+  const comms = active.filter((row) => String(row.affected_workflows || "").toLowerCase().includes("communication"));
+  return { total: rows.length, active: active.length, high: high.length, comms: comms.length };
+}
+
+function incidentRank(row) {
+  const statusOrder = { open: 0, monitor: 1, historical: 2, resolved: 3, closed: 4 };
+  const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  return [
+    statusOrder[String(row.status || "").toLowerCase()] ?? 5,
+    severityOrder[String(row.severity || "").toLowerCase()] ?? 5,
+    String(row.detected_at || row.date || "")
+  ];
+}
+
+function sortedIncidents(rows) {
+  return rows.slice().sort((a, b) => {
+    const ar = incidentRank(a);
+    const br = incidentRank(b);
+    if (ar[0] !== br[0]) return ar[0] - br[0];
+    if (ar[1] !== br[1]) return ar[1] - br[1];
+    return String(br[2]).localeCompare(String(ar[2]));
+  });
+}
+
 function renderOverview() {
   const m = state.data.metrics;
   const requestStats = requestCounts();
+  const incidentStats = incidentCounts();
+  const activeIncidents = sortedIncidents(incidents()).filter((row) => ["open", "monitor"].includes(String(row.status || "").toLowerCase()));
   const openTickets = state.data.tables.tickets?.rows?.filter((row) => row.status !== "closed") || [];
   const topEmployees = employees().slice().sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 5);
   title.textContent = "Overview";
@@ -256,6 +408,7 @@ function renderOverview() {
         <strong>${esc(state.data.run_id || "manual dashboard")}</strong>
         <span>${esc(state.data.generated_at || "generation time unavailable")}</span>
         <div class="button-row">
+          ${navButton("Incidents", "incidents")}
           ${navButton("Events", "events")}
           ${navButton("Tickets", "tickets")}
         </div>
@@ -266,13 +419,28 @@ function renderOverview() {
       ${metricCard("Employees", m.employees, 0)}
       ${metricCard("Qualified leads", m.qualified_leads, 1)}
       ${metricCard("Open tickets", m.open_tickets, 2)}
-      ${metricCard("Meta spend", m.meta_spend, 3)}
-      ${metricCard("Revenue USD", m.revenue, 4)}
-      ${metricCard("Resource warning", m.resource_warning, 5)}
+      ${metricCard("Active incidents", `${incidentStats.active} (${incidentStats.high} high)`, 3)}
+      ${metricCard("Meta spend", m.meta_spend, 4)}
+      ${metricCard("Revenue USD", m.revenue, 5)}
       ${metricCard("Stakeholder queue", `${requestStats.pending + requestStats.running} active`, 6)}
     </div>
 
     ${businessFunnel(m)}
+
+    ${coreResultSummary()}
+
+    <section class="section">
+      <div class="section-title">
+        <div>
+          <h3>Active Incidents</h3>
+          ${pageIntro("Role failures are tracked with reason, consequence, affected workflows, and recovery owner.")}
+        </div>
+        ${navButton("Open incidents", "incidents")}
+      </div>
+      <div class="grid incident-grid">
+        ${activeIncidents.slice(0, 4).map(incidentCard).join("") || `<div class="empty">No active incidents detected.</div>`}
+      </div>
+    </section>
 
     <section class="section">
       <div class="section-title">
@@ -605,12 +773,107 @@ function artifactBody(label, artifact, key) {
   `;
 }
 
+function samPipelineChecklist(foreman) {
+  const checklist = foreman.pipeline_checklist || {};
+  const steps = Array.isArray(checklist.steps) ? checklist.steps : [];
+  if (!steps.length) {
+    return `
+      <article class="section-card sam-pipeline-card">
+        <div class="section-title">
+          <h3>Sam Run Pipeline</h3>
+          <span class="badge warn">not recorded</span>
+        </div>
+        <p class="copy">No Sam pipeline checklist has been written yet.</p>
+      </article>
+    `;
+  }
+  const rows = steps.map((step, index) => {
+    const status = step.status || "pending";
+    const done = status === "done";
+    const evidence = step.evidence ? `<div class="path">${esc(step.evidence)}</div>` : "";
+    const detail = step.detail ? `<p class="copy muted">${esc(truncated(step.detail, 180))}</p>` : "";
+    const blocker = step.blocker ? `<p class="copy bad-text">${esc(truncated(step.blocker, 220))}</p>` : "";
+    return `
+      <li class="pipeline-step ${esc(status)}">
+        <input type="checkbox" disabled ${done ? "checked" : ""} aria-label="${esc(step.label || `Step ${index + 1}`)}">
+        <div class="pipeline-step-main">
+          <strong>${esc(step.label || `Step ${index + 1}`)}</strong>
+          ${detail}
+          ${blocker}
+          ${evidence}
+        </div>
+        <span class="badge ${statusClass(status)}">${esc(status)}</span>
+      </li>
+    `;
+  }).join("");
+  return `
+    <article class="section-card sam-pipeline-card">
+      <div class="section-title">
+        <div>
+          <h3>Sam Run Pipeline</h3>
+          <p class="copy muted">${esc(checklist.completed_steps || 0)} of ${esc(checklist.total_steps || steps.length)} checkpoints complete. Current step: ${esc(checklist.current_step || "not recorded")}.</p>
+        </div>
+        <span class="badge ${statusClass(checklist.overall_status)}">${esc(checklist.overall_status || "unknown")}</span>
+      </div>
+      ${foreman.pipeline_checklist_path ? `<div class="path">${esc(foreman.pipeline_checklist_path)}</div>` : ""}
+      <ol class="pipeline-checklist">${rows}</ol>
+    </article>
+  `;
+}
+
+function sammyForemanCard() {
+  const foreman = state.data?.sammy_foreman || {};
+  const exists = foreman.exists === "yes";
+  const result = foreman.final_result || (exists ? "running" : "missing");
+  const staleCount = (foreman.stale_markers_superseded || []).length;
+  const liveCount = (foreman.live_ui_evidence || []).length;
+  return `
+    <section class="section">
+      <div class="section-title">
+        <div>
+          <h3>Sammy Foreman</h3>
+          ${pageIntro("Sam's scheduled Meta flow now runs through Sammy, which resumes failed phases and writes the authoritative final result.")}
+        </div>
+        <span class="badge ${statusClass(result)}">${esc(result)}</span>
+      </div>
+      <div class="grid focus-grid">
+        <article class="section-card">
+          <div class="section-title">
+            <h3>${esc(foreman.current_phase || "No phase")}</h3>
+            <span class="badge ${statusClass(foreman.current_phase)}">${esc(foreman.recovery_attempt_count || "0")} attempts</span>
+          </div>
+          <p class="copy">${esc(foreman.next_action || "No next action recorded.")}</p>
+          ${foreman.current_blocker ? `<p class="copy bad-text">${esc(foreman.current_blocker)}</p>` : ""}
+          <ul class="mini-list">
+            <li>Run: ${esc(foreman.run_id || "not recorded")}</li>
+            <li>Last progress: ${esc(foreman.last_progress_at || foreman.updated_at || "not recorded")}</li>
+            <li>Last marker: ${esc(foreman.last_marker_seen || "not recorded")}</li>
+            <li>Superseded stale markers: ${esc(staleCount)}</li>
+            <li>Live UI evidence notes: ${esc(liveCount)}</li>
+          </ul>
+        </article>
+        <article class="section-card">
+          <div class="section-title">
+            <h3>Proof Files</h3>
+          </div>
+          <div class="path">${esc(foreman.state_path || "sammy - sam_foreman/runs")}</div>
+          ${foreman.final_path ? `<div class="path">${esc(foreman.final_path)}</div>` : ""}
+          <p class="copy">${esc(foreman.final_summary || "No final marker yet.")}</p>
+        </article>
+      </div>
+      ${samPipelineChecklist(foreman)}
+    </section>
+  `;
+}
+
 function renderAdsCycle() {
   title.textContent = "Ads Cycle";
   const ads = state.data.ads_shared || {};
   const rows = (ads.cycle_index || []).filter((row) => matches(Object.values(row).join(" "))).slice().reverse();
   const recent = (ads.recent_files || []).filter((row) => matches(`${row.stage} ${row.path} ${row.summary}`));
   content.innerHTML = `
+    ${sammyForemanCard()}
+
     <section class="section">
       <div class="section-title">
         <div>
@@ -727,6 +990,108 @@ function renderEvents() {
       </div>
       <div class="tabs">${eventFilters()}</div>
       ${eventList(rows, "event")}
+    </section>
+  `;
+}
+
+function incidentFilters() {
+  const filters = [
+    ["active", "active"],
+    ["open", "open"],
+    ["monitor", "monitor"],
+    ["historical", "historical"],
+    ["all", "all"],
+  ];
+  return filters.map(([value, label]) => (
+    `<button type="button" class="${state.incidentSeverity === value ? "active" : ""}" data-incident-filter="${esc(value)}">${esc(label)}</button>`
+  )).join("");
+}
+
+function incidentCard(row, index = 0) {
+  const key = keyFor("incident", `${row.incident_id || ""}-${row.source_path || ""}-${index}`);
+  const active = ["open", "monitor"].includes(String(row.status || "").toLowerCase());
+  return `
+    <article class="incident-card fade-in ${active ? "active-incident" : ""}" style="--accent: ${accents[index % accents.length]}">
+      <div class="incident-head">
+        ${avatar(row.employee_folder || row.employee_name || "Golden Crow", "event-avatar")}
+        <div>
+          <h3>${esc(row.employee_name || row.employee_folder || "Unknown employee")}</h3>
+          <div class="role">${esc(row.role || "role not recorded")}</div>
+          <div class="badges">
+            <span class="badge ${statusClass(row.severity)}">${esc(row.severity || "medium")}</span>
+            <span class="badge ${statusClass(row.status)}">${esc(row.status || "open")}</span>
+            <span class="badge">${esc(row.source_type || "source")}</span>
+          </div>
+        </div>
+      </div>
+      <div class="incident-body">
+        <div class="field">
+          <span class="field-label">Duty expected</span>
+          ${expandableText(row.duty_expected || "Not recorded.", `${key}-duty`, 150)}
+        </div>
+        <div class="field">
+          <span class="field-label">Why it failed</span>
+          ${expandableText(row.failure_reason || "Failure reason not recorded.", `${key}-reason`, 170)}
+        </div>
+        <div class="field">
+          <span class="field-label">Potential consequence</span>
+          ${expandableText(row.potential_consequence || "Consequence not recorded.", `${key}-impact`, 170)}
+        </div>
+        <div class="incident-impact">
+          <div>
+            <span class="field-label">Affected</span>
+            <p class="copy">${esc(row.affected_employees || "Not recorded.")}</p>
+          </div>
+          <div>
+            <span class="field-label">Workflows</span>
+            <p class="copy">${esc(row.affected_workflows || "Not recorded.")}</p>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">Recovery</span>
+          ${expandableText(row.recovery_action || "Not recorded.", `${key}-recovery`, 170)}
+        </div>
+      </div>
+      <div class="incident-foot">
+        <time>${esc(row.detected_at || row.date || "")}</time>
+        <div class="path">${esc(row.source_path || "")}</div>
+      </div>
+      <div class="button-row">
+        ${searchButton("Employee profile", "employees", row.employee_folder || row.employee_name || "")}
+        ${row.source_path ? searchButton("Evidence", "events", row.source_path) : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderIncidents() {
+  title.textContent = "Incidents";
+  const stats = incidentCounts();
+  const rows = sortedIncidents(incidents()).filter((row) => {
+    const status = String(row.status || "").toLowerCase();
+    const filter = state.incidentSeverity;
+    const filterMatch = filter === "all" || (filter === "active" ? ["open", "monitor"].includes(status) : status === filter);
+    return filterMatch && matches(`${row.employee_folder} ${row.employee_name} ${row.role} ${row.failure_reason} ${row.evidence} ${row.potential_consequence} ${row.affected_employees} ${row.affected_workflows} ${row.recovery_action} ${row.source_path}`);
+  });
+  content.innerHTML = `
+    <section class="section">
+      <div class="section-title">
+        <div>
+          <h3>Incident Register</h3>
+          ${pageIntro("An incident is any evidence-backed reason an employee failed to comply with the day's duty, with consequences and downstream effects recorded.")}
+        </div>
+        <div class="button-row">${navButton("Company database", "database")}${navButton("Events", "events")}</div>
+      </div>
+      <div class="grid metric-grid">
+        ${metricCard("Active", stats.active, 0)}
+        ${metricCard("High severity", stats.high, 1)}
+        ${metricCard("Communication-linked", stats.comms, 2)}
+        ${metricCard("Total tracked", stats.total, 3)}
+      </div>
+      <div class="tabs">${incidentFilters()}</div>
+      <div class="grid incident-grid">
+        ${rows.map(incidentCard).join("") || `<div class="empty">No incidents matched.</div>`}
+      </div>
     </section>
   `;
 }
@@ -878,7 +1243,9 @@ function render() {
   if (!state.data) return;
   const map = {
     overview: renderOverview,
+    results: renderCoreResults,
     employees: renderEmployees,
+    incidents: renderIncidents,
     stakeholders: renderStakeholderHub,
     database: renderDatabase,
     ads: renderAdsCycle,
@@ -947,6 +1314,13 @@ content.addEventListener("click", (event) => {
   if (category) {
     state.eventCategory = category.dataset.eventCategory;
     renderEvents();
+    return;
+  }
+
+  const incidentFilter = event.target.closest("[data-incident-filter]");
+  if (incidentFilter) {
+    state.incidentSeverity = incidentFilter.dataset.incidentFilter;
+    renderIncidents();
     return;
   }
 
