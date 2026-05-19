@@ -37,6 +37,8 @@ export function TwoPQDashboardHome({
       description: "Institutions visible to this role",
       createLabel: "+ new institution",
       createHref: "/areas/institutions/new",
+      browseLabel: "open institutions",
+      browseHref: "/areas/institutions",
       canCreate: canCreateInstitutionUi(adminContext),
       disabledTitle: "Only full admins can create institutions.",
     },
@@ -47,6 +49,8 @@ export function TwoPQDashboardHome({
       description: "Doctors available for 2PQ ownership",
       createLabel: "+ new doctor",
       createHref: "/areas/doctors/new",
+      browseLabel: "open doctors",
+      browseHref: "/areas/doctors",
       canCreate: canCreateDoctorUi(adminContext),
       disabledTitle: "Only full admins and institution admins can create doctors.",
     },
@@ -57,6 +61,8 @@ export function TwoPQDashboardHome({
       description: "Patients available for linkage",
       createLabel: "+ new patient",
       createHref: "/areas/patients/new",
+      browseLabel: "open patients",
+      browseHref: "/areas/patients",
       canCreate: canCreatePatientUi(adminContext),
       disabledTitle:
         "Only full admins, institution admins, and scoped institution doctors can create patients.",
@@ -68,6 +74,8 @@ export function TwoPQDashboardHome({
       description: "Role records defining the active lane",
       createLabel: "+ new role",
       createHref: "/roles/new",
+      browseLabel: "open roles",
+      browseHref: "/roles",
       canCreate: getAssignableRoleOptions(adminContext.role).length > 0,
       disabledTitle: "The current role cannot create role assignments.",
     },
@@ -98,7 +106,7 @@ export function TwoPQDashboardHome({
             </p>
             <p className="text-sm text-muted-foreground">{card.description}</p>
 
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col gap-2">
               {card.canCreate ? (
                 <Button size="sm" className="w-full justify-between rounded-xl" asChild>
                   <Link href={card.createHref}>
@@ -123,6 +131,18 @@ export function TwoPQDashboardHome({
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-between rounded-xl"
+                asChild
+              >
+                <Link href={card.browseHref}>
+                  <span>{card.browseLabel}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
           </article>
         ))}
