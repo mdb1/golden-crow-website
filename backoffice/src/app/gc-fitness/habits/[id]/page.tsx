@@ -8,6 +8,7 @@
 // Trainer ownership is enforced via `getCurrentTrainer() + .trainerId
 // === uid` (Admin SDK bypasses rules, so we enforce here too).
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -21,6 +22,11 @@ import type { HabitType } from "@/lib/gc-fitness/habit-schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+import {
+  ComplianceWidget,
+  ComplianceWidgetSkeleton,
+} from "./_components/ComplianceWidget";
 
 export const dynamic = "force-dynamic";
 
@@ -230,12 +236,16 @@ export default async function HabitDetailPage({ params }: PageParams) {
           <CardTitle>Compliance</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            7-day and 30-day compliance, recent logs sparkline, and the
-            per-day timeline ship in plan 06-08. This page&apos;s placeholder
-            establishes the URL so the iOS app and the habits list can
-            deep-link here today.
-          </p>
+          {/*
+            Suspense boundary so the metadata card above renders immediately
+            while the ComplianceWidget's Server Action fetches habit logs.
+            ComplianceWidget itself is a Server Component (async function) —
+            calling fetchHabitCompliance server-side avoids the extra client
+            round-trip a useEffect + await pattern would incur.
+          */}
+          <Suspense fallback={<ComplianceWidgetSkeleton />}>
+            <ComplianceWidget habitId={id} />
+          </Suspense>
         </CardContent>
       </Card>
     </div>
