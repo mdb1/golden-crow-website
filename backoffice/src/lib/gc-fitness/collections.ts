@@ -13,17 +13,19 @@
 // renaming the underlying Firestore collection (which requires a data
 // migration).
 //
-// Scope (as of P05-01):
+// Scope (as of P06-01):
 //   `exercises`              — carried over from P03-02
 //   `workoutTemplates`       — added in P04-01
 //   `workoutAssignments`     — added in P04-01
-//   `workoutLogs`            — NEW, this plan (P05-01)
+//   `workoutLogs`            — added in P05-01
+//   `habits`                 — NEW, this plan (P06-01)
+//   `habitLogs`              — NEW, this plan (P06-01)
 //
-// Future entries (`habits`, `habitLogs`, `chats`, `messages`, `fcmTokens`,
-// etc.) live in the Swift source today and will be added here when the
-// corresponding backoffice / Server-Action surfaces ship. The `workoutLogs`
-// entry lands now even though the backoffice has no P5 read-side yet (P11
-// territory) so the P04-01 same-commit invariant stays unbroken.
+// Future entries (`chats`, `messages`, `fcmTokens`, etc.) live in the Swift
+// source today and will be added here when the corresponding backoffice /
+// Server-Action surfaces ship. The `habits` + `habitLogs` entries land now
+// because P06-05 (backoffice habit CRUD) is in the same phase and needs the
+// constants; the P04-01 same-commit invariant stays unbroken across surfaces.
 
 /**
  * Locked Firestore collection-name constants for the backoffice surface.
@@ -58,6 +60,19 @@ export const FirestoreCollections = {
    * read-side ships in P11; the iOS surface is the sole writer in P5.
    */
   workoutLogs: "workout_logs",
+
+  /**
+   * Trainer-authored habit assignments. One doc per (client, habit) pair.
+   * Schema doc: `.planning/schemas/habits.md`. Lands in P06-01.
+   */
+  habits: "habits",
+
+  /**
+   * Per-client-per-day habit check-in log. Composite doc ID
+   * `${habitId}_${civilDate}` for idempotent re-tap.
+   * Schema doc: `.planning/schemas/habit-logs.md`. Lands in P06-01.
+   */
+  habitLogs: "habit_logs",
 } as const;
 
 /**
