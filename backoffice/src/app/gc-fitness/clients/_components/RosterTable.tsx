@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
 import { RelativeTime } from "./RelativeTime";
+import { RosterEmptyState } from "./RosterEmptyState";
 
 /**
  * Human-readable label for an attention reason string. Centralizing the
@@ -158,6 +159,14 @@ export function RosterTable({ rows }: RosterTableProps) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
+
+  // 12-04 — short-circuit to the designed empty state when no clients
+  // are assigned at all. Placed AFTER all hook calls so the rules-of-hooks
+  // are honored (the hook count is identical across renders regardless
+  // of whether rows is empty or populated).
+  if (rows.length === 0) {
+    return <RosterEmptyState />;
+  }
 
   return (
     <div className="flex flex-col gap-3">
