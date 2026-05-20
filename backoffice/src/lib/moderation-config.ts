@@ -29,6 +29,7 @@ import type {
   RelatedRecordLink,
   SectionDescriptor,
 } from "./moderation-types";
+import { GC_FITNESS_NAV, GC_FITNESS_SECTIONS } from "./gc-fitness/nav-config";
 import {
   compactList,
   formatDateTime,
@@ -948,6 +949,11 @@ export function getVisibleAdminNav(role: AdminRole) {
 }
 
 export function getProjectNav(project: ProjectKey, role: AdminRole): AdminNavItem[] {
+  if (project === "gc-fitness") {
+    return GC_FITNESS_NAV.filter(
+      (item) => !item.visibleRoles || item.visibleRoles.includes(role)
+    );
+  }
   if (project === "pocket-gyms") {
     return GYM_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
   }
@@ -955,6 +961,11 @@ export function getProjectNav(project: ProjectKey, role: AdminRole): AdminNavIte
 }
 
 export function getProjectSections(project: ProjectKey, role: AdminRole): SectionDescriptor[] {
+  if (project === "gc-fitness") {
+    return GC_FITNESS_SECTIONS.filter(
+      (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+    );
+  }
   if (project === "pocket-gyms") {
     return GYM_SECTIONS.filter(
       (section) => !section.visibleRoles || section.visibleRoles.includes(role)

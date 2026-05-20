@@ -42,7 +42,11 @@ export function AppSidebar({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-2">
               <p className="font-heading text-lg font-semibold text-sidebar-foreground">
-                {adminContext.project === "pocket-gyms" ? "Pocket Gyms" : "PocketGenes"}
+                {adminContext.project === "pocket-gyms"
+                  ? "Pocket Gyms"
+                  : adminContext.project === "gc-fitness"
+                    ? "GC Fitness"
+                    : "PocketGenes"}
               </p>
               <span className="text-xs font-medium text-sidebar-foreground/45">
                 v{BACKOFFICE_VERSION}
@@ -62,7 +66,9 @@ export function AppSidebar({
           <p className="mt-1 text-sm text-sidebar-foreground/70">
             {adminContext.project === "pocket-gyms"
               ? "Gym operations console."
-              : "Readable operations console for the live Firebase model."}
+              : adminContext.project === "gc-fitness"
+                ? "Trainer coaching console."
+                : "Readable operations console for the live Firebase model."}
           </p>
         </div>
       </SidebarHeader>
