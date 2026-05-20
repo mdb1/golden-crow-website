@@ -13,19 +13,21 @@
 // renaming the underlying Firestore collection (which requires a data
 // migration).
 //
-// Scope (as of P06-01):
+// Scope (as of P08-04):
 //   `exercises`              — carried over from P03-02
 //   `workoutTemplates`       — added in P04-01
 //   `workoutAssignments`     — added in P04-01
 //   `workoutLogs`            — added in P05-01
-//   `habits`                 — NEW, this plan (P06-01)
-//   `habitLogs`              — NEW, this plan (P06-01)
+//   `habits`                 — added in P06-01
+//   `habitLogs`              — added in P06-01
+//   `chats`                  — NEW, this plan (P08-04 — paired with Swift twin shipped P01-01)
+//   `messages`               — NEW, this plan (P08-04 — paired with Swift twin shipped P01-01)
 //
-// Future entries (`chats`, `messages`, `fcmTokens`, etc.) live in the Swift
-// source today and will be added here when the corresponding backoffice /
-// Server-Action surfaces ship. The `habits` + `habitLogs` entries land now
-// because P06-05 (backoffice habit CRUD) is in the same phase and needs the
-// constants; the P04-01 same-commit invariant stays unbroken across surfaces.
+// Future entries (`fcmTokens`, etc.) live in the Swift source today and will
+// be added here when the corresponding backoffice / Server-Action surfaces
+// ship. Same-commit invariant (Pitfall 7 — 9th reuse): chats + messages
+// constants land alongside `chat-schema.ts` + `chat-server-actions.ts` in
+// P08-04.
 
 /**
  * Locked Firestore collection-name constants for the backoffice surface.
@@ -73,6 +75,21 @@ export const FirestoreCollections = {
    * Schema doc: `.planning/schemas/habit-logs.md`. Lands in P06-01.
    */
   habitLogs: "habit_logs",
+
+  /**
+   * 1:1 coach↔client chat metadata. Doc id = clientId (deterministic).
+   * Reads / messages-subcollection writes governed by P08-01 rules;
+   * parent-doc writes forbidden client-side (Cloud Function onMessageCreated
+   * owns denorm — Pitfall 22). Added in P08-04 (paired with the Swift
+   * twin which has shipped since P01-01).
+   */
+  chats: "chats",
+
+  /**
+   * Subcollection name for chat messages — accessed via
+   * `chats/{chatId}/messages/{messageId}`. Added in P08-04.
+   */
+  messages: "messages",
 } as const;
 
 /**

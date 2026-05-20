@@ -32,6 +32,14 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
     expect(FirestoreCollections.habitLogs).toBe("habit_logs");
   });
 
+  it("chats is 'chats' (P08-04 — same-commit invariant w/ Collections.swift)", () => {
+    expect(FirestoreCollections.chats).toBe("chats");
+  });
+
+  it("messages is 'messages' (P08-04 — subcollection name for /chats/{chatId}/messages)", () => {
+    expect(FirestoreCollections.messages).toBe("messages");
+  });
+
   it("exercises is 'exercises' (carried over from P03)", () => {
     expect(FirestoreCollections.exercises).toBe("exercises");
   });
