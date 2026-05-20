@@ -77,7 +77,22 @@ export interface UserRoleRecord {
   createdByEmail?: string;
 }
 
-export type ProjectKey = "mydnamap" | "pocket-gyms";
+/**
+ * Closed-set union of all Golden Crow products served by the backoffice +
+ * SDK. Pitfall 7 same-source-of-truth — this literal is mirrored in
+ * `golden-crow-website/backoffice/src/lib/admin-areas.ts` (P11-03).
+ *
+ * Adding a new product means:
+ *   1. Append the literal here.
+ *   2. Update `goldencrow-sdk/src/config/env.ts` with the new
+ *      TEAM_ALLOWLIST_* env var + admin creds.
+ *   3. Update `goldencrow-sdk/src/config/firebase.ts`'s `ENV_KEYS_BY_PROJECT`
+ *      table.
+ *   4. Update `backoffice/src/lib/admin-areas.ts` mirror.
+ *   5. Add the new project's named-app entry — `adminAppFor()` will
+ *      throw "missing env" until the deploy env is configured.
+ */
+export type ProjectKey = "mydnamap" | "pocket-gyms" | "gc-fitness";
 
 export interface AdminContext {
   email: string;
