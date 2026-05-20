@@ -1,6 +1,14 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import "@fastify/cookie";
-import { adminAuth } from "../config/firebase.js";
+import { adminAuthFor } from "../config/firebase.js";
+
+// Pitfall 16 — Session cookies are minted by the MyDNAMap project (see
+// auth.routes.ts:104). The /gym/* application-level access check below
+// (line ~37) is a role-based gate on the SAME mydnamap-issued session,
+// not a separate Pocket Gyms session. So `adminAuth` is bound to the
+// mydnamap named-app. If a future plan adds a Pocket-Gyms-issued session
+// flow, that flow gets its OWN middleware bound to adminAuthFor("pocket-gyms").
+const adminAuth = adminAuthFor("mydnamap");
 import { resolveAdminContext } from "../repositories/roles.repository.js";
 
 export async function authMiddleware(

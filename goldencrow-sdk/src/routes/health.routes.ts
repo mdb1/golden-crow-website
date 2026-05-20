@@ -1,5 +1,11 @@
 import { FastifyInstance } from "fastify";
-import { adminAuth } from "../config/firebase.js";
+import { adminAuthFor } from "../config/firebase.js";
+
+// Pitfall 16 — Health-check probes the mydnamap Firebase project (the
+// canonical legacy connection). If pocket-gyms or gc-fitness connectivity
+// also needs probing, add separate /health/* endpoints binding their own
+// named-app handles.
+const adminAuth = adminAuthFor("mydnamap");
 
 export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get("/health", async (_request, reply) => {
