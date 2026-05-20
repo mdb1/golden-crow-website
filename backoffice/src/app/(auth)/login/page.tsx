@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
-type ProjectKey = "mydnamap" | "pocket-gyms";
+type ProjectKey = "mydnamap" | "pocket-gyms" | "gc-fitness";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
 
 type SignupEligibility = {
@@ -123,7 +123,13 @@ export default function LoginPage() {
     }
 
     if (projectAccess.length === 1) {
-      await finalizeLogin(options, projectAccess[0], redirectTo);
+      // Sole-project shortcut — skip the selector card. For gc-fitness
+      // trainers this lands them on /gc-fitness/dashboard via
+      // finalizeLogin → next-auth credentials sign-in (Phase 11-03).
+      const soleProject = projectAccess[0];
+      const soleRedirect =
+        soleProject === "gc-fitness" ? "/gc-fitness/dashboard" : redirectTo;
+      await finalizeLogin(options, soleProject, soleRedirect);
     } else if (projectAccess.length > 1) {
       setPendingAuth({ ...options, projectAccess, redirectTo });
       setPhase("select");
@@ -300,7 +306,14 @@ export default function LoginPage() {
     setLoading("google");
     setError(null);
     try {
-      await finalizeLogin(pendingAuth, project, pendingAuth.redirectTo);
+      // GC Fitness routes live under /gc-fitness/* (independent
+      // next-firebase-auth-edge cookie chain). Override the default
+      // post-login redirect target so the trainer lands on the right
+      // surface; the pendingAuth.redirectTo default ("/") is the
+      // MyDNAMap dashboard which would 403 for a trainer (Phase 11-03).
+      const targetRedirect =
+        project === "gc-fitness" ? "/gc-fitness/dashboard" : pendingAuth.redirectTo;
+      await finalizeLogin(pendingAuth, project, targetRedirect);
     } catch (err) {
       console.error("Project select error:", err);
       setError("Failed to complete sign in. Please try again.");
@@ -359,6 +372,19 @@ export default function LoginPage() {
                 <span className="font-semibold text-card-foreground">Pocket Gyms</span>
                 <span className="text-sm text-muted-foreground">
                   Members, training plans, bookings, and achievements.
+                </span>
+              </button>
+            )}
+            {pendingAuth.projectAccess.includes("gc-fitness") && (
+              <button
+                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                onClick={() => handleProjectSelect("gc-fitness")}
+                disabled={loading !== null}
+              >
+                <span className="text-2xl">💪</span>
+                <span className="font-semibold text-card-foreground">GC Fitness</span>
+                <span className="text-sm text-muted-foreground">
+                  Trainer roster, workout templates, habits, and chat coaching.
                 </span>
               </button>
             )}
