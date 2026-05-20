@@ -48,6 +48,10 @@ import {
   type HabitLogRow,
 } from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
+import {
+  clientNeedsAttention,
+  type AttentionReason,
+} from "./client-attention";
 
 export interface ClientRosterEntry {
   uid: string;
@@ -80,6 +84,22 @@ export interface ClientRosterRow {
   thisWeekComplianceRatio: number;
   /** Unread chat messages for this trainer reading this client's thread. */
   unreadChatCount: number;
+  /**
+   * Missed workouts over the last 7 days, computed as
+   * `max(0, assignedWorkouts - completedWorkouts)`. Added in 11-06.
+   *
+   * v1 approximation: 1 assignment is expected to produce 1 log; legitimate
+   * re-do logs would over-count completed. V2 carry-forward: track an
+   * explicit `assignment.status` field for granular accounting.
+   */
+  missedWorkoutsLast7Days: number;
+  /**
+   * Derived flag from `clientNeedsAttention()` predicate (11-06).
+   * True iff `missedWorkoutsLast7Days >= 2` OR `thisWeekComplianceRatio < 0.6`.
+   */
+  needsAttention: boolean;
+  /** Reasons the predicate fired. Empty when `needsAttention === false`. */
+  needsAttentionReasons: AttentionReason[];
 }
 
 /**
@@ -197,12 +217,22 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       const tzForToday = c.timezone ?? "UTC";
       const today = civilDateToday(tzForToday);
 
+      // 7-day window bounds. The assignments collection uses `scheduledFor`
+      // as a CIVIL DATE STRING ("YYYY-MM-DD" — Pitfall 1 / Pitfall 8); we
+      // compare lexicographically against `windowStartCivil`. The workout
+      // logs use `startedAt` as a Firestore Timestamp; we pass a Date.
+      const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const sevenDaysAgoDate = new Date(sevenDaysAgoMs);
+      const windowStartCivil = civilDateToday(tzForToday, sevenDaysAgoDate);
+
       const [
         latestWorkoutLog,
         latestHabitLog,
         latestChatMessage,
         chatDocSnap,
         clientHabits,
+        assignedLast7Snap,
+        completedLast7Snap,
       ] = await Promise.all([
         db
           .collection(FirestoreCollections.workoutLogs)
@@ -228,6 +258,20 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .collection(FirestoreCollections.habits)
           .where("clientId", "==", c.uid)
           .where("deleted", "==", false)
+          .get(),
+        // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
+        // is a "YYYY-MM-DD" string — lexicographic >= comparison is correct
+        // because civil-date strings sort identically to civil-date order.
+        db
+          .collection(FirestoreCollections.workoutAssignments)
+          .where("clientId", "==", c.uid)
+          .where("scheduledFor", ">=", windowStartCivil)
+          .get(),
+        // 11-06: logs started in the last 7 days (Timestamp comparison).
+        db
+          .collection(FirestoreCollections.workoutLogs)
+          .where("clientId", "==", c.uid)
+          .where("startedAt", ">=", sevenDaysAgoDate)
           .get(),
       ]);
 
@@ -295,8 +339,26 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         complianceSum += ratio;
         complianceCount += 1;
       }
+      // Vacuous-compliance rule (11-06 decision): when the client has zero
+      // assigned habits, the average is over an empty set. We default to
+      // 1.0 (vacuously compliant) so the `clientNeedsAttention` predicate
+      // does NOT flag the client for "low compliance" against an empty
+      // habit set. The roster table's "This week" column clamps the
+      // displayed percentage to [0, 100] regardless.
       const thisWeekComplianceRatio =
-        complianceCount > 0 ? complianceSum / complianceCount : 0;
+        complianceCount > 0 ? complianceSum / complianceCount : 1;
+
+      // 11-06: derive missed workouts + needs-attention.
+      const assignedCount = assignedLast7Snap.size;
+      const completedCount = completedLast7Snap.size;
+      const missedWorkoutsLast7Days = Math.max(
+        0,
+        assignedCount - completedCount,
+      );
+      const attention = clientNeedsAttention({
+        missedWorkoutsLast7Days,
+        complianceRatioLast7Days: thisWeekComplianceRatio,
+      });
 
       return {
         uid: c.uid,
@@ -306,6 +368,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         lastActivityAt: lastActivity?.toISOString() ?? null,
         thisWeekComplianceRatio,
         unreadChatCount,
+        missedWorkoutsLast7Days,
+        needsAttention: attention.needsAttention,
+        needsAttentionReasons: attention.reasons,
       };
     }),
   );
