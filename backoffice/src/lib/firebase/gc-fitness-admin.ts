@@ -5,21 +5,47 @@ import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage, type Storage } from "firebase-admin/storage";
 
-// Server-only Firebase Admin SDK initializer for the gc-fitness Firebase
-// project (`gcfitness-3476b`). The `import "server-only"` directive on line 1
-// is CRITICAL: it makes Webpack/Turbopack throw a build error if any client
-// component (or shared module that ends up in a client bundle) imports this
-// file. Without it, the service-account private key + admin credentials would
-// leak into the browser bundle.
+// ---------------------------------------------------------------------------
+// Pitfall 16 — Named-App Per-Project Firebase Admin Registry (backoffice
+// process side). This module is one of TWO sibling implementations of the
+// same named-app pattern across the `golden-crow-website` workspace:
 //
-// Multi-app pattern: a NAMED app (`gc-fitness`) is used so this initializer
-// coexists with any other firebase-admin default app that other surfaces
-// might add. The named-app guard prevents `initializeApp` from throwing on
-// subsequent calls (Next.js dev server hot-reloads re-evaluate modules).
+//   1. goldencrow-sdk/src/config/firebase.ts — registry for the SDK's
+//      Fastify-on-Vercel function. Owns the typed `ProjectKey`-keyed
+//      `adminAppFor / adminAuthFor / adminDbFor / adminStorageFor`
+//      multi-project registry. Source of truth for the PATTERN.
 //
-// Private-key handling: the GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY env var is
-// base64-encoded (avoids newline/escape issues in Vercel env UI). It is
-// decoded once per cold start during `getOrInit()`.
+//   2. THIS FILE (backoffice/src/lib/firebase/gc-fitness-admin.ts) — the
+//      backoffice Next.js process's mirror for the gc-fitness project
+//      ONLY. Lives in a separate Vercel function (`backoffice`) with
+//      its own process memory + cold-start lifecycle, so it does NOT
+//      share the SDK's process-global firebase-admin app registry.
+//      That is why this file maintains its own `getOrInit()` instead
+//      of importing from the SDK at runtime.
+//
+// Invariant (Pitfall 16): EVERY `initializeApp(...)` call site in the
+// `golden-crow-website` workspace passes an explicit project-key name
+// argument (here: `APP_NAME = "gc-fitness"`). The PR-check script at
+// `golden-crow-website/scripts/check-no-default-app.sh` scans both
+// directories and exits non-zero if any default-app call sneaks back in.
+//
+// Cross-reference (Pitfall 7 — same source of truth): if you change
+// `getOrInit()` here (env-var name, base64 decode, cert shape, error
+// message), apply the equivalent change in
+// `goldencrow-sdk/src/config/firebase.ts`. The two files are independent
+// processes but share the named-app PATTERN; PRs that touch one without
+// the other should be flagged in code review.
+//
+// Server-only guard: the `import "server-only"` directive on line 1 is
+// CRITICAL: it makes Webpack/Turbopack throw a build error if any client
+// component (or shared module that ends up in a client bundle) imports
+// this file. Without it, the service-account private key + admin
+// credentials would leak into the browser bundle.
+//
+// Private-key handling: the GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY env
+// var is base64-encoded (avoids newline/escape issues in Vercel env UI).
+// It is decoded once per cold start during `getOrInit()`.
+// ---------------------------------------------------------------------------
 
 const APP_NAME = "gc-fitness";
 
