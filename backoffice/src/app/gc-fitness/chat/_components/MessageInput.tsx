@@ -17,10 +17,20 @@
 //                                    `lastMessageAt` / cleared the trainer's
 //                                    own `unreadCount` slot)
 //
-// The 08-12 quick-reply dropdown will mount alongside the textarea via the
-// `trainerQuickReplies` prop — kept in the API surface even though V1
-// doesn't render the dropdown so the 08-12 patch is a pure addition (no
-// breaking change to this file's public shape).
+// The 08-12 quick-reply dropdown now mounts alongside the textarea as a
+// sibling trigger button. The dropdown itself owns its own data
+// (`useQuery` → `getCurrentTrainerProfile` Server Action), so MessageInput
+// doesn't need to plumb a `trainerQuickReplies` prop — the optional prop
+// remains in the surface for callers that want to inject test fixtures or
+// pre-rendered data, but is intentionally not wired by V1.
+//
+// QuickReplyDropdown integration (P08-12):
+//   - The dropdown's `onSelect(text)` callback appends the template into
+//     the textarea (separated by a newline if the textarea already has
+//     content) — it does NOT auto-send. The trainer can edit before
+//     hitting Send. This matches the must_haves.truths constraint in
+//     PLAN 08-12 ("tapping a quick-reply INSERTS its text into the
+//     MessageInput textarea — does NOT auto-send").
 
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,9 +38,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { sendTrainerMessage } from "@/lib/gc-fitness/chat-server-actions";
 import { CHATS_BASE_KEY } from "@/lib/gc-fitness/chat-listener";
 
+import { QuickReplyDropdown } from "./QuickReplyDropdown";
+
 export interface MessageInputProps {
   chatId: string;
-  /** 08-12 quick-reply templates — currently unused by V1; reserved API slot. */
+  /** 08-12 quick-reply templates — reserved API slot (dropdown self-fetches in V1). */
   trainerQuickReplies?: string[];
 }
 
@@ -68,6 +80,13 @@ export function MessageInput({ chatId }: MessageInputProps) {
     mutation.mutate(trimmed);
   }, [text, mutation]);
 
+  const handleQuickReplySelect = useCallback((reply: string) => {
+    // Append the template into the textarea; insert a newline if the
+    // trainer already started typing. Do NOT auto-send (per PLAN 08-12
+    // must_haves.truths — trainer edits before submit).
+    setText((prev) => (prev.trim().length === 0 ? reply : `${prev}\n${reply}`));
+  }, []);
+
   return (
     <form
       onSubmit={(e) => {
@@ -77,6 +96,10 @@ export function MessageInput({ chatId }: MessageInputProps) {
       className="flex flex-col gap-1 border-t bg-background p-3"
     >
       <div className="flex items-end gap-2">
+        <QuickReplyDropdown
+          onSelect={handleQuickReplySelect}
+          disabled={mutation.isPending}
+        />
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
