@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import type { DecodedIdToken } from "firebase-admin/auth";
+import { FieldValue } from "firebase-admin/firestore";
 import { setAuthCookies } from "next-firebase-auth-edge/lib/next/cookies";
-import { gcFitnessAuth } from "@/lib/firebase/gc-fitness-admin";
+import {
+  gcFitnessAuth,
+  gcFitnessFirestore,
+} from "@/lib/firebase/gc-fitness-admin";
+import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 
 // POST /api/gc-fitness/login
 //
@@ -38,6 +44,48 @@ function parseAllowlist(raw: string | undefined): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function fallbackName(email: string): string {
+  const localPart = email.split("@")[0] ?? email;
+  return localPart || email;
+}
+
+async function upsertTrainerProfile(
+  decoded: DecodedIdToken,
+  email: string,
+): Promise<void> {
+  const ref = gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(decoded.uid);
+  const snap = await ref.get();
+  const existing = snap.exists ? snap.data() ?? {} : {};
+  const token = decoded as DecodedIdToken & {
+    name?: string;
+    picture?: string;
+  };
+  await ref.set(
+    {
+      email,
+      displayName:
+        typeof existing.displayName === "string" &&
+        existing.displayName.trim().length > 0
+          ? existing.displayName
+          : token.name || fallbackName(email),
+      photoURL:
+        typeof existing.photoURL === "string" && existing.photoURL.length > 0
+          ? existing.photoURL
+          : token.picture ?? null,
+      role: "trainer",
+      coachId: null,
+      preferences: existing.preferences ?? {},
+      fcmTokens: existing.fcmTokens ?? [],
+      deleted: false,
+      createdAt: existing.createdAt ?? FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 // CR-06 fix (P02-REVIEW-FIX): explicit env-var guard. The previous code used
@@ -110,6 +158,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not on allowlist" }, { status: 403 });
     }
 
+    await upsertTrainerProfile(decoded, email);
+
     return setAuthCookies(request.headers, {
       apiKey: env.apiKey,
       cookieName: "GcFitnessAuthToken",
@@ -127,7 +177,9 @@ export async function POST(request: Request) {
         privateKey: Buffer.from(env.privateKeyB64, "base64").toString("utf8"),
       },
     });
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[gc-fitness/login] authentication failed:", err);
     return NextResponse.json(
       { error: "Authentication failed" },
       { status: 403 },

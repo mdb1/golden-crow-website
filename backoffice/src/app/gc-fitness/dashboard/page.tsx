@@ -1,101 +1,198 @@
-import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTokens } from "next-firebase-auth-edge";
+import {
+  CalendarDays,
+  Dumbbell,
+  Library,
+  ListChecks,
+  MessagesSquare,
+  Users,
+} from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardHeader,
   CardTitle,
-  CardContent,
 } from "@/components/ui/card";
-import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  getCurrentTrainer,
+  type CurrentTrainer,
+} from "@/lib/gc-fitness/auth-helpers";
+import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 
 export const dynamic = "force-dynamic";
 
-// Placeholder GC Fitness trainer dashboard (Phase 2 Surface B).
-//
-// Reads the next-firebase-auth-edge session via getTokens(cookies(), options)
-// — same cookieName + cookieSignatureKeys + serviceAccount config as
-// /api/gc-fitness/login uses to mint the cookie, so the verify call is the
-// inverse of the mint call. If no valid cookie, we redirect to /login (the
-// proxy already does this for non-logged-in requests, but the explicit check
-// here is defense-in-depth for any edge case where the proxy matcher misses).
-//
-// The full GC Fitness dashboard (client roster, workout assignment,
-// chat) lands in Phase 11.
+const quickLinks = [
+  {
+    title: "Clients",
+    description: "Attach app users and open each client workspace.",
+    href: "/gc-fitness/clients",
+    icon: Users,
+  },
+  {
+    title: "Schedule",
+    description: "Assign workout templates to a client calendar.",
+    href: "/gc-fitness/schedule",
+    icon: CalendarDays,
+  },
+  {
+    title: "Workouts",
+    description: "Create reusable routines for assignments.",
+    href: "/gc-fitness/templates",
+    icon: Dumbbell,
+  },
+  {
+    title: "Library",
+    description: "Browse the preloaded exercise library.",
+    href: "/gc-fitness/exercises",
+    icon: Library,
+  },
+  {
+    title: "Habits",
+    description: "Create habit assignments for clients.",
+    href: "/gc-fitness/habits",
+    icon: ListChecks,
+  },
+  {
+    title: "Chat",
+    description: "Reply to client conversations.",
+    href: "/gc-fitness/chat",
+    icon: MessagesSquare,
+  },
+];
+
+async function getDashboardCounts(trainer: CurrentTrainer) {
+  const db = gcFitnessFirestore();
+  const [clients, templates, exercises, chats] = await Promise.all([
+    db
+      .collection(FirestoreCollections.users)
+      .where("coachId", "==", trainer.uid)
+      .count()
+      .get(),
+    db
+      .collection(FirestoreCollections.workoutTemplates)
+      .where("trainerId", "==", trainer.uid)
+      .where("deleted", "==", false)
+      .count()
+      .get(),
+    db.collection(FirestoreCollections.exercises).count().get(),
+    db
+      .collection(FirestoreCollections.chats)
+      .where("coachId", "==", trainer.uid)
+      .count()
+      .get(),
+  ]);
+
+  return {
+    clients: clients.data().count,
+    templates: templates.data().count,
+    exercises: exercises.data().count,
+    chats: chats.data().count,
+  };
+}
+
 export default async function GCFitnessDashboardPage() {
-  // CR-06 fix (P02-REVIEW-FIX): replace `process.env.X!` non-null assertions
-  // with explicit checks so a missing env var fails loudly rather than
-  // silently passing `undefined` into next-firebase-auth-edge.
-  const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
-  const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
-  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKeyB64 = process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY;
-  if (
-    !apiKey ||
-    !cookieSignatureKey ||
-    !projectId ||
-    !clientEmail ||
-    !privateKeyB64
-  ) {
-    // eslint-disable-next-line no-console
-    console.error(
-      "[gc-fitness/dashboard] server misconfigured — at least one required env var is unset.",
-    );
-    throw new Error(
-      "GC Fitness backoffice is misconfigured. Required env vars missing.",
-    );
+  let trainer: CurrentTrainer;
+  try {
+    trainer = await getCurrentTrainer();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Forbidden";
+    if (message === "Forbidden") {
+      redirect("/gc-fitness/login");
+    }
+    throw err;
   }
 
-  const tokens = await getTokens(await cookies(), {
-    apiKey,
-    cookieName: "GcFitnessAuthToken",
-    cookieSignatureKeys: [cookieSignatureKey],
-    serviceAccount: {
-      projectId,
-      clientEmail,
-      privateKey: Buffer.from(privateKeyB64, "base64").toString("utf8"),
-    },
-  });
-
-  if (!tokens) {
-    redirect("/gc-fitness/login");
-  }
-
-  const { decodedToken } = tokens;
-  const displayName =
-    decodedToken.name ?? decodedToken.email ?? "Trainer";
-  // WR-05 fix (P02-REVIEW-FIX): verify the role custom claim explicitly. The
-  // previous default-to-"trainer" hid the case where a cookie was minted for
-  // a non-trainer user — they would see themselves as a trainer on the
-  // dashboard. Allowlist + role custom claim should agree; this is
-  // defense-in-depth (and a real check, not a default).
-  const role = (decodedToken as { role?: string }).role;
-  if (role !== "trainer") {
-    redirect("/gc-fitness/forbidden");
-  }
+  const counts = await getDashboardCounts(trainer);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-1">
           <p className="section-eyebrow">GC Fitness</p>
-          <CardTitle className="font-heading text-2xl font-semibold">
-            Hello, {displayName}
-          </CardTitle>
-          <Badge variant="secondary" className="mt-2 w-fit capitalize">
-            {role}
-          </Badge>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">
+            Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground">
-            You&apos;re signed in as trainer. The full GC Fitness dashboard
-            arrives in Phase 11.
+            Signed in as {trainer.email}.
           </p>
-          <SignOutButton />
-        </CardContent>
-      </Card>
+        </div>
+        <Button asChild>
+          <Link href="/gc-fitness/clients">Add or manage clients</Link>
+        </Button>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Clients
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">{counts.clients}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Workout templates
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">{counts.templates}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Exercises
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">{counts.exercises}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Conversations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">{counts.chats}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        {quickLinks.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="rounded-lg border bg-card p-5 text-card-foreground transition hover:border-primary/50 hover:bg-accent/30"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4 text-primary" />
+                  <h2 className="font-heading text-base font-semibold">
+                    {item.title}
+                  </h2>
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {item.description}
+                </p>
+              </div>
+              <Badge variant="secondary">Open</Badge>
+            </div>
+          </Link>
+        ))}
+      </section>
     </div>
   );
 }

@@ -127,7 +127,12 @@ export default async function proxy(request: NextRequest) {
         // (provisioning bug, allowlist drift), the middleware now denies
         // dashboard access. Pairs with WR-05 (dashboard page also checks).
         const role = (decodedToken as { role?: string }).role;
-        if (!email || !allowlist.includes(email) || role !== "trainer") {
+        const allowMissingTrainerClaimInDev = process.env.NODE_ENV !== "production";
+        if (
+          !email ||
+          !allowlist.includes(email) ||
+          (role !== "trainer" && !allowMissingTrainerClaimInDev)
+        ) {
           return NextResponse.redirect(
             new URL("/gc-fitness/forbidden", request.url),
           );

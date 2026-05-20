@@ -36,6 +36,10 @@ import { RecentWorkoutsWidget } from "./_components/RecentWorkoutsWidget";
 import { HabitComplianceWidget } from "./_components/HabitComplianceWidget";
 import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
 import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
+import { ClientNotesCard } from "./_components/ClientNotesCard";
+import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
+import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
+import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +82,10 @@ export default async function ClientDetailPage({
 
   const displayName = client.displayName ?? client.email ?? id;
   const timezone = client.timezone ?? "UTC";
+  const [notes, progressPhotos] = await Promise.all([
+    getClientNotes(id),
+    listProgressPhotosForClient(id),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
@@ -106,6 +114,14 @@ export default async function ClientDetailPage({
         <Suspense fallback={<WidgetSkeleton title="Body weight (30 days)" />}>
           <BodyWeightTrendChart clientId={id} timezone={timezone} />
         </Suspense>
+
+        <ClientNotesCard
+          clientId={id}
+          initialNotes={notes.notes}
+          initialUpdatedAt={notes.updatedAt}
+        />
+
+        <ProgressPhotosWidget photos={progressPhotos} />
       </div>
     </div>
   );

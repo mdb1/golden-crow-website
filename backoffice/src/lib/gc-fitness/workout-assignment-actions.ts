@@ -75,6 +75,25 @@ function toIso(v: unknown): string | null {
   return null;
 }
 
+function jsonSafe(value: unknown): unknown {
+  if (
+    value &&
+    typeof (value as { toDate?: () => Date }).toDate === "function"
+  ) {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (Array.isArray(value)) return value.map(jsonSafe);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+        key,
+        jsonSafe(val),
+      ]),
+    );
+  }
+  return value;
+}
+
 function snapToRow(d: {
   id: string;
   data: () => Record<string, unknown>;
@@ -83,7 +102,7 @@ function snapToRow(d: {
   return {
     id: d.id,
     templateId: String(data.templateId ?? ""),
-    templateSnapshot: data.templateSnapshot,
+    templateSnapshot: jsonSafe(data.templateSnapshot),
     clientId: String(data.clientId ?? ""),
     trainerId: String(data.trainerId ?? ""),
     scheduledFor: String(data.scheduledFor ?? ""),

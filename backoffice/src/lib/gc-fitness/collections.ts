@@ -22,6 +22,8 @@
 //   `habitLogs`              — added in P06-01
 //   `chats`                  — NEW, this plan (P08-04 — paired with Swift twin shipped P01-01)
 //   `messages`               — NEW, this plan (P08-04 — paired with Swift twin shipped P01-01)
+//   `progressPhotos`         — client progress-photo metadata
+//   `clientNotes`            — trainer-private notes per client
 //
 // Future entries (`fcmTokens`, etc.) live in the Swift source today and will
 // be added here when the corresponding backoffice / Server-Action surfaces
@@ -45,6 +47,9 @@
 export const FirestoreCollections = {
   /** Top-level users collection. Documents are keyed by Firebase Auth UID. */
   users: "users",
+
+  /** Pre-created client placeholders keyed by lowercased email. */
+  userMirror: "user_mirror",
 
   /** Exercise library — name, muscle groups, GIF URL, equipment. */
   exercises: "exercises",
@@ -90,6 +95,19 @@ export const FirestoreCollections = {
    * `chats/{chatId}/messages/{messageId}`. Added in P08-04.
    */
   messages: "messages",
+
+  /**
+   * Client-uploaded progress photo metadata. Binary objects live in Cloud
+   * Storage under `progress_photos/{clientId}/...`; Firestore stores the
+   * coach/client linkage plus caption/timestamp metadata for dashboard views.
+   */
+  progressPhotos: "progress_photos",
+
+  /**
+   * Trainer-private per-client notes. Clients cannot read this collection;
+   * the deterministic doc id is `${coachId}_${clientId}`.
+   */
+  clientNotes: "client_notes",
 } as const;
 
 /**

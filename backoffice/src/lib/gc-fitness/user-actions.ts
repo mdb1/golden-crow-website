@@ -52,7 +52,10 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  gcFitnessAuth,
+  gcFitnessFirestore,
+} from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
@@ -74,6 +77,11 @@ const MAX_TEMPLATE_CHARS = 240;
  */
 const MAX_TEMPLATES = 20;
 
+const provisionClientSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  displayName: z.string().trim().max(120).optional(),
+});
+
 /**
  * Zod schema for `updateChatQuickReplies` input. Caps at 20 templates ×
  * 240 chars each, trims surrounding whitespace, and drops empty strings
@@ -88,7 +96,7 @@ const MAX_TEMPLATES = 20;
  * the iOS writer does no validation by design (the iOS app never
  * surfaces an editor — clients always store nil).
  */
-export const updateChatQuickRepliesSchema = z.object({
+const updateChatQuickRepliesSchema = z.object({
   replies: z
     .array(z.string().max(MAX_TEMPLATE_CHARS))
     .max(MAX_TEMPLATES)
@@ -96,9 +104,6 @@ export const updateChatQuickRepliesSchema = z.object({
       arr.map((s) => s.trim()).filter((s) => s.length > 0),
     ),
 });
-export type UpdateChatQuickRepliesInput = z.infer<
-  typeof updateChatQuickRepliesSchema
->;
 
 /**
  * Server Action: update `/users/{trainer.uid}.chatQuickReplies`.
@@ -150,6 +155,130 @@ export async function updateChatQuickReplies(
   }
 
   return { ok: true };
+}
+
+function fallbackName(email: string): string {
+  const localPart = email.split("@")[0] ?? email;
+  return localPart || email;
+}
+
+async function trainerProfile(
+  uid: string,
+  email: string,
+): Promise<{ displayName: string; photoURL: string | null }> {
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(uid)
+    .get();
+  const name = snap.exists ? snap.get("displayName") : undefined;
+  const photoURL = snap.exists ? snap.get("photoURL") : undefined;
+  return {
+    displayName:
+      typeof name === "string" && name.trim().length > 0
+        ? name.trim()
+        : fallbackName(email),
+    photoURL:
+      typeof photoURL === "string" && photoURL.trim().length > 0
+        ? photoURL.trim()
+        : null,
+  };
+}
+
+/**
+ * Server Action: attach a client email to the current trainer.
+ *
+ * If the email already has a Firebase Auth user, this creates/updates
+ * `/users/{uid}` and sets custom claims so the iOS app can read/write under
+ * the normal client rules immediately. If the email does not exist yet, it
+ * creates `/user_mirror/{email}` for the first-sign-in provisioning path.
+ */
+export async function provisionClient(
+  input: unknown,
+): Promise<{ ok: true; mode: "attached-existing-user" | "precreated-mirror" }> {
+  const session = await getCurrentTrainer();
+  const parsed = provisionClientSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const auth = gcFitnessAuth();
+  const coach = await trainerProfile(session.uid, session.email);
+  const coachDisplayName = coach.displayName;
+  const displayName = parsed.displayName || fallbackName(parsed.email);
+
+  let authUser: Awaited<ReturnType<typeof auth.getUserByEmail>> | null = null;
+  try {
+    authUser = await auth.getUserByEmail(parsed.email);
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code !== "auth/user-not-found") throw err;
+  }
+
+  if (!authUser) {
+    await db.collection(FirestoreCollections.userMirror).doc(parsed.email).set(
+      {
+        email: parsed.email,
+        displayName,
+        coachId: session.uid,
+        coachDisplayName,
+        coachPhotoURL: coach.photoURL,
+        pre_created: true,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return { ok: true, mode: "precreated-mirror" };
+  }
+
+  if (authUser.uid === session.uid) {
+    throw new Error("You cannot add yourself as a client.");
+  }
+
+  await auth.setCustomUserClaims(authUser.uid, {
+    ...(authUser.customClaims ?? {}),
+    role: "client",
+    coachId: session.uid,
+  });
+
+  const userRef = db.collection(FirestoreCollections.users).doc(authUser.uid);
+  const chatRef = db.collection(FirestoreCollections.chats).doc(authUser.uid);
+  await db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    const data = userSnap.exists ? userSnap.data() ?? {} : {};
+    tx.set(
+      userRef,
+      {
+        email: parsed.email,
+        displayName:
+          parsed.displayName ||
+          (typeof data.displayName === "string" && data.displayName.length > 0
+            ? data.displayName
+            : authUser.displayName || displayName),
+        photoURL: authUser.photoURL ?? data.photoURL ?? null,
+        role: "client",
+        coachId: session.uid,
+        coachDisplayName,
+        coachPhotoURL: coach.photoURL,
+        preferences: data.preferences ?? {},
+        fcmTokens: data.fcmTokens ?? [],
+        deleted: false,
+        createdAt: data.createdAt ?? FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    tx.set(
+      chatRef,
+      {
+        clientId: authUser.uid,
+        coachId: session.uid,
+        unreadCount: data.unreadCount ?? {},
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
+
+  return { ok: true, mode: "attached-existing-user" };
 }
 
 /**

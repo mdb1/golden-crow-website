@@ -227,7 +227,6 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
 
       const [
         latestWorkoutLog,
-        latestHabitLog,
         latestChatMessage,
         chatDocSnap,
         clientHabits,
@@ -238,12 +237,6 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .collection(FirestoreCollections.workoutLogs)
           .where("clientId", "==", c.uid)
           .orderBy("startedAt", "desc")
-          .limit(1)
-          .get(),
-        db
-          .collection(FirestoreCollections.habitLogs)
-          .where("clientId", "==", c.uid)
-          .orderBy("loggedAt", "desc")
           .limit(1)
           .get(),
         db
@@ -276,9 +269,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       ]);
 
       const tsWorkout = latestDate(latestWorkoutLog, "startedAt");
-      const tsHabit = latestDate(latestHabitLog, "loggedAt");
       const tsChat = latestDate(latestChatMessage, "createdAt");
-      const candidates: Date[] = [tsWorkout, tsHabit, tsChat].filter(
+      const candidates: Date[] = [tsWorkout, tsChat].filter(
         (d): d is Date => d instanceof Date,
       );
       const lastActivity =

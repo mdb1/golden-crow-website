@@ -35,6 +35,16 @@ export default function GCFitnessLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function readError(res: Response): Promise<string> {
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) return data.error;
+    } catch {
+      // The route should return JSON, but keep a stable fallback if it does not.
+    }
+    return "Sign in failed. Please try again.";
+  }
+
   async function handleGoogleSignIn() {
     setLoading(true);
     setError(null);
@@ -58,12 +68,12 @@ export default function GCFitnessLoginPage() {
         return;
       }
       if (!res.ok) {
-        setError("Sign in failed. Please try again.");
+        setError(await readError(res));
         return;
       }
       window.location.href = "/gc-fitness/dashboard";
-    } catch {
-      setError("Sign in failed. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
     } finally {
       setLoading(false);
     }

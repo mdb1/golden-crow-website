@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "jest",
     "test:gc-fitness": "jest --testPathPattern=gc-fitness",
+    "seed:gc-fitness-library": "node scripts/seed-gc-fitness-library.cjs",
     "bump:version": "python3 scripts/bump-sidebar-version.py",
     "check:no-default-app": "bash ../scripts/check-no-default-app.sh"
   },
@@ -45,8 +46,8 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.9.0",
-    "@types/react": "^19",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^19",
     "eslint": "^10.4.0",
     "eslint-config-next": "^16.2.6",
@@ -54,7 +55,7 @@
     "jest-environment-jsdom": "^30.4.1",
     "shadcn": "^4.7.0",
     "tailwindcss": "^4.3.0",
-    "ts-jest": "^29.4.9",
+    "ts-jest": "^29.4.10",
     "typescript": "^6.0.3"
   }
 }

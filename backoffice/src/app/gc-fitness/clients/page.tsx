@@ -26,6 +26,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
+import { ProvisionClientForm } from "./_components/ProvisionClientForm";
 import { RosterTable } from "./_components/RosterTable";
 import { RosterQueryProvider } from "./providers";
 
@@ -56,6 +57,7 @@ export default async function ClientsPage() {
           recent activity.
         </p>
       </div>
+      <ProvisionClientForm />
       <RosterQueryProvider>
         <RosterTable rows={rows} trainerUid={trainer.uid} />
       </RosterQueryProvider>

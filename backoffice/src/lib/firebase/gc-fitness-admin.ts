@@ -68,6 +68,9 @@ function getOrInit(): App {
   return initializeApp(
     {
       credential: cert({ projectId, clientEmail, privateKey }),
+      storageBucket:
+        process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET ??
+        `${projectId}.firebasestorage.app`,
     },
     APP_NAME,
   );

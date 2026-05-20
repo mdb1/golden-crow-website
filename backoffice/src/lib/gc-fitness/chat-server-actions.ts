@@ -64,6 +64,7 @@ import {
   FieldPath,
   FieldValue,
   type Firestore,
+  type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
@@ -94,6 +95,28 @@ function toIso(v: unknown): string | null {
   if (v instanceof Date) return v.toISOString();
   if (typeof v === "string") return v;
   return null;
+}
+
+function projectLastMessage(
+  data:
+    | { text?: unknown; senderId?: unknown; createdAt?: unknown; kind?: unknown }
+    | undefined,
+): ChatRow["lastMessage"] {
+  if (!data) return undefined;
+  const createdAtIso = toIso(data.createdAt);
+  const kind = data.kind;
+  if (
+    createdAtIso !== null &&
+    (kind === "text" || kind === "image" || kind === "voice")
+  ) {
+    return {
+      text: String(data.text ?? ""),
+      senderId: String(data.senderId ?? ""),
+      createdAt: createdAtIso,
+      kind,
+    };
+  }
+  return undefined;
 }
 
 /**
@@ -158,7 +181,7 @@ export async function sendTrainerMessage(
   const data: Record<string, unknown> = {
     kind: parsed.kind,
     senderId: session.uid, // ← server-trusted, NEVER from input
-    createdAt: FieldValue.serverTimestamp(),
+    createdAt: new Date(),
   };
   if (parsed.kind === "text") {
     data.text = parsed.text;
@@ -182,7 +205,34 @@ export async function sendTrainerMessage(
     .doc(parsed.chatId)
     .collection(MESSAGES)
     .doc();
-  await msgRef.set(data);
+  const createdAt = data.createdAt;
+  const previewText =
+    parsed.kind === "text"
+      ? parsed.text
+      : parsed.kind === "image"
+        ? parsed.text || "[Image]"
+        : "[Voice]";
+
+  const batch = db.batch();
+  batch.set(msgRef, data);
+  batch.set(
+    db.collection(CHATS).doc(parsed.chatId),
+    {
+      clientId: parsed.chatId,
+      coachId: session.uid,
+      lastMessage: {
+        text: previewText,
+        senderId: session.uid,
+        createdAt,
+        kind: parsed.kind,
+      },
+      lastMessageAt: createdAt,
+      [`unreadCount.${parsed.chatId}`]: FieldValue.increment(1),
+      updatedAt: createdAt,
+    },
+    { merge: true },
+  );
+  await batch.commit();
 
   return { id: msgRef.id };
 }
@@ -209,30 +259,28 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
   const snap = await db
     .collection(CHATS)
     .where("coachId", "==", session.uid)
-    .orderBy("lastMessageAt", "desc")
     .limit(200)
     .get();
 
-  return snap.docs.map((doc) => {
+  const rows = await Promise.all(snap.docs.map(async (doc) => {
     const data = doc.data();
-    const lastMessageRaw = data.lastMessage as
-      | { text?: unknown; senderId?: unknown; createdAt?: unknown; kind?: unknown }
-      | undefined;
+    let lastMessage = projectLastMessage(data.lastMessage as Parameters<typeof projectLastMessage>[0]);
+    let lastMessageAt = toIso(data.lastMessageAt);
 
-    let lastMessage: ChatRow["lastMessage"] = undefined;
-    if (lastMessageRaw) {
-      const createdAtIso = toIso(lastMessageRaw.createdAt);
-      const kind = lastMessageRaw.kind;
-      // Only project lastMessage when the Cloud Function has populated
-      // it (the doc could in principle exist with no denorm yet during
-      // a race). Mirrors the Swift `Chat.lastMessage` Optional.
-      if (createdAtIso !== null && (kind === "text" || kind === "image" || kind === "voice")) {
-        lastMessage = {
-          text: String(lastMessageRaw.text ?? ""),
-          senderId: String(lastMessageRaw.senderId ?? ""),
-          createdAt: createdAtIso,
-          kind,
-        };
+    // Local-dev fallback: Cloud Functions may not be deployed yet, so the
+    // parent chat doc can lack lastMessage/lastMessageAt even while messages
+    // exist in the subcollection. Compute a read-side preview so the inbox is
+    // usable before the denormalizer is live.
+    if (!lastMessage || !lastMessageAt) {
+      const latest = await doc.ref
+        .collection(MESSAGES)
+        .orderBy("createdAt", "desc")
+        .limit(1)
+        .get();
+      const latestDoc = latest.docs[0] as QueryDocumentSnapshot | undefined;
+      if (latestDoc) {
+        lastMessage = projectLastMessage(latestDoc.data() as Parameters<typeof projectLastMessage>[0]);
+        lastMessageAt = lastMessage?.createdAt ?? lastMessageAt;
       }
     }
 
@@ -241,13 +289,20 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
       clientId: (data.clientId as string) ?? doc.id,
       coachId: (data.coachId as string) ?? "",
       lastMessage,
-      lastMessageAt: toIso(data.lastMessageAt),
+      lastMessageAt,
       unreadCount:
         (data.unreadCount as Record<string, number> | undefined) ?? {},
       createdAt: toIso(data.createdAt),
       updatedAt: toIso(data.updatedAt),
     } satisfies ChatRow;
+  }));
+
+  rows.sort((a, b) => {
+    const ta = a.lastMessageAt ?? a.lastMessage?.createdAt ?? a.updatedAt ?? a.createdAt ?? "";
+    const tb = b.lastMessageAt ?? b.lastMessage?.createdAt ?? b.updatedAt ?? b.createdAt ?? "";
+    return tb.localeCompare(ta);
   });
+  return rows;
 }
 
 // ── fetchMessages (reader — P08-11 right pane / thread view) ───────────
