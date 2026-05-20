@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "check:no-default-app": "bash ../scripts/check-no-default-app.sh"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
