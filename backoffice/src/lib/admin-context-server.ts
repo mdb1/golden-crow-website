@@ -29,7 +29,9 @@ export async function getAdminContextServer(activeProject?: string): Promise<Adm
     patientId: ctx.patientId,
     isBootstrap: ctx.isBootstrap,
     canAccessBackoffice: ctx.canAccessBackoffice,
-    project: (activeProject as ProjectKey) ?? "mydnamap",
+    project:
+      (activeProject as ProjectKey) ??
+      ((ctx.projectAccess?.[0] as ProjectKey | undefined) ?? "mydnamap"),
     projectAccess: (ctx.projectAccess ?? []) as ProjectKey[],
   };
 }

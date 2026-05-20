@@ -4,7 +4,25 @@ export type AdminRole =
   | "institution_doctor"
   | "patient";
 
-export type ProjectKey = "mydnamap" | "pocket-gyms";
+/**
+ * Pitfall 7 same-source-of-truth mirror.
+ *
+ * The canonical declaration of this union lives in
+ * `golden-crow-website/goldencrow-sdk/src/types/sdk.types.ts` — the SDK is
+ * the upstream because it owns the named-app Firebase registry that
+ * indexes per-project credentials by these literal strings (Phase 11-01).
+ *
+ * This mirror exists because the backoffice's runtime does NOT currently
+ * import from the SDK package at type-check time (the two are deployed as
+ * independent Vercel functions). Adding a new project means:
+ *   1. Append the literal here AND in `goldencrow-sdk/src/types/sdk.types.ts`
+ *      in the SAME commit.
+ *   2. Run `bash scripts/check-no-default-app.sh` to confirm no default-app
+ *      initializeApp() crept in (Pitfall 16).
+ *   3. The Jest case in `goldencrow-sdk/src/__tests__/firebase-registry.test.ts`
+ *      (11-01) provides the cross-surface lock for the SDK side.
+ */
+export type ProjectKey = "mydnamap" | "pocket-gyms" | "gc-fitness";
 
 export interface AdminContextRecord {
   email: string;
