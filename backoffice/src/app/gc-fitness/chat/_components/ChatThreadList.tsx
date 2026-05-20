@@ -1,0 +1,227 @@
+"use client";
+
+// ChatThreadList.tsx — left pane of the trainer inbox.
+//
+// Renders ONE row per active chat thread, sorted by:
+//   1. unreadCount[trainerUid] DESC   (newest unread at top)
+//   2. lastMessageAt          DESC    (tiebreaker — most recent thread wins)
+//
+// The server query (`listChatsForTrainer` from P08-04) already orders by
+// `lastMessageAt DESC` against the P08-01 composite index
+// (`coachId ASC, lastMessageAt DESC`). The unread-by-trainer sort happens
+// here client-side because Firestore can't compositely index a dot-path map
+// with a variable key (the trainer's uid would have to be baked into the
+// index at deploy time — untenable per PATTERNS.md Note A).
+//
+// Trainer uid (Note G from PLAN.md) is plumbed in as a prop from `client.tsx`
+// — the single server-side source of truth (`await getCurrentTrainer()` in
+// `page.tsx`). Per-row unread counts read `chat.unreadCount[trainerUid]`.
+//
+// Per-row chrome: Avatar (initials) + display name + last-message preview +
+// relative-time hint + unread badge. Mirrors Slack / iMessage compact list
+// row layout. Active row is highlighted via `bg-muted`.
+
+import { useMemo } from "react";
+
+import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
+import type { ChatRow } from "@/lib/gc-fitness/chat-schema";
+
+import type { ClientRosterEntry } from "../client";
+
+interface Props {
+  /** Trainer's Firebase Auth UID — used to read per-uid unread count. */
+  trainerUid: string;
+  /** Currently selected chatId (from `?chatId=...`). */
+  activeChatId: string | null;
+  /** Row click → set the `?chatId=` search param. */
+  onSelect: (chatId: string) => void;
+  /** uid → displayName lookup source from listClients(). */
+  clientRoster: ClientRosterEntry[];
+}
+
+export function ChatThreadList({
+  trainerUid,
+  activeChatId,
+  onSelect,
+  clientRoster,
+}: Props) {
+  const { data, isLoading, error } = useTrainerChats();
+
+  // uid → displayName lookup — bounded to the trainer's client roster.
+  const nameByUid = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of clientRoster) m.set(c.uid, c.displayName);
+    return m;
+  }, [clientRoster]);
+
+  // Client-side sort: unread DESC, then lastMessageAt DESC.
+  // Falls back to chat.updatedAt then chat.createdAt when lastMessageAt is
+  // missing (denorm race: the chat doc exists but the Cloud Function hasn't
+  // written `lastMessageAt` yet — extremely brief window).
+  const sorted = useMemo(() => {
+    const rows = (data ?? []).slice();
+    rows.sort((a, b) => {
+      const ua = a.unreadCount?.[trainerUid] ?? 0;
+      const ub = b.unreadCount?.[trainerUid] ?? 0;
+      if (ua !== ub) return ub - ua;
+      const ta =
+        a.lastMessageAt ?? a.lastMessage?.createdAt ?? a.updatedAt ?? a.createdAt ?? "";
+      const tb =
+        b.lastMessageAt ?? b.lastMessage?.createdAt ?? b.updatedAt ?? b.createdAt ?? "";
+      // ISO 8601 strings sort reverse-lexicographically = newest first.
+      return tb.localeCompare(ta);
+    });
+    return rows;
+  }, [data, trainerUid]);
+
+  if (isLoading) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="p-4 text-sm text-destructive">
+        Couldn&apos;t load conversations.
+      </div>
+    );
+  }
+  if (sorted.length === 0) {
+    return (
+      <div className="p-6 text-center text-sm text-muted-foreground">
+        No conversations yet.
+        <br />
+        <span className="mt-2 block">
+          Your clients&apos; first messages will appear here.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="divide-y">
+      {sorted.map((chat) => (
+        <ChatThreadRow
+          key={chat.id}
+          chat={chat}
+          trainerUid={trainerUid}
+          displayName={nameByUid.get(chat.clientId) ?? chat.clientId}
+          isActive={chat.id === activeChatId}
+          onSelect={onSelect}
+        />
+      ))}
+    </ul>
+  );
+}
+
+// ── Row component ──────────────────────────────────────────────────────
+
+interface ChatThreadRowProps {
+  chat: ChatRow;
+  trainerUid: string;
+  displayName: string;
+  isActive: boolean;
+  onSelect: (chatId: string) => void;
+}
+
+function ChatThreadRow({
+  chat,
+  trainerUid,
+  displayName,
+  isActive,
+  onSelect,
+}: ChatThreadRowProps) {
+  const unread = chat.unreadCount?.[trainerUid] ?? 0;
+  const previewIso =
+    chat.lastMessage?.createdAt ?? chat.lastMessageAt ?? chat.updatedAt ?? null;
+  const previewText = previewKindLabel(chat.lastMessage);
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onSelect(chat.id)}
+        className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-muted/50 ${
+          isActive ? "bg-muted" : ""
+        }`}
+      >
+        <Avatar name={displayName} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="truncate font-medium">{displayName}</div>
+            <RelativeTime iso={previewIso} />
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+              {previewText}
+            </p>
+            {unread > 0 && <UnreadBadge count={unread} />}
+          </div>
+        </div>
+      </button>
+    </li>
+  );
+}
+
+// ── Inline helpers (kept local; V2 may hoist to a shared module) ───────
+
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  return (
+    <div
+      aria-hidden="true"
+      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary"
+    >
+      {initials || "·"}
+    </div>
+  );
+}
+
+function RelativeTime({ iso }: { iso: string | null | undefined }) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  let label: string;
+  if (diffSec < 60) label = "just now";
+  else if (diffSec < 3600) label = `${Math.floor(diffSec / 60)}m`;
+  else if (diffSec < 86400) label = `${Math.floor(diffSec / 3600)}h`;
+  else if (diffSec < 86400 * 7) label = `${Math.floor(diffSec / 86400)}d`;
+  else label = date.toLocaleDateString();
+  return (
+    <span className="flex-shrink-0 text-xs text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
+function UnreadBadge({ count }: { count: number }) {
+  return (
+    <span className="flex-shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+      {count}
+    </span>
+  );
+}
+
+function previewKindLabel(
+  lastMessage: ChatRow["lastMessage"] | undefined,
+): string {
+  if (!lastMessage) return "Start the conversation…";
+  switch (lastMessage.kind) {
+    case "text":
+      return lastMessage.text || "(empty message)";
+    case "image":
+      return lastMessage.text ? `📷 ${lastMessage.text}` : "📷 Photo";
+    case "voice":
+      return "🎤 Voice note";
+    default:
+      // exhaustive switch; future variants fall through to a safe label
+      return lastMessage.text || "New message";
+  }
+}
