@@ -151,3 +151,51 @@ export async function updateChatQuickReplies(
 
   return { ok: true };
 }
+
+/**
+ * Server Action: read the current trainer's profile slice that the chat
+ * UI needs — `chatQuickReplies` (CHAT-11 dropdown source) + `displayName`
+ * (header label fallback). Returns an empty/zeroed shape if the user doc
+ * doesn't exist yet (a brand-new trainer who has never opened Settings).
+ *
+ * Used by:
+ *   - P08-12 QuickReplyDropdown (chat MessageInput sibling) — populates
+ *     the one-tap-insert menu.
+ *   - P08-12 Settings page (`/gc-fitness/settings`) — seeds the
+ *     `QuickRepliesForm` initialReplies prop without exposing the full
+ *     /users/{uid} payload to the client.
+ *
+ * AUTH GATE: `getCurrentTrainer()` — same trainer-role + email-allowlist
+ * gate as `updateChatQuickReplies`. The trainer reads only their own
+ * profile (T-08-12-01 mitigation — cross-trainer reads impossible since
+ * `session.uid` binds the docRef; the caller cannot supply a uid).
+ *
+ * THREAT NOTE: This Action returns ONLY a hand-picked slice (uid +
+ * displayName + chatQuickReplies). It does NOT return the full /users
+ * doc — that would leak fields like email / FCM tokens / role metadata
+ * to the client bundle unnecessarily. Keep the shape narrow.
+ */
+export async function getCurrentTrainerProfile(): Promise<{
+  uid: string;
+  displayName: string;
+  chatQuickReplies: string[];
+}> {
+  const session = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(FirestoreCollections.users)
+    .doc(session.uid)
+    .get();
+  if (!snap.exists) {
+    return { uid: session.uid, displayName: "", chatQuickReplies: [] };
+  }
+  const data = snap.data() as {
+    displayName?: string;
+    chatQuickReplies?: string[];
+  };
+  return {
+    uid: session.uid,
+    displayName: data.displayName ?? "",
+    chatQuickReplies: data.chatQuickReplies ?? [],
+  };
+}
