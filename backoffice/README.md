@@ -60,3 +60,45 @@ Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLO
 | Users | `/users` | User list with search, edit, cascade delete |
 | Reports | `/reports` | DNA report list with source filter, detail, delete |
 | Learning | `/learning` | Learning module and lesson browser |
+
+## GC Fitness — Vercel environment setup
+
+The GC Fitness trainer surface (`/gc-fitness/*` routes — clients roster,
+per-client deep view, chat, habits, exercises, schedule, settings, templates)
+requires per-project Firebase Admin credentials in Vercel. These are scoped
+to the `gcfitness-3476b` Firebase project and are NOT shared with the existing
+MyDNAMap / Pocket Gyms env vars (Pitfall 16 isolation — separate Firebase
+projects, separate cookies, separate allowlists).
+
+Follow the runbook in:
+
+- `.planning/phases/11-backoffice-slot-in/11-08-env-vars-setup-PLAN.md`
+  (full step-by-step paste flow + troubleshooting)
+- `.env.example` (variable names + brief provenance per key)
+
+### Key facts
+
+- **Firebase project:** `gcfitness-3476b` (separate from MyDNAMap + Pocket Gyms).
+- **Bundle ID (iOS):** `com.goldencrow.fitness` (configured in Firebase).
+- **Trainer allowlist:** `GC_FITNESS_TEAM_ALLOWLIST` (comma-separated emails;
+  case-insensitive; case-insensitive matched at request time — no redeploy needed
+  for allowlist edits).
+- **Private key encoding:** BASE64 (avoids newline-escape issues in the Vercel
+  env-var UI). Encode with `printf '%s' '<key>' | base64`.
+- **Cookie signing:** rotate `GC_FITNESS_COOKIE_SIGNATURE_KEY` annually or when
+  leaked via `openssl rand -hex 32`. Use different values for Production /
+  Preview / Development environments.
+
+### After Vercel paste — smoke test
+
+After pasting the 10 vars into Vercel → Settings → Environment Variables and
+redeploying with build cache disabled:
+
+1. Sign in at the deployed `/login` with an allowlisted email.
+2. Pick the GC Fitness card from the project selector (added by plan 11-03).
+3. You should land at `/gc-fitness/clients` (the trainer roster) without
+   seeing the `auth-helpers.ts: server misconfigured` error.
+4. Click any roster row → the per-client deep view (`/gc-fitness/clients/[id]`)
+   should render with the 4-widget Suspense grid (added by plan 11-07).
+
+If any step fails, see the troubleshooting section of the 11-08 runbook.
