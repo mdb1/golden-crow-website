@@ -137,11 +137,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing email" }, { status: 403 });
     }
 
-    await gcFitnessAuth().setCustomUserClaims(decoded.uid, {
-      ...(decoded as DecodedIdToken & { customClaims?: Record<string, unknown> })
-        .customClaims,
-      role: "trainer",
-    });
+    try {
+      await gcFitnessAuth().setCustomUserClaims(decoded.uid, {
+        ...(decoded as DecodedIdToken & {
+          customClaims?: Record<string, unknown>;
+        }).customClaims,
+        role: "trainer",
+      });
+    } catch (claimErr) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[gc-fitness/login] could not persist trainer claim; continuing with session cookie:",
+        claimErr,
+      );
+    }
     await upsertTrainerProfile(decoded, email);
 
     return setAuthCookies(request.headers, {
