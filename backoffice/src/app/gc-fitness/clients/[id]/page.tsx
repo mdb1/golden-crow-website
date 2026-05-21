@@ -42,10 +42,8 @@ import { ClientGoalsCard } from "./_components/ClientGoalsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
-import {
-  buildClientDailyTimelineDates,
-  getClientDailyTimelineDay,
-} from "@/lib/gc-fitness/client-daily-timeline-actions";
+import { getClientDailyTimelineDay } from "@/lib/gc-fitness/client-daily-timeline-actions";
+import { buildClientDailyTimelineDates } from "@/lib/gc-fitness/client-daily-timeline-utils";
 import { ClientDailyTimeline } from "./_components/ClientDailyTimeline";
 
 export const dynamic = "force-dynamic";

@@ -5,6 +5,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
+import { buildClientDailyTimelineDates } from "./client-daily-timeline-utils";
 import type { ProgressPhotoRow } from "./progress-photo-actions";
 
 export interface ClientDailyTimelineDay {
@@ -83,12 +84,6 @@ function localizedText(value: unknown, fallback = "Untitled"): string {
   return fallback;
 }
 
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
 function isHabitActiveOnDate(
   habit: Record<string, unknown>,
   civilDate: string,
@@ -116,13 +111,6 @@ function isHabitActiveOnDate(
       ? habit.reminderDayOfMonth
       : 1;
   return date.getUTCDate() === dayOfMonth;
-}
-
-export function buildClientDailyTimelineDates(anchor = new Date()): string[] {
-  const base = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate()));
-  return Array.from({ length: 29 }, (_, index) =>
-    civilDateFormat(addDays(base, index - 14), "UTC"),
-  );
 }
 
 function createEmptyDay(date: string): ClientDailyTimelineDay {
