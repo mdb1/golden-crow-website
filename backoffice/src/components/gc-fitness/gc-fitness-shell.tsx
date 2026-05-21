@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   Dumbbell,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
+import { getTrainerUnreadChatCount } from "@/lib/gc-fitness/chat-server-actions";
 
 const HIDDEN_SHELL_PATHS = new Set([
   "/gc-fitness/login",
@@ -97,8 +99,10 @@ const sections = [
 
 export function GCFitnessShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const hiddenShell = HIDDEN_SHELL_PATHS.has(pathname);
+  const unreadChatCount = useUnreadChatCount(!hiddenShell);
 
-  if (HIDDEN_SHELL_PATHS.has(pathname)) {
+  if (hiddenShell) {
     return children;
   }
 
@@ -137,6 +141,14 @@ export function GCFitnessShell({ children }: { children: React.ReactNode }) {
                             <Link href={item.href}>
                               <item.icon className="h-4 w-4" />
                               <span>{item.label}</span>
+                              {item.href === "/gc-fitness/chat" && unreadChatCount > 0 ? (
+                                <span
+                                  className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-5 text-primary-foreground"
+                                  aria-label={`${unreadChatCount} unread chat messages`}
+                                >
+                                  {formatBadgeCount(unreadChatCount)}
+                                </span>
+                              ) : null}
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -176,4 +188,45 @@ export function GCFitnessShell({ children }: { children: React.ReactNode }) {
       </div>
     </SidebarProvider>
   );
+}
+
+function useUnreadChatCount(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    async function load() {
+      try {
+        const next = await getTrainerUnreadChatCount();
+        if (!cancelled) setCount(next);
+      } catch {
+        if (!cancelled) setCount(0);
+      }
+    }
+
+    void load();
+    const id = window.setInterval(() => {
+      void load();
+    }, 30_000);
+    const handleFocus = () => {
+      void load();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [enabled]);
+
+  return count;
+}
+
+function formatBadgeCount(count: number): string {
+  return count > 99 ? "99+" : String(count);
 }

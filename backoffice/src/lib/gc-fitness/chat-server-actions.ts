@@ -329,6 +329,25 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
   return rows;
 }
 
+export async function getTrainerUnreadChatCount(): Promise<number> {
+  const session = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  const snap = await db
+    .collection(CHATS)
+    .where("coachId", "==", session.uid)
+    .limit(200)
+    .get();
+
+  return snap.docs.reduce((total, doc) => {
+    const data = doc.data();
+    const unreadMap =
+      (data.unreadCount as Record<string, number> | undefined) ?? {};
+    const value = unreadMap[session.uid] ?? 0;
+    return total + Math.max(0, Number.isFinite(value) ? value : 0);
+  }, 0);
+}
+
 // ── fetchMessages (reader — P08-11 right pane / thread view) ───────────
 //
 // Returns the most-recent N messages in a chat thread, ordered ASC by
@@ -398,14 +417,10 @@ export async function fetchMessages(
 
 // ── setReadReceiptForTrainer (writer — readBy[trainerUid] = ts) ────────
 //
-// Trainer marks a message as read on their side. Writes EXACTLY one
-// field — `readBy.{session.uid}` — via dotted-key narrowness, matching
-// the iOS `ChatRepository.markRead` shape (P08-03) and the rule layer's
-// affectedKeys whitelist (`readBy.{auth.uid}` only; P08-01).
-//
-// The Cloud Function `onMessageCreated` (P08-06) also cross-writes
-// `chats.unreadCount.{trainerUid} = 0` in a separate trigger (see
-// P08-06 contract for the exact transaction shape).
+// Trainer marks a message as read on their side. Writes the message
+// `readBy.{session.uid}` slot and clears the parent
+// `unreadCount.{session.uid}` slot in the same Admin SDK batch so the inbox
+// and sidebar badge clear immediately.
 //
 // Mitigates T-08-04-01 (cross-trainer read-receipt forgery).
 export async function setReadReceiptForTrainer(
@@ -417,15 +432,27 @@ export async function setReadReceiptForTrainer(
 
   await assertChatOwnership(db, chatId, session.uid);
 
-  await db
-    .collection(CHATS)
-    .doc(chatId)
-    .collection(MESSAGES)
-    .doc(messageId)
-    .update(
-      new FieldPath("readBy", session.uid),
-      FieldValue.serverTimestamp(),
-    );
+  const batch = db.batch();
+  batch.update(
+    db
+      .collection(CHATS)
+      .doc(chatId)
+      .collection(MESSAGES)
+      .doc(messageId),
+    new FieldPath("readBy", session.uid),
+    FieldValue.serverTimestamp(),
+  );
+  batch.set(
+    db.collection(CHATS).doc(chatId),
+    {
+      unreadCount: {
+        [session.uid]: 0,
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
 
   return { ok: true };
 }

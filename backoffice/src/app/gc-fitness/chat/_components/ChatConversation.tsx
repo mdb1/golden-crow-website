@@ -31,8 +31,12 @@
 // Trainer uid (Note H) plumbed in from `client.tsx`.
 
 import { useEffect, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { useChatMessages } from "@/lib/gc-fitness/chat-listener";
+import {
+  CHATS_BASE_KEY,
+  useChatMessages,
+} from "@/lib/gc-fitness/chat-listener";
 import { setReadReceiptForTrainer } from "@/lib/gc-fitness/chat-server-actions";
 import type { MessageRow } from "@/lib/gc-fitness/chat-schema";
 
@@ -52,6 +56,7 @@ export function ChatConversation({
   clientRoster,
 }: ChatConversationProps) {
   const { data, isLoading, error } = useChatMessages(chatId);
+  const queryClient = useQueryClient();
   const messages = useMemo(() => data ?? [], [data]);
 
   const partnerName = useMemo(() => {
@@ -83,16 +88,20 @@ export function ChatConversation({
     for (const m of toMark) {
       alreadyMarkedRef.current.add(m.id);
       // Fire-and-forget; failures are recoverable on the next poll.
-      setReadReceiptForTrainer(chatId, m.id).catch((err) => {
-        console.warn(
-          `[chat] setReadReceiptForTrainer failed for ${chatId}/${m.id}`,
-          err,
-        );
-        // Allow a retry on next render cycle if it failed.
-        alreadyMarkedRef.current.delete(m.id);
-      });
+      setReadReceiptForTrainer(chatId, m.id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+        })
+        .catch((err) => {
+          console.warn(
+            `[chat] setReadReceiptForTrainer failed for ${chatId}/${m.id}`,
+            err,
+          );
+          // Allow a retry on next render cycle if it failed.
+          alreadyMarkedRef.current.delete(m.id);
+        });
     }
-  }, [messages, trainerUid, chatId]);
+  }, [messages, trainerUid, chatId, queryClient]);
 
   // Day-separator grouping — civil-date bucket via toDateString(). The
   // iOS edge uses `DaySeparatorGrouper` (P08-02 — pure-function module);
