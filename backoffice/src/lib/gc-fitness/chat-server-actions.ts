@@ -148,6 +148,21 @@ async function assertChatOwnership(
   return data;
 }
 
+async function assertTrainerOwnsClient(
+  db: Firestore,
+  clientId: string,
+  trainerUid: string,
+): Promise<void> {
+  const userSnap = await db.collection("users").doc(clientId).get();
+  if (!userSnap.exists) {
+    throw new Error("Client not found");
+  }
+  const data = userSnap.data() as Record<string, unknown>;
+  if (data.coachId !== trainerUid) {
+    throw new Error("Forbidden");
+  }
+}
+
 // ── sendTrainerMessage (writer — Pitfall 22 client-doc untouched) ──────
 //
 // Trainer-side message send. Admin SDK bypasses rules, so the gate is:
@@ -169,9 +184,18 @@ export async function sendTrainerMessage(
   const parsed = sendMessageInputSchema.parse(input);
   const db = gcFitnessFirestore();
 
-  // T-08-04-01 — ownership precondition. Defense in depth before the
-  // Admin SDK write (rule layer doesn't apply to Admin paths).
-  await assertChatOwnership(db, parsed.chatId, session.uid);
+  // T-08-04-01 — ownership precondition. For never-messaged clients the
+  // chat parent doc may not exist yet, so fall back to users/{clientId}.coachId.
+  const chatRef = db.collection(CHATS).doc(parsed.chatId);
+  const chatSnap = await chatRef.get();
+  if (chatSnap.exists) {
+    const data = chatSnap.data() as Record<string, unknown>;
+    if (data.coachId !== session.uid) {
+      throw new Error("Forbidden");
+    }
+  } else {
+    await assertTrainerOwnsClient(db, parsed.chatId, session.uid);
+  }
 
   // Build the wire-shape variant-aware. NEVER spread `parsed` into the
   // doc body — the only fields written are the ones explicitly enumerated
@@ -216,7 +240,7 @@ export async function sendTrainerMessage(
   const batch = db.batch();
   batch.set(msgRef, data);
   batch.set(
-    db.collection(CHATS).doc(parsed.chatId),
+    chatRef,
     {
       clientId: parsed.chatId,
       coachId: session.uid,
