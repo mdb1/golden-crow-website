@@ -111,6 +111,20 @@ async function signedUrlForPath(storagePath: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * Parity-match of the iOS `HabitSchedule.isActive(_:on:)` filter in
+ * `Packages/GCFitnessCore/Sources/GCFitnessCore/HabitSchedule.swift` (gc-fitness
+ * commits 195f199 + aea7aca). Determines whether a habit is scheduled to
+ * appear on `civilDate` ("YYYY-MM-DD") based on its `schedule*` fields.
+ *
+ * Same field semantics as Swift:
+ *   - `startsOn` / `endsOn`: civil-date window bounds (inclusive).
+ *   - `scheduleType`: "one-time" → only `startsOn`. Otherwise "recurring".
+ *   - `scheduleCadence`: "daily" | "weekly" | "monthly".
+ *   - `scheduleWeekdays`: Mon=1 … Sun=7 (ISO-like). JS `getUTCDay()` returns
+ *     Sun=0 … Sat=6, mapped here to match Swift's `weekday == 1 ? 7 : weekday - 1`.
+ *   - `scheduleMonthDays` (preferred, multi-day) or legacy `scheduleDayOfMonth`.
+ */
 function isHabitActiveOnDate(
   habit: Record<string, unknown>,
   civilDate: string,
@@ -374,6 +388,11 @@ export async function getClientDailyTimeline(
   const todayCivil = civilDateFormat(new Date(), "UTC");
   for (const [day, row] of days.entries()) {
     for (const [habitId, habit] of habitsById.entries()) {
+      // Mirror the iOS HabitSchedule.isActive filter so a monthly habit
+      // (e.g. "Cargar FOTOS" on day 22) or a weekly habit (e.g. "Training"
+      // Mon/Wed/Fri) doesn't surface on days that don't match its schedule.
+      const scheduledForDay = isHabitActiveOnDate(habit, day);
+      if (!scheduledForDay) continue;
       const log = habitLogsByDay.get(day)?.get(habitId);
       const completed = Boolean(log && log.deleted !== true && log.value !== false);
       const future = day > todayCivil;
@@ -391,7 +410,7 @@ export async function getClientDailyTimeline(
                 : "pending",
         future,
       });
-      if (habit.reminderEnabled === true && isHabitActiveOnDate(habit, day)) {
+      if (habit.reminderEnabled === true) {
         row.reminders.push({
           id: `${habitId}-${day}`,
           name: habitNames.get(habitId) ?? "Reminder",
@@ -591,6 +610,11 @@ export async function getClientDailyTimelineDay(
   });
 
   for (const [habitId, habit] of habitsById.entries()) {
+    // Mirror the iOS HabitSchedule.isActive filter so a monthly habit
+    // (e.g. "Cargar FOTOS" on day 22) or a weekly habit (e.g. "Training"
+    // Mon/Wed/Fri) doesn't surface on days that don't match its schedule.
+    const scheduledForDay = isHabitActiveOnDate(habit, civilDate);
+    if (!scheduledForDay) continue;
     const log = habitLogsByHabit.get(habitId);
     const completed = Boolean(log && log.deleted !== true && log.value !== false);
     const future = civilDate > todayCivil;
@@ -608,7 +632,7 @@ export async function getClientDailyTimelineDay(
               : "pending",
       future,
     });
-    if (habit.reminderEnabled === true && isHabitActiveOnDate(habit, civilDate)) {
+    if (habit.reminderEnabled === true) {
       day.reminders.push({
         id: `${habitId}-${civilDate}`,
         name: habitNames.get(habitId) ?? "Reminder",
