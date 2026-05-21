@@ -44,13 +44,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 
 import {
@@ -75,10 +68,8 @@ export interface TemplateFormProps {
   ) => Promise<{ id?: string; ok?: true }>;
 }
 
-// Tag enum literal — matches `WorkoutTemplate.Tag` Swift cases. Order
-// reflects the natural training-split order trainers expect (push/pull/legs
-// triad first, then upper/lower split, then full-body, then custom).
-const TAG_OPTIONS: Array<{ value: WorkoutTemplateInput["tag"]; label: string }> = [
+// Default suggestions. Trainers can still type any custom tag.
+const TAG_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "push", label: "Push" },
   { value: "pull", label: "Pull" },
   { value: "legs", label: "Legs" },
@@ -256,25 +247,24 @@ export function TemplateForm({
           render={({ field }) => (
             <FormItem className="max-w-xs">
               <FormLabel>Tag</FormLabel>
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pick a training tag…" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {TAG_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <div className="space-y-2">
+                  <Input
+                    list="gc-fitness-template-tags"
+                    placeholder="e.g. Push, Upper, Rehab"
+                    {...field}
+                  />
+                  <datalist id="gc-fitness-template-tags">
+                    {TAG_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+              </FormControl>
               <FormDescription>
-                Used to filter your template library.
+                Trainers can type any tag or pick one of the suggestions.
               </FormDescription>
               <FormMessage />
             </FormItem>

@@ -69,7 +69,7 @@ export function ChatInboxClient({
   );
 
   return (
-    <div className="grid h-[calc(100vh-12rem)] grid-cols-12 gap-0 overflow-hidden rounded-md border bg-card">
+    <div className="grid h-[calc(100vh-12rem)] min-h-0 grid-cols-12 gap-0 overflow-hidden rounded-md border bg-card">
       <div className="col-span-12 overflow-y-auto border-b md:col-span-4 md:border-b-0 md:border-r">
         <ChatThreadList
           trainerUid={trainerUid}
@@ -78,7 +78,7 @@ export function ChatInboxClient({
           clientRoster={clientRoster}
         />
       </div>
-      <div className="col-span-12 flex flex-col md:col-span-8">
+      <div className="col-span-12 flex min-h-0 flex-col md:col-span-8">
         {activeChatId ? (
           <ChatConversation
             chatId={activeChatId}

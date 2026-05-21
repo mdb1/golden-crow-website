@@ -89,6 +89,16 @@ const HABIT_TYPE_LABELS: Record<HabitType, string> = {
   weight: "Weight",
 };
 
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: "Sun" },
+  { value: 2, label: "Mon" },
+  { value: 3, label: "Tue" },
+  { value: 4, label: "Wed" },
+  { value: 5, label: "Thu" },
+  { value: 6, label: "Fri" },
+  { value: 7, label: "Sat" },
+] as const;
+
 function buildDefaults(
   passed?: Partial<HabitCreateInput>,
 ): HabitCreateInput {
@@ -105,6 +115,9 @@ function buildDefaults(
     unit: passed?.unit,
     reminderTime: passed?.reminderTime,
     reminderEnabled: passed?.reminderEnabled ?? false,
+    reminderCadence: passed?.reminderCadence ?? "daily",
+    reminderWeekdays: passed?.reminderWeekdays,
+    reminderDayOfMonth: passed?.reminderDayOfMonth,
   };
 }
 
@@ -142,6 +155,12 @@ export function HabitForm({
     control: form.control,
     name: "reminderEnabled",
   });
+  const watchedReminderCadence = useWatch({
+    control: form.control,
+    name: "reminderCadence",
+  });
+  const watchedReminderWeekdays =
+    useWatch({ control: form.control, name: "reminderWeekdays" }) ?? [];
 
   // Options is a string[] (not array-of-objects), so RHF's useFieldArray —
   // which is purpose-built for object arrays — is awkward here. Track the
@@ -201,6 +220,25 @@ export function HabitForm({
         }
         if (values.reminderEnabled && values.reminderTime) {
           cleaned.reminderTime = values.reminderTime;
+        }
+        if (values.reminderEnabled && values.reminderCadence) {
+          cleaned.reminderCadence = values.reminderCadence;
+        }
+        if (values.reminderEnabled && values.reminderCadence === "weekly") {
+          const weekdays = (values.reminderWeekdays ?? []).filter(
+            (weekday): weekday is number => typeof weekday === "number",
+          );
+          if (weekdays.length > 0) {
+            cleaned.reminderWeekdays = weekdays;
+          }
+        }
+        if (values.reminderEnabled && values.reminderCadence === "monthly" && values.reminderDayOfMonth) {
+          cleaned.reminderDayOfMonth = values.reminderDayOfMonth;
+        }
+        if (!values.reminderEnabled) {
+          cleaned.reminderCadence = undefined;
+          cleaned.reminderWeekdays = undefined;
+          cleaned.reminderDayOfMonth = undefined;
         }
 
         const result = await onSubmit(cleaned);
@@ -540,24 +578,117 @@ export function HabitForm({
           />
 
           {watchedReminderEnabled === true && (
-            <FormField
-              control={form.control}
-              name="reminderTime"
-              render={({ field }) => (
-                <FormItem className="max-w-[10rem]">
-                  <FormLabel>Reminder time</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="time"
-                      step={60}
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
+            <div className="grid gap-3 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="reminderTime"
+                render={({ field }) => (
+                  <FormItem className="max-w-[10rem]">
+                <FormLabel>Reminder time</FormLabel>
+                <FormControl>
+                  <Input
+                    type="time"
+                    step={60}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="reminderCadence"
+                render={({ field }) => (
+                  <FormItem>
+                <FormLabel>Repeat</FormLabel>
+                    <Select
+                      value={field.value ?? "daily"}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (value !== "weekly") {
+                          form.setValue("reminderWeekdays", undefined, { shouldDirty: true });
+                        }
+                        if (value !== "monthly") {
+                          form.setValue("reminderDayOfMonth", undefined, { shouldDirty: true });
+                        } else if (!form.getValues("reminderDayOfMonth")) {
+                          form.setValue("reminderDayOfMonth", 1, { shouldDirty: true });
+                        }
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {watchedReminderCadence === "monthly" ? (
+                <FormField
+                  control={form.control}
+                  name="reminderDayOfMonth"
+                  render={({ field }) => (
+                    <FormItem className="max-w-[10rem]">
+                      <FormLabel>Day of month</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={31}
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(event) =>
+                            field.onChange(
+                              event.target.value ? Number(event.target.value) : undefined,
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : watchedReminderCadence === "weekly" ? (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Weekdays</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAY_OPTIONS.map((weekday) => {
+                      const active = watchedReminderWeekdays.includes(weekday.value);
+                      return (
+                        <Button
+                          key={weekday.value}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            const current = new Set(watchedReminderWeekdays);
+                            if (current.has(weekday.value)) current.delete(weekday.value);
+                            else current.add(weekday.value);
+                            form.setValue(
+                              "reminderWeekdays",
+                              Array.from(current).sort(),
+                              { shouldDirty: true },
+                            );
+                          }}
+                        >
+                          {weekday.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+              ) : null}
+            </div>
           )}
         </div>
 

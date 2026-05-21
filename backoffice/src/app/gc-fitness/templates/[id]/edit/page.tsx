@@ -18,6 +18,7 @@ import {
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { WorkoutTemplateInput } from "@/lib/gc-fitness/workout-template-schema";
+import { ExerciseQueryProvider } from "../../../exercises/providers";
 import { TemplatesQueryProvider } from "../../providers";
 import { EditTemplateClient } from "./client";
 
@@ -83,7 +84,9 @@ export default async function EditTemplatePage({ params }: PageParams) {
         </p>
       </div>
       <TemplatesQueryProvider>
-        <EditTemplateClient id={id} defaults={defaults} />
+        <ExerciseQueryProvider>
+          <EditTemplateClient id={id} defaults={defaults} />
+        </ExerciseQueryProvider>
       </TemplatesQueryProvider>
     </div>
   );

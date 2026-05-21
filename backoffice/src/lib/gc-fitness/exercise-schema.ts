@@ -40,11 +40,24 @@ export const equipmentSchema = z.enum(
 // download URL at fetch time via the Firebase SDK. Plain https URLs are
 // REJECTED to keep the no-hotlinking invariant from 03-CONTEXT.md (all media
 // served from our own bucket so we control availability + cost).
-const gsUrlSchema = z
-  .string()
-  .regex(/^gs:\/\//, "Media couldn't be uploaded. Try again.")
-  .nullable()
-  .optional();
+const gsUrlSchema = z.preprocess(
+  (value) => (value === "" ? null : value),
+  z
+    .string()
+    .regex(/^gs:\/\//, "Media couldn't be uploaded. Try again.")
+    .nullable()
+    .optional(),
+);
+
+const youtubeUrlSchema = z.preprocess(
+  (value) => (value === "" ? null : value),
+  z
+    .string()
+    .trim()
+    .url("Enter a valid YouTube URL.")
+    .nullable()
+    .optional(),
+);
 
 const sourceSchema = z.enum(["wger", "trainer"]);
 
@@ -68,6 +81,7 @@ const sourceSchema = z.enum(["wger", "trainer"]);
 //  - `mediaURL` / `thumbnailURL` accept `null | undefined | gs://...`. The
 //    backoffice form starts both as null and writes them after the
 //    `mintExerciseMediaUploadUrl` round-trip succeeds.
+//  - `youtubeURL` stores an explainer/demo URL for the exercise.
 //  - `source` and `ownerId` are accepted in the input but RE-ASSERTED in
 //    the Server Action layer. A trainer attempting to send `source: "wger"`
 //    or `ownerId: "someone-else"` is caught in `exercise-server-actions.ts`
@@ -103,6 +117,7 @@ export const exerciseSchema = z.object({
     .min(1, "Pick at least one equipment item, or “bodyweight.”"),
   mediaURL: gsUrlSchema,
   thumbnailURL: gsUrlSchema,
+  youtubeURL: youtubeUrlSchema,
   source: sourceSchema,
   ownerId: z.string().nullable(),
   version: z.number().int().min(1).default(1),

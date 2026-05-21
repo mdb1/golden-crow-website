@@ -32,7 +32,9 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -62,8 +64,12 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 
 import {
+  assignHabitTemplate,
+  createHabitTemplate,
+  listHabitTemplates,
   listHabitsForTrainer,
   softDeleteHabit,
+  type HabitTemplateRow,
   type HabitRow,
 } from "@/lib/gc-fitness/habit-actions";
 import { HABIT_TYPES, type HabitType } from "@/lib/gc-fitness/habit-schema";
@@ -105,10 +111,22 @@ export function HabitsLibraryClient({
   ]);
   const [confirmDelete, setConfirmDelete] = useState<HabitRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [assignPending, setAssignPending] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState<HabitType>("binary");
+  const [newTemplateTarget, setNewTemplateTarget] = useState("");
+  const [newTemplateUnit, setNewTemplateUnit] = useState("");
+  const [createTemplatePending, setCreateTemplatePending] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: HABITS_BASE_KEY,
     queryFn: () => listHabitsForTrainer(),
+  });
+  const { data: templates = [], isLoading: templatesLoading } = useQuery({
+    queryKey: [...HABITS_BASE_KEY, "templates"],
+    queryFn: () => listHabitTemplates(),
   });
 
   const clientNameMap = useMemo(() => {
@@ -179,6 +197,72 @@ export function HabitsLibraryClient({
     }
   }, [confirmDelete, queryClient]);
 
+  const toggleClient = useCallback((clientId: string, checked: boolean) => {
+    setSelectedClientIds((current) =>
+      checked
+        ? Array.from(new Set([...current, clientId]))
+        : current.filter((id) => id !== clientId),
+    );
+  }, []);
+
+  const handleAssignTemplate = useCallback(async () => {
+    if (!selectedTemplateId || selectedClientIds.length === 0) return;
+    setAssignPending(true);
+    try {
+      const result = await assignHabitTemplate({
+        templateId: selectedTemplateId,
+        clientIds: selectedClientIds,
+      });
+      await queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY });
+      toast.success(
+        `Assigned ${result.created} habit${result.created === 1 ? "" : "s"}.`,
+      );
+      setSelectedClientIds([]);
+    } catch (err) {
+      console.error("[habits] assign template failed", err);
+      toast.error(err instanceof Error ? err.message : "Assignment failed.");
+    } finally {
+      setAssignPending(false);
+    }
+  }, [queryClient, selectedClientIds, selectedTemplateId]);
+
+  const handleCreateTemplate = useCallback(async () => {
+    const name = newTemplateName.trim();
+    if (!name) return;
+    setCreateTemplatePending(true);
+    try {
+      await createHabitTemplate({
+        type: newTemplateType,
+        name: { en: name, es: name },
+        targetValue:
+          newTemplateTarget.trim().length > 0
+            ? Number(newTemplateTarget)
+            : undefined,
+        unit: newTemplateUnit.trim() || undefined,
+        reminderEnabled: false,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [...HABITS_BASE_KEY, "templates"],
+      });
+      toast.success("Template created.");
+      setNewTemplateName("");
+      setNewTemplateTarget("");
+      setNewTemplateUnit("");
+      setNewTemplateType("binary");
+    } catch (err) {
+      console.error("[habits] create template failed", err);
+      toast.error(err instanceof Error ? err.message : "Template failed.");
+    } finally {
+      setCreateTemplatePending(false);
+    }
+  }, [
+    newTemplateName,
+    newTemplateTarget,
+    newTemplateType,
+    newTemplateUnit,
+    queryClient,
+  ]);
+
   const totalFromServer = (data ?? []).length;
   const isUnfilteredEmpty = !isLoading && totalFromServer === 0;
   const isFilteredEmpty =
@@ -204,6 +288,122 @@ export function HabitsLibraryClient({
           New habit
         </Button>
       </div>
+
+      <section className="grid gap-4 rounded-md border bg-card p-4 lg:grid-cols-[1.2fr_1fr]">
+        <div className="flex flex-col gap-4">
+          <div>
+            <h2 className="font-medium">Reusable habit library</h2>
+            <p className="text-sm text-muted-foreground">
+              Pick a global or coach template and assign it to one or more
+              clients. The assignment creates client-specific habit docs.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)]">
+            <Select
+              value={selectedTemplateId}
+              onValueChange={setSelectedTemplateId}
+              disabled={templatesLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a habit template" />
+              </SelectTrigger>
+              <SelectContent>
+                {(templates as HabitTemplateRow[]).map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name.en} ·{" "}
+                    {template.scope === "global" ? "Global" : "Mine"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              disabled={
+                assignPending ||
+                !selectedTemplateId ||
+                selectedClientIds.length === 0
+              }
+              onClick={handleAssignTemplate}
+            >
+              {assignPending ? "Assigning..." : "Assign selected"}
+            </Button>
+          </div>
+          <div className="grid max-h-40 gap-2 overflow-auto rounded-md border p-3 md:grid-cols-2">
+            {clientRoster.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Add clients before assigning habits.
+              </p>
+            ) : (
+              clientRoster.map((client) => (
+                <Label
+                  key={client.uid}
+                  className="flex items-center gap-2 text-sm font-normal"
+                >
+                  <Checkbox
+                    checked={selectedClientIds.includes(client.uid)}
+                    onCheckedChange={(checked) =>
+                      toggleClient(client.uid, checked === true)
+                    }
+                  />
+                  {client.displayName}
+                </Label>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+          <div>
+            <h2 className="font-medium">Create coach template</h2>
+            <p className="text-sm text-muted-foreground">
+              Saved only to your library.
+            </p>
+          </div>
+          <Input
+            value={newTemplateName}
+            onChange={(event) => setNewTemplateName(event.target.value)}
+            placeholder="Habit name"
+          />
+          <Select
+            value={newTemplateType}
+            onValueChange={(v) => setNewTemplateType(v as HabitType)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {HABIT_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {newTemplateType === "numeric" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                value={newTemplateTarget}
+                onChange={(event) => setNewTemplateTarget(event.target.value)}
+                placeholder="Target"
+                inputMode="decimal"
+              />
+              <Input
+                value={newTemplateUnit}
+                onChange={(event) => setNewTemplateUnit(event.target.value)}
+                placeholder="Unit"
+              />
+            </div>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={createTemplatePending || newTemplateName.trim() === ""}
+            onClick={handleCreateTemplate}
+          >
+            {createTemplatePending ? "Creating..." : "Create template"}
+          </Button>
+        </div>
+      </section>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">

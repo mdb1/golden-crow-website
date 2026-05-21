@@ -33,6 +33,16 @@ interface WorkoutLogRow {
   setCount: number;
 }
 
+function localizedText(value: unknown, fallback = "(unnamed)"): string {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    const localized = value as { en?: unknown; es?: unknown };
+    if (typeof localized.en === "string" && localized.en.trim()) return localized.en;
+    if (typeof localized.es === "string" && localized.es.trim()) return localized.es;
+  }
+  return fallback;
+}
+
 function toDate(v: unknown): Date | null {
   if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
     return (v as { toDate: () => Date }).toDate();
@@ -59,13 +69,13 @@ export async function RecentWorkoutsWidget({
   const rows: WorkoutLogRow[] = snap.docs.map((d) => {
     const data = d.data() as {
       startedAt?: unknown;
-      templateSnapshot?: { name?: string };
+      templateSnapshot?: { name?: unknown };
       sets?: unknown[];
     };
     return {
       id: d.id,
       startedAt: toDate(data.startedAt),
-      templateName: data.templateSnapshot?.name ?? "(unnamed)",
+      templateName: localizedText(data.templateSnapshot?.name),
       setCount: Array.isArray(data.sets) ? data.sets.length : 0,
     };
   });

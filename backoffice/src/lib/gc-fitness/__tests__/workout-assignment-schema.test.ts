@@ -22,6 +22,8 @@ describe("assignTemplateSchema", () => {
       templateId: "tpl-trainer-abc-uuid",
       clientId: "client-uid-1",
       scheduledFor: "2026-06-01",
+      scheduledTime: "19:30",
+      meetingNotes: "Meet on Google Meet.",
       timezone: "America/Mexico_City",
     });
     expect(result.success).toBe(true);
@@ -32,6 +34,7 @@ describe("assignTemplateSchema", () => {
       templateId: "tpl-abc",
       clientId: "client-1",
       scheduledFor: "2026-06-01",
+      scheduledTime: "07:45",
     });
     expect(result.success).toBe(true);
   });
@@ -87,6 +90,8 @@ describe("bulkAssignSchema", () => {
       templateId: "tpl-abc",
       clientIds: ["c1", "c2", "c3"],
       scheduledFor: "2026-06-01",
+      scheduledTime: "17:00",
+      meetingNotes: "Bring your laptop.",
     });
     expect(result.success).toBe(true);
   });
@@ -149,6 +154,8 @@ describe("editAssignmentSchema", () => {
   it("accepts a valid scheduledFor-only edit", () => {
     const result = editAssignmentSchema.safeParse({
       scheduledFor: "2026-06-15",
+      scheduledTime: "18:00",
+      meetingNotes: "Zoom link in notes.",
     });
     expect(result.success).toBe(true);
   });

@@ -75,6 +75,8 @@ export function AssignTemplateModal({
 
   const [templateId, setTemplateId] = useState<string>("");
   const [civilDate, setCivilDate] = useState<string>(defaultDate);
+  const [scheduledTime, setScheduledTime] = useState<string>("");
+  const [meetingNotes, setMeetingNotes] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   // Reset the local form state when the modal opens with a new defaultDate.
@@ -82,6 +84,8 @@ export function AssignTemplateModal({
     if (open) {
       setCivilDate(defaultDate);
       setTemplateId("");
+      setScheduledTime("");
+      setMeetingNotes("");
     }
   }, [open, defaultDate]);
 
@@ -96,6 +100,8 @@ export function AssignTemplateModal({
         templateId,
         clientId,
         scheduledFor: civilDate,
+        scheduledTime: scheduledTime || undefined,
+        meetingNotes: meetingNotes.trim() || undefined,
         timezone: trainerTimezone,
       });
       toast.success("Template assigned.");
@@ -154,6 +160,30 @@ export function AssignTemplateModal({
             <p className="text-xs text-muted-foreground">
               Scheduled for {civilDate}
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Time</label>
+              <input
+                type="time"
+                value={scheduledTime}
+                onChange={(event) => setScheduledTime(event.target.value)}
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional for live or virtual sessions.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-1">
+              <label className="text-sm font-medium">Meeting notes</label>
+              <textarea
+                value={meetingNotes}
+                onChange={(event) => setMeetingNotes(event.target.value)}
+                placeholder="Zoom / Meet link, instructions, prep notes..."
+                className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </div>
           </div>
         </div>
 

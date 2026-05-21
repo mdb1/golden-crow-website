@@ -149,8 +149,10 @@ Core collections:
 | `workout_templates` | `tpl-{trainerUid}-...` | Reusable routines owned by one trainer. |
 | `workout_assignments` | Generated assignment ID | A template snapshot assigned to a client for a scheduled date. |
 | `workout_logs` | Client-written log ID | Completed workout session logs from iOS. |
-| `habits` | Generated habit ID | Trainer-authored habits for clients. |
+| `habit_templates` | `global-*` or generated ID | Reusable habit library. Global templates are seeded/read-only; trainer templates are private to that trainer. |
+| `habits` | Generated habit ID | Client-specific habit assignments copied from a template or created manually. |
 | `habit_logs` | `{habitId}_{civilDate}` | Client daily habit check-ins. |
+| `client_goals` | Generated goal ID | Coach-authored short/medium/long-term goals visible to the assigned client. |
 | `chats` | Client UID | One coach/client thread metadata doc. |
 | `chats/{clientUid}/messages` | Message ID | Chat messages. |
 | `progress_photos` | Generated photo ID | Client-uploaded progress photo metadata. Image bytes live in Storage at `progress_photos/{clientUid}/...`. |
@@ -172,6 +174,10 @@ Initialize Firebase Storage once from the Firebase console for project
 cd ../gc-fitness
 npx firebase deploy --only storage --project gcfitness-3476b
 ```
+
+Storage rules cap user-uploaded chat images and progress photos at 1 MB.
+The iOS app compresses images before upload, but oversized files are still
+rejected at the rule layer.
 
 ### Trainer login
 
@@ -231,27 +237,41 @@ the right pane. Direct links use:
 /gc-fitness/chat?chatId={clientUid}
 ```
 
-### Notes and progress photos
+### Client profile, notes, goals, and progress photos
 
 Open `/gc-fitness/clients/{clientUid}` from the roster.
 
 - `Private coach notes` writes `client_notes/{coachUid}_{clientUid}`. These
   are for the trainer only; they are not visible in iOS.
+- `Goals` writes `client_goals` with `horizon: short | medium | long`.
+  Active goals are visible on the client's iOS Dashboard.
 - `Progress photos` reads `progress_photos` for that client and signs Storage
   URLs server-side for the dashboard gallery.
 - In iOS, the client goes to `Settings → Progress photos` to upload a check-in
   image with an optional caption. The app writes the Storage object first and
   then the Firestore metadata document.
 
+`/gc-fitness/users/{clientUid}` redirects to the same profile route so coach
+links can use either naming convention.
+
 ### Assign habits
 
 Open `/gc-fitness/habits`.
 
-Create a habit, select the client, choose the habit type, and save. iOS reads
-assigned habits by `clientId` and lets the client mark today's value as
-complete from the Habits tab and Dashboard mini-list. Habit completions are
-stored in `habit_logs` using `{habitId}_{civilDate}` so one habit/day is
-idempotent.
+Use the reusable habit library for normal assignment:
+
+1. Select a global or coach-owned template.
+2. Select one or more clients.
+3. Click `Assign selected`.
+
+This copies the template into one `habits` document per client. Later edits to
+that assignment affect only that client. Coaches can also create their own
+templates from the same page; those templates are visible only to that coach.
+
+Manual one-off habits still exist through `New habit`. iOS reads assigned
+habits by `clientId` and lets the client mark today's value as complete from
+the Habits tab and Dashboard mini-list. Habit completions are stored in
+`habit_logs` using `{habitId}_{civilDate}` so one habit/day is idempotent.
 
 ### Client calendar
 

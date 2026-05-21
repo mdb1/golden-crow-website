@@ -45,6 +45,7 @@ const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 interface WeekGridProps {
   clientId: string;
+  focusDate?: string | null;
   /**
    * IANA timezone for the trainer's "today" anchor. Falls back to "UTC"
    * — works correctly because the trainer surface only needs day-level
@@ -87,10 +88,10 @@ function addCivilDays(civilDate: string, days: number): string {
   return civilDateFormat(shifted, "UTC");
 }
 
-export function WeekGrid({ clientId, trainerTimezone = "UTC" }: WeekGridProps) {
+export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekGridProps) {
   const queryClient = useQueryClient();
   const todayCivil = civilDateToday(trainerTimezone);
-  const initialMonday = mondayOfWeek(todayCivil);
+  const initialMonday = mondayOfWeek(focusDate ?? todayCivil);
 
   const [weekStart, setWeekStart] = useState<string>(initialMonday);
   const [assignDate, setAssignDate] = useState<string | null>(null);

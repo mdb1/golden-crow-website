@@ -75,6 +75,7 @@ export default async function EditExercisePage({ params }: PageParams) {
     mediaURL: typeof data.mediaURL === "string" ? data.mediaURL : null,
     thumbnailURL:
       typeof data.thumbnailURL === "string" ? data.thumbnailURL : null,
+    youtubeURL: typeof data.youtubeURL === "string" ? data.youtubeURL : null,
     source: "trainer",
     ownerId: trainer.uid,
     version: typeof data.version === "number" ? data.version : 1,

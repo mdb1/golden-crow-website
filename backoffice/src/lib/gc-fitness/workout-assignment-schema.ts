@@ -49,6 +49,18 @@ const civilDateSchema = z
     "scheduledFor must be a 'YYYY-MM-DD' civil-date string.",
   );
 
+const scheduledTimeSchema = z
+  .string()
+  .regex(/^[0-2][0-9]:[0-5][0-9]$/, "scheduledTime must be HH:mm.")
+  .optional();
+
+const meetingNotesSchema = z
+  .string()
+  .trim()
+  .min(1, "meetingNotes cannot be empty.")
+  .max(1000, "meetingNotes is too long.")
+  .optional();
+
 /**
  * `assignTemplate(input)` — single-client assignment.
  *
@@ -60,6 +72,8 @@ export const assignTemplateSchema = z.object({
   templateId: z.string().min(1, "templateId is required."),
   clientId: z.string().min(1, "clientId is required."),
   scheduledFor: civilDateSchema,
+  scheduledTime: scheduledTimeSchema,
+  meetingNotes: meetingNotesSchema,
   timezone: ianaTimezoneSchema,
 });
 
@@ -78,8 +92,10 @@ export const bulkAssignSchema = z.object({
     .max(
       MAX_CLIENTS_PER_BATCH,
       `Bulk-assign supports at most ${MAX_CLIENTS_PER_BATCH} clients per submit.`,
-    ),
+  ),
   scheduledFor: civilDateSchema,
+  scheduledTime: scheduledTimeSchema,
+  meetingNotes: meetingNotesSchema,
   timezone: ianaTimezoneSchema,
 });
 
@@ -100,6 +116,8 @@ export type BulkAssignInput = z.infer<typeof bulkAssignSchema>;
 export const editAssignmentSchema = z
   .object({
     scheduledFor: civilDateSchema,
+    scheduledTime: scheduledTimeSchema,
+    meetingNotes: meetingNotesSchema,
   })
   .strict();
 

@@ -26,7 +26,7 @@ import { WeekGrid } from "@/components/gc-fitness/schedule/week-grid";
 export const dynamic = "force-dynamic";
 
 interface SchedulePageProps {
-  searchParams: Promise<{ clientId?: string }>;
+  searchParams: Promise<{ clientId?: string; date?: string }>;
 }
 
 export default async function SchedulePage({
@@ -42,7 +42,7 @@ export default async function SchedulePage({
     throw err;
   }
 
-  const { clientId } = await searchParams;
+  const { clientId, date } = await searchParams;
   const clients = await listClients();
 
   return (
@@ -62,7 +62,7 @@ export default async function SchedulePage({
 
       <ScheduleQueryProvider>
         {clientId ? (
-          <WeekGrid clientId={clientId} />
+          <WeekGrid clientId={clientId} focusDate={date} />
         ) : (
           <ClientPicker clients={clients} />
         )}

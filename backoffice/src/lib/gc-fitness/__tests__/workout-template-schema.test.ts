@@ -5,8 +5,8 @@
 // `ExerciseRef.swift`.
 //
 // Plan 04-04 contract:
-//  - Field shape mirrors WorkoutTemplate verbatim — same field names, same
-//    7-case `tag` enum, same `rest_seconds` snake_case wire key.
+//  - Field shape mirrors WorkoutTemplate verbatim — same field names,
+//    free-text `tag`, same `rest_seconds` snake_case wire key.
 //  - `reps` is strict-int v1 (Pitfall 10): integers in `1..50` only. Strings
 //    like "AMRAP" or "8-12" are REJECTED until v2 widens the type.
 //  - `sets` 1..10, `rest_seconds` 0..600 (10-min cap), `notes` ≤ 500 chars.
@@ -85,33 +85,22 @@ describe("workoutTemplateSchema — top-level fields", () => {
     expect(parsed.description).toBeUndefined();
   });
 
-  // T6: tag must be one of 7 known values
-  it("rejects an unknown tag", () => {
+  // T6: tag must be non-empty
+  it("rejects an empty tag", () => {
     const result = workoutTemplateSchema.safeParse({
       ...VALID_TEMPLATE,
-      tag: "yoga",
+      tag: " ",
     });
     expect(result.success).toBe(false);
   });
 
-  // T7: all 7 tag values accepted including hyphenated "full-body"
-  it("accepts all 7 tag enum values including 'full-body'", () => {
-    const tags = [
-      "push",
-      "pull",
-      "legs",
-      "full-body",
-      "upper",
-      "lower",
-      "custom",
-    ] as const;
-    for (const tag of tags) {
-      const result = workoutTemplateSchema.safeParse({
-        ...VALID_TEMPLATE,
-        tag,
-      });
-      expect(result.success).toBe(true);
-    }
+  // T7: custom tags are allowed
+  it("accepts a custom tag", () => {
+    const result = workoutTemplateSchema.safeParse({
+      ...VALID_TEMPLATE,
+      tag: "rehab",
+    });
+    expect(result.success).toBe(true);
   });
 
   // T8: exercises empty array → rejected

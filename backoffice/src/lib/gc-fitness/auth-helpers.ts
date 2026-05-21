@@ -104,8 +104,7 @@ export async function getCurrentTrainer(): Promise<CurrentTrainer> {
   }
 
   const role = (decodedToken as { role?: string }).role;
-  const allowMissingTrainerClaimInDev = process.env.NODE_ENV !== "production";
-  if (role !== "trainer" && !allowMissingTrainerClaimInDev) {
+  if (role !== "trainer") {
     throw new Error("Forbidden");
   }
 

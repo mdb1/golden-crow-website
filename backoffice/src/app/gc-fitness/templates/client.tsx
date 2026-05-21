@@ -25,13 +25,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -59,24 +53,12 @@ import {
 } from "@/lib/gc-fitness/workout-templates-listener";
 import { softDeleteWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
-import type { WorkoutTag } from "@/lib/gc-fitness/workout-template-schema";
 import { makeTemplateColumns } from "@/components/gc-fitness/templates/columns";
-
-const TAG_OPTIONS: Array<{ value: WorkoutTag | "all"; label: string }> = [
-  { value: "all", label: "All tags" },
-  { value: "push", label: "Push" },
-  { value: "pull", label: "Pull" },
-  { value: "legs", label: "Legs" },
-  { value: "upper", label: "Upper" },
-  { value: "lower", label: "Lower" },
-  { value: "full-body", label: "Full body" },
-  { value: "custom", label: "Custom" },
-];
 
 export function TemplatesLibraryClient() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [tagFilter, setTagFilter] = useState<WorkoutTag | "all">("all");
+  const [tagFilter, setTagFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
     { id: "updatedAt", desc: true },
   ]);
@@ -85,7 +67,7 @@ export function TemplatesLibraryClient() {
   const [deletePending, setDeletePending] = useState(false);
 
   const { data, isLoading, error } = useWorkoutTemplates({
-    tag: tagFilter === "all" ? undefined : tagFilter,
+    tag: tagFilter.trim() ? tagFilter.trim() : undefined,
   });
 
   const rows = useMemo(() => data ?? [], [data]);
@@ -133,10 +115,8 @@ export function TemplatesLibraryClient() {
     }
   }, [confirmDelete, queryClient]);
 
-  const isUnfilteredEmpty =
-    !isLoading && tagFilter === "all" && rows.length === 0;
-  const isFilteredEmpty =
-    !isLoading && tagFilter !== "all" && rows.length === 0;
+  const isUnfilteredEmpty = !isLoading && !tagFilter.trim() && rows.length === 0;
+  const isFilteredEmpty = !isLoading && tagFilter.trim() && rows.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -161,21 +141,12 @@ export function TemplatesLibraryClient() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Select
+        <Input
           value={tagFilter}
-          onValueChange={(v) => setTagFilter(v as WorkoutTag | "all")}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by tag" />
-          </SelectTrigger>
-          <SelectContent>
-            {TAG_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(event) => setTagFilter(event.target.value)}
+          placeholder="Filter by tag"
+          className="w-56"
+        />
       </div>
 
       {error && (

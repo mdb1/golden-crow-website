@@ -34,8 +34,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
-import type { WorkoutTag } from "@/lib/gc-fitness/workout-template-schema";
-
 export interface TemplateColumnHandlers {
   onEdit: (row: WorkoutTemplateRow) => void;
   onDelete: (row: WorkoutTemplateRow) => void;
@@ -65,7 +63,7 @@ function formatRelative(iso: string | null): string {
 
 // Tag → Badge variant + label. We use a stable mapping so the visual
 // language matches the iOS app's Tag rendering when that lands.
-const TAG_LABELS: Record<WorkoutTag, string> = {
+const TAG_LABELS: Record<string, string> = {
   push: "Push",
   pull: "Pull",
   legs: "Legs",

@@ -50,6 +50,7 @@ export default async function ViewExercisePage({ params }: PageParams) {
     mediaURL: typeof data.mediaURL === "string" ? data.mediaURL : null,
     thumbnailURL:
       typeof data.thumbnailURL === "string" ? data.thumbnailURL : null,
+    youtubeURL: typeof data.youtubeURL === "string" ? data.youtubeURL : null,
     source: (data.source as ExerciseInput["source"]) ?? "wger",
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
     version: typeof data.version === "number" ? data.version : 1,

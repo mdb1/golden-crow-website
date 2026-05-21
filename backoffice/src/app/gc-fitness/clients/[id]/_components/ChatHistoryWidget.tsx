@@ -105,15 +105,18 @@ export async function ChatHistoryWidget({
               className={
                 row.isTrainer
                   ? "ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground"
-                  : "mr-auto max-w-[80%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm"
+                  : "mr-auto max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50"
               }
             >
+              <p className="mb-1 text-[10px] uppercase tracking-wide opacity-70">
+                {row.isTrainer ? "Coach" : "Client"}
+              </p>
               <p className="whitespace-pre-wrap break-words">{row.body}</p>
               <p
                 className={
                   row.isTrainer
                     ? "mt-1 text-[10px] text-primary-foreground/70"
-                    : "mt-1 text-[10px] text-muted-foreground"
+                    : "mt-1 text-[10px] text-emerald-900/70 dark:text-emerald-50/70"
                 }
               >
                 {row.createdAt ? row.createdAt.toLocaleString() : "—"}

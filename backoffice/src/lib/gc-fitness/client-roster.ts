@@ -264,7 +264,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         db
           .collection(FirestoreCollections.workoutLogs)
           .where("clientId", "==", c.uid)
-          .where("startedAt", ">=", sevenDaysAgoDate)
+          .orderBy("startedAt", "desc")
+          .limit(50)
           .get(),
       ]);
 
@@ -342,7 +343,16 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
 
       // 11-06: derive missed workouts + needs-attention.
       const assignedCount = assignedLast7Snap.size;
-      const completedCount = completedLast7Snap.size;
+      const completedCount = completedLast7Snap.docs.filter((doc) => {
+        const raw = doc.get("startedAt");
+        const startedAt =
+          raw && typeof (raw as { toDate?: () => Date }).toDate === "function"
+            ? (raw as { toDate: () => Date }).toDate()
+            : raw instanceof Date
+              ? raw
+              : null;
+        return startedAt ? startedAt >= sevenDaysAgoDate : false;
+      }).length;
       const missedWorkoutsLast7Days = Math.max(
         0,
         assignedCount - completedCount,

@@ -57,6 +57,8 @@ export interface WorkoutAssignmentRow {
   clientId: string;
   trainerId: string;
   scheduledFor: string;
+  scheduledTime?: string | null;
+  meetingNotes?: string | null;
   timezone?: string | null;
   status: "scheduled" | "started" | "completed" | "missed";
   createdAt: string | null;
@@ -94,6 +96,47 @@ function jsonSafe(value: unknown): unknown {
   return value;
 }
 
+async function templateSnapshotForAssignment(
+  template: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const exercises = Array.isArray(template.exercises)
+    ? (template.exercises as Array<Record<string, unknown>>)
+    : [];
+  if (exercises.length === 0) return template;
+
+  const db = gcFitnessFirestore();
+  const exerciseIds = exercises
+    .map((exercise) => exercise.exerciseId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const exerciseDocs =
+    exerciseIds.length > 0
+      ? await db.getAll(
+          ...exerciseIds.map((id) =>
+            db.collection(FirestoreCollections.exercises).doc(id),
+          ),
+        )
+      : [];
+  const exerciseMap = new Map(
+    exerciseDocs.map((doc) => [doc.id, doc.data() as Record<string, unknown>]),
+  );
+
+  return {
+    ...template,
+    exercises: exercises.map((exercise) => {
+      const exerciseId =
+        typeof exercise.exerciseId === "string" ? exercise.exerciseId : "";
+      const source = exerciseMap.get(exerciseId);
+      return {
+        ...exercise,
+        name:
+          (source?.name as { en: string; es: string } | undefined) ??
+          ({ en: exerciseId, es: "" } as const),
+        ...(source?.license ? { license: source.license } : {}),
+      };
+    }),
+  };
+}
+
 function snapToRow(d: {
   id: string;
   data: () => Record<string, unknown>;
@@ -106,8 +149,11 @@ function snapToRow(d: {
     clientId: String(data.clientId ?? ""),
     trainerId: String(data.trainerId ?? ""),
     scheduledFor: String(data.scheduledFor ?? ""),
-    timezone:
-      typeof data.timezone === "string" ? data.timezone : null,
+    scheduledTime:
+      typeof data.scheduledTime === "string" ? data.scheduledTime : null,
+    meetingNotes:
+      typeof data.meetingNotes === "string" ? data.meetingNotes : null,
+    timezone: typeof data.timezone === "string" ? data.timezone : null,
     status:
       (data.status as WorkoutAssignmentRow["status"]) ?? "scheduled",
     createdAt: toIso(data.createdAt),
@@ -178,13 +224,16 @@ export async function assignTemplate(
   const ymd = parsed.scheduledFor.replace(/-/g, "");
   const docId = `asg-${parsed.clientId}-${ymd}-${randomUUID()}`;
   const ref = db.collection(ASSIGNMENTS).doc(docId);
+  const templateSnapshot = await templateSnapshotForAssignment(template);
 
   await ref.set({
     templateId: parsed.templateId,
-    templateSnapshot: template,
+    templateSnapshot,
     clientId: parsed.clientId,
     trainerId: trainer.uid,
     scheduledFor: parsed.scheduledFor, // STRING — Pitfall 1
+    scheduledTime: parsed.scheduledTime ?? null,
+    meetingNotes: parsed.meetingNotes ?? null,
     timezone: parsed.timezone ?? null,
     status: "scheduled" as const,
     createdAt: FieldValue.serverTimestamp(),
@@ -256,16 +305,19 @@ export async function bulkAssignTemplate(
   const batch = db.batch();
   const ids: string[] = [];
   const ymd = parsed.scheduledFor.replace(/-/g, "");
+  const templateSnapshot = await templateSnapshotForAssignment(template);
 
   for (const clientId of parsed.clientIds) {
     const docId = `asg-${clientId}-${ymd}-${randomUUID()}`;
     const ref = db.collection(ASSIGNMENTS).doc(docId);
     batch.set(ref, {
       templateId: parsed.templateId,
-      templateSnapshot: template, // SAME REFERENCE — immutable snapshot
+      templateSnapshot, // SAME REFERENCE — immutable snapshot
       clientId,
       trainerId: trainer.uid,
       scheduledFor: parsed.scheduledFor,
+      scheduledTime: parsed.scheduledTime ?? null,
+      meetingNotes: parsed.meetingNotes ?? null,
       timezone: parsed.timezone ?? null,
       status: "scheduled" as const,
       createdAt: FieldValue.serverTimestamp(),
@@ -316,10 +368,18 @@ export async function editAssignmentScheduledFor(
     throw new Error("Not your assignment.");
   }
 
-  await ref.update({
+  const update: Record<string, unknown> = {
     scheduledFor: parsed.scheduledFor,
     updatedAt: FieldValue.serverTimestamp(),
-  });
+  };
+  if (parsed.scheduledTime !== undefined) {
+    update.scheduledTime = parsed.scheduledTime;
+  }
+  if (parsed.meetingNotes !== undefined) {
+    update.meetingNotes = parsed.meetingNotes;
+  }
+
+  await ref.update(update);
 
   return { ok: true };
 }

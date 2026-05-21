@@ -95,6 +95,7 @@ function buildDefaults(
     equipment: passed?.equipment ?? [],
     mediaURL: passed?.mediaURL ?? null,
     thumbnailURL: passed?.thumbnailURL ?? null,
+    youtubeURL: passed?.youtubeURL ?? null,
     // In create mode the server force-sets source/ownerId regardless of what
     // we send, but Zod requires the fields to be present in the shape — seed
     // a sentinel that satisfies the enum.
@@ -366,6 +367,51 @@ export function ExerciseForm({
             </FormItem>
           )}
         />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="thumbnailURL"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Thumbnail image</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="gs://bucket/path/to-thumbnail.jpg"
+                    disabled={isView}
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Optional preview image shown in lists and pickers.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="youtubeURL"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>YouTube video</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    disabled={isView}
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Optional explainer link for coaches and clients.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         {/* Action row */}
         {!isView && (

@@ -29,19 +29,13 @@
 
 import { z } from "zod";
 
-// The 7-case tag enum mirrors `WorkoutTemplate.Tag` raw values from
-// `WorkoutTemplate.swift` verbatim. The hyphenated `"full-body"` raw value
-// matches the schema doc (`workout-templates.md` line 63) — Swift's
-// `fullBody = "full-body"` case raw and this TS literal must agree.
-export const workoutTagSchema = z.enum([
-  "push",
-  "pull",
-  "legs",
-  "full-body",
-  "upper",
-  "lower",
-  "custom",
-]);
+// Tags are trainer-defined free text in v1. We still keep the canonical
+// defaults in the UI, but the schema no longer hard-codes a closed enum.
+export const workoutTagSchema = z
+  .string()
+  .trim()
+  .min(1, "Add a training tag.")
+  .max(40, "Keep the tag under 40 characters.");
 
 export type WorkoutTag = z.infer<typeof workoutTagSchema>;
 

@@ -75,11 +75,22 @@ export const FirestoreCollections = {
   habits: "habits",
 
   /**
+   * Reusable habit definitions. Global templates are seeded/read-only;
+   * trainer templates are copied into /habits when assigned to clients.
+   */
+  habitTemplates: "habit_templates",
+
+  /**
    * Per-client-per-day habit check-in log. Composite doc ID
    * `${habitId}_${civilDate}` for idempotent re-tap.
    * Schema doc: `.planning/schemas/habit-logs.md`. Lands in P06-01.
    */
   habitLogs: "habit_logs",
+
+  /**
+   * Coach-authored short/medium/long-term goals visible to clients.
+   */
+  clientGoals: "client_goals",
 
   /**
    * 1:1 coach↔client chat metadata. Doc id = clientId (deterministic).

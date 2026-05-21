@@ -75,6 +75,8 @@ export function BulkAssignForm({
   const [civilDate, setCivilDate] = useState<string>(() =>
     civilDateToday(trainerTimezone),
   );
+  const [scheduledTime, setScheduledTime] = useState<string>("");
+  const [meetingNotes, setMeetingNotes] = useState<string>("");
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -123,6 +125,8 @@ export function BulkAssignForm({
         templateId,
         clientIds: finalClientIds,
         scheduledFor: civilDate,
+        scheduledTime: scheduledTime || undefined,
+        meetingNotes: meetingNotes.trim() || undefined,
         timezone: trainerTimezone,
       });
       toast.success(
@@ -185,6 +189,27 @@ export function BulkAssignForm({
             <p className="text-xs text-muted-foreground">
               Scheduled for {civilDate}
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Time</label>
+              <input
+                type="time"
+                value={scheduledTime}
+                onChange={(event) => setScheduledTime(event.target.value)}
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Meeting notes</label>
+              <textarea
+                value={meetingNotes}
+                onChange={(event) => setMeetingNotes(event.target.value)}
+                placeholder="Zoom / Meet link, instructions, prep notes..."
+                className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

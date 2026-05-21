@@ -10,6 +10,9 @@ export interface ProgressPhotoRow {
   caption: string | null;
   storagePath: string;
   url: string | null;
+  angle: "front" | "side" | "back" | null;
+  checkInDate: string | null;
+  setId: string | null;
   createdAt: string | null;
   takenAt: string | null;
 }
@@ -35,8 +38,11 @@ function timestampToIso(value: unknown): string | null {
 
 async function signedUrlForPath(storagePath: string): Promise<string | null> {
   try {
+    const bucketName =
+      process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET ??
+      `${process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID}.firebasestorage.app`;
     const [url] = await gcFitnessStorage()
-      .bucket()
+      .bucket(bucketName)
       .file(storagePath)
       .getSignedUrl({
         action: "read",
@@ -73,6 +79,13 @@ export async function listProgressPhotosForClient(
         caption: typeof data.caption === "string" ? data.caption : null,
         storagePath,
         url: storagePath ? await signedUrlForPath(storagePath) : null,
+        angle:
+          data.angle === "front" || data.angle === "side" || data.angle === "back"
+            ? data.angle
+            : null,
+        checkInDate:
+          typeof data.checkInDate === "string" ? data.checkInDate : null,
+        setId: typeof data.setId === "string" ? data.setId : null,
         createdAt: timestampToIso(data.createdAt),
         takenAt: timestampToIso(data.takenAt),
       };

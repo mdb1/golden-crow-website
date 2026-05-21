@@ -34,11 +34,13 @@
 import { randomUUID } from "node:crypto";
 
 import { FieldValue } from "firebase-admin/firestore";
+import { z } from "zod";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import {
   habitCreateSchema,
+  habitTemplateCreateSchema,
   habitUpdateSchemaForType,
   type HabitType,
 } from "./habit-schema";
@@ -46,6 +48,88 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 
 const COLLECTION = FirestoreCollections.habits;
+const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
+
+const GLOBAL_HABIT_TEMPLATES = [
+  {
+    id: "global-water",
+    type: "numeric",
+    name: { en: "Water intake", es: "Agua diaria" },
+    description: {
+      en: "Hit your daily hydration target.",
+      es: "Cumple tu objetivo diario de hidratacion.",
+    },
+    targetValue: 2,
+    unit: "L",
+    reminderEnabled: false,
+  },
+  {
+    id: "global-sleep",
+    type: "numeric",
+    name: { en: "Sleep", es: "Sueno" },
+    description: {
+      en: "Track total hours slept.",
+      es: "Registra tus horas totales de sueno.",
+    },
+    targetValue: 7,
+    unit: "h",
+    reminderEnabled: false,
+  },
+  {
+    id: "global-steps",
+    type: "numeric",
+    name: { en: "Steps", es: "Pasos" },
+    targetValue: 8000,
+    unit: "steps",
+    reminderEnabled: false,
+  },
+  {
+    id: "global-protein",
+    type: "numeric",
+    name: { en: "Protein", es: "Proteina" },
+    targetValue: 120,
+    unit: "g",
+    reminderEnabled: false,
+  },
+  {
+    id: "global-mobility",
+    type: "binary",
+    name: { en: "Mobility", es: "Movilidad" },
+    description: {
+      en: "Complete your mobility block.",
+      es: "Completa tu bloque de movilidad.",
+    },
+    reminderEnabled: false,
+  },
+  {
+    id: "global-walk",
+    type: "binary",
+    name: { en: "30-minute walk", es: "Caminata de 30 minutos" },
+    reminderEnabled: false,
+  },
+  {
+    id: "global-food-log",
+    type: "binary",
+    name: { en: "Food log", es: "Registro de comidas" },
+    reminderEnabled: false,
+  },
+  {
+    id: "global-energy",
+    type: "multi-choice",
+    name: { en: "Energy check", es: "Chequeo de energia" },
+    options: ["High", "OK", "Low"],
+    reminderEnabled: false,
+  },
+] satisfies Array<{
+  id: string;
+  type: HabitType;
+  name: { en: string; es: string };
+  description?: { en: string; es: string };
+  options?: string[];
+  targetValue?: number;
+  unit?: string;
+  reminderEnabled: boolean;
+}>;
 
 /**
  * Shape returned by `listHabitsForTrainer` and `listHabitsForClient` —
@@ -68,7 +152,30 @@ export interface HabitRow {
   unit?: string;
   reminderTime?: string;
   reminderEnabled: boolean;
+  reminderCadence?: "daily" | "weekly" | "monthly";
+  reminderWeekdays?: number[];
+  reminderDayOfMonth?: number;
   seedSource?: string;
+  deleted: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface HabitTemplateRow {
+  id: string;
+  scope: "global" | "trainer";
+  trainerId: string | null;
+  type: HabitType;
+  name: { en: string; es: string };
+  description?: { en: string; es: string };
+  options?: string[];
+  targetValue?: number;
+  unit?: string;
+  reminderTime?: string;
+  reminderEnabled: boolean;
+  reminderCadence?: "daily" | "weekly" | "monthly";
+  reminderWeekdays?: number[];
+  reminderDayOfMonth?: number;
   deleted: boolean;
   createdAt: string | null;
   updatedAt: string | null;
@@ -111,12 +218,102 @@ function projectHabitRow(
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
+    reminderCadence:
+      data.reminderCadence === "daily" ||
+      data.reminderCadence === "weekly" ||
+      data.reminderCadence === "monthly"
+        ? data.reminderCadence
+        : undefined,
+    reminderWeekdays: Array.isArray(data.reminderWeekdays)
+      ? (data.reminderWeekdays as number[])
+      : undefined,
+    reminderDayOfMonth:
+      typeof data.reminderDayOfMonth === "number"
+        ? data.reminderDayOfMonth
+        : undefined,
     seedSource:
       typeof data.seedSource === "string" ? data.seedSource : undefined,
     deleted: data.deleted === true,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
+}
+
+function projectHabitTemplateRow(
+  id: string,
+  data: Record<string, unknown>,
+): HabitTemplateRow {
+  return {
+    id,
+    scope: data.scope === "trainer" ? "trainer" : "global",
+    trainerId: typeof data.trainerId === "string" ? data.trainerId : null,
+    type: (data.type as HabitType) ?? "binary",
+    name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
+    description: data.description as { en: string; es: string } | undefined,
+    options: Array.isArray(data.options)
+      ? (data.options as string[])
+      : undefined,
+    targetValue:
+      typeof data.targetValue === "number" ? data.targetValue : undefined,
+    unit: typeof data.unit === "string" ? data.unit : undefined,
+    reminderTime:
+      typeof data.reminderTime === "string" ? data.reminderTime : undefined,
+    reminderEnabled: data.reminderEnabled === true,
+    reminderCadence:
+      data.reminderCadence === "daily" ||
+      data.reminderCadence === "weekly" ||
+      data.reminderCadence === "monthly"
+        ? data.reminderCadence
+        : undefined,
+    reminderWeekdays: Array.isArray(data.reminderWeekdays)
+      ? (data.reminderWeekdays as number[])
+      : undefined,
+    reminderDayOfMonth:
+      typeof data.reminderDayOfMonth === "number"
+        ? data.reminderDayOfMonth
+        : undefined,
+    deleted: data.deleted === true,
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt),
+  };
+}
+
+async function assertTrainerOwnsClient(
+  trainerId: string,
+  clientId: string,
+): Promise<void> {
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  if (!snap.exists || snap.get("coachId") !== trainerId) {
+    throw new Error("Client is not in your roster.");
+  }
+}
+
+async function ensureGlobalHabitTemplates(): Promise<void> {
+  const db = gcFitnessFirestore();
+  const refs = GLOBAL_HABIT_TEMPLATES.map((template) =>
+    db.collection(TEMPLATE_COLLECTION).doc(template.id),
+  );
+  const snaps = await db.getAll(...refs);
+  const batch = db.batch();
+  let wrote = false;
+  snaps.forEach((snap, index) => {
+    if (snap.exists) return;
+    const template = GLOBAL_HABIT_TEMPLATES[index];
+    batch.set(snap.ref, {
+      ...template,
+      id: template.id,
+      scope: "global",
+      trainerId: null,
+      deleted: false,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    wrote = true;
+  });
+  if (wrote) await batch.commit();
 }
 
 /**
@@ -205,6 +402,9 @@ export async function updateHabit(
     unit?: string;
     reminderTime?: string;
     reminderEnabled: boolean;
+    reminderCadence?: "daily" | "weekly" | "monthly";
+    reminderWeekdays?: number[];
+    reminderDayOfMonth?: number;
   };
 
   // Field-by-field whitelist (matches P06-03 affectedKeys.hasOnly([...]))
@@ -229,6 +429,15 @@ export async function updateHabit(
   }
   if (parsed.reminderTime !== undefined) {
     patch.reminderTime = parsed.reminderTime;
+  }
+  if (parsed.reminderCadence !== undefined) {
+    patch.reminderCadence = parsed.reminderCadence;
+  }
+  if (parsed.reminderWeekdays !== undefined) {
+    patch.reminderWeekdays = parsed.reminderWeekdays;
+  }
+  if (parsed.reminderDayOfMonth !== undefined) {
+    patch.reminderDayOfMonth = parsed.reminderDayOfMonth;
   }
 
   await docRef.update(patch);
@@ -292,6 +501,122 @@ export async function listHabitsForTrainer(): Promise<HabitRow[]> {
   return snap.docs.map((d) =>
     projectHabitRow(d.id, d.data() as Record<string, unknown>),
   );
+}
+
+export async function listHabitTemplates(): Promise<HabitTemplateRow[]> {
+  const trainer = await getCurrentTrainer();
+  await ensureGlobalHabitTemplates();
+
+  const db = gcFitnessFirestore();
+  const [globalSnap, trainerSnap] = await Promise.all([
+    db
+      .collection(TEMPLATE_COLLECTION)
+      .where("scope", "==", "global")
+      .orderBy("updatedAt", "desc")
+      .limit(100)
+      .get(),
+    db
+      .collection(TEMPLATE_COLLECTION)
+      .where("trainerId", "==", trainer.uid)
+      .orderBy("updatedAt", "desc")
+      .limit(100)
+      .get(),
+  ]);
+
+  return [...globalSnap.docs, ...trainerSnap.docs]
+    .map((doc) =>
+      projectHabitTemplateRow(doc.id, doc.data() as Record<string, unknown>),
+    )
+    .filter((row) => !row.deleted);
+}
+
+export async function createHabitTemplate(
+  input: unknown,
+): Promise<{ id: string }> {
+  const trainer = await getCurrentTrainer();
+  const parsed = habitTemplateCreateSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const docId = `habit-template-${trainer.uid}-${randomUUID()}`;
+  await db.collection(TEMPLATE_COLLECTION).doc(docId).set({
+    ...parsed,
+    id: docId,
+    scope: "trainer",
+    trainerId: trainer.uid,
+    deleted: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { id: docId };
+}
+
+export async function assignHabitTemplate(input: unknown): Promise<{
+  created: number;
+}> {
+  const trainer = await getCurrentTrainer();
+  const parsed = z
+    .object({
+      templateId: z.string().trim().min(1),
+      clientIds: z.array(z.string().trim().min(1)).min(1).max(50),
+    })
+    .parse(input);
+
+  const db = gcFitnessFirestore();
+  const templateSnap = await db
+    .collection(TEMPLATE_COLLECTION)
+    .doc(parsed.templateId)
+    .get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = projectHabitTemplateRow(
+    templateSnap.id,
+    templateSnap.data() as Record<string, unknown>,
+  );
+  if (
+    template.deleted ||
+    (template.scope !== "global" && template.trainerId !== trainer.uid)
+  ) {
+    throw new Error("Template not available.");
+  }
+
+  for (const clientId of parsed.clientIds) {
+    await assertTrainerOwnsClient(trainer.uid, clientId);
+  }
+
+  const batch = db.batch();
+  for (const clientId of parsed.clientIds) {
+    const docId = `hab-${trainer.uid}-${randomUUID()}`;
+    const docRef = db.collection(COLLECTION).doc(docId);
+    batch.set(docRef, {
+      id: docId,
+      clientId,
+      trainerId: trainer.uid,
+      type: template.type,
+      name: template.name,
+      ...(template.description ? { description: template.description } : {}),
+      ...(template.options ? { options: template.options } : {}),
+      ...(template.targetValue !== undefined
+        ? { targetValue: template.targetValue }
+        : {}),
+      ...(template.unit ? { unit: template.unit } : {}),
+      ...(template.reminderTime ? { reminderTime: template.reminderTime } : {}),
+      ...(template.reminderCadence
+        ? { reminderCadence: template.reminderCadence }
+        : {}),
+      ...(template.reminderWeekdays
+        ? { reminderWeekdays: template.reminderWeekdays }
+        : {}),
+      ...(template.reminderDayOfMonth !== undefined
+        ? { reminderDayOfMonth: template.reminderDayOfMonth }
+        : {}),
+      reminderEnabled: template.reminderEnabled,
+      sourceTemplateId: template.id,
+      deleted: false,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
+
+  return { created: parsed.clientIds.length };
 }
 
 /**

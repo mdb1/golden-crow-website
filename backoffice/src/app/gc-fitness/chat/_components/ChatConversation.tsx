@@ -100,7 +100,7 @@ export function ChatConversation({
   const rows = useMemo(() => groupByCivilDate(messages), [messages]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b bg-background px-4 py-3">
         <div className="font-medium">{partnerName}</div>
         {/* P10-08 — trainer-initiated push button. Rendered next to the
@@ -110,7 +110,7 @@ export function ChatConversation({
             `chat-server-actions.ts`'s ownership precondition pattern). */}
         <NudgeButton clientId={chatId} clientName={partnerName} />
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             Loading messages…
@@ -140,7 +140,9 @@ export function ChatConversation({
           )
         )}
       </div>
-      <MessageInput chatId={chatId} />
+      <div className="shrink-0 border-t bg-background">
+        <MessageInput chatId={chatId} />
+      </div>
     </div>
   );
 }
@@ -206,8 +208,34 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     <div className={`flex ${align}`}>
       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${tone}`}>
         {body}
+        {message.reactions && Object.keys(message.reactions).length > 0 ? (
+          <ReactionRow reactions={message.reactions} />
+        ) : null}
         <TimeStamp iso={message.createdAt} isOwn={isOwn} />
       </div>
+    </div>
+  );
+}
+
+function ReactionRow({ reactions }: { reactions: Record<string, string> }) {
+  const grouped = Object.values(reactions).reduce<Record<string, number>>(
+    (acc, emoji) => {
+      acc[emoji] = (acc[emoji] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {Object.entries(grouped).map(([emoji, count]) => (
+        <span
+          key={emoji}
+          className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm"
+        >
+          <span>{emoji}</span>
+          <span className="text-muted-foreground">{count}</span>
+        </span>
+      ))}
     </div>
   );
 }

@@ -70,7 +70,7 @@ export async function HabitComplianceWidget({
   const rows: HabitRow[] = await Promise.all(
     habitsSnap.docs.map(async (h) => {
       const habit = h.data() as {
-        name?: string;
+        name?: string | { en?: string; es?: string };
         type?: HabitType;
         targetValue?: number;
       };
@@ -113,7 +113,7 @@ export async function HabitComplianceWidget({
       const clamped = Math.max(0, Math.min(1, ratio));
       return {
         id: h.id,
-        name: habit.name ?? "(unnamed habit)",
+        name: localizedName(habit.name),
         ratio: clamped,
         pct: Math.round(clamped * 100),
       };
@@ -145,4 +145,16 @@ export async function HabitComplianceWidget({
       )}
     </section>
   );
+}
+
+function localizedName(
+  value: string | { en?: string; es?: string } | undefined,
+): string {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+  if (value && typeof value === "object") {
+    return value.en?.trim() || value.es?.trim() || "(unnamed habit)";
+  }
+  return "(unnamed habit)";
 }

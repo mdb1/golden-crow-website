@@ -33,6 +33,7 @@
 // already referenced) preserves the snapshot via Pattern 3.
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { Dumbbell, ChevronsUpDown, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,13 @@ function formatLabel(s: string): string {
 
 function exerciseDisplayName(row: ExerciseRow): string {
   return row.name.en || row.name.es || "(untitled)";
+}
+
+function previewUrl(url?: string | null): string | null {
+  if (typeof url === "string" && /^https?:\/\//.test(url)) {
+    return url;
+  }
+  return null;
 }
 
 export function ExercisePickerPopover({
@@ -130,9 +138,19 @@ export function ExercisePickerPopover({
             <span className="flex items-center gap-2">
               <span
                 aria-hidden="true"
-                className="flex h-6 w-10 items-center justify-center rounded-sm border border-border bg-muted/40 text-muted-foreground"
+                className="flex h-6 w-10 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
               >
-                <Dumbbell className="h-3 w-3" />
+                {previewUrl(selected.thumbnailURL) ? (
+                  <Image
+                    src={previewUrl(selected.thumbnailURL)!}
+                    alt=""
+                    width={40}
+                    height={24}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Dumbbell className="h-3 w-3" />
+                )}
               </span>
               <span className="font-medium">{exerciseDisplayName(selected)}</span>
             </span>
@@ -179,9 +197,19 @@ export function ExercisePickerPopover({
                     >
                       <span
                         aria-hidden="true"
-                        className="flex h-7 w-12 shrink-0 items-center justify-center rounded-sm border border-border bg-muted/40 text-muted-foreground"
+                        className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
                       >
-                        <Dumbbell className="h-3 w-3" />
+                        {previewUrl(ex.thumbnailURL) ? (
+                          <Image
+                            src={previewUrl(ex.thumbnailURL)!}
+                            alt=""
+                            width={48}
+                            height={28}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Dumbbell className="h-3 w-3" />
+                        )}
                       </span>
                       <span className="flex flex-col">
                         <span className="font-medium">

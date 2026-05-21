@@ -130,6 +130,12 @@ const habitBaseShape = z.object({
     )
     .optional(),
   reminderEnabled: z.boolean(),
+  reminderCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
+  reminderWeekdays: z
+    .array(z.number().int().min(1).max(7))
+    .max(7, "Pick up to 7 weekdays.")
+    .optional(),
+  reminderDayOfMonth: z.number().int().min(1).max(31).optional(),
 });
 
 // Shared superRefine logic — applied by both create and update schemas. The
@@ -142,6 +148,9 @@ function applyTypeConditionalRules(
     targetValue?: number;
     reminderTime?: string;
     reminderEnabled: boolean;
+    reminderCadence?: "daily" | "weekly" | "monthly";
+    reminderWeekdays?: number[];
+    reminderDayOfMonth?: number;
   },
   effectiveType: HabitType,
   ctx: z.RefinementCtx,
@@ -189,6 +198,24 @@ function applyTypeConditionalRules(
         "reminderTime is required when reminderEnabled is true.",
     });
   }
+
+  if (data.reminderEnabled === true) {
+    const cadence = data.reminderCadence ?? "daily";
+    if (cadence === "weekly" && (!data.reminderWeekdays || data.reminderWeekdays.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reminderWeekdays"],
+        message: "Weekly reminders need at least one weekday.",
+      });
+    }
+    if (cadence === "monthly" && data.reminderDayOfMonth === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reminderDayOfMonth"],
+        message: "Monthly reminders need a day of month.",
+      });
+    }
+  }
 }
 
 // Create schema — the full payload a trainer submits to author a new habit.
@@ -201,6 +228,16 @@ export const habitCreateSchema = habitBaseShape.superRefine((data, ctx) => {
 });
 
 export type HabitCreateInput = z.input<typeof habitCreateSchema>;
+
+export const habitTemplateCreateSchema = habitBaseShape
+  .omit({ clientId: true })
+  .superRefine((data, ctx) => {
+    applyTypeConditionalRules(data, data.type, ctx);
+  });
+
+export type HabitTemplateCreateInput = z.input<
+  typeof habitTemplateCreateSchema
+>;
 
 // Update schema — produced by a per-call factory that captures the existing
 // habit's immutable `type`. The update input cannot carry `clientId` (FK,

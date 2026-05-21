@@ -48,6 +48,7 @@ export interface ExerciseRow {
   equipment: string[];
   mediaURL?: string | null;
   thumbnailURL?: string | null;
+  youtubeURL?: string | null;
   source: "wger" | "trainer";
   ownerId: string | null;
   version: number;
@@ -80,6 +81,7 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     equipment: Array.isArray(data.equipment) ? data.equipment : [],
     mediaURL: data.mediaURL ?? null,
     thumbnailURL: data.thumbnailURL ?? null,
+    youtubeURL: data.youtubeURL ?? null,
     source: data.source === "wger" ? "wger" : "trainer",
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
     version: typeof data.version === "number" ? data.version : 1,

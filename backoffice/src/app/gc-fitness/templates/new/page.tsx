@@ -12,6 +12,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { ExerciseQueryProvider } from "../../exercises/providers";
 import { TemplatesQueryProvider } from "../providers";
 import { NewTemplateClient } from "./client";
 
@@ -39,7 +40,9 @@ export default async function NewTemplatePage() {
         </p>
       </div>
       <TemplatesQueryProvider>
-        <NewTemplateClient />
+        <ExerciseQueryProvider>
+          <NewTemplateClient />
+        </ExerciseQueryProvider>
       </TemplatesQueryProvider>
     </div>
   );
