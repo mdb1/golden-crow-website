@@ -118,11 +118,24 @@ function isHabitActiveOnDate(
   return date.getUTCDate() === dayOfMonth;
 }
 
-function dayRange(anchor = new Date()): string[] {
+export function buildClientDailyTimelineDates(anchor = new Date()): string[] {
   const base = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate()));
   return Array.from({ length: 29 }, (_, index) =>
     civilDateFormat(addDays(base, index - 14), "UTC"),
   );
+}
+
+function createEmptyDay(date: string): ClientDailyTimelineDay {
+  return {
+    date,
+    workouts: [],
+    workoutLogs: [],
+    habits: [],
+    reminders: [],
+    photos: [],
+    messages: [],
+    notes: [],
+  };
 }
 
 async function assertOwnsClient(coachId: string, clientId: string): Promise<void> {
@@ -142,23 +155,11 @@ export async function getClientDailyTimeline(
   await assertOwnsClient(trainer.uid, clientId);
 
   const db = gcFitnessFirestore();
-  const dates = dayRange();
+  const dates = buildClientDailyTimelineDates();
   const start = dates[0];
   const end = dates[dates.length - 1];
   const days = new Map<string, ClientDailyTimelineDay>(
-    dates.map((date) => [
-      date,
-      {
-        date,
-        workouts: [],
-        workoutLogs: [],
-        habits: [],
-        reminders: [],
-        photos: [],
-        messages: [],
-        notes: [],
-      },
-    ]),
+    dates.map((date) => [date, createEmptyDay(date)]),
   );
 
   const [
@@ -376,4 +377,213 @@ export async function getClientDailyTimeline(
     days: Array.from(days.values()),
     notes: "",
   };
+}
+
+export async function getClientDailyTimelineDay(
+  clientId: string,
+  civilDate: string,
+): Promise<ClientDailyTimelineDay> {
+  const trainer = await getCurrentTrainer();
+  await assertOwnsClient(trainer.uid, clientId);
+
+  const db = gcFitnessFirestore();
+  const day = createEmptyDay(civilDate);
+  const todayCivil = civilDateFormat(new Date(), "UTC");
+  const dayStart = new Date(`${civilDate}T00:00:00.000Z`);
+  const dayEnd = new Date(`${civilDate}T23:59:59.999Z`);
+
+  const [
+    assignmentsSnap,
+    workoutLogsSnap,
+    habitsSnap,
+    habitLogsSnap,
+    photosSnap,
+    messagesSnap,
+    notesSnap,
+  ] = await Promise.all([
+    db
+      .collection(FirestoreCollections.workoutAssignments)
+      .where("clientId", "==", clientId)
+      .where("scheduledFor", "==", civilDate)
+      .get(),
+    db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("clientId", "==", clientId)
+      .where("startedAt", ">=", dayStart)
+      .where("startedAt", "<=", dayEnd)
+      .orderBy("startedAt", "desc")
+      .get(),
+    db
+      .collection(FirestoreCollections.habits)
+      .where("clientId", "==", clientId)
+      .where("deleted", "==", false)
+      .get(),
+    db
+      .collection(FirestoreCollections.habitLogs)
+      .where("clientId", "==", clientId)
+      .where("civilDate", "==", civilDate)
+      .get(),
+    db
+      .collection(FirestoreCollections.progressPhotos)
+      .where("clientId", "==", clientId)
+      .where("checkInDate", "==", civilDate)
+      .get(),
+    db
+      .collection(FirestoreCollections.chats)
+      .doc(clientId)
+      .collection(FirestoreCollections.messages)
+      .where("createdAt", ">=", dayStart)
+      .where("createdAt", "<=", dayEnd)
+      .orderBy("createdAt", "desc")
+      .get(),
+    db
+      .collection(FirestoreCollections.clientNotes)
+      .doc(`${trainer.uid}_${clientId}`)
+      .get(),
+  ]);
+
+  const habitNames = new Map<string, string>();
+  const habitsById = new Map<string, Record<string, unknown>>();
+  habitsSnap.docs.forEach((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    habitNames.set(doc.id, localizedText(data.name, "Habit"));
+    habitsById.set(doc.id, data);
+  });
+
+  const habitLogsByHabit = new Map<string, Record<string, unknown>>();
+  habitLogsSnap.docs.forEach((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    const habitId = String(data.habitId ?? "");
+    if (!habitId) return;
+    habitLogsByHabit.set(habitId, data);
+  });
+
+  assignmentsSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    day.workouts.push({
+      id: doc.id,
+      name: localizedText((data.templateSnapshot as { name?: unknown } | undefined)?.name, "Workout"),
+      status: String(data.status ?? "scheduled"),
+      scheduledFor: civilDate,
+      scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
+      meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
+    });
+  });
+
+  workoutLogsSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const startedAt = toDate(data.startedAt);
+    if (!startedAt) return;
+    day.workoutLogs.push({
+      id: doc.id,
+      name: localizedText((data.templateSnapshot as { name?: unknown } | undefined)?.name, "Workout"),
+      startedAt: startedAt.toISOString(),
+      setCount: Array.isArray(data.sets) ? data.sets.length : 0,
+    });
+  });
+
+  photosSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const createdAt = toDate(data.createdAt);
+    const dayKey = typeof data.checkInDate === "string"
+      ? data.checkInDate
+      : createdAt
+        ? civilDateFormat(createdAt, "UTC")
+        : "";
+    if (dayKey !== civilDate) return;
+    day.photos.push({
+      id: doc.id,
+      caption: typeof data.caption === "string" ? data.caption : null,
+      storagePath: typeof data.storagePath === "string" ? data.storagePath : "",
+      url: null,
+      angle: data.angle === "front" || data.angle === "side" || data.angle === "back"
+        ? data.angle
+        : null,
+      checkInDate: typeof data.checkInDate === "string" ? data.checkInDate : null,
+      setId: typeof data.setId === "string" ? data.setId : null,
+      createdAt: toIso(data.createdAt),
+      takenAt: toIso(data.takenAt),
+    });
+  });
+
+  messagesSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const createdAt = toDate(data.createdAt);
+    if (!createdAt) return;
+    day.messages.push({
+      id: doc.id,
+      body:
+        typeof data.text === "string" && data.text.trim()
+          ? data.text
+          : String(data.kind ?? "text") === "image"
+            ? "Image"
+            : String(data.kind ?? "text") === "voice"
+              ? "Voice message"
+              : "Message",
+      sender: data.senderId === trainer.uid ? "coach" : "client",
+      createdAt: createdAt.toISOString(),
+    });
+  });
+
+  const noteEntries = notesSnap.exists && Array.isArray(notesSnap.get("entries"))
+    ? (notesSnap.get("entries") as Array<Record<string, unknown>>)
+    : [];
+  noteEntries.forEach((entry, index) => {
+    const dayKey = typeof entry.date === "string" ? entry.date : "";
+    if (dayKey !== civilDate) return;
+    const createdAtValue = entry.createdAt as
+      | { toDate?: () => Date }
+      | string
+      | null
+      | undefined;
+    day.notes.push({
+      id: `${dayKey}-${index}`,
+      body: typeof entry.notes === "string" ? entry.notes : "",
+      createdAt:
+        createdAtValue && typeof createdAtValue === "object" && typeof createdAtValue.toDate === "function"
+          ? createdAtValue.toDate().toISOString()
+          : typeof createdAtValue === "string"
+            ? createdAtValue
+            : null,
+    });
+  });
+
+  for (const [habitId, habit] of habitsById.entries()) {
+    const log = habitLogsByHabit.get(habitId);
+    const completed = Boolean(log && log.deleted !== true && log.value !== false);
+    const future = civilDate > todayCivil;
+    day.habits.push({
+      id: habitId,
+      name: habitNames.get(habitId) ?? "Habit",
+      completed,
+      value:
+        typeof log?.value === "string" || typeof log?.value === "number"
+          ? String(log?.value)
+          : completed
+            ? "done"
+            : future
+              ? "scheduled"
+              : "pending",
+      future,
+    });
+    if (habit.reminderEnabled === true && isHabitActiveOnDate(habit, civilDate)) {
+      day.reminders.push({
+        id: `${habitId}-${civilDate}`,
+        name: habitNames.get(habitId) ?? "Reminder",
+        time: typeof habit.reminderTime === "string" ? habit.reminderTime : null,
+        cadence:
+          habit.reminderCadence === "weekly" ||
+          habit.reminderCadence === "monthly"
+            ? habit.reminderCadence
+            : "daily",
+        completed,
+        future,
+      });
+    }
+  }
+
+  day.habits.sort((a, b) => a.name.localeCompare(b.name));
+  day.reminders.sort((a, b) => a.name.localeCompare(b.name));
+
+  return day;
 }

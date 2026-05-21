@@ -53,8 +53,12 @@ export default async function ClientsPage() {
           Clients
         </h1>
         <p className="text-sm text-muted-foreground">
-          {rows.length} client{rows.length === 1 ? "" : "s"} — sorted by most
-          recent activity.
+          {rows.filter((row) => !row.pendingProvisioning).length} active client
+          {rows.filter((row) => !row.pendingProvisioning).length === 1 ? "" : "s"}
+          {rows.some((row) => row.pendingProvisioning)
+            ? ` + ${rows.filter((row) => row.pendingProvisioning).length} pending sign-in`
+            : ""}
+          — sorted by most recent activity.
         </p>
       </div>
       <ProvisionClientForm />

@@ -220,6 +220,10 @@ The "Add client" form accepts an email and name:
 After a client is attached, they appear in the roster and their chat thread
 is reachable from `/gc-fitness/chat`.
 
+The roster also shows pre-created `user_mirror` entries that belong to the
+current coach and have not signed in yet. They are marked as pending sign-in
+and stay non-clickable until the app user materializes.
+
 The attach flow also copies the trainer's display name and photo URL onto the
 client doc as `coachDisplayName` and `coachPhotoURL`. The iOS app reads those
 fields from the client's own `users/{clientUid}` document.
@@ -293,6 +297,11 @@ iOS Dashboard now shows a `Next 7 days` agenda. It reads future
 `workout_assignments` by `clientId + scheduledFor` and recent completed
 `workout_logs`; the view is intentionally client-side so coaches only need to
 assign workouts from the backoffice schedule page.
+
+The backoffice per-client daily timeline is lazy-loaded one day at a time:
+the page fetches only the current day up front, and changing the selected day
+pulls that single day on demand. This keeps Firestore reads lower and avoids
+adding maintenance-heavy denormalization just to save a few extra queries.
 
 ### Seed exercise library and starter routines
 

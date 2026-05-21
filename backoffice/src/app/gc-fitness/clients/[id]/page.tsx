@@ -42,7 +42,10 @@ import { ClientGoalsCard } from "./_components/ClientGoalsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
-import { getClientDailyTimeline } from "@/lib/gc-fitness/client-daily-timeline-actions";
+import {
+  buildClientDailyTimelineDates,
+  getClientDailyTimelineDay,
+} from "@/lib/gc-fitness/client-daily-timeline-actions";
 import { ClientDailyTimeline } from "./_components/ClientDailyTimeline";
 
 export const dynamic = "force-dynamic";
@@ -86,12 +89,14 @@ export default async function ClientDetailPage({
 
   const displayName = client.displayName ?? client.email ?? id;
   const timezone = client.timezone ?? "UTC";
-  const [notes, progressPhotos, goals, timeline] = await Promise.all([
+  const todayCivil = new Date().toISOString().slice(0, 10);
+  const [notes, progressPhotos, goals, initialDay] = await Promise.all([
     getClientNotes(id),
     listProgressPhotosForClient(id),
     listClientGoals(id),
-    getClientDailyTimeline(id),
+    getClientDailyTimelineDay(id, todayCivil),
   ]);
+  const dateWindow = buildClientDailyTimelineDates();
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
@@ -132,7 +137,11 @@ export default async function ClientDetailPage({
 
         <ProgressPhotosWidget photos={progressPhotos} />
 
-        <ClientDailyTimeline clientId={id} timeline={timeline} />
+        <ClientDailyTimeline
+          clientId={id}
+          availableDates={dateWindow}
+          initialDay={initialDay}
+        />
       </div>
     </div>
   );

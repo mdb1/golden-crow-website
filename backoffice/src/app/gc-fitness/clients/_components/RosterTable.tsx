@@ -92,8 +92,11 @@ export function RosterTable({ rows }: RosterTableProps) {
           const reasons = row.original.needsAttentionReasons;
           const reasonText = reasons.map(formatReason).join(", ");
           return (
-            <span className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="font-medium">{row.original.displayName}</span>
+              {row.original.pendingProvisioning ? (
+                <Badge variant="secondary">Pending sign-in</Badge>
+              ) : null}
               {row.original.needsAttention ? (
                 <span
                   title={`Needs attention: ${reasonText}`}
@@ -103,9 +106,19 @@ export function RosterTable({ rows }: RosterTableProps) {
                   <AlertCircle className="size-4 text-destructive" />
                 </span>
               ) : null}
-            </span>
+            </div>
           );
         },
+      },
+      {
+        accessorKey: "source",
+        header: "Status",
+        cell: ({ row }) =>
+          row.original.pendingProvisioning ? (
+            <Badge variant="secondary">Pending sign-in</Badge>
+          ) : (
+            <Badge variant="default">Active</Badge>
+          ),
       },
       {
         accessorKey: "lastActivityAt",
@@ -232,10 +245,16 @@ export function RosterTable({ rows }: RosterTableProps) {
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                onClick={() =>
-                  router.push(`/gc-fitness/clients/${row.original.uid}`)
+                onClick={() => {
+                  if (!row.original.pendingProvisioning) {
+                    router.push(`/gc-fitness/clients/${row.original.uid}`);
+                  }
+                }}
+                className={
+                  row.original.pendingProvisioning
+                    ? "cursor-default"
+                    : "cursor-pointer hover:bg-muted/50"
                 }
-                className="cursor-pointer hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>

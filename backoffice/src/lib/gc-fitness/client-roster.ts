@@ -78,6 +78,8 @@ export interface ClientRosterRow {
   email: string;
   displayName: string;
   timezone: string | null;
+  source: "active" | "pending";
+  pendingProvisioning: boolean;
   /** ISO-8601 of the most recent activity across workout/habit/chat — or null if no activity. */
   lastActivityAt: string | null;
   /** Compliance ratio in [0, 1] averaged across this client's habits over the last 7 days. */
@@ -184,10 +186,41 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
 export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
   const trainer = await getCurrentTrainer();
   const base = await listClients();
-  // Cap at 50 — v1 trainer rosters are small (see CONTEXT decision; V2 paginates).
-  const clients = base.slice(0, 50);
-
   const db = gcFitnessFirestore();
+  const mirrorSnap = await db
+    .collection(FirestoreCollections.userMirror)
+    .where("coachId", "==", trainer.uid)
+    .get();
+
+  const activeEmails = new Set(
+    base.map((client) => client.email.trim().toLowerCase()).filter(Boolean),
+  );
+  const activeClients = base.slice(0, 50);
+  const pendingClients: ClientRosterEntry[] = mirrorSnap.docs
+    .reduce<ClientRosterEntry[]>((rows, doc) => {
+      const data = doc.data() as {
+        email?: string;
+        displayName?: string;
+        coachId?: string;
+        pre_created?: boolean;
+      };
+      const email = (data.email ?? doc.id).trim().toLowerCase();
+      if (!email || activeEmails.has(email)) {
+        return rows;
+      }
+      rows.push({
+        uid: `mirror:${doc.id}`,
+        email,
+        displayName:
+          typeof data.displayName === "string" && data.displayName.trim().length > 0
+            ? data.displayName.trim()
+            : email,
+        timezone: null,
+      });
+      return rows;
+    }, []);
+
+  const clients = [...activeClients, ...pendingClients];
 
   // Helper: pull the latest Date-valued field off a 1-doc snapshot.
   const latestDate = (
@@ -367,6 +400,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         email: c.email,
         displayName: c.displayName,
         timezone: c.timezone,
+        source: c.uid.startsWith("mirror:") ? "pending" : "active",
+        pendingProvisioning: c.uid.startsWith("mirror:"),
         lastActivityAt: lastActivity?.toISOString() ?? null,
         thisWeekComplianceRatio,
         unreadChatCount,
@@ -380,6 +415,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
   // Sort: lastActivityAt DESC (ISO-8601 sorts lexicographically); nulls last;
   // tiebreaker by displayName ASC.
   rows.sort((a, b) => {
+    if (a.pendingProvisioning !== b.pendingProvisioning) {
+      return a.pendingProvisioning ? 1 : -1;
+    }
     if (a.lastActivityAt && b.lastActivityAt) {
       return b.lastActivityAt.localeCompare(a.lastActivityAt);
     }
