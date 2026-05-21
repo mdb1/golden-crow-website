@@ -90,13 +90,13 @@ const HABIT_TYPE_LABELS: Record<HabitType, string> = {
 };
 
 const WEEKDAY_OPTIONS = [
-  { value: 1, label: "Sun" },
-  { value: 2, label: "Mon" },
-  { value: 3, label: "Tue" },
-  { value: 4, label: "Wed" },
-  { value: 5, label: "Thu" },
-  { value: 6, label: "Fri" },
-  { value: 7, label: "Sat" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 7, label: "Sun" },
 ] as const;
 const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => index + 1);
 const SCHEDULE_TYPE_OPTIONS = [

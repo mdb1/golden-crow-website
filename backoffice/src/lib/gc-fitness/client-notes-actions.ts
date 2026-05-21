@@ -107,11 +107,12 @@ export async function updateClientNotes(input: unknown): Promise<{
     .collection(FirestoreCollections.clientNotes)
     .doc(noteDocId(trainer.uid, parsed.clientId));
   const now = FieldValue.serverTimestamp();
+  const entryCreatedAt = new Date().toISOString();
   const snap = await ref.get();
   const entry = {
     date: parsed.date ?? new Date().toISOString().slice(0, 10),
     notes: parsed.notes,
-    createdAt: now,
+    createdAt: entryCreatedAt,
   };
   const existingEntries = snap.exists && Array.isArray(snap.get("entries"))
     ? snap.get("entries")

@@ -37,23 +37,31 @@ function timestampToIso(value: unknown): string | null {
 }
 
 async function signedUrlForPath(storagePath: string): Promise<string | null> {
-  try {
-    const bucketName =
-      process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET ??
-      `${process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID}.firebasestorage.app`;
-    const [url] = await gcFitnessStorage()
-      .bucket(bucketName)
-      .file(storagePath)
-      .getSignedUrl({
-        action: "read",
-        expires: Date.now() + 60 * 60 * 1000,
-      });
-    return url;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn("[gc-fitness/progress-photos] signed URL failed:", err);
-    return null;
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const candidates = [
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
+    projectId ? `${projectId}.appspot.com` : undefined,
+    projectId ? `${projectId}.firebasestorage.app` : undefined,
+  ].filter((value): value is string => Boolean(value));
+
+  for (const bucketName of candidates) {
+    try {
+      const [url] = await gcFitnessStorage()
+        .bucket(bucketName)
+        .file(storagePath)
+        .getSignedUrl({
+          action: "read",
+          expires: Date.now() + 60 * 60 * 1000,
+        });
+      return url;
+    } catch {
+      // Try next bucket candidate.
+    }
   }
+
+  // eslint-disable-next-line no-console
+  console.warn("[gc-fitness/progress-photos] signed URL failed for all bucket candidates");
+  return null;
 }
 
 export async function listProgressPhotosForClient(

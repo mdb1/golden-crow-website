@@ -1,6 +1,6 @@
 "use server";
 
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
@@ -82,6 +82,33 @@ function localizedText(value: unknown, fallback = "Untitled"): string {
     if (typeof localized.es === "string" && localized.es.trim()) return localized.es;
   }
   return fallback;
+}
+
+async function signedUrlForPath(storagePath: string): Promise<string | null> {
+  if (!storagePath) return null;
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const candidates = [
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
+    projectId ? `${projectId}.appspot.com` : undefined,
+    projectId ? `${projectId}.firebasestorage.app` : undefined,
+  ].filter((value): value is string => Boolean(value));
+
+  for (const bucketName of candidates) {
+    try {
+      const [url] = await gcFitnessStorage()
+        .bucket(bucketName)
+        .file(storagePath)
+        .getSignedUrl({
+          action: "read",
+          expires: Date.now() + 60 * 60 * 1000,
+        });
+      return url;
+    } catch {
+      // Try next bucket candidate.
+    }
+  }
+
+  return null;
 }
 
 function isHabitActiveOnDate(
@@ -381,6 +408,11 @@ export async function getClientDailyTimeline(
     }
     row.habits.sort((a, b) => a.name.localeCompare(b.name));
     row.reminders.sort((a, b) => a.name.localeCompare(b.name));
+    await Promise.all(
+      row.photos.map(async (photo) => {
+        photo.url = await signedUrlForPath(photo.storagePath);
+      }),
+    );
   }
 
   return {
@@ -594,6 +626,11 @@ export async function getClientDailyTimelineDay(
 
   day.habits.sort((a, b) => a.name.localeCompare(b.name));
   day.reminders.sort((a, b) => a.name.localeCompare(b.name));
+  await Promise.all(
+    day.photos.map(async (photo) => {
+      photo.url = await signedUrlForPath(photo.storagePath);
+    }),
+  );
 
   return day;
 }
