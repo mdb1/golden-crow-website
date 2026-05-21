@@ -98,6 +98,7 @@ const WEEKDAY_OPTIONS = [
   { value: 6, label: "Fri" },
   { value: 7, label: "Sat" },
 ] as const;
+const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => index + 1);
 const SCHEDULE_TYPE_OPTIONS = [
   { value: "recurring", label: "Recurring" },
   { value: "one-time", label: "One-time" },
@@ -122,12 +123,22 @@ function buildDefaults(
     reminderCadence: passed?.reminderCadence ?? "daily",
     reminderWeekdays: passed?.reminderWeekdays,
     reminderDayOfMonth: passed?.reminderDayOfMonth,
+    reminderMonthDays:
+      passed?.reminderMonthDays ??
+      (typeof passed?.reminderDayOfMonth === "number"
+        ? [passed.reminderDayOfMonth]
+        : undefined),
     scheduleType: passed?.scheduleType ?? "recurring",
     startsOn: passed?.startsOn ?? new Date().toISOString().slice(0, 10),
     endsOn: passed?.endsOn,
     scheduleCadence: passed?.scheduleCadence ?? "daily",
     scheduleWeekdays: passed?.scheduleWeekdays,
     scheduleDayOfMonth: passed?.scheduleDayOfMonth,
+    scheduleMonthDays:
+      passed?.scheduleMonthDays ??
+      (typeof passed?.scheduleDayOfMonth === "number"
+        ? [passed.scheduleDayOfMonth]
+        : undefined),
   };
 }
 
@@ -181,6 +192,10 @@ export function HabitForm({
     useWatch({ control: form.control, name: "scheduleWeekdays" }) ?? [];
   const watchedReminderWeekdays =
     useWatch({ control: form.control, name: "reminderWeekdays" }) ?? [];
+  const watchedScheduleMonthDays =
+    useWatch({ control: form.control, name: "scheduleMonthDays" }) ?? [];
+  const watchedReminderMonthDays =
+    useWatch({ control: form.control, name: "reminderMonthDays" }) ?? [];
 
   // Options is a string[] (not array-of-objects), so RHF's useFieldArray —
   // which is purpose-built for object arrays — is awkward here. Track the
@@ -257,10 +272,20 @@ export function HabitForm({
         if (values.reminderEnabled && values.reminderCadence === "monthly" && values.reminderDayOfMonth) {
           cleaned.reminderDayOfMonth = values.reminderDayOfMonth;
         }
+        if (values.reminderEnabled && values.reminderCadence === "monthly") {
+          const monthDays = (values.reminderMonthDays ?? []).filter(
+            (day): day is number => Number.isInteger(day) && day >= 1 && day <= 31,
+          );
+          if (monthDays.length > 0) {
+            cleaned.reminderMonthDays = monthDays;
+            cleaned.reminderDayOfMonth = monthDays[0];
+          }
+        }
         if (!values.reminderEnabled) {
           cleaned.reminderCadence = undefined;
           cleaned.reminderWeekdays = undefined;
           cleaned.reminderDayOfMonth = undefined;
+          cleaned.reminderMonthDays = undefined;
         }
         cleaned.endsOn = values.endsOn?.trim() ? values.endsOn : undefined;
         if (values.scheduleType === "recurring") {
@@ -272,16 +297,25 @@ export function HabitForm({
             cleaned.scheduleWeekdays = weekdays.length > 0 ? weekdays : undefined;
             cleaned.scheduleDayOfMonth = undefined;
           } else if (cleaned.scheduleCadence === "monthly") {
-            cleaned.scheduleDayOfMonth = values.scheduleDayOfMonth;
+            const monthDays = (values.scheduleMonthDays ?? []).filter(
+              (day): day is number => Number.isInteger(day) && day >= 1 && day <= 31,
+            );
+            cleaned.scheduleMonthDays = monthDays.length > 0 ? monthDays : undefined;
+            cleaned.scheduleDayOfMonth =
+              monthDays.length > 0
+                ? monthDays[0]
+                : values.scheduleDayOfMonth;
             cleaned.scheduleWeekdays = undefined;
           } else {
             cleaned.scheduleWeekdays = undefined;
             cleaned.scheduleDayOfMonth = undefined;
+            cleaned.scheduleMonthDays = undefined;
           }
         } else {
           cleaned.scheduleCadence = undefined;
           cleaned.scheduleWeekdays = undefined;
           cleaned.scheduleDayOfMonth = undefined;
+          cleaned.scheduleMonthDays = undefined;
           cleaned.endsOn = cleaned.endsOn ?? cleaned.startsOn;
         }
 
@@ -692,8 +726,9 @@ export function HabitForm({
                         }
                         if (value !== "monthly") {
                           form.setValue("scheduleDayOfMonth", undefined, { shouldDirty: true });
-                        } else if (!form.getValues("scheduleDayOfMonth")) {
-                          form.setValue("scheduleDayOfMonth", 1, { shouldDirty: true });
+                          form.setValue("scheduleMonthDays", undefined, { shouldDirty: true });
+                        } else if (!(form.getValues("scheduleMonthDays")?.length ?? 0)) {
+                          form.setValue("scheduleMonthDays", [1], { shouldDirty: true });
                         }
                       }}
                     >
@@ -713,30 +748,40 @@ export function HabitForm({
                 )}
               />
               {watchedScheduleCadence === "monthly" ? (
-                <FormField
-                  control={form.control}
-                  name="scheduleDayOfMonth"
-                  render={({ field }) => (
-                    <FormItem className="max-w-[10rem]">
-                      <FormLabel>Day of month</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={31}
-                          {...field}
-                          value={field.value ?? ""}
-                          onChange={(event) =>
-                            field.onChange(
-                              event.target.value ? Number(event.target.value) : undefined,
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Days of month</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {MONTH_DAY_OPTIONS.map((monthDay) => {
+                      const active = watchedScheduleMonthDays.includes(monthDay);
+                      return (
+                        <Button
+                          key={monthDay}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            const current = new Set(watchedScheduleMonthDays);
+                            if (current.has(monthDay)) current.delete(monthDay);
+                            else current.add(monthDay);
+                            const next = Array.from(current).sort((a, b) => a - b);
+                            form.setValue("scheduleMonthDays", next, { shouldDirty: true });
+                            form.setValue(
+                              "scheduleDayOfMonth",
+                              next.length > 0 ? next[0] : undefined,
+                              { shouldDirty: true },
+                            );
+                          }}
+                        >
+                          {monthDay}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <FormDescription>
+                    Select one or more days (example: 12 and 25).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
               ) : watchedScheduleCadence === "weekly" ? (
                 <FormItem className="md:col-span-2">
                   <FormLabel>Weekdays</FormLabel>
@@ -832,8 +877,9 @@ export function HabitForm({
                         }
                         if (value !== "monthly") {
                           form.setValue("reminderDayOfMonth", undefined, { shouldDirty: true });
-                        } else if (!form.getValues("reminderDayOfMonth")) {
-                          form.setValue("reminderDayOfMonth", 1, { shouldDirty: true });
+                          form.setValue("reminderMonthDays", undefined, { shouldDirty: true });
+                        } else if (!(form.getValues("reminderMonthDays")?.length ?? 0)) {
+                          form.setValue("reminderMonthDays", [1], { shouldDirty: true });
                         }
                       }}
                     >
@@ -853,30 +899,40 @@ export function HabitForm({
                 )}
               />
               {watchedReminderCadence === "monthly" ? (
-                <FormField
-                  control={form.control}
-                  name="reminderDayOfMonth"
-                  render={({ field }) => (
-                    <FormItem className="max-w-[10rem]">
-                      <FormLabel>Day of month</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={31}
-                          {...field}
-                          value={field.value ?? ""}
-                          onChange={(event) =>
-                            field.onChange(
-                              event.target.value ? Number(event.target.value) : undefined,
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Days of month</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {MONTH_DAY_OPTIONS.map((monthDay) => {
+                      const active = watchedReminderMonthDays.includes(monthDay);
+                      return (
+                        <Button
+                          key={monthDay}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            const current = new Set(watchedReminderMonthDays);
+                            if (current.has(monthDay)) current.delete(monthDay);
+                            else current.add(monthDay);
+                            const next = Array.from(current).sort((a, b) => a - b);
+                            form.setValue("reminderMonthDays", next, { shouldDirty: true });
+                            form.setValue(
+                              "reminderDayOfMonth",
+                              next.length > 0 ? next[0] : undefined,
+                              { shouldDirty: true },
+                            );
+                          }}
+                        >
+                          {monthDay}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <FormDescription>
+                    Select one or more days (example: 12 and 25).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
               ) : watchedReminderCadence === "weekly" ? (
                 <FormItem className="md:col-span-2">
                   <FormLabel>Weekdays</FormLabel>

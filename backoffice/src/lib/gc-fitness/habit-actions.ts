@@ -156,12 +156,14 @@ export interface HabitRow {
   reminderCadence?: "daily" | "weekly" | "monthly";
   reminderWeekdays?: number[];
   reminderDayOfMonth?: number;
+  reminderMonthDays?: number[];
   scheduleType: HabitScheduleType;
   startsOn: string;
   endsOn?: string;
   scheduleCadence?: "daily" | "weekly" | "monthly";
   scheduleWeekdays?: number[];
   scheduleDayOfMonth?: number;
+  scheduleMonthDays?: number[];
   seedSource?: string;
   deleted: boolean;
   createdAt: string | null;
@@ -183,12 +185,14 @@ export interface HabitTemplateRow {
   reminderCadence?: "daily" | "weekly" | "monthly";
   reminderWeekdays?: number[];
   reminderDayOfMonth?: number;
+  reminderMonthDays?: number[];
   scheduleType: HabitScheduleType;
   startsOn: string;
   endsOn?: string;
   scheduleCadence?: "daily" | "weekly" | "monthly";
   scheduleWeekdays?: number[];
   scheduleDayOfMonth?: number;
+  scheduleMonthDays?: number[];
   deleted: boolean;
   createdAt: string | null;
   updatedAt: string | null;
@@ -256,6 +260,11 @@ function projectHabitRow(
       typeof data.reminderDayOfMonth === "number"
         ? data.reminderDayOfMonth
         : undefined,
+    reminderMonthDays: Array.isArray(data.reminderMonthDays)
+      ? (data.reminderMonthDays as number[])
+      : typeof data.reminderDayOfMonth === "number"
+        ? [data.reminderDayOfMonth]
+        : undefined,
     scheduleType:
       data.scheduleType === "one-time" ? "one-time" : "recurring",
     startsOn:
@@ -274,6 +283,11 @@ function projectHabitRow(
     scheduleDayOfMonth:
       typeof data.scheduleDayOfMonth === "number"
         ? data.scheduleDayOfMonth
+        : undefined,
+    scheduleMonthDays: Array.isArray(data.scheduleMonthDays)
+      ? (data.scheduleMonthDays as number[])
+      : typeof data.scheduleDayOfMonth === "number"
+        ? [data.scheduleDayOfMonth]
         : undefined,
     seedSource:
       typeof data.seedSource === "string" ? data.seedSource : undefined,
@@ -316,6 +330,11 @@ function projectHabitTemplateRow(
       typeof data.reminderDayOfMonth === "number"
         ? data.reminderDayOfMonth
         : undefined,
+    reminderMonthDays: Array.isArray(data.reminderMonthDays)
+      ? (data.reminderMonthDays as number[])
+      : typeof data.reminderDayOfMonth === "number"
+        ? [data.reminderDayOfMonth]
+        : undefined,
     scheduleType:
       data.scheduleType === "one-time" ? "one-time" : "recurring",
     startsOn:
@@ -334,6 +353,11 @@ function projectHabitTemplateRow(
     scheduleDayOfMonth:
       typeof data.scheduleDayOfMonth === "number"
         ? data.scheduleDayOfMonth
+        : undefined,
+    scheduleMonthDays: Array.isArray(data.scheduleMonthDays)
+      ? (data.scheduleMonthDays as number[])
+      : typeof data.scheduleDayOfMonth === "number"
+        ? [data.scheduleDayOfMonth]
         : undefined,
     deleted: data.deleted === true,
     createdAt: toIso(data.createdAt),
@@ -409,6 +433,16 @@ export async function createHabit(
 
   await docRef.set({
     ...data,
+    reminderDayOfMonth:
+      data.reminderDayOfMonth ??
+      (Array.isArray(data.reminderMonthDays) && data.reminderMonthDays.length > 0
+        ? data.reminderMonthDays[0]
+        : undefined),
+    scheduleDayOfMonth:
+      data.scheduleDayOfMonth ??
+      (Array.isArray(data.scheduleMonthDays) && data.scheduleMonthDays.length > 0
+        ? data.scheduleMonthDays[0]
+        : undefined),
     startsOn: normalizeStartsOn(data.startsOn),
     id: docId,
     trainerId: trainer.uid, // T-06-05-01: ALWAYS from session, NEVER from input.
@@ -469,12 +503,14 @@ export async function updateHabit(
     reminderCadence?: "daily" | "weekly" | "monthly";
     reminderWeekdays?: number[];
     reminderDayOfMonth?: number;
+    reminderMonthDays?: number[];
     scheduleType: HabitScheduleType;
     startsOn?: string;
     endsOn?: string;
     scheduleCadence?: "daily" | "weekly" | "monthly";
     scheduleWeekdays?: number[];
     scheduleDayOfMonth?: number;
+    scheduleMonthDays?: number[];
   };
 
   // Field-by-field whitelist (matches P06-03 affectedKeys.hasOnly([...]))
@@ -513,10 +549,20 @@ export async function updateHabit(
   if (parsed.reminderDayOfMonth !== undefined) {
     patch.reminderDayOfMonth = parsed.reminderDayOfMonth;
   }
+  if (parsed.reminderMonthDays !== undefined) {
+    patch.reminderMonthDays = parsed.reminderMonthDays;
+    patch.reminderDayOfMonth =
+      parsed.reminderMonthDays.length > 0 ? parsed.reminderMonthDays[0] : null;
+  }
   patch.endsOn = parsed.endsOn ?? null;
   patch.scheduleCadence = parsed.scheduleCadence ?? null;
   patch.scheduleWeekdays = parsed.scheduleWeekdays ?? null;
   patch.scheduleDayOfMonth = parsed.scheduleDayOfMonth ?? null;
+  patch.scheduleMonthDays = parsed.scheduleMonthDays ?? null;
+  if (Array.isArray(parsed.scheduleMonthDays)) {
+    patch.scheduleDayOfMonth =
+      parsed.scheduleMonthDays.length > 0 ? parsed.scheduleMonthDays[0] : null;
+  }
 
   await docRef.update(patch);
 
@@ -617,6 +663,16 @@ export async function createHabitTemplate(
   const docId = `habit-template-${trainer.uid}-${randomUUID()}`;
   await db.collection(TEMPLATE_COLLECTION).doc(docId).set({
     ...parsed,
+    reminderDayOfMonth:
+      parsed.reminderDayOfMonth ??
+      (Array.isArray(parsed.reminderMonthDays) && parsed.reminderMonthDays.length > 0
+        ? parsed.reminderMonthDays[0]
+        : undefined),
+    scheduleDayOfMonth:
+      parsed.scheduleDayOfMonth ??
+      (Array.isArray(parsed.scheduleMonthDays) && parsed.scheduleMonthDays.length > 0
+        ? parsed.scheduleMonthDays[0]
+        : undefined),
     id: docId,
     scope: "trainer",
     trainerId: trainer.uid,
@@ -685,6 +741,9 @@ export async function assignHabitTemplate(input: unknown): Promise<{
       ...(template.reminderDayOfMonth !== undefined
         ? { reminderDayOfMonth: template.reminderDayOfMonth }
         : {}),
+      ...(template.reminderMonthDays
+        ? { reminderMonthDays: template.reminderMonthDays }
+        : {}),
       scheduleType: template.scheduleType ?? "recurring",
       startsOn: template.startsOn ?? todayCivilDateUTC(),
       ...(template.endsOn ? { endsOn: template.endsOn } : {}),
@@ -696,6 +755,9 @@ export async function assignHabitTemplate(input: unknown): Promise<{
         : {}),
       ...(template.scheduleDayOfMonth !== undefined
         ? { scheduleDayOfMonth: template.scheduleDayOfMonth }
+        : {}),
+      ...(template.scheduleMonthDays
+        ? { scheduleMonthDays: template.scheduleMonthDays }
         : {}),
       reminderEnabled: template.reminderEnabled,
       sourceTemplateId: template.id,

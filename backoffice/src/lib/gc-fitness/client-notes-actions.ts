@@ -22,6 +22,18 @@ async function assertOwnsClient(
   coachId: string,
   clientId: string,
 ): Promise<void> {
+  if (clientId.startsWith("mirror:")) {
+    const mirrorId = clientId.slice("mirror:".length);
+    const mirror = await gcFitnessFirestore()
+      .collection(FirestoreCollections.userMirror)
+      .doc(mirrorId)
+      .get();
+    if (!mirror.exists || mirror.get("coachId") !== coachId) {
+      throw new Error("Forbidden");
+    }
+    return;
+  }
+
   const snap = await gcFitnessFirestore()
     .collection(FirestoreCollections.users)
     .doc(clientId)

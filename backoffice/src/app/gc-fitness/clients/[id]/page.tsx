@@ -82,6 +82,8 @@ export default async function ClientDetailPage({
     photoURL?: string;
     coachId?: string;
     timezone?: string;
+    heightCm?: number;
+    bodyWeightKg?: number;
   };
   if (client.coachId !== trainer.uid) notFound();
 
@@ -89,7 +91,7 @@ export default async function ClientDetailPage({
   const timezone = client.timezone ?? "UTC";
   const todayCivil = new Date().toISOString().slice(0, 10);
   const [notes, progressPhotos, goals, initialDay] = await Promise.all([
-    getClientNotes(id),
+    getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
     listClientGoals(id),
     getClientDailyTimelineDay(id, todayCivil),
@@ -103,6 +105,8 @@ export default async function ClientDetailPage({
         displayName={displayName}
         email={client.email ?? ""}
         photoURL={client.photoURL ?? null}
+        heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
+        bodyWeightKg={typeof client.bodyWeightKg === "number" ? client.bodyWeightKg : null}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

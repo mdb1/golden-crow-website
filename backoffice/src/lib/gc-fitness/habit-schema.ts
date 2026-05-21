@@ -138,6 +138,11 @@ const habitBaseShape = z.object({
     .max(7, "Pick up to 7 weekdays.")
     .optional(),
   reminderDayOfMonth: z.number().int().min(1).max(31).optional(),
+  reminderMonthDays: z
+    .array(z.number().int().min(1).max(31))
+    .min(1, "Pick at least one day of month.")
+    .max(31, "Pick up to 31 days.")
+    .optional(),
   scheduleType: z.enum(HABIT_SCHEDULE_TYPES).default("recurring"),
   startsOn: z
     .string()
@@ -159,6 +164,11 @@ const habitBaseShape = z.object({
     .max(7, "Pick up to 7 weekdays.")
     .optional(),
   scheduleDayOfMonth: z.number().int().min(1).max(31).optional(),
+  scheduleMonthDays: z
+    .array(z.number().int().min(1).max(31))
+    .min(1, "Pick at least one day of month.")
+    .max(31, "Pick up to 31 days.")
+    .optional(),
 });
 
 // Shared superRefine logic — applied by both create and update schemas. The
@@ -174,12 +184,14 @@ function applyTypeConditionalRules(
     reminderCadence?: "daily" | "weekly" | "monthly";
     reminderWeekdays?: number[];
     reminderDayOfMonth?: number;
+    reminderMonthDays?: number[];
     scheduleType?: HabitScheduleType;
     startsOn?: string;
     endsOn?: string;
     scheduleCadence?: "daily" | "weekly" | "monthly";
     scheduleWeekdays?: number[];
     scheduleDayOfMonth?: number;
+    scheduleMonthDays?: number[];
   },
   effectiveType: HabitType,
   ctx: z.RefinementCtx,
@@ -238,11 +250,13 @@ function applyTypeConditionalRules(
       });
     }
     if (cadence === "monthly" && data.reminderDayOfMonth === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["reminderDayOfMonth"],
-        message: "Monthly reminders need a day of month.",
-      });
+      if (!data.reminderMonthDays || data.reminderMonthDays.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["reminderMonthDays"],
+          message: "Monthly reminders need at least one day of month.",
+        });
+      }
     }
   }
 
@@ -305,11 +319,14 @@ function applyTypeConditionalRules(
   }
 
   if (scheduleCadence === "monthly") {
-    if (data.scheduleDayOfMonth === undefined) {
+    if (
+      data.scheduleDayOfMonth === undefined &&
+      (!data.scheduleMonthDays || data.scheduleMonthDays.length === 0)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["scheduleDayOfMonth"],
-        message: "Monthly habits need a day of month.",
+        path: ["scheduleMonthDays"],
+        message: "Monthly habits need at least one day of month.",
       });
     }
   } else if (data.scheduleDayOfMonth !== undefined) {
@@ -317,6 +334,20 @@ function applyTypeConditionalRules(
       code: z.ZodIssueCode.custom,
       path: ["scheduleDayOfMonth"],
       message: "Day of month is only valid for monthly cadence.",
+    });
+  } else if (data.scheduleMonthDays !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["scheduleMonthDays"],
+      message: "Days of month are only valid for monthly cadence.",
+    });
+  }
+
+  if (data.reminderEnabled === true && (data.reminderCadence ?? "daily") !== "monthly" && data.reminderMonthDays !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["reminderMonthDays"],
+      message: "Days of month are only valid for monthly reminders.",
     });
   }
 }

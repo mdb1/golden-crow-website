@@ -127,11 +127,12 @@ function isHabitActiveOnDate(
     const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
     return weekdays.includes(weekday);
   }
-  const dayOfMonth =
-    typeof habit.scheduleDayOfMonth === "number"
-      ? habit.scheduleDayOfMonth
-      : 1;
-  return date.getUTCDate() === dayOfMonth;
+  const monthDays = Array.isArray(habit.scheduleMonthDays)
+    ? (habit.scheduleMonthDays as number[])
+    : typeof habit.scheduleDayOfMonth === "number"
+      ? [habit.scheduleDayOfMonth]
+      : [1];
+  return monthDays.includes(date.getUTCDate());
 }
 
 function createEmptyDay(date: string): ClientDailyTimelineDay {

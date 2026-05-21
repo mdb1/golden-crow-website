@@ -30,6 +30,8 @@ export interface ClientHeaderProps {
   displayName: string;
   email: string;
   photoURL: string | null;
+  heightCm?: number | null;
+  bodyWeightKg?: number | null;
 }
 
 export function ClientHeader({
@@ -37,6 +39,8 @@ export function ClientHeader({
   displayName,
   email,
   photoURL,
+  heightCm,
+  bodyWeightKg,
 }: ClientHeaderProps) {
   const initials = displayName
     .split(/\s+/)
@@ -59,6 +63,14 @@ export function ClientHeader({
           {email ? (
             <p className="text-sm text-muted-foreground">{email}</p>
           ) : null}
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>
+              Height: {typeof heightCm === "number" ? `${heightCm.toFixed(1)} cm` : "—"}
+            </span>
+            <span>
+              Weight: {typeof bodyWeightKg === "number" ? `${bodyWeightKg.toFixed(1)} kg` : "—"}
+            </span>
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
