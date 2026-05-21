@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CategorySection from '../components/CategorySection.astro';
+import { useTranslations } from '../i18n/index';
+import { categories, getCategoryTitle, getCategoryDescription } from '../data/categories';
+import { getProjectsByCategory } from '../data/projects';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<BaseLayout title={t.work.title}>
+  <main class="work-page">
+    <section class="work-hero">
+      <div class="container">
+        <h1 class="work-hero-title">{t.work.heroTitle}</h1>
+        <p class="work-hero-subtitle">{t.work.heroSubtitle}</p>
+      </div>
+    </section>
+
+    <section class="work-content">
+      <div class="container">
+        {categories.map((category) => (
+          <CategorySection
+            title={getCategoryTitle(t, category.id)}
+            description={getCategoryDescription(t, category.id)}
+            projects={getProjectsByCategory(t, category.id)}
+          />
+        ))}
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .work-page {
+    background: var(--bg-primary);
+  }
+
+  .work-hero {
+    padding: clamp(6rem, 12vw, 9rem) 0 clamp(3rem, 6vw, 5rem);
+    background: var(--bg-secondary);
+    text-align: center;
+    margin-top: clamp(60px, 10vw, 80px);
+  }
+
+  .work-hero-title {
+    font-size: clamp(2rem, 6vw, 3.75rem);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    line-height: 1.1;
+  }
+
+  .work-hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .work-content {
+    padding: clamp(3rem, 6vw, 5rem) 0 clamp(4rem, 8vw, 6rem);
+  }
+</style>

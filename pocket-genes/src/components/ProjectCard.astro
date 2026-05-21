@@ -1,0 +1,134 @@
+---
+import type { Project } from '../data/projects';
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+const hasLink = !!project.websiteUrl;
+const isExternal = hasLink && !project.websiteUrl!.startsWith('/');
+const Tag = hasLink ? 'a' : 'div';
+const linkProps = hasLink
+  ? {
+      href: project.websiteUrl,
+      ...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {}),
+    }
+  : {};
+const hasStoreBadges = project.appStoreUrl || project.googlePlayUrl;
+---
+
+<Tag class:list={['project-card', { 'project-card--clickable': hasLink }]} {...linkProps}>
+  <div class="card-image">
+    <img src={project.image} alt={project.title} loading="lazy" />
+  </div>
+  <div class="card-body">
+    <h3>{project.title}</h3>
+    <p>{project.description}</p>
+    <div class="card-tags">
+      {project.tags.map((tag) => (
+        <span class="tag">{tag}</span>
+      ))}
+    </div>
+    {hasStoreBadges && (
+      <div class="card-links">
+        {project.appStoreUrl && (
+          <a href={project.appStoreUrl} target="_blank" rel="noopener noreferrer" class="store-badge">
+            <img src="/appStore.png" alt="App Store" />
+          </a>
+        )}
+        {project.googlePlayUrl && (
+          <a href={project.googlePlayUrl} target="_blank" rel="noopener noreferrer" class="store-badge">
+            Google Play
+          </a>
+        )}
+      </div>
+    )}
+  </div>
+</Tag>
+
+<style>
+  .project-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: block;
+    height: 100%;
+  }
+
+  .project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .card-image {
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+    background: var(--bg-tertiary);
+  }
+
+  .card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .card-body h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .card-body p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .card-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .tag {
+    background: rgba(175, 130, 50, 0.08);
+    color: var(--brand-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .card-links {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--card-border);
+  }
+
+  .store-badge img {
+    height: 36px;
+    width: auto;
+  }
+
+  a.project-card {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .project-card--clickable {
+    cursor: pointer;
+  }
+</style>

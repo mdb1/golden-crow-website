@@ -96,7 +96,7 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
         </button>
         <div class="nav-links">
           <a href={`${localPath('/')}#about`} class="nav-link">{t.nav.about}</a>
-          <a href={`${localPath('/')}#projects`} class="nav-link">{t.nav.projects}</a>
+          <a href={localPath('/work')} class="nav-link">{t.nav.work}</a>
           <a href={`${localPath('/')}#why-us`} class="nav-link">{t.nav.whyUs}</a>
           <a href={`${localPath('/')}#team`} class="nav-link">{t.nav.team}</a>
           <div class="lang-switcher">
@@ -118,7 +118,7 @@ const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
         <nav class="footer-nav">
           <a href={`${localPath('/')}#about`}>{t.nav.about}</a>
           <span class="footer-nav-divider">&middot;</span>
-          <a href={`${localPath('/')}#projects`}>{t.nav.projects}</a>
+          <a href={localPath('/work')}>{t.nav.work}</a>
           <span class="footer-nav-divider">&middot;</span>
           <a href={`${localPath('/')}#why-us`}>{t.nav.whyUs}</a>
           <span class="footer-nav-divider">&middot;</span>

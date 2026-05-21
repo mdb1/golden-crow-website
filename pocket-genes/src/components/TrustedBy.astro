@@ -1,0 +1,152 @@
+---
+import { useTranslations } from '../i18n/index';
+
+interface Client {
+  name: string;
+  href?: string;
+  logoSrc?: string;
+  logoAlt?: string;
+}
+
+interface Props {
+  clients?: Client[];
+  speedSeconds?: number;
+}
+
+const t = useTranslations(Astro.currentLocale);
+
+const defaultClients: Client[] = [
+  { name: 'Mercado Pago', logoSrc: '/logos/mercadopago.svg' },
+  { name: 'PedidosYa', logoSrc: '/logos/pedidosya.svg' },
+  { name: 'Venmo', logoSrc: '/logos/venmo.svg' },
+  { name: 'GoFundMe', logoSrc: '/logos/gofundme.svg' },
+  { name: 'BlockFi', logoSrc: '/logos/blockfi.svg' },
+  { name: 'StrongerU' },
+  { name: 'Anytime Fitness', logoSrc: '/logos/anytimefitness.svg' },
+  { name: 'Latch', logoSrc: '/logos/latch.svg' },
+  { name: 'Vi', logoSrc: '/logos/vi.png' },
+  { name: 'New York Post', logoSrc: '/logos/nypost.svg' },
+  { name: 'Glassdoor', logoSrc: '/logos/glassdoor.svg' },
+];
+
+const { clients = defaultClients, speedSeconds = 60 } = Astro.props;
+const track = [...clients, ...clients];
+---
+
+<section class="trusted-by" aria-label={t.index.trustedByLabel}>
+  <div class="container">
+    <p class="trusted-by-label">{t.index.trustedByLabel}</p>
+  </div>
+  <div class="logos-marquee" style={`--marquee-duration: ${speedSeconds}s`}>
+    <div class="logos-track">
+      {track.map((client, i) => {
+        const Inner = client.logoSrc
+          ? <img src={client.logoSrc} alt={client.logoAlt || client.name} loading="lazy" />
+          : <span class="logo-text">{client.name}</span>;
+        return (
+          <div class="logo-item" aria-hidden={i >= clients.length ? 'true' : undefined}>
+            {client.href
+              ? <a href={client.href} target="_blank" rel="noopener noreferrer" class="logo-link">{Inner}</a>
+              : Inner}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+<style>
+  .trusted-by {
+    padding: clamp(2.5rem, 5vw, 4rem) 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+    overflow: hidden;
+  }
+
+  .trusted-by-label {
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: clamp(0.7rem, 1.4vw, 0.8rem);
+    font-weight: 600;
+    color: var(--brand-color);
+    margin-bottom: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  .logos-marquee {
+    position: relative;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+  }
+
+  .logos-track {
+    display: flex;
+    align-items: center;
+    gap: clamp(2.5rem, 5vw, 4rem);
+    width: max-content;
+    animation: marquee var(--marquee-duration, 60s) linear infinite;
+    will-change: transform;
+  }
+
+  .logos-track:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .logo-item {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    height: clamp(28px, 4vw, 40px);
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+  }
+
+  .logo-item:hover {
+    opacity: 1;
+  }
+
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    height: 100%;
+  }
+
+  .logo-item img {
+    height: 100%;
+    width: auto;
+    max-width: clamp(120px, 18vw, 180px);
+    object-fit: contain;
+    filter: grayscale(1) contrast(0.9);
+  }
+
+  .logo-text {
+    font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .logos-marquee {
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+    .logos-track {
+      animation: none;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      gap: clamp(1.5rem, 3vw, 2.5rem);
+      row-gap: 1rem;
+    }
+  }
+</style>

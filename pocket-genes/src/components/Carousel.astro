@@ -1,0 +1,205 @@
+---
+interface Props {
+  ariaLabel?: string;
+  showDots?: boolean;
+  itemFlexMobile?: string;
+  itemFlexTablet?: string;
+  itemFlexDesktop?: string;
+  gap?: string;
+}
+
+const {
+  ariaLabel = 'Carousel',
+  showDots = true,
+  itemFlexMobile = '0 0 100%',
+  itemFlexTablet = '0 0 calc(50% - 0.75rem)',
+  itemFlexDesktop = '0 0 calc(33.333% - 1rem)',
+  gap = '1.5rem',
+} = Astro.props;
+
+const wrapperStyle = [
+  `--carousel-item-flex-mobile: ${itemFlexMobile}`,
+  `--carousel-item-flex-tablet: ${itemFlexTablet}`,
+  `--carousel-item-flex-desktop: ${itemFlexDesktop}`,
+  `--carousel-gap: ${gap}`,
+].join('; ');
+---
+
+<div class="carousel-wrapper" data-carousel role="region" aria-label={ariaLabel} style={wrapperStyle}>
+  <div class="carousel-track" data-carousel-track>
+    <slot />
+  </div>
+
+  <div class="carousel-controls">
+    <button class="carousel-arrow carousel-prev" data-carousel-prev type="button" aria-label="Previous">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M15 19l-7-7 7-7"/>
+      </svg>
+    </button>
+    {showDots && <div class="carousel-dots" data-carousel-dots></div>}
+    <button class="carousel-arrow carousel-next" data-carousel-next type="button" aria-label="Next">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M9 5l7 7-7 7"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  function initCarousel(wrapper: HTMLElement) {
+    const track = wrapper.querySelector<HTMLElement>('[data-carousel-track]');
+    const prev = wrapper.querySelector<HTMLButtonElement>('[data-carousel-prev]');
+    const next = wrapper.querySelector<HTMLButtonElement>('[data-carousel-next]');
+    const dotsContainer = wrapper.querySelector<HTMLElement>('[data-carousel-dots]');
+    if (!track || !prev || !next) return;
+
+    const items = Array.from(track.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement,
+    );
+    if (items.length === 0) return;
+
+    const gap = parseFloat(getComputedStyle(track).columnGap || '0') || 0;
+
+    function step(): number {
+      const firstItem = items[0];
+      return firstItem.getBoundingClientRect().width + gap;
+    }
+
+    if (dotsContainer) {
+      items.forEach((_, i) => {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+        dot.dataset.index = String(i);
+        dot.setAttribute('aria-label', `Slide ${i + 1}`);
+        dot.addEventListener('click', () => {
+          track!.scrollTo({ left: i * step(), behavior: 'smooth' });
+        });
+        dotsContainer.appendChild(dot);
+      });
+    }
+
+    function updateDots() {
+      if (!dotsContainer) return;
+      const index = Math.round(track!.scrollLeft / step());
+      dotsContainer.querySelectorAll<HTMLButtonElement>('.carousel-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+      });
+    }
+
+    prev.addEventListener('click', () => {
+      track.scrollBy({ left: -step(), behavior: 'smooth' });
+    });
+    next.addEventListener('click', () => {
+      track.scrollBy({ left: step(), behavior: 'smooth' });
+    });
+    track.addEventListener('scroll', updateDots);
+  }
+
+  function initAllCarousels() {
+    document.querySelectorAll<HTMLElement>('[data-carousel]').forEach((wrapper) => {
+      if (wrapper.dataset.carouselInit === 'true') return;
+      wrapper.dataset.carouselInit = 'true';
+      initCarousel(wrapper);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAllCarousels);
+  } else {
+    initAllCarousels();
+  }
+</script>
+
+<style>
+  .carousel-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .carousel-track {
+    display: flex;
+    gap: var(--carousel-gap, 1.5rem);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 1rem 0;
+  }
+
+  .carousel-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .carousel-track > :global(*) {
+    flex: var(--carousel-item-flex-mobile, 0 0 100%);
+    scroll-snap-align: start;
+  }
+
+  @media (min-width: 768px) {
+    .carousel-track > :global(*) {
+      flex: var(--carousel-item-flex-tablet, 0 0 calc(50% - 0.75rem));
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .carousel-track > :global(*) {
+      flex: var(--carousel-item-flex-desktop, 0 0 calc(33.333% - 1rem));
+    }
+  }
+
+  .carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .carousel-arrow {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+  }
+
+  .carousel-arrow:hover {
+    background: rgba(175, 130, 50, 0.08);
+    border-color: var(--brand-color);
+    color: var(--brand-color);
+  }
+
+  .carousel-arrow svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .carousel-dots {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .carousel-dots :global(.carousel-dot) {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card-border);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
+  }
+
+  .carousel-dots :global(.carousel-dot.active) {
+    background: var(--brand-color);
+    transform: scale(1.3);
+  }
+</style>

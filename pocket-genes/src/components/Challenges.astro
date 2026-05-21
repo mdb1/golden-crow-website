@@ -1,0 +1,109 @@
+---
+import { useTranslations } from '../i18n/index';
+import { getChallenges } from '../data/challenges';
+
+const t = useTranslations(Astro.currentLocale);
+const challenges = getChallenges(t);
+---
+
+<section class="challenges-section">
+  <div class="container">
+    <div class="challenges-header">
+      <p class="challenges-eyebrow">{t.index.challengesEyebrow}</p>
+      <h2>{t.index.challengesTitle}</h2>
+      <p class="challenges-subtitle">{t.index.challengesSubtitle}</p>
+    </div>
+    <div class="challenges-grid">
+      {challenges.map((c) => (
+        <article class="challenge-card">
+          <h3 class="challenge-title">{c.title}</h3>
+          <p class="challenge-body">{c.body}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .challenges-section {
+    padding: clamp(3rem, 8vw, 6rem) 0;
+    background: var(--bg-secondary);
+  }
+
+  .challenges-header {
+    text-align: center;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .challenges-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: clamp(0.7rem, 1.4vw, 0.8rem);
+    font-weight: 600;
+    color: var(--brand-color);
+    margin: 0 0 0.75rem;
+  }
+
+  .challenges-header h2 {
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    line-height: 1.15;
+  }
+
+  .challenges-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .challenges-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(1.25rem, 2.5vw, 1.75rem);
+  }
+
+  @media (min-width: 640px) {
+    .challenges-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (min-width: 1024px) {
+    .challenges-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .challenge-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: clamp(1.5rem, 3vw, 2rem);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .challenge-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+    border-color: rgba(175, 130, 50, 0.35);
+  }
+
+  .challenge-title {
+    font-size: clamp(1.05rem, 2.2vw, 1.2rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .challenge-body {
+    color: var(--text-secondary);
+    font-size: clamp(0.92rem, 2vw, 1rem);
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>
