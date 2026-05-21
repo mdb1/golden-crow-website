@@ -64,20 +64,48 @@ async function signedUrlForPath(storagePath: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * Project an ISO timestamp string to a canonical "YYYY-MM-DD" civil-date
+ * string in the trainer's local timezone. We use `Intl.DateTimeFormat`
+ * with the `'en-CA'` locale because the Canadian locale formats dates as
+ * `YYYY-MM-DD` natively — sidesteps the `.toISOString().slice(0, 10)`
+ * UTC-shift bug where a trainer in a negative-offset zone uploading at
+ * 21:00 local would see the date roll forward a day.
+ *
+ * Mirrors the iOS surface's `CivilDate.format(_:in:)` semantics: same
+ * wire shape, same TZ-current projection. Returns null when the input
+ * is null or unparseable.
+ */
+function civilDateFromIso(iso: string | null): string | null {
+  if (!iso) return null;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(parsed);
+}
+
 export async function listProgressPhotosForClient(
   clientId: string,
 ): Promise<ProgressPhotoRow[]> {
   const trainer = await getCurrentTrainer();
   await assertOwnsClient(trainer.uid, clientId);
 
+  // Sort dimension lives client-side, not server-side: we want photos
+  // ordered by the client-picked check-in date, not by upload time. A
+  // server-side `orderBy("checkInDate")` would silently drop legacy docs
+  // whose `checkInDate` is null (Firestore orderBy excludes missing-field
+  // documents). Sorting the bounded `limit(24)` slice in memory keeps
+  // legacy photos visible via the `createdAt` civil-date fallback.
   const snap = await gcFitnessFirestore()
     .collection(FirestoreCollections.progressPhotos)
     .where("clientId", "==", clientId)
-    .orderBy("createdAt", "desc")
     .limit(24)
     .get();
 
-  return Promise.all(
+  const rows = await Promise.all(
     snap.docs.map(async (doc) => {
       const data = doc.data();
       const storagePath =
@@ -99,4 +127,16 @@ export async function listProgressPhotosForClient(
       };
     }),
   );
+
+  // Sort by `(checkInDate ?? civilDateFromIso(createdAt) ?? "")` descending.
+  // Both keys are `"YYYY-MM-DD"` strings, so localeCompare with reversed
+  // arguments yields chronological-descending order. Rows missing both
+  // fields sort to the end via the empty-string fallback.
+  rows.sort((a, b) => {
+    const aKey = a.checkInDate ?? civilDateFromIso(a.createdAt) ?? "";
+    const bKey = b.checkInDate ?? civilDateFromIso(b.createdAt) ?? "";
+    return bKey.localeCompare(aKey);
+  });
+
+  return rows;
 }
