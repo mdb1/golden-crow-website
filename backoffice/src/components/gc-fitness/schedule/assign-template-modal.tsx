@@ -36,7 +36,10 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 
-import { assignTemplate } from "@/lib/gc-fitness/workout-assignment-actions";
+import {
+  assignTemplate,
+  assignTemplateRecurring,
+} from "@/lib/gc-fitness/workout-assignment-actions";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
 
 interface AssignTemplateModalProps {
@@ -63,6 +66,16 @@ function formatLocalDateToCivil(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+] as const;
+
 export function AssignTemplateModal({
   open,
   onOpenChange,
@@ -77,6 +90,12 @@ export function AssignTemplateModal({
   const [civilDate, setCivilDate] = useState<string>(defaultDate);
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
+  const [mode, setMode] = useState<"once" | "weekly">("once");
+  const [recurringWeekday, setRecurringWeekday] = useState<number>(
+    parseCivilToLocalDate(defaultDate).getDay(),
+  );
+  const [recurringEndEnabled, setRecurringEndEnabled] = useState(false);
+  const [recurringEndDate, setRecurringEndDate] = useState<string>(defaultDate);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset the local form state when the modal opens with a new defaultDate.
@@ -86,6 +105,10 @@ export function AssignTemplateModal({
       setTemplateId("");
       setScheduledTime("");
       setMeetingNotes("");
+      setMode("once");
+      setRecurringWeekday(parseCivilToLocalDate(defaultDate).getDay());
+      setRecurringEndEnabled(false);
+      setRecurringEndDate(defaultDate);
     }
   }, [open, defaultDate]);
 
@@ -96,15 +119,29 @@ export function AssignTemplateModal({
     }
     setSubmitting(true);
     try {
-      await assignTemplate({
-        templateId,
-        clientId,
-        scheduledFor: civilDate,
-        scheduledTime: scheduledTime || undefined,
-        meetingNotes: meetingNotes.trim() || undefined,
-        timezone: trainerTimezone,
-      });
-      toast.success("Template assigned.");
+      if (mode === "once") {
+        await assignTemplate({
+          templateId,
+          clientId,
+          scheduledFor: civilDate,
+          scheduledTime: scheduledTime || undefined,
+          meetingNotes: meetingNotes.trim() || undefined,
+          timezone: trainerTimezone,
+        });
+        toast.success("Template assigned.");
+      } else {
+        const result = await assignTemplateRecurring({
+          templateId,
+          clientId,
+          startDate: civilDate,
+          weekday: recurringWeekday,
+          endDate: recurringEndEnabled ? recurringEndDate : undefined,
+          scheduledTime: scheduledTime || undefined,
+          meetingNotes: meetingNotes.trim() || undefined,
+          timezone: trainerTimezone,
+        });
+        toast.success(`Recurring assignment created (${result.count} workouts).`);
+      }
       onAssigned?.();
       onOpenChange(false);
     } catch (err) {
@@ -147,6 +184,77 @@ export function AssignTemplateModal({
               </SelectContent>
             </Select>
           </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Assignment mode</label>
+              <Select
+                value={mode}
+                onValueChange={(value) => setMode(value as "once" | "weekly")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">One-time</SelectItem>
+                  <SelectItem value="weekly">Weekly recurring</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {mode === "weekly" ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">Repeat on</label>
+                <Select
+                  value={String(recurringWeekday)}
+                  onValueChange={(value) => setRecurringWeekday(Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEEKDAY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </div>
+
+          {mode === "weekly" ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <input
+                  id="recurring-end-enabled"
+                  type="checkbox"
+                  checked={recurringEndEnabled}
+                  onChange={(event) => setRecurringEndEnabled(event.target.checked)}
+                  className="h-4 w-4 rounded border"
+                />
+                <label htmlFor="recurring-end-enabled" className="text-sm">
+                  Set end date
+                </label>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">End date</label>
+                <input
+                  type="date"
+                  value={recurringEndDate}
+                  disabled={!recurringEndEnabled}
+                  min={civilDate}
+                  onChange={(event) => setRecurringEndDate(event.target.value)}
+                  className="h-10 rounded-md border bg-background px-3 text-sm disabled:opacity-50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {recurringEndEnabled
+                    ? "Repeats weekly until this date."
+                    : "No end date: creates the next 12 months."}
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">Day</label>

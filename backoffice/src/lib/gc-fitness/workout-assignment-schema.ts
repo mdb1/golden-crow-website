@@ -102,6 +102,38 @@ export const bulkAssignSchema = z.object({
 export type BulkAssignInput = z.infer<typeof bulkAssignSchema>;
 
 /**
+ * `assignTemplateRecurring(input)` — single-client weekly recurrence.
+ *
+ * `endDate` is optional. When omitted, the server applies a rolling horizon
+ * cap to avoid unbounded writes.
+ */
+export const assignTemplateRecurringSchema = z
+  .object({
+    templateId: z.string().min(1, "templateId is required."),
+    clientId: z.string().min(1, "clientId is required."),
+    startDate: civilDateSchema,
+    weekday: z.number().int().min(0).max(6), // JS day index: 0=Sun ... 6=Sat
+    endDate: civilDateSchema.optional(),
+    scheduledTime: scheduledTimeSchema,
+    meetingNotes: meetingNotesSchema,
+    timezone: ianaTimezoneSchema,
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.endDate && data.endDate < data.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "endDate must be on or after startDate.",
+      });
+    }
+  });
+
+export type AssignTemplateRecurringInput = z.infer<
+  typeof assignTemplateRecurringSchema
+>;
+
+/**
  * `editAssignmentScheduledFor(id, input)` — the ONLY edit path on an
  * existing assignment (per supplemental decision 1 in 04-05-PLAN.md). The
  * rule layer (04-02) enforces `affectedKeys().hasOnly(['scheduledFor',

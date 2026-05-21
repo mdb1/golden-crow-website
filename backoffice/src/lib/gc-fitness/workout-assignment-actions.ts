@@ -34,6 +34,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import {
   assignTemplateSchema,
+  assignTemplateRecurringSchema,
   bulkAssignSchema,
   editAssignmentSchema,
   MAX_CLIENTS_PER_BATCH,
@@ -44,6 +45,8 @@ import { civilDateFormat } from "./civil-date";
 
 const TEMPLATES = FirestoreCollections.workoutTemplates;
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
+const MAX_RECURRING_OCCURRENCES = 104; // ~2 years weekly cap
+const NO_END_HORIZON_DAYS = 365; // "no end" operational horizon (rolling)
 
 /**
  * Row shape returned by the list queries. Firestore Timestamps are converted
@@ -181,6 +184,17 @@ function addCivilDays(civilDate: string, days: number): string {
   const utcMidnight = Date.UTC(y, m - 1, d);
   const shifted = new Date(utcMidnight + days * 86_400_000);
   return civilDateFormat(shifted, "UTC");
+}
+
+function dayOfWeekFromCivil(civilDate: string): number {
+  const [y, m, d] = civilDate.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function nextCivilForWeekdayOnOrAfter(civilDate: string, weekday: number): string {
+  const currentWeekday = dayOfWeekFromCivil(civilDate);
+  const delta = (weekday - currentWeekday + 7) % 7;
+  return addCivilDays(civilDate, delta);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -333,6 +347,64 @@ export async function bulkAssignTemplate(
   await batch.commit();
 
   return { ids };
+}
+
+export async function assignTemplateRecurring(
+  input: unknown,
+): Promise<{ ids: string[]; count: number; windowStart: string; windowEnd: string }> {
+  const trainer = await getCurrentTrainer();
+  const parsed = assignTemplateRecurringSchema.parse(input);
+  const db = gcFitnessFirestore();
+
+  const templateSnap = await db
+    .collection(TEMPLATES)
+    .doc(parsed.templateId)
+    .get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = templateSnap.data() as { trainerId?: string } & Record<string, unknown>;
+  if (template.trainerId !== trainer.uid) throw new Error("Not your template.");
+
+  const windowStart = nextCivilForWeekdayOnOrAfter(parsed.startDate, parsed.weekday);
+  const hardWindowEnd = addCivilDays(parsed.startDate, NO_END_HORIZON_DAYS);
+  const windowEnd = parsed.endDate ?? hardWindowEnd;
+
+  const dates: string[] = [];
+  for (let date = windowStart; date <= windowEnd; date = addCivilDays(date, 7)) {
+    dates.push(date);
+    if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
+  }
+  if (dates.length === 0) {
+    throw new Error("No dates generated for that recurrence.");
+  }
+
+  const templateSnapshot = await templateSnapshotForAssignment(template);
+  const batch = db.batch();
+  const ids: string[] = [];
+  for (const date of dates) {
+    const ymd = date.replace(/-/g, "");
+    const docId = `asg-${parsed.clientId}-${ymd}-${randomUUID()}`;
+    const ref = db.collection(ASSIGNMENTS).doc(docId);
+    batch.set(ref, {
+      templateId: parsed.templateId,
+      templateSnapshot,
+      clientId: parsed.clientId,
+      trainerId: trainer.uid,
+      scheduledFor: date,
+      scheduledTime: parsed.scheduledTime ?? null,
+      meetingNotes: parsed.meetingNotes ?? null,
+      timezone: parsed.timezone ?? null,
+      status: "scheduled" as const,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      recurrence: {
+        kind: "weekly",
+        weekday: parsed.weekday,
+      },
+    });
+    ids.push(docId);
+  }
+  await batch.commit();
+  return { ids, count: ids.length, windowStart, windowEnd };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
