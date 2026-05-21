@@ -59,7 +59,29 @@ export function ChatThreadList({
   // missing (denorm race: the chat doc exists but the Cloud Function hasn't
   // written `lastMessageAt` yet — extremely brief window).
   const sorted = useMemo(() => {
-    const rows = (data ?? []).slice();
+    const rowsByClientId = new Map<string, ChatRow>();
+    for (const row of data ?? []) {
+      rowsByClientId.set(row.clientId, row);
+    }
+
+    // Ensure the inbox always includes every assigned client, even if the
+    // chat parent doc doesn't exist yet (never-messaged client).
+    for (const rosterClient of clientRoster) {
+      if (!rowsByClientId.has(rosterClient.uid)) {
+        rowsByClientId.set(rosterClient.uid, {
+          id: rosterClient.uid,
+          clientId: rosterClient.uid,
+          coachId: trainerUid,
+          lastMessage: undefined,
+          lastMessageAt: null,
+          unreadCount: {},
+          createdAt: null,
+          updatedAt: null,
+        });
+      }
+    }
+
+    const rows = Array.from(rowsByClientId.values());
     rows.sort((a, b) => {
       const ua = a.unreadCount?.[trainerUid] ?? 0;
       const ub = b.unreadCount?.[trainerUid] ?? 0;
@@ -72,7 +94,7 @@ export function ChatThreadList({
       return tb.localeCompare(ta);
     });
     return rows;
-  }, [data, trainerUid]);
+  }, [clientRoster, data, trainerUid]);
 
   if (isLoading) {
     return (
