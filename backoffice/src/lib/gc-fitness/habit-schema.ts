@@ -56,6 +56,8 @@ export const HABIT_TYPES = [
 export const habitTypeSchema = z.enum(HABIT_TYPES);
 
 export type HabitType = z.infer<typeof habitTypeSchema>;
+export const HABIT_SCHEDULE_TYPES = ["one-time", "recurring"] as const;
+export type HabitScheduleType = (typeof HABIT_SCHEDULE_TYPES)[number];
 
 // LocalizedString — same {en, es} shape used by Exercise + WorkoutTemplate
 // schemas. Habit names are bounded at 80 chars (template-style ceiling, not
@@ -136,6 +138,27 @@ const habitBaseShape = z.object({
     .max(7, "Pick up to 7 weekdays.")
     .optional(),
   reminderDayOfMonth: z.number().int().min(1).max(31).optional(),
+  scheduleType: z.enum(HABIT_SCHEDULE_TYPES).default("recurring"),
+  startsOn: z
+    .string()
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "Start date must be YYYY-MM-DD.",
+    )
+    .optional(),
+  endsOn: z
+    .string()
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "End date must be YYYY-MM-DD.",
+    )
+    .optional(),
+  scheduleCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
+  scheduleWeekdays: z
+    .array(z.number().int().min(1).max(7))
+    .max(7, "Pick up to 7 weekdays.")
+    .optional(),
+  scheduleDayOfMonth: z.number().int().min(1).max(31).optional(),
 });
 
 // Shared superRefine logic — applied by both create and update schemas. The
@@ -151,6 +174,12 @@ function applyTypeConditionalRules(
     reminderCadence?: "daily" | "weekly" | "monthly";
     reminderWeekdays?: number[];
     reminderDayOfMonth?: number;
+    scheduleType?: HabitScheduleType;
+    startsOn?: string;
+    endsOn?: string;
+    scheduleCadence?: "daily" | "weekly" | "monthly";
+    scheduleWeekdays?: number[];
+    scheduleDayOfMonth?: number;
   },
   effectiveType: HabitType,
   ctx: z.RefinementCtx,
@@ -215,6 +244,80 @@ function applyTypeConditionalRules(
         message: "Monthly reminders need a day of month.",
       });
     }
+  }
+
+  const startsOn = data.startsOn;
+  if (data.endsOn && startsOn && data.endsOn < startsOn) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endsOn"],
+      message: "End date must be on or after start date.",
+    });
+  }
+
+  if (data.scheduleType === "one-time") {
+    if (data.endsOn && startsOn && data.endsOn !== startsOn) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endsOn"],
+        message: "One-time habits must end on the same date as start date.",
+      });
+    }
+    if (data.scheduleCadence !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduleCadence"],
+        message: "One-time habits cannot define cadence.",
+      });
+    }
+    if (data.scheduleWeekdays !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduleWeekdays"],
+        message: "One-time habits cannot define weekdays.",
+      });
+    }
+    if (data.scheduleDayOfMonth !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduleDayOfMonth"],
+        message: "One-time habits cannot define day of month.",
+      });
+    }
+    return;
+  }
+
+  const scheduleCadence = data.scheduleCadence ?? "daily";
+  if (scheduleCadence === "weekly") {
+    if (!data.scheduleWeekdays || data.scheduleWeekdays.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduleWeekdays"],
+        message: "Weekly habits need at least one weekday.",
+      });
+    }
+  } else if (data.scheduleWeekdays !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["scheduleWeekdays"],
+      message: "Weekdays are only valid for weekly cadence.",
+    });
+  }
+
+  if (scheduleCadence === "monthly") {
+    if (data.scheduleDayOfMonth === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scheduleDayOfMonth"],
+        message: "Monthly habits need a day of month.",
+      });
+    }
+  } else if (data.scheduleDayOfMonth !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["scheduleDayOfMonth"],
+      message: "Day of month is only valid for monthly cadence.",
+    });
   }
 }
 

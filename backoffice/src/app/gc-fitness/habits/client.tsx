@@ -98,6 +98,14 @@ const TYPE_LABELS: Record<HabitType, string> = {
   weight: "Weight",
 };
 
+function todayCivilDateUTC(): string {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(now.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function HabitsLibraryClient({
   clientRoster,
 }: HabitsLibraryClientProps) {
@@ -234,6 +242,9 @@ export function HabitsLibraryClient({
       await createHabitTemplate({
         type: newTemplateType,
         name: { en: name, es: name },
+        scheduleType: "recurring",
+        startsOn: todayCivilDateUTC(),
+        scheduleCadence: "daily",
         targetValue:
           newTemplateTarget.trim().length > 0
             ? Number(newTemplateTarget)

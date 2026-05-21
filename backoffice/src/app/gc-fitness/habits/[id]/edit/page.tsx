@@ -60,6 +60,15 @@ export default async function EditHabitPage({ params }: PageParams) {
     unit?: string;
     reminderTime?: string;
     reminderEnabled?: boolean;
+    reminderCadence?: "daily" | "weekly" | "monthly";
+    reminderWeekdays?: number[];
+    reminderDayOfMonth?: number;
+    scheduleType?: "one-time" | "recurring";
+    startsOn?: string;
+    endsOn?: string;
+    scheduleCadence?: "daily" | "weekly" | "monthly";
+    scheduleWeekdays?: number[];
+    scheduleDayOfMonth?: number;
     deleted?: boolean;
   };
 
@@ -80,6 +89,15 @@ export default async function EditHabitPage({ params }: PageParams) {
     unit: data.unit,
     reminderTime: data.reminderTime,
     reminderEnabled: data.reminderEnabled ?? false,
+    reminderCadence: data.reminderCadence,
+    reminderWeekdays: data.reminderWeekdays,
+    reminderDayOfMonth: data.reminderDayOfMonth,
+    scheduleType: data.scheduleType ?? "recurring",
+    startsOn: data.startsOn ?? new Date().toISOString().slice(0, 10),
+    endsOn: data.endsOn,
+    scheduleCadence: data.scheduleCadence ?? "daily",
+    scheduleWeekdays: data.scheduleWeekdays,
+    scheduleDayOfMonth: data.scheduleDayOfMonth,
   };
 
   const clients = await listClients();

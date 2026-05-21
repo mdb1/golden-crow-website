@@ -88,27 +88,48 @@ function isHabitActiveOnDate(
   habit: Record<string, unknown>,
   civilDate: string,
 ): boolean {
-  if (habit.reminderEnabled !== true) {
+  const startsOn =
+    typeof habit.startsOn === "string" && habit.startsOn.length > 0
+      ? habit.startsOn
+      : null;
+  const endsOn =
+    typeof habit.endsOn === "string" && habit.endsOn.length > 0
+      ? habit.endsOn
+      : null;
+
+  if (startsOn && civilDate < startsOn) {
+    return false;
+  }
+  if (endsOn && civilDate > endsOn) {
+    return false;
+  }
+
+  const scheduleType =
+    habit.scheduleType === "one-time" ? "one-time" : "recurring";
+  if (scheduleType === "one-time") {
+    return startsOn ? civilDate === startsOn : true;
+  }
+
+  const cadence =
+    habit.scheduleCadence === "weekly" ||
+    habit.scheduleCadence === "monthly"
+      ? habit.scheduleCadence
+      : "daily";
+  if (cadence === "daily") {
     return true;
   }
-  const cadence =
-    habit.reminderCadence === "weekly" ||
-    habit.reminderCadence === "monthly"
-      ? habit.reminderCadence
-      : "daily";
-  if (cadence === "daily") return true;
   const date = new Date(`${civilDate}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) return false;
   if (cadence === "weekly") {
-    const weekdays = Array.isArray(habit.reminderWeekdays)
-      ? (habit.reminderWeekdays as number[])
+    const weekdays = Array.isArray(habit.scheduleWeekdays)
+      ? (habit.scheduleWeekdays as number[])
       : [];
     const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
     return weekdays.includes(weekday);
   }
   const dayOfMonth =
-    typeof habit.reminderDayOfMonth === "number"
-      ? habit.reminderDayOfMonth
+    typeof habit.scheduleDayOfMonth === "number"
+      ? habit.scheduleDayOfMonth
       : 1;
   return date.getUTCDate() === dayOfMonth;
 }

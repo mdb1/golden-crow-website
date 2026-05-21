@@ -70,7 +70,14 @@ export default async function HabitDetailPage({ params }: PageParams) {
     unit?: string;
     reminderEnabled?: boolean;
     reminderTime?: string;
+    reminderCadence?: string;
     seedSource?: string;
+    scheduleType?: "one-time" | "recurring";
+    startsOn?: string;
+    endsOn?: string;
+    scheduleCadence?: string;
+    scheduleWeekdays?: number[];
+    scheduleDayOfMonth?: number;
     deleted?: boolean;
   };
 
@@ -202,11 +209,24 @@ export default async function HabitDetailPage({ params }: PageParams) {
             )}
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Schedule
+            </dt>
+            <dd className="mt-1">
+              {data.scheduleType === "one-time"
+                ? `One-time · ${data.startsOn ?? "—"}`
+                : `${data.scheduleCadence ?? "daily"} · from ${data.startsOn ?? "—"}${data.endsOn ? ` to ${data.endsOn}` : ""}`}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Reminder
             </dt>
             <dd className="mt-1">
               {data.reminderEnabled && data.reminderTime ? (
-                <span className="font-mono">{data.reminderTime}</span>
+                <span className="font-mono">
+                  {data.reminderTime}
+                  {data.reminderCadence ? ` · ${data.reminderCadence}` : ""}
+                </span>
               ) : (
                 <span className="text-muted-foreground">Off</span>
               )}

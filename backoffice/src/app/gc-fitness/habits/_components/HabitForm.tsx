@@ -98,6 +98,10 @@ const WEEKDAY_OPTIONS = [
   { value: 6, label: "Fri" },
   { value: 7, label: "Sat" },
 ] as const;
+const SCHEDULE_TYPE_OPTIONS = [
+  { value: "recurring", label: "Recurring" },
+  { value: "one-time", label: "One-time" },
+] as const;
 
 function buildDefaults(
   passed?: Partial<HabitCreateInput>,
@@ -118,6 +122,12 @@ function buildDefaults(
     reminderCadence: passed?.reminderCadence ?? "daily",
     reminderWeekdays: passed?.reminderWeekdays,
     reminderDayOfMonth: passed?.reminderDayOfMonth,
+    scheduleType: passed?.scheduleType ?? "recurring",
+    startsOn: passed?.startsOn ?? new Date().toISOString().slice(0, 10),
+    endsOn: passed?.endsOn,
+    scheduleCadence: passed?.scheduleCadence ?? "daily",
+    scheduleWeekdays: passed?.scheduleWeekdays,
+    scheduleDayOfMonth: passed?.scheduleDayOfMonth,
   };
 }
 
@@ -159,6 +169,16 @@ export function HabitForm({
     control: form.control,
     name: "reminderCadence",
   });
+  const watchedScheduleType = useWatch({
+    control: form.control,
+    name: "scheduleType",
+  });
+  const watchedScheduleCadence = useWatch({
+    control: form.control,
+    name: "scheduleCadence",
+  });
+  const watchedScheduleWeekdays =
+    useWatch({ control: form.control, name: "scheduleWeekdays" }) ?? [];
   const watchedReminderWeekdays =
     useWatch({ control: form.control, name: "reminderWeekdays" }) ?? [];
 
@@ -196,6 +216,8 @@ export function HabitForm({
           type: values.type,
           name: values.name,
           reminderEnabled: values.reminderEnabled,
+          scheduleType: values.scheduleType,
+          startsOn: values.startsOn,
         };
         if (values.description?.en && values.description?.es) {
           cleaned.description = values.description;
@@ -239,6 +261,28 @@ export function HabitForm({
           cleaned.reminderCadence = undefined;
           cleaned.reminderWeekdays = undefined;
           cleaned.reminderDayOfMonth = undefined;
+        }
+        cleaned.endsOn = values.endsOn?.trim() ? values.endsOn : undefined;
+        if (values.scheduleType === "recurring") {
+          cleaned.scheduleCadence = values.scheduleCadence ?? "daily";
+          if (cleaned.scheduleCadence === "weekly") {
+            const weekdays = (values.scheduleWeekdays ?? []).filter(
+              (weekday): weekday is number => typeof weekday === "number",
+            );
+            cleaned.scheduleWeekdays = weekdays.length > 0 ? weekdays : undefined;
+            cleaned.scheduleDayOfMonth = undefined;
+          } else if (cleaned.scheduleCadence === "monthly") {
+            cleaned.scheduleDayOfMonth = values.scheduleDayOfMonth;
+            cleaned.scheduleWeekdays = undefined;
+          } else {
+            cleaned.scheduleWeekdays = undefined;
+            cleaned.scheduleDayOfMonth = undefined;
+          }
+        } else {
+          cleaned.scheduleCadence = undefined;
+          cleaned.scheduleWeekdays = undefined;
+          cleaned.scheduleDayOfMonth = undefined;
+          cleaned.endsOn = cleaned.endsOn ?? cleaned.startsOn;
         }
 
         const result = await onSubmit(cleaned);
@@ -552,6 +596,182 @@ export function HabitForm({
         )}
 
         {/* Reminder block */}
+        <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+          <h2 className="font-medium">Habit schedule</h2>
+          <p className="text-sm text-muted-foreground">
+            Define when this habit is active for the client.
+          </p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <FormField
+              control={form.control}
+              name="scheduleType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Type</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      if (value === "one-time") {
+                        form.setValue("scheduleCadence", undefined, { shouldDirty: true });
+                        form.setValue("scheduleWeekdays", undefined, { shouldDirty: true });
+                        form.setValue("scheduleDayOfMonth", undefined, { shouldDirty: true });
+                      } else if (!form.getValues("scheduleCadence")) {
+                        form.setValue("scheduleCadence", "daily", { shouldDirty: true });
+                      }
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SCHEDULE_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="startsOn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="endsOn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End date (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Leave empty for no end date.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {watchedScheduleType === "recurring" && (
+            <div className="grid gap-3 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="scheduleCadence"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cadence</FormLabel>
+                    <Select
+                      value={field.value ?? "daily"}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (value !== "weekly") {
+                          form.setValue("scheduleWeekdays", undefined, { shouldDirty: true });
+                        }
+                        if (value !== "monthly") {
+                          form.setValue("scheduleDayOfMonth", undefined, { shouldDirty: true });
+                        } else if (!form.getValues("scheduleDayOfMonth")) {
+                          form.setValue("scheduleDayOfMonth", 1, { shouldDirty: true });
+                        }
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {watchedScheduleCadence === "monthly" ? (
+                <FormField
+                  control={form.control}
+                  name="scheduleDayOfMonth"
+                  render={({ field }) => (
+                    <FormItem className="max-w-[10rem]">
+                      <FormLabel>Day of month</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={31}
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(event) =>
+                            field.onChange(
+                              event.target.value ? Number(event.target.value) : undefined,
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : watchedScheduleCadence === "weekly" ? (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Weekdays</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAY_OPTIONS.map((weekday) => {
+                      const active = watchedScheduleWeekdays.includes(weekday.value);
+                      return (
+                        <Button
+                          key={weekday.value}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            const current = new Set(watchedScheduleWeekdays);
+                            if (current.has(weekday.value)) current.delete(weekday.value);
+                            else current.add(weekday.value);
+                            form.setValue(
+                              "scheduleWeekdays",
+                              Array.from(current).sort(),
+                              { shouldDirty: true },
+                            );
+                          }}
+                        >
+                          {weekday.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              ) : null}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
           <Controller
             control={form.control}

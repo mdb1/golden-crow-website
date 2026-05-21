@@ -43,6 +43,7 @@ import {
   habitTemplateCreateSchema,
   habitUpdateSchemaForType,
   type HabitType,
+  type HabitScheduleType,
 } from "./habit-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
@@ -155,6 +156,12 @@ export interface HabitRow {
   reminderCadence?: "daily" | "weekly" | "monthly";
   reminderWeekdays?: number[];
   reminderDayOfMonth?: number;
+  scheduleType: HabitScheduleType;
+  startsOn: string;
+  endsOn?: string;
+  scheduleCadence?: "daily" | "weekly" | "monthly";
+  scheduleWeekdays?: number[];
+  scheduleDayOfMonth?: number;
   seedSource?: string;
   deleted: boolean;
   createdAt: string | null;
@@ -176,6 +183,12 @@ export interface HabitTemplateRow {
   reminderCadence?: "daily" | "weekly" | "monthly";
   reminderWeekdays?: number[];
   reminderDayOfMonth?: number;
+  scheduleType: HabitScheduleType;
+  startsOn: string;
+  endsOn?: string;
+  scheduleCadence?: "daily" | "weekly" | "monthly";
+  scheduleWeekdays?: number[];
+  scheduleDayOfMonth?: number;
   deleted: boolean;
   createdAt: string | null;
   updatedAt: string | null;
@@ -192,6 +205,18 @@ function toIso(v: unknown): string | null {
   }
   if (typeof v === "string") return v;
   return null;
+}
+
+function todayCivilDateUTC(): string {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(now.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function normalizeStartsOn(v: unknown): string {
+  return typeof v === "string" && v.length > 0 ? v : todayCivilDateUTC();
 }
 
 /**
@@ -230,6 +255,25 @@ function projectHabitRow(
     reminderDayOfMonth:
       typeof data.reminderDayOfMonth === "number"
         ? data.reminderDayOfMonth
+        : undefined,
+    scheduleType:
+      data.scheduleType === "one-time" ? "one-time" : "recurring",
+    startsOn:
+      normalizeStartsOn(data.startsOn),
+    endsOn:
+      typeof data.endsOn === "string" ? data.endsOn : undefined,
+    scheduleCadence:
+      data.scheduleCadence === "daily" ||
+      data.scheduleCadence === "weekly" ||
+      data.scheduleCadence === "monthly"
+        ? data.scheduleCadence
+        : undefined,
+    scheduleWeekdays: Array.isArray(data.scheduleWeekdays)
+      ? (data.scheduleWeekdays as number[])
+      : undefined,
+    scheduleDayOfMonth:
+      typeof data.scheduleDayOfMonth === "number"
+        ? data.scheduleDayOfMonth
         : undefined,
     seedSource:
       typeof data.seedSource === "string" ? data.seedSource : undefined,
@@ -271,6 +315,25 @@ function projectHabitTemplateRow(
     reminderDayOfMonth:
       typeof data.reminderDayOfMonth === "number"
         ? data.reminderDayOfMonth
+        : undefined,
+    scheduleType:
+      data.scheduleType === "one-time" ? "one-time" : "recurring",
+    startsOn:
+      normalizeStartsOn(data.startsOn),
+    endsOn:
+      typeof data.endsOn === "string" ? data.endsOn : undefined,
+    scheduleCadence:
+      data.scheduleCadence === "daily" ||
+      data.scheduleCadence === "weekly" ||
+      data.scheduleCadence === "monthly"
+        ? data.scheduleCadence
+        : undefined,
+    scheduleWeekdays: Array.isArray(data.scheduleWeekdays)
+      ? (data.scheduleWeekdays as number[])
+      : undefined,
+    scheduleDayOfMonth:
+      typeof data.scheduleDayOfMonth === "number"
+        ? data.scheduleDayOfMonth
         : undefined,
     deleted: data.deleted === true,
     createdAt: toIso(data.createdAt),
@@ -346,6 +409,7 @@ export async function createHabit(
 
   await docRef.set({
     ...data,
+    startsOn: normalizeStartsOn(data.startsOn),
     id: docId,
     trainerId: trainer.uid, // T-06-05-01: ALWAYS from session, NEVER from input.
     deleted: false,
@@ -405,6 +469,12 @@ export async function updateHabit(
     reminderCadence?: "daily" | "weekly" | "monthly";
     reminderWeekdays?: number[];
     reminderDayOfMonth?: number;
+    scheduleType: HabitScheduleType;
+    startsOn?: string;
+    endsOn?: string;
+    scheduleCadence?: "daily" | "weekly" | "monthly";
+    scheduleWeekdays?: number[];
+    scheduleDayOfMonth?: number;
   };
 
   // Field-by-field whitelist (matches P06-03 affectedKeys.hasOnly([...]))
@@ -413,8 +483,12 @@ export async function updateHabit(
   const patch: Record<string, unknown> = {
     name: parsed.name,
     reminderEnabled: parsed.reminderEnabled,
+    scheduleType: parsed.scheduleType,
     updatedAt: FieldValue.serverTimestamp(),
   };
+  if (parsed.startsOn !== undefined) {
+    patch.startsOn = parsed.startsOn;
+  }
   if (parsed.description !== undefined) {
     patch.description = parsed.description;
   }
@@ -439,6 +513,10 @@ export async function updateHabit(
   if (parsed.reminderDayOfMonth !== undefined) {
     patch.reminderDayOfMonth = parsed.reminderDayOfMonth;
   }
+  patch.endsOn = parsed.endsOn ?? null;
+  patch.scheduleCadence = parsed.scheduleCadence ?? null;
+  patch.scheduleWeekdays = parsed.scheduleWeekdays ?? null;
+  patch.scheduleDayOfMonth = parsed.scheduleDayOfMonth ?? null;
 
   await docRef.update(patch);
 
@@ -606,6 +684,18 @@ export async function assignHabitTemplate(input: unknown): Promise<{
         : {}),
       ...(template.reminderDayOfMonth !== undefined
         ? { reminderDayOfMonth: template.reminderDayOfMonth }
+        : {}),
+      scheduleType: template.scheduleType ?? "recurring",
+      startsOn: template.startsOn ?? todayCivilDateUTC(),
+      ...(template.endsOn ? { endsOn: template.endsOn } : {}),
+      ...(template.scheduleCadence
+        ? { scheduleCadence: template.scheduleCadence }
+        : { scheduleCadence: "daily" }),
+      ...(template.scheduleWeekdays
+        ? { scheduleWeekdays: template.scheduleWeekdays }
+        : {}),
+      ...(template.scheduleDayOfMonth !== undefined
+        ? { scheduleDayOfMonth: template.scheduleDayOfMonth }
         : {}),
       reminderEnabled: template.reminderEnabled,
       sourceTemplateId: template.id,
