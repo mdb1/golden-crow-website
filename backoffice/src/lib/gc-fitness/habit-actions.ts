@@ -223,6 +223,12 @@ function normalizeStartsOn(v: unknown): string {
   return typeof v === "string" && v.length > 0 ? v : todayCivilDateUTC();
 }
 
+function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
+  ) as T;
+}
+
 /**
  * Projects a raw Firestore doc to the serializable `HabitRow` shape.
  * Centralized so list + future single-doc reads stay consistent.
@@ -431,7 +437,7 @@ export async function createHabit(
   const docId = `hab-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
 
-  await docRef.set({
+  await docRef.set(withoutUndefined({
     ...data,
     reminderDayOfMonth:
       data.reminderDayOfMonth ??
@@ -449,7 +455,7 @@ export async function createHabit(
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  });
+  }));
 
   return { id: docId };
 }
@@ -661,7 +667,7 @@ export async function createHabitTemplate(
   const parsed = habitTemplateCreateSchema.parse(input);
   const db = gcFitnessFirestore();
   const docId = `habit-template-${trainer.uid}-${randomUUID()}`;
-  await db.collection(TEMPLATE_COLLECTION).doc(docId).set({
+  await db.collection(TEMPLATE_COLLECTION).doc(docId).set(withoutUndefined({
     ...parsed,
     reminderDayOfMonth:
       parsed.reminderDayOfMonth ??
@@ -679,7 +685,7 @@ export async function createHabitTemplate(
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  });
+  }));
   return { id: docId };
 }
 

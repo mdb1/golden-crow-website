@@ -144,20 +144,26 @@ const habitBaseShape = z.object({
     .max(31, "Pick up to 31 days.")
     .optional(),
   scheduleType: z.enum(HABIT_SCHEDULE_TYPES).default("recurring"),
-  startsOn: z
-    .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "Start date must be YYYY-MM-DD.",
-    )
-    .optional(),
-  endsOn: z
-    .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "End date must be YYYY-MM-DD.",
-    )
-    .optional(),
+  startsOn: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z
+      .string()
+      .regex(
+        /^\d{4}-\d{2}-\d{2}$/,
+        "Start date must be YYYY-MM-DD.",
+      )
+      .optional(),
+  ),
+  endsOn: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z
+      .string()
+      .regex(
+        /^\d{4}-\d{2}-\d{2}$/,
+        "End date must be YYYY-MM-DD.",
+      )
+      .optional(),
+  ),
   scheduleCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
   scheduleWeekdays: z
     .array(z.number().int().min(1).max(7))

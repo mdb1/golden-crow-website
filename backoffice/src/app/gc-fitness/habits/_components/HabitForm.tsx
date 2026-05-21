@@ -107,6 +107,15 @@ const SCHEDULE_TYPE_OPTIONS = [
 function buildDefaults(
   passed?: Partial<HabitCreateInput>,
 ): HabitCreateInput {
+  const safeStartsOn =
+    typeof passed?.startsOn === "string" && passed.startsOn.length > 0
+      ? passed.startsOn
+      : new Date().toISOString().slice(0, 10);
+  const safeEndsOn =
+    typeof passed?.endsOn === "string" && passed.endsOn.length > 0
+      ? passed.endsOn
+      : undefined;
+
   return {
     clientId: passed?.clientId ?? "",
     type: passed?.type ?? "binary",
@@ -129,8 +138,8 @@ function buildDefaults(
         ? [passed.reminderDayOfMonth]
         : undefined),
     scheduleType: passed?.scheduleType ?? "recurring",
-    startsOn: passed?.startsOn ?? new Date().toISOString().slice(0, 10),
-    endsOn: passed?.endsOn,
+    startsOn: safeStartsOn,
+    endsOn: safeEndsOn,
     scheduleCadence: passed?.scheduleCadence ?? "daily",
     scheduleWeekdays: passed?.scheduleWeekdays,
     scheduleDayOfMonth: passed?.scheduleDayOfMonth,
@@ -287,7 +296,10 @@ export function HabitForm({
           cleaned.reminderDayOfMonth = undefined;
           cleaned.reminderMonthDays = undefined;
         }
-        cleaned.endsOn = values.endsOn?.trim() ? values.endsOn : undefined;
+        cleaned.endsOn =
+          typeof values.endsOn === "string" && values.endsOn.trim().length > 0
+            ? values.endsOn
+            : undefined;
         if (values.scheduleType === "recurring") {
           cleaned.scheduleCadence = values.scheduleCadence ?? "daily";
           if (cleaned.scheduleCadence === "weekly") {
@@ -680,7 +692,14 @@ export function HabitForm({
                 <FormItem>
                   <FormLabel>Start date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input
+                      type="date"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -696,8 +715,11 @@ export function HabitForm({
                   <FormControl>
                     <Input
                       type="date"
-                      {...field}
-                      value={field.value ?? ""}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={typeof field.value === "string" ? field.value : ""}
+                      onChange={(event) => field.onChange(event.target.value)}
                     />
                   </FormControl>
                   <FormDescription>
