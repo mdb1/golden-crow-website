@@ -1,5 +1,6 @@
 ---
 import TeamCard from "../components/TeamCard.astro";
+import Carousel from "../components/Carousel.astro";
 import { useTranslations } from '../i18n/index';
 const t = useTranslations(Astro.currentLocale);
 ---
@@ -11,7 +12,14 @@ const t = useTranslations(Astro.currentLocale);
         <span class="title-gradient">{t.aboutUs.title1}</span> {t.aboutUs.title2}
       </h1>
     </div>
-    <div class="image_container">
+    <Carousel
+      ariaLabel="Team members"
+      showDots={false}
+      itemFlexMobile="0 0 auto"
+      itemFlexTablet="0 0 auto"
+      itemFlexDesktop="0 0 auto"
+      gap="2rem"
+    >
       <TeamCard
         src="/aboutus1.webp"
         alt="Manuel Herrera"
@@ -83,7 +91,7 @@ const t = useTranslations(Astro.currentLocale);
         description={t.aboutUs.matiasRole}
         skills={["ENGINEERING"]}
       />
-    </div>
+    </Carousel>
   </div>
 </div>
 
@@ -125,21 +133,6 @@ const t = useTranslations(Astro.currentLocale);
     color: var(--brand-color);
   }
 
-  .team-subtitle {
-    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
-    color: var(--text-secondary);
-    font-weight: 400;
-    line-height: 1.6;
-  }
-
-  .image_container {
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-    gap: 2rem;
-    flex-wrap: wrap;
-  }
-
   /* Responsive Design */
   @media (max-width: 1200px) {
     .container {
@@ -148,11 +141,6 @@ const t = useTranslations(Astro.currentLocale);
 
     .section-header {
       margin-bottom: 3rem;
-    }
-
-    .image_container {
-      gap: 1.5rem;
-      justify-content: center;
     }
   }
 
@@ -167,17 +155,6 @@ const t = useTranslations(Astro.currentLocale);
 
     .team-title {
       font-size: clamp(1.75rem, 5vw, 2.5rem);
-    }
-
-    .team-subtitle {
-      font-size: clamp(1rem, 4vw, 1.2rem);
-    }
-
-    .image_container {
-      flex-direction: column;
-      gap: 1.5rem;
-      align-items: center;
-      width: 100%;
     }
   }
 
@@ -195,29 +172,12 @@ const t = useTranslations(Astro.currentLocale);
       font-size: clamp(1.5rem, 6vw, 2rem);
       margin-bottom: 0.75rem;
     }
-
-    .team-subtitle {
-      font-size: clamp(0.9rem, 4.5vw, 1rem);
-    }
-
-    .image_container {
-      gap: 1.25rem;
-      width: 100%;
-      max-width: 100%;
-      padding: 0;
-    }
   }
 
   @media (max-width: 390px) {
     .container {
       padding: 1.25rem 0.75rem;
       box-sizing: border-box;
-    }
-
-    .image_container {
-      gap: 1rem;
-      padding: 0;
-      width: 100%;
     }
   }
 
@@ -229,16 +189,6 @@ const t = useTranslations(Astro.currentLocale);
 
     .team-title {
       font-size: 1.5rem;
-    }
-
-    .team-subtitle {
-      font-size: 0.875rem;
-    }
-
-    .image_container {
-      gap: 0.75rem;
-      width: 100%;
-      padding: 0;
     }
   }
 </style>

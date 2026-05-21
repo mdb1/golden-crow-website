@@ -1,0 +1,105 @@
+---
+import { useTranslations } from '../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<section class="founders-note-section">
+  <div class="container">
+    <div class="founders-note-card">
+      <div class="founders-photo-wrap">
+        <img
+          src="/aboutus1.webp"
+          alt="Manuel Herrera"
+          class="founders-photo"
+          loading="lazy"
+        />
+      </div>
+      <div class="founders-body">
+        <p class="founders-eyebrow">{t.index.founderNoteEyebrow}</p>
+        {t.index.founderNoteParagraphs.map((para) => (
+          <p class="founders-para">{para}</p>
+        ))}
+        <p class="founders-signoff">{t.index.founderNoteSignOff}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .founders-note-section {
+    padding: clamp(3rem, 8vw, 6rem) 0;
+    background: var(--bg-secondary);
+  }
+
+  .founders-note-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1.25rem;
+    padding: clamp(2rem, 4vw, 3.5rem) clamp(1.5rem, 4vw, 3.5rem);
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: start;
+    box-shadow: var(--card-shadow);
+  }
+
+  .founders-photo-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  .founders-photo {
+    width: clamp(180px, 22vw, 260px);
+    height: clamp(180px, 22vw, 260px);
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center top;
+    border: 3px solid var(--brand-color);
+    box-shadow: 0 8px 24px rgba(175, 130, 50, 0.2);
+  }
+
+  .founders-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .founders-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: clamp(0.7rem, 1.4vw, 0.8rem);
+    font-weight: 600;
+    color: var(--brand-color);
+    margin: 0 0 0.5rem;
+  }
+
+  .founders-para {
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 0;
+    white-space: pre-line;
+  }
+
+  .founders-signoff {
+    margin-top: 0.75rem;
+    font-style: italic;
+    font-weight: 600;
+    color: var(--brand-color);
+    font-size: clamp(1rem, 2.2vw, 1.1rem);
+  }
+
+  @media (max-width: 768px) {
+    .founders-note-card {
+      grid-template-columns: 1fr;
+      text-align: left;
+    }
+
+    .founders-photo-wrap {
+      justify-content: center;
+    }
+  }
+</style>
