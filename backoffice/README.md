@@ -80,9 +80,9 @@ Follow the runbook in:
 
 - **Firebase project:** `gcfitness-3476b` (separate from MyDNAMap + Pocket Gyms).
 - **Bundle ID (iOS):** `com.goldencrow.fitness` (configured in Firebase).
-- **Trainer allowlist:** `GC_FITNESS_TEAM_ALLOWLIST` (comma-separated emails;
-  case-insensitive; case-insensitive matched at request time — no redeploy needed
-  for allowlist edits).
+- **Trainer allowlist:** currently not enforced. The login flow promotes any
+  authenticated Google account to a GC Fitness trainer. The env var remains in
+  the manifest for future tightening, but it is not used by the live gate now.
 - **Private key encoding:** BASE64 (avoids newline-escape issues in the Vercel
   env-var UI). Encode with `printf '%s' '<key>' | base64`.
 - **Cookie signing:** rotate `GC_FITNESS_COOKIE_SIGNATURE_KEY` annually or when
@@ -94,7 +94,7 @@ Follow the runbook in:
 After pasting the 10 vars into Vercel → Settings → Environment Variables and
 redeploying with build cache disabled:
 
-1. Sign in at the deployed `/login` with an allowlisted email.
+1. Sign in at the deployed `/login` with any Google account.
 2. Pick the GC Fitness card from the project selector (added by plan 11-03).
 3. You should land at `/gc-fitness/clients` (the trainer roster) without
    seeing the `auth-helpers.ts: server misconfigured` error.
@@ -143,7 +143,7 @@ npm run seed:gc-fitness-library
 ```
 
 That seed job now loads 300 default wger exercises and 15 starter workout
-templates for the allowlisted trainer.
+templates.
 
 ### Firebase database
 
@@ -194,14 +194,15 @@ rejected at the rule layer.
 
 ### Trainer login
 
-To allow a trainer into the backoffice:
+For now, any authenticated Google account can enter the GC Fitness backoffice.
+The login endpoint promotes the signed-in Firebase user to `role: "trainer"`
+and upserts `users/{trainerUid}` with email, display name, photo URL, and
+trainer role so clients can display coach identity.
 
-1. Add the email to `GC_FITNESS_TEAM_ALLOWLIST` in `backoffice/.env.local`
-   and in the deployed environment.
-2. Make sure the Firebase Auth user has a `role: "trainer"` custom claim.
-   The login endpoint also upserts `users/{trainerUid}` with email, display
-   name, photo URL, and trainer role so clients can display coach identity.
-3. Log in at `/gc-fitness/login`.
+If you want to restrict access later, wire `GC_FITNESS_TEAM_ALLOWLIST` back in
+the auth gate and redeploy.
+
+1. Log in at `/gc-fitness/login`.
 
 ### Add or assign a client
 

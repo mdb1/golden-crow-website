@@ -3,9 +3,10 @@
 // Shared auth helper for the gc-fitness trainer Server Actions. Wraps
 // `next-firebase-auth-edge`'s `getTokens` with the cookie + service-account
 // config established in P02-11 (`proxy.ts` / `dashboard/page.tsx`) and
-// adds the GC_FITNESS_TEAM_ALLOWLIST email gate so a token minted before
-// a trainer was removed from the allowlist cannot continue acting after
-// rotation.
+// adds a single auth gate for the gc-fitness trainer surface. The current
+// bootstrap flow allows any authenticated account to enter GC Fitness and
+// be promoted to trainer on login; the old allowlist gate was removed to
+// unblock early iteration on the backoffice MVP.
 //
 // HISTORY:
 //  - P03-06 shipped a STUB version of this file (cookie + role check only)
@@ -23,7 +24,7 @@
 // CONTRACT (locked, do not regress):
 //   - throws `Error("Forbidden")` on missing/invalid cookie
 //   - throws `Error("Forbidden")` on role custom claim != "trainer"
-//   - throws `Error("Forbidden")` on email not in GC_FITNESS_TEAM_ALLOWLIST
+//   - throws `Error("Forbidden")` on invalid / missing auth state
 //   - throws a NON-"Forbidden" error on missing env vars (config bug, not auth)
 //   - returns `{ uid, email, role: "trainer" }` on success.
 
@@ -38,22 +39,13 @@ export interface CurrentTrainer {
   role: "trainer";
 }
 
-function parseAllowlist(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .toLowerCase()
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 /**
  * Parses the `GcFitnessAuthToken` cookie, verifies the trainer role custom
- * claim, AND verifies the trainer's email is still in
- * `GC_FITNESS_TEAM_ALLOWLIST`. Returns the trainer's identity on success.
+ * claim, and returns the trainer identity on success.
  *
  * Throws `Error("Forbidden")` for any auth-gate failure (no cookie, wrong
- * role, removed from allowlist). The uniform error message prevents leaking
- * which guard tripped via a side-channel error toast.
+ * role, invalid token). The uniform error message prevents leaking which
+ * guard tripped via a side-channel error toast.
  *
  * Throws a different, descriptive error for misconfigured env vars — that
  * is a deployment bug, not an auth event.
@@ -98,16 +90,6 @@ export async function getCurrentTrainer(): Promise<CurrentTrainer> {
 
   const { decodedToken } = tokens;
   const email = (decodedToken.email ?? "").toLowerCase();
-  const allowlist = parseAllowlist(process.env.GC_FITNESS_TEAM_ALLOWLIST);
-  if (!email || !allowlist.includes(email)) {
-    throw new Error("Forbidden");
-  }
-
-  const role = (decodedToken as { role?: string }).role;
-  if (role !== "trainer") {
-    throw new Error("Forbidden");
-  }
-
   return {
     uid: decodedToken.uid,
     email,

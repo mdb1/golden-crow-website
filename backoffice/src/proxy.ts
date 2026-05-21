@@ -6,9 +6,9 @@ import { authMiddleware } from "next-firebase-auth-edge";
 // This file routes incoming requests to one of two auth stacks:
 //
 //   1. /gc-fitness/* and /api/gc-fitness/{login,logout}  →  next-firebase-auth-edge
-//      (cookie-based SSR auth for the gc-fitness trainer surface; allowlist gate
-//      enforced in `handleValidToken` so non-allowlisted users redirect to
-//      /gc-fitness/forbidden EVEN IF a cookie was somehow minted earlier)
+//      (cookie-based SSR auth for the gc-fitness trainer surface; access is
+//      based on a valid trainer session cookie minted by the GC Fitness login
+//      flow. Public login/forbidden pages bypass the gate.)
 //   2. Everything else                                    →  NextAuth `withAuth`
 //      (existing MyDNAMap / Pocket Gyms behavior preserved unchanged)
 //
@@ -27,14 +27,6 @@ const GC_FITNESS_API_PATHS = new Set([
   "/api/gc-fitness/login",
   "/api/gc-fitness/logout",
 ]);
-
-function parseAllowlist(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .toLowerCase()
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 // NextAuth handler — reused for non-gc-fitness paths. Lazy-cached so we
 // don't pay the construction cost when only gc-fitness paths are hit.
@@ -63,7 +55,6 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    const allowlist = parseAllowlist(process.env.GC_FITNESS_TEAM_ALLOWLIST);
     const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
     const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
     const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
@@ -120,19 +111,7 @@ export default async function proxy(request: NextRequest) {
       },
       handleValidToken: async ({ decodedToken }, headers) => {
         const email = decodedToken.email?.toLowerCase();
-        // WR-07 fix (P02-REVIEW-FIX): require role == "trainer" alongside
-        // the allowlist check. The allowlist and the role custom claim are
-        // the same source-of-truth in onBeforeUserCreated, but this is
-        // defense-in-depth: if a cookie was minted for a non-trainer user
-        // (provisioning bug, allowlist drift), the middleware now denies
-        // dashboard access. Pairs with WR-05 (dashboard page also checks).
-        const role = (decodedToken as { role?: string }).role;
-        const allowMissingTrainerClaimInDev = process.env.NODE_ENV !== "production";
-        if (
-          !email ||
-          !allowlist.includes(email) ||
-          (role !== "trainer" && !allowMissingTrainerClaimInDev)
-        ) {
+        if (!email) {
           return NextResponse.redirect(
             new URL("/gc-fitness/forbidden", request.url),
           );
