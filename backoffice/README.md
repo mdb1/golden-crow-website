@@ -132,6 +132,19 @@ The GC Fitness routes use Firebase Auth plus the `GcFitnessAuthToken` cookie,
 not the PocketGenes NextAuth session. That is why `/gc-fitness/*` has its own
 login and logout flow.
 
+### Seed the default exercise library
+
+The exercise library is backed by the shared `exercises` collection. If the
+catalog looks empty in a fresh project or local dev database, run:
+
+```bash
+cd backoffice
+npm run seed:gc-fitness-library
+```
+
+That seed job now loads 300 default wger exercises and 15 starter workout
+templates for the allowlisted trainer.
+
 ### Firebase database
 
 Use the native Cloud Firestore `(default)` database in project

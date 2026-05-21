@@ -302,10 +302,11 @@ function normalizeEquipment(name) {
 }
 
 function mapExercise(wger) {
-  const en = (wger.translations ?? []).find((t) => t.language === 2);
-  const es = (wger.translations ?? []).find((t) => t.language === 4);
-  const nameEn = en?.name?.trim() || `Exercise ${wger.id}`;
-  const nameEs = es?.name?.trim() || nameEn;
+  const translation = (wger.translations ?? []).find((t) => t?.name?.trim()) ?? null;
+  const nameEn = String(translation?.name ?? `Exercise ${wger.id}`).trim();
+  const nameEs = String(translation?.name ?? nameEn).trim();
+  const descriptionEn = stripHtml(wger.description_source ?? wger.description ?? "");
+  const descriptionEs = stripHtml(translation?.description ?? "") || descriptionEn || nameEs;
 
   const muscles = new Set();
   for (const item of [...(wger.muscles ?? []), ...(wger.muscles_secondary ?? [])]) {
@@ -330,8 +331,8 @@ function mapExercise(wger) {
     id: `wger-${wger.uuid}`,
     name: { en: nameEn, es: nameEs },
     description: {
-      en: stripHtml(en?.description) || nameEn,
-      es: stripHtml(es?.description) || stripHtml(en?.description) || nameEs,
+      en: descriptionEn || nameEn,
+      es: descriptionEs || nameEs,
     },
     muscleGroups: [...muscles].sort(),
     equipment: [...equipment].sort(),
@@ -339,6 +340,7 @@ function mapExercise(wger) {
     thumbnailURL: null,
     source: "wger",
     ownerId: null,
+    deleted: false,
     createdAt: now,
     updatedAt: now,
     version: 1,
@@ -376,17 +378,17 @@ async function fetchWgerExercises() {
 }
 
 function selectExercises(records, count) {
-  const withEnglish = records.filter((record) =>
-    (record.translations ?? []).some((t) => t.language === 2 && t.name?.trim()),
+  const curated = records.filter((record) =>
+    (record.translations ?? []).some((translation) => String(translation?.name ?? "").trim()),
   );
 
-  withEnglish.sort((a, b) => {
+  curated.sort((a, b) => {
     const mediaScore = (item) =>
       (item.videos?.length ? 3 : 0) + (item.images?.length ? 2 : 0);
     return mediaScore(b) - mediaScore(a) || a.id - b.id;
   });
 
-  return withEnglish.slice(0, count);
+  return curated.slice(0, count);
 }
 
 async function commitInChunks(db, writes, dryRun) {

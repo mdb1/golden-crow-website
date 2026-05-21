@@ -99,7 +99,7 @@ export function ExercisePickerPopover({
   ariaLabel,
 }: ExercisePickerPopoverProps) {
   const [open, setOpen] = useState(false);
-  const { data, isLoading, error } = useExercisesQuery();
+  const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
   // Filter soft-deleted out — the picker only shows currently-active
   // exercises. The trainer's previously-selected exercise (if it has since
@@ -173,7 +173,7 @@ export function ExercisePickerPopover({
             />
           </div>
           <CommandList>
-            {isLoading ? (
+            {isLoading || !hasSnapshot ? (
               <CommandEmpty>Loading exercises…</CommandEmpty>
             ) : error ? (
               <CommandEmpty>Couldn&apos;t load exercises.</CommandEmpty>

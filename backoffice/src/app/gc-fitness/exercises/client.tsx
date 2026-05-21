@@ -104,7 +104,7 @@ function matchesFilters(row: ExerciseRow, f: ExerciseFiltersState): boolean {
 
 export function ExerciseLibraryClient() {
   const router = useRouter();
-  const { data, isLoading, error } = useExercisesQuery();
+  const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
   const [filters, setFilters] = useState<ExerciseFiltersState>(EMPTY_FILTERS);
   const [confirmDelete, setConfirmDelete] = useState<ExerciseRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -213,7 +213,7 @@ export function ExerciseLibraryClient() {
               ))}
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading || !hasSnapshot ? (
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}

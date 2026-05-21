@@ -26,7 +26,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getFirestore,
@@ -35,6 +35,7 @@ import {
   query,
   orderBy,
   where,
+  type QuerySnapshot,
   type QueryDocumentSnapshot,
   type DocumentData,
 } from "firebase/firestore";
@@ -101,6 +102,7 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
  */
 export function useExercisesQuery() {
   const queryClient = useQueryClient();
+  const [hasSnapshot, setHasSnapshot] = useState(false);
 
   // Mount the Firestore listener exactly once per component instance. The
   // initial-load `Promise` is resolved by the first snapshot via
@@ -118,11 +120,13 @@ export function useExercisesQuery() {
 
     const unsubscribe = onSnapshot(
       q,
-      (snap) => {
+      (snap: QuerySnapshot<DocumentData>) => {
+        setHasSnapshot(true);
         const rows = snap.docs.map(snapToRow);
         queryClient.setQueryData(EXERCISES_QUERY_KEY, rows);
       },
-      (err) => {
+      (err: unknown) => {
+        setHasSnapshot(true);
         // Push the error into the cache so `useQuery` surfaces it.
         queryClient.setQueryData(EXERCISES_QUERY_KEY, () => {
           throw err;
@@ -133,7 +137,7 @@ export function useExercisesQuery() {
     return () => unsubscribe();
   }, [queryClient]);
 
-  return useQuery<ExerciseRow[]>({
+  const exercisesQuery = useQuery<ExerciseRow[]>({
     queryKey: EXERCISES_QUERY_KEY,
     // The Firestore listener pushes via `setQueryData`. This `queryFn` only
     // runs if the cache is empty AND the listener hasn't yielded yet — it
@@ -143,4 +147,9 @@ export function useExercisesQuery() {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+
+  return {
+    ...exercisesQuery,
+    hasSnapshot,
+  };
 }
