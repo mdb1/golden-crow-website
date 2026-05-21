@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(gh pr:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(curl -s -v https://golden-crow-sdk.vercel.app/health)",
+      "Bash(pbcopy)",
+      "Bash(curl -s https://golden-crow-sdk.vercel.app/health)",
+      "Bash(curl:*)",
+      "Bash(pkill -f \"tsx watch src/server.ts\")",
+      "Bash(pkill -f \"next dev\")"
+    ]
+  }
+}

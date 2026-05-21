@@ -1,4 +1,9 @@
-import { adminDb } from "../config/firebase.js";
+import { adminDbFor } from "../config/firebase.js";
+
+// Pitfall 16 — Bind once to the Pocket Gyms project at module load. Every
+// downstream `adminDb.collection(...)` call below uses the named-app
+// Firestore handle for "pocket-gyms" (no default-app slot is touched).
+const adminDb = adminDbFor("pocket-gyms");
 import type { MealComplianceRecord, MealComplianceStatus } from "../types/gym.types.js";
 
 const GYM_MEAL_COMPLIANCE_COLLECTION = "gym_meal_compliance";

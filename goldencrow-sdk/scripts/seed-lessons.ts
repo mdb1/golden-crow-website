@@ -2,24 +2,17 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { adminDbFor } from "../src/config/firebase.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Firebase Admin init (same pattern as sdk config)
-if (!getApps().length) {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    }),
-  });
-}
-
-const adminDb = getFirestore();
+// Pitfall 16 — Use the SDK's named-app registry so this seed script
+// never touches the default-app slot. `adminDbFor("mydnamap")` lazily
+// initializes (or returns the cached) named-app Firestore for the
+// MyDNAMap project on first access — same env-var conventions as the
+// production SDK.
+const adminDb = adminDbFor("mydnamap");
 
 // Resolve JSON file paths
 const DICTIONARY_PATH =

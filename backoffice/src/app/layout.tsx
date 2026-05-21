@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Public_Sans, Space_Grotesk } from "next/font/google";
-import Script from "next/script";
-import { APPEARANCE_STORAGE_KEY } from "@/lib/appearance";
+import { ThemeBootstrap } from "@/components/theme-bootstrap";
 import "./globals.css";
 
 const publicSans = Public_Sans({
@@ -26,22 +25,6 @@ export const metadata: Metadata = {
     "Pocket Genes Admin moderation console for accounts, community, reports, and learning operations.",
 };
 
-const themeBootstrapScript = `
-  (function () {
-    try {
-      var stored = window.localStorage.getItem("${APPEARANCE_STORAGE_KEY}");
-      var theme = stored === "light" || stored === "dark" ? stored : "light";
-      document.documentElement.dataset.theme = theme;
-      document.documentElement.style.colorScheme = theme;
-      document.documentElement.classList.toggle("dark", theme === "dark");
-    } catch (error) {
-      document.documentElement.dataset.theme = "light";
-      document.documentElement.style.colorScheme = "light";
-      document.documentElement.classList.remove("dark");
-    }
-  })();
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,9 +38,7 @@ export default function RootLayout({
       className={`${publicSans.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
     >
       <body className="font-sans antialiased">
-        <Script id="theme-bootstrap" strategy="beforeInteractive">
-          {themeBootstrapScript}
-        </Script>
+        <ThemeBootstrap />
         {children}
       </body>
     </html>

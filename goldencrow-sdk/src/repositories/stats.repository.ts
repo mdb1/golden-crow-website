@@ -1,4 +1,10 @@
-import { adminDb, adminAuth } from "../config/firebase.js";
+import { adminDbFor, adminAuthFor } from "../config/firebase.js";
+
+// Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
+// downstream `adminDb.collection(...)` / `adminAuth.*` call below uses
+// the named-app handles for "mydnamap" (no default-app slot is touched).
+const adminDb = adminDbFor("mydnamap");
+const adminAuth = adminAuthFor("mydnamap");
 
 export interface DashboardStats {
   accounts: {

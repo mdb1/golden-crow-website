@@ -1,0 +1,46 @@
+// /gc-fitness/habits/page.tsx — list view (Server Component shell)
+//
+// Auth gate runs on the server BEFORE any client component mounts. Failure
+// modes mirror the templates list page:
+//   - missing/invalid cookie → redirect to `/gc-fitness/login`
+//   - server-misconfigured env → throws, surfaces Next.js 500
+//
+// We pull the trainer's client roster here (Server-side `listClients()`
+// from P04-05) and pass it to the client component. The roster powers
+// both the columns' clientId→displayName resolution AND the client filter
+// dropdown — no second roundtrip from the browser.
+
+import { redirect } from "next/navigation";
+
+import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { listClients } from "@/lib/gc-fitness/client-roster";
+import { HabitsLibraryClient } from "./client";
+import { HabitsQueryProvider } from "./providers";
+
+export const dynamic = "force-dynamic";
+
+export default async function HabitsPage() {
+  try {
+    await getCurrentTrainer();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Forbidden";
+    if (message === "Forbidden") {
+      redirect("/gc-fitness/login");
+    }
+    throw err;
+  }
+
+  const clients = await listClients();
+  const clientRoster = clients.map((c) => ({
+    uid: c.uid,
+    displayName: c.displayName,
+  }));
+
+  return (
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+      <HabitsQueryProvider>
+        <HabitsLibraryClient clientRoster={clientRoster} />
+      </HabitsQueryProvider>
+    </div>
+  );
+}

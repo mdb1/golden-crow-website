@@ -1,0 +1,98 @@
+// /gc-fitness/exercises/[id]/edit/page.tsx — edit form (Server Component shell)
+//
+// Pre-flight pulls the doc via the gc-fitness Admin SDK and redirects:
+//   - missing doc → /gc-fitness/exercises (404 equivalent — list view is the
+//     natural place to land if a doc disappeared between table render and
+//     row click)
+//   - source === 'wger' → /[id]/view (read-only treatment; defense in
+//     depth alongside the Server Action's source check)
+//   - ownerId !== trainer.uid → /gc-fitness/forbidden (cross-trainer edit
+//     attempt — should be impossible from a well-behaved UI but the server
+//     guard is the truth)
+//
+// The Admin SDK Firestore read here costs ONE doc fetch per page view.
+// `ExerciseForm` is rendered with the full `defaultValues` so RHF can
+// reset back to the saved state on cancel.
+
+import { redirect } from "next/navigation";
+
+import {
+  getCurrentTrainer,
+  type CurrentTrainer,
+} from "@/lib/gc-fitness/auth-helpers";
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { ExerciseForm } from "../../_components/ExerciseForm";
+import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
+
+export const dynamic = "force-dynamic";
+
+interface PageParams {
+  params: Promise<{ id: string }>;
+}
+
+export default async function EditExercisePage({ params }: PageParams) {
+  let trainer: CurrentTrainer;
+  try {
+    trainer = await getCurrentTrainer();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Forbidden";
+    if (message === "Forbidden") {
+      redirect("/gc-fitness/login");
+    }
+    throw err;
+  }
+
+  const { id } = await params;
+  const db = gcFitnessFirestore();
+  const snap = await db.collection("exercises").doc(id).get();
+  if (!snap.exists) {
+    redirect("/gc-fitness/exercises");
+  }
+  const data = snap.data() as Record<string, unknown> & {
+    source?: string;
+    ownerId?: string | null;
+  };
+
+  if (data.source === "wger") {
+    redirect(`/gc-fitness/exercises/${id}/view`);
+  }
+  if (data.ownerId !== trainer.uid) {
+    redirect("/gc-fitness/forbidden");
+  }
+
+  // Strip Firestore-only fields (Timestamps, doc id) before handing to the
+  // form — the schema doesn't model `createdAt` / `updatedAt` / `deleted`.
+  const defaults: Partial<ExerciseInput> = {
+    name: (data.name as ExerciseInput["name"]) ?? { en: "", es: "" },
+    description: (data.description as ExerciseInput["description"]) ?? {
+      en: "",
+      es: "",
+    },
+    muscleGroups: Array.isArray(data.muscleGroups)
+      ? (data.muscleGroups as string[])
+      : [],
+    equipment: Array.isArray(data.equipment) ? (data.equipment as string[]) : [],
+    mediaURL: typeof data.mediaURL === "string" ? data.mediaURL : null,
+    thumbnailURL:
+      typeof data.thumbnailURL === "string" ? data.thumbnailURL : null,
+    youtubeURL: typeof data.youtubeURL === "string" ? data.youtubeURL : null,
+    source: "trainer",
+    ownerId: trainer.uid,
+    version: typeof data.version === "number" ? data.version : 1,
+  };
+
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          Edit exercise
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Changes save when you click <strong>Save</strong>. Deleting is
+          soft-delete only and never affects historical workout logs.
+        </p>
+      </div>
+      <ExerciseForm mode="edit" exerciseId={id} defaultValues={defaults} />
+    </div>
+  );
+}

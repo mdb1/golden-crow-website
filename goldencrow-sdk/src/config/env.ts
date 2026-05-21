@@ -45,6 +45,16 @@ export const TEAM_ALLOWLIST_POCKETGYMS = new Set<string>(
     .filter(Boolean)
 );
 
+// GC Fitness — Phase 11 trainer-facing surface. The allowlist names the
+// trainer emails permitted to sign into the gc-fitness backoffice routes.
+// Vercel env var: `TEAM_ALLOWLIST_GC_FITNESS=alice@studio.com,bob@studio.com`.
+export const TEAM_ALLOWLIST_GC_FITNESS = new Set<string>(
+  (process.env.TEAM_ALLOWLIST_GC_FITNESS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean)
+);
+
 /**
  * Returns which projects an email can access.
  * An email in the legacy TEAM_ALLOWLIST can access all projects.
@@ -56,6 +66,9 @@ export function resolveProjectAccess(email: string): ProjectKey[] {
   }
   if (TEAM_ALLOWLIST.has(email) || TEAM_ALLOWLIST_POCKETGYMS.has(email)) {
     projects.push("pocket-gyms");
+  }
+  if (TEAM_ALLOWLIST.has(email) || TEAM_ALLOWLIST_GC_FITNESS.has(email)) {
+    projects.push("gc-fitness");
   }
   return projects;
 }

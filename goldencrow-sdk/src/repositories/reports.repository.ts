@@ -1,5 +1,10 @@
 import { FieldValue, type Query } from "firebase-admin/firestore";
-import { adminDb } from "../config/firebase.js";
+import { adminDbFor } from "../config/firebase.js";
+
+// Pitfall 16 — Bind once to the MyDNAMap project at module load. Every
+// downstream `adminDb.collection(...)` call below uses the named-app
+// Firestore handle for "mydnamap" (no default-app slot is touched).
+const adminDb = adminDbFor("mydnamap");
 import type { DnaReport, SourceKey } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 

@@ -14,7 +14,11 @@ export type AdminSectionKey =
   | "gym-overview"
   | "gym-members"
   | "gym-scheduling"
-  | "gym-programs";
+  | "gym-programs"
+  // Phase 11-04: GC Fitness trainer-facing sidebar sections.
+  | "gc-fitness-roster"
+  | "gc-fitness-content"
+  | "gc-fitness-engagement";
 export type CollectionKey =
   | "profiles"
   | "public_profiles"
