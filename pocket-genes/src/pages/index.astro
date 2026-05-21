@@ -394,10 +394,21 @@ const projects = getProjects(t);
 
   .why-us-process {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: 1fr;
     gap: clamp(1rem, 2vw, 1.5rem);
     margin-bottom: 2rem;
     text-align: left;
+  }
+
+  @media (min-width: 640px) {
+    .why-us-process { grid-template-columns: repeat(2, 1fr); }
+    .process-step:nth-child(2n)::after { display: none; }
+  }
+
+  @media (min-width: 960px) {
+    .why-us-process { grid-template-columns: repeat(3, 1fr); }
+    .process-step:nth-child(2n)::after { display: inline; }
+    .process-step:nth-child(3n)::after { display: none; }
   }
 
   .process-step {
