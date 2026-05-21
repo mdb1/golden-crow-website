@@ -69,6 +69,14 @@ async function upsertTrainerProfile(
   );
 }
 
+async function isClientAccount(uid: string): Promise<boolean> {
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(uid)
+    .get();
+  return snap.exists && snap.get("role") === "client";
+}
+
 // CR-06 fix (P02-REVIEW-FIX): explicit env-var guard. The previous code used
 // `process.env.X!` non-null assertions at five call sites — if any env var
 // was missing, the assertion would silently produce `undefined` and the
@@ -135,6 +143,12 @@ export async function POST(request: Request) {
     const email = decoded.email?.toLowerCase();
     if (!email) {
       return NextResponse.json({ error: "Missing email" }, { status: 403 });
+    }
+    if (decoded.role === "client" || (await isClientAccount(decoded.uid))) {
+      return NextResponse.json(
+        { error: "This account is a client. Please use the app." },
+        { status: 403 },
+      );
     }
 
     try {

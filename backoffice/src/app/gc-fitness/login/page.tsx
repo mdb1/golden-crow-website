@@ -63,10 +63,6 @@ export default function GCFitnessLoginPage() {
         body: JSON.stringify({}),
       });
 
-      if (res.status === 403) {
-        window.location.href = "/gc-fitness/forbidden";
-        return;
-      }
       if (!res.ok) {
         setError(await readError(res));
         return;
