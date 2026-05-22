@@ -164,11 +164,14 @@ function previewSrc(
   );
 }
 
-// Animated GIFs need `unoptimized` on next/image — Next's image optimizer
-// strips frames otherwise. Static JPGs go through the optimizer.
+// Retained for API parity with `columns.tsx` and possible future
+// callsites; NOT used as the `unoptimized` gate in this file anymore
+// (see the Image elements below — `unoptimized` is unconditional to keep
+// Firebase Storage v2 signed-URL query params intact).
 function isGifUrl(url: string | null): boolean {
   return typeof url === "string" && /\.gif(\?|$)/i.test(url);
 }
+void isGifUrl;
 
 export function ExercisePickerPopover({
   value,
@@ -220,18 +223,27 @@ export function ExercisePickerPopover({
                 aria-hidden="true"
                 className="flex h-6 w-10 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
               >
-                {previewSrc(selected) ? (
-                  <Image
-                    src={previewSrc(selected)!}
-                    alt=""
-                    width={40}
-                    height={24}
-                    className="h-full w-full object-cover"
-                    unoptimized={isGifUrl(previewSrc(selected))}
-                  />
-                ) : (
-                  <Dumbbell className="h-3 w-3" />
-                )}
+                {(() => {
+                  const src = previewSrc(selected);
+                  return src ? (
+                    // unoptimized is unconditional: storage.googleapis.com v2
+                    // signed URLs have ?GoogleAccessId=…&Expires=…&Signature=…
+                    // query params that the Next.js image optimizer strips
+                    // when it rewrites src to /_next/image, producing runtime
+                    // 403. All exercise preview URLs come from either signed
+                    // Storage or wger CDN; none benefit from the optimizer.
+                    <Image
+                      src={src}
+                      alt=""
+                      width={40}
+                      height={24}
+                      className="h-full w-full object-cover"
+                      unoptimized={!!src}
+                    />
+                  ) : (
+                    <Dumbbell className="h-3 w-3" />
+                  );
+                })()}
               </span>
               <span className="flex flex-col">
                 <span className="font-medium">
@@ -303,18 +315,24 @@ export function ExercisePickerPopover({
                           aria-hidden="true"
                           className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
                         >
-                          {previewSrc(ex) ? (
-                            <Image
-                              src={previewSrc(ex)!}
-                              alt=""
-                              width={48}
-                              height={28}
-                              className="h-full w-full object-cover"
-                              unoptimized={isGifUrl(previewSrc(ex))}
-                            />
-                          ) : (
-                            <Dumbbell className="h-3 w-3" />
-                          )}
+                          {(() => {
+                            const src = previewSrc(ex);
+                            return src ? (
+                              // unoptimized is unconditional — see the
+                              // trigger-selected block above for the
+                              // signed-URL rationale.
+                              <Image
+                                src={src}
+                                alt=""
+                                width={48}
+                                height={28}
+                                className="h-full w-full object-cover"
+                                unoptimized={!!src}
+                              />
+                            ) : (
+                              <Dumbbell className="h-3 w-3" />
+                            );
+                          })()}
                         </span>
                         <span className="flex flex-col">
                           <span className="font-medium">

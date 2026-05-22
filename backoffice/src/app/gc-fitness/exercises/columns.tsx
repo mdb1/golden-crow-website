@@ -16,6 +16,7 @@
 // Actions are passed in via props from `client.tsx` so the column-def file
 // stays free of router / state imports.
 
+import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Dumbbell, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 
@@ -33,6 +34,36 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { ExerciseRow } from "@/lib/gc-fitness/exercises-listener";
+
+// Preview-source helpers — local duplicate of the picker pattern
+// (`exercise-picker-popover.tsx`). Lifting to a shared module is out of
+// scope for this plan to keep blast radius minimal.
+function previewUrl(url?: string | null): string | null {
+  if (typeof url === "string" && /^https?:\/\//.test(url)) return url;
+  return null;
+}
+
+function previewSrc(
+  row: Pick<ExerciseRow, "gifUrl" | "imageUrl" | "thumbnailURL">,
+): string | null {
+  return (
+    previewUrl(row.gifUrl) ??
+    previewUrl(row.imageUrl) ??
+    previewUrl(row.thumbnailURL)
+  );
+}
+
+// Retained for parity with the picker, but NOT the gate for `unoptimized`
+// — see the cell below. The optimizer rewrites src to /_next/image which
+// strips Firebase Storage v2 signed-URL query params (`?GoogleAccessId=…
+// &Expires=…&Signature=…`) → runtime 403, regardless of whether the
+// upstream is a GIF or a static JPG. All exercise preview URLs come from
+// either signed Storage or wger CDN; none benefit from Next.js
+// optimization, so `unoptimized` is unconditional.
+function isGifUrl(url: string | null): boolean {
+  return typeof url === "string" && /\.gif(\?|$)/i.test(url);
+}
+void isGifUrl;
 
 export interface ExerciseColumnHandlers {
   onEdit: (row: ExerciseRow) => void;
@@ -74,22 +105,33 @@ export function makeColumns(
       id: "thumbnail",
       header: "",
       cell: ({ row }) => {
-        // We render a lucide Dumbbell as the fallback; the actual MP4
-        // thumbnail (PNG first-frame from a future Cloud Function) lives
-        // at `row.original.thumbnailURL` once 03-10 ships. The 48×27 box
-        // is locked from UI-SPEC.
-        const thumb = row.original.thumbnailURL;
+        // 260522-orr — render a real preview thumbnail when the Free-
+        // Exercise-DB seed pipeline has provided gifUrl/imageUrl, falling
+        // back to thumbnailURL, then to the lucide Dumbbell icon. The
+        // 48×27 box is locked from UI-SPEC.
+        //
+        // `unoptimized={!!src}` is INTENTIONAL and load-bearing:
+        // storage.googleapis.com v2 signed URLs have
+        // `?GoogleAccessId=…&Expires=…&Signature=…` query params that the
+        // Next.js image optimizer strips when it rewrites src to
+        // /_next/image, producing runtime 403. All exercise preview URLs
+        // come from either signed Storage or wger CDN; none benefit from
+        // the optimizer.
+        const src = previewSrc(row.original);
         return (
           <div
             aria-hidden="true"
-            className="flex h-[27px] w-[48px] items-center justify-center rounded-sm border border-border bg-muted/40 text-muted-foreground"
+            className="flex h-[27px] w-[48px] items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
           >
-            {thumb ? (
-              // No <img/> render this phase — we don't resolve gs:// to
-              // https on the list view (cost: every row would mint a
-              // download URL on each render). Show the icon and defer to
-              // the detail / view route for the actual playback.
-              <Dumbbell className="h-4 w-4" />
+            {src ? (
+              <Image
+                src={src}
+                alt=""
+                width={48}
+                height={27}
+                unoptimized={!!src}
+                className="h-[27px] w-[48px] rounded-sm object-cover"
+              />
             ) : (
               <Dumbbell className="h-4 w-4" />
             )}

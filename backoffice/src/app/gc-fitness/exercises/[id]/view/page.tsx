@@ -5,7 +5,9 @@
 // Write protection comes from the form's disabled state AND from the Server
 // Action layer (which rejects wger writes anyway — defense in depth).
 
+import Image from "next/image";
 import { redirect } from "next/navigation";
+import { Dumbbell } from "lucide-react";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
@@ -16,6 +18,25 @@ export const dynamic = "force-dynamic";
 
 interface PageParams {
   params: Promise<{ id: string }>;
+}
+
+// Local preview-source helpers — duplicate of the columns.tsx + picker
+// pattern. Server-Component-local; not exported.
+function previewUrl(url: string | null): string | null {
+  if (typeof url === "string" && /^https?:\/\//.test(url)) return url;
+  return null;
+}
+
+function previewSrc(row: {
+  gifUrl: string | null;
+  imageUrl: string | null;
+  thumbnailURL: string | null;
+}): string | null {
+  return (
+    previewUrl(row.gifUrl) ??
+    previewUrl(row.imageUrl) ??
+    previewUrl(row.thumbnailURL)
+  );
 }
 
 export default async function ViewExercisePage({ params }: PageParams) {
@@ -56,6 +77,27 @@ export default async function ViewExercisePage({ params }: PageParams) {
     version: typeof data.version === "number" ? data.version : 1,
   };
 
+  // 260522-orr — read-only preview + numbered EN instructions header
+  // section. Defensive coding for the Firestore data read so trainer-
+  // authored or legacy wger docs without the new fields render gracefully.
+  const previewHref = previewSrc({
+    gifUrl: typeof data.gifUrl === "string" ? data.gifUrl : null,
+    imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : null,
+    thumbnailURL:
+      typeof data.thumbnailURL === "string" ? data.thumbnailURL : null,
+  });
+
+  const rawInstructions =
+    (data.instructions ?? null) as {
+      en?: string[] | null;
+      es?: string[] | null;
+    } | null;
+  const stepsEn = Array.isArray(rawInstructions?.en)
+    ? rawInstructions!.en!.filter(
+        (s): s is string => typeof s === "string" && s.trim().length > 0,
+      )
+    : [];
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
       <div className="flex flex-col gap-1">
@@ -63,6 +105,49 @@ export default async function ViewExercisePage({ params }: PageParams) {
           Exercise details
         </h1>
       </div>
+
+      {/* Preview + EN instructions header (read-only). The trainer surface
+          is EN-only for v1; Spanish carry-forward lives in V2. */}
+      <div className="flex flex-col gap-6">
+        <div
+          aria-hidden="true"
+          className="flex h-[108px] w-[192px] items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40 text-muted-foreground"
+        >
+          {previewHref ? (
+            // `unoptimized={!!previewHref}` is INTENTIONAL: signed Storage
+            // URLs (`storage.googleapis.com/...?GoogleAccessId=…`) would
+            // 403 through the Next.js image optimizer.
+            <Image
+              src={previewHref}
+              alt=""
+              width={192}
+              height={108}
+              unoptimized={!!previewHref}
+              className="h-[108px] w-[192px] rounded-md object-cover"
+            />
+          ) : (
+            <Dumbbell className="h-8 w-8" />
+          )}
+        </div>
+
+        {stepsEn.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold text-foreground">
+              Instructions
+            </h2>
+            <ol className="list-decimal space-y-2 pl-6 text-sm text-foreground">
+              {stepsEn.map((step, idx) => (
+                <li key={idx}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No instructions available.
+          </p>
+        )}
+      </div>
+
       <ExerciseForm mode="view" exerciseId={id} defaultValues={defaults} />
     </div>
   );
