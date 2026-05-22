@@ -481,10 +481,29 @@ export async function editAssignmentScheduledFor(
  * v1 uses this narrowly — the schedule view "remove from this day" button.
  * P05 will route most "client missed this" intent through a status flip to
  * `"missed"` instead.
+ *
+ * 260522-ki7 Task C — recurring-aware cascade.
+ *
+ * When called with `options.cascadeFromDate` AND the existing doc has a
+ * `seriesId`, the function performs a series-wide cascade: every doc in the
+ * same series with `scheduledFor >= cascadeFromDate` AND `status ==
+ * 'scheduled'` is batch-deleted in one WriteBatch. Past occurrences
+ * (status !== 'scheduled') are NEVER touched — that preserves client-logged
+ * work (T-KI7-03).
+ *
+ * Defense-in-depth: every matched doc is re-checked in code for trainerId
+ * equality before the batch is committed. The rule layer enforces the same
+ * invariant per-doc inside the batch, but the pre-check yields a much more
+ * actionable error message than Firestore's "PERMISSION_DENIED" on commit.
+ *
+ * Signature is backwards-compatible: callers that don't pass `options` get
+ * the original single-doc behaviour with a `deletedCount: 1` field added to
+ * the return shape.
  */
 export async function deleteAssignment(
   id: string,
-): Promise<{ ok: true }> {
+  options?: { cascadeFromDate?: string },
+): Promise<{ ok: true; deletedCount: number }> {
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
@@ -493,14 +512,50 @@ export async function deleteAssignment(
   if (!snap.exists) {
     throw new Error("Not found");
   }
-  const existing = snap.data() as { trainerId?: string };
+  const existing = snap.data() as {
+    trainerId?: string;
+    seriesId?: string | null;
+  };
   if (existing.trainerId !== trainer.uid) {
     throw new Error("Not your assignment.");
   }
 
-  await ref.delete();
+  // Non-cascade OR non-recurring: fall through to single-doc delete.
+  if (!options?.cascadeFromDate || !existing.seriesId) {
+    await ref.delete();
+    return { ok: true, deletedCount: 1 };
+  }
 
-  return { ok: true };
+  // Cascade path: query the series for the selected day + every scheduled
+  // future doc. Index: (seriesId ASC, status ASC, scheduledFor ASC) — added
+  // to firestore.indexes.json in Task A; the [$] deploy gate makes the
+  // composite index queryable in production.
+  const querySnap = await db
+    .collection(ASSIGNMENTS)
+    .where("seriesId", "==", existing.seriesId)
+    .where("scheduledFor", ">=", options.cascadeFromDate)
+    .where("status", "==", "scheduled")
+    .get();
+
+  // Defense-in-depth: refuse any cross-trainer doc in the series before
+  // mutating Firestore. The rule layer would reject the batch anyway, but
+  // an explicit pre-check yields a clearer error.
+  for (const doc of querySnap.docs) {
+    const data = doc.data() as { trainerId?: string };
+    if (data.trainerId !== trainer.uid) {
+      throw new Error(
+        "Cross-trainer doc in series — refusing to cascade.",
+      );
+    }
+  }
+
+  const batch = db.batch();
+  for (const doc of querySnap.docs) {
+    batch.delete(doc.ref);
+  }
+  await batch.commit();
+
+  return { ok: true, deletedCount: querySnap.size };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

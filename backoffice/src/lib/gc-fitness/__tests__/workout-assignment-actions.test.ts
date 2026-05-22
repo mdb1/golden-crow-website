@@ -152,8 +152,9 @@ function fakeAssignmentSnap(opts: {
   trainerId?: string;
   clientId?: string;
   scheduledFor?: string;
+  seriesId?: string | null;
 }) {
-  const data = {
+  const data: Record<string, unknown> = {
     trainerId: opts.trainerId ?? ALLOWED_UID,
     clientId: opts.clientId ?? CLIENT_UID,
     scheduledFor: opts.scheduledFor ?? "2026-06-01",
@@ -161,6 +162,9 @@ function fakeAssignmentSnap(opts: {
     templateSnapshot: VALID_TEMPLATE,
     status: "scheduled",
   };
+  if (opts.seriesId !== undefined) {
+    data.seriesId = opts.seriesId;
+  }
   return {
     exists: opts.exists,
     data: () => data,
@@ -537,16 +541,17 @@ describe("editAssignmentScheduledFor", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("deleteAssignment", () => {
-  it("hard-deletes the assignment when caller owns it", async () => {
+  it("hard-deletes the assignment when caller owns it (backwards-compat one-arg form returns deletedCount=1)", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockGet.mockResolvedValue(
       fakeAssignmentSnap({ exists: true, trainerId: ALLOWED_UID }),
     );
     mockDelete.mockResolvedValue(undefined);
 
-    await deleteAssignment("asg-abc");
+    const result = await deleteAssignment("asg-abc");
 
     expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, deletedCount: 1 });
   });
 
   it("rejects delete when caller is not the trainer", async () => {
@@ -562,6 +567,122 @@ describe("deleteAssignment", () => {
       /not your assignment/i,
     );
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  // 260522-ki7 Task C — cascadeFromDate path.
+  it("cascadeFromDate on non-recurring doc (no seriesId) → falls back to single delete", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({
+        exists: true,
+        trainerId: ALLOWED_UID,
+        // no seriesId
+      }),
+    );
+    mockDelete.mockResolvedValue(undefined);
+
+    const result = await deleteAssignment("asg-x", {
+      cascadeFromDate: "2026-06-01",
+    });
+
+    // Falls back to single-doc delete; no batch.commit.
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockBatchCommit).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, deletedCount: 1 });
+  });
+
+  it("cascadeFromDate on recurring doc → batch deletes selected + future scheduled", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({
+        exists: true,
+        trainerId: ALLOWED_UID,
+        seriesId: "ser-1",
+      }),
+    );
+    const batchDelete = jest.fn();
+    mockBatch.mockImplementation(() => ({
+      set: mockBatchSet,
+      delete: batchDelete,
+      commit: mockBatchCommit,
+    }));
+    mockBatchCommit.mockResolvedValue(undefined);
+    // Three docs returned by the cascade query (selected + 2 future), all owned
+    // by the caller, all status='scheduled'.
+    mockQueryGet.mockResolvedValue({
+      size: 3,
+      docs: [
+        {
+          ref: { id: "asg-1" },
+          data: () => ({ trainerId: ALLOWED_UID, status: "scheduled" }),
+        },
+        {
+          ref: { id: "asg-2" },
+          data: () => ({ trainerId: ALLOWED_UID, status: "scheduled" }),
+        },
+        {
+          ref: { id: "asg-3" },
+          data: () => ({ trainerId: ALLOWED_UID, status: "scheduled" }),
+        },
+      ],
+    });
+
+    const result = await deleteAssignment("asg-1", {
+      cascadeFromDate: "2026-06-01",
+    });
+
+    expect(batchDelete).toHaveBeenCalledTimes(3);
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, deletedCount: 3 });
+  });
+
+  it("cascadeFromDate on doc the caller does not own → reject (no batch commit)", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({
+        exists: true,
+        trainerId: OTHER_TRAINER_UID,
+        seriesId: "ser-1",
+      }),
+    );
+
+    await expect(
+      deleteAssignment("asg-x", { cascadeFromDate: "2026-06-01" }),
+    ).rejects.toThrow(/not your assignment/i);
+    expect(mockBatchCommit).not.toHaveBeenCalled();
+  });
+
+  it("cascade query includes status='scheduled' filter (past started/completed excluded)", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({
+        exists: true,
+        trainerId: ALLOWED_UID,
+        seriesId: "ser-1",
+      }),
+    );
+    const batchDelete = jest.fn();
+    mockBatch.mockImplementation(() => ({
+      set: mockBatchSet,
+      delete: batchDelete,
+      commit: mockBatchCommit,
+    }));
+    mockBatchCommit.mockResolvedValue(undefined);
+    mockQueryGet.mockResolvedValue({
+      size: 0,
+      docs: [],
+    });
+
+    await deleteAssignment("asg-1", { cascadeFromDate: "2026-06-01" });
+
+    // The cascade query must filter on all three predicates.
+    expect(mockWhere).toHaveBeenCalledWith("seriesId", "==", "ser-1");
+    expect(mockWhere).toHaveBeenCalledWith(
+      "scheduledFor",
+      ">=",
+      "2026-06-01",
+    );
+    expect(mockWhere).toHaveBeenCalledWith("status", "==", "scheduled");
   });
 });
 
