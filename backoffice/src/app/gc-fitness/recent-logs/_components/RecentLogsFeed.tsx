@@ -6,6 +6,7 @@ import { MessageCircle, Filter, Dumbbell, ListChecks, Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -88,26 +89,32 @@ export function RecentLogsFeed({ logs, clients }: Props) {
         ) : null}
         {filtered.map((row) => (
           <Card key={row.id}>
-            <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between">
-              <div className="min-w-0">
-                <div className="mb-2 flex items-center gap-2">
+            <CardContent className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
                   {row.category === "habit" ? (
-                    <ListChecks className="h-4 w-4 text-muted-foreground" />
+                    <Badge className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                      <ListChecks className="h-3.5 w-3.5" />
+                      Habit
+                    </Badge>
                   ) : (
-                    <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                    <Badge className="gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-50">
+                      <Dumbbell className="h-3.5 w-3.5" />
+                      Workout
+                    </Badge>
                   )}
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {row.category}
+                  <span className="text-xs text-muted-foreground">
+                    {row.clientName}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatDateTime(row.eventAt)}
+                    • {formatDateTime(row.eventAt)}
                   </span>
                 </div>
-                <p className="truncate text-base font-semibold">{row.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p>
+                <p className="line-clamp-1 text-sm font-semibold">{row.title}</p>
+                <p className="line-clamp-1 text-xs text-muted-foreground">{row.detail}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button asChild variant="outline" size="sm" className="gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
                   <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
                     <MessageCircle className="h-4 w-4" />
                     Open chat
@@ -115,7 +122,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 </Button>
                 <NudgeButton clientId={row.clientId} clientName={row.clientName} />
                 {row.workoutLogId ? (
-                  <Button asChild variant="outline" size="sm" className="gap-1">
+                  <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
                     <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
                       <Eye className="h-4 w-4" />
                       View workout
