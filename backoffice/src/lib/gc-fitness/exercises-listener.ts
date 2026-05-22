@@ -15,10 +15,16 @@
 //     `setQueryData` to push every snapshot into the React-Query cache, so
 //     subscribers re-render via the standard `useQuery` selector.
 //
-// Filtering: `deleted !== true` is applied client-side (Firestore index on
-// `(deleted, updatedAt)` exists from 03-03; we use it server-side in the
-// `query` below to avoid downloading soft-deleted docs).
-// Sorting: `updatedAt desc` server-side (index from 03-03 row 3).
+// Filtering (260522-hi5 Task B): server-side `deletedAt == null` filters the
+// curation-pass soft-deleted wger-* docs (the Task B script writes a
+// Timestamp into deletedAt). The downstream `deleted !== true` filter in
+// client.tsx + exercise-picker-popover.tsx is retained to also drop the
+// legacy trainer-authored `deleted: true` Bool sentinel that the P03
+// `softDeleteExercise` Server Action still writes. Both filters are needed
+// — Firestore can't express the union in one server-side query.
+// Sorting: `updatedAt desc` server-side. Requires the composite index
+// `(deletedAt ASC, updatedAt DESC)` (added to firestore.indexes.json by
+// Task B and deployed to gcfitness-3476b).
 //
 // CONTRACT NOTE: This file is OWNED BY PLAN 03-06. It mounts inside a
 // `'use client'` component (`client.tsx`) and uses the named gc-fitness
@@ -58,6 +64,11 @@ export interface ExerciseRow {
   updatedAt: string | null;
   createdAt: string | null;
   deleted?: boolean;
+  /** ISO string — curation-pass soft-delete marker (260522-hi5 Task B). Null
+   *  when the doc is alive. */
+  deletedAt?: string | null;
+  /** For dedupe-loser wger-* docs — the surviving canonical exercise id. */
+  mergedInto?: string | null;
 }
 
 export const EXERCISES_QUERY_KEY = ["gc-fitness", "exercises"] as const;
@@ -89,6 +100,8 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     updatedAt: toIso(data.updatedAt),
     createdAt: toIso(data.createdAt),
     deleted: data.deleted === true,
+    deletedAt: toIso(data.deletedAt),
+    mergedInto: typeof data.mergedInto === "string" ? data.mergedInto : null,
   };
 }
 
@@ -113,8 +126,7 @@ export function useExercisesQuery() {
     const db = getFirestore(auth.app);
     const q = query(
       collection(db, "exercises"),
-      where("deleted", "!=", true),
-      orderBy("deleted"),
+      where("deletedAt", "==", null),
       orderBy("updatedAt", "desc"),
     );
 
