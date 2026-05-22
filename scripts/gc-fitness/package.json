@@ -10,6 +10,8 @@
     "audit": "tsx audit-exercise-library.ts",
     "apply:dry": "tsx curate-exercise-library.ts",
     "apply": "tsx curate-exercise-library.ts --apply",
+    "backfill-series-id": "tsx backfill-series-id.ts",
+    "backfill-series-id:apply": "tsx backfill-series-id.ts --apply",
     "test": "jest"
   },
   "dependencies": {
