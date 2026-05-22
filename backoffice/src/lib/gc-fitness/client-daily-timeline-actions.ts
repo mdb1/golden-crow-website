@@ -166,7 +166,12 @@ function isHabitActiveOnDate(
       ? (habit.scheduleWeekdays as number[])
       : [];
     const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
-    return weekdays.includes(weekday);
+    // Backward compatibility: older backoffice builds stored weekdays as
+    // Sun=1..Sat=7. Current canonical mapping is Mon=1..Sun=7.
+    // Accept both so pre-fix habits render on the correct days without
+    // forcing an immediate data migration.
+    const legacyWeekday = weekday === 7 ? 1 : weekday + 1;
+    return weekdays.includes(weekday) || weekdays.includes(legacyWeekday);
   }
   const monthDays = Array.isArray(habit.scheduleMonthDays)
     ? (habit.scheduleMonthDays as number[])
