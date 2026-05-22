@@ -1,0 +1,26 @@
+{
+  "name": "@gc-fitness/curate-library",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GC Fitness exercise-library curation toolkit. Read-only auditor + curation script. Binds firebase-admin to project gcfitness-3476b via the same env-var contract as backoffice/scripts/seed-gc-fitness-library.cjs.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "audit": "tsx audit-exercise-library.ts",
+    "apply:dry": "tsx curate-exercise-library.ts",
+    "apply": "tsx curate-exercise-library.ts --apply",
+    "test": "jest"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.9.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.1.0",
+    "typescript": "^6.0.3"
+  }
+}
