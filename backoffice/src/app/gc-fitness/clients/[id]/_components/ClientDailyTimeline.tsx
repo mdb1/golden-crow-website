@@ -12,12 +12,25 @@ import {
   MessageSquare,
   NotebookText,
   Plus,
+  Trash2,
 } from "lucide-react";
 
 import {
   getClientDailyTimelineDay,
   type ClientDailyTimelineDay,
 } from "@/lib/gc-fitness/client-daily-timeline-actions";
+import { deleteAssignment } from "@/lib/gc-fitness/workout-assignment-actions";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function ClientDailyTimeline({
   clientId,
@@ -38,6 +51,8 @@ export function ClientDailyTimeline({
   );
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
 
   const selected = daysByDate[selectedDate] ?? null;
 
@@ -67,6 +82,49 @@ export function ClientDailyTimeline({
       setError(err instanceof Error ? err.message : "Could not load this day.");
     } finally {
       setLoadingDate((current) => (current === day ? null : current));
+    }
+  }
+
+  async function handleConfirmDelete() {
+    const id = confirmDeleteId;
+    if (!id) return;
+
+    // Snapshot the day for revert-on-error. We capture the day that owns the
+    // assignment by id; in practice this is always the selectedDate, but we
+    // search defensively so a stale dialog cannot delete from the wrong day.
+    const ownerDate = Object.keys(daysByDate).find((d) =>
+      daysByDate[d]?.workouts.some((w) => w.id === id),
+    );
+    if (!ownerDate) {
+      setConfirmDeleteId(null);
+      return;
+    }
+    const previousDay = daysByDate[ownerDate];
+
+    setDeletePending(true);
+    setError(null);
+
+    // Optimistic in-memory drop — the row disappears immediately. If the
+    // Server Action rejects, the finally block reverts to `previousDay`.
+    setDaysByDate((prev) => ({
+      ...prev,
+      [ownerDate]: {
+        ...prev[ownerDate],
+        workouts: prev[ownerDate].workouts.filter((w) => w.id !== id),
+      },
+    }));
+
+    try {
+      await deleteAssignment(id);
+      // Success — close the dialog. Optimistic state is the final state.
+      setConfirmDeleteId(null);
+    } catch (err) {
+      // Revert optimistic update.
+      setDaysByDate((prev) => ({ ...prev, [ownerDate]: previousDay }));
+      setError(err instanceof Error ? err.message : "Could not remove assignment.");
+      setConfirmDeleteId(null);
+    } finally {
+      setDeletePending(false);
     }
   }
 
@@ -168,6 +226,17 @@ export function ClientDailyTimeline({
                           {workout.scheduledTime ? <span>• {workout.scheduledTime}</span> : null}
                         </div>
                       </div>
+                      {workout.status === "scheduled" ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => setConfirmDeleteId(workout.id)}
+                          aria-label={`Remove ${workout.name}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      ) : null}
                     </div>
                     {workout.meetingNotes ? (
                       <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
@@ -340,6 +409,35 @@ export function ClientDailyTimeline({
           Select a day to load its details.
         </div>
       )}
+
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletePending) setConfirmDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove workout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the scheduled workout from the client&apos;s
+              calendar. The client will no longer see it. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deletePending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletePending ? "Removing…" : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
