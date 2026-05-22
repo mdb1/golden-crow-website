@@ -19,18 +19,8 @@ import {
   getClientDailyTimelineDay,
   type ClientDailyTimelineDay,
 } from "@/lib/gc-fitness/client-daily-timeline-actions";
-import { deleteAssignment } from "@/lib/gc-fitness/workout-assignment-actions";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 
 export function ClientDailyTimeline({
   clientId,
@@ -51,8 +41,16 @@ export function ClientDailyTimeline({
   );
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deletePending, setDeletePending] = useState(false);
+  // 260522-ki7 Task F — switched from inline AlertDialog to shared
+  // WorkoutAssignmentDeleteDialog. The dialog owns the deletion lifecycle
+  // (deleteAssignment call, toast, pending state). We hold the trigger
+  // payload here so the cell knows which workout was selected.
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    scheduledFor: string;
+    templateName: string;
+    seriesId?: string | null;
+  } | null>(null);
 
   const selected = daysByDate[selectedDate] ?? null;
 
@@ -85,47 +83,53 @@ export function ClientDailyTimeline({
     }
   }
 
-  async function handleConfirmDelete() {
-    const id = confirmDeleteId;
-    if (!id) return;
-
-    // Snapshot the day for revert-on-error. We capture the day that owns the
-    // assignment by id; in practice this is always the selectedDate, but we
-    // search defensively so a stale dialog cannot delete from the wrong day.
-    const ownerDate = Object.keys(daysByDate).find((d) =>
-      daysByDate[d]?.workouts.some((w) => w.id === id),
-    );
-    if (!ownerDate) {
-      setConfirmDeleteId(null);
+  // 260522-ki7 Task F — invoked by WorkoutAssignmentDeleteDialog after a
+  // successful Server-Action delete. The dialog already surfaced the
+  // success toast and is closing itself.
+  //
+  // - deletedCount === 1 → simple single-doc delete. Drop the row in place
+  //   (mirrors the previous inline optimistic UX from 260521-tjl, just
+  //   moved to post-success since the dialog now owns the request).
+  // - deletedCount > 1 → cascade across the series. Multiple days may be
+  //   affected — clear the in-memory cache and reload the currently-selected
+  //   day. Other cached days will lazy-load on next selection.
+  function handleDeleteSuccess(
+    id: string,
+    result: { ok: true; deletedCount: number },
+  ) {
+    if (result.deletedCount <= 1) {
+      const ownerDate = Object.keys(daysByDate).find((d) =>
+        daysByDate[d]?.workouts.some((w) => w.id === id),
+      );
+      if (!ownerDate) return;
+      setDaysByDate((prev) => ({
+        ...prev,
+        [ownerDate]: {
+          ...prev[ownerDate],
+          workouts: prev[ownerDate].workouts.filter((w) => w.id !== id),
+        },
+      }));
       return;
     }
-    const previousDay = daysByDate[ownerDate];
 
-    setDeletePending(true);
+    // Cascade: drop all cached days and re-fetch the selected one.
+    setDaysByDate({ [initialDay.date]: initialDay });
+    setLoadingDate(selectedDate);
     setError(null);
-
-    // Optimistic in-memory drop — the row disappears immediately. If the
-    // Server Action rejects, the finally block reverts to `previousDay`.
-    setDaysByDate((prev) => ({
-      ...prev,
-      [ownerDate]: {
-        ...prev[ownerDate],
-        workouts: prev[ownerDate].workouts.filter((w) => w.id !== id),
-      },
-    }));
-
-    try {
-      await deleteAssignment(id);
-      // Success — close the dialog. Optimistic state is the final state.
-      setConfirmDeleteId(null);
-    } catch (err) {
-      // Revert optimistic update.
-      setDaysByDate((prev) => ({ ...prev, [ownerDate]: previousDay }));
-      setError(err instanceof Error ? err.message : "Could not remove assignment.");
-      setConfirmDeleteId(null);
-    } finally {
-      setDeletePending(false);
-    }
+    getClientDailyTimelineDay(clientId, selectedDate)
+      .then((loaded) => {
+        setDaysByDate({ [selectedDate]: loaded });
+      })
+      .catch((err: unknown) => {
+        setError(
+          err instanceof Error ? err.message : "Could not refresh the day.",
+        );
+      })
+      .finally(() => {
+        setLoadingDate((current) =>
+          current === selectedDate ? null : current,
+        );
+      });
   }
 
   return (
@@ -231,7 +235,14 @@ export function ClientDailyTimeline({
                           variant="ghost"
                           size="icon"
                           className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => setConfirmDeleteId(workout.id)}
+                          onClick={() =>
+                            setDeleteTarget({
+                              id: workout.id,
+                              scheduledFor: selected.date,
+                              templateName: workout.name,
+                              seriesId: workout.seriesId ?? null,
+                            })
+                          }
                           aria-label={`Remove ${workout.name}`}
                         >
                           <Trash2 className="size-3.5" />
@@ -410,34 +421,20 @@ export function ClientDailyTimeline({
         </div>
       )}
 
-      <AlertDialog
-        open={confirmDeleteId !== null}
-        onOpenChange={(open) => {
-          if (!open && !deletePending) setConfirmDeleteId(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove workout?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the scheduled workout from the client&apos;s
-              calendar. The client will no longer see it. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={deletePending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletePending ? "Removing…" : "Remove"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {deleteTarget ? (
+        <WorkoutAssignmentDeleteDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          assignmentId={deleteTarget.id}
+          scheduledFor={deleteTarget.scheduledFor}
+          templateName={deleteTarget.templateName}
+          seriesId={deleteTarget.seriesId ?? null}
+          onDeleted={(result) => {
+            handleDeleteSuccess(deleteTarget.id, result);
+            setDeleteTarget(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

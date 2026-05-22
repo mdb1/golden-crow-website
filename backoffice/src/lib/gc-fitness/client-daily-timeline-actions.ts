@@ -17,6 +17,11 @@ export interface ClientDailyTimelineDay {
     scheduledFor: string;
     scheduledTime: string | null;
     meetingNotes: string | null;
+    // 260522-ki7 Task F: shared uuid across docs in a recurring series.
+    // null on non-recurring assignments AND on legacy docs until backfill
+    // (Task B). Consumers use presence to decide whether to render the
+    // recurring radio in WorkoutAssignmentDeleteDialog.
+    seriesId?: string | null;
   }>;
   workoutLogs: Array<{
     id: string;
@@ -303,6 +308,7 @@ export async function getClientDailyTimeline(
       scheduledFor: day,
       scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
       meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
+      seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
     });
   });
 
@@ -533,6 +539,7 @@ export async function getClientDailyTimelineDay(
       scheduledFor: civilDate,
       scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
       meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
+      seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
     });
   });
 
