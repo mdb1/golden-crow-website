@@ -84,8 +84,13 @@ import "server-only";
 import { cookies } from "next/headers";
 import { getTokens } from "next-firebase-auth-edge";
 
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+
 import { getCurrentTrainer } from "./auth-helpers";
+import { civilDateToday } from "./civil-date";
+import { FirestoreCollections } from "./collections";
 import { nudgeInputSchema } from "./nudge-schema";
+import { DAILY_TOTAL_CAP, NUDGE_CATEGORY_CAP } from "./push-cap-schema";
 
 /**
  * Wire-shape mirror of the 10-07 callable's `SendTrainerNudgeResult`.
@@ -264,6 +269,143 @@ async function invokeCallable<TInput, TResult>(
  * Errors thrown from this function are surfaced to the NudgeButton's
  * submit handler, which renders a sonner toast describing the failure.
  */
+/**
+ * Snapshot of the trainer-nudge daily push cap status for one client.
+ * Returned by `getNudgeCapStatus(clientId)` and consumed by the
+ * NudgeButton UI to render the inline "X / Y today" counter and gate the
+ * Send button.
+ *
+ * Two caps actually apply server-side (see `functions/src/push/types.ts`):
+ *   - DAILY_TOTAL_CAP=4 across non-chat categories
+ *   - NUDGE_CATEGORY_CAP=3 for the `nudge` category specifically
+ * The orchestrator drops a send if EITHER is hit. `remaining` already
+ * factors both in (min of the two) so the UI can disable based on a
+ * single number. `gatingCap` says which cap is the limiting one when
+ * `remaining === 0`, used for the tooltip explaining the disabled state.
+ */
+export interface NudgeCapStatus {
+  /** Total non-chat pushes the client has already received today. */
+  totalUsed: number;
+  /** `DAILY_TOTAL_CAP` — the total cap. */
+  totalCap: number;
+  /** Nudge-category pushes the client has already received today. */
+  nudgeUsed: number;
+  /** `NUDGE_CATEGORY_CAP` — the per-category cap. */
+  nudgeCap: number;
+  /** `min(totalCap - totalUsed, nudgeCap - nudgeUsed)`, clamped to >= 0. */
+  remaining: number;
+  /**
+   * Which cap caused `remaining` to be 0. `"none"` when `remaining > 0`.
+   * Drives the disabled-button tooltip copy in NudgeButton.
+   */
+  gatingCap: "total" | "nudge" | "none";
+  /** The `YYYY-MM-DD` civil date in the client's timezone the counts are for. */
+  civilDate: string;
+  /** The client's IANA timezone (defaults to `"UTC"` if unset on the user doc). */
+  timezone: string;
+}
+
+/**
+ * Server Action: read the daily push cap status for one client. Used by
+ * the NudgeButton component to render the inline "X / 4 today" counter
+ * and gate the Send button when the daily cap is reached.
+ *
+ * Pipeline:
+ *   1. `getCurrentTrainer()` — trainer-session gate (uniform "Forbidden"
+ *      on cookie / role / allowlist failure). Mirrors `sendTrainerNudge`.
+ *   2. Validate `clientId` shape (string, 1..64 chars — Firestore doc-id
+ *      bound).
+ *   3. Read the client's user doc + assert ownership (`coachId ===
+ *      trainer.uid`). Defense in depth even though the counter doc
+ *      itself doesn't leak much.
+ *   4. Compute `civilDate` in the client's timezone (via the shared
+ *      `civilDateToday` helper that's already the same-source-of-truth
+ *      twin of the Cloud Function's `civilDateInTimezone`).
+ *   5. Read `users/{clientId}/push_counters/{civilDate}`. Missing doc
+ *      means zero pushes today.
+ *
+ * The counter subcollection is server-write-only per the rule layer
+ * (P10-04), so Admin SDK is the only way to read it from a trainer's
+ * surface. The Server Action runs server-side with the Admin client —
+ * Firestore rules don't apply.
+ *
+ * Returns: `NudgeCapStatus` — the UI computes display strings and
+ * disabled state from these primitives.
+ */
+export async function getNudgeCapStatus(
+  clientId: string,
+): Promise<NudgeCapStatus> {
+  // (1) Trainer-session gate.
+  const trainer = await getCurrentTrainer();
+
+  // (2) Minimal clientId shape check (defense in depth — Firestore would
+  // reject a >1500 byte doc-id anyway, but we keep the bound tight).
+  if (
+    typeof clientId !== "string" ||
+    clientId.length === 0 ||
+    clientId.length > 64
+  ) {
+    throw new Error("Invalid clientId");
+  }
+
+  // (3) Read client doc + ownership precondition.
+  const db = gcFitnessFirestore();
+  const userSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  if (!userSnap.exists) {
+    throw new Error("Not Found");
+  }
+  const userData = userSnap.data() ?? {};
+  if (userData.coachId !== trainer.uid) {
+    throw new Error("Forbidden");
+  }
+
+  // (4) civilDate in client's timezone (matches the orchestrator's
+  // counter key — see `functions/src/push/enqueuePush.ts`).
+  const timezone =
+    typeof userData.timezone === "string" && userData.timezone.length > 0
+      ? (userData.timezone as string)
+      : "UTC";
+  const civilDate = civilDateToday(timezone);
+
+  // (5) Counter read — subcollection literal because the constant isn't
+  // in `FirestoreCollections` yet (server-only subcollection; nothing
+  // else in the backoffice reads it).
+  const counterSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .collection("push_counters")
+    .doc(civilDate)
+    .get();
+  const counter = counterSnap.exists ? (counterSnap.data() ?? {}) : {};
+  const totalUsed = typeof counter.total === "number" ? counter.total : 0;
+  const nudgeUsed = typeof counter.nudge === "number" ? counter.nudge : 0;
+
+  const totalRemaining = Math.max(0, DAILY_TOTAL_CAP - totalUsed);
+  const nudgeRemaining = Math.max(0, NUDGE_CATEGORY_CAP - nudgeUsed);
+  const remaining = Math.min(totalRemaining, nudgeRemaining);
+
+  let gatingCap: NudgeCapStatus["gatingCap"] = "none";
+  if (remaining === 0) {
+    // Which cap was hit first? If the nudge cap is the tighter binding,
+    // it gates. Otherwise the total cap does.
+    gatingCap = nudgeRemaining <= totalRemaining ? "nudge" : "total";
+  }
+
+  return {
+    totalUsed,
+    totalCap: DAILY_TOTAL_CAP,
+    nudgeUsed,
+    nudgeCap: NUDGE_CATEGORY_CAP,
+    remaining,
+    gatingCap,
+    civilDate,
+    timezone,
+  };
+}
+
 export async function sendTrainerNudge(
   input: unknown,
 ): Promise<NudgeActionResult> {

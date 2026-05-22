@@ -39,7 +39,7 @@
 //  per the P08-04 deterministic doc-id contract — the caller passes
 //  `clientId={chatId}` directly.
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -64,13 +64,24 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-import { sendTrainerNudge } from "@/lib/gc-fitness/nudge-server-actions";
+import {
+  getNudgeCapStatus,
+  sendTrainerNudge,
+  type NudgeCapStatus,
+} from "@/lib/gc-fitness/nudge-server-actions";
 import {
   nudgeInputSchema,
   NUDGE_MESSAGE_MAX_LENGTH,
   type NudgeInput,
 } from "@/lib/gc-fitness/nudge-schema";
+import { NUDGE_CATEGORY_CAP } from "@/lib/gc-fitness/push-cap-schema";
 
 export interface NudgeButtonProps {
   /** Recipient client's Firebase Auth uid — equals the chatId per the
@@ -83,6 +94,38 @@ export interface NudgeButtonProps {
 export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Daily push cap snapshot (P10-08 follow-up — 260522). Server Action
+  // returns BOTH cap dimensions (total of 4 across non-chat categories,
+  // nudge-category of 3) plus the effective `remaining` (min of the two)
+  // so the trainer sees a single number and the button disables when
+  // EITHER cap is hit. `gatingCap` drives the tooltip copy on the
+  // disabled state — distinguishes "you hit the total push cap" from
+  // "you hit the nudge-specific cap".
+  const [capStatus, setCapStatus] = useState<NudgeCapStatus | null>(null);
+  const [capError, setCapError] = useState<string | null>(null);
+  const [capLoading, setCapLoading] = useState(false);
+
+  const refreshCapStatus = useCallback(async () => {
+    setCapLoading(true);
+    try {
+      const status = await getNudgeCapStatus(clientId);
+      setCapStatus(status);
+      setCapError(null);
+    } catch (err) {
+      // Soft-fail: if the cap read errors (e.g., transient Firestore
+      // outage), we leave the button enabled and surface a small "—"
+      // pill. The callable will still reject if the cap is really hit.
+      setCapStatus(null);
+      setCapError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setCapLoading(false);
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    void refreshCapStatus();
+  }, [refreshCapStatus]);
 
   // The Zod transform strips control chars + trims on parse. The form's
   // `mode: "onChange"` runs the validator on every keystroke so the
@@ -129,6 +172,11 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
       toast.error("Couldn't send the nudge", { description: message });
     } finally {
       setSubmitting(false);
+      // Refresh the cap counter regardless of outcome — a server-side
+      // increment landed if the orchestrator decided send_now/queued
+      // (Pitfall: increment happens before the FCM call even when
+      // delivery fails). Pulling fresh state keeps the UI honest.
+      void refreshCapStatus();
     }
   }
 
@@ -141,34 +189,124 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
     setOpen(next);
   }
 
+  // Daily cap gate: disable the Send button when the orchestrator would
+  // drop this nudge. `remaining === 0` covers both the per-category and
+  // total cap (the Server Action takes min(...)). `capStatus == null`
+  // happens during the initial load AND on a soft-failed cap read — we
+  // leave the button enabled in that case because the callable still
+  // enforces server-side; falsely blocking the trainer is worse than
+  // letting them try and see the rejection toast.
+  const capReached = capStatus !== null && capStatus.remaining === 0;
+
   // Disable Submit when:
   //   - currently submitting (avoid double-tap → double-counter), OR
   //   - form has any validation errors, OR
   //   - message is empty (form.formState.isValid only flips after the
   //     first interaction in mode: 'onChange', so we double-check the
-  //     trimmed length).
+  //     trimmed length), OR
+  //   - daily cap is reached (260522 follow-up).
   const trimmedLen = (watchedMessage ?? "").trim().length;
   const canSubmit =
     !submitting &&
     trimmedLen > 0 &&
     !overCap &&
+    !capReached &&
     Object.keys(form.formState.errors).length === 0;
+
+  // Inline counter label. We display the TOTAL cap because that's the
+  // umbrella budget the trainer reasons about ("4 pushes / day"). The
+  // nudge-specific cap (3) is a secondary constraint that's only tighter
+  // when the client has already received 3 nudges and no other pushes —
+  // rare; when it does gate, the disabled-state tooltip explains.
+  const capLabel = capStatus
+    ? `${capStatus.totalUsed} / ${capStatus.totalCap} today`
+    : capLoading
+      ? "—"
+      : "—";
+
+  // Tooltip body — explains why the button is disabled, or surfaces the
+  // soft-error from a failed cap read.
+  let capTooltip: string;
+  if (capError) {
+    capTooltip = `Couldn't read today's push count (${capError}). The send will still be checked server-side.`;
+  } else if (capReached && capStatus) {
+    capTooltip =
+      capStatus.gatingCap === "nudge"
+        ? `Daily nudge cap reached (${capStatus.nudgeUsed} / ${capStatus.nudgeCap}). Resets at midnight in ${clientName}'s timezone (${capStatus.timezone}).`
+        : `Daily push cap reached (${capStatus.totalUsed} / ${capStatus.totalCap} across nudges, assignments, PRs). Resets at midnight in ${clientName}'s timezone (${capStatus.timezone}).`;
+  } else if (capStatus) {
+    capTooltip = `${capStatus.remaining} push${
+      capStatus.remaining === 1 ? "" : "es"
+    } remaining today (resets midnight ${capStatus.timezone}).`;
+  } else {
+    capTooltip = "Loading today's push count…";
+  }
+
+  const triggerButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      className="gap-1"
+      disabled={capReached}
+    >
+      <Send className="size-4" />
+      Send nudge
+      <span
+        aria-live="polite"
+        className={`ml-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+          capReached
+            ? "border-destructive/40 bg-destructive/10 text-destructive"
+            : "border-muted-foreground/30 text-muted-foreground"
+        }`}
+      >
+        {capLabel}
+      </span>
+    </Button>
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1">
-          <Send className="size-4" />
-          Send nudge
-        </Button>
-      </DialogTrigger>
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {capReached ? (
+              // shadcn's DialogTrigger requires its child to be a Button.
+              // When the trigger is disabled we render the Button OUTSIDE
+              // the DialogTrigger so clicking it does NOT open the dialog
+              // — only the tooltip shows. (DialogTrigger asChild +
+              // disabled child swallows the click but still announces
+              // the open state to AT — undesirable here.)
+              triggerButton
+            ) : (
+              <DialogTrigger asChild>{triggerButton}</DialogTrigger>
+            )}
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-xs text-xs">
+            {capTooltip}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Send a nudge to {clientName}</DialogTitle>
           <DialogDescription>
-            Send a one-off push notification. Subject to your client&apos;s
-            notification preferences and the daily cap (3 nudges / day per
-            client).
+            Send a one-off push notification.{" "}
+            {capStatus ? (
+              <>
+                Subject to your client&apos;s notification preferences.{" "}
+                <span className="font-medium">
+                  {capStatus.remaining}
+                </span>{" "}
+                of {capStatus.totalCap} push
+                {capStatus.totalCap === 1 ? "" : "es"} remaining today (resets
+                at midnight in {capStatus.timezone}).
+              </>
+            ) : (
+              <>
+                Subject to your client&apos;s notification preferences and a
+                daily cap of {NUDGE_CATEGORY_CAP} nudges per client.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
