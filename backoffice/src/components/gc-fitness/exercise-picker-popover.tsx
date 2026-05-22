@@ -30,7 +30,21 @@
 // SOFT-DELETE FILTER: exercises with `deleted: true` are excluded — a
 // trainer should not be able to attach a deleted exercise to a new
 // template. The existing template list (where a deleted exercise is
-// already referenced) preserves the snapshot via Pattern 3.
+// already referenced) preserves the snapshot via Pattern 3. Curation-pass
+// soft-deletes (`deletedAt != null`, written by 260522-hi5 Task B) are
+// already filtered server-side by `exercises-listener.ts`; the
+// `deleted !== true` filter below adds the legacy trainer-authored
+// sentinel guard.
+//
+// BILINGUAL SEARCH (260522-hi5 Task C): the Command fuzzy-search `value`
+// concatenates the EN name, ES name (committed to Firestore by Task B),
+// and muscle group tokens, then runs them through `normalizeSearchText`
+// (lowercases + strips Latin diacritics) so typing "sentadilla" matches
+// "Sentadílla" / "SENTADILLA" / "Sentadilla". Each row visibly displays
+// the EN name as the primary label and the ES name as a secondary muted
+// line below — only when the ES name is non-empty AND different from the
+// EN name (so legitimately-same-in-both-languages survivors like "Plank"
+// don't render a redundant duplicate line).
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
@@ -81,6 +95,43 @@ function formatLabel(s: string): string {
 
 function exerciseDisplayName(row: ExerciseRow): string {
   return row.name.en || row.name.es || "(untitled)";
+}
+
+/**
+ * Returns the row's Spanish name when it should be rendered as a separate
+ * secondary line — non-empty AND meaningfully different from the EN primary.
+ * Returns "" otherwise (caller skips rendering the secondary span).
+ *
+ * "Different" is measured against the lowercased+diacritic-stripped form so a
+ * survivor whose ES === EN modulo accents (e.g., "Plank" / "Plank") doesn't
+ * render a duplicate line.
+ */
+export function displayEs(row: ExerciseRow): string {
+  const en = (row.name.en ?? "").trim();
+  const es = (row.name.es ?? "").trim();
+  if (!es) return "";
+  if (normalizeSearchText(en) === normalizeSearchText(es)) return "";
+  return es;
+}
+
+/**
+ * Lowercases + strips Latin diacritics + collapses whitespace. Used both
+ * inside the Command `value` prop (so the fuzzy-matcher sees normalized
+ * input AND normalized haystack) and in `displayEs` to decide whether the
+ * ES line is meaningfully different from EN.
+ *
+ * Examples:
+ *   "Sentadílla"        -> "sentadilla"
+ *   "Press de banca"    -> "press de banca"
+ *   "  Squat  "         -> "squat"
+ */
+export function normalizeSearchText(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function previewUrl(url?: string | null): string | null {
@@ -152,7 +203,19 @@ export function ExercisePickerPopover({
                   <Dumbbell className="h-3 w-3" />
                 )}
               </span>
-              <span className="font-medium">{exerciseDisplayName(selected)}</span>
+              <span className="flex flex-col">
+                <span className="font-medium">
+                  {exerciseDisplayName(selected)}
+                </span>
+                {displayEs(selected) && (
+                  <span
+                    className="text-xs italic text-muted-foreground"
+                    data-testid="exercise-picker-trigger-es"
+                  >
+                    {displayEs(selected)}
+                  </span>
+                )}
+              </span>
             </span>
           ) : (
             <span className="text-sm text-muted-foreground">{placeholder}</span>
@@ -185,44 +248,64 @@ export function ExercisePickerPopover({
               <>
                 <CommandEmpty>No matches.</CommandEmpty>
                 <CommandGroup>
-                  {exercises.map((ex) => (
-                    <CommandItem
-                      key={ex.id}
-                      // `value` is what Command's fuzzy search filters on —
-                      // include both EN + ES names + muscle groups so the
-                      // trainer can search by Spanish name too.
-                      value={`${ex.name.en} ${ex.name.es} ${ex.muscleGroups.join(" ")}`}
-                      onSelect={() => handleSelect(ex.id)}
-                      className="flex items-center gap-3"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
+                  {exercises.map((ex) => {
+                    const esLine = displayEs(ex);
+                    return (
+                      <CommandItem
+                        key={ex.id}
+                        // `value` is what Command's fuzzy search filters on
+                        // — include both EN + ES names + muscle groups so
+                        // the trainer can search by Spanish name too. We
+                        // normalize (lowercase + strip diacritics) so
+                        // "sentadilla" matches "Sentadílla" / "Sentadilla".
+                        value={normalizeSearchText(
+                          [
+                            ex.name.en,
+                            ex.name.es,
+                            ex.muscleGroups.join(" "),
+                          ].join(" "),
+                        )}
+                        onSelect={() => handleSelect(ex.id)}
+                        className="flex items-center gap-3"
+                        data-testid={`exercise-picker-row-${ex.id}`}
                       >
-                        {previewUrl(ex.thumbnailURL) ? (
-                          <Image
-                            src={previewUrl(ex.thumbnailURL)!}
-                            alt=""
-                            width={48}
-                            height={28}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Dumbbell className="h-3 w-3" />
-                        )}
-                      </span>
-                      <span className="flex flex-col">
-                        <span className="font-medium">
-                          {exerciseDisplayName(ex)}
+                        <span
+                          aria-hidden="true"
+                          className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
+                        >
+                          {previewUrl(ex.thumbnailURL) ? (
+                            <Image
+                              src={previewUrl(ex.thumbnailURL)!}
+                              alt=""
+                              width={48}
+                              height={28}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Dumbbell className="h-3 w-3" />
+                          )}
                         </span>
-                        {ex.muscleGroups.length > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            {ex.muscleGroups.map(formatLabel).join(", ")}
+                        <span className="flex flex-col">
+                          <span className="font-medium">
+                            {exerciseDisplayName(ex)}
                           </span>
-                        )}
-                      </span>
-                    </CommandItem>
-                  ))}
+                          {esLine && (
+                            <span
+                              className="text-xs italic text-muted-foreground"
+                              data-testid={`exercise-picker-es-${ex.id}`}
+                            >
+                              {esLine}
+                            </span>
+                          )}
+                          {ex.muscleGroups.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {ex.muscleGroups.map(formatLabel).join(", ")}
+                            </span>
+                          )}
+                        </span>
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
               </>
             )}
