@@ -52,6 +52,7 @@
 
 import {
   Users, // Clients (the roster — 11-05)
+  Activity, // Recent logs feed
   Dumbbell, // Workouts (templates from P04)
   ListChecks, // Habits (CRUD from P06)
   Library, // Exercises (library from P03)
@@ -111,6 +112,14 @@ export const GC_FITNESS_NAV: AdminNavItem[] = [
     href: "/gc-fitness/clients",
     description: "Roster with last activity, compliance, unread chat (11-05).",
     icon: Users,
+    visibleRoles: TRAINER_ROLES,
+  },
+  {
+    section: "gc-fitness-roster",
+    label: "Recent Logs",
+    href: "/gc-fitness/recent-logs",
+    description: "Cross-client recent habit/workout activity feed.",
+    icon: Activity,
     visibleRoles: TRAINER_ROLES,
   },
   // Content section

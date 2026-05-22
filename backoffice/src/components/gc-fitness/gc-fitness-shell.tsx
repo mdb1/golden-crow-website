@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   CalendarDays,
   Dumbbell,
   Home,
@@ -55,6 +56,11 @@ const sections = [
         label: "Schedule",
         href: "/gc-fitness/schedule",
         icon: CalendarDays,
+      },
+      {
+        label: "Recent Logs",
+        href: "/gc-fitness/recent-logs",
+        icon: Activity,
       },
     ],
   },
