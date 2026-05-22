@@ -27,6 +27,14 @@
 // templates page wraps the form in such a provider (see
 // `/templates/new/page.tsx`).
 //
+// 260522-mo2 Task D: preview source resolution now prefers gifUrl >
+// imageUrl > thumbnailURL, with `unoptimized` set for animated GIFs so
+// Next's image optimizer doesn't strip frames. BOTH the inner src= prop
+// AND the outer conditional in the popover row + trigger-selected blocks
+// reference `previewSrc(row)` — do not bisect them or one branch
+// (gif-only: gifUrl set, thumbnailURL null) will silently hide the
+// preview.
+//
 // SOFT-DELETE FILTER: exercises with `deleted: true` are excluded — a
 // trainer should not be able to attach a deleted exercise to a new
 // template. The existing template list (where a deleted exercise is
@@ -141,6 +149,27 @@ function previewUrl(url?: string | null): string | null {
   return null;
 }
 
+// 260522-mo2 Task D: preview source resolution now prefers gifUrl >
+// imageUrl > thumbnailURL. BOTH the inner `src=` prop AND the OUTER
+// conditional in the popover row + trigger-selected blocks reference
+// `previewSrc(row)` — do not bisect them or gif-only rows (gifUrl set,
+// thumbnailURL null) will silently hide the preview (Revision fix #3).
+function previewSrc(
+  row: Pick<ExerciseRow, "gifUrl" | "imageUrl" | "thumbnailURL">,
+): string | null {
+  return (
+    previewUrl(row.gifUrl) ??
+    previewUrl(row.imageUrl) ??
+    previewUrl(row.thumbnailURL)
+  );
+}
+
+// Animated GIFs need `unoptimized` on next/image — Next's image optimizer
+// strips frames otherwise. Static JPGs go through the optimizer.
+function isGifUrl(url: string | null): boolean {
+  return typeof url === "string" && /\.gif(\?|$)/i.test(url);
+}
+
 export function ExercisePickerPopover({
   value,
   onChange,
@@ -191,13 +220,14 @@ export function ExercisePickerPopover({
                 aria-hidden="true"
                 className="flex h-6 w-10 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
               >
-                {previewUrl(selected.thumbnailURL) ? (
+                {previewSrc(selected) ? (
                   <Image
-                    src={previewUrl(selected.thumbnailURL)!}
+                    src={previewSrc(selected)!}
                     alt=""
                     width={40}
                     height={24}
                     className="h-full w-full object-cover"
+                    unoptimized={isGifUrl(previewSrc(selected))}
                   />
                 ) : (
                   <Dumbbell className="h-3 w-3" />
@@ -273,13 +303,14 @@ export function ExercisePickerPopover({
                           aria-hidden="true"
                           className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
                         >
-                          {previewUrl(ex.thumbnailURL) ? (
+                          {previewSrc(ex) ? (
                             <Image
-                              src={previewUrl(ex.thumbnailURL)!}
+                              src={previewSrc(ex)!}
                               alt=""
                               width={48}
                               height={28}
                               className="h-full w-full object-cover"
+                              unoptimized={isGifUrl(previewSrc(ex))}
                             />
                           ) : (
                             <Dumbbell className="h-3 w-3" />

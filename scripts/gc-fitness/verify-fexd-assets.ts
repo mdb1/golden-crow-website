@@ -170,10 +170,30 @@ async function main(): Promise<void> {
         process.stdout.write(`  RAW-GITHUB leak on ${pick.exerciseId}: ${u}\n`);
         break;
       }
-      if (!/firebasestorage\.googleapis\.com|^gs:\/\//.test(u)) {
+      // Accept any of the three valid Firebase Storage URL shapes:
+      //   1. firebasestorage.googleapis.com/v0/b/<bucket>/o/<path> (consumer SDK getDownloadURL)
+      //   2. storage.googleapis.com/<bucket>/<path>?GoogleAccessId=... (Admin SDK v2 getSignedUrl)
+      //   3. gs://<bucket>/<path> (admin-only)
+      // The Admin SDK's getSignedUrl returns shape #2 — the bucket name
+      // appears in the URL path, which is what we verify here.
+      const isFirebaseStorageHost =
+        /firebasestorage\.googleapis\.com/i.test(u) ||
+        /storage\.googleapis\.com/i.test(u) ||
+        u.startsWith("gs://");
+      if (!isFirebaseStorageHost) {
         firestoreMissing++;
         pickOk = false;
         process.stdout.write(`  UNEXPECTED url host on ${pick.exerciseId}: ${u}\n`);
+        break;
+      }
+      // Cross-check that the URL references the expected bucket (project
+      // gcfitness-3476b). This catches cross-project leaks.
+      if (!u.includes(bucket.name) && !u.includes(`gcfitness-3476b`)) {
+        firestoreMissing++;
+        pickOk = false;
+        process.stdout.write(
+          `  UNEXPECTED bucket on ${pick.exerciseId}: ${u}\n`,
+        );
         break;
       }
     }
