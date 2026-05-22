@@ -224,6 +224,16 @@ export async function listRecentLogsForTrainer(): Promise<{
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId || !nameByClientId.has(clientId)) return;
 
+    // 260522-ook — skip soft-deleted habit logs. The iOS surface's
+    // `unrecordLog` (HabitRepository.swift) updates the doc with
+    // `deleted: true` instead of hard-deleting, which kept the row
+    // visible in the feed as a misleading "Habit updated / Pending
+    // update" entry even though the client had explicitly un-checked
+    // their previous mark. From the trainer's POV the cleanest
+    // semantic is "the activity didn't happen", so the row disappears
+    // rather than rendering as a pending action.
+    if (data.deleted === true) return;
+
     // Use write-time first so "recent logs" reflects when the coach/client
     // actually changed the habit, not just the civil-date bucket timestamp.
     const eventAt =
@@ -234,7 +244,7 @@ export async function listRecentLogsForTrainer(): Promise<{
 
     const habitId = typeof data.habitId === "string" ? data.habitId : "";
     const habitName = habitNames.get(habitId) ?? "Habit";
-    const completed = boolCompleted(data.value) && data.deleted !== true;
+    const completed = boolCompleted(data.value);
 
     rows.push({
       id: `habit:${doc.id}`,
