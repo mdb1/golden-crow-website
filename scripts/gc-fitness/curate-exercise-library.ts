@@ -390,10 +390,23 @@ export function computePatch(
 
 // ---------------------------------------------------------------------------
 // Batch commit (B.beh.2 — chunks of ≤450, matches Firestore 500-ceiling)
+//
+// Extended in plan 260522-mo2 Task C (Revision fix #2) to support per-write
+// `op: 'update' | 'set'`. The 260522-hi5 caller passes `writes` without an
+// `op` field — the default 'update' preserves byte-identical behavior for
+// that caller. The 260522-mo2 seed-from-fexd.ts caller passes `op: 'set'`
+// for NEW inserts (batch.update on a non-existent doc throws) and
+// `op: 'update'` for MATCH overwrites + soft-deletes.
+//
+// Chunk size is **450**, NOT 250 (per plan Revision fix #5 — the prior
+// drafted "250 writes per chunk" wording was incorrect; the reused
+// implementation has always been 450, matching Firestore's 500-batch
+// ceiling with headroom for serverTimestamps + per-write overhead).
 // ---------------------------------------------------------------------------
 
 interface BatchLike {
   update(ref: unknown, data: Record<string, unknown>): unknown;
+  set?(ref: unknown, data: Record<string, unknown>): unknown;
   commit(): Promise<unknown>;
 }
 interface DbLike {
@@ -401,9 +414,16 @@ interface DbLike {
   collection(name: string): { doc(id: string): unknown; get?(): unknown };
 }
 
+export interface ChunkedWrite {
+  ref: unknown;
+  data: Record<string, unknown>;
+  /** Defaults to 'update' when omitted (backwards-compat with 260522-hi5 callers). */
+  op?: "update" | "set";
+}
+
 export async function commitInChunks(
   db: DbLike,
-  writes: { ref: unknown; data: Record<string, unknown> }[],
+  writes: ChunkedWrite[],
   apply: boolean,
 ): Promise<number> {
   if (!apply || writes.length === 0) return 0;
@@ -411,7 +431,19 @@ export async function commitInChunks(
   for (let i = 0; i < writes.length; i += 450) {
     const batch = db.batch();
     const slice = writes.slice(i, i + 450);
-    for (const w of slice) batch.update(w.ref, w.data);
+    for (const w of slice) {
+      const op = w.op ?? "update";
+      if (op === "set") {
+        if (typeof batch.set !== "function") {
+          throw new Error(
+            "batch.set is not available — db.batch() must return a Firestore batch supporting both .update() and .set()",
+          );
+        }
+        batch.set(w.ref, w.data);
+      } else {
+        batch.update(w.ref, w.data);
+      }
+    }
     await batch.commit();
     committed += slice.length;
   }

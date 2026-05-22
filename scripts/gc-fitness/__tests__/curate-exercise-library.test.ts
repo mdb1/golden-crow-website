@@ -146,21 +146,50 @@ describe("commitInChunks", () => {
     expect(b1.batch.update).toHaveBeenCalledTimes(1);
   });
 
-  it("B.beh.8: no batch.delete( or batch.set( CALL site appears in the script source", () => {
-    // Grep-level guard — protects against future regressions where someone
-    // pattern-matches a copy/pasted block from seed-gc-fitness-library.cjs that
-    // contains `batch.set(`. The curation pass is SOFT-DELETE ONLY.
-    //
-    // We require an open paren immediately after the call so comments that
-    // merely mention the names (e.g., this very line) don't trip the check.
-    // Comment lines must NOT contain the literal `batch.set(` / `batch.delete(`
-    // tokens — that's the contract.
+  it("260522-mo2 Revision fix #2: op:'set' routes to batch.set, op:'update' (or omitted) routes to batch.update", async () => {
+    // Each batch carries BOTH a set spy and an update spy. The mixed-write
+    // input must hit each spy exactly the right number of times, with no
+    // crossover (no batch.update called with the set-targeted ref and vice
+    // versa).
+    const setSpy = jest.fn();
+    const updateSpy = jest.fn();
+    const commitSpy = jest.fn(async () => undefined);
+    const batch = { set: setSpy, update: updateSpy, commit: commitSpy };
+    const db = makeMockDb([batch as never]);
+    const writes = [
+      { ref: "ref-update", data: { x: 1 }, op: "update" as const },
+      { ref: "ref-set", data: { y: 2 }, op: "set" as const },
+      { ref: "ref-default", data: { z: 3 } }, // omitted op → default 'update'
+    ];
+    const committed = await commitInChunks(db as never, writes, true);
+    expect(committed).toBe(3);
+    // batch.update gets the two op:'update' (explicit + default) writes.
+    expect(updateSpy).toHaveBeenCalledTimes(2);
+    expect(updateSpy).toHaveBeenCalledWith("ref-update", { x: 1 });
+    expect(updateSpy).toHaveBeenCalledWith("ref-default", { z: 3 });
+    // batch.set gets the single op:'set' write.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy).toHaveBeenCalledWith("ref-set", { y: 2 });
+    // No crossover.
+    expect(updateSpy).not.toHaveBeenCalledWith("ref-set", expect.anything());
+    expect(setSpy).not.toHaveBeenCalledWith("ref-update", expect.anything());
+    expect(setSpy).not.toHaveBeenCalledWith("ref-default", expect.anything());
+    expect(commitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("B.beh.8: no batch.delete( CALL site appears in the script source", () => {
+    // Grep-level guard — the 260522-hi5 curation pass is SOFT-DELETE ONLY,
+    // so a destructive batch.delete( would be a clear regression. The
+    // 260522-mo2 Task C extension to commitInChunks ADDED a legitimate
+    // batch.set( call site for NEW fexd-<slug> inserts (a batch.update on a
+    // non-existent doc-id throws) — so the prior `batch.set(` ban was
+    // dropped (Revision fix #2). The remaining guard catches batch.delete(
+    // which neither curation pass needs.
     const src = fs.readFileSync(
       path.resolve(__dirname, "..", "curate-exercise-library.ts"),
       "utf8",
     );
     expect(/batch\.delete\s*\(/.test(src)).toBe(false);
-    expect(/batch\.set\s*\(/.test(src)).toBe(false);
   });
 });
 
