@@ -1,0 +1,101 @@
+{
+  "_meta": {
+    "description": "EN+ES canonical translations for the 78 wger-* survivors approved at the Task A.gate of plan 260522-hi5. Source: user-approved ALLOWLIST-PROPOSAL.md with 2 dedupe false-positives lifted (Decline Bench Press Dumbbell + Beinbeuger Stehend now survive as separate exercises). Every entry overwrites both name.en and name.es because the wger seed-script populated both with the wger primary translation (often German/Italian/Portuguese), so the existing wire values are not clean English/Spanish. description_es is best-effort and may be empty; the script preserves existing description.es when empty.",
+    "generated_by": "Claude inline during /gsd:quick 260522-hi5 Task B execution",
+    "generated_at": "2026-05-22T00:00:00Z",
+    "survivor_count": 78,
+    "applies_to_plan": "260522-hi5-exercise-library-curation-prune-bilingua"
+  },
+  "wger-53906cd1-61f1-4d56-ac60-e4fcc5824861": { "name_en": "Hip Adductor Machine", "name_es": "Aductores en máquina" },
+  "wger-dcc6e237-a8bb-4eca-bbc5-7fb852636f6a": { "name_en": "Walking Dumbbell Lunge", "name_es": "Zancadas caminando con mancuernas" },
+  "wger-04e7d7e4-f8d2-406d-97df-3df3bceec22c": { "name_en": "Standing Barbell Lunge", "name_es": "Zancada con barra de pie" },
+  "wger-072a9fa8-1028-47b3-b958-d8052c6b8661": { "name_en": "Walking Barbell Lunge", "name_es": "Zancada caminando con barra" },
+  "wger-66a42396-c207-44da-bc75-758a89d32404": { "name_en": "Leg Press", "name_es": "Prensa de piernas" },
+  "wger-d677de4c-5bd9-412a-91f1-857116a666a2": { "name_en": "Front Squat", "name_es": "Sentadilla frontal" },
+  "wger-18104387-4567-4c1e-8d03-db0b274646dd": { "name_en": "Hack Squat Machine", "name_es": "Sentadilla hack en máquina" },
+
+  "wger-19a289c0-33af-4055-bb34-3570c2975d3d": { "name_en": "Barbell Hip Thrust", "name_es": "Hip thrust con barra" },
+  "wger-94a5c406-7bcd-47f3-9687-bdf92a763932": { "name_en": "Bent-Over Dumbbell Row", "name_es": "Remo con mancuernas inclinado" },
+  "wger-2f0ddf9a-f520-4c55-8883-f0d4a789f481": { "name_en": "Reverse-Grip Bent-Over Row", "name_es": "Remo inclinado con agarre supino" },
+  "wger-65d12ecf-54b8-466d-a412-e55c396cad69": { "name_en": "Dumbbell Romanian Deadlift", "name_es": "Peso muerto rumano con mancuernas" },
+  "wger-0c30c543-e2cc-499b-bc31-8c28db445ed2": { "name_en": "Dumbbell Sumo Deadlift", "name_es": "Peso muerto sumo con mancuernas" },
+  "wger-20b17b71-6d91-4b56-978a-04b7f94c04cc": { "name_en": "Single-Leg Kettlebell Deadlift", "name_es": "Peso muerto a una pierna con kettlebell" },
+  "wger-768e0703-a04d-4d97-89ce-a49cd6be2b06": { "name_en": "Single-Arm Kettlebell Swing", "name_es": "Kettlebell swing a una mano" },
+
+  "wger-3717d144-7815-4a97-9a56-956fb889c996": { "name_en": "Barbell Bench Press", "name_es": "Press de banca con barra" },
+  "wger-275fb49f-975c-4d6e-9d63-2c86ed740f40": { "name_en": "Incline Barbell Bench Press", "name_es": "Press de banca inclinado con barra" },
+  "wger-95a7e546-e8f8-4521-a76b-983d94161b25": { "name_en": "EZ-Bar French Press", "name_es": "Press francés con barra Z" },
+  "wger-57e17672-52b9-43cf-8d0d-4b3f06a0c0d0": { "name_en": "Incline Dumbbell Bench Press", "name_es": "Press de banca inclinado con mancuernas" },
+  "wger-57263316-6f34-4539-952b-b07e09bac3ba": { "name_en": "Single-Arm Cable Lateral Row", "name_es": "Remo lateral en polea a una mano" },
+  "wger-5912d7ed-6a0e-4b4c-b30a-fc9f3f890fc1": { "name_en": "Machine Shoulder Press", "name_es": "Press de hombro en máquina" },
+  "wger-87affa4b-395b-437c-9581-2bd20ea5aa7c": { "name_en": "Dumbbell Military Press", "name_es": "Press militar con mancuernas" },
+  "wger-32c129f7-cc28-4ebc-8465-e4fa62e220b1": { "name_en": "T-Bar Row", "name_es": "Remo en T" },
+
+  "wger-f24cb758-9c0d-42d4-ad9e-6025c527dd13": { "name_en": "Arnold Press", "name_es": "Press Arnold" },
+  "wger-14d5cdbc-9b17-4296-a282-0a81cd3c4c4e": { "name_en": "Diagonal Shoulder Press", "name_es": "Press de hombro diagonal" },
+  "wger-7b1e458f-1857-4c2f-8463-7d67d4b2db93": { "name_en": "EZ-Bar Military Press", "name_es": "Press militar con barra Z" },
+
+  "wger-c0d9fe98-f4fe-49f3-8037-05e1984e7d2d": { "name_en": "Hammer Curl", "name_es": "Curl martillo" },
+  "wger-adb6067f-fd48-4a25-a9b4-0793c5f158fa": { "name_en": "Dumbbell Rear Delt Row", "name_es": "Remo posterior con mancuernas" },
+  "wger-51a2d520-b510-4b6e-bd65-9fc40365e8de": { "name_en": "Incline Chest-Supported Dumbbell Row", "name_es": "Remo con mancuernas en banco inclinado" },
+  "wger-6b6c69bc-0b1e-4b2f-ab61-4945eb18047e": { "name_en": "One-Arm Bent-Over Row", "name_es": "Remo a una mano inclinado" },
+  "wger-148f2ffc-05e2-486b-874f-2a401337a1c6": { "name_en": "Rope Pullover Row", "name_es": "Pullover con cuerda en polea" },
+  "wger-9bcc7b4f-4172-4db7-be95-d7b659c486f5": { "name_en": "Seated Machine Row", "name_es": "Remo sentado en máquina" },
+  "wger-505b2027-2f65-4cef-851b-f5e634921f1a": { "name_en": "Unilateral Cable Row", "name_es": "Remo unilateral en polea" },
+
+  "wger-04365177-e078-489b-983a-8ac61b7346f1": { "name_en": "Cable Hammer Concentration Curl", "name_es": "Curl concentrado martillo en polea" },
+  "wger-424da49e-d155-4247-bbb2-161a5c797789": { "name_en": "Chin-Ups", "name_es": "Dominadas supinas" },
+  "wger-8e420408-0682-4ab6-89f5-2681e54c7ce0": { "name_en": "Pull-Ups", "name_es": "Dominadas" },
+  "wger-0ecfec6f-5d0f-4e8a-8d37-f6203a8923b8": { "name_en": "Seated Cable Row", "name_es": "Remo sentado en polea" },
+  "wger-00fcf603-b0d0-48d2-9b5e-c7f0d510d46c": { "name_en": "Gironda Row", "name_es": "Remo Gironda" },
+
+  "wger-928eeae3-d849-4605-a470-048ca259a8c5": { "name_en": "Barbell Reverse Lunge", "name_es": "Zancada inversa con barra" },
+  "wger-3bc8b411-a28d-4e1c-a6d1-769e18fe9881": { "name_en": "Lying Leg Curl", "name_es": "Curl femoral tumbado" },
+  "wger-558b3385-f1a2-47d2-8473-e1be2c7726aa": { "name_en": "Lunge with Twist Stretch", "name_es": "Zancada con torsión" },
+  "wger-92cd0459-5cd1-46a0-934d-e7cff8d4ccda": { "name_en": "Runner's Lunge Stretch", "name_es": "Estiramiento de zancada del corredor" },
+  "wger-ff6c2fb1-5105-49ba-babe-c0d403940269": { "name_en": "Single-Leg Kettlebell Lunge", "name_es": "Zancada a una pierna con kettlebell" },
+  "wger-49189e88-40b6-4c0d-a784-0cc3abbb8e75": { "name_en": "Standing Leg Curl", "name_es": "Curl femoral de pie" },
+
+  "wger-7de7b8a8-313d-465f-bb22-8527ae45110a": { "name_en": "Incline Bench Crunch", "name_es": "Abdominales en banco inclinado" },
+  "wger-346634cf-3896-4c10-bd66-28fb69d02573": { "name_en": "V-Up with Medicine Ball", "name_es": "Abdominales en V con balón medicinal" },
+  "wger-9e34bc01-9cec-4ee2-a9bb-9c937a471c24": { "name_en": "Lying Leg Raise", "name_es": "Elevación de piernas tumbado" },
+  "wger-cbc5fbc9-9bca-4766-941d-4b6903d4a521": { "name_en": "Decline Bench Crunch", "name_es": "Crunch en banco declinado" },
+  "wger-371cfda2-1de6-419a-b40c-fc98fd3f7e41": { "name_en": "Seated Knee Tuck", "name_es": "Encogimiento de rodillas sentado" },
+
+  "wger-8d333b94-148c-48f8-9154-8b13279500d1": { "name_en": "Weighted Crunch", "name_es": "Crunch con peso" },
+  "wger-9ac4813e-79a6-4a4d-ab93-9cfa5bf7b8fa": { "name_en": "Decline Bench Leg Raise", "name_es": "Elevación de piernas en banco declinado" },
+  "wger-80c167b9-3749-48a1-8686-fc2163a1e7fb": { "name_en": "Bird Dog", "name_es": "Bird dog (cuadrupedia con brazo y pierna opuestos)" },
+  "wger-2f8ee51b-f493-47f7-8b2a-1da16c128f73": { "name_en": "Side Crunch", "name_es": "Crunch lateral" },
+  "wger-5af00591-2d77-4ea6-a347-825ad18beff1": { "name_en": "Sit-Up Elbow Thrust", "name_es": "Sit-up con golpe de codo" },
+
+  "wger-bcb7020c-8678-496d-8f4d-aad0e233a5bd": { "name_en": "Cable Biceps Curl", "name_es": "Curl de bíceps en polea" },
+  "wger-7b99a081-6b1a-4aa5-b86a-5a935d083a35": { "name_en": "Barbell Biceps Curl", "name_es": "Curl de bíceps con barra" },
+  "wger-1ae6a28d-10e7-4ecf-af4f-905f8193e2c6": { "name_en": "Dumbbell Biceps Curl", "name_es": "Curl de bíceps con mancuernas" },
+  "wger-5915fabe-c941-4dac-b196-bc4e8c7ce57b": { "name_en": "Dumbbell Triceps Kickback", "name_es": "Patada de tríceps con mancuerna" },
+  "wger-440a5184-de58-4a86-a7ba-76ddeafaa855": { "name_en": "Seated Leg Curl", "name_es": "Curl femoral sentado" },
+  "wger-dd52fb99-9426-4a78-b446-20a8e3e4ec47": { "name_en": "Preacher Curl on 45° Bench", "name_es": "Curl en banco a 45 grados" },
+  "wger-d8bddb58-91b0-4d7b-8ec1-cd742584b607": { "name_en": "Dumbbell Triceps Extension", "name_es": "Extensión de tríceps con mancuerna" },
+  "wger-3188868c-84e2-4a3b-b7dc-f79d8650988d": { "name_en": "Cable Triceps Pushdown", "name_es": "Extensión de tríceps en polea" },
+
+  "wger-6f79b381-98a4-40d5-8a45-3bb0558be6fe": { "name_en": "Bent-Over Lateral Raise", "name_es": "Elevación lateral inclinada" },
+  "wger-6e03ecb3-6bfe-4b34-be9d-e5c33e820cc6": { "name_en": "Cable Front Raise (Small Bar)", "name_es": "Elevación frontal con barra corta en polea" },
+  "wger-51ab6376-eb3e-42dc-ad48-46166c94adac": { "name_en": "Bent-Over Dumbbell Face Pull", "name_es": "Face pull con mancuernas inclinado" },
+  "wger-d7a418d4-d0cb-4f85-8a7c-1e9d97152cbd": { "name_en": "Face Pulls", "name_es": "Face pulls en polea" },
+  "wger-7bf4e131-d4a3-44c0-8fca-9e10002492e7": { "name_en": "Resistance Band Face Pull", "name_es": "Face pull con banda elástica" },
+
+  "wger-0d79f259-3b28-4258-8a08-cffec062a710": { "name_en": "Leg Press Calf Raise", "name_es": "Elevación de talón en prensa" },
+  "wger-7ce443b6-eb84-4f65-b05f-461c1cc8bcc0": { "name_en": "Standing Calf Raise", "name_es": "Elevación de talón de pie" },
+  "wger-6e46833d-fd83-4c1a-90af-eb3f3a917199": { "name_en": "Seated Calf Raise", "name_es": "Elevación de talón sentado" },
+
+  "wger-5da3d393-0c4e-4ac8-96b4-aab51f6ab3d1": { "name_en": "Stationary Bike Cardio", "name_es": "Cardio en bicicleta estática" },
+  "wger-3f8e5871-4895-48c9-928d-dc1bc134f57b": { "name_en": "Treadmill Cardio", "name_es": "Cardio en cinta" },
+  "wger-db5bd076-2f1d-4b72-9be9-610e5c3f5724": { "name_en": "High-Knee Run in Place", "name_es": "Carrera en el sitio con rodillas altas" },
+
+  "wger-f4991a98-6422-4884-8ad3-43412f91fac1": { "name_en": "Hanging Knee Raise", "name_es": "Elevación de rodillas colgado" },
+  "wger-b2025776-2397-4de7-a49e-296321169481": { "name_en": "Hanging Straight-Leg Raise", "name_es": "Elevación de piernas rectas colgado" },
+  "wger-3e9b3bb0-7958-4836-89a5-ed0c5f7eeb03": { "name_en": "Dumbbell Side Bend", "name_es": "Inclinación lateral con mancuerna" },
+  "wger-4e238360-a4c1-4509-85c1-f96d01e69cf9": { "name_en": "Grip Strengthener", "name_es": "Fortalecedor de agarre" },
+  "wger-4221c8af-b3ca-4a53-9176-bd66e46d10f2": { "name_en": "Glute Kickback with Resistance Band", "name_es": "Patada de glúteo con banda elástica" },
+
+  "wger-dda69c96-62d4-4690-aa07-a4a0f6ceb63a": { "name_en": "Decline Dumbbell Bench Press", "name_es": "Press de banca declinado con mancuernas" }
+}
