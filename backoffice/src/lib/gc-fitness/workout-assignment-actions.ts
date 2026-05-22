@@ -66,6 +66,12 @@ export interface WorkoutAssignmentRow {
   status: "scheduled" | "started" | "completed" | "missed";
   createdAt: string | null;
   updatedAt: string | null;
+  // 260522-ki7 Task A/E: shared uuid across docs in a recurring series.
+  // null on non-recurring (one-off) assignments AND on legacy recurring docs
+  // until the backfill (Task B) lands. Consumers MUST treat undefined/null as
+  // "no series" — the dialog uses presence of this field to decide whether
+  // to render the recurring radio choice.
+  seriesId?: string | null;
 }
 
 // Coerce Firestore Timestamp | string | undefined to an ISO string (or null).
@@ -161,6 +167,7 @@ function snapToRow(d: {
       (data.status as WorkoutAssignmentRow["status"]) ?? "scheduled",
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
+    seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
   };
 }
 
@@ -378,6 +385,12 @@ export async function assignTemplateRecurring(
   }
 
   const templateSnapshot = await templateSnapshotForAssignment(template);
+  // 260522-ki7 Task A: every doc in a recurring batch shares ONE seriesId so
+  // the cascade-delete query in deleteAssignment(id, {cascadeFromDate}) can
+  // identify the series via a single equality predicate. seriesId is set
+  // exactly once per assignTemplateRecurring call, BEFORE the batch loop,
+  // and reused as the same string value on every batched doc.
+  const seriesId = randomUUID();
   const batch = db.batch();
   const ids: string[] = [];
   for (const date of dates) {
@@ -400,6 +413,7 @@ export async function assignTemplateRecurring(
         kind: "weekly",
         weekday: parsed.weekday,
       },
+      seriesId,
     });
     ids.push(docId);
   }
