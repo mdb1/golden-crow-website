@@ -20,7 +20,7 @@
 // layer enforcement); the values still appear in the form so the trainer
 // sees what they're editing.
 
-import { useCallback, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -159,6 +159,7 @@ export function HabitForm({
 }: HabitFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Resolver swap based on mode. In edit mode the type is closure-captured
   // from the initial defaults; in create mode the type is read from the
@@ -232,6 +233,7 @@ export function HabitForm({
 
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
+      setSubmitError(null);
       try {
         // Strip undefined optional fields so Firestore doesn't store
         // `undefined` values that would re-emit as `null` on read.
@@ -338,11 +340,12 @@ export function HabitForm({
           return;
         }
         toast.success("Habit saved.");
-        router.refresh();
+        router.push("/gc-fitness/habits");
       } catch (err) {
         console.error("[habit-form] save failed", err);
         const message =
           err instanceof Error ? err.message : "Couldn't save.";
+        setSubmitError(message);
         toast.error(message);
       }
     });
@@ -991,22 +994,32 @@ export function HabitForm({
         </div>
 
         {/* Action row */}
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => router.back()}
-            disabled={pending}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending
-              ? "Saving…"
-              : mode === "create"
-              ? "Create habit"
-              : "Save changes"}
-          </Button>
+        <div className="border-t pt-4">
+          {submitError ? (
+            <div
+              role="alert"
+              className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {submitError}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => router.back()}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending
+                ? "Saving…"
+                : mode === "create"
+                ? "Create habit"
+                : "Save changes"}
+            </Button>
+          </div>
         </div>
       </form>
     </Form>
