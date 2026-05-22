@@ -27,7 +27,12 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +45,7 @@ import {
 } from "@/lib/gc-fitness/workout-assignments-listener";
 
 import { AssignTemplateModal } from "./assign-template-modal";
+import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -95,6 +101,14 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
 
   const [weekStart, setWeekStart] = useState<string>(initialMonday);
   const [assignDate, setAssignDate] = useState<string | null>(null);
+  // 260522-ki7 Task E — trash affordance state. Set when the trainer clicks the
+  // Trash2 icon on an assignment card; cleared when the dialog closes.
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    scheduledFor: string;
+    templateName: string;
+    seriesId?: string | null;
+  } | null>(null);
 
   const { data, isLoading, error } = useAssignmentsForClientWeek(
     clientId,
@@ -189,7 +203,26 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
                         key={a.id}
                         className="flex flex-col gap-0.5 rounded border bg-background p-1.5 text-xs"
                       >
-                        <span className="truncate font-medium">{name}</span>
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="truncate font-medium">{name}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget({
+                                id: a.id,
+                                scheduledFor: a.scheduledFor,
+                                templateName: name,
+                                seriesId: a.seriesId ?? null,
+                              });
+                            }}
+                            aria-label={`Remove ${name}`}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
                         {snap?.tag ? (
                           <Badge variant="secondary" className="w-fit text-[10px]">
                             {snap.tag}
@@ -223,6 +256,25 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
           defaultDate={assignDate}
           trainerTimezone={trainerTimezone}
           onAssigned={onAssigned}
+        />
+      ) : null}
+
+      {/* 260522-ki7 Task E — recurring-aware delete dialog. Invalidates the */}
+      {/* current week's React-Query window on success so the row disappears. */}
+      {deleteTarget ? (
+        <WorkoutAssignmentDeleteDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          assignmentId={deleteTarget.id}
+          scheduledFor={deleteTarget.scheduledFor}
+          templateName={deleteTarget.templateName}
+          seriesId={deleteTarget.seriesId ?? null}
+          onDeleted={() => {
+            queryClient.invalidateQueries({
+              queryKey: assignmentsForClientWeekKey(clientId, weekStart),
+            });
+            setDeleteTarget(null);
+          }}
         />
       ) : null}
     </div>
