@@ -106,21 +106,38 @@ export async function listRecentLogsForTrainer(): Promise<{
   const nameByClientId = new Map(clients.map((c) => [c.uid, c.displayName]));
   const clientList = clients.map((c) => ({ id: c.uid, name: c.displayName }));
 
-  const [workoutLogsSnap, habitLogsSnap] = await Promise.all([
-    db
-      .collection(FirestoreCollections.workoutLogs)
-      .where("trainerId", "==", trainer.uid)
-      .limit(600)
-      .get(),
+  const workoutLogsPromise = db
+    .collection(FirestoreCollections.workoutLogs)
+    .where("trainerId", "==", trainer.uid)
+    .limit(600)
+    .get();
+
+  // Some historical habit logs are missing/incorrect `coachId`.
+  // Query per roster client instead of filtering by coachId so we include
+  // those legacy rows.
+  const habitLogPromises = clients.map((client) =>
     db
       .collection(FirestoreCollections.habitLogs)
-      .where("coachId", "==", trainer.uid)
-      .limit(600)
+      .where("clientId", "==", client.uid)
+      .limit(200)
       .get(),
+  );
+
+  const [workoutLogsSnap, ...habitLogsSnaps] = await Promise.all([
+    workoutLogsPromise,
+    ...habitLogPromises,
   ]);
 
+  const habitLogDocs = habitLogsSnaps.flatMap((snap) => snap.docs);
+
+  const habitLogsById = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+  for (const doc of habitLogDocs) {
+    habitLogsById.set(doc.id, doc);
+  }
+  const habitLogs = Array.from(habitLogsById.values());
+
   const habitIds = new Set<string>();
-  habitLogsSnap.docs.forEach((doc) => {
+  habitLogs.forEach((doc) => {
     const habitId = doc.get("habitId");
     if (typeof habitId === "string" && habitId.length > 0) {
       habitIds.add(habitId);
@@ -175,7 +192,7 @@ export async function listRecentLogsForTrainer(): Promise<{
     });
   });
 
-  habitLogsSnap.docs.forEach((doc) => {
+  habitLogs.forEach((doc) => {
     const data = doc.data();
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId || !nameByClientId.has(clientId)) return;

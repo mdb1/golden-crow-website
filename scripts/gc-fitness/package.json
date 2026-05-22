@@ -8,6 +8,7 @@
   },
   "scripts": {
     "audit": "tsx audit-exercise-library.ts",
+    "audit-fexd": "tsx audit-fexd-library.ts",
     "apply:dry": "tsx curate-exercise-library.ts",
     "apply": "tsx curate-exercise-library.ts --apply",
     "backfill-series-id": "tsx backfill-series-id.ts",

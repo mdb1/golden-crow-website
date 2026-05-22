@@ -201,14 +201,14 @@ const BUCKET_QUOTA: Record<BucketKey, number> = {
   "vertical-push": 5,
   "horizontal-pull": 7,
   "vertical-pull": 5,
-  lunge: 5,
-  core: 5,
+  lunge: 6,
+  core: 6,
   calves: 3,
   isolation: 12,
-  cardio: 3,
+  cardio: 0,   // fexd has no canonical body-only cardio names (no Burpees / Jumping Jacks / Jump Rope etc.)
   mobility: 3,
 };
-// Sum: 71 — target ~60-80.
+// Sum: 70 — target ~60-80.
 
 const BUCKET_ORDER: BucketKey[] = [
   "squat",
@@ -247,12 +247,16 @@ const EQUIPMENT_DROP = new Set<string | null>([
 ]);
 
 // Categories we DROP entirely — non-strength entries are out of scope for v1.
+// (We carve a small exception for plyometrics + cardio entries whose NAME
+// matches the canonical-boost list — see candidate filter below — so canonical
+// bodyweight conditioning like Burpees, Mountain Climbers, Jumping Jacks can
+// fill the cardio bucket without dragging in box jumps + plate slams.)
 const CATEGORY_DROP = new Set<string>([
   "stretching",
-  "plyometrics",
   "strongman",
   "olympic weightlifting",
 ]);
+const CATEGORY_CARDIO_ALLOWLIST = new Set<string>(["plyometrics", "cardio"]);
 
 // Name-level exclusions — entries that pass the auto-filter but Claude flags
 // as low-utility / obscure / regional / equipment-specialty / repeat-of-a-
@@ -330,6 +334,77 @@ const NAME_EXCLUSIONS_RX: RegExp[] = [
   /\bweighted\s+sissy\b/i,
   /\bsissy\s+squat\b/i,
   /\bfront\s+box\s+jump\b/i,
+  /\bspeed\s+box\s+squat\b/i,
+  /\bspeed\s+squat\b/i,
+  /\bspeed\s+deadlift\b/i,
+  /\bspeed\s+bench\b/i,
+  // Stiff-leg + niche hinge variants
+  /\bhanging\s+bar\s+good\s+morning\b/i,
+  /\bstiff\s+leg\s+barbell\s+good\s+morning\b/i,
+  /\bvertical\s+swing\b/i,
+  // Niche bench/dumbbell variants
+  /\bincline\s+dumbbell\s+flyes?\s*-?\s*with\s+a\s+twist\b/i,
+  /\bdecline\s+close-?grip\s+bench\s+to\s+skull\s+crusher\b/i,
+  /\bclose-?grip\s+standing\s+barbell\s+curl\b/i,
+  /\bbarbell\s+shrug\s+behind\s+the\s+back\b/i,
+  /\bbarbell\s+side\s+split\s+squat\b/i,
+  /\bone\s+leg\s+barbell\s+squat\b/i,
+  /\bplie\s+dumbbell\s+squat\b/i,
+  /\bwide\s+stance\s+barbell\s+squat\b/i,
+  /\bbarbell\s+walking\s+lunge\b/i,
+  /\bv-bar\s+pullup\b/i,
+  /\bwide-?grip\s+rear\s+pull-?up\b/i,
+  /\bincline\s+push-?up\s+wide\b/i,
+  /\bbent\s+over\s+two-?dumbbell\s+row\s+with\s+palms\s+in\b/i,
+  /\bt-bar\s+row\s+with\s+handle\b/i,
+  /\bfront\s+raise\s+and\s+pullover\b/i,
+  /\bbarbell\s+incline\s+shoulder\s+raise\b/i,
+  /\bdumbbell\s+raise\b/i, // bare "Dumbbell Raise" is ambiguous — front/side/rear unspecified
+  /\bbarbell\s+squat\s+to\s+a\s+bench\b/i,
+  /\bdumbbell\s+squat\s+to\s+a\s+bench\b/i,
+  /\bfront\s+squat\s*\(?clean\s+grip\)?\b/i,
+  /\bsmith\s+single-?leg\s+split\s+squat\b/i,
+  /\bbarbell\s+hack\s+squat\b/i,
+  /\belevated\s+back\s+lunge\b/i,
+  /\bone-?arm\s+side\s+deadlift\b/i,
+  /\bgood\s+morning\s+off\s+pins\b/i,
+  /\bone\s+arm\s+dumbbell\s+bench\s+press\b/i,
+  /\blying\s+rear\s+delt\s+raise\b/i,
+  /\bwide-?grip\s+standing\s+barbell\s+curl\b/i,
+  /\bcross\s+body\s+hammer\s+curl\b/i,
+  /\bbarbell\s+rear\s+delt\s+row\b/i, // a rear delt is normally an isolation, not a row
+  /\brope\s+straight-?arm\s+pulldown\b/i,
+  /\bpush-?ups?\s*-\s*close\s+triceps?\s+position\b/i,
+  /\balternate\s+hammer\s+curl\b/i, // duplicate of "Hammer Curl"
+  /\breverse\s+barbell\s+curl\b/i,  // niche — keep Barbell Curl instead
+  /\bbarbell\s+shrug\s+behind\b/i,
+  /\bclose-?grip\s+front\s+lat\s+pulldown\b/i, // duplicate of Close-Grip Lat Pulldown
+  /\bsplit\s+squat\s+with\s+dumbbells\b/i,    // duplicate of Dumbbell Split Squat (Bulgarian)
+  /\bstep-?up\s+with\s+knee\s+raise\b/i,      // niche variant
+  /\bbent\s+over\s+two-?dumbbell\s+row\b/i,    // generic "Bent Over Two-Dumbbell Row" — keep One-Arm Dumbbell Row
+  /\bdumbbell\s+clean\b/i,                     // half-Olympic, not a default lift
+  /\blunge\s+sprint\b/i,                       // plyometric variant
+  /\bcable\s+internal\s+rotation\b/i,          // rehab / very niche
+  /\bhigh\s+cable\s+curls?\b/i,                // duplicate of Cable Curl
+  /\bthigh\s+adductor\b/i,                     // single-purpose machine
+  /\bnarrow\s+stance\s+leg\s+press\b/i,        // niche; Leg Press itself isn't even in this dataset
+  /\bbox\s+squat\b/i,                          // powerlifting specialty
+  /\bdeficit\s+deadlift\b/i,                   // intermediate variant
+  /\bdumbbell\s+rear\s+lunge\b/i,              // odd phrasing
+  /\bdumbbell\s+incline\s+row\b/i,             // not a common cue
+  /\breverse\s+grip\s+bent-?over\s+rows?\b/i,  // niche
+  /\bbent-?arm\s+barbell\s+pullover\b/i,       // niche
+  /\bbarbell\s+bench\s+press\s+-\s+medium\s+grip\b/i, // hyphenation noise; we already have "Dumbbell Bench Press"
+  /\bdips?\s*-\s*triceps?\s+version\b/i,       // noisy name
+  /\bincline\s+push-?up\s+medium\b/i,
+  /\bdecline\s+dumbbell\s+flyes?\b/i,          // niche; we already keep Incline DB Flyes
+  /\bone\s+arm\s+dumbbell\s+preacher\s+curl\b/i,
+  /\blying\s+high\s+bench\s+barbell\s+curl\b/i,
+  /\bincline\s+hammer\s+curls?\b/i,
+  /\bseated\s+side\s+lateral\s+raise\b/i,
+  /\brocking\s+standing\s+calf\s+raise\b/i,
+  /\bone\s+arm\s+lat\s+pulldown\b/i,           // duplicate of One-Arm Lat Pulldown
+  /\bupright\s+barbell\s+row\b/i,              // shoulder-impingement risk; keep face pull / lateral raise
 ];
 
 function normName(s: string): string {
@@ -576,7 +651,7 @@ function bucketForFexd(ex: FexdExercise): BucketKey {
     )
   )
     return "hinge";
-  if (/\bbench\s*press\b|\bdip\b|\bpush.?up\b|\bchest\s*press\b/.test(n))
+  if (/\bbench\s*press\b|\bdip(s)?\b|\bpush[\s-]?ups?\b|\bpushups?\b|\bchest\s*press\b|\bhandstand\b|\bflye?s?\b/.test(n))
     return "horizontal-push";
   if (
     /\boverhead\s*press\b|\bshoulder\s*press\b|\bmilitary\s*press\b|\bpush\s*press\b|\barnold\s*press\b/.test(
@@ -585,7 +660,7 @@ function bucketForFexd(ex: FexdExercise): BucketKey {
   )
     return "vertical-push";
   if (/\brow\b|\bt.?bar\b|\bpullover\b/.test(n)) return "horizontal-pull";
-  if (/\bpull.?up\b|\bchin.?up\b|\blat\s*pulldown\b|\bpulldown\b/.test(n))
+  if (/\bpull[\s-]?ups?\b|\bpullups?\b|\bchin[\s-]?ups?\b|\bchinups?\b|\blat\s*pulldown\b|\bpulldown\b/.test(n))
     return "vertical-pull";
   if (
     /\bcurl\b|\btricep\b|\bskull\s*crusher\b|\bpushdown\b|\bextension\b|\blateral\s*raise\b|\bfront\s*raise\b|\brear\s*delt\b|\bface\s*pull\b|\bfly\b|\bshrug\b|\bwrist\b|\breverse\s*fly\b/.test(
@@ -1328,6 +1403,13 @@ async function main(): Promise<void> {
     if (CATEGORY_DROP.has(ex.category)) continue;
     if (!isKeepableEquipment(ex.equipment)) continue;
     if (isExcludedByName(ex.name)) continue;
+    // Plyometrics + cardio entries only qualify if their name is on the
+    // canonical-boost allowlist (Burpees, Mountain Climbers, Jumping Jacks,
+    // Jump Rope, High Knees, …). Everything else in those categories is too
+    // skills-based for the v1 library.
+    if (CATEGORY_CARDIO_ALLOWLIST.has(ex.category) && !isCanonicalBoosted(ex.name)) {
+      continue;
+    }
     candidates.push(ex);
   }
   process.stdout.write(
