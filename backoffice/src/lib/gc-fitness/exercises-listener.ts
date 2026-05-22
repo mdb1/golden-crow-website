@@ -15,16 +15,30 @@
 //     `setQueryData` to push every snapshot into the React-Query cache, so
 //     subscribers re-render via the standard `useQuery` selector.
 //
-// Filtering (260522-hi5 Task B): server-side `deletedAt == null` filters the
-// curation-pass soft-deleted wger-* docs (the Task B script writes a
-// Timestamp into deletedAt). The downstream `deleted !== true` filter in
-// client.tsx + exercise-picker-popover.tsx is retained to also drop the
-// legacy trainer-authored `deleted: true` Bool sentinel that the P03
-// `softDeleteExercise` Server Action still writes. Both filters are needed
-// — Firestore can't express the union in one server-side query.
-// Sorting: `updatedAt desc` server-side. Requires the composite index
-// `(deletedAt ASC, updatedAt DESC)` (added to firestore.indexes.json by
-// Task B and deployed to gcfitness-3476b).
+// Filtering (debug session picker-empty-deletedat, 2026-05-22): the prior
+// server-side `where("deletedAt", "==", null)` filter (commit f10302d) was
+// removed because Firestore's `==` predicate does NOT match docs where the
+// field is ABSENT. The 260522-hi5 curation script (curate-exercise-library.ts)
+// only writes `deletedAt: Timestamp` on the 222 dropped/dedupe-loser docs and
+// leaves the field absent on the 78 survivors + the trainer-authored doc —
+// so the server-side filter matched zero rows and the picker rendered an
+// empty list. We now fetch the full collection ordered by `updatedAt desc`
+// and filter `!r.deletedAt` client-side; this naturally handles both the
+// absent-field case (survivors) and the Timestamp-present case (curation-
+// soft-deleted) via JS truthiness on the snapToRow-normalized ISO string.
+// The downstream `deleted !== true` filter in `client.tsx` +
+// `exercise-picker-popover.tsx` is retained to also drop the legacy
+// trainer-authored `deleted: true` Bool sentinel.
+//
+// FOLLOW-UP (not done here): a backfill script could write
+// `deletedAt: null` on every absent doc + update the curation script to set
+// `deletedAt: null` on survivors, after which the server-side filter could
+// be restored. Tracked as Strategy B in the debug session — out of scope for
+// this unblock.
+//
+// Sorting: `updatedAt desc` server-side. No composite index needed now that
+// the equality predicate is gone (a single `orderBy` is served by Firestore's
+// automatic single-field index).
 //
 // CONTRACT NOTE: This file is OWNED BY PLAN 03-06. It mounts inside a
 // `'use client'` component (`client.tsx`) and uses the named gc-fitness
@@ -40,7 +54,6 @@ import {
   onSnapshot,
   query,
   orderBy,
-  where,
   type QuerySnapshot,
   type QueryDocumentSnapshot,
   type DocumentData,
@@ -65,7 +78,7 @@ export interface ExerciseRow {
   createdAt: string | null;
   deleted?: boolean;
   /** ISO string — curation-pass soft-delete marker (260522-hi5 Task B). Null
-   *  when the doc is alive. */
+   *  when the doc is alive. Filtered client-side in `useExercisesQuery`. */
   deletedAt?: string | null;
   /** For dedupe-loser wger-* docs — the surviving canonical exercise id. */
   mergedInto?: string | null;
@@ -112,6 +125,9 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
  * caches the most-recent snapshot under `EXERCISES_QUERY_KEY` so other
  * components (e.g. a future sidebar exercise count) can read from the same
  * cache without spinning up a duplicate listener.
+ *
+ * Curation-soft-deleted docs (`deletedAt != null`) are filtered CLIENT-SIDE
+ * here — see the file header for why the server-side filter was removed.
  */
 export function useExercisesQuery() {
   const queryClient = useQueryClient();
@@ -124,9 +140,10 @@ export function useExercisesQuery() {
   useEffect(() => {
     const auth = getGCFitnessAuth();
     const db = getFirestore(auth.app);
+    // Fetch ALL exercises ordered by recency; client-side filter drops the
+    // curation-soft-deleted ones. See file header for rationale.
     const q = query(
       collection(db, "exercises"),
-      where("deletedAt", "==", null),
       orderBy("updatedAt", "desc"),
     );
 
@@ -134,7 +151,16 @@ export function useExercisesQuery() {
       q,
       (snap: QuerySnapshot<DocumentData>) => {
         setHasSnapshot(true);
-        const rows = snap.docs.map(snapToRow);
+        const rows = snap.docs
+          .map(snapToRow)
+          // `deletedAt` is a normalized ISO string here (or null). Drop any
+          // doc with a non-null `deletedAt` — that catches curation-pass
+          // Timestamps. Survivors (field absent on Firestore) decode to
+          // `null` via `toIso` and pass through. The downstream
+          // `deleted !== true` filter in the consumers (client.tsx,
+          // exercise-picker-popover.tsx) drops the legacy trainer-authored
+          // Bool sentinel.
+          .filter((r) => !r.deletedAt);
         queryClient.setQueryData(EXERCISES_QUERY_KEY, rows);
       },
       (err: unknown) => {
