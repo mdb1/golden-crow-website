@@ -69,7 +69,15 @@ export interface ExerciseRow {
   mediaURL?: string | null;
   thumbnailURL?: string | null;
   youtubeURL?: string | null;
-  source: "wger" | "trainer";
+  /**
+   * 260522-mo2 Revision fix #1 (Blocker): 3-way union — `"free-exercise-db"`
+   * is the on-the-wire source value seeded by Task C. PRIOR to 260522-mo2
+   * this was a 2-way union `"wger" | "trainer"` and the snapToRow ternary
+   * silently coerced any non-"wger" wire value to "trainer" — including
+   * the new fexd value. Both surfaces were fixed together; do not collapse
+   * either back to the 2-way shape.
+   */
+  source: "wger" | "trainer" | "free-exercise-db";
   ownerId: string | null;
   version: number;
   /** ISO string — converted from Firestore Timestamp at read time so React
@@ -82,11 +90,21 @@ export interface ExerciseRow {
   deletedAt?: string | null;
   /** For dedupe-loser wger-* docs — the surviving canonical exercise id. */
   mergedInto?: string | null;
+  /** 260522-mo2 — soft-delete cause (e.g. "superseded-by-fexd"). */
+  deletedReason?: string | null;
+  /** 260522-mo2 — Firebase Storage URL for the start frame. */
+  imageUrl?: string | null;
+  /** 260522-mo2 — Firebase Storage URL for the end frame. */
+  endImageUrl?: string | null;
+  /** 260522-mo2 — Firebase Storage URL for the 2-frame ping-pong preview.gif. */
+  gifUrl?: string | null;
+  /** 260522-mo2 — bilingual exercise step list. */
+  instructions?: { en?: string[] | null; es?: string[] | null } | null;
 }
 
 export const EXERCISES_QUERY_KEY = ["gc-fitness", "exercises"] as const;
 
-function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
+export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
   const data = d.data();
   const toIso = (v: unknown): string | null => {
     if (
@@ -98,6 +116,36 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     if (typeof v === "string") return v;
     return null;
   };
+  // 260522-mo2 Revision fix #1 — 3-way source discrimination. The prior
+  // 2-way ternary (`data.source === "wger" ? "wger" : "trainer"`) silently
+  // coerced the new `"free-exercise-db"` wire value to `"trainer"`, which
+  // broke license-badge rendering + source filtering downstream. The
+  // explicit 3-way ternary below preserves the conservative `"trainer"`
+  // fallback for genuinely-unknown rawValues (Codable forgiving-decoder
+  // mirror in Exercise.swift falls back to `.wger`; we pick `"trainer"`
+  // here to avoid silently misattributing unknown sources as wger media).
+  const rawSource = data.source;
+  const source: ExerciseRow["source"] =
+    rawSource === "wger"
+      ? "wger"
+      : rawSource === "free-exercise-db"
+        ? "free-exercise-db"
+        : "trainer";
+  const instructions =
+    data.instructions && typeof data.instructions === "object"
+      ? {
+          en: Array.isArray(
+            (data.instructions as { en?: unknown }).en,
+          )
+            ? ((data.instructions as { en: string[] }).en)
+            : null,
+          es: Array.isArray(
+            (data.instructions as { es?: unknown }).es,
+          )
+            ? ((data.instructions as { es: string[] }).es)
+            : null,
+        }
+      : null;
   return {
     id: d.id,
     name: data.name ?? { en: "(untitled)", es: "" },
@@ -107,7 +155,7 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     mediaURL: data.mediaURL ?? null,
     thumbnailURL: data.thumbnailURL ?? null,
     youtubeURL: data.youtubeURL ?? null,
-    source: data.source === "wger" ? "wger" : "trainer",
+    source,
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
     version: typeof data.version === "number" ? data.version : 1,
     updatedAt: toIso(data.updatedAt),
@@ -115,6 +163,13 @@ function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     deleted: data.deleted === true,
     deletedAt: toIso(data.deletedAt),
     mergedInto: typeof data.mergedInto === "string" ? data.mergedInto : null,
+    deletedReason:
+      typeof data.deletedReason === "string" ? data.deletedReason : null,
+    imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : null,
+    endImageUrl:
+      typeof data.endImageUrl === "string" ? data.endImageUrl : null,
+    gifUrl: typeof data.gifUrl === "string" ? data.gifUrl : null,
+    instructions,
   };
 }
 
