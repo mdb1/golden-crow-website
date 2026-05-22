@@ -43,9 +43,36 @@ function asDate(value: unknown): Date | null {
   if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
     return (value as { toDate: () => Date }).toDate();
   }
+  if (value && typeof value === "object") {
+    const maybe = value as {
+      _seconds?: unknown;
+      _nanoseconds?: unknown;
+      seconds?: unknown;
+      nanoseconds?: unknown;
+    };
+    const rawSeconds =
+      typeof maybe._seconds === "number"
+        ? maybe._seconds
+        : typeof maybe.seconds === "number"
+          ? maybe.seconds
+          : null;
+    const rawNanos =
+      typeof maybe._nanoseconds === "number"
+        ? maybe._nanoseconds
+        : typeof maybe.nanoseconds === "number"
+          ? maybe.nanoseconds
+          : 0;
+    if (rawSeconds !== null) {
+      const millis = rawSeconds * 1000 + Math.floor(rawNanos / 1_000_000);
+      const d = new Date(millis);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
   if (value instanceof Date) return value;
   if (typeof value === "number") {
-    const d = new Date(value);
+    // Normalize both epoch-millis and epoch-seconds payloads.
+    const normalized = value < 1_000_000_000_000 ? value * 1000 : value;
+    const d = new Date(normalized);
     return Number.isNaN(d.getTime()) ? null : d;
   }
   if (typeof value === "string") {
@@ -197,10 +224,12 @@ export async function listRecentLogsForTrainer(): Promise<{
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId || !nameByClientId.has(clientId)) return;
 
+    // Use write-time first so "recent logs" reflects when the coach/client
+    // actually changed the habit, not just the civil-date bucket timestamp.
     const eventAt =
-      asIso(data.loggedAt) ??
       asIso(data.updatedAt) ??
-      asIso(data.createdAt);
+      asIso(data.createdAt) ??
+      asIso(data.loggedAt);
     if (!eventAt) return;
 
     const habitId = typeof data.habitId === "string" ? data.habitId : "";

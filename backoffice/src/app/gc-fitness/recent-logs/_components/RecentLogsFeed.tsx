@@ -27,11 +27,19 @@ export function RecentLogsFeed({ logs, clients }: Props) {
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
-    return logs.filter((row) => {
+    const rows = logs.filter((row) => {
       if (clientFilter !== "all" && row.clientId !== clientFilter) return false;
       if (typeFilter !== "all" && row.category !== typeFilter) return false;
       return true;
     });
+    rows.sort((a, b) => {
+      const ams = Date.parse(a.eventAt);
+      const bms = Date.parse(b.eventAt);
+      const an = Number.isNaN(ams) ? 0 : ams;
+      const bn = Number.isNaN(bms) ? 0 : bms;
+      return bn - an;
+    });
+    return rows;
   }, [logs, clientFilter, typeFilter]);
 
   return (

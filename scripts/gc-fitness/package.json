@@ -13,10 +13,17 @@
     "apply": "tsx curate-exercise-library.ts --apply",
     "backfill-series-id": "tsx backfill-series-id.ts",
     "backfill-series-id:apply": "tsx backfill-series-id.ts --apply",
+    "fetch-fexd-assets": "tsx fetch-fexd-assets.ts",
+    "fetch-fexd-assets:apply": "tsx fetch-fexd-assets.ts --apply",
+    "seed-fexd": "tsx seed-from-fexd.ts",
+    "seed-fexd:apply": "tsx seed-from-fexd.ts --apply",
+    "verify-fexd-assets": "tsx verify-fexd-assets.ts",
     "test": "jest"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",
+    "gif-encoder-2": "^1.0.5",
+    "jpeg-js": "^0.4.4",
     "tsx": "^4.7.0"
   },
   "devDependencies": {
