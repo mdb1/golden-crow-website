@@ -146,7 +146,7 @@ export function ExerciseForm({
         if (mode === "edit" && exerciseId) {
           await updateExercise(exerciseId, values);
           toast.success("Exercise saved.");
-          router.refresh();
+          router.back();
         }
       } catch (err) {
         console.error("[exercise-form] save failed", err);
