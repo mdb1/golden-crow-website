@@ -135,8 +135,14 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     expect(
       screen.getByRole("combobox", { name: /equipment/i }),
     ).toBeInTheDocument();
-    // Media dropzone
-    expect(screen.getByLabelText(/demonstration video/i)).toBeInTheDocument();
+    // Media dropzone — assert via its inner aria-label on the file
+    // input. After 14-02 added a sibling "Demonstration video URL"
+    // input, the unanchored `/demonstration video/i` regex was matching
+    // both labels; the file-input aria-label is verbatim
+    // "Demonstration video file" which uniquely identifies the dropzone.
+    expect(
+      screen.getByLabelText(/demonstration video file/i),
+    ).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^cancel$/i })).toBeInTheDocument();

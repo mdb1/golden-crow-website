@@ -96,6 +96,11 @@ function buildDefaults(
     mediaURL: passed?.mediaURL ?? null,
     thumbnailURL: passed?.thumbnailURL ?? null,
     youtubeURL: passed?.youtubeURL ?? null,
+    // 14-02 — optional demo video + bilingual tips. Defaulting `tips` to
+    // a populated `{ en: '', es: '' }` (rather than null) keeps RHF's
+    // controlled inputs happy from the first render onward.
+    videoUrl: passed?.videoUrl ?? null,
+    tips: passed?.tips ?? { en: "", es: "" },
     // In create mode the server force-sets source/ownerId regardless of what
     // we send, but Zod requires the fields to be present in the shape — seed
     // a sentinel that satisfies the enum.
@@ -285,6 +290,59 @@ export function ExerciseForm({
           />
         </div>
 
+        {/* 14-02 — Coaching tips EN + ES. Bilingual free-text cues
+            separate from the numbered instructions list. Both fields
+            optional; both textareas render with value coerced to ""
+            because the schema accepts nullable + optional. */}
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-medium">Coaching tips (optional)</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="tips.en"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tips (English)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={4}
+                      disabled={isView}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Short coaching cues for the client (e.g., &ldquo;Brace
+                    your core hard at the bottom&rdquo;).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="tips.es"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tips (Spanish)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={4}
+                      disabled={isView}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Translated coaching cues for Spanish-speaking clients.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
         {/* Muscle Groups + Equipment */}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
@@ -412,6 +470,37 @@ export function ExerciseForm({
             )}
           />
         </div>
+
+        {/* 14-02 — Standalone demonstration video URL. Distinct from the
+            hero clip uploaded via the dropzone and from the YouTube
+            reference link above. Renders on the iOS detail view as a
+            dedicated 'Watch demo' card. */}
+        <FormField
+          control={form.control}
+          name="videoUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Demonstration video URL</FormLabel>
+              <FormControl>
+                <Input
+                  type="url"
+                  placeholder="https://..."
+                  disabled={isView}
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormDescription>
+                Optional. A standalone demo video URL (separate from the
+                hero clip and from the YouTube reference link).
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Action row */}
         {!isView && (

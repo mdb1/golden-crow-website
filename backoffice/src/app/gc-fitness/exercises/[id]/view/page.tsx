@@ -58,6 +58,19 @@ export default async function ViewExercisePage({ params }: PageParams) {
   }
   const data = snap.data() as Record<string, unknown>;
 
+  // 14-02 — Coerce the bilingual tips block from the raw Firestore
+  // payload. Older documents have no `tips` key; pass through as a
+  // populated `{ en: '', es: '' }` so RHF's controlled inputs render
+  // cleanly even when nothing has been authored yet.
+  const rawTips = (data.tips ?? null) as {
+    en?: string | null;
+    es?: string | null;
+  } | null;
+  const tipsDefault = {
+    en: typeof rawTips?.en === "string" ? rawTips.en : "",
+    es: typeof rawTips?.es === "string" ? rawTips.es : "",
+  };
+
   const defaults: Partial<ExerciseInput> = {
     name: (data.name as ExerciseInput["name"]) ?? { en: "", es: "" },
     description: (data.description as ExerciseInput["description"]) ?? {
@@ -72,6 +85,8 @@ export default async function ViewExercisePage({ params }: PageParams) {
     thumbnailURL:
       typeof data.thumbnailURL === "string" ? data.thumbnailURL : null,
     youtubeURL: typeof data.youtubeURL === "string" ? data.youtubeURL : null,
+    videoUrl: typeof data.videoUrl === "string" ? data.videoUrl : null,
+    tips: tipsDefault,
     source: (data.source as ExerciseInput["source"]) ?? "wger",
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
     version: typeof data.version === "number" ? data.version : 1,
@@ -97,6 +112,17 @@ export default async function ViewExercisePage({ params }: PageParams) {
         (s): s is string => typeof s === "string" && s.trim().length > 0,
       )
     : [];
+
+  // 14-02 — Pull the demonstration video URL + EN tips text for the
+  // read-only header sections below. The trainer surface is EN-only per
+  // 260522-orr; ES is iOS-only for v1.
+  const demoVideoUrl =
+    typeof data.videoUrl === "string" && data.videoUrl.trim().length > 0
+      ? data.videoUrl
+      : null;
+  const demoVideoIsDistinct =
+    demoVideoUrl !== null && demoVideoUrl !== (defaults.mediaURL ?? null);
+  const tipsEn = tipsDefault.en.trim();
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
@@ -145,6 +171,36 @@ export default async function ViewExercisePage({ params }: PageParams) {
           <p className="text-sm text-muted-foreground">
             No instructions available.
           </p>
+        )}
+
+        {/* 14-02 — Demonstration video (renders only when present AND
+            distinct from the mediaURL hero clip; rendering both would
+            be redundant). EN-only per the 260522-orr backoffice
+            convention. */}
+        {demoVideoUrl && demoVideoIsDistinct && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold text-foreground">
+              Demonstration video
+            </h2>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              src={demoVideoUrl}
+              controls
+              className="w-full max-w-2xl rounded-md border border-border"
+            />
+          </div>
+        )}
+
+        {/* 14-02 — Coaching tips (EN only on the trainer surface). */}
+        {tipsEn.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold text-foreground">
+              Coaching tips
+            </h2>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {tipsEn}
+            </p>
+          </div>
         )}
       </div>
 
