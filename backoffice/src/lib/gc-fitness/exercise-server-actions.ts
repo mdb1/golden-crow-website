@@ -57,7 +57,19 @@ import { getCurrentTrainer } from "./auth-helpers";
 
 const COLLECTION = "exercises";
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_THUMBNAIL_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 const SIGNED_URL_TTL_MS = 60 * 60 * 1000; // 60 minutes
+
+// Allowed image content types for thumbnail uploads. Keys are the MIME
+// strings the client MUST send (and that the signed URL is pinned to);
+// values are the extension we append to the object path so the bucket
+// layout stays human-readable.
+const THUMBNAIL_CONTENT_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
 
 // Cloud Storage bucket derived from the project ID env var. 03-CONTEXT.md
 // locks the path: `exercises/{firestoreDocId}.mp4`. The bucket name is the
@@ -325,6 +337,84 @@ export async function mintExerciseMediaUploadUrl(input: {
     action: "write",
     expires: Date.now() + SIGNED_URL_TTL_MS,
     contentType: "video/mp4",
+  });
+
+  return {
+    url,
+    gsPath: `gs://${bucketName}/${objectPath}`,
+  };
+}
+
+/**
+ * Mints a 60-minute v4 signed URL pinned to an image content type that the
+ * client uses to PUT a thumbnail directly to Cloud Storage. Mirrors
+ * `mintExerciseMediaUploadUrl` for the thumbnail field — same threat
+ * register coverage, narrower size cap and content-type set:
+ *
+ *  - 5 MB `contentLength` cap (threat-register COST-DOS mitigation);
+ *    thumbnails are tiny static images, so 5 MB is generous.
+ *  - `exerciseId` MUST start with `custom-${trainer.uid}-` so a trainer
+ *    cannot mint an upload URL for another trainer's exercise nor for a
+ *    wger doc (threat-register PATH-TRAVERSAL mitigation).
+ *  - `contentType` MUST be one of `image/jpeg | image/png | image/webp |
+ *    image/gif`, pinned in the signed URL options (threat-register
+ *    CONTENT-TYPE-SPOOF, server side). The browser MUST send a matching
+ *    `Content-Type` header on the PUT or Cloud Storage will reject.
+ *
+ * Object path: `exercises/${exerciseId}-thumb.${ext}` — the `-thumb`
+ * suffix keeps thumbnails distinct from the `${exerciseId}.mp4` video
+ * objects under the same prefix.
+ */
+export async function mintExerciseThumbnailUploadUrl(input: {
+  exerciseId: string;
+  contentLength: number;
+  contentType: string;
+}): Promise<{ url: string; gsPath: string }> {
+  const trainer = await getCurrentTrainer();
+
+  const { exerciseId, contentLength, contentType } = input;
+  if (!exerciseId || typeof exerciseId !== "string") {
+    throw new Error("BadRequest: exerciseId is required.");
+  }
+  // Path-traversal defense — only allow uploads to the caller's own
+  // `custom-${uid}-*` namespace.
+  const allowedPrefix = `custom-${trainer.uid}-`;
+  if (!exerciseId.startsWith(allowedPrefix)) {
+    throw new Error(
+      "Cannot upload to that path. exerciseId must belong to the caller.",
+    );
+  }
+  // Cost-DoS guard — server-side validation in addition to the 5 MB
+  // client gate the dropzone enforces.
+  if (
+    typeof contentLength !== "number" ||
+    !Number.isFinite(contentLength) ||
+    contentLength <= 0
+  ) {
+    throw new Error("BadRequest: contentLength must be a positive number.");
+  }
+  if (contentLength > MAX_THUMBNAIL_UPLOAD_BYTES) {
+    throw new Error("File too large. The 5 MB thumbnail ceiling was exceeded.");
+  }
+  // Content-type guard — must be a known image MIME we'll pin to the
+  // signed URL. Anything else is a client bug or a spoof attempt.
+  const ext = THUMBNAIL_CONTENT_TYPES[contentType];
+  if (!ext) {
+    throw new Error(
+      "BadRequest: contentType must be one of image/jpeg, image/png, image/webp, image/gif.",
+    );
+  }
+
+  const bucketName = getMediaBucketName();
+  const bucket = gcFitnessStorage().bucket(bucketName);
+  const objectPath = `exercises/${exerciseId}-thumb.${ext}`;
+  const file = bucket.file(objectPath);
+
+  const [url] = await file.getSignedUrl({
+    version: "v4",
+    action: "write",
+    expires: Date.now() + SIGNED_URL_TTL_MS,
+    contentType,
   });
 
   return {

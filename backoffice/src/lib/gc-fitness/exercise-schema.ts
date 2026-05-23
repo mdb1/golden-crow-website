@@ -49,6 +49,26 @@ const gsUrlSchema = z.preprocess(
     .optional(),
 );
 
+// Thumbnail URL — accepts EITHER an in-bucket `gs://` path (uploaded via
+// the new ThumbnailUploadDropzone) OR an external `https://` URL pasted by
+// the trainer (e.g., a giphy preview). The no-hotlinking invariant from
+// 03-CONTEXT.md is intentionally RELAXED for thumbnails to give trainers a
+// frictionless preview-image path; the video field (`mediaURL`) stays
+// `gs://`-only because hosting + transcode cost matters more for full
+// clips than for small static previews.
+const thumbnailUrlSchema = z.preprocess(
+  (value) => (value === "" ? null : value),
+  z
+    .string()
+    .trim()
+    .regex(
+      /^(gs:\/\/|https?:\/\/)/i,
+      "Enter a gs:// or https:// URL.",
+    )
+    .nullable()
+    .optional(),
+);
+
 const youtubeUrlSchema = z.preprocess(
   (value) => (value === "" ? null : value),
   z
@@ -144,7 +164,7 @@ export const exerciseSchema = z.object({
     .array(equipmentSchema)
     .min(1, "Pick at least one equipment item, or “bodyweight.”"),
   mediaURL: gsUrlSchema,
-  thumbnailURL: gsUrlSchema,
+  thumbnailURL: thumbnailUrlSchema,
   youtubeURL: youtubeUrlSchema,
   videoUrl: videoUrlSchema,
   tips: tipsSchema,

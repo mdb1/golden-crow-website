@@ -65,6 +65,7 @@ import {
 
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
 import { MediaUploadDropzone } from "./MediaUploadDropzone";
+import { ThumbnailUploadDropzone } from "./ThumbnailUploadDropzone";
 
 export type ExerciseFormMode = "create" | "edit" | "view";
 
@@ -434,12 +435,26 @@ export function ExerciseForm({
               <FormItem>
                 <FormLabel>Thumbnail image</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="gs://bucket/path/to-thumbnail.jpg"
-                    disabled={isView}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      placeholder="gs://bucket/path/to-thumbnail.jpg"
+                      disabled={isView}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                    <ThumbnailUploadDropzone
+                      exerciseId={exerciseId}
+                      value={field.value ?? null}
+                      onUploaded={(gs) => field.onChange(gs)}
+                      onRemoved={() => field.onChange(null)}
+                      disabled={isView || (mode === "create" && !exerciseId)}
+                      disabledHint={
+                        mode === "create" && !exerciseId
+                          ? "Save the exercise first to enable thumbnail upload."
+                          : undefined
+                      }
+                    />
+                  </div>
                 </FormControl>
                 <FormDescription>
                   Optional preview image shown in lists and pickers.
