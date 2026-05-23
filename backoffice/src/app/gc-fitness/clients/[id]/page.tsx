@@ -22,6 +22,7 @@
 
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -97,6 +98,7 @@ export default async function ClientDetailPage({
     getClientDailyTimelineDay(id, todayCivil),
   ]);
   const dateWindow = buildClientDailyTimelineDates();
+  const tSkeleton = await getTranslations("clients.detail.skeleton");
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
@@ -110,21 +112,19 @@ export default async function ClientDetailPage({
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Suspense fallback={<WidgetSkeleton title="Recent workouts" />}>
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentWorkouts")} />}>
           <RecentWorkoutsWidget clientId={id} />
         </Suspense>
 
-        <Suspense
-          fallback={<WidgetSkeleton title="Habit compliance (last 7 days)" />}
-        >
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("habitCompliance")} />}>
           <HabitComplianceWidget clientId={id} timezone={timezone} />
         </Suspense>
 
-        <Suspense fallback={<WidgetSkeleton title="Recent messages" />}>
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>
           <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} />
         </Suspense>
 
-        <Suspense fallback={<WidgetSkeleton title="Body weight (30 days)" />}>
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("bodyWeight")} />}>
           <BodyWeightTrendChart clientId={id} timezone={timezone} />
         </Suspense>
 

@@ -6,6 +6,7 @@
     "edit": "Editar",
     "create": "Crear",
     "loading": "Cargando…",
+    "loadingShort": "Cargando...",
     "errorGeneric": "Algo salió mal.",
     "retry": "Reintentar",
     "back": "Volver",
@@ -19,7 +20,11 @@
     "open": "Abrir",
     "pendingSignIn": "Pendiente de ingreso",
     "active": "Activo",
-    "clearFilter": "Limpiar filtro"
+    "clearFilter": "Limpiar filtro",
+    "saving": "Guardando...",
+    "emDash": "—",
+    "noDate": "Sin fecha",
+    "selectAll": "Seleccionar todo"
   },
   "nav": {
     "overview": "Resumen",
@@ -110,6 +115,135 @@
     "empty": {
       "headline": "Aún no tenés clientes",
       "body": "Agregá un cliente para empezar."
+    },
+    "detail": {
+      "heightLabel": "Altura: {value}",
+      "weightLabel": "Peso: {value}",
+      "openChat": "Abrir chat",
+      "assignWorkout": "Asignar entrenamiento",
+      "skeleton": {
+        "recentWorkouts": "Entrenamientos recientes",
+        "habitCompliance": "Adherencia a hábitos (últimos 7 días)",
+        "recentMessages": "Mensajes recientes",
+        "bodyWeight": "Peso corporal (30 días)"
+      },
+      "timeline": {
+        "title": "Vista diaria del cliente",
+        "subtitle": "Carga el día seleccionado a demanda para reducir las lecturas a Firestore.",
+        "daysLoaded": "{count} días cargados",
+        "loading": "Cargando...",
+        "tapToLoad": "Tocá para cargar",
+        "activity": "Con actividad",
+        "noData": "Sin datos",
+        "couldNotLoad": "No se pudo cargar este día.",
+        "couldNotRefresh": "No se pudo refrescar el día.",
+        "workouts": "Entrenamientos",
+        "habits": "Hábitos",
+        "progressPhotos": "Fotos de progreso",
+        "chat": "Chat",
+        "coachNotes": "Notas del entrenador",
+        "reminders": "Recordatorios",
+        "addAfterLast": "Agregar después del último",
+        "assignWorkout": "Asignar entrenamiento",
+        "restOrNone": "Descanso o sin entrenamiento asignado.",
+        "noHabitLogs": "Sin registros de hábitos para este día.",
+        "noPhotos": "Sin fotos subidas.",
+        "noMessages": "Sin mensajes ese día.",
+        "noNotes": "Sin notas guardadas para este día.",
+        "noReminders": "Sin recordatorios para este día.",
+        "removeWorkoutLabel": "Quitar {name}",
+        "loggedPrefix": "Registrado: {name}",
+        "setsSuffix": "{count} series",
+        "habitStatusFuture": "futuro",
+        "habitStatusDone": "hecho",
+        "habitStatusPending": "pendiente",
+        "reminderStatusFutureValue": "solo visual",
+        "reminderStatusDone": "hecho",
+        "reminderStatusPending": "pendiente",
+        "reminderDefaultCadence": "diario",
+        "noPreview": "Sin vista previa",
+        "viewSideBySide": "Ver lado a lado",
+        "selectDayPrompt": "Seleccioná un día para cargar sus detalles.",
+        "coach": "Entrenador",
+        "client": "Cliente",
+        "progressPhotoAlt": "Foto de progreso",
+        "photoAngleFallback": "foto"
+      },
+      "goals": {
+        "title": "Objetivos",
+        "subtitle": "Objetivos de corto, mediano y largo plazo visibles para el cliente.",
+        "empty": "Aún no hay objetivos.",
+        "horizonShort": "Corto",
+        "horizonMedium": "Mediano",
+        "horizonLong": "Largo",
+        "targetPrefix": "Meta {date}",
+        "complete": "Completar",
+        "archive": "Archivar",
+        "newPlaceholder": "Nuevo objetivo",
+        "descriptionPlaceholder": "Contexto, resultado medible, restricciones...",
+        "addCta": "Agregar objetivo",
+        "saveFailed": "Error al guardar"
+      },
+      "notes": {
+        "title": "Bitácora de notas del entrenador",
+        "subtitle": "Agregá una nota para un día específico y mantené un registro continuo.",
+        "savedAt": "Guardado {datetime}",
+        "placeholder": "Escribí una nota para este día...",
+        "characterCount": "{count}/10000",
+        "addCta": "Agregar nota",
+        "saveFailed": "Error al guardar",
+        "notesForDate": "Notas para {date}",
+        "noNotesForDay": "Sin notas para este día."
+      },
+      "recentWorkouts": {
+        "title": "Entrenamientos recientes",
+        "empty": "Aún no hay entrenamientos registrados.",
+        "untitled": "(sin nombre)",
+        "setSingular": "{count} serie",
+        "setPlural": "{count} series"
+      },
+      "habitCompliance": {
+        "title": "Adherencia a hábitos (últimos 7 días)",
+        "empty": "Aún no hay hábitos asignados.",
+        "unnamed": "(hábito sin nombre)"
+      },
+      "chatHistory": {
+        "title": "Mensajes recientes",
+        "empty": "Aún no hay mensajes.",
+        "coach": "Entrenador",
+        "client": "Cliente",
+        "openFull": "Abrir conversación completa →",
+        "voiceMessage": "🎤 Mensaje de voz",
+        "imageMessage": "📷 Imagen"
+      },
+      "photos": {
+        "title": "Fotos de progreso",
+        "subtitle": "Fotos de check-in subidas por el cliente.",
+        "empty": "Aún no hay fotos de progreso.",
+        "imageUnavailable": "Imagen no disponible",
+        "photoAlt": "Foto de progreso",
+        "photoFallback": "foto"
+      },
+      "photoCompare": {
+        "front": "Frente",
+        "side": "Costado",
+        "back": "Espalda",
+        "before": "Antes",
+        "after": "Después",
+        "selectTwo": "Seleccioná dos fotos de {angle} para comparar.",
+        "beforeAlt": "Antes",
+        "afterAlt": "Después"
+      },
+      "bodyWeightChart": {
+        "title": "Peso corporal (30 días)",
+        "noHabit": "Aún no hay un hábito de peso corporal asignado.",
+        "assignHabit": "Asignar un hábito de peso corporal →",
+        "noLogs": "Sin registros de peso en los últimos 30 días.",
+        "latestPrefix": "Último:",
+        "logSingular": "{count} registro",
+        "logPlural": "{count} registros",
+        "ariaLabel": "Tendencia de peso corporal en {count} registros"
+      }
     }
   },
   "templates": {
@@ -119,6 +253,50 @@
     "empty": {
       "headline": "Aún no hay plantillas",
       "body": "Creá tu primera plantilla de entrenamiento."
+    },
+    "form": {
+      "nameEn": "Nombre (inglés)",
+      "nameEs": "Nombre (español)",
+      "namePlaceholderEn": "Push Day",
+      "namePlaceholderEs": "Día de empuje",
+      "nameEsHint": "Dejá en blanco para marcar como “necesita traducción.”",
+      "descriptionEn": "Descripción (inglés)",
+      "descriptionEs": "Descripción (español)",
+      "descriptionPlaceholderEn": "Chest, shoulders, triceps.",
+      "descriptionPlaceholderEs": "Pecho, hombros, tríceps.",
+      "tag": "Etiqueta",
+      "tagPlaceholder": "ej. Empuje, Tren superior, Rehab",
+      "tagHint": "Podés escribir cualquier etiqueta o elegir una sugerencia.",
+      "tagOptions": {
+        "push": "Empuje",
+        "pull": "Tracción",
+        "legs": "Piernas",
+        "upper": "Tren superior",
+        "lower": "Tren inferior",
+        "fullBody": "Cuerpo completo",
+        "custom": "Personalizada"
+      },
+      "exercises": "Ejercicios",
+      "exercisesCount": "{count}/30",
+      "exercisesEmpty": "Aún no hay ejercicios. Tocá <strong>Agregar ejercicio</strong> para empezar.",
+      "moveUp": "Mover ejercicio arriba",
+      "moveDown": "Mover ejercicio abajo",
+      "removeExercise": "Quitar ejercicio",
+      "exerciseLabel": "Ejercicio",
+      "pickExerciseAria": "Elegí ejercicio para la fila {index}",
+      "sets": "Series",
+      "reps": "Reps",
+      "restSeconds": "Descanso (s)",
+      "coachingNotes": "Notas del entrenador",
+      "coachingNotesPlaceholder": "Tempo, RPE, foco…",
+      "addExercise": "Agregar ejercicio",
+      "cancel": "Cancelar",
+      "saving": "Guardando…",
+      "createCta": "Crear plantilla",
+      "saveCta": "Guardar cambios",
+      "createdToast": "Plantilla creada.",
+      "savedToast": "Plantilla guardada.",
+      "saveFailed": "No se pudo guardar."
     }
   },
   "habits": {
@@ -151,6 +329,74 @@
     "empty": {
       "headline": "Aún no hay conversaciones",
       "body": "Cuando un cliente te escriba, aparecerá acá."
+    },
+    "inbox": {
+      "selectThread": "Seleccioná una conversación de la lista para empezar."
+    },
+    "conversation": {
+      "loadingMessages": "Cargando mensajes…",
+      "loadError": "No se pudieron cargar los mensajes.",
+      "noMessagesYet": "Aún no hay mensajes. Saludá a {name}.",
+      "imagePhoto": "📷 Foto",
+      "voiceNote": "🎤 Mensaje de voz",
+      "voiceNoteWithDuration": "🎤 Mensaje de voz ({seconds}s)",
+      "unsupportedMessage": "Tipo de mensaje no soportado."
+    },
+    "threadList": {
+      "loading": "Cargando…",
+      "loadError": "No se pudieron cargar las conversaciones.",
+      "noConversations": "Aún no hay conversaciones.",
+      "firstMessagesHere": "Los primeros mensajes de tus clientes aparecerán acá.",
+      "justNow": "recién",
+      "minutesShort": "{count}m",
+      "hoursShort": "{count}h",
+      "daysShort": "{count}d",
+      "previewStart": "Empezá la conversación…",
+      "previewEmpty": "(mensaje vacío)",
+      "previewImage": "📷 Foto",
+      "previewImageWithText": "📷 {text}",
+      "previewVoice": "🎤 Mensaje de voz",
+      "previewNewMessage": "Mensaje nuevo"
+    },
+    "composer": {
+      "placeholder": "Escribí un mensaje…",
+      "messageAria": "Texto del mensaje",
+      "sending": "Enviando…",
+      "send": "Enviar",
+      "errorFallback": "No se pudo enviar."
+    },
+    "nudge": {
+      "triggerCta": "Enviar empujón",
+      "successTitle": "Empujón enviado a {name}",
+      "successDescription": "Decisión: {decision}",
+      "notDeliveredTitle": "Empujón no entregado",
+      "notDeliveredDescription": "{name}: {decision}",
+      "errorTitle": "No se pudo enviar el empujón",
+      "errorFallback": "No se pudo enviar.",
+      "todaySuffix": "{used} / {cap} hoy",
+      "todaySuffixEmpty": "—",
+      "capErrorTooltip": "No se pudo leer el conteo de pushes de hoy ({error}). El envío igualmente se valida en el servidor.",
+      "capReachedNudge": "Tope diario de empujones alcanzado ({used} / {cap}). Se reinicia a medianoche en la zona horaria de {name} ({timezone}).",
+      "capReachedTotal": "Tope diario de pushes alcanzado ({used} / {cap} entre empujones, asignaciones y PRs). Se reinicia a medianoche en la zona horaria de {name} ({timezone}).",
+      "remainingTooltipSingular": "Queda {count} push hoy (se reinicia a medianoche en {timezone}).",
+      "remainingTooltipPlural": "Quedan {count} pushes hoy (se reinicia a medianoche en {timezone}).",
+      "capLoadingTooltip": "Cargando el conteo de pushes de hoy…",
+      "dialogTitle": "Enviar un empujón a {name}",
+      "dialogDescriptionWithStatus": "Enviá una notificación push puntual. Sujeto a las preferencias de notificación del cliente. {remaining} de {total} push{suffix} restantes hoy (se reinicia a medianoche en {timezone}).",
+      "dialogDescriptionFallback": "Enviá una notificación push puntual. Sujeto a las preferencias de notificación del cliente y a un tope diario de {cap} empujones por cliente.",
+      "messageLabel": "Mensaje",
+      "messageCounter": "{count} / {max}",
+      "messagePlaceholder": "¡No te saltes el día de piernas!",
+      "cancel": "Cancelar",
+      "sending": "Enviando…",
+      "submit": "Enviar empujón"
+    },
+    "quickReply": {
+      "triggerAria": "Insertar respuesta rápida",
+      "menuLabel": "Respuestas rápidas",
+      "loading": "Cargando…",
+      "emptyText": "Aún no hay respuestas rápidas.",
+      "manage": "Gestionar respuestas rápidas →"
     }
   },
   "settings": {
@@ -170,7 +416,136 @@
   "schedule": {
     "title": "Agenda",
     "subtitle": "Asigná entrenamientos día por día, o usá la asignación masiva para repartir entre varios clientes a la vez.",
-    "bulkAssign": "Asignación masiva"
+    "bulkAssign": "Asignación masiva",
+    "clientPicker": {
+      "emptyTitle": "Aún no tenés clientes",
+      "emptyBody": "Cuando tus clientes inicien sesión en la app de iOS, van a aparecer acá.",
+      "pickTitle": "Elegí un cliente"
+    },
+    "bulk": {
+      "title": "Asignación masiva",
+      "subtitle": "Elegí una plantilla + una fecha + varios clientes. Confirmá la lista antes de enviar — todas las asignaciones se guardan de forma atómica.",
+      "backToSchedule": "Volver a la agenda"
+    },
+    "weekGrid": {
+      "weekOf": "Semana del {date}",
+      "previousWeek": "Semana anterior",
+      "nextWeek": "Semana siguiente",
+      "loadErrorPrefix": "No se pudo cargar la agenda.",
+      "loadErrorFallback": "Probá de nuevo.",
+      "loading": "Cargando…",
+      "assignTemplateCta": "Asignar plantilla",
+      "removeWorkoutAria": "Quitar {name}",
+      "untitledTemplate": "(sin título)",
+      "daysShort": {
+        "mon": "Lun",
+        "tue": "Mar",
+        "wed": "Mié",
+        "thu": "Jue",
+        "fri": "Vie",
+        "sat": "Sáb",
+        "sun": "Dom"
+      }
+    },
+    "bulkAssign": {
+      "templateAndDate": "Plantilla + Fecha",
+      "templateLabel": "Plantilla",
+      "templatePlaceholder": "Elegí una plantilla",
+      "templateLoading": "Cargando…",
+      "dayLabel": "Día",
+      "scheduledFor": "Programado para {date}",
+      "timeLabel": "Hora",
+      "meetingNotesLabel": "Notas de la sesión",
+      "meetingNotesPlaceholder": "Link de Zoom / Meet, instrucciones, notas de preparación...",
+      "clientsHeading": "Clientes ({count} seleccionados)",
+      "selectAll": "Seleccionar todos",
+      "clear": "Limpiar",
+      "noClients": "Aún no tenés clientes en el plantel.",
+      "tableName": "Nombre",
+      "tableEmail": "Email",
+      "tableTimezone": "Zona horaria",
+      "selectClientAria": "Seleccionar a {name}",
+      "overCapMessage": "Seleccionaste {count} clientes — el tope por envío es {cap}. Desmarcá algunos para continuar.",
+      "reviewSingular": "Revisar {count} asignación",
+      "reviewPlural": "Revisar {count} asignaciones",
+      "errorPickTemplate": "Elegí primero una plantilla.",
+      "errorKeepOne": "Dejá al menos un cliente marcado.",
+      "errorBulkFailed": "Falló la asignación masiva.",
+      "successSingular": "Asignado a {count} cliente.",
+      "successPlural": "Asignado a {count} clientes.",
+      "unknownTemplate": "(plantilla desconocida)"
+    },
+    "bulkConfirm": {
+      "titleSingular": "¿Asignar “{template}” a {count} cliente el {date}?",
+      "titlePlural": "¿Asignar “{template}” a {count} clientes el {date}?",
+      "description": "Desmarcá los clientes a los que no quieras asignar. El envío escribe a todos los clientes marcados de forma atómica — o se crean todas las asignaciones o ninguna.",
+      "includeAria": "Incluir a {name}",
+      "cancel": "Cancelar",
+      "assigning": "Asignando…",
+      "confirmSingular": "Confirmar {count} asignación",
+      "confirmPlural": "Confirmar {count} asignaciones"
+    },
+    "assignModal": {
+      "title": "Asignar una plantilla de entrenamiento",
+      "description": "Elegí una plantilla y confirmá el día. El snapshot se congela al enviar — editar la plantilla más adelante no cambiará esta asignación.",
+      "templateLabel": "Plantilla",
+      "templatePlaceholder": "Elegí una plantilla",
+      "templateLoading": "Cargando…",
+      "modeLabel": "Modo de asignación",
+      "modeOnce": "Única",
+      "modeWeekly": "Semanal recurrente",
+      "repeatOnLabel": "Repetir los",
+      "weekdays": {
+        "sunday": "Domingo",
+        "monday": "Lunes",
+        "tuesday": "Martes",
+        "wednesday": "Miércoles",
+        "thursday": "Jueves",
+        "friday": "Viernes",
+        "saturday": "Sábado"
+      },
+      "setEndDate": "Definir fecha de fin",
+      "endDateLabel": "Fecha de fin",
+      "endDateHintWithEnd": "Se repite semanalmente hasta esta fecha.",
+      "endDateHintNoEnd": "Sin fecha de fin: crea los próximos 12 meses.",
+      "dayLabel": "Día",
+      "scheduledFor": "Programado para {date}",
+      "timeLabel": "Hora",
+      "timeHint": "Opcional para sesiones en vivo o virtuales.",
+      "meetingNotesLabel": "Notas de la sesión",
+      "meetingNotesPlaceholder": "Link de Zoom / Meet, instrucciones, notas de preparación...",
+      "cancel": "Cancelar",
+      "assigning": "Asignando…",
+      "submit": "Asignar",
+      "errorPickTemplate": "Elegí primero una plantilla.",
+      "errorFallback": "Falló la asignación.",
+      "successOnce": "Plantilla asignada.",
+      "successRecurring": "Asignación recurrente creada ({count} entrenamientos)."
+    }
+  },
+  "picker": {
+    "triggerPlaceholder": "Elegí un ejercicio…",
+    "searchPlaceholder": "Buscar ejercicios…",
+    "loadingExercises": "Cargando ejercicios…",
+    "loadError": "No se pudieron cargar los ejercicios.",
+    "noExercises": "Aún no hay ejercicios. Creá uno en la biblioteca primero.",
+    "noMatches": "Sin coincidencias."
+  },
+  "dialogs": {
+    "deleteAssignment": {
+      "titleRecurring": "¿Quitar “{name}”?",
+      "titleSingle": "¿Quitar el entrenamiento?",
+      "descriptionRecurring": "Este es un entrenamiento recurrente. ¿Querés borrar solo este, o este y todas las próximas ocurrencias?",
+      "descriptionSingle": "Esto va a quitar el entrenamiento programado del calendario del cliente. El cliente ya no lo verá. No se puede deshacer.",
+      "thisOnly": "Solo esta ocurrencia",
+      "cascade": "Esta y todas las próximas ocurrencias",
+      "cancel": "Cancelar",
+      "removing": "Quitando…",
+      "deleteCta": "Eliminar",
+      "successSingle": "Se quitó 1 entrenamiento",
+      "successPlural": "Se quitaron {count} entrenamientos",
+      "errorFallback": "No se pudo quitar la asignación."
+    }
   },
   "recentLogs": {
     "title": "Actividad reciente",

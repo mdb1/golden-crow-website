@@ -26,6 +26,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -68,6 +69,7 @@ export function BulkAssignForm({
   clients,
   trainerTimezone = "UTC",
 }: BulkAssignFormProps) {
+  const t = useTranslations("schedule.bulkAssign");
   const router = useRouter();
   const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
 

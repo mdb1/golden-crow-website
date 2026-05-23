@@ -14,6 +14,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   getClientDailyTimelineDay,
@@ -31,6 +32,8 @@ export function ClientDailyTimeline({
   availableDates: string[];
   initialDay: ClientDailyTimelineDay;
 }) {
+  const t = useTranslations("clients.detail.timeline");
+  const tCommon = useTranslations("common");
   const today = new Date().toISOString().slice(0, 10);
   const initialDate =
     availableDates.find((day) => day === today) ?? availableDates[0] ?? initialDay.date;
@@ -77,7 +80,7 @@ export function ClientDailyTimeline({
       const loaded = await getClientDailyTimelineDay(clientId, day);
       setDaysByDate((prev) => ({ ...prev, [day]: loaded }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this day.");
+      setError(err instanceof Error ? err.message : t("couldNotLoad"));
     } finally {
       setLoadingDate((current) => (current === day ? null : current));
     }
@@ -122,7 +125,7 @@ export function ClientDailyTimeline({
       })
       .catch((err: unknown) => {
         setError(
-          err instanceof Error ? err.message : "Could not refresh the day.",
+          err instanceof Error ? err.message : t("couldNotRefresh"),
         );
       })
       .finally(() => {
@@ -138,14 +141,12 @@ export function ClientDailyTimeline({
         <div>
           <h2 className="flex items-center gap-2 font-medium">
             <CalendarDays className="size-4" />
-            Daily client view
+            {t("title")}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Loads the selected day on demand to keep Firestore reads low.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="text-xs text-muted-foreground">
-          {loadedCounts.loaded} days loaded
+          {t("daysLoaded", { count: loadedCounts.loaded })}
         </div>
       </div>
 
@@ -174,12 +175,12 @@ export function ClientDailyTimeline({
                 }
               >
                 {loadingDate === day
-                  ? "Loading..."
+                  ? t("loading")
                   : !isLoaded
-                    ? "Tap to load"
+                    ? t("tapToLoad")
                     : hasData
-                      ? "Activity"
-                      : "No data"}
+                      ? t("activity")
+                      : t("noData")}
               </span>
             </button>
           );
@@ -194,30 +195,30 @@ export function ClientDailyTimeline({
 
       {loadingDate === selectedDate && !selected ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <LoadingBlock title="Workouts" />
-          <LoadingBlock title="Habits" />
-          <LoadingBlock title="Progress photos" />
-          <LoadingBlock title="Chat" />
-          <LoadingBlock title="Coach notes" />
-          <LoadingBlock title="Reminders" />
+          <LoadingBlock title={t("workouts")} />
+          <LoadingBlock title={t("habits")} />
+          <LoadingBlock title={t("progressPhotos")} />
+          <LoadingBlock title={t("chat")} />
+          <LoadingBlock title={t("coachNotes")} />
+          <LoadingBlock title={t("reminders")} />
         </div>
       ) : selected ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <TimelineBlock
             icon={<Dumbbell className="size-4" />}
-            title="Workouts"
+            title={t("workouts")}
             action={
               <Link
                 href={`/gc-fitness/schedule?clientId=${clientId}&date=${selected.date}`}
                 className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
                 <Plus className="size-3" />
-                {selected.workouts.length > 0 ? "Add after last workout" : "Assign workout"}
+                {selected.workouts.length > 0 ? t("addAfterLast") : t("assignWorkout")}
               </Link>
             }
           >
             {selected.workouts.length === 0 && selected.workoutLogs.length === 0 ? (
-              <Empty>Rest or no workout assigned.</Empty>
+              <Empty>{t("restOrNone")}</Empty>
             ) : (
               <ul className="space-y-2 text-sm">
                 {selected.workouts.map((workout) => (
@@ -243,7 +244,7 @@ export function ClientDailyTimeline({
                               seriesId: workout.seriesId ?? null,
                             })
                           }
-                          aria-label={`Remove ${workout.name}`}
+                          aria-label={t("removeWorkoutLabel", { name: workout.name })}
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -258,17 +259,19 @@ export function ClientDailyTimeline({
                 ))}
                 {selected.workoutLogs.map((log) => (
                   <li key={log.id} className="rounded-md bg-muted px-3 py-2">
-                    <span className="font-medium">Logged: {log.name}</span>
-                    <span className="ml-2 text-muted-foreground">{log.setCount} sets</span>
+                    <span className="font-medium">{t("loggedPrefix", { name: log.name })}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {t("setsSuffix", { count: log.setCount })}
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
           </TimelineBlock>
 
-          <TimelineBlock icon={<CheckCircle2 className="size-4" />} title="Habits">
+          <TimelineBlock icon={<CheckCircle2 className="size-4" />} title={t("habits")}>
             {selected.habits.length === 0 ? (
-              <Empty>No habit logs for this day.</Empty>
+              <Empty>{t("noHabitLogs")}</Empty>
             ) : (
               <ul className="space-y-2 text-sm">
                 {selected.habits.map((habit) => (
@@ -282,7 +285,11 @@ export function ClientDailyTimeline({
                     <div className="flex flex-col">
                       <span className="font-medium">{habit.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {habit.future ? "future" : habit.completed ? "done" : "pending"}
+                        {habit.future
+                          ? t("habitStatusFuture")
+                          : habit.completed
+                            ? t("habitStatusDone")
+                            : t("habitStatusPending")}
                       </span>
                     </div>
                     <span className={habit.completed ? "text-emerald-600" : "text-muted-foreground"}>
@@ -294,9 +301,9 @@ export function ClientDailyTimeline({
             )}
           </TimelineBlock>
 
-          <TimelineBlock icon={<Camera className="size-4" />} title="Progress photos">
+          <TimelineBlock icon={<Camera className="size-4" />} title={t("progressPhotos")}>
             {selected.photos.length === 0 ? (
-              <Empty>No photos uploaded.</Empty>
+              <Empty>{t("noPhotos")}</Empty>
             ) : (
               <ul className="space-y-2 text-sm">
                 {selected.photos.map((photo) => (
@@ -306,25 +313,25 @@ export function ClientDailyTimeline({
                         {photo.url ? (
                           <Image
                             src={photo.url}
-                            alt={photo.caption || "Progress photo"}
+                            alt={photo.caption || t("progressPhotoAlt")}
                             fill
                             className="object-cover"
                             sizes="48px"
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">
-                            No preview
+                            {t("noPreview")}
                           </div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium uppercase">{photo.angle ?? "photo"}</span>
+                          <span className="font-medium uppercase">{photo.angle ?? t("photoAngleFallback")}</span>
                           <span className="text-xs text-muted-foreground">
                             {photo.checkInDate ??
                               (photo.takenAt || photo.createdAt
                                 ? new Date(photo.takenAt ?? photo.createdAt ?? "").toLocaleDateString()
-                                : "No date")}
+                                : tCommon("noDate"))}
                           </span>
                         </div>
                         {photo.caption ? (
@@ -334,7 +341,7 @@ export function ClientDailyTimeline({
                           href="#progress-photos"
                           className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                         >
-                          View side-by-side
+                          {t("viewSideBySide")}
                         </Link>
                       </div>
                     </div>
@@ -344,9 +351,9 @@ export function ClientDailyTimeline({
             )}
           </TimelineBlock>
 
-          <TimelineBlock icon={<MessageSquare className="size-4" />} title="Chat">
+          <TimelineBlock icon={<MessageSquare className="size-4" />} title={t("chat")}>
             {selected.messages.length === 0 ? (
-              <Empty>No messages that day.</Empty>
+              <Empty>{t("noMessages")}</Empty>
             ) : (
               <ul className="space-y-2 text-sm">
                 {selected.messages.map((message) => (
@@ -360,7 +367,7 @@ export function ClientDailyTimeline({
                     ].join(" ")}
                   >
                     <span className="block text-[10px] uppercase opacity-70">
-                      {message.sender === "coach" ? "Coach" : "Client"}
+                      {message.sender === "coach" ? t("coach") : t("client")}
                     </span>
                     <span className="block whitespace-pre-wrap">{message.body}</span>
                   </li>
@@ -369,16 +376,16 @@ export function ClientDailyTimeline({
             )}
           </TimelineBlock>
 
-          <TimelineBlock icon={<NotebookText className="size-4" />} title="Coach notes">
+          <TimelineBlock icon={<NotebookText className="size-4" />} title={t("coachNotes")}>
             {selected.notes.length === 0 ? (
-              <Empty>No notes saved for this day.</Empty>
+              <Empty>{t("noNotes")}</Empty>
             ) : (
               <div className="space-y-2">
                 {selected.notes.map((note) => (
                   <div key={note.id} className="rounded-md bg-muted px-3 py-2 text-sm">
                     <p className="whitespace-pre-wrap">{note.body}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {note.createdAt ? new Date(note.createdAt).toLocaleString() : "—"}
+                      {note.createdAt ? new Date(note.createdAt).toLocaleString() : tCommon("emDash")}
                     </p>
                   </div>
                 ))}
@@ -386,9 +393,9 @@ export function ClientDailyTimeline({
             )}
           </TimelineBlock>
 
-          <TimelineBlock icon={<Clock3 className="size-4" />} title="Reminders">
+          <TimelineBlock icon={<Clock3 className="size-4" />} title={t("reminders")}>
             {selected.reminders.length === 0 ? (
-              <Empty>No reminders due this day.</Empty>
+              <Empty>{t("noReminders")}</Empty>
             ) : (
               <ul className="space-y-2 text-sm">
                 {selected.reminders.map((reminder) => (
@@ -402,12 +409,16 @@ export function ClientDailyTimeline({
                     <div className="flex flex-col">
                       <span className="font-medium">{reminder.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {reminder.cadence ?? "daily"}
+                        {reminder.cadence ?? t("reminderDefaultCadence")}
                         {reminder.time ? ` • ${reminder.time}` : ""}
                       </span>
                     </div>
                     <span className={reminder.completed ? "text-emerald-600" : "text-muted-foreground"}>
-                      {reminder.future ? "visual only" : reminder.completed ? "done" : "pending"}
+                      {reminder.future
+                        ? t("reminderStatusFutureValue")
+                        : reminder.completed
+                          ? t("reminderStatusDone")
+                          : t("reminderStatusPending")}
                     </span>
                   </li>
                 ))}
@@ -417,7 +428,7 @@ export function ClientDailyTimeline({
         </div>
       ) : (
         <div className="rounded-md border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
-          Select a day to load its details.
+          {t("selectDayPrompt")}
         </div>
       )}
 

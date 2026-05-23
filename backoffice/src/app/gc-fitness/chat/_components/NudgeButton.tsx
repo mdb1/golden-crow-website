@@ -44,6 +44,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Dialog,
@@ -92,6 +93,7 @@ export interface NudgeButtonProps {
 }
 
 export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
+  const t = useTranslations("chat.nudge");
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -153,23 +155,26 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
     try {
       const result = await sendTrainerNudge(data);
       if (result.ok) {
-        toast.success(`Nudge sent to ${clientName}`, {
-          description: `Decision: ${result.decision}`,
+        toast.success(t("successTitle", { name: clientName }), {
+          description: t("successDescription", { decision: result.decision }),
         });
       } else {
         // ok=false means the callable's orchestrator dropped the push for
         // a reason the trainer should know (preferences_off / daily_cap /
         // total_cap / missing_user). Use a warning toast — the action
         // itself didn't error, but the side effect didn't deliver.
-        toast.warning("Nudge not delivered", {
-          description: `${clientName}: ${result.decision}`,
+        toast.warning(t("notDeliveredTitle"), {
+          description: t("notDeliveredDescription", {
+            name: clientName,
+            decision: result.decision,
+          }),
         });
       }
       form.reset({ clientId, message: "" });
       setOpen(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Couldn't send.";
-      toast.error("Couldn't send the nudge", { description: message });
+      const message = err instanceof Error ? err.message : t("errorFallback");
+      toast.error(t("errorTitle"), { description: message });
     } finally {
       setSubmitting(false);
       // Refresh the cap counter regardless of outcome — a server-side
@@ -219,27 +224,44 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
   // when the client has already received 3 nudges and no other pushes —
   // rare; when it does gate, the disabled-state tooltip explains.
   const capLabel = capStatus
-    ? `${capStatus.totalUsed} / ${capStatus.totalCap} today`
+    ? t("todaySuffix", { used: capStatus.totalUsed, cap: capStatus.totalCap })
     : capLoading
-      ? "—"
-      : "—";
+      ? t("todaySuffixEmpty")
+      : t("todaySuffixEmpty");
 
   // Tooltip body — explains why the button is disabled, or surfaces the
   // soft-error from a failed cap read.
   let capTooltip: string;
   if (capError) {
-    capTooltip = `Couldn't read today's push count (${capError}). The send will still be checked server-side.`;
+    capTooltip = t("capErrorTooltip", { error: capError });
   } else if (capReached && capStatus) {
     capTooltip =
       capStatus.gatingCap === "nudge"
-        ? `Daily nudge cap reached (${capStatus.nudgeUsed} / ${capStatus.nudgeCap}). Resets at midnight in ${clientName}'s timezone (${capStatus.timezone}).`
-        : `Daily push cap reached (${capStatus.totalUsed} / ${capStatus.totalCap} across nudges, assignments, PRs). Resets at midnight in ${clientName}'s timezone (${capStatus.timezone}).`;
+        ? t("capReachedNudge", {
+            used: capStatus.nudgeUsed,
+            cap: capStatus.nudgeCap,
+            name: clientName,
+            timezone: capStatus.timezone,
+          })
+        : t("capReachedTotal", {
+            used: capStatus.totalUsed,
+            cap: capStatus.totalCap,
+            name: clientName,
+            timezone: capStatus.timezone,
+          });
   } else if (capStatus) {
-    capTooltip = `${capStatus.remaining} push${
-      capStatus.remaining === 1 ? "" : "es"
-    } remaining today (resets midnight ${capStatus.timezone}).`;
+    capTooltip =
+      capStatus.remaining === 1
+        ? t("remainingTooltipSingular", {
+            count: capStatus.remaining,
+            timezone: capStatus.timezone,
+          })
+        : t("remainingTooltipPlural", {
+            count: capStatus.remaining,
+            timezone: capStatus.timezone,
+          });
   } else {
-    capTooltip = "Loading today's push count…";
+    capTooltip = t("capLoadingTooltip");
   }
 
   const triggerButton = (
@@ -250,7 +272,7 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
       disabled={capReached}
     >
       <Send className="size-4" />
-      Send nudge
+      {t("triggerCta")}
       <span
         aria-live="polite"
         className={`ml-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
@@ -288,25 +310,16 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
       </TooltipProvider>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Send a nudge to {clientName}</DialogTitle>
+          <DialogTitle>{t("dialogTitle", { name: clientName })}</DialogTitle>
           <DialogDescription>
-            Send a one-off push notification.{" "}
-            {capStatus ? (
-              <>
-                Subject to your client&apos;s notification preferences.{" "}
-                <span className="font-medium">
-                  {capStatus.remaining}
-                </span>{" "}
-                of {capStatus.totalCap} push
-                {capStatus.totalCap === 1 ? "" : "es"} remaining today (resets
-                at midnight in {capStatus.timezone}).
-              </>
-            ) : (
-              <>
-                Subject to your client&apos;s notification preferences and a
-                daily cap of {NUDGE_CATEGORY_CAP} nudges per client.
-              </>
-            )}
+            {capStatus
+              ? t("dialogDescriptionWithStatus", {
+                  remaining: capStatus.remaining,
+                  total: capStatus.totalCap,
+                  suffix: capStatus.totalCap === 1 ? "" : "es",
+                  timezone: capStatus.timezone,
+                })
+              : t("dialogDescriptionFallback", { cap: NUDGE_CATEGORY_CAP })}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -320,7 +333,7 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center justify-between">
-                    <span>Message</span>
+                    <span>{t("messageLabel")}</span>
                     <span
                       className={`text-xs ${
                         overCap
@@ -329,14 +342,17 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
                       }`}
                       aria-live="polite"
                     >
-                      {charCount} / {NUDGE_MESSAGE_MAX_LENGTH}
+                      {t("messageCounter", {
+                        count: charCount,
+                        max: NUDGE_MESSAGE_MAX_LENGTH,
+                      })}
                     </span>
                   </FormLabel>
                   <FormControl>
                     <Textarea
                       autoFocus
                       rows={3}
-                      placeholder="Don't skip leg day!"
+                      placeholder={t("messagePlaceholder")}
                       // Allow a small overshoot so the red counter is
                       // visible to the trainer (final validation is on
                       // submit via the Zod pipe).
@@ -356,10 +372,10 @@ export function NudgeButton({ clientId, clientName }: NudgeButtonProps) {
                 onClick={() => handleOpenChange(false)}
                 disabled={submitting}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" disabled={!canSubmit}>
-                {submitting ? "Sending…" : "Send nudge"}
+                {submitting ? t("sending") : t("submit")}
               </Button>
             </DialogFooter>
           </form>

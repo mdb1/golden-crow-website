@@ -33,6 +33,7 @@ import {
   PlusIcon,
   Trash2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +47,6 @@ import {
 
 import { AssignTemplateModal } from "./assign-template-modal";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
-
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 interface WeekGridProps {
   clientId: string;
@@ -95,6 +94,16 @@ function addCivilDays(civilDate: string, days: number): string {
 }
 
 export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekGridProps) {
+  const t = useTranslations("schedule.weekGrid");
+  const dayLabels: readonly string[] = [
+    t("daysShort.mon"),
+    t("daysShort.tue"),
+    t("daysShort.wed"),
+    t("daysShort.thu"),
+    t("daysShort.fri"),
+    t("daysShort.sat"),
+    t("daysShort.sun"),
+  ];
   const queryClient = useQueryClient();
   const todayCivil = civilDateToday(trainerTimezone);
   const initialMonday = mondayOfWeek(focusDate ?? todayCivil);
@@ -136,14 +145,14 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
     <div className="flex flex-col gap-4">
       <header className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold tracking-tight">
-          Week of {weekStart}
+          {t("weekOf", { date: weekStart })}
         </h2>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={previousWeek}
-            aria-label="Previous week"
+            aria-label={t("previousWeek")}
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </Button>
@@ -151,7 +160,7 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
             variant="ghost"
             size="icon"
             onClick={nextWeek}
-            aria-label="Next week"
+            aria-label={t("nextWeek")}
           >
             <ChevronRightIcon className="h-4 w-4" />
           </Button>
@@ -163,8 +172,8 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
           role="alert"
           className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
         >
-          Couldn&rsquo;t load the schedule.{" "}
-          {error instanceof Error ? error.message : "Try again."}
+          {t("loadErrorPrefix")}{" "}
+          {error instanceof Error ? error.message : t("loadErrorFallback")}
         </div>
       ) : null}
 
@@ -184,20 +193,20 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  {DAY_LABELS[i]}
+                  {dayLabels[i]}
                 </span>
                 <span className="text-sm font-medium">{civilDate.slice(8)}</span>
               </div>
 
               {isLoading ? (
-                <div className="text-xs text-muted-foreground">Loading…</div>
+                <div className="text-xs text-muted-foreground">{t("loading")}</div>
               ) : (
                 <ul className="flex flex-col gap-1">
                   {dayAssignments.map((a) => {
                     const snap = a.templateSnapshot as
                       | { name?: { en?: string; es?: string }; tag?: string }
                       | undefined;
-                    const name = snap?.name?.en ?? "(untitled)";
+                    const name = snap?.name?.en ?? t("untitledTemplate");
                     return (
                       <li
                         key={a.id}
@@ -218,7 +227,7 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
                                 seriesId: a.seriesId ?? null,
                               });
                             }}
-                            aria-label={`Remove ${name}`}
+                            aria-label={t("removeWorkoutAria", { name })}
                           >
                             <Trash2 className="size-3" />
                           </Button>
@@ -241,7 +250,7 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
                 onClick={() => setAssignDate(civilDate)}
               >
                 <PlusIcon className="mr-1 h-3 w-3" />
-                Assign template
+                {t("assignTemplateCta")}
               </Button>
             </div>
           );

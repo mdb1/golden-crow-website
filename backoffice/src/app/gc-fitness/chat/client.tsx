@@ -30,6 +30,7 @@
 
 import { useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { ChatThreadList } from "./_components/ChatThreadList";
 import { ChatConversation } from "./_components/ChatConversation";
@@ -50,6 +51,7 @@ export function ChatInboxClient({
   trainerUid,
   clientRoster,
 }: ChatInboxClientProps) {
+  const t = useTranslations("chat.inbox");
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeChatId = searchParams.get("chatId") ?? null;
@@ -87,7 +89,7 @@ export function ChatInboxClient({
           />
         ) : (
           <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-            Select a conversation from the list to get started.
+            {t("selectThread")}
           </div>
         )}
       </div>

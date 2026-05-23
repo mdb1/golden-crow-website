@@ -24,6 +24,7 @@
 // T-11-07-CHART-INJECTION is closed by construction.
 
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -48,6 +49,7 @@ const PADDING_Y = 20;
 export async function BodyWeightTrendChart({
   clientId,
 }: BodyWeightTrendChartProps) {
+  const t = await getTranslations("clients.detail.bodyWeightChart");
   const db = gcFitnessFirestore();
 
   // Find the client's weight habit(s). The 11-05 aggregator filters out
@@ -63,15 +65,13 @@ export async function BodyWeightTrendChart({
   if (habitsSnap.empty) {
     return (
       <section className="rounded-md border bg-card p-4">
-        <h2 className="mb-3 font-medium">Body weight (30 days)</h2>
-        <p className="text-sm text-muted-foreground">
-          No body-weight habit assigned yet.
-        </p>
+        <h2 className="mb-3 font-medium">{t("title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("noHabit")}</p>
         <Link
           href={`/gc-fitness/habits/new?clientId=${clientId}&type=weight`}
           className="mt-2 inline-block text-xs text-primary hover:underline"
         >
-          Assign a body-weight habit →
+          {t("assignHabit")}
         </Link>
       </section>
     );
@@ -116,10 +116,8 @@ export async function BodyWeightTrendChart({
   if (points.length === 0) {
     return (
       <section className="rounded-md border bg-card p-4">
-        <h2 className="mb-3 font-medium">Body weight (30 days)</h2>
-        <p className="text-sm text-muted-foreground">
-          No weight logs in the last 30 days.
-        </p>
+        <h2 className="mb-3 font-medium">{t("title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
       </section>
     );
   }
@@ -161,9 +159,9 @@ export async function BodyWeightTrendChart({
 
   return (
     <section className="rounded-md border bg-card p-4">
-      <h2 className="mb-1 font-medium">Body weight (30 days)</h2>
+      <h2 className="mb-1 font-medium">{t("title")}</h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        Latest:{" "}
+        {t("latestPrefix")}{" "}
         <span className="font-medium tabular-nums text-foreground">
           {latest.weight} {unitLabel}
         </span>
@@ -179,13 +177,15 @@ export async function BodyWeightTrendChart({
           </span>
         ) : null}
         {" · "}
-        {points.length} log{points.length === 1 ? "" : "s"}
+        {points.length === 1
+          ? t("logSingular", { count: points.length })
+          : t("logPlural", { count: points.length })}
       </p>
       <svg
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         className="h-32 w-full text-foreground"
         role="img"
-        aria-label={`Body weight trend over ${points.length} log points`}
+        aria-label={t("ariaLabel", { count: points.length })}
       >
         <line
           x1={PADDING_X}

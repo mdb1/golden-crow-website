@@ -31,6 +31,8 @@
 // percentage on the right. The roster column uses the same Progress
 // component so the trainer sees the same visual idiom at both depths.
 
+import { getTranslations } from "next-intl/server";
+
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import {
@@ -57,6 +59,8 @@ export async function HabitComplianceWidget({
   clientId,
   timezone,
 }: HabitComplianceWidgetProps) {
+  const t = await getTranslations("clients.detail.habitCompliance");
+  const unnamed = t("unnamed");
   const db = gcFitnessFirestore();
 
   const habitsSnap = await db
@@ -113,7 +117,7 @@ export async function HabitComplianceWidget({
       const clamped = Math.max(0, Math.min(1, ratio));
       return {
         id: h.id,
-        name: localizedName(habit.name),
+        name: localizedName(habit.name, unnamed),
         ratio: clamped,
         pct: Math.round(clamped * 100),
       };
@@ -124,9 +128,9 @@ export async function HabitComplianceWidget({
 
   return (
     <section className="rounded-md border bg-card p-4">
-      <h2 className="mb-3 font-medium">Habit compliance (last 7 days)</h2>
+      <h2 className="mb-3 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No habits assigned yet.</p>
+        <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {rows.map((row) => (
@@ -149,12 +153,13 @@ export async function HabitComplianceWidget({
 
 function localizedName(
   value: string | { en?: string; es?: string } | undefined,
+  fallback: string,
 ): string {
   if (typeof value === "string" && value.trim().length > 0) {
     return value;
   }
   if (value && typeof value === "object") {
-    return value.en?.trim() || value.es?.trim() || "(unnamed habit)";
+    return value.en?.trim() || value.es?.trim() || fallback;
   }
-  return "(unnamed habit)";
+  return fallback;
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { StickyNote, CalendarDays, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,8 @@ export function ClientNotesCard({
   initialUpdatedAt: string | null;
   initialEntries: Array<{ date: string; notes: string; createdAt: string | null }>;
 }) {
+  const t = useTranslations("clients.detail.notes");
+  const tCommon = useTranslations("common");
   const [notes, setNotes] = useState(initialNotes);
   const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
   const [noteDate, setNoteDate] = useState(new Date().toISOString().slice(0, 10));
@@ -33,15 +36,13 @@ export function ClientNotesCard({
         <div>
           <h2 className="flex items-center gap-2 font-medium">
             <StickyNote className="size-4" />
-            Coach notes log
+            {t("title")}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Add a note for a specific day and keep a running log.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         {updatedAt ? (
           <p className="text-xs text-muted-foreground">
-            Saved {new Date(updatedAt).toLocaleString()}
+            {t("savedAt", { datetime: new Date(updatedAt).toLocaleString() })}
           </p>
         ) : null}
       </div>
@@ -59,13 +60,15 @@ export function ClientNotesCard({
       <Textarea
         value={notes}
         onChange={(event) => setNotes(event.target.value)}
-        placeholder="Write a note for this day..."
+        placeholder={t("placeholder")}
         className="min-h-32 resize-y"
         maxLength={10000}
       />
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">{notes.length}/10000</p>
+        <p className="text-xs text-muted-foreground">
+          {t("characterCount", { count: notes.length })}
+        </p>
         <Button
           type="button"
           disabled={isPending}
@@ -81,28 +84,30 @@ export function ClientNotesCard({
                 ]);
                 setNotes("");
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Save failed");
+                setError(err instanceof Error ? err.message : t("saveFailed"));
               }
             });
           }}
         >
-          {isPending ? "Saving..." : "Add note"}
+          {isPending ? tCommon("saving") : t("addCta")}
         </Button>
       </div>
       {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
 
       <div className="mt-4 space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Notes for {noteDate}
+          {t("notesForDate", { date: noteDate })}
         </p>
         {notesForSelectedDay.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No notes for this day.</p>
+          <p className="text-sm text-muted-foreground">{t("noNotesForDay")}</p>
         ) : (
           notesForSelectedDay.map((entry, index) => (
             <div key={`${entry.date}-${index}`} className="rounded-md bg-muted p-3 text-sm">
               <p className="whitespace-pre-wrap">{entry.notes}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "—"}
+                {entry.createdAt
+                  ? new Date(entry.createdAt).toLocaleString()
+                  : tCommon("emDash")}
               </p>
             </div>
           ))

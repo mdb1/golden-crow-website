@@ -34,6 +34,7 @@
 
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 import { sendTrainerMessage } from "@/lib/gc-fitness/chat-server-actions";
 import { CHATS_BASE_KEY } from "@/lib/gc-fitness/chat-listener";
@@ -47,6 +48,7 @@ export interface MessageInputProps {
 }
 
 export function MessageInput({ chatId }: MessageInputProps) {
+  const t = useTranslations("chat.composer");
   const [text, setText] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -67,7 +69,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
       setText("");
     },
     onError: (err) => {
-      const message = err instanceof Error ? err.message : "Couldn't send.";
+      const message = err instanceof Error ? err.message : t("errorFallback");
       setSubmitError(message);
     },
   });
@@ -110,9 +112,9 @@ export function MessageInput({ chatId }: MessageInputProps) {
               handleSubmit();
             }
           }}
-          placeholder="Type a message…"
+          placeholder={t("placeholder")}
           rows={1}
-          aria-label="Message text"
+          aria-label={t("messageAria")}
           disabled={mutation.isPending}
           className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         />
@@ -121,7 +123,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
           disabled={!canSend}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {mutation.isPending ? "Sending…" : "Send"}
+          {mutation.isPending ? t("sending") : t("send")}
         </button>
       </div>
       {submitError && (

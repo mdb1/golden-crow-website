@@ -19,6 +19,8 @@
 // somehow shipped without them we degrade gracefully to "(unnamed)" + 0
 // sets rather than crashing the Suspense boundary.
 
+import { getTranslations } from "next-intl/server";
+
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 
@@ -33,7 +35,7 @@ interface WorkoutLogRow {
   setCount: number;
 }
 
-function localizedText(value: unknown, fallback = "(unnamed)"): string {
+function localizedText(value: unknown, fallback: string): string {
   if (typeof value === "string" && value.trim()) return value;
   if (value && typeof value === "object") {
     const localized = value as { en?: unknown; es?: unknown };
@@ -58,6 +60,8 @@ function toDate(v: unknown): Date | null {
 export async function RecentWorkoutsWidget({
   clientId,
 }: RecentWorkoutsWidgetProps) {
+  const t = await getTranslations("clients.detail.recentWorkouts");
+  const tCommon = await getTranslations("common");
   const db = gcFitnessFirestore();
   const snap = await db
     .collection(FirestoreCollections.workoutLogs)
@@ -66,6 +70,7 @@ export async function RecentWorkoutsWidget({
     .limit(5)
     .get();
 
+  const untitled = t("untitled");
   const rows: WorkoutLogRow[] = snap.docs.map((d) => {
     const data = d.data() as {
       startedAt?: unknown;
@@ -75,16 +80,16 @@ export async function RecentWorkoutsWidget({
     return {
       id: d.id,
       startedAt: toDate(data.startedAt),
-      templateName: localizedText(data.templateSnapshot?.name),
+      templateName: localizedText(data.templateSnapshot?.name, untitled),
       setCount: Array.isArray(data.sets) ? data.sets.length : 0,
     };
   });
 
   return (
     <section className="rounded-md border bg-card p-4">
-      <h2 className="mb-3 font-medium">Recent workouts</h2>
+      <h2 className="mb-3 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No workouts logged yet.</p>
+        <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <ul className="flex flex-col divide-y">
           {rows.map((row) => (
@@ -97,8 +102,11 @@ export async function RecentWorkoutsWidget({
                 <span className="text-xs text-muted-foreground">
                   {row.startedAt
                     ? row.startedAt.toLocaleDateString()
-                    : "—"}{" "}
-                  · {row.setCount} set{row.setCount === 1 ? "" : "s"}
+                    : tCommon("emDash")}{" "}
+                  ·{" "}
+                  {row.setCount === 1
+                    ? t("setSingular", { count: row.setCount })
+                    : t("setPlural", { count: row.setCount })}
                 </span>
               </div>
             </li>

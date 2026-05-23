@@ -20,6 +20,7 @@
 // inbox empty state from P08-11.
 
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -53,6 +54,8 @@ export async function ChatHistoryWidget({
   clientId,
   trainerUid,
 }: ChatHistoryWidgetProps) {
+  const t = await getTranslations("clients.detail.chatHistory");
+  const tCommon = await getTranslations("common");
   const db = gcFitnessFirestore();
   const snap = await db
     .collection(FirestoreCollections.chats)
@@ -78,9 +81,9 @@ export async function ChatHistoryWidget({
       const kind = data.kind ?? "text";
       let body = typeof data.text === "string" ? data.text : "";
       if (!body) {
-        if (kind === "voice") body = "🎤 Voice message";
-        else if (kind === "image") body = "📷 Image";
-        else body = "—";
+        if (kind === "voice") body = t("voiceMessage");
+        else if (kind === "image") body = t("imageMessage");
+        else body = tCommon("emDash");
       }
       return {
         id: d.id,
@@ -94,9 +97,9 @@ export async function ChatHistoryWidget({
 
   return (
     <section className="flex flex-col rounded-md border bg-card p-4">
-      <h2 className="mb-3 font-medium">Recent messages</h2>
+      <h2 className="mb-3 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No messages yet.</p>
+        <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <div className="flex flex-col gap-2">
           {rows.map((row) => (
@@ -109,7 +112,7 @@ export async function ChatHistoryWidget({
               }
             >
               <p className="mb-1 text-[10px] uppercase tracking-wide opacity-70">
-                {row.isTrainer ? "Coach" : "Client"}
+                {row.isTrainer ? t("coach") : t("client")}
               </p>
               <p className="whitespace-pre-wrap break-words">{row.body}</p>
               <p
@@ -119,7 +122,7 @@ export async function ChatHistoryWidget({
                     : "mt-1 text-[10px] text-emerald-900/70 dark:text-emerald-50/70"
                 }
               >
-                {row.createdAt ? row.createdAt.toLocaleString() : "—"}
+                {row.createdAt ? row.createdAt.toLocaleString() : tCommon("emDash")}
               </p>
             </div>
           ))}
@@ -129,7 +132,7 @@ export async function ChatHistoryWidget({
         href={`/gc-fitness/chat?clientId=${clientId}`}
         className="mt-3 self-end text-xs text-muted-foreground hover:text-foreground"
       >
-        Open full conversation →
+        {t("openFull")}
       </Link>
     </section>
   );

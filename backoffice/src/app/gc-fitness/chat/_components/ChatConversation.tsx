@@ -31,6 +31,7 @@
 // Trainer uid (Note H) plumbed in from `client.tsx`.
 
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 
 import { useChatMessages } from "@/lib/gc-fitness/chat-listener";
 import { setReadReceiptForTrainer } from "@/lib/gc-fitness/chat-server-actions";
@@ -51,6 +52,7 @@ export function ChatConversation({
   trainerUid,
   clientRoster,
 }: ChatConversationProps) {
+  const t = useTranslations("chat.conversation");
   const { data, isLoading, error } = useChatMessages(chatId);
   const messages = useMemo(() => data ?? [], [data]);
 
@@ -113,15 +115,15 @@ export function ChatConversation({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Loading messages…
+            {t("loadingMessages")}
           </div>
         ) : error ? (
           <div className="flex h-full items-center justify-center text-sm text-destructive">
-            Couldn&apos;t load messages.
+            {t("loadError")}
           </div>
         ) : rows.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No messages yet. Say hi to {partnerName}.
+            {t("noMessagesYet", { name: partnerName })}
           </div>
         ) : (
           rows.map((row) =>
@@ -167,6 +169,7 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+  const t = useTranslations("chat.conversation");
   const align = isOwn ? "justify-end" : "justify-start";
   const tone = isOwn
     ? "bg-primary text-primary-foreground"
@@ -186,7 +189,7 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps) {
   } else if (message.kind === "image") {
     body = (
       <span className="text-sm italic">
-        📷 Photo
+        {t("imagePhoto")}
         {message.text ? ` — ${message.text}` : ""}
       </span>
     );
@@ -194,14 +197,14 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     const seconds = Math.round((message.voiceDurationMs ?? 0) / 1000);
     body = (
       <span className="text-sm italic">
-        🎤 Voice note{seconds > 0 ? ` (${seconds}s)` : ""}
+        {seconds > 0
+          ? t("voiceNoteWithDuration", { seconds })
+          : t("voiceNote")}
       </span>
     );
   } else {
     // Defensive: future-variant safety. Cast to never-via-string for legibility.
-    body = (
-      <span className="text-sm italic">Unsupported message type.</span>
-    );
+    body = <span className="text-sm italic">{t("unsupportedMessage")}</span>;
   }
 
   return (

@@ -20,6 +20,7 @@
 
 import Link from "next/link";
 import { Calendar, MessagesSquare } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,14 @@ export function ClientHeader({
   heightCm,
   bodyWeightKg,
 }: ClientHeaderProps) {
+  const t = useTranslations("clients.detail");
+  const tCommon = useTranslations("common");
+  const heightValue =
+    typeof heightCm === "number" ? `${heightCm.toFixed(1)} cm` : tCommon("emDash");
+  const weightValue =
+    typeof bodyWeightKg === "number"
+      ? `${bodyWeightKg.toFixed(1)} kg`
+      : tCommon("emDash");
   const initials = displayName
     .split(/\s+/)
     .map((s) => s[0]?.toUpperCase() ?? "")
@@ -64,12 +73,8 @@ export function ClientHeader({
             <p className="text-sm text-muted-foreground">{email}</p>
           ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>
-              Height: {typeof heightCm === "number" ? `${heightCm.toFixed(1)} cm` : "—"}
-            </span>
-            <span>
-              Weight: {typeof bodyWeightKg === "number" ? `${bodyWeightKg.toFixed(1)} kg` : "—"}
-            </span>
+            <span>{t("heightLabel", { value: heightValue })}</span>
+            <span>{t("weightLabel", { value: weightValue })}</span>
           </div>
         </div>
       </div>
@@ -78,13 +83,13 @@ export function ClientHeader({
         <Button variant="outline" size="sm" asChild>
           <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
             <MessagesSquare className="size-4" />
-            Open chat
+            {t("openChat")}
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
           <Link href={`/gc-fitness/schedule?clientId=${clientId}`}>
             <Calendar className="size-4" />
-            Assign workout
+            {t("assignWorkout")}
           </Link>
         </Button>
       </div>

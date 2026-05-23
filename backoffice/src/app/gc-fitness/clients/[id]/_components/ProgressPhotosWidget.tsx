@@ -1,29 +1,30 @@
 import Image from "next/image";
 import { Camera } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 import { ProgressPhotoCompare } from "./ProgressPhotoCompare";
 
-export function ProgressPhotosWidget({
+export async function ProgressPhotosWidget({
   photos,
 }: {
   photos: ProgressPhotoRow[];
 }) {
+  const t = await getTranslations("clients.detail.photos");
+  const tCommon = await getTranslations("common");
   return (
     <section id="progress-photos" className="rounded-md border bg-card p-4">
       <div className="mb-3">
         <h2 className="flex items-center gap-2 font-medium">
           <Camera className="size-4" />
-          Progress photos
+          {t("title")}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Client-uploaded check-in photos.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       {photos.length === 0 ? (
         <div className="flex h-44 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-          No progress photos yet.
+          {t("empty")}
         </div>
       ) : (
         <div className="space-y-4">
@@ -35,27 +36,27 @@ export function ProgressPhotosWidget({
                   {photo.url ? (
                     <Image
                       src={photo.url}
-                      alt={photo.caption || "Progress photo"}
+                      alt={photo.caption || t("photoAlt")}
                       fill
                       sizes="(min-width: 1024px) 260px, 45vw"
                       className="object-cover"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
-                      Image unavailable
+                      {t("imageUnavailable")}
                     </div>
                   )}
                 </div>
                 <figcaption className="space-y-1 p-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium uppercase text-primary">
-                      {photo.angle ?? "photo"}
+                      {photo.angle ?? t("photoFallback")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {photo.checkInDate ??
                         (photo.takenAt || photo.createdAt
                           ? new Date(photo.takenAt ?? photo.createdAt ?? "").toLocaleDateString()
-                          : "No date")}
+                          : tCommon("noDate"))}
                     </p>
                   </div>
                   {photo.caption ? (

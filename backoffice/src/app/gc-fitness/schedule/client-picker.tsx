@@ -7,6 +7,7 @@
 // fetch; this client component renders the interactive list.
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,16 +18,16 @@ interface ClientPickerProps {
 }
 
 export function ClientPicker({ clients }: ClientPickerProps) {
+  const t = useTranslations("schedule.clientPicker");
+
   if (clients.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>No clients yet</CardTitle>
+          <CardTitle>{t("emptyTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Once your clients sign in via the iOS app, they&rsquo;ll appear here.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("emptyBody")}</p>
         </CardContent>
       </Card>
     );
@@ -35,7 +36,7 @@ export function ClientPicker({ clients }: ClientPickerProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pick a client</CardTitle>
+        <CardTitle>{t("pickTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="flex flex-col gap-1">

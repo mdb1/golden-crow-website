@@ -22,6 +22,7 @@
 // row layout. Active row is highlighted via `bg-muted`.
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import type { ChatRow } from "@/lib/gc-fitness/chat-schema";
@@ -45,6 +46,7 @@ export function ChatThreadList({
   onSelect,
   clientRoster,
 }: Props) {
+  const t = useTranslations("chat.threadList");
   const { data, isLoading, error } = useTrainerChats();
 
   // uid → displayName lookup — bounded to the trainer's client roster.
@@ -98,24 +100,20 @@ export function ChatThreadList({
 
   if (isLoading) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+      <div className="p-4 text-sm text-muted-foreground">{t("loading")}</div>
     );
   }
   if (error) {
     return (
-      <div className="p-4 text-sm text-destructive">
-        Couldn&apos;t load conversations.
-      </div>
+      <div className="p-4 text-sm text-destructive">{t("loadError")}</div>
     );
   }
   if (sorted.length === 0) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
-        No conversations yet.
+        {t("noConversations")}
         <br />
-        <span className="mt-2 block">
-          Your clients&apos; first messages will appear here.
-        </span>
+        <span className="mt-2 block">{t("firstMessagesHere")}</span>
       </div>
     );
   }
@@ -153,10 +151,11 @@ function ChatThreadRow({
   isActive,
   onSelect,
 }: ChatThreadRowProps) {
+  const t = useTranslations("chat.threadList");
   const unread = chat.unreadCount?.[trainerUid] ?? 0;
   const previewIso =
     chat.lastMessage?.createdAt ?? chat.lastMessageAt ?? chat.updatedAt ?? null;
-  const previewText = previewKindLabel(chat.lastMessage);
+  const previewText = previewKindLabel(chat.lastMessage, t);
 
   return (
     <li>
@@ -206,15 +205,19 @@ function Avatar({ name }: { name: string }) {
 }
 
 function RelativeTime({ iso }: { iso: string | null | undefined }) {
+  const t = useTranslations("chat.threadList");
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
   let label: string;
-  if (diffSec < 60) label = "just now";
-  else if (diffSec < 3600) label = `${Math.floor(diffSec / 60)}m`;
-  else if (diffSec < 86400) label = `${Math.floor(diffSec / 3600)}h`;
-  else if (diffSec < 86400 * 7) label = `${Math.floor(diffSec / 86400)}d`;
+  if (diffSec < 60) label = t("justNow");
+  else if (diffSec < 3600)
+    label = t("minutesShort", { count: Math.floor(diffSec / 60) });
+  else if (diffSec < 86400)
+    label = t("hoursShort", { count: Math.floor(diffSec / 3600) });
+  else if (diffSec < 86400 * 7)
+    label = t("daysShort", { count: Math.floor(diffSec / 86400) });
   else label = date.toLocaleDateString();
   return (
     <span className="flex-shrink-0 text-xs text-muted-foreground">
@@ -233,17 +236,20 @@ function UnreadBadge({ count }: { count: number }) {
 
 function previewKindLabel(
   lastMessage: ChatRow["lastMessage"] | undefined,
+  t: ReturnType<typeof useTranslations>,
 ): string {
-  if (!lastMessage) return "Start the conversation…";
+  if (!lastMessage) return t("previewStart");
   switch (lastMessage.kind) {
     case "text":
-      return lastMessage.text || "(empty message)";
+      return lastMessage.text || t("previewEmpty");
     case "image":
-      return lastMessage.text ? `📷 ${lastMessage.text}` : "📷 Photo";
+      return lastMessage.text
+        ? t("previewImageWithText", { text: lastMessage.text })
+        : t("previewImage");
     case "voice":
-      return "🎤 Voice note";
+      return t("previewVoice");
     default:
       // exhaustive switch; future variants fall through to a safe label
-      return lastMessage.text || "New message";
+      return lastMessage.text || t("previewNewMessage");
   }
 }

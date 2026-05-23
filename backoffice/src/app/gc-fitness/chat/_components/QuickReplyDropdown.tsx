@@ -42,6 +42,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { MessageSquareText } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   DropdownMenu,
@@ -66,6 +67,7 @@ export function QuickReplyDropdown({
   onSelect,
   disabled,
 }: QuickReplyDropdownProps) {
+  const t = useTranslations("chat.quickReply");
   const { data, isLoading } = useQuery({
     queryKey: ["gc-fitness", "trainer-profile"],
     queryFn: () => getCurrentTrainerProfile(),
@@ -81,7 +83,7 @@ export function QuickReplyDropdown({
           type="button"
           variant="outline"
           size="icon"
-          aria-label="Insert quick reply"
+          aria-label={t("triggerAria")}
           disabled={disabled}
         >
           <MessageSquareText className="h-4 w-4" />
@@ -92,23 +94,21 @@ export function QuickReplyDropdown({
         side="top"
         className="max-h-72 w-80 overflow-y-auto"
       >
-        <DropdownMenuLabel>Quick replies</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("menuLabel")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {isLoading && (
           <div className="px-2 py-3 text-sm text-muted-foreground">
-            Loading…
+            {t("loading")}
           </div>
         )}
         {!isLoading && replies.length === 0 && (
           <div className="flex flex-col gap-2 px-2 py-3 text-sm">
-            <p className="text-muted-foreground">
-              No quick replies yet.
-            </p>
+            <p className="text-muted-foreground">{t("emptyText")}</p>
             <Link
               href="/gc-fitness/settings"
               className="text-primary underline underline-offset-4"
             >
-              Manage quick replies →
+              {t("manage")}
             </Link>
           </div>
         )}
@@ -133,7 +133,7 @@ export function QuickReplyDropdown({
                 href="/gc-fitness/settings"
                 className="text-xs text-muted-foreground"
               >
-                Manage quick replies →
+                {t("manage")}
               </Link>
             </DropdownMenuItem>
           </>

@@ -6,6 +6,7 @@
     "edit": "Edit",
     "create": "Create",
     "loading": "Loading…",
+    "loadingShort": "Loading...",
     "errorGeneric": "Something went wrong.",
     "retry": "Retry",
     "back": "Back",
@@ -19,7 +20,11 @@
     "open": "Open",
     "pendingSignIn": "Pending sign-in",
     "active": "Active",
-    "clearFilter": "Clear filter"
+    "clearFilter": "Clear filter",
+    "saving": "Saving...",
+    "emDash": "—",
+    "noDate": "No date",
+    "selectAll": "Select all"
   },
   "nav": {
     "overview": "Overview",
@@ -110,6 +115,135 @@
     "empty": {
       "headline": "No clients yet",
       "body": "Add a client to get started."
+    },
+    "detail": {
+      "heightLabel": "Height: {value}",
+      "weightLabel": "Weight: {value}",
+      "openChat": "Open chat",
+      "assignWorkout": "Assign workout",
+      "skeleton": {
+        "recentWorkouts": "Recent workouts",
+        "habitCompliance": "Habit compliance (last 7 days)",
+        "recentMessages": "Recent messages",
+        "bodyWeight": "Body weight (30 days)"
+      },
+      "timeline": {
+        "title": "Daily client view",
+        "subtitle": "Loads the selected day on demand to keep Firestore reads low.",
+        "daysLoaded": "{count} days loaded",
+        "loading": "Loading...",
+        "tapToLoad": "Tap to load",
+        "activity": "Activity",
+        "noData": "No data",
+        "couldNotLoad": "Could not load this day.",
+        "couldNotRefresh": "Could not refresh the day.",
+        "workouts": "Workouts",
+        "habits": "Habits",
+        "progressPhotos": "Progress photos",
+        "chat": "Chat",
+        "coachNotes": "Coach notes",
+        "reminders": "Reminders",
+        "addAfterLast": "Add after last workout",
+        "assignWorkout": "Assign workout",
+        "restOrNone": "Rest or no workout assigned.",
+        "noHabitLogs": "No habit logs for this day.",
+        "noPhotos": "No photos uploaded.",
+        "noMessages": "No messages that day.",
+        "noNotes": "No notes saved for this day.",
+        "noReminders": "No reminders due this day.",
+        "removeWorkoutLabel": "Remove {name}",
+        "loggedPrefix": "Logged: {name}",
+        "setsSuffix": "{count} sets",
+        "habitStatusFuture": "future",
+        "habitStatusDone": "done",
+        "habitStatusPending": "pending",
+        "reminderStatusFutureValue": "visual only",
+        "reminderStatusDone": "done",
+        "reminderStatusPending": "pending",
+        "reminderDefaultCadence": "daily",
+        "noPreview": "No preview",
+        "viewSideBySide": "View side-by-side",
+        "selectDayPrompt": "Select a day to load its details.",
+        "coach": "Coach",
+        "client": "Client",
+        "progressPhotoAlt": "Progress photo",
+        "photoAngleFallback": "photo"
+      },
+      "goals": {
+        "title": "Goals",
+        "subtitle": "Short, medium, and long-term goals visible to the client.",
+        "empty": "No goals yet.",
+        "horizonShort": "Short",
+        "horizonMedium": "Medium",
+        "horizonLong": "Long",
+        "targetPrefix": "Target {date}",
+        "complete": "Complete",
+        "archive": "Archive",
+        "newPlaceholder": "New goal",
+        "descriptionPlaceholder": "Context, measurable outcome, constraints...",
+        "addCta": "Add goal",
+        "saveFailed": "Save failed"
+      },
+      "notes": {
+        "title": "Coach notes log",
+        "subtitle": "Add a note for a specific day and keep a running log.",
+        "savedAt": "Saved {datetime}",
+        "placeholder": "Write a note for this day...",
+        "characterCount": "{count}/10000",
+        "addCta": "Add note",
+        "saveFailed": "Save failed",
+        "notesForDate": "Notes for {date}",
+        "noNotesForDay": "No notes for this day."
+      },
+      "recentWorkouts": {
+        "title": "Recent workouts",
+        "empty": "No workouts logged yet.",
+        "untitled": "(unnamed)",
+        "setSingular": "{count} set",
+        "setPlural": "{count} sets"
+      },
+      "habitCompliance": {
+        "title": "Habit compliance (last 7 days)",
+        "empty": "No habits assigned yet.",
+        "unnamed": "(unnamed habit)"
+      },
+      "chatHistory": {
+        "title": "Recent messages",
+        "empty": "No messages yet.",
+        "coach": "Coach",
+        "client": "Client",
+        "openFull": "Open full conversation →",
+        "voiceMessage": "🎤 Voice message",
+        "imageMessage": "📷 Image"
+      },
+      "photos": {
+        "title": "Progress photos",
+        "subtitle": "Client-uploaded check-in photos.",
+        "empty": "No progress photos yet.",
+        "imageUnavailable": "Image unavailable",
+        "photoAlt": "Progress photo",
+        "photoFallback": "photo"
+      },
+      "photoCompare": {
+        "front": "Front",
+        "side": "Side",
+        "back": "Back",
+        "before": "Before",
+        "after": "After",
+        "selectTwo": "Select two {angle} photos to compare.",
+        "beforeAlt": "Before",
+        "afterAlt": "After"
+      },
+      "bodyWeightChart": {
+        "title": "Body weight (30 days)",
+        "noHabit": "No body-weight habit assigned yet.",
+        "assignHabit": "Assign a body-weight habit →",
+        "noLogs": "No weight logs in the last 30 days.",
+        "latestPrefix": "Latest:",
+        "logSingular": "{count} log",
+        "logPlural": "{count} logs",
+        "ariaLabel": "Body weight trend over {count} log points"
+      }
     }
   },
   "templates": {
@@ -119,6 +253,50 @@
     "empty": {
       "headline": "No templates yet",
       "body": "Create your first workout template."
+    },
+    "form": {
+      "nameEn": "Name (English)",
+      "nameEs": "Name (Spanish)",
+      "namePlaceholderEn": "Push Day",
+      "namePlaceholderEs": "Día de empuje",
+      "nameEsHint": "Leave blank to mark as “needs translation.”",
+      "descriptionEn": "Description (English)",
+      "descriptionEs": "Description (Spanish)",
+      "descriptionPlaceholderEn": "Chest, shoulders, triceps.",
+      "descriptionPlaceholderEs": "Pecho, hombros, tríceps.",
+      "tag": "Tag",
+      "tagPlaceholder": "e.g. Push, Upper, Rehab",
+      "tagHint": "Trainers can type any tag or pick one of the suggestions.",
+      "tagOptions": {
+        "push": "Push",
+        "pull": "Pull",
+        "legs": "Legs",
+        "upper": "Upper",
+        "lower": "Lower",
+        "fullBody": "Full body",
+        "custom": "Custom"
+      },
+      "exercises": "Exercises",
+      "exercisesCount": "{count}/30",
+      "exercisesEmpty": "No exercises yet. Click <strong>Add exercise</strong> to start.",
+      "moveUp": "Move exercise up",
+      "moveDown": "Move exercise down",
+      "removeExercise": "Remove exercise",
+      "exerciseLabel": "Exercise",
+      "pickExerciseAria": "Pick exercise for row {index}",
+      "sets": "Sets",
+      "reps": "Reps",
+      "restSeconds": "Rest (s)",
+      "coachingNotes": "Coaching notes",
+      "coachingNotesPlaceholder": "Tempo, RPE, focus cues…",
+      "addExercise": "Add exercise",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "createCta": "Create template",
+      "saveCta": "Save changes",
+      "createdToast": "Template created.",
+      "savedToast": "Template saved.",
+      "saveFailed": "Couldn't save."
     }
   },
   "habits": {
@@ -151,6 +329,74 @@
     "empty": {
       "headline": "No conversations yet",
       "body": "When a client messages you, it appears here."
+    },
+    "inbox": {
+      "selectThread": "Select a conversation from the list to get started."
+    },
+    "conversation": {
+      "loadingMessages": "Loading messages…",
+      "loadError": "Couldn't load messages.",
+      "noMessagesYet": "No messages yet. Say hi to {name}.",
+      "imagePhoto": "📷 Photo",
+      "voiceNote": "🎤 Voice note",
+      "voiceNoteWithDuration": "🎤 Voice note ({seconds}s)",
+      "unsupportedMessage": "Unsupported message type."
+    },
+    "threadList": {
+      "loading": "Loading…",
+      "loadError": "Couldn't load conversations.",
+      "noConversations": "No conversations yet.",
+      "firstMessagesHere": "Your clients' first messages will appear here.",
+      "justNow": "just now",
+      "minutesShort": "{count}m",
+      "hoursShort": "{count}h",
+      "daysShort": "{count}d",
+      "previewStart": "Start the conversation…",
+      "previewEmpty": "(empty message)",
+      "previewImage": "📷 Photo",
+      "previewImageWithText": "📷 {text}",
+      "previewVoice": "🎤 Voice note",
+      "previewNewMessage": "New message"
+    },
+    "composer": {
+      "placeholder": "Type a message…",
+      "messageAria": "Message text",
+      "sending": "Sending…",
+      "send": "Send",
+      "errorFallback": "Couldn't send."
+    },
+    "nudge": {
+      "triggerCta": "Send nudge",
+      "successTitle": "Nudge sent to {name}",
+      "successDescription": "Decision: {decision}",
+      "notDeliveredTitle": "Nudge not delivered",
+      "notDeliveredDescription": "{name}: {decision}",
+      "errorTitle": "Couldn't send the nudge",
+      "errorFallback": "Couldn't send.",
+      "todaySuffix": "{used} / {cap} today",
+      "todaySuffixEmpty": "—",
+      "capErrorTooltip": "Couldn't read today's push count ({error}). The send will still be checked server-side.",
+      "capReachedNudge": "Daily nudge cap reached ({used} / {cap}). Resets at midnight in {name}'s timezone ({timezone}).",
+      "capReachedTotal": "Daily push cap reached ({used} / {cap} across nudges, assignments, PRs). Resets at midnight in {name}'s timezone ({timezone}).",
+      "remainingTooltipSingular": "{count} push remaining today (resets midnight {timezone}).",
+      "remainingTooltipPlural": "{count} pushes remaining today (resets midnight {timezone}).",
+      "capLoadingTooltip": "Loading today's push count…",
+      "dialogTitle": "Send a nudge to {name}",
+      "dialogDescriptionWithStatus": "Send a one-off push notification. Subject to your client's notification preferences. {remaining} of {total} push{suffix} remaining today (resets at midnight in {timezone}).",
+      "dialogDescriptionFallback": "Send a one-off push notification. Subject to your client's notification preferences and a daily cap of {cap} nudges per client.",
+      "messageLabel": "Message",
+      "messageCounter": "{count} / {max}",
+      "messagePlaceholder": "Don't skip leg day!",
+      "cancel": "Cancel",
+      "sending": "Sending…",
+      "submit": "Send nudge"
+    },
+    "quickReply": {
+      "triggerAria": "Insert quick reply",
+      "menuLabel": "Quick replies",
+      "loading": "Loading…",
+      "emptyText": "No quick replies yet.",
+      "manage": "Manage quick replies →"
     }
   },
   "settings": {
@@ -170,7 +416,136 @@
   "schedule": {
     "title": "Schedule",
     "subtitle": "Assign workouts day-by-day, or jump to bulk-assign to fan out to many clients at once.",
-    "bulkAssign": "Bulk assign"
+    "bulkAssign": "Bulk assign",
+    "clientPicker": {
+      "emptyTitle": "No clients yet",
+      "emptyBody": "Once your clients sign in via the iOS app, they'll appear here.",
+      "pickTitle": "Pick a client"
+    },
+    "bulk": {
+      "title": "Bulk Assign",
+      "subtitle": "Pick a template + a date + multiple clients. Confirm the list before submitting — all assignments commit atomically.",
+      "backToSchedule": "Back to schedule"
+    },
+    "weekGrid": {
+      "weekOf": "Week of {date}",
+      "previousWeek": "Previous week",
+      "nextWeek": "Next week",
+      "loadErrorPrefix": "Couldn't load the schedule.",
+      "loadErrorFallback": "Try again.",
+      "loading": "Loading…",
+      "assignTemplateCta": "Assign template",
+      "removeWorkoutAria": "Remove {name}",
+      "untitledTemplate": "(untitled)",
+      "daysShort": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      }
+    },
+    "bulkAssign": {
+      "templateAndDate": "Template + Date",
+      "templateLabel": "Template",
+      "templatePlaceholder": "Choose a template",
+      "templateLoading": "Loading…",
+      "dayLabel": "Day",
+      "scheduledFor": "Scheduled for {date}",
+      "timeLabel": "Time",
+      "meetingNotesLabel": "Meeting notes",
+      "meetingNotesPlaceholder": "Zoom / Meet link, instructions, prep notes...",
+      "clientsHeading": "Clients ({count} selected)",
+      "selectAll": "Select all",
+      "clear": "Clear",
+      "noClients": "No clients on your roster yet.",
+      "tableName": "Name",
+      "tableEmail": "Email",
+      "tableTimezone": "Timezone",
+      "selectClientAria": "Select {name}",
+      "overCapMessage": "Selected {count} clients — the hard cap is {cap} per submit. Uncheck some to continue.",
+      "reviewSingular": "Review {count} assignment",
+      "reviewPlural": "Review {count} assignments",
+      "errorPickTemplate": "Pick a template first.",
+      "errorKeepOne": "Keep at least one client checked.",
+      "errorBulkFailed": "Bulk assign failed.",
+      "successSingular": "Assigned to {count} client.",
+      "successPlural": "Assigned to {count} clients.",
+      "unknownTemplate": "(unknown template)"
+    },
+    "bulkConfirm": {
+      "titleSingular": "Assign “{template}” to {count} client on {date}?",
+      "titlePlural": "Assign “{template}” to {count} clients on {date}?",
+      "description": "Uncheck any clients you don't want to assign to. Submission writes all checked clients atomically — either every assignment is created or none are.",
+      "includeAria": "Include {name}",
+      "cancel": "Cancel",
+      "assigning": "Assigning…",
+      "confirmSingular": "Confirm {count} assignment",
+      "confirmPlural": "Confirm {count} assignments"
+    },
+    "assignModal": {
+      "title": "Assign a workout template",
+      "description": "Pick a template and confirm the day. Snapshot is frozen at submit time — editing the template later won't change this assignment.",
+      "templateLabel": "Template",
+      "templatePlaceholder": "Choose a template",
+      "templateLoading": "Loading…",
+      "modeLabel": "Assignment mode",
+      "modeOnce": "One-time",
+      "modeWeekly": "Weekly recurring",
+      "repeatOnLabel": "Repeat on",
+      "weekdays": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      },
+      "setEndDate": "Set end date",
+      "endDateLabel": "End date",
+      "endDateHintWithEnd": "Repeats weekly until this date.",
+      "endDateHintNoEnd": "No end date: creates the next 12 months.",
+      "dayLabel": "Day",
+      "scheduledFor": "Scheduled for {date}",
+      "timeLabel": "Time",
+      "timeHint": "Optional for live or virtual sessions.",
+      "meetingNotesLabel": "Meeting notes",
+      "meetingNotesPlaceholder": "Zoom / Meet link, instructions, prep notes...",
+      "cancel": "Cancel",
+      "assigning": "Assigning…",
+      "submit": "Assign",
+      "errorPickTemplate": "Pick a template first.",
+      "errorFallback": "Assignment failed.",
+      "successOnce": "Template assigned.",
+      "successRecurring": "Recurring assignment created ({count} workouts)."
+    }
+  },
+  "picker": {
+    "triggerPlaceholder": "Pick an exercise…",
+    "searchPlaceholder": "Search exercises…",
+    "loadingExercises": "Loading exercises…",
+    "loadError": "Couldn't load exercises.",
+    "noExercises": "No exercises yet. Add one in the library first.",
+    "noMatches": "No matches."
+  },
+  "dialogs": {
+    "deleteAssignment": {
+      "titleRecurring": "Remove “{name}”?",
+      "titleSingle": "Remove workout?",
+      "descriptionRecurring": "This is a recurring workout. Delete just this one, or this and every future occurrence?",
+      "descriptionSingle": "This will remove the scheduled workout from the client's calendar. The client will no longer see it. This cannot be undone.",
+      "thisOnly": "Only this occurrence",
+      "cascade": "This and all future occurrences",
+      "cancel": "Cancel",
+      "removing": "Removing…",
+      "deleteCta": "Delete",
+      "successSingle": "Removed 1 workout",
+      "successPlural": "Removed {count} workouts",
+      "errorFallback": "Could not remove assignment."
+    }
   },
   "recentLogs": {
     "title": "Recent Logs",

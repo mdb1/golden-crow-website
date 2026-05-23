@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
@@ -31,21 +32,19 @@ export default async function BulkAssignPage() {
   }
 
   const clients = await listClients();
+  const t = await getTranslations("schedule.bulk");
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
       <header className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-semibold tracking-tight">
-            Bulk Assign
+            {t("title")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Pick a template + a date + multiple clients. Confirm the list
-            before submitting — all assignments commit atomically.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button variant="ghost" asChild>
-          <Link href="/gc-fitness/schedule">Back to schedule</Link>
+          <Link href="/gc-fitness/schedule">{t("backToSchedule")}</Link>
         </Button>
       </header>
 

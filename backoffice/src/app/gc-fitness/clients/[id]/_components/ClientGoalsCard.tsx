@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Target } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,6 @@ import {
   type ClientGoalRow,
 } from "@/lib/gc-fitness/client-goal-actions";
 
-const HORIZON_LABELS = {
-  short: "Short",
-  medium: "Medium",
-  long: "Long",
-} as const;
-
 export function ClientGoalsCard({
   clientId,
   initialGoals,
@@ -33,6 +28,13 @@ export function ClientGoalsCard({
   clientId: string;
   initialGoals: ClientGoalRow[];
 }) {
+  const t = useTranslations("clients.detail.goals");
+  const tCommon = useTranslations("common");
+  const HORIZON_LABELS: Record<ClientGoalRow["horizon"], string> = {
+    short: t("horizonShort"),
+    medium: t("horizonMedium"),
+    long: t("horizonLong"),
+  };
   const [goals, setGoals] = useState(initialGoals);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -48,18 +50,16 @@ export function ClientGoalsCard({
         <div>
           <h2 className="flex items-center gap-2 font-medium">
             <Target className="size-4" />
-            Goals
+            {t("title")}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Short, medium, and long-term goals visible to the client.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
       </div>
 
       <div className="grid gap-3">
         {goals.length === 0 ? (
           <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-            No goals yet.
+            {t("empty")}
           </p>
         ) : (
           goals.map((goal) => (
@@ -88,7 +88,7 @@ export function ClientGoalsCard({
                 ) : null}
                 {goal.targetDate ? (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Target {goal.targetDate}
+                    {t("targetPrefix", { date: goal.targetDate })}
                   </p>
                 ) : null}
               </div>
@@ -114,7 +114,7 @@ export function ClientGoalsCard({
                       })
                     }
                   >
-                    Complete
+                    {t("complete")}
                   </Button>
                   <Button
                     type="button"
@@ -136,7 +136,7 @@ export function ClientGoalsCard({
                       })
                     }
                   >
-                    Archive
+                    {t("archive")}
                   </Button>
                 </div>
               ) : null}
@@ -150,7 +150,7 @@ export function ClientGoalsCard({
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="New goal"
+            placeholder={t("newPlaceholder")}
           />
           <Select
             value={horizon}
@@ -162,9 +162,9 @@ export function ClientGoalsCard({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="short">Short</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="long">Long</SelectItem>
+              <SelectItem value="short">{t("horizonShort")}</SelectItem>
+              <SelectItem value="medium">{t("horizonMedium")}</SelectItem>
+              <SelectItem value="long">{t("horizonLong")}</SelectItem>
             </SelectContent>
           </Select>
           <Input
@@ -176,7 +176,7 @@ export function ClientGoalsCard({
         <Textarea
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="Context, measurable outcome, constraints..."
+          placeholder={t("descriptionPlaceholder")}
           className="min-h-20"
           maxLength={1000}
         />
@@ -216,12 +216,12 @@ export function ClientGoalsCard({
                   setTargetDate("");
                   setHorizon("short");
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "Save failed");
+                  setError(err instanceof Error ? err.message : t("saveFailed"));
                 }
               });
             }}
           >
-            {isPending ? "Saving..." : "Add goal"}
+            {isPending ? tCommon("saving") : t("addCta")}
           </Button>
         </div>
       </div>

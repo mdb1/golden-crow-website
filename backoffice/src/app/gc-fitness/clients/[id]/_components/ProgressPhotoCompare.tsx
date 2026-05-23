@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 
 export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] }) {
+  const t = useTranslations("clients.detail.photoCompare");
+  const tPhotos = useTranslations("clients.detail.photos");
   const [angle, setAngle] = useState<"front" | "side" | "back">("front");
   const [beforeId, setBeforeId] = useState("");
   const [afterId, setAfterId] = useState("");
@@ -29,16 +32,16 @@ export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] })
           value={angle}
           onChange={(event) => setAngle(event.target.value as typeof angle)}
         >
-          <option value="front">Front</option>
-          <option value="side">Side</option>
-          <option value="back">Back</option>
+          <option value="front">{t("front")}</option>
+          <option value="side">{t("side")}</option>
+          <option value="back">{t("back")}</option>
         </select>
         <select
           className="h-9 rounded-md border bg-background px-2 text-sm"
           value={beforeId}
           onChange={(event) => setBeforeId(event.target.value)}
         >
-          <option value="">Before</option>
+          <option value="">{t("before")}</option>
           {angled.map((photo) => (
             <option key={photo.id} value={photo.id}>
               {photo.checkInDate ?? dateLabel(photo)}
@@ -50,7 +53,7 @@ export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] })
           value={afterId}
           onChange={(event) => setAfterId(event.target.value)}
         >
-          <option value="">After</option>
+          <option value="">{t("after")}</option>
           {angled.map((photo) => (
             <option key={photo.id} value={photo.id}>
               {photo.checkInDate ?? dateLabel(photo)}
@@ -62,16 +65,16 @@ export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] })
       {before?.url && after?.url ? (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <CompareImage photo={before} />
-            <CompareImage photo={after} />
+            <CompareImage photo={before} alt={tPhotos("photoAlt")} />
+            <CompareImage photo={after} alt={tPhotos("photoAlt")} />
           </div>
           <div className="relative mx-auto aspect-[3/4] max-h-[520px] overflow-hidden rounded-md border bg-muted">
-            <Image src={after.url} alt="After" fill sizes="(min-width: 1024px) 420px, 90vw" className="object-cover" />
+            <Image src={after.url} alt={t("afterAlt")} fill sizes="(min-width: 1024px) 420px, 90vw" className="object-cover" />
             <div
               className="absolute inset-0 overflow-hidden"
               style={{ clipPath: `inset(0 ${100 - safeSplit}% 0 0)` }}
             >
-              <Image src={before.url} alt="Before" fill sizes="(min-width: 1024px) 420px, 90vw" className="object-cover" />
+              <Image src={before.url} alt={t("beforeAlt")} fill sizes="(min-width: 1024px) 420px, 90vw" className="object-cover" />
             </div>
             <div
               className="absolute inset-y-0 w-0.5 bg-primary shadow-sm"
@@ -89,18 +92,18 @@ export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] })
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Select two {angle} photos to compare.
+          {t("selectTwo", { angle: t(angle) })}
         </p>
       )}
     </div>
   );
 }
 
-function CompareImage({ photo }: { photo: ProgressPhotoRow }) {
+function CompareImage({ photo, alt }: { photo: ProgressPhotoRow; alt: string }) {
   if (!photo.url) return null;
   return (
     <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-muted">
-      <Image src={photo.url} alt={photo.caption ?? "Progress photo"} fill sizes="(min-width: 1024px) 260px, 45vw" className="object-cover" />
+      <Image src={photo.url} alt={photo.caption ?? alt} fill sizes="(min-width: 1024px) 260px, 45vw" className="object-cover" />
     </div>
   );
 }
