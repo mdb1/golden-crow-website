@@ -1,0 +1,196 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading…",
+    "errorGeneric": "Something went wrong.",
+    "retry": "Retry",
+    "back": "Back",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "noResults": "No results",
+    "actions": "Actions",
+    "yes": "Yes",
+    "no": "No",
+    "open": "Open",
+    "pendingSignIn": "Pending sign-in",
+    "active": "Active",
+    "clearFilter": "Clear filter"
+  },
+  "nav": {
+    "overview": "Overview",
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "schedule": "Schedule",
+    "recentLogs": "Recent Logs",
+    "programming": "Programming",
+    "workouts": "Workouts",
+    "library": "Library",
+    "habits": "Habits",
+    "communication": "Communication",
+    "chat": "Chat",
+    "settings": "Settings",
+    "clientsSection": "Clients",
+    "clientsSectionDescription": "Trainer roster + per-client deep view.",
+    "contentSection": "Content",
+    "contentSectionDescription": "Workout templates, habits, exercise library.",
+    "engagementSection": "Engagement",
+    "engagementSectionDescription": "Chat inbox + trainer settings.",
+    "clientsDescription": "Roster with last activity, compliance, unread chat.",
+    "recentLogsDescription": "Cross-client recent habit/workout activity feed.",
+    "workoutsDescription": "Workout-template authoring + assignments.",
+    "habitsDescription": "Habit CRUD + per-client assignment.",
+    "exercisesDescription": "Exercise library + GIF management.",
+    "chatDescription": "Trainer inbox + per-client message threads.",
+    "settingsDescription": "Quick-reply templates + trainer preferences."
+  },
+  "shell": {
+    "eyebrow": "Golden Crow",
+    "appName": "GC Fitness",
+    "tagline": "Trainer coaching console.",
+    "footerBlurb": "Manage clients, programming, assignments, habits, and chat from one trainer workspace.",
+    "headerEyebrow": "GC Fitness",
+    "headerTitle": "Trainer Backoffice",
+    "languagePicker": {
+      "label": "Language",
+      "auto": "Auto (system)",
+      "english": "English",
+      "spanish": "Spanish",
+      "ariaLabel": "Change language"
+    },
+    "signOut": "Sign out"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "signedInAs": "Signed in as {email}.",
+    "addOrManageClients": "Add or manage clients",
+    "cards": {
+      "clients": "Clients",
+      "templates": "Workout templates",
+      "exercises": "Exercises",
+      "chats": "Conversations"
+    },
+    "quickLinks": {
+      "clientsTitle": "Clients",
+      "clientsDescription": "Attach app users and open each client workspace.",
+      "scheduleTitle": "Schedule",
+      "scheduleDescription": "Assign workout templates to a client calendar.",
+      "workoutsTitle": "Workouts",
+      "workoutsDescription": "Create reusable routines for assignments.",
+      "libraryTitle": "Library",
+      "libraryDescription": "Browse the preloaded exercise library.",
+      "habitsTitle": "Habits",
+      "habitsDescription": "Create habit assignments for clients.",
+      "chatTitle": "Chat",
+      "chatDescription": "Reply to client conversations."
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "subtitleOne": "{count} active client",
+    "subtitleOther": "{count} active clients",
+    "subtitlePendingSuffix": " + {count} pending sign-in",
+    "subtitleSortNote": " — sorted by most recent activity.",
+    "needsAttention": "Needs attention ({count})",
+    "needsAttentionTitle": "Needs attention: {reasons}",
+    "missedWorkouts": "Missed workouts",
+    "lowCompliance": "Low habit compliance",
+    "table": {
+      "name": "Name",
+      "lastActivity": "Last activity",
+      "thisWeek": "This week",
+      "unread": "Unread",
+      "status": "Status",
+      "noClientsRow": "No clients in your roster yet."
+    },
+    "empty": {
+      "headline": "No clients yet",
+      "body": "Add a client to get started."
+    }
+  },
+  "templates": {
+    "title": "Workout templates",
+    "newTemplate": "New template",
+    "editTemplate": "Edit template",
+    "empty": {
+      "headline": "No templates yet",
+      "body": "Create your first workout template."
+    }
+  },
+  "habits": {
+    "title": "Habits",
+    "newHabit": "New habit",
+    "editHabit": "Edit habit",
+    "empty": {
+      "headline": "No habits yet",
+      "body": "Create a habit and assign it to clients."
+    }
+  },
+  "exercises": {
+    "title": "Exercise library",
+    "newExercise": "New exercise",
+    "editExercise": "Edit exercise",
+    "viewExercise": "View exercise",
+    "empty": {
+      "headline": "No exercises found",
+      "clearFilters": "Clear filters"
+    }
+  },
+  "chat": {
+    "title": "Chat",
+    "subtitle": "Conversations with your clients. Threads sorted by unread, then most recent.",
+    "inboxLabel": "Inbox",
+    "composerPlaceholder": "Type a message…",
+    "sendCta": "Send",
+    "nudgeCta": "Send nudge",
+    "quickReplies": "Quick replies",
+    "empty": {
+      "headline": "No conversations yet",
+      "body": "When a client messages you, it appears here."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your trainer preferences. Changes apply only to your account.",
+    "quickReplies": {
+      "title": "Quick replies",
+      "description": "Save common responses you send to clients. They appear in a one-tap dropdown next to the chat input. Up to 20 templates, 240 characters each.",
+      "addCta": "Add quick reply",
+      "labelPlaceholder": "Short label",
+      "bodyPlaceholder": "Message body"
+    },
+    "preferences": {
+      "title": "Preferences"
+    }
+  },
+  "schedule": {
+    "title": "Schedule",
+    "subtitle": "Assign workouts day-by-day, or jump to bulk-assign to fan out to many clients at once.",
+    "bulkAssign": "Bulk assign"
+  },
+  "recentLogs": {
+    "title": "Recent Logs",
+    "subtitle": "Latest client activity across habits and workouts, sorted newest first.",
+    "workoutsTab": "Workouts",
+    "habitsTab": "Habits"
+  },
+  "login": {
+    "eyebrow": "GC Fitness",
+    "title": "Trainer sign-in",
+    "subtitle": "Sign in with your authorized Google account.",
+    "googleCta": "Sign in with Google",
+    "signingIn": "Signing in…",
+    "errorTitle": "Sign-in error",
+    "errorFallback": "Sign in failed. Please try again."
+  },
+  "forbidden": {
+    "eyebrow": "GC Fitness",
+    "title": "Not authorized",
+    "bannerTitle": "Access denied",
+    "body": "This account is not authorized for GC Fitness. Contact your administrator."
+  }
+}

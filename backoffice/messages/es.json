@@ -1,0 +1,196 @@
+{
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "loading": "Cargando…",
+    "errorGeneric": "Algo salió mal.",
+    "retry": "Reintentar",
+    "back": "Volver",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clear": "Limpiar",
+    "noResults": "Sin resultados",
+    "actions": "Acciones",
+    "yes": "Sí",
+    "no": "No",
+    "open": "Abrir",
+    "pendingSignIn": "Pendiente de ingreso",
+    "active": "Activo",
+    "clearFilter": "Limpiar filtro"
+  },
+  "nav": {
+    "overview": "Resumen",
+    "dashboard": "Inicio",
+    "clients": "Clientes",
+    "schedule": "Agenda",
+    "recentLogs": "Actividad reciente",
+    "programming": "Programación",
+    "workouts": "Entrenamientos",
+    "library": "Biblioteca",
+    "habits": "Hábitos",
+    "communication": "Comunicación",
+    "chat": "Chat",
+    "settings": "Configuración",
+    "clientsSection": "Clientes",
+    "clientsSectionDescription": "Plantel y vista detallada por cliente.",
+    "contentSection": "Contenido",
+    "contentSectionDescription": "Plantillas de entrenamiento, hábitos y biblioteca de ejercicios.",
+    "engagementSection": "Comunicación",
+    "engagementSectionDescription": "Bandeja de chat y preferencias del entrenador.",
+    "clientsDescription": "Plantel con última actividad, adherencia y chat sin leer.",
+    "recentLogsDescription": "Actividad reciente de hábitos y entrenamientos entre clientes.",
+    "workoutsDescription": "Creación y asignación de plantillas de entrenamiento.",
+    "habitsDescription": "CRUD de hábitos y asignación por cliente.",
+    "exercisesDescription": "Biblioteca de ejercicios y gestión de GIFs.",
+    "chatDescription": "Bandeja del entrenador y conversaciones por cliente.",
+    "settingsDescription": "Respuestas rápidas y preferencias del entrenador."
+  },
+  "shell": {
+    "eyebrow": "Golden Crow",
+    "appName": "GC Fitness",
+    "tagline": "Consola del entrenador.",
+    "footerBlurb": "Gestioná clientes, programación, asignaciones, hábitos y chat desde un solo espacio.",
+    "headerEyebrow": "GC Fitness",
+    "headerTitle": "Backoffice del entrenador",
+    "languagePicker": {
+      "label": "Idioma",
+      "auto": "Auto (sistema)",
+      "english": "Inglés",
+      "spanish": "Español",
+      "ariaLabel": "Cambiar idioma"
+    },
+    "signOut": "Cerrar sesión"
+  },
+  "dashboard": {
+    "title": "Inicio",
+    "signedInAs": "Sesión iniciada como {email}.",
+    "addOrManageClients": "Agregar o gestionar clientes",
+    "cards": {
+      "clients": "Clientes",
+      "templates": "Plantillas de entrenamiento",
+      "exercises": "Ejercicios",
+      "chats": "Conversaciones"
+    },
+    "quickLinks": {
+      "clientsTitle": "Clientes",
+      "clientsDescription": "Vinculá usuarios de la app y abrí el espacio de cada cliente.",
+      "scheduleTitle": "Agenda",
+      "scheduleDescription": "Asigná plantillas de entrenamiento al calendario del cliente.",
+      "workoutsTitle": "Entrenamientos",
+      "workoutsDescription": "Creá rutinas reutilizables para las asignaciones.",
+      "libraryTitle": "Biblioteca",
+      "libraryDescription": "Explorá la biblioteca de ejercicios precargada.",
+      "habitsTitle": "Hábitos",
+      "habitsDescription": "Creá asignaciones de hábitos para los clientes.",
+      "chatTitle": "Chat",
+      "chatDescription": "Respondé las conversaciones con tus clientes."
+    }
+  },
+  "clients": {
+    "title": "Clientes",
+    "subtitleOne": "{count} cliente activo",
+    "subtitleOther": "{count} clientes activos",
+    "subtitlePendingSuffix": " + {count} pendiente(s) de ingreso",
+    "subtitleSortNote": " — ordenados por actividad más reciente.",
+    "needsAttention": "Necesita atención ({count})",
+    "needsAttentionTitle": "Necesita atención: {reasons}",
+    "missedWorkouts": "Entrenamientos perdidos",
+    "lowCompliance": "Baja adherencia a hábitos",
+    "table": {
+      "name": "Nombre",
+      "lastActivity": "Última actividad",
+      "thisWeek": "Esta semana",
+      "unread": "Sin leer",
+      "status": "Estado",
+      "noClientsRow": "Aún no tenés clientes en el plantel."
+    },
+    "empty": {
+      "headline": "Aún no tenés clientes",
+      "body": "Agregá un cliente para empezar."
+    }
+  },
+  "templates": {
+    "title": "Plantillas de entrenamiento",
+    "newTemplate": "Nueva plantilla",
+    "editTemplate": "Editar plantilla",
+    "empty": {
+      "headline": "Aún no hay plantillas",
+      "body": "Creá tu primera plantilla de entrenamiento."
+    }
+  },
+  "habits": {
+    "title": "Hábitos",
+    "newHabit": "Nuevo hábito",
+    "editHabit": "Editar hábito",
+    "empty": {
+      "headline": "Aún no hay hábitos",
+      "body": "Creá un hábito y asignáselo a tus clientes."
+    }
+  },
+  "exercises": {
+    "title": "Biblioteca de ejercicios",
+    "newExercise": "Nuevo ejercicio",
+    "editExercise": "Editar ejercicio",
+    "viewExercise": "Ver ejercicio",
+    "empty": {
+      "headline": "No se encontraron ejercicios",
+      "clearFilters": "Limpiar filtros"
+    }
+  },
+  "chat": {
+    "title": "Chat",
+    "subtitle": "Conversaciones con tus clientes. Hilos ordenados por mensajes sin leer y luego por los más recientes.",
+    "inboxLabel": "Bandeja de entrada",
+    "composerPlaceholder": "Escribí un mensaje…",
+    "sendCta": "Enviar",
+    "nudgeCta": "Enviar empujón",
+    "quickReplies": "Respuestas rápidas",
+    "empty": {
+      "headline": "Aún no hay conversaciones",
+      "body": "Cuando un cliente te escriba, aparecerá acá."
+    }
+  },
+  "settings": {
+    "title": "Configuración",
+    "subtitle": "Gestioná tus preferencias de entrenador. Los cambios se aplican solo a tu cuenta.",
+    "quickReplies": {
+      "title": "Respuestas rápidas",
+      "description": "Guardá respuestas habituales que enviás a tus clientes. Aparecen en un menú de un toque al lado del campo del chat. Hasta 20 plantillas, 240 caracteres cada una.",
+      "addCta": "Agregar respuesta rápida",
+      "labelPlaceholder": "Etiqueta corta",
+      "bodyPlaceholder": "Cuerpo del mensaje"
+    },
+    "preferences": {
+      "title": "Preferencias"
+    }
+  },
+  "schedule": {
+    "title": "Agenda",
+    "subtitle": "Asigná entrenamientos día por día, o usá la asignación masiva para repartir entre varios clientes a la vez.",
+    "bulkAssign": "Asignación masiva"
+  },
+  "recentLogs": {
+    "title": "Actividad reciente",
+    "subtitle": "Última actividad de los clientes entre hábitos y entrenamientos, de más reciente a más antigua.",
+    "workoutsTab": "Entrenamientos",
+    "habitsTab": "Hábitos"
+  },
+  "login": {
+    "eyebrow": "GC Fitness",
+    "title": "Inicio de sesión del entrenador",
+    "subtitle": "Iniciá sesión con tu cuenta de Google autorizada.",
+    "googleCta": "Iniciar sesión con Google",
+    "signingIn": "Iniciando sesión…",
+    "errorTitle": "Error al iniciar sesión",
+    "errorFallback": "Falló el inicio de sesión. Probá de nuevo."
+  },
+  "forbidden": {
+    "eyebrow": "GC Fitness",
+    "title": "No autorizado",
+    "bannerTitle": "Acceso denegado",
+    "body": "Esta cuenta no tiene acceso a GC Fitness. Contactá al administrador."
+  }
+}
