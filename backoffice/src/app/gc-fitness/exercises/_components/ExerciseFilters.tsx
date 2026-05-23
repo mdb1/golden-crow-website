@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ export interface ExerciseFiltersProps {
 }
 
 export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
+  const t = useTranslations("exercises.filters");
   const [state, setState] = useState<ExerciseFiltersState>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
 
@@ -130,12 +132,12 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
         />
         <Input
           type="search"
-          placeholder="Search exercises…"
+          placeholder={t("searchPlaceholder")}
           value={state.search}
           onChange={(e) =>
             setState((s) => ({ ...s, search: e.target.value }))
           }
-          aria-label="Search exercises"
+          aria-label={t("searchAria")}
           className="pl-9"
         />
       </div>
@@ -151,10 +153,12 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             }
             placeholder={
               state.muscleGroups.length === 0
-                ? "Muscle groups"
-                : `Muscle groups (${state.muscleGroups.length})`
+                ? t("muscleGroupsPlaceholder")
+                : t("muscleGroupsPlaceholderCount", {
+                    count: state.muscleGroups.length,
+                  })
             }
-            ariaLabel="Filter by muscle groups"
+            ariaLabel={t("muscleGroupsAria")}
             max={8}
           />
         </div>
@@ -167,10 +171,12 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             }
             placeholder={
               state.equipment.length === 0
-                ? "Equipment"
-                : `Equipment (${state.equipment.length})`
+                ? t("equipmentPlaceholder")
+                : t("equipmentPlaceholderCount", {
+                    count: state.equipment.length,
+                  })
             }
-            ariaLabel="Filter by equipment"
+            ariaLabel={t("equipmentAria")}
             max={8}
           />
         </div>
@@ -181,10 +187,10 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             onChange={(next) => setState((s) => ({ ...s, source: next }))}
             placeholder={
               state.source.length === 0
-                ? "Source"
-                : `Source (${state.source.length})`
+                ? t("sourcePlaceholder")
+                : t("sourcePlaceholderCount", { count: state.source.length })
             }
-            ariaLabel="Filter by source"
+            ariaLabel={t("sourceAria")}
             max={2}
             formatLabel={(s) => s}
           />
@@ -195,11 +201,11 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             variant="ghost"
             size="sm"
             onClick={clear}
-            aria-label="Clear filters"
+            aria-label={t("clearAria")}
             className="gap-1"
           >
             <X className="h-4 w-4" />
-            Clear filters
+            {t("clearCta")}
           </Button>
         )}
       </div>

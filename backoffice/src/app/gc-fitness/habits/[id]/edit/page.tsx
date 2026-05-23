@@ -11,6 +11,7 @@
 // closure-captured (immutable post-create).
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -32,6 +33,7 @@ interface PageParams {
 }
 
 export default async function EditHabitPage({ params }: PageParams) {
+  const t = await getTranslations("habits.editPage");
   let trainer: CurrentTrainer;
   try {
     trainer = await getCurrentTrainer();
@@ -122,11 +124,11 @@ export default async function EditHabitPage({ params }: PageParams) {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Edit habit
+          {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Changes save when you click <strong>Save changes</strong>. The
-          client and habit type are immutable.
+          {t("subtitlePrefix")}<strong>{t("subtitleCta")}</strong>
+          {t("subtitleSuffix")}
         </p>
       </div>
       <EditHabitClient

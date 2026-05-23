@@ -17,6 +17,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -104,6 +105,7 @@ function matchesFilters(row: ExerciseRow, f: ExerciseFiltersState): boolean {
 
 export function ExerciseLibraryClient() {
   const router = useRouter();
+  const t = useTranslations("exercises.list");
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
   const [filters, setFilters] = useState<ExerciseFiltersState>(EMPTY_FILTERS);
   const [confirmDelete, setConfirmDelete] = useState<ExerciseRow | null>(null);
@@ -125,7 +127,8 @@ export function ExerciseLibraryClient() {
     [router],
   );
 
-  const columns = useMemo(() => makeColumns(handlers), [handlers]);
+  const columnsT = useTranslations("exercises.columns");
+  const columns = useMemo(() => makeColumns(handlers, columnsT), [handlers, columnsT]);
 
   const table = useReactTable({
     data: rows,
@@ -147,15 +150,15 @@ export function ExerciseLibraryClient() {
     setDeletePending(true);
     try {
       await softDeleteExercise(confirmDelete.id);
-      toast.success("Exercise deleted.");
+      toast.success(t("deletedToast"));
       setConfirmDelete(null);
     } catch (err) {
       console.error("[exercises] delete failed", err);
-      toast.error("Couldn't delete. Please try again.");
+      toast.error(t("deleteFailedToast"));
     } finally {
       setDeletePending(false);
     }
-  }, [confirmDelete]);
+  }, [confirmDelete, t]);
 
   return (
     <TooltipProvider>
@@ -164,11 +167,9 @@ export function ExerciseLibraryClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              Exercise Library
+              {t("pageHeading")}
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Browse the wger-seeded library and manage your custom exercises.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
           </div>
           <Button
             type="button"
@@ -176,7 +177,7 @@ export function ExerciseLibraryClient() {
             className="gap-2"
           >
             <Plus className="h-4 w-4" />
-            New exercise
+            {t("newExerciseCta")}
           </Button>
         </div>
 
@@ -184,10 +185,8 @@ export function ExerciseLibraryClient() {
 
         {error && (
           <Alert variant="destructive">
-            <AlertTitle>Couldn&apos;t load exercises.</AlertTitle>
-            <AlertDescription>
-              Check your connection and try again.
-            </AlertDescription>
+            <AlertTitle>{t("loadError")}</AlertTitle>
+            <AlertDescription>{t("loadErrorDescription")}</AlertDescription>
           </Alert>
         )}
 
@@ -219,7 +218,7 @@ export function ExerciseLibraryClient() {
                     colSpan={columns.length}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    Loading…
+                    {t("loading")}
                   </TableCell>
                 </TableRow>
               ) : table.getRowModel().rows.length > 0 ? (
@@ -242,10 +241,9 @@ export function ExerciseLibraryClient() {
                     className="h-32 text-center"
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <p className="font-medium">No exercises yet.</p>
+                      <p className="font-medium">{t("emptyHeadline")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Add a custom exercise to get started, or run the wger
-                        seed script to load the open-source library.
+                        {t("emptySubtitle")}
                       </p>
                       <Button
                         type="button"
@@ -253,7 +251,7 @@ export function ExerciseLibraryClient() {
                         className="gap-2"
                       >
                         <Plus className="h-4 w-4" />
-                        New exercise
+                        {t("newExerciseCta")}
                       </Button>
                     </div>
                   </TableCell>
@@ -265,9 +263,9 @@ export function ExerciseLibraryClient() {
                     className="h-32 text-center"
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <p className="font-medium">No matches.</p>
+                      <p className="font-medium">{t("filteredEmptyHeadline")}</p>
                       <p className="text-sm text-muted-foreground">
-                        Try removing a filter or clearing your search.
+                        {t("filteredEmptySubtitle")}
                       </p>
                     </div>
                   </TableCell>
@@ -281,8 +279,10 @@ export function ExerciseLibraryClient() {
         {rows.length > 0 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {Math.max(1, table.getPageCount())}
+              {t("pagination", {
+                current: table.getState().pagination.pageIndex + 1,
+                total: Math.max(1, table.getPageCount()),
+              })}
             </p>
             <div className="flex gap-2">
               <Button
@@ -291,7 +291,7 @@ export function ExerciseLibraryClient() {
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
-                Previous
+                {t("previous")}
               </Button>
               <Button
                 variant="outline"
@@ -299,7 +299,7 @@ export function ExerciseLibraryClient() {
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
-                Next
+                {t("next")}
               </Button>
             </div>
           </div>
@@ -313,23 +313,19 @@ export function ExerciseLibraryClient() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete this exercise?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This permanently removes the exercise from your library.
-                Workouts that reference it will keep the snapshot. This
-                can&apos;t be undone.
-              </AlertDialogDescription>
+              <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("deleteDialogBody")}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deletePending}>
-                Cancel
+                {t("deleteDialogCancel")}
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmDelete}
                 disabled={deletePending}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {deletePending ? "Deleting…" : "Delete"}
+                {deletePending ? t("deleting") : t("deleteDialogConfirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -23,6 +23,7 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
+import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,8 +74,11 @@ const TAG_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
+type TFn = ReturnType<typeof useTranslations>;
+
 export function makeTemplateColumns(
   handlers: TemplateColumnHandlers,
+  t: TFn,
 ): ColumnDef<WorkoutTemplateRow>[] {
   return [
     {
@@ -87,7 +91,7 @@ export function makeTemplateColumns(
           }
           className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
         >
-          Name
+          {t("name")}
           <ArrowUpDown className="h-3 w-3" />
         </button>
       ),
@@ -96,7 +100,7 @@ export function makeTemplateColumns(
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-medium">
-            {row.original.name.en || "(untitled)"}
+            {row.original.name.en || t("untitled")}
           </span>
           {row.original.name.es && (
             <span className="text-xs text-muted-foreground">
@@ -109,7 +113,7 @@ export function makeTemplateColumns(
     },
     {
       accessorKey: "tag",
-      header: "Tag",
+      header: t("tag"),
       cell: ({ row }) => (
         <Badge variant="secondary" className="capitalize">
           {TAG_LABELS[row.original.tag] ?? row.original.tag}
@@ -119,7 +123,7 @@ export function makeTemplateColumns(
     },
     {
       accessorKey: "exerciseCount",
-      header: "Exercises",
+      header: t("exercises"),
       cell: ({ row }) => (
         <span className="text-sm tabular-nums">
           {row.original.exerciseCount}
@@ -137,7 +141,7 @@ export function makeTemplateColumns(
           }
           className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
         >
-          Updated
+          {t("updated")}
           <ArrowUpDown className="h-3 w-3" />
         </button>
       ),
@@ -160,7 +164,7 @@ export function makeTemplateColumns(
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Actions"
+              aria-label={t("actionsAria")}
               className="h-8 w-8"
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -169,14 +173,14 @@ export function makeTemplateColumns(
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
               <Edit className="mr-2 h-4 w-4" />
-              Edit
+              {t("edit")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handlers.onDelete(row.original)}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete
+              {t("delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

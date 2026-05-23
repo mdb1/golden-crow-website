@@ -17,6 +17,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Edit, MoreHorizontal, Trash2, Eye } from "lucide-react";
+import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,21 +59,30 @@ function formatRelative(iso: string | null): string {
   return rtf.format(diffYr, "year");
 }
 
-const TYPE_LABELS: Record<HabitType, string> = {
-  binary: "Yes/No",
-  "multi-choice": "Choice",
+// Maps HabitType → short message-catalog key (resolved via
+// `t(`shortType${HABIT_SHORT_LABEL_KEYS[type]}`)`). Kept grep-able.
+const HABIT_SHORT_LABEL_KEYS: Record<HabitType, string> = {
+  binary: "Binary",
+  "multi-choice": "MultiChoice",
   numeric: "Numeric",
   weight: "Weight",
 };
 
+// next-intl's `useTranslations(...)` return type — passed in from the
+// client component that constructs the columns. Avoids importing the
+// catalog at module scope (which the rest of the gc-fitness migration
+// pattern avoids).
+type TFn = ReturnType<typeof useTranslations>;
+
 export function makeHabitColumns(
   handlers: HabitColumnHandlers,
   clientNameMap: Map<string, string>,
+  t: TFn,
 ): ColumnDef<HabitRow>[] {
   return [
     {
       accessorKey: "clientId",
-      header: "Client",
+      header: t("client"),
       cell: ({ row }) => (
         <span className="font-medium">
           {clientNameMap.get(row.original.clientId) ?? row.original.clientId}
@@ -81,20 +91,20 @@ export function makeHabitColumns(
     },
     {
       accessorKey: "type",
-      header: "Type",
+      header: t("type"),
       cell: ({ row }) => (
         <Badge variant="secondary" className="font-normal">
-          {TYPE_LABELS[row.original.type] ?? row.original.type}
+          {t(`shortType${HABIT_SHORT_LABEL_KEYS[row.original.type]}`)}
         </Badge>
       ),
     },
     {
       accessorKey: "name.en",
-      header: "Name",
+      header: t("name"),
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-medium">
-            {row.original.name.en || "(untitled)"}
+            {row.original.name.en || t("untitled")}
           </span>
           {row.original.name.es && (
             <span className="text-xs text-muted-foreground">
@@ -106,7 +116,7 @@ export function makeHabitColumns(
     },
     {
       id: "reminder",
-      header: "Reminder",
+      header: t("reminder"),
       cell: ({ row }) =>
         row.original.reminderEnabled && row.original.reminderTime ? (
           <span className="font-mono text-sm">
@@ -118,7 +128,7 @@ export function makeHabitColumns(
     },
     {
       accessorKey: "updatedAt",
-      header: "Updated",
+      header: t("updated"),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatRelative(row.original.updatedAt)}
@@ -134,7 +144,7 @@ export function makeHabitColumns(
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Actions"
+              aria-label={t("actionsAria")}
               className="h-8 w-8"
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -143,18 +153,18 @@ export function makeHabitColumns(
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handlers.onView(row.original)}>
               <Eye className="mr-2 h-4 w-4" />
-              View
+              {t("view")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
               <Edit className="mr-2 h-4 w-4" />
-              Edit
+              {t("edit")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handlers.onDelete(row.original)}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete
+              {t("delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

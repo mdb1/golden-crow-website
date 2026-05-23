@@ -9,6 +9,8 @@
 // test suite) can assert string equality. Any tweak to the recipe must
 // land in BOTH this constant AND the UI-SPEC literal in the same commit.
 
+import { useTranslations } from "next-intl";
+
 import {
   Dialog,
   DialogClose,
@@ -35,27 +37,24 @@ export function GifConversionModal({
   open,
   onOpenChange,
 }: GifConversionModalProps) {
+  const t = useTranslations("exercises.gifModal");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Convert your GIF to MP4</DialogTitle>
-          <DialogDescription>
-            Run this in your terminal where the GIF lives:
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <pre className="overflow-x-auto rounded-md border bg-muted p-3 text-xs">
           <code>{FFMPEG_ONELINER}</code>
         </pre>
 
-        <p className="text-sm text-muted-foreground">
-          Then upload the resulting MP4.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("afterHint")}</p>
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button">Got it</Button>
+            <Button type="button">{t("dismiss")}</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>

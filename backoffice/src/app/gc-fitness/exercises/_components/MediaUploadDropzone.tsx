@@ -22,6 +22,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload, FileVideo, X, CircleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -56,6 +57,7 @@ export function MediaUploadDropzone({
   disabled,
   disabledHint,
 }: MediaUploadDropzoneProps) {
+  const t = useTranslations("exercises.mediaUpload");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -75,7 +77,7 @@ export function MediaUploadDropzone({
     const lower = file.name.toLowerCase();
     const isGif = lower.endsWith(".gif") || file.type === "image/gif";
     if (isGif) {
-      const msg = "GIFs aren't supported. Please convert to MP4 first.";
+      const msg = t("rejectGif");
       toast.error(msg);
       setError(msg);
       setShowHowToConvert(true);
@@ -85,7 +87,7 @@ export function MediaUploadDropzone({
     }
 
     if (!lower.endsWith(".mp4")) {
-      const msg = "Unsupported format. Use MP4.";
+      const msg = t("rejectFormat");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -93,7 +95,7 @@ export function MediaUploadDropzone({
     }
 
     if (file.type !== "video/mp4") {
-      const msg = "Unsupported format. Use MP4.";
+      const msg = t("rejectFormat");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -101,7 +103,7 @@ export function MediaUploadDropzone({
     }
 
     if (file.size > MAX_SIZE_BYTES) {
-      const msg = "File too large. Max 25 MB.";
+      const msg = t("rejectSize");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -109,7 +111,7 @@ export function MediaUploadDropzone({
     }
 
     if (!exerciseId) {
-      const msg = "Save the exercise first, then upload a video.";
+      const msg = t("rejectNoId");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -145,10 +147,10 @@ export function MediaUploadDropzone({
       }
       setProgress(100);
       onUploaded(gsPath);
-      toast.success("Video uploaded.");
+      toast.success(t("successToast"));
     } catch (err) {
       console.error("[media-upload] failed", err);
-      const msg = "Upload failed. Check your connection and try again.";
+      const msg = t("failToast");
       toast.error(msg);
       setError(msg);
     } finally {
@@ -188,7 +190,7 @@ export function MediaUploadDropzone({
           ref={inputRef}
           type="file"
           accept="video/mp4"
-          aria-label="Demonstration video file"
+          aria-label={t("inputAria")}
           data-testid="media-upload-input"
           disabled={disabled || uploading}
           className="sr-only"
@@ -198,7 +200,7 @@ export function MediaUploadDropzone({
         {uploading ? (
           <>
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm">Uploading…</span>
+            <span className="text-sm">{t("uploadingLabel")}</span>
             <Progress value={progress} className="w-full max-w-xs" />
           </>
         ) : value ? (
@@ -217,17 +219,15 @@ export function MediaUploadDropzone({
               className="gap-1"
             >
               <X className="h-3 w-3" />
-              Remove
+              {t("removeCta")}
             </Button>
           </>
         ) : (
           <>
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm">
-              Drop an MP4 here, or click to choose a file.
-            </span>
+            <span className="text-sm">{t("dropHint")}</span>
             <span className="text-xs text-muted-foreground">
-              MP4 only, 480p maximum, 25 MB maximum.
+              {t("dropSubHint")}
             </span>
           </>
         )}
@@ -255,7 +255,7 @@ export function MediaUploadDropzone({
           }}
           className="mt-1 h-auto px-0 text-xs"
         >
-          How to convert
+          {t("howToConvert")}
         </Button>
       )}
 

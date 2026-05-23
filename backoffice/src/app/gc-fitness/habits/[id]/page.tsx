@@ -11,6 +11,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -34,14 +35,16 @@ interface PageParams {
   params: Promise<{ id: string }>;
 }
 
-const TYPE_LABELS: Record<HabitType, string> = {
-  binary: "Yes / No",
-  "multi-choice": "Multiple choice",
-  numeric: "Numeric",
-  weight: "Weight",
+// Maps HabitType → catalog key under `habits.detail.typeLabels.*`.
+const HABIT_TYPE_LABEL_KEYS: Record<HabitType, string> = {
+  binary: "binary",
+  "multi-choice": "multiChoice",
+  numeric: "numeric",
+  weight: "weight",
 };
 
 export default async function HabitDetailPage({ params }: PageParams) {
+  const t = await getTranslations("habits.detail");
   let trainer: CurrentTrainer;
   try {
     trainer = await getCurrentTrainer();
@@ -86,11 +89,11 @@ export default async function HabitDetailPage({ params }: PageParams) {
   }
 
   const habitType = (data.type as HabitType) ?? "binary";
-  const nameEN = data.name?.en ?? "(untitled)";
+  const nameEN = data.name?.en ?? t("untitled");
   const nameES = data.name?.es ?? "";
 
   // Best-effort client display name lookup. Falls back to the raw UID.
-  let clientLabel = data.clientId ?? "—";
+  let clientLabel = data.clientId ?? t("emptyDash");
   if (data.clientId) {
     const userSnap = await db.collection("users").doc(data.clientId).get();
     if (userSnap.exists) {
@@ -122,44 +125,48 @@ export default async function HabitDetailPage({ params }: PageParams) {
           )}
           <div className="mt-2 flex items-center gap-2">
             <Badge variant="secondary">
-              {TYPE_LABELS[habitType] ?? habitType}
+              {t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[habitType]}`)}
             </Badge>
             {data.deleted === true && (
-              <Badge variant="destructive">Deleted</Badge>
+              <Badge variant="destructive">{t("deletedBadge")}</Badge>
             )}
             {data.seedSource && (
-              <Badge variant="outline">Seed: {data.seedSource}</Badge>
+              <Badge variant="outline">
+                {t("seedBadge", { source: data.seedSource })}
+              </Badge>
             )}
           </div>
         </div>
         <div className="flex flex-shrink-0 gap-2">
           <Button asChild variant="outline">
-            <Link href={`/gc-fitness/habits/${id}/edit`}>Edit</Link>
+            <Link href={`/gc-fitness/habits/${id}/edit`}>{t("editCta")}</Link>
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Details</CardTitle>
+          <CardTitle>{t("detailsCardTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Client
+              {t("clientLabel")}
             </dt>
             <dd className="mt-1 font-medium">{clientLabel}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Type
+              {t("typeLabel")}
             </dt>
-            <dd className="mt-1">{TYPE_LABELS[habitType]}</dd>
+            <dd className="mt-1">
+              {t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[habitType]}`)}
+            </dd>
           </div>
           {data.description?.en && (
             <div className="sm:col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Description
+                {t("descriptionLabel")}
               </dt>
               <dd className="mt-1 whitespace-pre-wrap">
                 {data.description.en}
@@ -177,7 +184,7 @@ export default async function HabitDetailPage({ params }: PageParams) {
           {habitType === "multi-choice" && data.options && (
             <div className="sm:col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Options
+                {t("optionsLabel")}
               </dt>
               <dd className="mt-1 flex flex-wrap gap-1">
                 {data.options.map((o) => (
@@ -191,7 +198,7 @@ export default async function HabitDetailPage({ params }: PageParams) {
           {habitType === "numeric" && data.targetValue !== undefined && (
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Daily target
+                {t("dailyTargetLabel")}
               </dt>
               <dd className="mt-1">
                 {data.targetValue} {data.unit ?? ""}
@@ -202,24 +209,30 @@ export default async function HabitDetailPage({ params }: PageParams) {
             data.unit && (
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Unit
+                  {t("unitLabel")}
                 </dt>
                 <dd className="mt-1">{data.unit}</dd>
               </div>
             )}
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Schedule
+              {t("scheduleLabel")}
             </dt>
             <dd className="mt-1">
               {data.scheduleType === "one-time"
-                ? `One-time · ${data.startsOn ?? "—"}`
-                : `${data.scheduleCadence ?? "daily"} · from ${data.startsOn ?? "—"}${data.endsOn ? ` to ${data.endsOn}` : ""}`}
+                ? t("scheduleOneTime", { date: data.startsOn ?? t("emptyDash") })
+                : t("scheduleRecurring", {
+                    cadence: data.scheduleCadence ?? "daily",
+                    start: data.startsOn ?? t("emptyDash"),
+                    endSuffix: data.endsOn
+                      ? t("scheduleEndSuffix", { end: data.endsOn })
+                      : "",
+                  })}
             </dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Reminder
+              {t("reminderLabel")}
             </dt>
             <dd className="mt-1">
               {data.reminderEnabled && data.reminderTime ? (
@@ -228,24 +241,24 @@ export default async function HabitDetailPage({ params }: PageParams) {
                   {data.reminderCadence ? ` · ${data.reminderCadence}` : ""}
                 </span>
               ) : (
-                <span className="text-muted-foreground">Off</span>
+                <span className="text-muted-foreground">{t("reminderOff")}</span>
               )}
             </dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Created
+              {t("createdLabel")}
             </dt>
             <dd className="mt-1 text-muted-foreground">
-              {createdAt ?? "—"}
+              {createdAt ?? t("emptyDash")}
             </dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Updated
+              {t("updatedLabel")}
             </dt>
             <dd className="mt-1 text-muted-foreground">
-              {updatedAt ?? "—"}
+              {updatedAt ?? t("emptyDash")}
             </dd>
           </div>
         </CardContent>
@@ -253,7 +266,7 @@ export default async function HabitDetailPage({ params }: PageParams) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Compliance</CardTitle>
+          <CardTitle>{t("complianceCardTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           {/*

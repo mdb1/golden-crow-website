@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import { provisionClient } from "@/lib/gc-fitness/user-actions";
 
 export function ProvisionClientForm() {
   const router = useRouter();
+  const t = useTranslations("clients.provisionForm");
   const [isPending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -28,10 +30,8 @@ export function ProvisionClientForm() {
   return (
     <Card className="rounded-lg">
       <CardHeader>
-        <CardTitle>Add client</CardTitle>
-        <CardDescription>
-          Attach an existing app user or pre-create access for a new email.
-        </CardDescription>
+        <CardTitle>{t("cardTitle")}</CardTitle>
+        <CardDescription>{t("cardDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -50,20 +50,20 @@ export function ProvisionClientForm() {
                 setDisplayName("");
                 setMessage(
                   result.mode === "attached-existing-user"
-                    ? "Client attached to your roster."
-                    : "Client pre-created. They will attach on first sign-in.",
+                    ? t("successAttached")
+                    : t("successPreCreated"),
                 );
                 router.refresh();
               } catch (err) {
                 setError(
-                  err instanceof Error ? err.message : "Could not add client.",
+                  err instanceof Error ? err.message : t("errorFallback"),
                 );
               }
             });
           }}
         >
           <div className="space-y-1">
-            <Label htmlFor="client-email">Email</Label>
+            <Label htmlFor="client-email">{t("emailLabel")}</Label>
             <Input
               id="client-email"
               type="email"
@@ -73,29 +73,29 @@ export function ProvisionClientForm() {
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="client-name">Name</Label>
+            <Label htmlFor="client-name">{t("nameLabel")}</Label>
             <Input
               id="client-name"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="Optional"
+              placeholder={t("namePlaceholder")}
             />
           </div>
           <Button type="submit" disabled={isPending} className="self-end gap-2">
             <UserPlus className="size-4" />
-            {isPending ? "Adding..." : "Add client"}
+            {isPending ? t("submitting") : t("submitCta")}
           </Button>
         </form>
         {message ? (
           <div className="mt-3">
-            <HelperBanner title="Client ready" tone="green">
+            <HelperBanner title={t("successBannerTitle")} tone="green">
               {message}
             </HelperBanner>
           </div>
         ) : null}
         {error ? (
           <div className="mt-3">
-            <HelperBanner title="Add client failed" tone="red">
+            <HelperBanner title={t("errorBannerTitle")} tone="red">
               {error}
             </HelperBanner>
           </div>

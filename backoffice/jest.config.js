@@ -53,5 +53,12 @@ module.exports = {
     // we substitute a no-op so server modules can be required directly
     // by unit tests.
     "^server-only$": "<rootDir>/src/lib/test-utils/server-only-stub.ts",
+    // next-intl ships ESM-only at the public entrypoint. For Jest tests
+    // that import `useTranslations` or `NextIntlClientProvider`, route the
+    // bare specifier to a CJS stub that exposes a key-resolving identity
+    // (returns the dotted key for any `t('foo.bar')` call). UI tests do
+    // not need the full ICU pipeline — assertions key off the EN catalog
+    // (`import enMessages from '@/../messages/en.json'`).
+    "^next-intl$": "<rootDir>/src/lib/test-utils/next-intl-stub.tsx",
   },
 };

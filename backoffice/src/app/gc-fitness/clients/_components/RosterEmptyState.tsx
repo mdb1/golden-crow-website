@@ -24,6 +24,8 @@
 //     also used by RosterTable.tsx for the AlertCircle marker).
 //   - Tailwind utility classes only; no inline styles.
 
+import { useTranslations } from "next-intl";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Users } from "lucide-react";
 
@@ -33,6 +35,7 @@ import { Users } from "lucide-react";
  * don't pay the cost of useReactTable + memoised columns for zero rows.
  */
 export function RosterEmptyState() {
+  const t = useTranslations("clients.empty");
   return (
     <Card className="mx-auto mt-8 max-w-xl">
       <CardContent className="flex flex-col items-center gap-3 py-12">
@@ -40,11 +43,9 @@ export function RosterEmptyState() {
           className="h-16 w-16 text-muted-foreground"
           aria-hidden="true"
         />
-        <h2 className="text-lg font-semibold">No clients assigned yet</h2>
+        <h2 className="text-lg font-semibold">{t("rosterTitle")}</h2>
         <p className="max-w-md text-center text-sm text-muted-foreground">
-          Once a client is assigned to you in the Firebase console, they
-          will appear here with their latest activity and habit
-          compliance.
+          {t("rosterBody")}
         </p>
       </CardContent>
     </Card>

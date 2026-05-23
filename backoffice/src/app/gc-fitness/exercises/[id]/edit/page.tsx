@@ -15,6 +15,7 @@
 // reset back to the saved state on cancel.
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -49,6 +50,7 @@ function pickPreviewSrc(data: Record<string, unknown>): string | null {
 }
 
 export default async function EditExercisePage({ params }: PageParams) {
+  const t = await getTranslations("exercises.editPage");
   let trainer: CurrentTrainer;
   try {
     trainer = await getCurrentTrainer();
@@ -109,18 +111,18 @@ export default async function EditExercisePage({ params }: PageParams) {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Edit exercise
+          {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Changes save when you click <strong>Save</strong>. Deleting is
-          soft-delete only and never affects historical workout logs.
+          {t("subtitlePrefix")}<strong>{t("subtitleCta")}</strong>
+          {t("subtitleSuffix")}
         </p>
       </div>
 
       {previewHref && (
         <div className="flex flex-col gap-2">
           <span className="text-sm font-semibold text-foreground">
-            Current preview
+            {t("currentPreviewLabel")}
           </span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -131,8 +133,7 @@ export default async function EditExercisePage({ params }: PageParams) {
             className="h-[180px] w-[320px] rounded-md border border-border bg-muted/40 object-cover"
           />
           <span className="text-xs text-muted-foreground">
-            From the original library asset. Upload a new MP4 below to
-            replace, or leave as-is to keep this preview.
+            {t("currentPreviewHint")}
           </span>
         </div>
       )}

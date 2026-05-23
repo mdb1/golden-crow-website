@@ -16,6 +16,9 @@ import "@testing-library/jest-dom";
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
+import { NextIntlClientProvider } from "next-intl";
+
+import enMessages from "../../../../messages/en.json";
 
 // Mock the Server Action so we can drive success/failure paths.
 const mockDeleteAssignment = jest.fn();
@@ -66,15 +69,17 @@ function renderDialog(opts: RenderOpts = {}) {
   const onDeleted = opts.onDeleted ?? jest.fn();
   const onOpenChange = opts.onOpenChange ?? jest.fn();
   render(
-    <WorkoutAssignmentDeleteDialog
-      open={true}
-      onOpenChange={onOpenChange}
-      assignmentId="asg-1"
-      scheduledFor="2026-06-15"
-      templateName="Push Day"
-      seriesId={opts.seriesId ?? null}
-      onDeleted={onDeleted}
-    />,
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      <WorkoutAssignmentDeleteDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        assignmentId="asg-1"
+        scheduledFor="2026-06-15"
+        templateName="Push Day"
+        seriesId={opts.seriesId ?? null}
+        onDeleted={onDeleted}
+      />
+    </NextIntlClientProvider>,
   );
   return { onDeleted, onOpenChange };
 }

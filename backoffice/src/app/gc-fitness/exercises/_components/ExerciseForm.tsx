@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import {
   Form,
@@ -117,6 +118,7 @@ export function ExerciseForm({
   defaultValues,
 }: ExerciseFormProps) {
   const router = useRouter();
+  const t = useTranslations("exercises.form");
   const [pending, startTransition] = useTransition();
   const [duplicating, setDuplicating] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -139,18 +141,18 @@ export function ExerciseForm({
       try {
         if (mode === "create") {
           const { id } = await createExercise(values);
-          toast.success("Exercise saved.");
+          toast.success(t("savedToast"));
           router.push(`/gc-fitness/exercises/${id}/edit`);
           return;
         }
         if (mode === "edit" && exerciseId) {
           await updateExercise(exerciseId, values);
-          toast.success("Exercise saved.");
+          toast.success(t("savedToast"));
           router.back();
         }
       } catch (err) {
         console.error("[exercise-form] save failed", err);
-        toast.error("Couldn't save. Please try again.");
+        toast.error(t("saveFailedToast"));
       }
     });
   });
@@ -160,11 +162,11 @@ export function ExerciseForm({
     setDuplicating(true);
     try {
       const { id } = await duplicateExercise(exerciseId);
-      toast.success("Exercise duplicated. Edit your copy now.");
+      toast.success(t("duplicateToast"));
       router.push(`/gc-fitness/exercises/${id}/edit`);
     } catch (err) {
       console.error("[exercise-form] duplicate failed", err);
-      toast.error("Couldn't duplicate. Please try again.");
+      toast.error(t("duplicateFailedToast"));
     } finally {
       setDuplicating(false);
     }
@@ -175,11 +177,11 @@ export function ExerciseForm({
     setDeleting(true);
     try {
       await softDeleteExercise(exerciseId);
-      toast.success("Exercise deleted.");
+      toast.success(t("deletedToast"));
       router.push("/gc-fitness/exercises");
     } catch (err) {
       console.error("[exercise-form] delete failed", err);
-      toast.error("Couldn't delete. Please try again.");
+      toast.error(t("deleteFailedToast"));
     } finally {
       setDeleting(false);
     }
@@ -189,15 +191,15 @@ export function ExerciseForm({
     <Form {...form}>
       {isView && (
         <Alert className="mb-6">
-          <AlertTitle>Exercise details</AlertTitle>
+          <AlertTitle>{t("viewBannerTitle")}</AlertTitle>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>This exercise is sourced from wger.de and is read-only.</span>
+            <span>{t("viewBannerBody")}</span>
             <Button
               type="button"
               onClick={onDuplicate}
               disabled={duplicating || !exerciseId}
             >
-              {duplicating ? "Duplicating…" : "Duplicate to customize"}
+              {duplicating ? t("duplicating") : t("duplicateCta")}
             </Button>
           </AlertDescription>
         </Alert>
@@ -211,10 +213,10 @@ export function ExerciseForm({
             name="name.en"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name (English)</FormLabel>
+                <FormLabel>{t("nameEn")}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Barbell back squat"
+                    placeholder={t("namePlaceholderEn")}
                     disabled={isView}
                     {...field}
                   />
@@ -228,18 +230,16 @@ export function ExerciseForm({
             name="name.es"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name (Spanish)</FormLabel>
+                <FormLabel>{t("nameEs")}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Sentadilla con barra"
+                    placeholder={t("namePlaceholderEs")}
                     disabled={isView}
                     {...field}
                     value={field.value ?? ""}
                   />
                 </FormControl>
-                <FormDescription>
-                  Leave blank to mark as &ldquo;needs translation.&rdquo;
-                </FormDescription>
+                <FormDescription>{t("nameEsHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -253,7 +253,7 @@ export function ExerciseForm({
             name="description.en"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (English)</FormLabel>
+                <FormLabel>{t("descriptionEn")}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={6}
@@ -261,9 +261,7 @@ export function ExerciseForm({
                     {...field}
                   />
                 </FormControl>
-                <FormDescription>
-                  Markdown supported. Use bullets, bold, and links.
-                </FormDescription>
+                <FormDescription>{t("descriptionMarkdownHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -273,7 +271,7 @@ export function ExerciseForm({
             name="description.es"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (Spanish)</FormLabel>
+                <FormLabel>{t("descriptionEs")}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={6}
@@ -282,9 +280,7 @@ export function ExerciseForm({
                     value={field.value ?? ""}
                   />
                 </FormControl>
-                <FormDescription>
-                  Markdown supported. Use bullets, bold, and links.
-                </FormDescription>
+                <FormDescription>{t("descriptionMarkdownHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -296,14 +292,14 @@ export function ExerciseForm({
             optional; both textareas render with value coerced to ""
             because the schema accepts nullable + optional. */}
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium">Coaching tips (optional)</h3>
+          <h3 className="text-sm font-medium">{t("tipsHeading")}</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="tips.en"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tips (English)</FormLabel>
+                  <FormLabel>{t("tipsEn")}</FormLabel>
                   <FormControl>
                     <Textarea
                       rows={4}
@@ -312,10 +308,7 @@ export function ExerciseForm({
                       value={field.value ?? ""}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Short coaching cues for the client (e.g., &ldquo;Brace
-                    your core hard at the bottom&rdquo;).
-                  </FormDescription>
+                  <FormDescription>{t("tipsEnHint")}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -325,7 +318,7 @@ export function ExerciseForm({
               name="tips.es"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tips (Spanish)</FormLabel>
+                  <FormLabel>{t("tipsEs")}</FormLabel>
                   <FormControl>
                     <Textarea
                       rows={4}
@@ -334,9 +327,7 @@ export function ExerciseForm({
                       value={field.value ?? ""}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Translated coaching cues for Spanish-speaking clients.
-                  </FormDescription>
+                  <FormDescription>{t("tipsEsHint")}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -351,21 +342,19 @@ export function ExerciseForm({
             name="muscleGroups"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Muscle groups</FormLabel>
+                <FormLabel>{t("muscleGroupsLabel")}</FormLabel>
                 <FormControl>
                   <MultiSelectCombobox
                     options={MUSCLE_GROUPS}
                     value={field.value ?? []}
                     onChange={field.onChange}
-                    placeholder="Pick muscle groups…"
-                    ariaLabel="Muscle groups"
+                    placeholder={t("muscleGroupsPlaceholder")}
+                    ariaLabel={t("muscleGroupsAria")}
                     max={8}
                     disabled={isView}
                   />
                 </FormControl>
-                <FormDescription>
-                  Pick the primary muscle first. Secondary muscles follow.
-                </FormDescription>
+                <FormDescription>{t("muscleGroupsHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -375,22 +364,19 @@ export function ExerciseForm({
             name="equipment"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Equipment</FormLabel>
+                <FormLabel>{t("equipmentLabel")}</FormLabel>
                 <FormControl>
                   <MultiSelectCombobox
                     options={EQUIPMENT}
                     value={field.value ?? []}
                     onChange={field.onChange}
-                    placeholder="Pick equipment…"
-                    ariaLabel="Equipment"
+                    placeholder={t("equipmentPlaceholder")}
+                    ariaLabel={t("equipmentAria")}
                     max={8}
                     disabled={isView}
                   />
                 </FormControl>
-                <FormDescription>
-                  Pick one or more. Use &ldquo;bodyweight&rdquo; if no
-                  equipment is needed.
-                </FormDescription>
+                <FormDescription>{t("equipmentHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -404,7 +390,7 @@ export function ExerciseForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel htmlFor="media-dropzone-region">
-                Demonstration video
+                {t("mediaLabel")}
               </FormLabel>
               <FormControl>
                 <div id="media-dropzone-region">
@@ -416,7 +402,7 @@ export function ExerciseForm({
                     disabled={isView || (mode === "create" && !exerciseId)}
                     disabledHint={
                       mode === "create" && !exerciseId
-                        ? "Save the exercise first to enable video upload."
+                        ? t("mediaCreateDeferHint")
                         : undefined
                     }
                   />
@@ -433,11 +419,11 @@ export function ExerciseForm({
             name="thumbnailURL"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Thumbnail image</FormLabel>
+                <FormLabel>{t("thumbnailLabel")}</FormLabel>
                 <FormControl>
                   <div className="flex flex-col gap-2">
                     <Input
-                      placeholder="gs://bucket/path/to-thumbnail.jpg"
+                      placeholder={t("thumbnailPlaceholder")}
                       disabled={isView}
                       {...field}
                       value={field.value ?? ""}
@@ -450,15 +436,13 @@ export function ExerciseForm({
                       disabled={isView || (mode === "create" && !exerciseId)}
                       disabledHint={
                         mode === "create" && !exerciseId
-                          ? "Save the exercise first to enable thumbnail upload."
+                          ? t("thumbnailCreateDeferHint")
                           : undefined
                       }
                     />
                   </div>
                 </FormControl>
-                <FormDescription>
-                  Optional preview image shown in lists and pickers.
-                </FormDescription>
+                <FormDescription>{t("thumbnailHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -468,18 +452,16 @@ export function ExerciseForm({
             name="youtubeURL"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>YouTube video</FormLabel>
+                <FormLabel>{t("youtubeLabel")}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="https://www.youtube.com/watch?v=..."
+                    placeholder={t("youtubePlaceholder")}
                     disabled={isView}
                     {...field}
                     value={field.value ?? ""}
                   />
                 </FormControl>
-                <FormDescription>
-                  Optional explainer link for coaches and clients.
-                </FormDescription>
+                <FormDescription>{t("youtubeHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -495,11 +477,11 @@ export function ExerciseForm({
           name="videoUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Demonstration video URL</FormLabel>
+              <FormLabel>{t("videoUrlLabel")}</FormLabel>
               <FormControl>
                 <Input
                   type="url"
-                  placeholder="https://..."
+                  placeholder={t("videoUrlPlaceholder")}
                   disabled={isView}
                   name={field.name}
                   ref={field.ref}
@@ -508,10 +490,7 @@ export function ExerciseForm({
                   onChange={field.onChange}
                 />
               </FormControl>
-              <FormDescription>
-                Optional. A standalone demo video URL (separate from the
-                hero clip and from the YouTube reference link).
-              </FormDescription>
+              <FormDescription>{t("videoUrlHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -529,27 +508,25 @@ export function ExerciseForm({
                       variant="destructive"
                       disabled={deleting}
                     >
-                      {deleting ? "Deleting…" : "Delete exercise"}
+                      {deleting ? t("deleting") : t("deleteCta")}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete this exercise?</AlertDialogTitle>
+                      <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This permanently removes the exercise from your
-                        library. Workouts that reference it will keep the
-                        snapshot. This can&apos;t be undone.
+                        {t("deleteDialogBody")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel disabled={deleting}>
-                        Cancel
+                        {t("deleteDialogCancel")}
                       </AlertDialogCancel>
                       <AlertDialogAction
                         onClick={onDelete}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
-                        Delete
+                        {t("deleteDialogConfirm")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -563,10 +540,10 @@ export function ExerciseForm({
                 onClick={() => router.back()}
                 disabled={pending}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save"}
+                {pending ? t("saving") : t("save")}
               </Button>
             </div>
           </div>

@@ -13,6 +13,7 @@
 
 import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +62,7 @@ export function MultiSelectCombobox({
   disabled,
 }: MultiSelectComboboxProps) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("exercises.multiSelect");
 
   const atMax = useMemo(
     () => typeof max === "number" && value.length >= max,
@@ -108,7 +110,7 @@ export function MultiSelectCombobox({
                   <span>{formatLabel(v)}</span>
                   <span
                     role="button"
-                    aria-label={`Remove ${formatLabel(v)}`}
+                    aria-label={t("removeAria", { label: formatLabel(v) })}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -130,12 +132,12 @@ export function MultiSelectCombobox({
         align="start"
       >
         <Command>
-          <CommandInput placeholder="Search…" />
+          <CommandInput placeholder={t("searchPlaceholder")} />
           <CommandList>
             {atMax ? (
-              <CommandEmpty>Maximum reached.</CommandEmpty>
+              <CommandEmpty>{t("maxReached")}</CommandEmpty>
             ) : (
-              <CommandEmpty>No matches. Type to search.</CommandEmpty>
+              <CommandEmpty>{t("noMatches")}</CommandEmpty>
             )}
             <CommandGroup>
               {options.map((opt) => {

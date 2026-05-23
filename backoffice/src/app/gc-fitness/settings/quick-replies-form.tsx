@@ -48,6 +48,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 
 import {
   Form,
@@ -77,6 +78,10 @@ const MAX_TEMPLATES = 20;
  * validates on submit; this client schema only mirrors the per-row cap
  * for early error surfacing.
  */
+// Validation messages stay in English at the schema layer per the plan
+// ("leave Zod messages in English and only translate at the form's
+// error-display layer"). The error messages here are rarely surfaced
+// because the textarea's `maxLength` attribute caps input before submit.
 const formSchema = z.object({
   replies: z
     .array(
@@ -97,6 +102,7 @@ export interface QuickRepliesFormProps {
 
 export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
   const router = useRouter();
+  const t = useTranslations("settings.quickRepliesForm");
   const [pending, startTransition] = useTransition();
 
   const form = useForm<FormShape>({
@@ -125,7 +131,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
         // state survives a validation failure round-trip).
         const replies = values.replies.map((r) => r.value);
         await updateChatQuickReplies({ replies });
-        toast.success("Quick replies saved.");
+        toast.success(t("savedToast"));
         // Refresh so the server-rendered Settings page re-fetches via
         // `getCurrentTrainerProfile()`, and so any other server-rendered
         // surface that reads the trainer profile sees the new value.
@@ -133,7 +139,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
       } catch (err) {
         console.error("[quick-replies-form] save failed", err);
         const message =
-          err instanceof Error ? err.message : "Couldn't save.";
+          err instanceof Error ? err.message : t("saveFailedToast");
         toast.error(message);
       }
     });
@@ -148,14 +154,15 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
       <form onSubmit={submit} className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {fields.length}/{MAX_TEMPLATES} templates
+            {t("countLabel", { count: fields.length, max: MAX_TEMPLATES })}
           </span>
         </div>
 
         {fields.length === 0 && (
           <p className="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-            No quick replies yet. Click <strong>Add quick reply</strong> to
-            create your first template.
+            {t.rich("emptyHint", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
         )}
 
@@ -175,15 +182,15 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
                   render={({ field: rowField }) => (
                     <FormItem className="flex-1">
                       <FormLabel className="sr-only">
-                        Quick reply #{index + 1}
+                        {t("rowLabel", { index: index + 1 })}
                       </FormLabel>
                       <FormControl>
                         <Textarea
                           {...rowField}
-                          placeholder="e.g. Great work today — see you tomorrow!"
+                          placeholder={t("rowPlaceholder")}
                           rows={2}
                           maxLength={MAX_TEMPLATE_CHARS}
-                          aria-label={`Quick reply ${index + 1}`}
+                          aria-label={t("rowAria", { index: index + 1 })}
                           className="resize-none"
                         />
                       </FormControl>
@@ -198,7 +205,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
                     size="icon"
                     onClick={() => move(index, index - 1)}
                     disabled={index === 0}
-                    aria-label="Move quick reply up"
+                    aria-label={t("moveUpAria")}
                   >
                     <ArrowUp className="h-4 w-4" />
                   </Button>
@@ -208,7 +215,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
                     size="icon"
                     onClick={() => move(index, index + 1)}
                     disabled={index === fields.length - 1}
-                    aria-label="Move quick reply down"
+                    aria-label={t("moveDownAria")}
                   >
                     <ArrowDown className="h-4 w-4" />
                   </Button>
@@ -217,7 +224,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => remove(index)}
-                    aria-label="Remove quick reply"
+                    aria-label={t("removeAria")}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -237,10 +244,10 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
             disabled={fields.length >= MAX_TEMPLATES}
           >
             <Plus className="mr-1 h-4 w-4" />
-            Add quick reply
+            {t("addCta")}
           </Button>
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save"}
+            {pending ? t("saving") : t("save")}
           </Button>
         </div>
       </form>

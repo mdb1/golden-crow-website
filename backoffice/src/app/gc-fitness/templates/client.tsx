@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   flexRender,
   getCoreRowModel,
@@ -57,6 +58,7 @@ import { makeTemplateColumns } from "@/components/gc-fitness/templates/columns";
 
 export function TemplatesLibraryClient() {
   const router = useRouter();
+  const t = useTranslations("templates.list");
   const queryClient = useQueryClient();
   const [tagFilter, setTagFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
@@ -81,7 +83,11 @@ export function TemplatesLibraryClient() {
     [router],
   );
 
-  const columns = useMemo(() => makeTemplateColumns(handlers), [handlers]);
+  const columnsT = useTranslations("templates.columns");
+  const columns = useMemo(
+    () => makeTemplateColumns(handlers, columnsT),
+    [handlers, columnsT],
+  );
 
   const table = useReactTable({
     data: rows,
@@ -103,17 +109,17 @@ export function TemplatesLibraryClient() {
       await queryClient.invalidateQueries({
         queryKey: WORKOUT_TEMPLATES_BASE_KEY,
       });
-      toast.success("Template deleted.");
+      toast.success(t("deletedToast"));
       setConfirmDelete(null);
     } catch (err) {
       console.error("[templates] delete failed", err);
       const message =
-        err instanceof Error ? err.message : "Couldn't delete.";
+        err instanceof Error ? err.message : t("deleteFailedToast");
       toast.error(message);
     } finally {
       setDeletePending(false);
     }
-  }, [confirmDelete, queryClient]);
+  }, [confirmDelete, queryClient, t]);
 
   const isUnfilteredEmpty = !isLoading && !tagFilter.trim() && rows.length === 0;
   const isFilteredEmpty = !isLoading && tagFilter.trim() && rows.length === 0;
@@ -123,12 +129,9 @@ export function TemplatesLibraryClient() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Workout Templates
+            {t("pageHeading")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Author push / pull / legs templates and assign them from the
-            schedule view.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
         </div>
         <Button
           type="button"
@@ -136,7 +139,7 @@ export function TemplatesLibraryClient() {
           className="gap-2"
         >
           <Plus className="h-4 w-4" />
-          New template
+          {t("newTemplateCta")}
         </Button>
       </div>
 
@@ -144,17 +147,15 @@ export function TemplatesLibraryClient() {
         <Input
           value={tagFilter}
           onChange={(event) => setTagFilter(event.target.value)}
-          placeholder="Filter by tag"
+          placeholder={t("filterPlaceholder")}
           className="w-56"
         />
       </div>
 
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Couldn&apos;t load templates.</AlertTitle>
-          <AlertDescription>
-            Check your connection and try again.
-          </AlertDescription>
+          <AlertTitle>{t("loadError")}</AlertTitle>
+          <AlertDescription>{t("loadErrorDescription")}</AlertDescription>
         </Alert>
       )}
 
@@ -186,7 +187,7 @@ export function TemplatesLibraryClient() {
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Loading…
+                  {t("loading")}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows.length > 0 ? (
@@ -209,10 +210,9 @@ export function TemplatesLibraryClient() {
                   className="h-32 text-center"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">No templates yet.</p>
+                    <p className="font-medium">{t("emptyHeadline")}</p>
                     <p className="text-sm text-muted-foreground">
-                      Author your first workout template to start assigning
-                      it to clients.
+                      {t("emptySubtitle")}
                     </p>
                     <Button
                       type="button"
@@ -220,7 +220,7 @@ export function TemplatesLibraryClient() {
                       className="gap-2"
                     >
                       <Plus className="h-4 w-4" />
-                      New template
+                      {t("newTemplateCta")}
                     </Button>
                   </div>
                 </TableCell>
@@ -232,9 +232,9 @@ export function TemplatesLibraryClient() {
                   className="h-32 text-center"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">No matches.</p>
+                    <p className="font-medium">{t("filteredEmptyHeadline")}</p>
                     <p className="text-sm text-muted-foreground">
-                      Try a different tag or clear the filter.
+                      {t("filteredEmptySubtitle")}
                     </p>
                   </div>
                 </TableCell>
@@ -247,8 +247,10 @@ export function TemplatesLibraryClient() {
       {rows.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
-            {Math.max(1, table.getPageCount())}
+            {t("pagination", {
+              current: table.getState().pagination.pageIndex + 1,
+              total: Math.max(1, table.getPageCount()),
+            })}
           </p>
           <div className="flex gap-2">
             <Button
@@ -257,7 +259,7 @@ export function TemplatesLibraryClient() {
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              Previous
+              {t("previous")}
             </Button>
             <Button
               variant="outline"
@@ -265,7 +267,7 @@ export function TemplatesLibraryClient() {
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              Next
+              {t("next")}
             </Button>
           </div>
         </div>
@@ -279,22 +281,19 @@ export function TemplatesLibraryClient() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this template?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Existing assignments keep their snapshot — they will not be
-              affected. This is a soft-delete and can be reversed later.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteDialogBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletePending}>
-              Cancel
+              {t("deleteDialogCancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={deletePending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deletePending ? "Deleting…" : "Delete"}
+              {deletePending ? t("deleting") : t("deleteDialogConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

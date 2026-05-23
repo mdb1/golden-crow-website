@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MessageCircle, Filter, Dumbbell, ListChecks, Eye } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function RecentLogsFeed({ logs, clients }: Props) {
+  const t = useTranslations("recentLogs.feed");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -48,21 +50,19 @@ export function RecentLogsFeed({ logs, clients }: Props) {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Filter className="h-4 w-4" />
-            Filters
+            {t("filtersTitle")}
           </CardTitle>
-          <CardDescription>
-            Narrow activity by client and log type.
-          </CardDescription>
+          <CardDescription>{t("filtersDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Client</p>
+            <p className="text-sm font-medium">{t("clientLabel")}</p>
             <Select value={clientFilter} onValueChange={setClientFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="All clients" />
+                <SelectValue placeholder={t("allClients")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All clients</SelectItem>
+                <SelectItem value="all">{t("allClients")}</SelectItem>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.name}
@@ -72,15 +72,15 @@ export function RecentLogsFeed({ logs, clients }: Props) {
             </Select>
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-medium">Type</p>
+            <p className="text-sm font-medium">{t("typeLabel")}</p>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="All activity" />
+                <SelectValue placeholder={t("allActivity")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All activity</SelectItem>
-                <SelectItem value="habit">Habits</SelectItem>
-                <SelectItem value="workout">Workouts</SelectItem>
+                <SelectItem value="all">{t("allActivity")}</SelectItem>
+                <SelectItem value="habit">{t("habitsOption")}</SelectItem>
+                <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -91,7 +91,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
         {filtered.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              No logs match the current filters.
+              {t("noLogs")}
             </CardContent>
           </Card>
         ) : null}
@@ -103,12 +103,12 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                   {row.category === "habit" ? (
                     <Badge className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
                       <ListChecks className="h-3.5 w-3.5" />
-                      Habit
+                      {t("badgeHabit")}
                     </Badge>
                   ) : (
                     <Badge className="gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-50">
                       <Dumbbell className="h-3.5 w-3.5" />
-                      Workout
+                      {t("badgeWorkout")}
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">
@@ -125,7 +125,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
                   <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
                     <MessageCircle className="h-4 w-4" />
-                    Open chat
+                    {t("openChat")}
                   </Link>
                 </Button>
                 <NudgeButton clientId={row.clientId} clientName={row.clientName} />
@@ -133,7 +133,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                   <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
                     <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
                       <Eye className="h-4 w-4" />
-                      View workout
+                      {t("viewWorkout")}
                     </Link>
                   </Button>
                 ) : null}

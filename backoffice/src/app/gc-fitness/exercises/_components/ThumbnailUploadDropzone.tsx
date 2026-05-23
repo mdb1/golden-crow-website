@@ -24,6 +24,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload, Image as ImageIcon, X, CircleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -65,6 +66,7 @@ export function ThumbnailUploadDropzone({
   disabled,
   disabledHint,
 }: ThumbnailUploadDropzoneProps) {
+  const t = useTranslations("exercises.thumbnailUpload");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -83,7 +85,7 @@ export function ThumbnailUploadDropzone({
     );
 
     if (!hasAllowedExt) {
-      const msg = "Unsupported format. Use JPG, PNG, WebP, or GIF.";
+      const msg = t("rejectFormat");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -91,7 +93,7 @@ export function ThumbnailUploadDropzone({
     }
 
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      const msg = "Unsupported format. Use JPG, PNG, WebP, or GIF.";
+      const msg = t("rejectFormat");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -99,7 +101,7 @@ export function ThumbnailUploadDropzone({
     }
 
     if (file.size > MAX_SIZE_BYTES) {
-      const msg = "File too large. Max 5 MB.";
+      const msg = t("rejectSize");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -107,7 +109,7 @@ export function ThumbnailUploadDropzone({
     }
 
     if (!exerciseId) {
-      const msg = "Save the exercise first, then upload a thumbnail.";
+      const msg = t("rejectNoId");
       toast.error(msg);
       setError(msg);
       if (inputRef.current) inputRef.current.value = "";
@@ -141,10 +143,10 @@ export function ThumbnailUploadDropzone({
       }
       setProgress(100);
       onUploaded(gsPath);
-      toast.success("Thumbnail uploaded.");
+      toast.success(t("successToast"));
     } catch (err) {
       console.error("[thumbnail-upload] failed", err);
-      const msg = "Upload failed. Check your connection and try again.";
+      const msg = t("failToast");
       toast.error(msg);
       setError(msg);
     } finally {
@@ -179,7 +181,7 @@ export function ThumbnailUploadDropzone({
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
-          aria-label="Thumbnail image file"
+          aria-label={t("inputAria")}
           data-testid="thumbnail-upload-input"
           disabled={disabled || uploading}
           className="sr-only"
@@ -189,7 +191,7 @@ export function ThumbnailUploadDropzone({
         {uploading ? (
           <>
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm">Uploading…</span>
+            <span className="text-sm">{t("uploadingLabel")}</span>
             <Progress value={progress} className="w-full max-w-xs" />
           </>
         ) : value ? (
@@ -208,16 +210,14 @@ export function ThumbnailUploadDropzone({
               className="gap-1"
             >
               <X className="h-3 w-3" />
-              Remove
+              {t("removeCta")}
             </Button>
           </>
         ) : (
           <>
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm">
-              Drop a JPG, PNG, WebP, or GIF, or click to choose.
-            </span>
-            <span className="text-xs text-muted-foreground">Up to 5 MB.</span>
+            <span className="text-sm">{t("dropHint")}</span>
+            <span className="text-xs text-muted-foreground">{t("dropSubHint")}</span>
           </>
         )}
       </div>

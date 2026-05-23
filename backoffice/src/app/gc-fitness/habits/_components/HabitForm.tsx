@@ -26,6 +26,7 @@ import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import {
   Form,
@@ -82,27 +83,27 @@ export interface HabitFormProps {
   ) => Promise<{ id?: string; ok?: true }>;
 }
 
-const HABIT_TYPE_LABELS: Record<HabitType, string> = {
-  binary: "Yes / no",
-  "multi-choice": "Multiple choice",
-  numeric: "Numeric",
-  weight: "Weight",
+// Translation keys for the four habit-type strings — resolved at render via
+// `t(`typeOptions.${HABIT_TYPE_LABEL_KEYS[type]}`)`. Keeping a static map
+// here means the keys stay grep-able and the runtime lookup is O(1).
+const HABIT_TYPE_LABEL_KEYS: Record<HabitType, string> = {
+  binary: "binary",
+  "multi-choice": "multiChoice",
+  numeric: "numeric",
+  weight: "weight",
 };
 
-const WEEKDAY_OPTIONS = [
-  { value: 1, label: "Mon" },
-  { value: 2, label: "Tue" },
-  { value: 3, label: "Wed" },
-  { value: 4, label: "Thu" },
-  { value: 5, label: "Fri" },
-  { value: 6, label: "Sat" },
-  { value: 7, label: "Sun" },
+const WEEKDAY_KEYS = [
+  { value: 1, key: "mon" },
+  { value: 2, key: "tue" },
+  { value: 3, key: "wed" },
+  { value: 4, key: "thu" },
+  { value: 5, key: "fri" },
+  { value: 6, key: "sat" },
+  { value: 7, key: "sun" },
 ] as const;
 const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => index + 1);
-const SCHEDULE_TYPE_OPTIONS = [
-  { value: "recurring", label: "Recurring" },
-  { value: "one-time", label: "One-time" },
-] as const;
+const SCHEDULE_TYPE_VALUES = ["recurring", "one-time"] as const;
 
 function buildDefaults(
   passed?: Partial<HabitCreateInput>,
@@ -158,6 +159,7 @@ export function HabitForm({
   onSubmit,
 }: HabitFormProps) {
   const router = useRouter();
+  const t = useTranslations("habits.form");
   const [pending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -335,16 +337,16 @@ export function HabitForm({
 
         const result = await onSubmit(cleaned);
         if (mode === "create" && result?.id) {
-          toast.success("Habit created.");
+          toast.success(t("createdToast"));
           router.push("/gc-fitness/habits");
           return;
         }
-        toast.success("Habit saved.");
+        toast.success(t("savedToast"));
         router.push("/gc-fitness/habits");
       } catch (err) {
         console.error("[habit-form] save failed", err);
         const message =
-          err instanceof Error ? err.message : "Couldn't save.";
+          err instanceof Error ? err.message : t("saveFailed");
         setSubmitError(message);
         toast.error(message);
       }
@@ -365,7 +367,7 @@ export function HabitForm({
           name="clientId"
           render={({ field }) => (
             <FormItem className="max-w-md">
-              <FormLabel>Client</FormLabel>
+              <FormLabel>{t("clientLabel")}</FormLabel>
               <Select
                 value={field.value}
                 onValueChange={field.onChange}
@@ -373,7 +375,7 @@ export function HabitForm({
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Pick a client…" />
+                    <SelectValue placeholder={t("clientPlaceholder")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -385,10 +387,7 @@ export function HabitForm({
                 </SelectContent>
               </Select>
               {mode === "edit" && (
-                <FormDescription>
-                  Client assignment is immutable. Create a new habit to
-                  assign this content to a different client.
-                </FormDescription>
+                <FormDescription>{t("clientImmutableHint")}</FormDescription>
               )}
               <FormMessage />
             </FormItem>
@@ -401,7 +400,7 @@ export function HabitForm({
           name="type"
           render={({ field }) => (
             <FormItem className="max-w-xs">
-              <FormLabel>Habit type</FormLabel>
+              <FormLabel>{t("typeLabel")}</FormLabel>
               <Select
                 value={field.value}
                 onValueChange={field.onChange}
@@ -409,22 +408,19 @@ export function HabitForm({
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Pick a habit type…" />
+                    <SelectValue placeholder={t("typePlaceholder")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {HABIT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {HABIT_TYPE_LABELS[t]}
+                  {HABIT_TYPES.map((ht) => (
+                    <SelectItem key={ht} value={ht}>
+                      {t(`typeOptions.${HABIT_TYPE_LABEL_KEYS[ht]}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {mode === "edit" && (
-                <FormDescription>
-                  Habit type is immutable — changing it would invalidate
-                  every existing log.
-                </FormDescription>
+                <FormDescription>{t("typeImmutableHint")}</FormDescription>
               )}
               <FormMessage />
             </FormItem>
@@ -438,9 +434,9 @@ export function HabitForm({
             name="name.en"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name (English)</FormLabel>
+                <FormLabel>{t("nameEn")}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Drink water" {...field} />
+                  <Input placeholder={t("namePlaceholderEn")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -451,9 +447,9 @@ export function HabitForm({
             name="name.es"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name (Spanish)</FormLabel>
+                <FormLabel>{t("nameEs")}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Beber agua" {...field} />
+                  <Input placeholder={t("namePlaceholderEs")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -468,18 +464,16 @@ export function HabitForm({
             name="description.en"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (English)</FormLabel>
+                <FormLabel>{t("descriptionEn")}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={3}
-                    placeholder="Optional — what does this habit look like in practice?"
+                    placeholder={t("descriptionPlaceholderEn")}
                     {...field}
                     value={field.value ?? ""}
                   />
                 </FormControl>
-                <FormDescription>
-                  Optional. Leave both blank to skip.
-                </FormDescription>
+                <FormDescription>{t("descriptionOptionalHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -489,11 +483,11 @@ export function HabitForm({
             name="description.es"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (Spanish)</FormLabel>
+                <FormLabel>{t("descriptionEs")}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={3}
-                    placeholder="Opcional"
+                    placeholder={t("descriptionPlaceholderEs")}
                     {...field}
                     value={field.value ?? ""}
                   />
@@ -508,15 +502,14 @@ export function HabitForm({
         {isMultiChoice && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-semibold">Options</h2>
+              <h2 className="font-heading text-lg font-semibold">
+                {t("optionsHeading")}
+              </h2>
               <span className="text-xs text-muted-foreground">
-                {watchedOptions.length}/8
+                {t("optionsCount", { count: watchedOptions.length })}
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Multi-choice habits need at least 2 options. The client picks
-              one when they log the habit.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("optionsHelp")}</p>
             <ul className="flex flex-col gap-2">
               {watchedOptions.map((_, index) => (
                 // Index-based React key is acceptable here because options
@@ -533,7 +526,9 @@ export function HabitForm({
                           <FormItem className="flex-1">
                             <FormControl>
                               <Input
-                                placeholder={`Option ${index + 1}`}
+                                placeholder={t("optionPlaceholder", {
+                                  index: index + 1,
+                                })}
                                 value={optField.value ?? ""}
                                 onChange={optField.onChange}
                                 onBlur={optField.onBlur}
@@ -553,7 +548,7 @@ export function HabitForm({
                         variant="ghost"
                         size="icon"
                         onClick={() => removeOption(index)}
-                        aria-label="Remove option"
+                        aria-label={t("removeOptionAria")}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -571,7 +566,7 @@ export function HabitForm({
               className="gap-2 self-start"
             >
               <Plus className="h-4 w-4" />
-              Add option
+              {t("addOption")}
             </Button>
             {form.formState.errors.options &&
               !Array.isArray(form.formState.errors.options) && (
@@ -589,13 +584,13 @@ export function HabitForm({
             name="targetValue"
             render={({ field, fieldState }) => (
               <FormItem className="max-w-xs">
-                <FormLabel>Daily target</FormLabel>
+                <FormLabel>{t("dailyTargetLabel")}</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
                     step="any"
                     min={0}
-                    placeholder="e.g. 8"
+                    placeholder={t("dailyTargetPlaceholder")}
                     value={field.value ?? ""}
                     onChange={(e) =>
                       field.onChange(
@@ -607,10 +602,7 @@ export function HabitForm({
                     onBlur={field.onBlur}
                   />
                 </FormControl>
-                <FormDescription>
-                  Optional. When set, the habit counts as &ldquo;done&rdquo;
-                  for the day once the client reaches this value.
-                </FormDescription>
+                <FormDescription>{t("dailyTargetHint")}</FormDescription>
                 {fieldState.error && (
                   <FormMessage>{fieldState.error.message}</FormMessage>
                 )}
@@ -626,18 +618,19 @@ export function HabitForm({
             name="unit"
             render={({ field }) => (
               <FormItem className="max-w-xs">
-                <FormLabel>Unit</FormLabel>
+                <FormLabel>{t("unitLabel")}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder={isWeight ? "kg" : "glasses"}
+                    placeholder={
+                      isWeight
+                        ? t("unitPlaceholderWeight")
+                        : t("unitPlaceholderGlasses")
+                    }
                     {...field}
                     value={field.value ?? ""}
                   />
                 </FormControl>
-                <FormDescription>
-                  Short label shown next to the logged value (e.g.
-                  &ldquo;glasses&rdquo;, &ldquo;minutes&rdquo;, &ldquo;kg&rdquo;).
-                </FormDescription>
+                <FormDescription>{t("unitHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -646,9 +639,9 @@ export function HabitForm({
 
         {/* Reminder block */}
         <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
-          <h2 className="font-medium">Habit schedule</h2>
+          <h2 className="font-medium">{t("scheduleHeading")}</h2>
           <p className="text-sm text-muted-foreground">
-            Define when this habit is active for the client.
+            {t("scheduleSubtitle")}
           </p>
           <div className="grid gap-3 md:grid-cols-3">
             <FormField
@@ -656,7 +649,7 @@ export function HabitForm({
               name="scheduleType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type</FormLabel>
+                  <FormLabel>{t("scheduleTypeLabel")}</FormLabel>
                   <Select
                     value={field.value}
                     onValueChange={(value) => {
@@ -676,9 +669,11 @@ export function HabitForm({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {SCHEDULE_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {SCHEDULE_TYPE_VALUES.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value === "recurring"
+                            ? t("scheduleTypeRecurring")
+                            : t("scheduleTypeOneTime")}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -693,7 +688,7 @@ export function HabitForm({
               name="startsOn"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Start date</FormLabel>
+                  <FormLabel>{t("scheduleStartLabel")}</FormLabel>
                   <FormControl>
                     <Input
                       type="date"
@@ -714,7 +709,7 @@ export function HabitForm({
               name="endsOn"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>End date (optional)</FormLabel>
+                  <FormLabel>{t("scheduleEndLabel")}</FormLabel>
                   <FormControl>
                     <Input
                       type="date"
@@ -726,7 +721,7 @@ export function HabitForm({
                     />
                   </FormControl>
                   <FormDescription>
-                    Leave empty for no end date.
+                    {t("scheduleEndHint")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -741,7 +736,7 @@ export function HabitForm({
                 name="scheduleCadence"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cadence</FormLabel>
+                    <FormLabel>{t("cadenceLabel")}</FormLabel>
                     <Select
                       value={field.value ?? "daily"}
                       onValueChange={(value) => {
@@ -763,9 +758,9 @@ export function HabitForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="daily">{t("cadenceDaily")}</SelectItem>
+                        <SelectItem value="weekly">{t("cadenceWeekly")}</SelectItem>
+                        <SelectItem value="monthly">{t("cadenceMonthly")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -774,7 +769,7 @@ export function HabitForm({
               />
               {watchedScheduleCadence === "monthly" ? (
                 <FormItem className="md:col-span-2">
-                  <FormLabel>Days of month</FormLabel>
+                  <FormLabel>{t("monthDaysLabel")}</FormLabel>
                   <div className="flex flex-wrap gap-2">
                     {MONTH_DAY_OPTIONS.map((monthDay) => {
                       const active = watchedScheduleMonthDays.includes(monthDay);
@@ -803,15 +798,15 @@ export function HabitForm({
                     })}
                   </div>
                   <FormDescription>
-                    Select one or more days (example: 12 and 25).
+                    {t("monthDaysHint")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               ) : watchedScheduleCadence === "weekly" ? (
                 <FormItem className="md:col-span-2">
-                  <FormLabel>Weekdays</FormLabel>
+                  <FormLabel>{t("weekdaysLabel")}</FormLabel>
                   <div className="flex flex-wrap gap-2">
-                    {WEEKDAY_OPTIONS.map((weekday) => {
+                    {WEEKDAY_KEYS.map((weekday) => {
                       const active = watchedScheduleWeekdays.includes(weekday.value);
                       return (
                         <Button
@@ -830,7 +825,7 @@ export function HabitForm({
                             );
                           }}
                         >
-                          {weekday.label}
+                          {t(`weekdayShort.${weekday.key}`)}
                         </Button>
                       );
                     })}
@@ -856,11 +851,10 @@ export function HabitForm({
                 </FormControl>
                 <div className="flex flex-col">
                   <FormLabel className="cursor-pointer">
-                    Daily reminder
+                    {t("reminderToggleLabel")}
                   </FormLabel>
                   <FormDescription>
-                    Sends a local notification on the client&apos;s phone at
-                    the chosen time.
+                    {t("reminderToggleHint")}
                   </FormDescription>
                 </div>
               </FormItem>
@@ -874,7 +868,7 @@ export function HabitForm({
                 name="reminderTime"
                 render={({ field }) => (
                   <FormItem className="max-w-[10rem]">
-                <FormLabel>Reminder time</FormLabel>
+                <FormLabel>{t("reminderTimeLabel")}</FormLabel>
                 <FormControl>
                   <Input
                     type="time"
@@ -892,7 +886,7 @@ export function HabitForm({
                 name="reminderCadence"
                 render={({ field }) => (
                   <FormItem>
-                <FormLabel>Repeat</FormLabel>
+                <FormLabel>{t("reminderRepeatLabel")}</FormLabel>
                     <Select
                       value={field.value ?? "daily"}
                       onValueChange={(value) => {
@@ -914,9 +908,9 @@ export function HabitForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="daily">{t("cadenceDaily")}</SelectItem>
+                        <SelectItem value="weekly">{t("cadenceWeekly")}</SelectItem>
+                        <SelectItem value="monthly">{t("cadenceMonthly")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -925,7 +919,7 @@ export function HabitForm({
               />
               {watchedReminderCadence === "monthly" ? (
                 <FormItem className="md:col-span-2">
-                  <FormLabel>Days of month</FormLabel>
+                  <FormLabel>{t("monthDaysLabel")}</FormLabel>
                   <div className="flex flex-wrap gap-2">
                     {MONTH_DAY_OPTIONS.map((monthDay) => {
                       const active = watchedReminderMonthDays.includes(monthDay);
@@ -954,15 +948,15 @@ export function HabitForm({
                     })}
                   </div>
                   <FormDescription>
-                    Select one or more days (example: 12 and 25).
+                    {t("monthDaysHint")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               ) : watchedReminderCadence === "weekly" ? (
                 <FormItem className="md:col-span-2">
-                  <FormLabel>Weekdays</FormLabel>
+                  <FormLabel>{t("weekdaysLabel")}</FormLabel>
                   <div className="flex flex-wrap gap-2">
-                    {WEEKDAY_OPTIONS.map((weekday) => {
+                    {WEEKDAY_KEYS.map((weekday) => {
                       const active = watchedReminderWeekdays.includes(weekday.value);
                       return (
                         <Button
@@ -981,7 +975,7 @@ export function HabitForm({
                             );
                           }}
                         >
-                          {weekday.label}
+                          {t(`weekdayShort.${weekday.key}`)}
                         </Button>
                       );
                     })}
@@ -1010,14 +1004,14 @@ export function HabitForm({
               onClick={() => router.back()}
               disabled={pending}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
               {pending
-                ? "Saving…"
+                ? t("saving")
                 : mode === "create"
-                ? "Create habit"
-                : "Save changes"}
+                ? t("createCta")
+                : t("saveCta")}
             </Button>
           </div>
         </div>

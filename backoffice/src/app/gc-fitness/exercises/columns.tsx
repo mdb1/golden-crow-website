@@ -19,6 +19,7 @@
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Dumbbell, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,8 +98,11 @@ function formatLabel(s: string): string {
   return s.replace(/_/g, " ").replace(/^[a-z]/, (c) => c.toUpperCase());
 }
 
+type TFn = ReturnType<typeof useTranslations>;
+
 export function makeColumns(
   handlers: ExerciseColumnHandlers,
+  t: TFn,
 ): ColumnDef<ExerciseRow>[] {
   return [
     {
@@ -143,10 +147,10 @@ export function makeColumns(
     },
     {
       accessorKey: "name.en",
-      header: "Name",
+      header: t("name"),
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-medium">{row.original.name.en || "(untitled)"}</span>
+          <span className="font-medium">{row.original.name.en || t("untitled")}</span>
           {row.original.name.es && (
             <span className="text-xs text-muted-foreground">
               {row.original.name.es}
@@ -157,7 +161,7 @@ export function makeColumns(
     },
     {
       id: "muscleGroups",
-      header: "Muscles",
+      header: t("muscles"),
       cell: ({ row }) => {
         const groups = row.original.muscleGroups;
         const visible = groups.slice(0, 3);
@@ -180,7 +184,7 @@ export function makeColumns(
     },
     {
       id: "equipment",
-      header: "Equipment",
+      header: t("equipment"),
       cell: ({ row }) => {
         const items = row.original.equipment;
         const visible = items.slice(0, 2);
@@ -203,18 +207,18 @@ export function makeColumns(
     },
     {
       accessorKey: "source",
-      header: "Source",
+      header: t("source"),
       cell: ({ row }) => (
         <Badge
           variant={row.original.source === "wger" ? "secondary" : "default"}
         >
-          {row.original.source === "wger" ? "wger" : "Custom"}
+          {row.original.source === "wger" ? t("sourceWger") : t("sourceCustom")}
         </Badge>
       ),
     },
     {
       accessorKey: "updatedAt",
-      header: "Updated",
+      header: t("updated"),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatRelative(row.original.updatedAt)}
@@ -233,7 +237,7 @@ export function makeColumns(
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Actions"
+                aria-label={t("actionsAria")}
                 className="h-8 w-8"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -243,12 +247,12 @@ export function makeColumns(
               {isWger ? (
                 <DropdownMenuItem onClick={() => handlers.onView(row.original)}>
                   <Edit className="mr-2 h-4 w-4" />
-                  View
+                  {t("view")}
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
                   <Edit className="mr-2 h-4 w-4" />
-                  Edit
+                  {t("edit")}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -257,7 +261,7 @@ export function makeColumns(
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                {t("delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -272,7 +276,7 @@ export function makeColumns(
                 <div>{menu}</div>
               </TooltipTrigger>
               <TooltipContent>
-                wger exercises are read-only. Duplicate to customize.
+                {t("wgerReadOnlyTooltip")}
               </TooltipContent>
             </Tooltip>
           );

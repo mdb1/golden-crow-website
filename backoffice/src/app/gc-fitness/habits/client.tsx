@@ -21,6 +21,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   flexRender,
   getCoreRowModel,
@@ -91,11 +92,14 @@ export interface HabitsLibraryClientProps {
   clientRoster: ClientNameEntry[];
 }
 
-const TYPE_LABELS: Record<HabitType, string> = {
-  binary: "Yes / No",
-  "multi-choice": "Multiple choice",
-  numeric: "Numeric",
-  weight: "Weight",
+// Maps HabitType → message-catalog key (resolved via
+// `t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[type]}`)`). Keeps the keys
+// grep-able and lookups O(1).
+const HABIT_TYPE_LABEL_KEYS: Record<HabitType, string> = {
+  binary: "binary",
+  "multi-choice": "multiChoice",
+  numeric: "numeric",
+  weight: "weight",
 };
 
 function todayCivilDateUTC(): string {
@@ -110,6 +114,7 @@ export function HabitsLibraryClient({
   clientRoster,
 }: HabitsLibraryClientProps) {
   const router = useRouter();
+  const t = useTranslations("habits.list");
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<HabitType | "all">("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
@@ -169,9 +174,10 @@ export function HabitsLibraryClient({
     [router],
   );
 
+  const columnsT = useTranslations("habits.columns");
   const columns = useMemo(
-    () => makeHabitColumns(handlers, clientNameMap),
-    [handlers, clientNameMap],
+    () => makeHabitColumns(handlers, clientNameMap, columnsT),
+    [handlers, clientNameMap, columnsT],
   );
 
   const table = useReactTable({
@@ -193,17 +199,17 @@ export function HabitsLibraryClient({
       await queryClient.invalidateQueries({
         queryKey: HABITS_BASE_KEY,
       });
-      toast.success("Habit deleted.");
+      toast.success(t("deletedToast"));
       setConfirmDelete(null);
     } catch (err) {
       console.error("[habits] delete failed", err);
       const message =
-        err instanceof Error ? err.message : "Couldn't delete.";
+        err instanceof Error ? err.message : t("deleteFailedToast");
       toast.error(message);
     } finally {
       setDeletePending(false);
     }
-  }, [confirmDelete, queryClient]);
+  }, [confirmDelete, queryClient, t]);
 
   const toggleClient = useCallback((clientId: string, checked: boolean) => {
     setSelectedClientIds((current) =>
@@ -223,16 +229,18 @@ export function HabitsLibraryClient({
       });
       await queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY });
       toast.success(
-        `Assigned ${result.created} habit${result.created === 1 ? "" : "s"}.`,
+        result.created === 1
+          ? t("assignedToastSingular", { count: result.created })
+          : t("assignedToastPlural", { count: result.created }),
       );
       setSelectedClientIds([]);
     } catch (err) {
       console.error("[habits] assign template failed", err);
-      toast.error(err instanceof Error ? err.message : "Assignment failed.");
+      toast.error(err instanceof Error ? err.message : t("assignmentFailed"));
     } finally {
       setAssignPending(false);
     }
-  }, [queryClient, selectedClientIds, selectedTemplateId]);
+  }, [queryClient, selectedClientIds, selectedTemplateId, t]);
 
   const handleCreateTemplate = useCallback(async () => {
     const name = newTemplateName.trim();
@@ -255,14 +263,14 @@ export function HabitsLibraryClient({
       await queryClient.invalidateQueries({
         queryKey: [...HABITS_BASE_KEY, "templates"],
       });
-      toast.success("Template created.");
+      toast.success(t("templateCreatedToast"));
       setNewTemplateName("");
       setNewTemplateTarget("");
       setNewTemplateUnit("");
       setNewTemplateType("binary");
     } catch (err) {
       console.error("[habits] create template failed", err);
-      toast.error(err instanceof Error ? err.message : "Template failed.");
+      toast.error(err instanceof Error ? err.message : t("templateFailed"));
     } finally {
       setCreateTemplatePending(false);
     }
@@ -272,6 +280,7 @@ export function HabitsLibraryClient({
     newTemplateType,
     newTemplateUnit,
     queryClient,
+    t,
   ]);
 
   const totalFromServer = (data ?? []).length;
@@ -284,11 +293,9 @@ export function HabitsLibraryClient({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Habits
+            {t("pageHeading")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Author and assign daily habits. Each habit belongs to one client.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
         </div>
         <Button
           type="button"
@@ -296,17 +303,16 @@ export function HabitsLibraryClient({
           className="gap-2"
         >
           <Plus className="h-4 w-4" />
-          New habit
+          {t("newHabitCta")}
         </Button>
       </div>
 
       <section className="grid gap-4 rounded-md border bg-card p-4 lg:grid-cols-[1.2fr_1fr]">
         <div className="flex flex-col gap-4">
           <div>
-            <h2 className="font-medium">Reusable habit library</h2>
+            <h2 className="font-medium">{t("librarySectionTitle")}</h2>
             <p className="text-sm text-muted-foreground">
-              Pick a global or coach template and assign it to one or more
-              clients. The assignment creates client-specific habit docs.
+              {t("librarySectionSubtitle")}
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)]">
@@ -316,13 +322,15 @@ export function HabitsLibraryClient({
               disabled={templatesLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a habit template" />
+                <SelectValue placeholder={t("templatePickerPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {(templates as HabitTemplateRow[]).map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.name.en} ·{" "}
-                    {template.scope === "global" ? "Global" : "Mine"}
+                    {template.scope === "global"
+                      ? t("templateScopeGlobal")
+                      : t("templateScopeMine")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -336,13 +344,13 @@ export function HabitsLibraryClient({
               }
               onClick={handleAssignTemplate}
             >
-              {assignPending ? "Assigning..." : "Assign selected"}
+              {assignPending ? t("assigning") : t("assignCta")}
             </Button>
           </div>
           <div className="grid max-h-40 gap-2 overflow-auto rounded-md border p-3 md:grid-cols-2">
             {clientRoster.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Add clients before assigning habits.
+                {t("noClientsHint")}
               </p>
             ) : (
               clientRoster.map((client) => (
@@ -365,27 +373,27 @@ export function HabitsLibraryClient({
 
         <div className="flex flex-col gap-3 border-t pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
           <div>
-            <h2 className="font-medium">Create coach template</h2>
+            <h2 className="font-medium">{t("createTemplateTitle")}</h2>
             <p className="text-sm text-muted-foreground">
-              Saved only to your library.
+              {t("createTemplateSubtitle")}
             </p>
           </div>
           <Input
             value={newTemplateName}
             onChange={(event) => setNewTemplateName(event.target.value)}
-            placeholder="Habit name"
+            placeholder={t("habitNamePlaceholder")}
           />
           <Select
             value={newTemplateType}
             onValueChange={(v) => setNewTemplateType(v as HabitType)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder={t("typePlaceholder")} />
             </SelectTrigger>
             <SelectContent>
-              {HABIT_TYPES.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TYPE_LABELS[t]}
+              {HABIT_TYPES.map((ht) => (
+                <SelectItem key={ht} value={ht}>
+                  {t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[ht]}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -395,13 +403,13 @@ export function HabitsLibraryClient({
               <Input
                 value={newTemplateTarget}
                 onChange={(event) => setNewTemplateTarget(event.target.value)}
-                placeholder="Target"
+                placeholder={t("targetPlaceholder")}
                 inputMode="decimal"
               />
               <Input
                 value={newTemplateUnit}
                 onChange={(event) => setNewTemplateUnit(event.target.value)}
-                placeholder="Unit"
+                placeholder={t("unitPlaceholder")}
               />
             </div>
           ) : null}
@@ -411,7 +419,9 @@ export function HabitsLibraryClient({
             disabled={createTemplatePending || newTemplateName.trim() === ""}
             onClick={handleCreateTemplate}
           >
-            {createTemplatePending ? "Creating..." : "Create template"}
+            {createTemplatePending
+              ? t("creating")
+              : t("createTemplateCta")}
           </Button>
         </div>
       </section>
@@ -419,7 +429,7 @@ export function HabitsLibraryClient({
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
-          placeholder="Search by name or client…"
+          placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
@@ -429,13 +439,13 @@ export function HabitsLibraryClient({
           onValueChange={(v) => setTypeFilter(v as HabitType | "all")}
         >
           <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by type" />
+            <SelectValue placeholder={t("filterByTypePlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            {HABIT_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {TYPE_LABELS[t]}
+            <SelectItem value="all">{t("allTypes")}</SelectItem>
+            {HABIT_TYPES.map((ht) => (
+              <SelectItem key={ht} value={ht}>
+                {t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[ht]}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -445,10 +455,10 @@ export function HabitsLibraryClient({
           onValueChange={(v) => setClientFilter(v)}
         >
           <SelectTrigger className="w-56">
-            <SelectValue placeholder="Filter by client" />
+            <SelectValue placeholder={t("filterByClientPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All clients</SelectItem>
+            <SelectItem value="all">{t("allClients")}</SelectItem>
             {clientRoster.map((c) => (
               <SelectItem key={c.uid} value={c.uid}>
                 {c.displayName}
@@ -460,10 +470,8 @@ export function HabitsLibraryClient({
 
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Couldn&apos;t load habits.</AlertTitle>
-          <AlertDescription>
-            Check your connection and try again.
-          </AlertDescription>
+          <AlertTitle>{t("loadError")}</AlertTitle>
+          <AlertDescription>{t("loadErrorDescription")}</AlertDescription>
         </Alert>
       )}
 
@@ -495,7 +503,7 @@ export function HabitsLibraryClient({
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Loading…
+                  {t("loading")}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows.length > 0 ? (
@@ -518,9 +526,9 @@ export function HabitsLibraryClient({
                   className="h-32 text-center"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">No habits yet.</p>
+                    <p className="font-medium">{t("emptyHeadline")}</p>
                     <p className="text-sm text-muted-foreground">
-                      Assign a habit to a client to get started.
+                      {t("emptySubtitle")}
                     </p>
                     <Button
                       type="button"
@@ -528,7 +536,7 @@ export function HabitsLibraryClient({
                       className="gap-2"
                     >
                       <Plus className="h-4 w-4" />
-                      New habit
+                      {t("newHabitCta")}
                     </Button>
                   </div>
                 </TableCell>
@@ -540,9 +548,9 @@ export function HabitsLibraryClient({
                   className="h-32 text-center"
                 >
                   <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">No matches.</p>
+                    <p className="font-medium">{t("filteredEmptyHeadline")}</p>
                     <p className="text-sm text-muted-foreground">
-                      Try a different filter or clear your search.
+                      {t("filteredEmptySubtitle")}
                     </p>
                   </div>
                 </TableCell>
@@ -555,8 +563,10 @@ export function HabitsLibraryClient({
       {rows.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
-            {Math.max(1, table.getPageCount())}
+            {t("pagination", {
+              current: table.getState().pagination.pageIndex + 1,
+              total: Math.max(1, table.getPageCount()),
+            })}
           </p>
           <div className="flex gap-2">
             <Button
@@ -565,7 +575,7 @@ export function HabitsLibraryClient({
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              Previous
+              {t("previous")}
             </Button>
             <Button
               variant="outline"
@@ -573,7 +583,7 @@ export function HabitsLibraryClient({
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              Next
+              {t("next")}
             </Button>
           </div>
         </div>
@@ -587,23 +597,19 @@ export function HabitsLibraryClient({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this habit?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The habit will be hidden from the client&apos;s iOS app. Logs
-              are preserved in case you want to restore the habit. This is a
-              soft-delete and can be reversed later.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteDialogBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletePending}>
-              Cancel
+              {t("deleteDialogCancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={deletePending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deletePending ? "Deleting…" : "Delete"}
+              {deletePending ? t("deleting") : t("deleteDialogConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
