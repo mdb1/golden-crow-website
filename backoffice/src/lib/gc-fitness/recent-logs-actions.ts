@@ -310,21 +310,28 @@ export async function getWorkoutLogDetail(
     (data.templateSnapshot as { exercises?: Array<Record<string, unknown>> } | undefined)
       ?.exercises ?? [];
 
+  // iOS writes sets keyed by `exerciseId` (string), not by index — see
+  // gc-fitness/GCFitness/Core/Firebase/WorkoutLogRepository.swift:303.
+  const templateExerciseById = new Map<string, Record<string, unknown>>();
+  for (const exercise of templateExercises) {
+    const exId = typeof exercise.exerciseId === "string" ? exercise.exerciseId : "";
+    if (exId) templateExerciseById.set(exId, exercise);
+  }
+
   const sets = rawSets.map((set, index) => {
-    const exerciseIndex = numeric(set.exerciseIndex);
-    const templateExercise =
-      exerciseIndex !== null &&
-      exerciseIndex >= 0 &&
-      exerciseIndex < templateExercises.length
-        ? templateExercises[exerciseIndex]
-        : undefined;
+    const exerciseId = typeof set.exerciseId === "string" ? set.exerciseId : "";
+    const templateExercise = exerciseId
+      ? templateExerciseById.get(exerciseId)
+      : undefined;
     const exerciseName = localizedText(templateExercise?.name, `Exercise ${index + 1}`);
     return {
       index: index + 1,
       exerciseName,
       reps: numeric(set.reps),
-      weight: numeric(set.weight),
-      completedAt: asIso(set.completedAt),
+      // Wire field is `weight_kg` (iOS); keep `weight` as a legacy fallback.
+      weight: numeric(set.weight_kg ?? set.weight),
+      // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
+      completedAt: asIso(set.completed_at ?? set.completedAt),
     };
   });
 
