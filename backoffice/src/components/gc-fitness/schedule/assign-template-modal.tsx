@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import {
   Dialog,
@@ -66,14 +67,14 @@ function formatLocalDateToCivil(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-const WEEKDAY_OPTIONS = [
-  { value: 0, label: "Sunday" },
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
+const WEEKDAY_KEYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
 ] as const;
 
 export function AssignTemplateModal({
@@ -84,6 +85,7 @@ export function AssignTemplateModal({
   trainerTimezone,
   onAssigned,
 }: AssignTemplateModalProps) {
+  const t = useTranslations("schedule.assignModal");
   const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
 
   const [templateId, setTemplateId] = useState<string>("");
@@ -114,7 +116,7 @@ export function AssignTemplateModal({
 
   async function onSubmit() {
     if (!templateId) {
-      toast.error("Pick a template first.");
+      toast.error(t("errorPickTemplate"));
       return;
     }
     setSubmitting(true);
@@ -128,7 +130,7 @@ export function AssignTemplateModal({
           meetingNotes: meetingNotes.trim() || undefined,
           timezone: trainerTimezone,
         });
-        toast.success("Template assigned.");
+        toast.success(t("successOnce"));
       } else {
         const result = await assignTemplateRecurring({
           templateId,
@@ -140,12 +142,12 @@ export function AssignTemplateModal({
           meetingNotes: meetingNotes.trim() || undefined,
           timezone: trainerTimezone,
         });
-        toast.success(`Recurring assignment created (${result.count} workouts).`);
+        toast.success(t("successRecurring", { count: result.count }));
       }
       onAssigned?.();
       onOpenChange(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Assignment failed.";
+      const message = err instanceof Error ? err.message : t("errorFallback");
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -156,29 +158,25 @@ export function AssignTemplateModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign a workout template</DialogTitle>
-          <DialogDescription>
-            Pick a template and confirm the day. Snapshot is frozen at submit
-            time — editing the template later won&rsquo;t change this
-            assignment.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Template</label>
+            <label className="text-sm font-medium">{t("templateLabel")}</label>
             <Select value={templateId} onValueChange={setTemplateId}>
               <SelectTrigger>
                 <SelectValue
                   placeholder={
-                    templatesLoading ? "Loading…" : "Choose a template"
+                    templatesLoading ? t("templateLoading") : t("templatePlaceholder")
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {(templates ?? []).map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name.en} · {t.tag}
+                {(templates ?? []).map((tpl) => (
+                  <SelectItem key={tpl.id} value={tpl.id}>
+                    {tpl.name.en} · {tpl.tag}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -187,7 +185,7 @@ export function AssignTemplateModal({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Assignment mode</label>
+              <label className="text-sm font-medium">{t("modeLabel")}</label>
               <Select
                 value={mode}
                 onValueChange={(value) => setMode(value as "once" | "weekly")}
@@ -196,14 +194,14 @@ export function AssignTemplateModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="once">One-time</SelectItem>
-                  <SelectItem value="weekly">Weekly recurring</SelectItem>
+                  <SelectItem value="once">{t("modeOnce")}</SelectItem>
+                  <SelectItem value="weekly">{t("modeWeekly")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {mode === "weekly" ? (
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">Repeat on</label>
+                <label className="text-sm font-medium">{t("repeatOnLabel")}</label>
                 <Select
                   value={String(recurringWeekday)}
                   onValueChange={(value) => setRecurringWeekday(Number(value))}
@@ -212,9 +210,9 @@ export function AssignTemplateModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {WEEKDAY_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={String(option.value)}>
-                        {option.label}
+                    {WEEKDAY_KEYS.map((key, idx) => (
+                      <SelectItem key={key} value={String(idx)}>
+                        {t(`weekdays.${key}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -234,11 +232,11 @@ export function AssignTemplateModal({
                   className="h-4 w-4 rounded border"
                 />
                 <label htmlFor="recurring-end-enabled" className="text-sm">
-                  Set end date
+                  {t("setEndDate")}
                 </label>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">End date</label>
+                <label className="text-sm font-medium">{t("endDateLabel")}</label>
                 <input
                   type="date"
                   value={recurringEndDate}
@@ -249,15 +247,15 @@ export function AssignTemplateModal({
                 />
                 <p className="text-xs text-muted-foreground">
                   {recurringEndEnabled
-                    ? "Repeats weekly until this date."
-                    : "No end date: creates the next 12 months."}
+                    ? t("endDateHintWithEnd")
+                    : t("endDateHintNoEnd")}
                 </p>
               </div>
             </div>
           ) : null}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Day</label>
+            <label className="text-sm font-medium">{t("dayLabel")}</label>
             <Calendar
               mode="single"
               selected={parseCivilToLocalDate(civilDate)}
@@ -266,29 +264,27 @@ export function AssignTemplateModal({
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Scheduled for {civilDate}
+              {t("scheduledFor", { date: civilDate })}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Time</label>
+              <label className="text-sm font-medium">{t("timeLabel")}</label>
               <input
                 type="time"
                 value={scheduledTime}
                 onChange={(event) => setScheduledTime(event.target.value)}
                 className="h-10 rounded-md border bg-background px-3 text-sm"
               />
-              <p className="text-xs text-muted-foreground">
-                Optional for live or virtual sessions.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("timeHint")}</p>
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-1">
-              <label className="text-sm font-medium">Meeting notes</label>
+              <label className="text-sm font-medium">{t("meetingNotesLabel")}</label>
               <textarea
                 value={meetingNotes}
                 onChange={(event) => setMeetingNotes(event.target.value)}
-                placeholder="Zoom / Meet link, instructions, prep notes..."
+                placeholder={t("meetingNotesPlaceholder")}
                 className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm"
               />
             </div>
@@ -301,13 +297,13 @@ export function AssignTemplateModal({
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             onClick={onSubmit}
             disabled={submitting || !templateId}
           >
-            {submitting ? "Assigning…" : "Assign"}
+            {submitting ? t("assigning") : t("submit")}
           </Button>
         </DialogFooter>
       </DialogContent>

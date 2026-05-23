@@ -18,6 +18,7 @@
 //     (Pitfall 5 — no silent truncation of partial-failure messaging).
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import {
   Dialog,
@@ -51,6 +52,7 @@ export function BulkConfirmModal({
   submitting,
   onConfirm,
 }: BulkConfirmModalProps) {
+  const t = useTranslations("schedule.bulkConfirm");
   // Track the SUBSET of candidates the trainer wants to keep — defaults to
   // "all of them" every time the modal opens with new candidates.
   const [keepUids, setKeepUids] = useState<Set<string>>(
@@ -79,14 +81,19 @@ export function BulkConfirmModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Assign &ldquo;{templateName}&rdquo; to {finalCount}{" "}
-            {finalCount === 1 ? "client" : "clients"} on {scheduledFor}?
+            {finalCount === 1
+              ? t("titleSingular", {
+                  template: templateName,
+                  count: finalCount,
+                  date: scheduledFor,
+                })
+              : t("titlePlural", {
+                  template: templateName,
+                  count: finalCount,
+                  date: scheduledFor,
+                })}
           </DialogTitle>
-          <DialogDescription>
-            Uncheck any clients you don&rsquo;t want to assign to. Submission
-            writes all checked clients atomically — either every assignment
-            is created or none are.
-          </DialogDescription>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-72 overflow-y-auto rounded border p-2">
@@ -102,7 +109,7 @@ export function BulkConfirmModal({
                     id={`bulk-uid-${c.uid}`}
                     checked={checked}
                     onCheckedChange={() => toggle(c.uid)}
-                    aria-label={`Include ${c.displayName}`}
+                    aria-label={t("includeAria", { name: c.displayName })}
                   />
                   <label
                     htmlFor={`bulk-uid-${c.uid}`}
@@ -127,17 +134,17 @@ export function BulkConfirmModal({
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             onClick={() => onConfirm(Array.from(keepUids))}
             disabled={submitting || finalCount === 0}
           >
             {submitting
-              ? "Assigning…"
-              : `Confirm ${finalCount} ${
-                  finalCount === 1 ? "assignment" : "assignments"
-                }`}
+              ? t("assigning")
+              : finalCount === 1
+                ? t("confirmSingular", { count: finalCount })
+                : t("confirmPlural", { count: finalCount })}
           </Button>
         </DialogFooter>
       </DialogContent>

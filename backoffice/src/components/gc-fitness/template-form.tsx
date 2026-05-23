@@ -31,6 +31,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import {
   Form,
@@ -69,15 +70,15 @@ export interface TemplateFormProps {
 }
 
 // Default suggestions. Trainers can still type any custom tag.
-const TAG_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "push", label: "Push" },
-  { value: "pull", label: "Pull" },
-  { value: "legs", label: "Legs" },
-  { value: "upper", label: "Upper" },
-  { value: "lower", label: "Lower" },
-  { value: "full-body", label: "Full body" },
-  { value: "custom", label: "Custom" },
-];
+const TAG_OPTION_KEYS = [
+  { value: "push", labelKey: "push" },
+  { value: "pull", labelKey: "pull" },
+  { value: "legs", labelKey: "legs" },
+  { value: "upper", labelKey: "upper" },
+  { value: "lower", labelKey: "lower" },
+  { value: "full-body", labelKey: "fullBody" },
+  { value: "custom", labelKey: "custom" },
+] as const;
 
 function buildDefaults(
   passed?: Partial<WorkoutTemplateInput>,
@@ -98,6 +99,7 @@ export function TemplateForm({
   defaultValues,
   onSubmit,
 }: TemplateFormProps) {
+  const t = useTranslations("templates.form");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -134,16 +136,16 @@ export function TemplateForm({
         };
         const result = await onSubmit(normalized);
         if (mode === "create" && result?.id) {
-          toast.success("Template created.");
+          toast.success(t("createdToast"));
           router.push("/gc-fitness/templates");
           return;
         }
-        toast.success("Template saved.");
+        toast.success(t("savedToast"));
         router.refresh();
       } catch (err) {
         console.error("[template-form] save failed", err);
         const message =
-          err instanceof Error ? err.message : "Couldn't save.";
+          err instanceof Error ? err.message : t("saveFailed");
         toast.error(message);
       }
     });
@@ -170,9 +172,9 @@ export function TemplateForm({
             name="name.en"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name (English)</FormLabel>
+                <FormLabel>{t("nameEn")}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Push Day" {...field} />
+                  <Input placeholder={t("namePlaceholderEn")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -183,17 +185,15 @@ export function TemplateForm({
             name="name.es"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name (Spanish)</FormLabel>
+                <FormLabel>{t("nameEs")}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Día de empuje"
+                    placeholder={t("namePlaceholderEs")}
                     {...field}
                     value={field.value ?? ""}
                   />
                 </FormControl>
-                <FormDescription>
-                  Leave blank to mark as &ldquo;needs translation.&rdquo;
-                </FormDescription>
+                <FormDescription>{t("nameEsHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -207,11 +207,11 @@ export function TemplateForm({
             name="description.en"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (English)</FormLabel>
+                <FormLabel>{t("descriptionEn")}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={3}
-                    placeholder="Chest, shoulders, triceps."
+                    placeholder={t("descriptionPlaceholderEn")}
                     {...field}
                     value={field.value ?? ""}
                   />
@@ -225,11 +225,11 @@ export function TemplateForm({
             name="description.es"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description (Spanish)</FormLabel>
+                <FormLabel>{t("descriptionEs")}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={3}
-                    placeholder="Pecho, hombros, tríceps."
+                    placeholder={t("descriptionPlaceholderEs")}
                     {...field}
                     value={field.value ?? ""}
                   />
@@ -246,26 +246,24 @@ export function TemplateForm({
           name="tag"
           render={({ field }) => (
             <FormItem className="max-w-xs">
-              <FormLabel>Tag</FormLabel>
+              <FormLabel>{t("tag")}</FormLabel>
               <FormControl>
                 <div className="space-y-2">
                   <Input
                     list="gc-fitness-template-tags"
-                    placeholder="e.g. Push, Upper, Rehab"
+                    placeholder={t("tagPlaceholder")}
                     {...field}
                   />
                   <datalist id="gc-fitness-template-tags">
-                    {TAG_OPTIONS.map((opt) => (
+                    {TAG_OPTION_KEYS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {t(`tagOptions.${opt.labelKey}`)}
                       </option>
                     ))}
                   </datalist>
                 </div>
               </FormControl>
-              <FormDescription>
-                Trainers can type any tag or pick one of the suggestions.
-              </FormDescription>
+              <FormDescription>{t("tagHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -274,15 +272,17 @@ export function TemplateForm({
         {/* Exercises */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-lg font-semibold">Exercises</h2>
+            <h2 className="font-heading text-lg font-semibold">{t("exercises")}</h2>
             <span className="text-xs text-muted-foreground">
-              {fields.length}/30
+              {t("exercisesCount", { count: fields.length })}
             </span>
           </div>
 
           {fields.length === 0 && (
             <p className="rounded-md border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-              No exercises yet. Click <strong>Add exercise</strong> to start.
+              {t.rich("exercisesEmpty", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </p>
           )}
 
@@ -306,7 +306,7 @@ export function TemplateForm({
                           size="icon"
                           onClick={() => move(index, index - 1)}
                           disabled={index === 0}
-                          aria-label="Move exercise up"
+                          aria-label={t("moveUp")}
                         >
                           <ArrowUp className="h-4 w-4" />
                         </Button>
@@ -316,7 +316,7 @@ export function TemplateForm({
                           size="icon"
                           onClick={() => move(index, index + 1)}
                           disabled={index === fields.length - 1}
-                          aria-label="Move exercise down"
+                          aria-label={t("moveDown")}
                         >
                           <ArrowDown className="h-4 w-4" />
                         </Button>
@@ -325,7 +325,7 @@ export function TemplateForm({
                           variant="ghost"
                           size="icon"
                           onClick={() => remove(index)}
-                          aria-label="Remove exercise"
+                          aria-label={t("removeExercise")}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -340,12 +340,12 @@ export function TemplateForm({
                       name={`exercises.${index}.exerciseId` as const}
                       render={({ field: pickerField }) => (
                         <FormItem>
-                          <FormLabel>Exercise</FormLabel>
+                          <FormLabel>{t("exerciseLabel")}</FormLabel>
                           <FormControl>
                             <ExercisePickerPopover
                               value={pickerField.value ?? ""}
                               onChange={pickerField.onChange}
-                              ariaLabel={`Pick exercise for row ${index + 1}`}
+                              ariaLabel={t("pickExerciseAria", { index: index + 1 })}
                             />
                           </FormControl>
                           <FormMessage />
@@ -363,7 +363,7 @@ export function TemplateForm({
                           fieldState,
                         }) => (
                           <FormItem>
-                            <FormLabel>Sets</FormLabel>
+                            <FormLabel>{t("sets")}</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -396,7 +396,7 @@ export function TemplateForm({
                           fieldState,
                         }) => (
                           <FormItem>
-                            <FormLabel>Reps</FormLabel>
+                            <FormLabel>{t("reps")}</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -429,7 +429,7 @@ export function TemplateForm({
                           fieldState,
                         }) => (
                           <FormItem>
-                            <FormLabel>Rest (s)</FormLabel>
+                            <FormLabel>{t("restSeconds")}</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -462,12 +462,12 @@ export function TemplateForm({
                       name={`exercises.${index}.notes` as const}
                       render={({ field: noteField }) => (
                         <FormItem>
-                          <FormLabel>Coaching notes</FormLabel>
+                          <FormLabel>{t("coachingNotes")}</FormLabel>
                           <FormControl>
                             <Textarea
                               rows={2}
                               maxLength={500}
-                              placeholder="Tempo, RPE, focus cues…"
+                              placeholder={t("coachingNotesPlaceholder")}
                               {...noteField}
                               value={noteField.value ?? ""}
                             />
@@ -490,7 +490,7 @@ export function TemplateForm({
             className="gap-2 self-start"
           >
             <Plus className="h-4 w-4" />
-            Add exercise
+            {t("addExercise")}
           </Button>
         </div>
 
@@ -510,10 +510,10 @@ export function TemplateForm({
             onClick={() => router.back()}
             disabled={pending}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : mode === "create" ? "Create template" : "Save changes"}
+            {pending ? t("saving") : mode === "create" ? t("createCta") : t("saveCta")}
           </Button>
         </div>
       </form>

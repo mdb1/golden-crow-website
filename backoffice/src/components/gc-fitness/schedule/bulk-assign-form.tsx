@@ -114,11 +114,11 @@ export function BulkAssignForm({
 
   async function onConfirm(finalClientIds: string[]) {
     if (!selectedTemplate) {
-      toast.error("Pick a template first.");
+      toast.error(t("errorPickTemplate"));
       return;
     }
     if (finalClientIds.length === 0) {
-      toast.error("Keep at least one client checked.");
+      toast.error(t("errorKeepOne"));
       return;
     }
     setSubmitting(true);
@@ -132,9 +132,9 @@ export function BulkAssignForm({
         timezone: trainerTimezone,
       });
       toast.success(
-        `Assigned to ${result.ids.length} ${
-          result.ids.length === 1 ? "client" : "clients"
-        }.`,
+        result.ids.length === 1
+          ? t("successSingular", { count: result.ids.length })
+          : t("successPlural", { count: result.ids.length }),
       );
       setConfirmOpen(false);
       // Navigate to the first client's schedule view to give the trainer
@@ -143,7 +143,7 @@ export function BulkAssignForm({
       router.push(`/gc-fitness/schedule?clientId=${firstClientId}`);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Bulk assign failed.";
+        err instanceof Error ? err.message : t("errorBulkFailed");
       // Surface verbatim — Pitfall 5: no silent truncation. Toast carries
       // count + verbatim error string only; no UID list (T-04-24).
       toast.error(message);
@@ -156,23 +156,23 @@ export function BulkAssignForm({
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Template + Date</CardTitle>
+          <CardTitle>{t("templateAndDate")}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Template</label>
+            <label className="text-sm font-medium">{t("templateLabel")}</label>
             <Select value={templateId} onValueChange={setTemplateId}>
               <SelectTrigger>
                 <SelectValue
                   placeholder={
-                    templatesLoading ? "Loading…" : "Choose a template"
+                    templatesLoading ? t("templateLoading") : t("templatePlaceholder")
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {(templates ?? []).map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name.en} · {t.tag}
+                {(templates ?? []).map((tpl) => (
+                  <SelectItem key={tpl.id} value={tpl.id}>
+                    {tpl.name.en} · {tpl.tag}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -180,7 +180,7 @@ export function BulkAssignForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">Day</label>
+            <label className="text-sm font-medium">{t("dayLabel")}</label>
             <Calendar
               mode="single"
               selected={parseCivilToLocalDate(civilDate)}
@@ -189,13 +189,13 @@ export function BulkAssignForm({
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Scheduled for {civilDate}
+              {t("scheduledFor", { date: civilDate })}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Time</label>
+              <label className="text-sm font-medium">{t("timeLabel")}</label>
               <input
                 type="time"
                 value={scheduledTime}
@@ -204,11 +204,11 @@ export function BulkAssignForm({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Meeting notes</label>
+              <label className="text-sm font-medium">{t("meetingNotesLabel")}</label>
               <textarea
                 value={meetingNotes}
                 onChange={(event) => setMeetingNotes(event.target.value)}
-                placeholder="Zoom / Meet link, instructions, prep notes..."
+                placeholder={t("meetingNotesPlaceholder")}
                 className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
               />
             </div>
@@ -218,30 +218,28 @@ export function BulkAssignForm({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Clients ({selectedUids.size} selected)</CardTitle>
+          <CardTitle>{t("clientsHeading", { count: selectedUids.size })}</CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={selectAll}>
-              Select all
+              {t("selectAll")}
             </Button>
             <Button variant="ghost" size="sm" onClick={selectNone}>
-              Clear
+              {t("clear")}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {clients.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No clients on your roster yet.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("noClients")}</p>
           ) : (
             <div className="max-h-96 overflow-y-auto rounded border">
               <table className="w-full text-sm">
                 <thead className="border-b bg-muted/50 text-left text-xs">
                   <tr>
                     <th className="w-10 p-2"></th>
-                    <th className="p-2">Name</th>
-                    <th className="p-2">Email</th>
-                    <th className="p-2">Timezone</th>
+                    <th className="p-2">{t("tableName")}</th>
+                    <th className="p-2">{t("tableEmail")}</th>
+                    <th className="p-2">{t("tableTimezone")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -257,7 +255,7 @@ export function BulkAssignForm({
                             id={`select-${c.uid}`}
                             checked={checked}
                             onCheckedChange={() => toggleUid(c.uid)}
-                            aria-label={`Select ${c.displayName}`}
+                            aria-label={t("selectClientAria", { name: c.displayName })}
                           />
                         </td>
                         <td className="p-2">
@@ -281,8 +279,10 @@ export function BulkAssignForm({
           )}
           {selectedUids.size > MAX_CLIENTS_PER_BATCH ? (
             <p className="mt-2 text-xs text-destructive">
-              Selected {selectedUids.size} clients — the hard cap is{" "}
-              {MAX_CLIENTS_PER_BATCH} per submit. Uncheck some to continue.
+              {t("overCapMessage", {
+                count: selectedUids.size,
+                cap: MAX_CLIENTS_PER_BATCH,
+              })}
             </p>
           ) : null}
         </CardContent>
@@ -293,8 +293,9 @@ export function BulkAssignForm({
           onClick={() => setConfirmOpen(true)}
           disabled={!templateId || !isWithinCap}
         >
-          Review {selectedUids.size}{" "}
-          {selectedUids.size === 1 ? "assignment" : "assignments"}
+          {selectedUids.size === 1
+            ? t("reviewSingular", { count: selectedUids.size })
+            : t("reviewPlural", { count: selectedUids.size })}
         </Button>
       </div>
 
@@ -302,7 +303,7 @@ export function BulkAssignForm({
         open={confirmOpen}
         onOpenChange={(open) => !submitting && setConfirmOpen(open)}
         templateName={
-          selectedTemplate ? selectedTemplate.name.en : "(unknown template)"
+          selectedTemplate ? selectedTemplate.name.en : t("unknownTemplate")
         }
         scheduledFor={civilDate}
         candidates={selectedClients}

@@ -57,6 +57,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Dumbbell, ChevronsUpDown, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -176,11 +177,13 @@ void isGifUrl;
 export function ExercisePickerPopover({
   value,
   onChange,
-  placeholder = "Pick an exercise…",
+  placeholder,
   disabled,
   className,
   ariaLabel,
 }: ExercisePickerPopoverProps) {
+  const t = useTranslations("picker");
+  const effectivePlaceholder = placeholder ?? t("triggerPlaceholder");
   const [open, setOpen] = useState(false);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
@@ -210,7 +213,7 @@ export function ExercisePickerPopover({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          aria-label={ariaLabel ?? placeholder}
+          aria-label={ariaLabel ?? effectivePlaceholder}
           disabled={disabled}
           className={cn(
             "h-auto min-h-9 w-full justify-between gap-2 px-3 py-1.5 text-left",
@@ -260,7 +263,7 @@ export function ExercisePickerPopover({
               </span>
             </span>
           ) : (
-            <span className="text-sm text-muted-foreground">{placeholder}</span>
+            <span className="text-sm text-muted-foreground">{effectivePlaceholder}</span>
           )}
           <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -273,22 +276,20 @@ export function ExercisePickerPopover({
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <CommandInput
-              placeholder="Search exercises…"
+              placeholder={t("searchPlaceholder")}
               className="h-10 border-0 focus:ring-0"
             />
           </div>
           <CommandList>
             {isLoading || !hasSnapshot ? (
-              <CommandEmpty>Loading exercises…</CommandEmpty>
+              <CommandEmpty>{t("loadingExercises")}</CommandEmpty>
             ) : error ? (
-              <CommandEmpty>Couldn&apos;t load exercises.</CommandEmpty>
+              <CommandEmpty>{t("loadError")}</CommandEmpty>
             ) : exercises.length === 0 ? (
-              <CommandEmpty>
-                No exercises yet. Add one in the library first.
-              </CommandEmpty>
+              <CommandEmpty>{t("noExercises")}</CommandEmpty>
             ) : (
               <>
-                <CommandEmpty>No matches.</CommandEmpty>
+                <CommandEmpty>{t("noMatches")}</CommandEmpty>
                 <CommandGroup>
                   {exercises.map((ex) => {
                     const esLine = displayEs(ex);

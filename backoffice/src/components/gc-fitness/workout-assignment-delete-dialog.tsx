@@ -20,6 +20,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import {
   AlertDialog,
@@ -59,6 +60,7 @@ export function WorkoutAssignmentDeleteDialog({
   seriesId,
   onDeleted,
 }: WorkoutAssignmentDeleteDialogProps) {
+  const t = useTranslations("dialogs.deleteAssignment");
   const isRecurring = Boolean(seriesId);
   const [selectedMode, setSelectedMode] = useState<DeleteMode>("this-only");
   const [pending, setPending] = useState(false);
@@ -73,14 +75,16 @@ export function WorkoutAssignmentDeleteDialog({
       const result = await deleteAssignment(assignmentId, options);
       // Success — close + announce + invoke parent callback.
       const n = result.deletedCount;
-      toast.success(n === 1 ? "Removed 1 workout" : `Removed ${n} workouts`);
+      toast.success(
+        n === 1 ? t("successSingle") : t("successPlural", { count: n }),
+      );
       onDeleted(result);
       onOpenChange(false);
     } catch (err) {
       // Surface the verbatim message; dialog stays open so the trainer can
       // either cancel or retry once the underlying issue is resolved.
       const message =
-        err instanceof Error ? err.message : "Could not remove assignment.";
+        err instanceof Error ? err.message : t("errorFallback");
       toast.error(message);
     } finally {
       setPending(false);
@@ -88,12 +92,12 @@ export function WorkoutAssignmentDeleteDialog({
   }
 
   const title = isRecurring
-    ? `Remove “${templateName}”?`
-    : "Remove workout?";
+    ? t("titleRecurring", { name: templateName })
+    : t("titleSingle");
 
   const description = isRecurring
-    ? "This is a recurring workout. Delete just this one, or this and every future occurrence?"
-    : "This will remove the scheduled workout from the client’s calendar. The client will no longer see it. This cannot be undone.";
+    ? t("descriptionRecurring")
+    : t("descriptionSingle");
 
   return (
     <AlertDialog
@@ -122,7 +126,7 @@ export function WorkoutAssignmentDeleteDialog({
                 disabled={pending}
               />
               <Label htmlFor="wadd-this-only" className="cursor-pointer">
-                Only this occurrence
+                {t("thisOnly")}
               </Label>
             </div>
             <div className="flex items-center gap-2">
@@ -132,14 +136,14 @@ export function WorkoutAssignmentDeleteDialog({
                 disabled={pending}
               />
               <Label htmlFor="wadd-cascade" className="cursor-pointer">
-                This and all future occurrences
+                {t("cascade")}
               </Label>
             </div>
           </RadioGroup>
         ) : null}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{t("cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               // Prevent AlertDialog's default auto-close — we close manually
@@ -150,7 +154,7 @@ export function WorkoutAssignmentDeleteDialog({
             disabled={pending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {pending ? "Removing…" : "Delete"}
+            {pending ? t("removing") : t("deleteCta")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
