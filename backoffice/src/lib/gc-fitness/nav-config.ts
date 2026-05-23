@@ -58,6 +58,7 @@ import {
   Library, // Exercises (library from P03)
   MessagesSquare, // Chat (inbox from P08)
   Settings as SettingsIcon, // Settings (quick replies — P08-12)
+  Wrench, // QA Tools (engineering-only — P20)
 } from "lucide-react";
 
 import type { AdminRole } from "../admin-areas";
@@ -115,6 +116,21 @@ export const GC_FITNESS_SECTIONS: SectionDescriptor[] = [
     key: "gc-fitness-engagement",
     label: "Engagement",
     description: "Chat inbox + trainer settings.",
+    visibleRoles: TRAINER_ROLES,
+  },
+  // P20 — engineering-only section. Surfaces ONLY when the trainer
+  // has the `engineering` custom claim or `/users/{uid}.engineering`
+  // flag (server-side gate in /gc-fitness/qa-tools/page.tsx). The
+  // sidebar still renders the section + link for non-engineering
+  // trainers — the in-page gate handles the redirect on click. A
+  // future polish phase can extend the visibleRoles filter to drop
+  // the section client-side for non-engineering trainers; for v1
+  // the server-side redirect is sufficient since the data fetch
+  // never runs.
+  {
+    key: "gc-fitness-engineering",
+    label: "Engineering",
+    description: "QA tools + Cloud Functions logs (engineering-only).",
     visibleRoles: TRAINER_ROLES,
   },
 ];
@@ -177,6 +193,15 @@ export const GC_FITNESS_NAV: AdminNavItem[] = [
     href: "/gc-fitness/settings",
     description: "Quick-reply templates + trainer preferences (P08-12).",
     icon: SettingsIcon,
+    visibleRoles: TRAINER_ROLES,
+  },
+  // P20 — engineering-only QA tools panel
+  {
+    section: "gc-fitness-engineering",
+    label: "QA Tools",
+    href: "/gc-fitness/qa-tools",
+    description: "Recent trainer writes + Cloud Functions logs (engineering).",
+    icon: Wrench,
     visibleRoles: TRAINER_ROLES,
   },
 ];

@@ -18,7 +18,9 @@ export type AdminSectionKey =
   // Phase 11-04: GC Fitness trainer-facing sidebar sections.
   | "gc-fitness-roster"
   | "gc-fitness-content"
-  | "gc-fitness-engagement";
+  | "gc-fitness-engagement"
+  // Phase 20: engineering-only QA tools section.
+  | "gc-fitness-engineering";
 export type CollectionKey =
   | "profiles"
   | "public_profiles"
