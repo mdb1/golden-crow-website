@@ -30,6 +30,24 @@ interface PageParams {
   params: Promise<{ id: string }>;
 }
 
+// Media preview helpers — mirror of the /view page logic so the edit
+// page renders the same hero thumbnail (gif → image → thumbnailURL →
+// mediaURL fallback). Free-Exercise-DB-seeded trainer docs store the
+// asset URL in `gifUrl` / `imageUrl` (not in `mediaURL`), which is why
+// the dropzone alone showed nothing for those rows.
+function previewUrl(url: unknown): string | null {
+  if (typeof url === "string" && /^https?:\/\//.test(url)) return url;
+  return null;
+}
+function pickPreviewSrc(data: Record<string, unknown>): string | null {
+  return (
+    previewUrl(data.gifUrl) ??
+    previewUrl(data.imageUrl) ??
+    previewUrl(data.thumbnailURL) ??
+    previewUrl(data.mediaURL)
+  );
+}
+
 export default async function EditExercisePage({ params }: PageParams) {
   let trainer: CurrentTrainer;
   try {
@@ -85,6 +103,8 @@ export default async function EditExercisePage({ params }: PageParams) {
     version: typeof data.version === "number" ? data.version : 1,
   };
 
+  const previewHref = pickPreviewSrc(data);
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
       <div className="flex flex-col gap-1">
@@ -96,6 +116,27 @@ export default async function EditExercisePage({ params }: PageParams) {
           soft-delete only and never affects historical workout logs.
         </p>
       </div>
+
+      {previewHref && (
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-semibold text-foreground">
+            Current preview
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewHref}
+            alt=""
+            width={320}
+            height={180}
+            className="h-[180px] w-[320px] rounded-md border border-border bg-muted/40 object-cover"
+          />
+          <span className="text-xs text-muted-foreground">
+            From the original library asset. Upload a new MP4 below to
+            replace, or leave as-is to keep this preview.
+          </span>
+        </div>
+      )}
+
       <ExerciseForm mode="edit" exerciseId={id} defaultValues={defaults} />
     </div>
   );
