@@ -14,6 +14,7 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
@@ -44,19 +45,17 @@ export default async function SchedulePage({
 
   const { clientId, date } = await searchParams;
   const clients = await listClients();
+  const t = await getTranslations("schedule");
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
       <header className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">Schedule</h1>
-          <p className="text-sm text-muted-foreground">
-            Assign workouts day-by-day, or jump to bulk-assign to fan out to
-            many clients at once.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href="/gc-fitness/schedule/bulk">Bulk assign</Link>
+          <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
         </Button>
       </header>
 

@@ -5,21 +5,11 @@
 // Pattern C — page-level trainer auth gate; mirrors chat/page.tsx (P08-11).
 // Auth: getCurrentTrainer() → Forbidden → redirect to /gc-fitness/login.
 //
-// Route placement note (Rule 4 inheritance from 11-03):
-//   The plan frontmatter spelled the path as `(dashboard)/gc-fitness/clients/page.tsx`.
-//   Plan 11-03 deferred the `git mv` into `(dashboard)/gc-fitness/` as a Rule 4
-//   architectural deviation — the two auth chains (NextAuth in `(dashboard)/layout.tsx`
-//   vs `next-firebase-auth-edge` for /gc-fitness) are incompatible. The existing
-//   trainer routes (chat, habits, exercises, schedule, settings, templates) all
-//   live at the flat `/gc-fitness/*` path. This plan inherits that decision.
-//
-// The page fetches the aggregated roster via `listClientsForRoster()` (50-cap;
-// per-client fan-out budgeted; sorted by lastActivityAt DESC then displayName).
-//
-// The <RosterTable /> client component receives the rows as a prop and owns
-// the interactive sort. The "Needs attention" filter chip is added in 11-06.
+// Plan 13-03 — i18n via getTranslations('clients'). The active/pending
+// breakdown uses ICU pluralization on `subtitleOne`/`subtitleOther`.
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -45,20 +35,27 @@ export default async function ClientsPage() {
   }
 
   const rows = await listClientsForRoster();
+  const t = await getTranslations("clients");
+
+  const activeCount = rows.filter((row) => !row.pendingProvisioning).length;
+  const pendingCount = rows.filter((row) => row.pendingProvisioning).length;
+  const activeText =
+    activeCount === 1
+      ? t("subtitleOne", { count: activeCount })
+      : t("subtitleOther", { count: activeCount });
+  const pendingSuffix =
+    pendingCount > 0 ? t("subtitlePendingSuffix", { count: pendingCount }) : "";
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-8">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Clients
+          {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {rows.filter((row) => !row.pendingProvisioning).length} active client
-          {rows.filter((row) => !row.pendingProvisioning).length === 1 ? "" : "s"}
-          {rows.some((row) => row.pendingProvisioning)
-            ? ` + ${rows.filter((row) => row.pendingProvisioning).length} pending sign-in`
-            : ""}
-          — sorted by most recent activity.
+          {activeText}
+          {pendingSuffix}
+          {t("subtitleSortNote")}
         </p>
       </div>
       <ProvisionClientForm />

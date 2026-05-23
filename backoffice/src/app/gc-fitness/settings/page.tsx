@@ -24,6 +24,7 @@
 // `dynamic = "force-dynamic"` — Settings is per-trainer, never cacheable.
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { getCurrentTrainerProfile } from "@/lib/gc-fitness/user-actions";
@@ -44,26 +45,22 @@ export default async function SettingsPage() {
   }
 
   const profile = await getCurrentTrainerProfile();
+  const t = await getTranslations("settings");
+  const tQuick = await getTranslations("settings.quickReplies");
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Settings
+          {t("title")}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your trainer preferences. Changes apply only to your account.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <section className="rounded-lg border bg-card p-6 shadow-xs">
         <div className="mb-4 flex flex-col gap-1">
-          <h2 className="text-lg font-medium">Quick replies</h2>
-          <p className="text-sm text-muted-foreground">
-            Save common responses you send to clients. They appear in a
-            one-tap dropdown next to the chat input. Up to 20 templates,
-            240 characters each.
-          </p>
+          <h2 className="text-lg font-medium">{tQuick("title")}</h2>
+          <p className="text-sm text-muted-foreground">{tQuick("description")}</p>
         </div>
         <QuickRepliesForm initialReplies={profile.chatQuickReplies} />
       </section>

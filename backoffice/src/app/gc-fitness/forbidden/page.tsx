@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import {
   Card,
   CardHeader,
@@ -17,20 +19,22 @@ import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
 // Public route (no auth check) — the proxy matcher entry for /gc-fitness/*
 // short-circuits to NextResponse.next() for this path so the user can see the
 // reason they were denied + sign out cleanly.
-export default function GCFitnessForbiddenPage() {
+//
+// Plan 13-03 — i18n via getTranslations('forbidden').
+export default async function GCFitnessForbiddenPage() {
+  const t = await getTranslations("forbidden");
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <p className="section-eyebrow">GC Fitness</p>
+          <p className="section-eyebrow">{t("eyebrow")}</p>
           <CardTitle className="font-heading text-3xl font-semibold">
-            Not authorized
+            {t("title")}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <HelperBanner title="Access denied" tone="red">
-            This account is not authorized for GC Fitness. Contact your
-            administrator.
+          <HelperBanner title={t("bannerTitle")} tone="red">
+            {t("body")}
           </HelperBanner>
           <SignOutButton />
         </CardContent>

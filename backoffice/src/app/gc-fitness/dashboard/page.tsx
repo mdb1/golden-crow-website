@@ -8,6 +8,7 @@ import {
   MessagesSquare,
   Users,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,44 +27,14 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 
 export const dynamic = "force-dynamic";
 
-const quickLinks = [
-  {
-    title: "Clients",
-    description: "Attach app users and open each client workspace.",
-    href: "/gc-fitness/clients",
-    icon: Users,
-  },
-  {
-    title: "Schedule",
-    description: "Assign workout templates to a client calendar.",
-    href: "/gc-fitness/schedule",
-    icon: CalendarDays,
-  },
-  {
-    title: "Workouts",
-    description: "Create reusable routines for assignments.",
-    href: "/gc-fitness/templates",
-    icon: Dumbbell,
-  },
-  {
-    title: "Library",
-    description: "Browse the preloaded exercise library.",
-    href: "/gc-fitness/exercises",
-    icon: Library,
-  },
-  {
-    title: "Habits",
-    description: "Create habit assignments for clients.",
-    href: "/gc-fitness/habits",
-    icon: ListChecks,
-  },
-  {
-    title: "Chat",
-    description: "Reply to client conversations.",
-    href: "/gc-fitness/chat",
-    icon: MessagesSquare,
-  },
-];
+const quickLinkSpecs = [
+  { titleKey: "clientsTitle", descriptionKey: "clientsDescription", href: "/gc-fitness/clients", icon: Users },
+  { titleKey: "scheduleTitle", descriptionKey: "scheduleDescription", href: "/gc-fitness/schedule", icon: CalendarDays },
+  { titleKey: "workoutsTitle", descriptionKey: "workoutsDescription", href: "/gc-fitness/templates", icon: Dumbbell },
+  { titleKey: "libraryTitle", descriptionKey: "libraryDescription", href: "/gc-fitness/exercises", icon: Library },
+  { titleKey: "habitsTitle", descriptionKey: "habitsDescription", href: "/gc-fitness/habits", icon: ListChecks },
+  { titleKey: "chatTitle", descriptionKey: "chatDescription", href: "/gc-fitness/chat", icon: MessagesSquare },
+] as const;
 
 async function getDashboardCounts(trainer: CurrentTrainer) {
   const db = gcFitnessFirestore();
@@ -108,6 +79,10 @@ export default async function GCFitnessDashboardPage() {
   }
 
   const counts = await getDashboardCounts(trainer);
+  const t = await getTranslations("dashboard");
+  const tCards = await getTranslations("dashboard.cards");
+  const tQuick = await getTranslations("dashboard.quickLinks");
+  const tCommon = await getTranslations("common");
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
@@ -115,14 +90,14 @@ export default async function GCFitnessDashboardPage() {
         <div className="flex flex-col gap-1">
           <p className="section-eyebrow">GC Fitness</p>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Dashboard
+            {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Signed in as {trainer.email}.
+            {t("signedInAs", { email: trainer.email })}
           </p>
         </div>
         <Button asChild>
-          <Link href="/gc-fitness/clients">Add or manage clients</Link>
+          <Link href="/gc-fitness/clients">{t("addOrManageClients")}</Link>
         </Button>
       </header>
 
@@ -130,7 +105,7 @@ export default async function GCFitnessDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Clients
+              {tCards("clients")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -140,7 +115,7 @@ export default async function GCFitnessDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Workout templates
+              {tCards("templates")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -150,7 +125,7 @@ export default async function GCFitnessDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Exercises
+              {tCards("exercises")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -160,7 +135,7 @@ export default async function GCFitnessDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Conversations
+              {tCards("chats")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -170,7 +145,7 @@ export default async function GCFitnessDashboardPage() {
       </div>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        {quickLinks.map((item) => (
+        {quickLinkSpecs.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -181,14 +156,14 @@ export default async function GCFitnessDashboardPage() {
                 <div className="flex items-center gap-2">
                   <item.icon className="h-4 w-4 text-primary" />
                   <h2 className="font-heading text-base font-semibold">
-                    {item.title}
+                    {tQuick(item.titleKey)}
                   </h2>
                 </div>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  {item.description}
+                  {tQuick(item.descriptionKey)}
                 </p>
               </div>
-              <Badge variant="secondary">Open</Badge>
+              <Badge variant="secondary">{tCommon("open")}</Badge>
             </div>
           </Link>
         ))}

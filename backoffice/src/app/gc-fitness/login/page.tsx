@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { LogIn } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { getGCFitnessAuth } from "@/lib/firebase/gc-fitness-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +32,13 @@ import { BACKOFFICE_VERSION } from "@/lib/app-version";
 //   3. 403 from the route handler → redirect to /gc-fitness/forbidden.
 //   4. 200 → redirect to /gc-fitness/dashboard (the proxy's allowlist
 //      gate will pass because the email is allowlisted).
+//
+// Plan 13-03 — i18n via useTranslations('login'). Note: the login page is
+// outside the NextIntlClientProvider scope rendered by `gc-fitness/layout.tsx`
+// (it IS inside, but the shell is hidden via HIDDEN_SHELL_PATHS). The
+// provider DOES wrap this page so useTranslations resolves correctly.
 export default function GCFitnessLoginPage() {
+  const t = useTranslations("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +49,7 @@ export default function GCFitnessLoginPage() {
     } catch {
       // The route should return JSON, but keep a stable fallback if it does not.
     }
-    return "Sign in failed. Please try again.";
+    return t("errorFallback");
   }
 
   async function handleGoogleSignIn() {
@@ -69,7 +76,7 @@ export default function GCFitnessLoginPage() {
       }
       window.location.href = "/gc-fitness/dashboard";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
+      setError(err instanceof Error ? err.message : t("errorFallback"));
     } finally {
       setLoading(false);
     }
@@ -79,13 +86,11 @@ export default function GCFitnessLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <p className="section-eyebrow">GC Fitness</p>
+          <p className="section-eyebrow">{t("eyebrow")}</p>
           <CardTitle className="font-heading text-3xl font-semibold">
-            Trainer sign-in
+            {t("title")}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Sign in with your authorized Google account.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Button
@@ -94,10 +99,10 @@ export default function GCFitnessLoginPage() {
             className="w-full"
           >
             <LogIn className="mr-2 h-4 w-4" />
-            {loading ? "Signing in…" : "Sign in with Google"}
+            {loading ? t("signingIn") : t("googleCta")}
           </Button>
           {error && (
-            <HelperBanner title="Sign-in error" tone="red">
+            <HelperBanner title={t("errorTitle")} tone="red">
               {error}
             </HelperBanner>
           )}

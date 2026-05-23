@@ -7,8 +7,15 @@
 //
 // Once verified, render `<TemplatesLibraryClient />` inside this route's
 // local QueryClientProvider.
+//
+// Plan 13-03 — i18n via getTranslations('templates'). The title is rendered
+// at the page level; the deeper TemplatesLibraryClient renders English-only
+// inner form/table content (out of scope for v1 — translations stop at the
+// page shell + section heading, matching the schedule/exercises/habits
+// pattern).
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { TemplatesLibraryClient } from "./client";
@@ -27,8 +34,15 @@ export default async function TemplatesPage() {
     throw err;
   }
 
+  const t = await getTranslations("templates");
+
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          {t("title")}
+        </h1>
+      </div>
       <TemplatesQueryProvider>
         <TemplatesLibraryClient />
       </TemplatesQueryProvider>
