@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut } from "firebase/auth";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getGCFitnessAuth } from "@/lib/firebase/gc-fitness-client";
 
@@ -14,6 +15,7 @@ import { getGCFitnessAuth } from "@/lib/firebase/gc-fitness-client";
 // We swallow signOut errors (offline, network blip) — the cookie clear is the
 // authoritative session terminator; client-side state is best-effort cleanup.
 export function SignOutButton() {
+  const t = useTranslations("shell");
   async function handleSignOut() {
     try {
       await signOut(getGCFitnessAuth());
@@ -30,7 +32,7 @@ export function SignOutButton() {
 
   return (
     <Button onClick={handleSignOut} variant="outline" className="w-full">
-      Sign out
+      {t("signOut")}
     </Button>
   );
 }

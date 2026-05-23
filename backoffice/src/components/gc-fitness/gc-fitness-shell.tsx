@@ -13,6 +13,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Sidebar,
@@ -32,77 +33,50 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
+import { LanguagePicker } from "@/components/gc-fitness/language-picker";
 
 const HIDDEN_SHELL_PATHS = new Set([
   "/gc-fitness/login",
   "/gc-fitness/forbidden",
 ]);
 
+// Sidebar nav metadata. `labelKey` and `sectionKey` are looked up against the
+// `nav` namespace in the next-intl message catalogs (Plan 13-03).
 const sections = [
   {
-    label: "Overview",
+    sectionKey: "overview",
     items: [
+      { labelKey: "dashboard", href: "/gc-fitness/dashboard", icon: Home },
+      { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
+      { labelKey: "schedule", href: "/gc-fitness/schedule", icon: CalendarDays },
       {
-        label: "Dashboard",
-        href: "/gc-fitness/dashboard",
-        icon: Home,
-      },
-      {
-        label: "Clients",
-        href: "/gc-fitness/clients",
-        icon: Users,
-      },
-      {
-        label: "Schedule",
-        href: "/gc-fitness/schedule",
-        icon: CalendarDays,
-      },
-      {
-        label: "Recent Logs",
+        labelKey: "recentLogs",
         href: "/gc-fitness/recent-logs",
         icon: Activity,
       },
     ],
   },
   {
-    label: "Programming",
+    sectionKey: "programming",
     items: [
-      {
-        label: "Workouts",
-        href: "/gc-fitness/templates",
-        icon: Dumbbell,
-      },
-      {
-        label: "Library",
-        href: "/gc-fitness/exercises",
-        icon: Library,
-      },
-      {
-        label: "Habits",
-        href: "/gc-fitness/habits",
-        icon: ListChecks,
-      },
+      { labelKey: "workouts", href: "/gc-fitness/templates", icon: Dumbbell },
+      { labelKey: "library", href: "/gc-fitness/exercises", icon: Library },
+      { labelKey: "habits", href: "/gc-fitness/habits", icon: ListChecks },
     ],
   },
   {
-    label: "Communication",
+    sectionKey: "communication",
     items: [
-      {
-        label: "Chat",
-        href: "/gc-fitness/chat",
-        icon: MessagesSquare,
-      },
-      {
-        label: "Settings",
-        href: "/gc-fitness/settings",
-        icon: Settings,
-      },
+      { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
+      { labelKey: "settings", href: "/gc-fitness/settings", icon: Settings },
     ],
   },
-];
+] as const;
 
 export function GCFitnessShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useTranslations("shell");
+  const tNav = useTranslations("nav");
 
   if (HIDDEN_SHELL_PATHS.has(pathname)) {
     return children;
@@ -114,35 +88,36 @@ export function GCFitnessShell({ children }: { children: React.ReactNode }) {
         <Sidebar variant="floating" collapsible="icon" className="border-none bg-transparent p-2">
           <SidebarHeader className="glass-panel gap-3 px-3 py-3">
             <div className="px-2">
-              <p className="section-eyebrow">Golden Crow</p>
+              <p className="section-eyebrow">{t("eyebrow")}</p>
               <p className="font-heading text-lg font-semibold text-sidebar-foreground">
-                GC Fitness
+                {t("appName")}
               </p>
               <p className="mt-1 text-sm text-sidebar-foreground/70">
-                Trainer coaching console.
+                {t("tagline")}
               </p>
             </div>
           </SidebarHeader>
           <SidebarContent>
             {sections.map((section) => (
-              <SidebarGroup key={section.label}>
-                <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+              <SidebarGroup key={section.sectionKey}>
+                <SidebarGroupLabel>{tNav(section.sectionKey)}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {section.items.map((item) => {
                       const active =
                         pathname === item.href ||
                         pathname.startsWith(`${item.href}/`);
+                      const label = tNav(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.href}>
                           <SidebarMenuButton
                             asChild
                             isActive={active}
-                            tooltip={item.label}
+                            tooltip={label}
                           >
                             <Link href={item.href}>
                               <item.icon className="h-4 w-4" />
-                              <span>{item.label}</span>
+                              <span>{label}</span>
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -156,8 +131,7 @@ export function GCFitnessShell({ children }: { children: React.ReactNode }) {
           <SidebarSeparator />
           <SidebarFooter className="gap-3 px-4 pb-4 pt-2">
             <p className="text-xs text-sidebar-foreground/65">
-              Manage clients, programming, assignments, habits, and chat from
-              one trainer workspace.
+              {t("footerBlurb")}
             </p>
             <SignOutButton />
           </SidebarFooter>
@@ -168,11 +142,12 @@ export function GCFitnessShell({ children }: { children: React.ReactNode }) {
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="h-4" />
               <div className="min-w-0 flex-1">
-                <p className="section-eyebrow">GC Fitness</p>
+                <p className="section-eyebrow">{t("headerEyebrow")}</p>
                 <h1 className="truncate font-heading text-lg font-semibold text-foreground">
-                  Trainer Backoffice
+                  {t("headerTitle")}
                 </h1>
               </div>
+              <LanguagePicker />
             </div>
           </header>
           <main className="relative z-10 flex-1 overflow-auto">

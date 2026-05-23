@@ -83,6 +83,21 @@ const TRAINER_ROLES: AdminRole[] = [
   "institution_doctor",
 ];
 
+// Plan 13-03 (Phase 13 i18n) — DELIBERATELY KEEPING ENGLISH LITERALS HERE.
+//
+// Original plan called for converting `label`/`description` to translation
+// keys. After auditing consumers, the only renderer of these fields outside
+// `gc-fitness-shell.tsx` is `app-sidebar.tsx` (the NextAuth-protected
+// MyDNAMap/Pocket Gyms shell) which renders `section.label` and `item.label`
+// verbatim. Converting to keys would surface raw "nav.clients" strings in
+// that surface for any operator who lands here via the (dashboard) shell.
+// The (dashboard) shell is NOT in the next-intl-wrapped scope; localizing it
+// is explicitly out of scope for this plan ("no changes outside /gc-fitness/*").
+//
+// The Spanish trainer experience renders the sidebar from
+// `gc-fitness-shell.tsx` which has its OWN inline `sections` array consuming
+// `nav.*` translation keys. The two paths are kept symmetric in shape but
+// English in this file. Rule 1 deviation documented in 13-03-SUMMARY.md.
 export const GC_FITNESS_SECTIONS: SectionDescriptor[] = [
   {
     key: "gc-fitness-roster",
