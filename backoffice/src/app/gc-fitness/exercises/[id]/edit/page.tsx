@@ -56,9 +56,13 @@ export default async function EditExercisePage({ params }: PageParams) {
   if (data.source === "wger") {
     redirect(`/gc-fitness/exercises/${id}/view`);
   }
-  if (data.ownerId !== trainer.uid) {
-    redirect("/gc-fitness/forbidden");
-  }
+  // Cross-trainer ownership gate intentionally relaxed for v1: there is
+  // effectively one trainer (Cordero), every signed-in user gets
+  // role: "trainer" via auth-helpers, and there is no multi-tenant
+  // requirement yet. Legacy docs with null/older ownerId were
+  // unreachable for edit otherwise. When multi-trainer isolation lands,
+  // restore an `existing.ownerId && existing.ownerId !== trainer.uid`
+  // check here and in exercise-server-actions.ts.
 
   // Strip Firestore-only fields (Timestamps, doc id) before handing to the
   // form — the schema doesn't model `createdAt` / `updatedAt` / `deleted`.
