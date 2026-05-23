@@ -49,6 +49,7 @@
 
 "use server";
 
+import { cookies } from "next/headers";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
@@ -153,6 +154,73 @@ export async function updateChatQuickReplies(
       updatedAt: FieldValue.serverTimestamp(),
     });
   }
+
+  return { ok: true };
+}
+
+/**
+ * 260523-kpt — Zod schema for `updatePreferredLocale` input. The `locale`
+ * field is the ONLY accepted key; uid is resolved post-parse from
+ * `getCurrentTrainer().uid` so a tampered payload cannot smuggle a
+ * cross-user write (T-i18n-06 mitigation; same Pitfall 7 / T-08-05-03
+ * pattern reused from updateChatQuickReplies).
+ */
+const updatePreferredLocaleSchema = z.object({
+  locale: z.enum(["en", "es"]),
+});
+
+/**
+ * 260523-kpt — Server Action: update `/users/{trainer.uid}.preferredLocale`
+ * AND set the NEXT_LOCALE cookie in the same request so the next page
+ * paint re-renders in the chosen locale without a Firestore round-trip.
+ *
+ * Trainer-only — `getCurrentTrainer()` is the gate; the rule layer
+ * (firestore.rules — gc-fitness repo) admits self-write for any signed-in
+ * uid AND pins the enum to {en, es} via a shape guard (defense in depth
+ * above this Zod gate).
+ *
+ * Wire shape — INPUT: `{ locale: 'en' | 'es' }`. OUTPUT: `{ ok: true }`.
+ * No other shape; no errorCode union; throws on Forbidden / Zod failure
+ * (the caller catches and surfaces via toast).
+ *
+ * Cookie write — `httpOnly: false` matches the existing
+ * /api/gc-fitness/locale route convention (Phase 13 decision retained).
+ * `maxAge: 1 year` so a returning trainer's preference survives the
+ * usual session cookie expiry.
+ *
+ * Threat coverage (PLAN 260523-kpt threat model):
+ *   - T-i18n-01 (Tampering): Zod rejects any non-{en, es} value.
+ *   - T-i18n-06 (Spoofing — caller-supplied uid): schema has NO uid field;
+ *     docRef binds to `session.uid` post-getCurrentTrainer.
+ */
+export async function updatePreferredLocale(
+  input: z.infer<typeof updatePreferredLocaleSchema>,
+): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  // Zod-parse FIRST (defense in depth — even if the input type changes
+  // upstream, the schema rejects anything outside the enum).
+  const parsed = updatePreferredLocaleSchema.parse(input);
+
+  const db = gcFitnessFirestore();
+  await db
+    .collection(FirestoreCollections.users)
+    .doc(session.uid)
+    .update({
+      preferredLocale: parsed.locale,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  // Set the cookie in the same request so the immediate router.refresh()
+  // (or next navigation) picks up the new locale without waiting for the
+  // request.ts Firestore hydration step. The cookie is read by
+  // src/i18n/request.ts on every subsequent request and short-circuits
+  // the locale resolution chain at step 1.
+  (await cookies()).set("NEXT_LOCALE", parsed.locale, {
+    path: "/",
+    maxAge: 31_536_000,
+    sameSite: "lax",
+    httpOnly: false,
+  });
 
   return { ok: true };
 }

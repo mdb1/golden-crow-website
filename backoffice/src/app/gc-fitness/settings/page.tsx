@@ -24,12 +24,13 @@
 // `dynamic = "force-dynamic"` — Settings is per-trainer, never cacheable.
 
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { getCurrentTrainerProfile } from "@/lib/gc-fitness/user-actions";
 
 import { QuickRepliesForm } from "./quick-replies-form";
+import { LanguageForm } from "./language-form";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,8 @@ export default async function SettingsPage() {
   const profile = await getCurrentTrainerProfile();
   const t = await getTranslations("settings");
   const tQuick = await getTranslations("settings.quickReplies");
+  const tLang = await getTranslations("settings.language");
+  const currentLocale = (await getLocale()) as "en" | "es";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
@@ -63,6 +66,14 @@ export default async function SettingsPage() {
           <p className="text-sm text-muted-foreground">{tQuick("description")}</p>
         </div>
         <QuickRepliesForm initialReplies={profile.chatQuickReplies} />
+      </section>
+
+      <section className="rounded-lg border bg-card p-6 shadow-xs">
+        <div className="mb-4 flex flex-col gap-1">
+          <h2 className="text-lg font-medium">{tLang("title")}</h2>
+          <p className="text-sm text-muted-foreground">{tLang("subtitle")}</p>
+        </div>
+        <LanguageForm currentLocale={currentLocale} />
       </section>
     </div>
   );

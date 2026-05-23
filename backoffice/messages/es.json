@@ -811,6 +811,16 @@
     },
     "preferences": {
       "title": "Preferencias"
+    },
+    "language": {
+      "title": "Idioma",
+      "subtitle": "Elegí el idioma del backoffice. Persiste entre dispositivos.",
+      "english": "English",
+      "spanish": "Español",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "savedToast": "Idioma actualizado.",
+      "saveFailedToast": "No se pudo guardar el idioma."
     }
   },
   "schedule": {
