@@ -6,7 +6,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { listClients } from "./client-roster";
 
-export type RecentLogCategory = "habit" | "workout";
+export type RecentLogCategory = "habit" | "workout" | "chat" | "photo" | "weight";
 
 export interface RecentLogRow {
   id: string;
@@ -150,12 +150,60 @@ export async function listRecentLogsForTrainer(): Promise<{
       .get(),
   );
 
-  const [workoutLogsSnap, ...habitLogsSnaps] = await Promise.all([
+  // 260524 — Phase 20 extension: also surface chat messages from the
+  // client, progress-photo uploads, and body-weight logs. Each is a
+  // separate per-client fan-out (no top-level "coachId" indexed query
+  // for these collections).
+  const chatPromises = clients.map((client) =>
+    db
+      .collection(FirestoreCollections.chats)
+      .doc(client.uid)
+      .collection(FirestoreCollections.messages)
+      .where("senderId", "==", client.uid) // ONLY client-authored (skip trainer's own)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get()
+      .catch(() => null),
+  );
+  const photoPromises = clients.map((client) =>
+    db
+      .collection(FirestoreCollections.progressPhotos)
+      .where("clientId", "==", client.uid)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get()
+      .catch(() => null),
+  );
+  const weightPromises = clients.map((client) =>
+    db
+      .collection(FirestoreCollections.users)
+      .doc(client.uid)
+      .collection("body_weight_logs")
+      .orderBy("recordedAt", "desc")
+      .limit(20)
+      .get()
+      .catch(() => null),
+  );
+
+  const [
+    workoutLogsSnap,
+    habitLogsSnaps,
+    chatSnaps,
+    photoSnaps,
+    weightSnaps,
+  ] = await Promise.all([
     workoutLogsPromise,
-    ...habitLogPromises,
+    Promise.all(habitLogPromises),
+    Promise.all(chatPromises),
+    Promise.all(photoPromises),
+    Promise.all(weightPromises),
   ]);
 
-  const habitLogDocs = habitLogsSnaps.flatMap((snap) => snap.docs);
+  // Rewrap as a flat array so the rest of the function (which expects
+  // a single habitLogsSnaps[] flatten step) is unchanged.
+  const _legacyHabitsSnapsRest = habitLogsSnaps;
+
+  const habitLogDocs = _legacyHabitsSnapsRest.flatMap((snap) => snap.docs);
 
   const habitLogsById = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
   for (const doc of habitLogDocs) {
@@ -257,6 +305,90 @@ export async function listRecentLogsForTrainer(): Promise<{
         : `${nameByClientId.get(clientId) ?? clientId} - Habit updated: ${habitName}`,
       detail: completed ? "Completed" : "Pending update",
       workoutLogId: null,
+    });
+  });
+
+  // 260524 — chat messages from client. Each row is one message the
+  // client sent (we filtered senderId == clientId at the query layer).
+  chatSnaps.forEach((snap, idx) => {
+    if (!snap) return;
+    const client = clients[idx];
+    if (!client) return;
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      const eventAt = asIso(data.createdAt);
+      if (!eventAt) return;
+      const kind = typeof data.kind === "string" ? data.kind : "text";
+      const text = typeof data.text === "string" ? data.text : "";
+      const preview =
+        kind === "text"
+          ? text.length > 80 ? `${text.slice(0, 80)}…` : text
+          : kind === "image"
+            ? "(image)"
+            : kind === "voice"
+              ? "(voice note)"
+              : "(message)";
+      rows.push({
+        id: `chat:${client.uid}:${doc.id}`,
+        category: "chat",
+        eventAt,
+        clientId: client.uid,
+        clientName: nameByClientId.get(client.uid) ?? client.uid,
+        title: `${nameByClientId.get(client.uid) ?? client.uid} - Sent a message`,
+        detail: preview || "(empty)",
+        workoutLogId: null,
+      });
+    });
+  });
+
+  // 260524 — progress-photo uploads. Each row is one upload (the
+  // 3-angle check-in surfaces as 3 separate rows since each angle is
+  // a distinct progress_photos doc — by design, mirrors the iOS
+  // upload loop).
+  photoSnaps.forEach((snap, idx) => {
+    if (!snap) return;
+    const client = clients[idx];
+    if (!client) return;
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      const eventAt = asIso(data.createdAt) ?? asIso(data.checkInDate);
+      if (!eventAt) return;
+      const angle = typeof data.angle === "string" ? data.angle : "photo";
+      const caption = typeof data.caption === "string" ? data.caption : "";
+      rows.push({
+        id: `photo:${doc.id}`,
+        category: "photo",
+        eventAt,
+        clientId: client.uid,
+        clientName: nameByClientId.get(client.uid) ?? client.uid,
+        title: `${nameByClientId.get(client.uid) ?? client.uid} - Uploaded a progress photo`,
+        detail: caption ? `${angle} · ${caption}` : angle,
+        workoutLogId: null,
+      });
+    });
+  });
+
+  // 260524 — body-weight logs. Each row is one measurement.
+  weightSnaps.forEach((snap, idx) => {
+    if (!snap) return;
+    const client = clients[idx];
+    if (!client) return;
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      const eventAt = asIso(data.recordedAt) ?? asIso(data.createdAt);
+      if (!eventAt) return;
+      const kg = numeric(data.valueKg);
+      if (kg === null) return;
+      rows.push({
+        id: `weight:${client.uid}:${doc.id}`,
+        category: "weight",
+        eventAt,
+        clientId: client.uid,
+        clientName: nameByClientId.get(client.uid) ?? client.uid,
+        title: `${nameByClientId.get(client.uid) ?? client.uid} - Logged body weight`,
+        detail: `${kg.toFixed(1)} kg`,
+        workoutLogId: null,
+      });
     });
   });
 

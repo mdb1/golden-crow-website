@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { MessageCircle, Filter, Dumbbell, ListChecks, Eye } from "lucide-react";
+import { MessageCircle, Filter, Dumbbell, ListChecks, Eye, MessageSquare, Camera, Scale } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,10 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 <SelectItem value="all">{t("allActivity")}</SelectItem>
                 <SelectItem value="habit">{t("habitsOption")}</SelectItem>
                 <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
+                {/* 260524 — Phase 20: chat / photos / weight categories */}
+                <SelectItem value="chat">Chat</SelectItem>
+                <SelectItem value="photo">Photos</SelectItem>
+                <SelectItem value="weight">Body weight</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -105,10 +109,25 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                       <ListChecks className="h-3.5 w-3.5" />
                       {t("badgeHabit")}
                     </Badge>
-                  ) : (
+                  ) : row.category === "workout" ? (
                     <Badge className="gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-50">
                       <Dumbbell className="h-3.5 w-3.5" />
                       {t("badgeWorkout")}
+                    </Badge>
+                  ) : row.category === "chat" ? (
+                    <Badge className="gap-1 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Chat
+                    </Badge>
+                  ) : row.category === "photo" ? (
+                    <Badge className="gap-1 border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-50">
+                      <Camera className="h-3.5 w-3.5" />
+                      Photo
+                    </Badge>
+                  ) : (
+                    <Badge className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
+                      <Scale className="h-3.5 w-3.5" />
+                      Weight
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">
