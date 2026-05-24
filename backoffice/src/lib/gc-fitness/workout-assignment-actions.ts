@@ -467,18 +467,34 @@ export async function assignTemplateRecurring(
   const template = templateSnap.data() as { trainerId?: string } & Record<string, unknown>;
   if (template.trainerId !== trainer.uid) throw new Error("Not your template.");
 
-  const windowStart = nextCivilForWeekdayOnOrAfter(parsed.startDate, parsed.weekday);
+  // Plan 21-04: normalize legacy `weekday` and new `weekdays` to a single
+  // canonical Set. Zod's superRefine guarantees exactly one is set.
+  const weekdaysSet = new Set<number>(
+    parsed.weekdays ?? (parsed.weekday !== undefined ? [parsed.weekday] : []),
+  );
+  const sortedWeekdays = Array.from(weekdaysSet).sort((a, b) => a - b);
+
   const hardWindowEnd = addCivilDays(parsed.startDate, NO_END_HORIZON_DAYS);
   const windowEnd = parsed.endDate ?? hardWindowEnd;
 
+  // Walk each civil day in [startDate, windowEnd]; keep dates whose weekday
+  // is in the selected set. Cap at MAX_RECURRING_OCCURRENCES so a "no end
+  // date + all 7 weekdays" submit can't write more than 104 docs.
   const dates: string[] = [];
-  for (let date = windowStart; date <= windowEnd; date = addCivilDays(date, 7)) {
-    dates.push(date);
-    if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
+  for (
+    let date = parsed.startDate;
+    date <= windowEnd;
+    date = addCivilDays(date, 1)
+  ) {
+    if (weekdaysSet.has(dayOfWeekFromCivil(date))) {
+      dates.push(date);
+      if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
+    }
   }
   if (dates.length === 0) {
     throw new Error("No dates generated for that recurrence.");
   }
+  const windowStart = dates[0];
 
   const templateSnapshot = await templateSnapshotForAssignment(template);
   // 260522-ki7 Task A: every doc in a recurring batch shares ONE seriesId so
@@ -487,6 +503,13 @@ export async function assignTemplateRecurring(
   // exactly once per assignTemplateRecurring call, BEFORE the batch loop,
   // and reused as the same string value on every batched doc.
   const seriesId = randomUUID();
+  // Plan 21-04: pick the canonical recurrence shape — `weekly` when the
+  // selection collapses to a single weekday (backward compatible with PROD
+  // docs); `weekly_days` for multi-weekday cadences (Mon/Wed/Fri-style).
+  const recurrencePayload: Record<string, unknown> =
+    sortedWeekdays.length === 1
+      ? { kind: "weekly", weekday: sortedWeekdays[0] }
+      : { kind: "weekly_days", weekdays: sortedWeekdays };
   const batch = db.batch();
   const ids: string[] = [];
   for (const date of dates) {
@@ -505,10 +528,7 @@ export async function assignTemplateRecurring(
       status: "scheduled" as const,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-      recurrence: {
-        kind: "weekly",
-        weekday: parsed.weekday,
-      },
+      recurrence: recurrencePayload,
       seriesId,
     });
     ids.push(docId);

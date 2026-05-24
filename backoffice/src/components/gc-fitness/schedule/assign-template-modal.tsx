@@ -93,8 +93,9 @@ export function AssignTemplateModal({
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
   const [mode, setMode] = useState<"once" | "weekly">("once");
-  const [recurringWeekday, setRecurringWeekday] = useState<number>(
-    parseCivilToLocalDate(defaultDate).getDay(),
+  // Plan 21-04: multi-weekday recurrence — Set seeded with the cell's weekday.
+  const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(
+    () => new Set([parseCivilToLocalDate(defaultDate).getDay()]),
   );
   const [recurringEndEnabled, setRecurringEndEnabled] = useState(false);
   const [recurringEndDate, setRecurringEndDate] = useState<string>(defaultDate);
@@ -108,11 +109,28 @@ export function AssignTemplateModal({
       setScheduledTime("");
       setMeetingNotes("");
       setMode("once");
-      setRecurringWeekday(parseCivilToLocalDate(defaultDate).getDay());
+      setRecurringWeekdays(
+        new Set([parseCivilToLocalDate(defaultDate).getDay()]),
+      );
       setRecurringEndEnabled(false);
       setRecurringEndDate(defaultDate);
     }
   }, [open, defaultDate]);
+
+  function toggleWeekday(idx: number) {
+    setRecurringWeekdays((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        // Don't let the trainer unselect the last one — at least one weekday
+        // must remain selected.
+        if (next.size === 1) return next;
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  }
 
   async function onSubmit() {
     if (!templateId) {
@@ -132,11 +150,12 @@ export function AssignTemplateModal({
         });
         toast.success(t("successOnce"));
       } else {
+        const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
         const result = await assignTemplateRecurring({
           templateId,
           clientId,
           startDate: civilDate,
-          weekday: recurringWeekday,
+          weekdays,
           endDate: recurringEndEnabled ? recurringEndDate : undefined,
           scheduledTime: scheduledTime || undefined,
           meetingNotes: meetingNotes.trim() || undefined,
@@ -199,27 +218,30 @@ export function AssignTemplateModal({
                 </SelectContent>
               </Select>
             </div>
-            {mode === "weekly" ? (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">{t("repeatOnLabel")}</label>
-                <Select
-                  value={String(recurringWeekday)}
-                  onValueChange={(value) => setRecurringWeekday(Number(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WEEKDAY_KEYS.map((key, idx) => (
-                      <SelectItem key={key} value={String(idx)}>
-                        {t(`weekdays.${key}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
           </div>
+
+          {mode === "weekly" ? (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">{t("repeatOnLabel")}</label>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAY_KEYS.map((key, idx) => {
+                  const active = recurringWeekdays.has(idx);
+                  return (
+                    <Button
+                      key={key}
+                      type="button"
+                      variant={active ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleWeekday(idx)}
+                      aria-pressed={active}
+                    >
+                      {t(`weekdays.${key}`).slice(0, 3)}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {mode === "weekly" ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

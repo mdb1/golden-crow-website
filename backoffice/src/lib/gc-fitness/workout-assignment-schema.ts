@@ -106,13 +106,24 @@ export type BulkAssignInput = z.infer<typeof bulkAssignSchema>;
  *
  * `endDate` is optional. When omitted, the server applies a rolling horizon
  * cap to avoid unbounded writes.
+ *
+ * Plan 21-04: accepts either the legacy single `weekday: 0..6` shape OR the
+ * new `weekdays: [0..6]` array (1-7 entries). Exactly one must be present.
+ * The Server Action normalizes both to a canonical `weekdays: number[]`
+ * before date expansion, so a Mon/Wed/Fri schedule is one call instead of
+ * three.
  */
 export const assignTemplateRecurringSchema = z
   .object({
     templateId: z.string().min(1, "templateId is required."),
     clientId: z.string().min(1, "clientId is required."),
     startDate: civilDateSchema,
-    weekday: z.number().int().min(0).max(6), // JS day index: 0=Sun ... 6=Sat
+    weekday: z.number().int().min(0).max(6).optional(), // legacy single
+    weekdays: z
+      .array(z.number().int().min(0).max(6))
+      .min(1, "Pick at least one weekday.")
+      .max(7)
+      .optional(),
     endDate: civilDateSchema.optional(),
     scheduledTime: scheduledTimeSchema,
     meetingNotes: meetingNotesSchema,
@@ -120,6 +131,22 @@ export const assignTemplateRecurringSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    const hasOne = data.weekday !== undefined;
+    const hasMany = data.weekdays !== undefined && data.weekdays.length > 0;
+    if (!hasOne && !hasMany) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["weekdays"],
+        message: "Pick at least one weekday (weekday or weekdays).",
+      });
+    }
+    if (hasOne && hasMany) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["weekdays"],
+        message: "Provide either `weekday` or `weekdays`, not both.",
+      });
+    }
     if (data.endDate && data.endDate < data.startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
