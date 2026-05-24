@@ -339,6 +339,7 @@
       "exercisesEmpty": "Aún no hay ejercicios. Tocá <strong>Agregar ejercicio</strong> para empezar.",
       "moveUp": "Mover ejercicio arriba",
       "moveDown": "Mover ejercicio abajo",
+      "dragHandle": "Arrastrá para reordenar el ejercicio",
       "removeExercise": "Quitar ejercicio",
       "exerciseLabel": "Ejercicio",
       "pickExerciseAria": "Elegí ejercicio para la fila {index}",

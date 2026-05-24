@@ -339,6 +339,7 @@
       "exercisesEmpty": "No exercises yet. Click <strong>Add exercise</strong> to start.",
       "moveUp": "Move exercise up",
       "moveDown": "Move exercise down",
+      "dragHandle": "Drag to reorder exercise",
       "removeExercise": "Remove exercise",
       "exerciseLabel": "Exercise",
       "pickExerciseAria": "Pick exercise for row {index}",

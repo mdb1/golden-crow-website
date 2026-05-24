@@ -29,9 +29,27 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
+import { ArrowUp, ArrowDown, GripVertical, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+type SortableListeners = ReturnType<typeof useSortable>["listeners"];
 
 import {
   Form,
@@ -80,6 +98,37 @@ const TAG_OPTION_KEYS = [
   { value: "custom", labelKey: "custom" },
 ] as const;
 
+// Plan 21-02 — Thin sortable wrapper. Owns the dnd-kit ref / transform /
+// transition / aria attributes for the row, but delegates the drag listeners
+// to the grip handle via a render-prop so the rest of the row (form inputs,
+// buttons) stays click-only.
+function SortableExerciseRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: (handleProps: SortableListeners) => React.ReactNode;
+}) {
+  const {
+    setNodeRef,
+    transform,
+    transition,
+    listeners,
+    attributes,
+    isDragging,
+  } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <li ref={setNodeRef} style={style} {...attributes}>
+      {children(listeners)}
+    </li>
+  );
+}
+
 function buildDefaults(
   passed?: Partial<WorkoutTemplateInput>,
 ): WorkoutTemplateInput {
@@ -121,6 +170,26 @@ export function TemplateForm({
     control: form.control,
     name: "exercises",
   });
+
+  // Plan 21-02 — dnd-kit sensors. PointerSensor with a 5px activation distance
+  // so an accidental click doesn't trigger a drag on touch / fine-pointer
+  // devices. KeyboardSensor with the sortable coordinate getter so Tab → Space
+  // → arrows → Space works for keyboard a11y.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = fields.findIndex((f) => f.id === active.id);
+    const to = fields.findIndex((f) => f.id === over.id);
+    if (from === -1 || to === -1) return;
+    // Same code path as the up/down buttons — order is renumbered to idx+1
+    // on submit (see lines below), so dragging doesn't write until save.
+    move(from, to);
+  };
 
   function toFiniteNumberArray(input: unknown): number[] {
     if (!Array.isArray(input)) return [];
@@ -331,19 +400,41 @@ export function TemplateForm({
             </p>
           )}
 
-          <ul className="flex flex-col gap-3">
-            {fields.map((field, index) => (
-              // Pitfall 3: React key is `field.id` (RHF-internal CUID), NOT
-              // `index` (would break across reorders) and NOT
-              // `field.exerciseId` (collisions on supersets referencing the
-              // same exercise).
-              <li key={field.id}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={fields.map((f) => f.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul className="flex flex-col gap-3">
+                {fields.map((field, index) => (
+                  // Pitfall 3: React key is `field.id` (RHF-internal CUID), NOT
+                  // `index` (would break across reorders) and NOT
+                  // `field.exerciseId` (collisions on supersets referencing the
+                  // same exercise).
+                  <SortableExerciseRow key={field.id} id={field.id}>
+                    {(dragListeners) => (
                 <Card>
                   <CardContent className="flex flex-col gap-3 p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        #{index + 1}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t("dragHandle")}
+                          className="cursor-grab touch-none active:cursor-grabbing"
+                          {...dragListeners}
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm font-medium text-muted-foreground">
+                          #{index + 1}
+                        </span>
+                      </div>
                       <div className="flex gap-1">
                         <Button
                           type="button"
@@ -637,9 +728,12 @@ export function TemplateForm({
                     />
                   </CardContent>
                 </Card>
-              </li>
-            ))}
-          </ul>
+                    )}
+                  </SortableExerciseRow>
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
 
           <Button
             type="button"
