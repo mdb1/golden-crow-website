@@ -123,6 +123,11 @@ export async function PendingClientPreload({
       .getAll("scheduleWeekdays")
       .map((value) => Number(value))
       .filter((value) => Number.isInteger(value) && value >= 1 && value <= 7);
+    const scheduleMonthDays = formData
+      .getAll("scheduleMonthDays")
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 31)
+      .sort((a, b) => a - b);
     const scheduleDayOfMonthRaw = Number(formData.get("scheduleDayOfMonth") ?? 0);
     const scheduleDayOfMonth =
       Number.isInteger(scheduleDayOfMonthRaw) && scheduleDayOfMonthRaw >= 1 && scheduleDayOfMonthRaw <= 31
@@ -155,8 +160,12 @@ export async function PendingClientPreload({
         ? scheduleWeekdays
         : undefined;
     const parsedMonthDays =
-      resolvedScheduleType === "recurring" && resolvedCadence === "monthly" && scheduleDayOfMonth !== undefined
-        ? [scheduleDayOfMonth]
+      resolvedScheduleType === "recurring" && resolvedCadence === "monthly"
+        ? scheduleMonthDays.length > 0
+          ? scheduleMonthDays
+          : scheduleDayOfMonth !== undefined
+            ? [scheduleDayOfMonth]
+            : undefined
         : undefined;
 
     const resolvedName = selectedTemplate
@@ -184,7 +193,7 @@ export async function PendingClientPreload({
       scheduleWeekdays: parsedWeekdays,
       scheduleDayOfMonth:
         resolvedScheduleType === "recurring" && resolvedCadence === "monthly"
-          ? scheduleDayOfMonth
+          ? parsedMonthDays?.[0]
           : undefined,
       scheduleMonthDays: parsedMonthDays,
     });
@@ -241,7 +250,7 @@ export async function PendingClientPreload({
         : recurrence?.kind === "weekly"
           ? "Semanal"
           : recurrence?.kind === "weekly_days"
-            ? "Semanal (varios días)"
+            ? "Semanal"
             : recurrence?.kind === "every_n_days"
               ? `Cada ${recurrence.everyN} días`
               : "Recurrente";

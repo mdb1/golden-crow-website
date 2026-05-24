@@ -515,8 +515,8 @@ export function TemplateForm({
                       )}
                     />
 
-                    {/* Sets / Reps / Rest */}
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    {/* Sets / Rest. Reps is defined per-set below to avoid double source of truth. */}
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <Controller
                         control={form.control}
                         name={`exercises.${index}.sets` as const}
@@ -541,39 +541,6 @@ export function TemplateForm({
                                     numField.onChange(parsed);
                                     syncSetArrays(index, parsed);
                                   }
-                                }
-                                onBlur={numField.onBlur}
-                              />
-                            </FormControl>
-                            {fieldState.error && (
-                              <FormMessage>
-                                {fieldState.error.message}
-                              </FormMessage>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-                      <Controller
-                        control={form.control}
-                        name={`exercises.${index}.reps` as const}
-                        render={({
-                          field: numField,
-                          fieldState,
-                        }) => (
-                          <FormItem>
-                            <FormLabel>{t("reps")}</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={50}
-                                value={numField.value ?? ""}
-                                onChange={(e) =>
-                                  numField.onChange(
-                                    e.target.value === ""
-                                      ? undefined
-                                      : Number(e.target.value),
-                                  )
                                 }
                                 onBlur={numField.onBlur}
                               />
@@ -625,7 +592,7 @@ export function TemplateForm({
                       <div className="sm:col-span-2">
                         <FormLabel>{t("setRowsTitle")}</FormLabel>
                         <div className="mt-2 flex flex-col gap-2">
-                          <div className="grid grid-cols-[84px,1fr,1fr] items-center gap-2 px-1">
+                          <div className="grid grid-cols-[84px,minmax(140px,1fr),minmax(140px,1fr)] items-center gap-2 px-1">
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {t("setHeader")}
                             </span>
@@ -655,7 +622,7 @@ export function TemplateForm({
                             return (
                               <div
                                 key={`${field.id}-set-${setIdx + 1}`}
-                                className="grid grid-cols-[84px,1fr,1fr] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
+                                className="grid grid-cols-[84px,minmax(140px,1fr),minmax(140px,1fr)] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
                               >
                                 <span className="text-xs text-muted-foreground">
                                   {t("setNumber", { count: setIdx + 1 })}
@@ -676,6 +643,13 @@ export function TemplateForm({
                                     });
                                     filled[setIdx] = Number.isFinite(next) ? next : repsFallback;
                                     form.setValue(repsPath, filled, { shouldDirty: true });
+                                    if (setIdx === 0 && Number.isFinite(next)) {
+                                      form.setValue(
+                                        `exercises.${index}.reps` as const,
+                                        next,
+                                        { shouldDirty: true },
+                                      );
+                                    }
                                   }}
                                   aria-label={t("setRepsAria", { count: setIdx + 1 })}
                                 />

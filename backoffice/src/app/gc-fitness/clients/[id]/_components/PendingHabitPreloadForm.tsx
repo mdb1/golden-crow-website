@@ -43,6 +43,7 @@ export function PendingHabitPreloadForm({
   const [type, setType] = useState<HabitType>("binary");
   const [scheduleType, setScheduleType] = useState<HabitScheduleType>("recurring");
   const [scheduleCadence, setScheduleCadence] = useState<HabitCadence>("daily");
+  const [monthDays, setMonthDays] = useState<number[]>([1]);
 
   const startsOnDefault = useMemo(() => todayCivilDate(), []);
   const templateMode = templateId.length > 0;
@@ -186,7 +187,13 @@ export function PendingHabitPreloadForm({
               <select
                 name="scheduleCadence"
                 value={scheduleCadence}
-                onChange={(event) => setScheduleCadence(event.target.value as HabitCadence)}
+                onChange={(event) => {
+                  const next = event.target.value as HabitCadence;
+                  setScheduleCadence(next);
+                  if (next === "monthly" && monthDays.length === 0) {
+                    setMonthDays([1]);
+                  }
+                }}
                 className="rounded border bg-background px-3 py-2 text-sm"
               >
                 <option value="daily">Diaria</option>
@@ -220,17 +227,34 @@ export function PendingHabitPreloadForm({
         ) : null}
 
         {showMonthDay ? (
-          <label className="flex max-w-[240px] flex-col gap-1 text-sm">
-            <span className="font-medium">Día del mes</span>
-            <input
-              type="number"
-              name="scheduleDayOfMonth"
-              min={1}
-              max={31}
-              defaultValue={1}
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
+          <fieldset className="flex flex-col gap-2 text-sm">
+            <span className="font-medium">Días del mes</span>
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 31 }, (_, idx) => idx + 1).map((day) => {
+                const active = monthDays.includes(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => {
+                      setMonthDays((current) => {
+                        const next = current.includes(day)
+                          ? current.filter((d) => d !== day)
+                          : [...current, day].sort((a, b) => a - b);
+                        return next.length > 0 ? next : [1];
+                      });
+                    }}
+                    className={`rounded border px-2 py-1 text-xs ${active ? "bg-primary text-primary-foreground" : "bg-background"}`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+            {monthDays.map((day) => (
+              <input key={day} type="hidden" name="scheduleMonthDays" value={String(day)} />
+            ))}
+          </fieldset>
         ) : null}
       </div>
 
