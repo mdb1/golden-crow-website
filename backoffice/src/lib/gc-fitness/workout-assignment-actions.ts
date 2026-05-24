@@ -467,26 +467,65 @@ export async function assignTemplateRecurring(
   const template = templateSnap.data() as { trainerId?: string } & Record<string, unknown>;
   if (template.trainerId !== trainer.uid) throw new Error("Not your template.");
 
-  // Plan 21-04: normalize legacy `weekday` and new `weekdays` to a single
-  // canonical Set. Zod's superRefine guarantees exactly one is set.
-  const weekdaysSet = new Set<number>(
-    parsed.weekdays ?? (parsed.weekday !== undefined ? [parsed.weekday] : []),
-  );
-  const sortedWeekdays = Array.from(weekdaysSet).sort((a, b) => a - b);
+  // Plans 21-04 + 21-04b: normalize the THREE accepted input shapes
+  // (legacy `weekday`, multi-weekday `weekdays`, canonical `recurrence`) to a
+  // single canonical RecurrenceRule. Zod's superRefine guarantees exactly
+  // one is set.
+  type RecurrenceRule =
+    | { kind: "single" }
+    | { kind: "daily" }
+    | { kind: "weekly"; weekday: number }
+    | { kind: "weekly_days"; weekdays: number[] }
+    | { kind: "every_n_days"; everyN: number };
+
+  let recurrence: RecurrenceRule;
+  if (parsed.recurrence !== undefined) {
+    recurrence = parsed.recurrence as RecurrenceRule;
+  } else if (parsed.weekdays !== undefined) {
+    const sorted = Array.from(new Set(parsed.weekdays)).sort((a, b) => a - b);
+    recurrence =
+      sorted.length === 1
+        ? { kind: "weekly", weekday: sorted[0] }
+        : { kind: "weekly_days", weekdays: sorted };
+  } else {
+    // Legacy single weekday (Zod guarantees parsed.weekday is defined here).
+    recurrence = { kind: "weekly", weekday: parsed.weekday! };
+  }
 
   const hardWindowEnd = addCivilDays(parsed.startDate, NO_END_HORIZON_DAYS);
   const windowEnd = parsed.endDate ?? hardWindowEnd;
 
-  // Walk each civil day in [startDate, windowEnd]; keep dates whose weekday
-  // is in the selected set. Cap at MAX_RECURRING_OCCURRENCES so a "no end
-  // date + all 7 weekdays" submit can't write more than 104 docs.
+  // Walk each civil day in [startDate, windowEnd]; keep dates that match the
+  // recurrence rule. Cap at MAX_RECURRING_OCCURRENCES so a "no end date +
+  // daily" submit can't write more than 104 docs.
+  function matchesRule(date: string, dayIndex: number): boolean {
+    switch (recurrence.kind) {
+      case "single":
+        return date === parsed.startDate;
+      case "daily":
+        return true;
+      case "weekly":
+        return dayIndex === recurrence.weekday;
+      case "weekly_days":
+        return recurrence.weekdays.includes(dayIndex);
+      case "every_n_days": {
+        // Whole-day delta in civil days from startDate to date.
+        const [y0, m0, d0] = parsed.startDate.split("-").map(Number);
+        const [y1, m1, d1] = date.split("-").map(Number);
+        const diff =
+          (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
+        return diff >= 0 && diff % recurrence.everyN === 0;
+      }
+    }
+  }
+
   const dates: string[] = [];
   for (
     let date = parsed.startDate;
     date <= windowEnd;
     date = addCivilDays(date, 1)
   ) {
-    if (weekdaysSet.has(dayOfWeekFromCivil(date))) {
+    if (matchesRule(date, dayOfWeekFromCivil(date))) {
       dates.push(date);
       if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
     }
@@ -499,17 +538,9 @@ export async function assignTemplateRecurring(
   const templateSnapshot = await templateSnapshotForAssignment(template);
   // 260522-ki7 Task A: every doc in a recurring batch shares ONE seriesId so
   // the cascade-delete query in deleteAssignment(id, {cascadeFromDate}) can
-  // identify the series via a single equality predicate. seriesId is set
-  // exactly once per assignTemplateRecurring call, BEFORE the batch loop,
-  // and reused as the same string value on every batched doc.
+  // identify the series via a single equality predicate.
   const seriesId = randomUUID();
-  // Plan 21-04: pick the canonical recurrence shape — `weekly` when the
-  // selection collapses to a single weekday (backward compatible with PROD
-  // docs); `weekly_days` for multi-weekday cadences (Mon/Wed/Fri-style).
-  const recurrencePayload: Record<string, unknown> =
-    sortedWeekdays.length === 1
-      ? { kind: "weekly", weekday: sortedWeekdays[0] }
-      : { kind: "weekly_days", weekdays: sortedWeekdays };
+  const recurrencePayload: Record<string, unknown> = recurrence;
   const batch = db.batch();
   const ids: string[] = [];
   for (const date of dates) {

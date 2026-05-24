@@ -102,16 +102,19 @@ export const bulkAssignSchema = z.object({
 export type BulkAssignInput = z.infer<typeof bulkAssignSchema>;
 
 /**
- * `assignTemplateRecurring(input)` — single-client weekly recurrence.
+ * `assignTemplateRecurring(input)` — single-client recurrence.
  *
  * `endDate` is optional. When omitted, the server applies a rolling horizon
  * cap to avoid unbounded writes.
  *
- * Plan 21-04: accepts either the legacy single `weekday: 0..6` shape OR the
- * new `weekdays: [0..6]` array (1-7 entries). Exactly one must be present.
- * The Server Action normalizes both to a canonical `weekdays: number[]`
- * before date expansion, so a Mon/Wed/Fri schedule is one call instead of
- * three.
+ * Accepts THREE alternative input shapes (Server Action normalizes to a
+ * canonical RecurrenceRule before date expansion):
+ *   1. legacy `weekday: 0..6` (single weekday — pre-21-04 callers)
+ *   2. `weekdays: [0..6]` array (Plan 21-04 multi-weekday)
+ *   3. `recurrence: RecurrenceRule` (Plan 21-04b — full canonical shape
+ *      including `daily` and `every_n_days`)
+ *
+ * Exactly ONE of the three must be present. superRefine enforces this.
  */
 export const assignTemplateRecurringSchema = z
   .object({
@@ -124,6 +127,7 @@ export const assignTemplateRecurringSchema = z
       .min(1, "Pick at least one weekday.")
       .max(7)
       .optional(),
+    recurrence: z.lazy(() => recurrenceSchema).optional(),
     endDate: civilDateSchema.optional(),
     scheduledTime: scheduledTimeSchema,
     meetingNotes: meetingNotesSchema,
@@ -133,18 +137,20 @@ export const assignTemplateRecurringSchema = z
   .superRefine((data, ctx) => {
     const hasOne = data.weekday !== undefined;
     const hasMany = data.weekdays !== undefined && data.weekdays.length > 0;
-    if (!hasOne && !hasMany) {
+    const hasCanonical = data.recurrence !== undefined;
+    const inputCount = [hasOne, hasMany, hasCanonical].filter(Boolean).length;
+    if (inputCount === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["weekdays"],
-        message: "Pick at least one weekday (weekday or weekdays).",
+        path: ["recurrence"],
+        message: "Pick a recurrence (weekday, weekdays, or recurrence).",
       });
     }
-    if (hasOne && hasMany) {
+    if (inputCount > 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["weekdays"],
-        message: "Provide either `weekday` or `weekdays`, not both.",
+        path: ["recurrence"],
+        message: "Provide exactly one of `weekday`, `weekdays`, or `recurrence`.",
       });
     }
     if (data.endDate && data.endDate < data.startDate) {

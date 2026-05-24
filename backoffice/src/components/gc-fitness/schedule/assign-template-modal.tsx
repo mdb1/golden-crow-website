@@ -92,11 +92,15 @@ export function AssignTemplateModal({
   const [civilDate, setCivilDate] = useState<string>(defaultDate);
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
-  const [mode, setMode] = useState<"once" | "weekly">("once");
+  // Plan 21-04b: four cadence modes.
+  type Mode = "once" | "weekly" | "daily" | "everyN";
+  const [mode, setMode] = useState<Mode>("once");
   // Plan 21-04: multi-weekday recurrence — Set seeded with the cell's weekday.
   const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(
     () => new Set([parseCivilToLocalDate(defaultDate).getDay()]),
   );
+  // Plan 21-04b: every-N-days step (default 2; range 2..30 per Zod).
+  const [recurringEveryN, setRecurringEveryN] = useState<number>(2);
   const [recurringEndEnabled, setRecurringEndEnabled] = useState(false);
   const [recurringEndDate, setRecurringEndDate] = useState<string>(defaultDate);
   const [submitting, setSubmitting] = useState(false);
@@ -112,6 +116,7 @@ export function AssignTemplateModal({
       setRecurringWeekdays(
         new Set([parseCivilToLocalDate(defaultDate).getDay()]),
       );
+      setRecurringEveryN(2);
       setRecurringEndEnabled(false);
       setRecurringEndDate(defaultDate);
     }
@@ -150,12 +155,28 @@ export function AssignTemplateModal({
         });
         toast.success(t("successOnce"));
       } else {
-        const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
+        // Plan 21-04b: build the canonical recurrence rule based on the mode.
+        let recurrence:
+          | { kind: "daily" }
+          | { kind: "weekly"; weekday: number }
+          | { kind: "weekly_days"; weekdays: number[] }
+          | { kind: "every_n_days"; everyN: number };
+        if (mode === "daily") {
+          recurrence = { kind: "daily" };
+        } else if (mode === "everyN") {
+          recurrence = { kind: "every_n_days", everyN: recurringEveryN };
+        } else {
+          const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
+          recurrence =
+            weekdays.length === 1
+              ? { kind: "weekly", weekday: weekdays[0] }
+              : { kind: "weekly_days", weekdays };
+        }
         const result = await assignTemplateRecurring({
           templateId,
           clientId,
           startDate: civilDate,
-          weekdays,
+          recurrence,
           endDate: recurringEndEnabled ? recurringEndDate : undefined,
           scheduledTime: scheduledTime || undefined,
           meetingNotes: meetingNotes.trim() || undefined,
@@ -207,7 +228,7 @@ export function AssignTemplateModal({
               <label className="text-sm font-medium">{t("modeLabel")}</label>
               <Select
                 value={mode}
-                onValueChange={(value) => setMode(value as "once" | "weekly")}
+                onValueChange={(value) => setMode(value as Mode)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -215,6 +236,8 @@ export function AssignTemplateModal({
                 <SelectContent>
                   <SelectItem value="once">{t("modeOnce")}</SelectItem>
                   <SelectItem value="weekly">{t("modeWeekly")}</SelectItem>
+                  <SelectItem value="daily">{t("modeDaily")}</SelectItem>
+                  <SelectItem value="everyN">{t("modeEveryN")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -243,7 +266,32 @@ export function AssignTemplateModal({
             </div>
           ) : null}
 
-          {mode === "weekly" ? (
+          {mode === "everyN" ? (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="every-n-input">
+                {t("repeatEveryNLabel")}
+              </label>
+              <input
+                id="every-n-input"
+                type="number"
+                min={2}
+                max={30}
+                value={recurringEveryN}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) {
+                    setRecurringEveryN(Math.max(2, Math.min(30, next)));
+                  }
+                }}
+                className="h-10 w-24 rounded-md border bg-background px-3 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("repeatEveryNHint", { n: recurringEveryN })}
+              </p>
+            </div>
+          ) : null}
+
+          {mode !== "once" ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <input

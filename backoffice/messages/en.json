@@ -927,7 +927,11 @@
       "modeLabel": "Assignment mode",
       "modeOnce": "One-time",
       "modeWeekly": "Weekly recurring",
+      "modeDaily": "Daily",
+      "modeEveryN": "Every N days",
       "repeatOnLabel": "Repeat on",
+      "repeatEveryNLabel": "Every (days)",
+      "repeatEveryNHint": "Repeats every {n} days from the start date.",
       "weekdays": {
         "sunday": "Sunday",
         "monday": "Monday",
