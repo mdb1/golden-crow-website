@@ -502,9 +502,9 @@ export function HabitForm({
 
         {/* Multi-choice options — type-conditional */}
         {isMultiChoice && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-heading text-lg font-semibold">
+              <h2 className="font-heading text-base font-semibold tracking-tight">
                 {t("optionsHeading")}
               </h2>
               <span className="text-xs text-muted-foreground">
@@ -641,7 +641,9 @@ export function HabitForm({
 
         {/* Reminder block */}
         <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
-          <h2 className="font-medium">{t("scheduleHeading")}</h2>
+          <h2 className="font-heading text-base font-semibold tracking-tight">
+            {t("scheduleHeading")}
+          </h2>
           <p className="text-sm text-muted-foreground">
             {t("scheduleSubtitle")}
           </p>

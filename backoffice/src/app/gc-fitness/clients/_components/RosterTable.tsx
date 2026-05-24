@@ -252,15 +252,9 @@ export function RosterTable({ rows }: RosterTableProps) {
               <TableRow
                 key={row.id}
                 onClick={() => {
-                  if (!row.original.pendingProvisioning) {
-                    router.push(`/gc-fitness/clients/${row.original.uid}`);
-                  }
+                  router.push(`/gc-fitness/clients/${row.original.uid}`);
                 }}
-                className={
-                  row.original.pendingProvisioning
-                    ? "cursor-default"
-                    : "cursor-pointer hover:bg-muted/50"
-                }
+                className="cursor-pointer hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>

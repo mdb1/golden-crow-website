@@ -406,10 +406,13 @@ export function TemplateForm({
           )}
         />
 
-        {/* Exercises */}
-        <div className="flex flex-col gap-3">
+        {/* Exercises — wrapped in a section card to match the HabitForm
+            schedule/reminder visual hierarchy. */}
+        <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-lg font-semibold">{t("exercises")}</h2>
+            <h2 className="font-heading text-base font-semibold tracking-tight">
+              {t("exercises")}
+            </h2>
             <span className="text-xs text-muted-foreground">
               {t("exercisesCount", { count: fields.length })}
             </span>
