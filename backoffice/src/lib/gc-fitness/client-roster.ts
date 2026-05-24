@@ -58,6 +58,7 @@ export interface ClientRosterEntry {
   email: string;
   displayName: string;
   timezone: string | null;
+  pendingProvisioning: boolean;
 }
 
 /**
@@ -125,13 +126,19 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
-  const snap = await db
-    .collection("users")
-    .where("coachId", "==", trainer.uid)
-    .where("role", "==", "client")
-    .get();
+  const [activeSnap, mirrorSnap] = await Promise.all([
+    db
+      .collection("users")
+      .where("coachId", "==", trainer.uid)
+      .where("role", "==", "client")
+      .get(),
+    db
+      .collection(FirestoreCollections.userMirror)
+      .where("coachId", "==", trainer.uid)
+      .get(),
+  ]);
 
-  const rows: ClientRosterEntry[] = snap.docs.map((d) => {
+  const activeRows: ClientRosterEntry[] = activeSnap.docs.map((d) => {
     const data = d.data() as {
       email?: string;
       displayName?: string;
@@ -142,8 +149,37 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
       email: data.email ?? "",
       displayName: data.displayName ?? data.email ?? d.id,
       timezone: typeof data.timezone === "string" ? data.timezone : null,
+      pendingProvisioning: false,
     };
   });
+
+  const activeEmails = new Set(
+    activeRows.map((row) => row.email.trim().toLowerCase()).filter(Boolean),
+  );
+  const pendingRows: ClientRosterEntry[] = mirrorSnap.docs
+    .reduce<ClientRosterEntry[]>((rows, doc) => {
+      const data = doc.data() as {
+        email?: string;
+        displayName?: string;
+      };
+      const email = (data.email ?? doc.id).trim().toLowerCase();
+      if (!email || activeEmails.has(email)) {
+        return rows;
+      }
+      rows.push({
+        uid: `mirror:${doc.id}`,
+        email,
+        displayName:
+          typeof data.displayName === "string" && data.displayName.trim().length > 0
+            ? data.displayName.trim()
+            : email,
+        timezone: null,
+        pendingProvisioning: true,
+      });
+      return rows;
+    }, []);
+
+  const rows = [...activeRows, ...pendingRows];
 
   rows.sort((a, b) =>
     a.displayName.localeCompare(b.displayName, undefined, {
@@ -216,6 +252,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
             ? data.displayName.trim()
             : email,
         timezone: null,
+        pendingProvisioning: true,
       });
       return rows;
     }, []);

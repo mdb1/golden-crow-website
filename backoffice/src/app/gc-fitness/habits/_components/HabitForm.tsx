@@ -247,8 +247,14 @@ export function HabitForm({
           scheduleType: values.scheduleType,
           startsOn: values.startsOn,
         };
-        if (values.description?.en && values.description?.es) {
-          cleaned.description = values.description;
+        const descriptionEn = values.description?.en?.trim() ?? "";
+        const descriptionEs = values.description?.es?.trim() ?? "";
+        if (descriptionEn.length > 0 || descriptionEs.length > 0) {
+          // Keep wire shape complete even when trainer fills only one locale.
+          cleaned.description = {
+            en: descriptionEn || descriptionEs,
+            es: descriptionEs || descriptionEn,
+          };
         }
         if (values.type === "multi-choice" && values.options) {
           // Drop empty string entries that the trainer left blank.

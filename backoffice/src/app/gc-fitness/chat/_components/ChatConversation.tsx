@@ -30,7 +30,7 @@
 //
 // Trainer uid (Note H) plumbed in from `client.tsx`.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -151,19 +151,52 @@ export function ChatConversation({
   // when:
   //   - the active chat changes (entering a thread should land you at
   //     the bottom, mirroring iOS / Slack / Messages behavior);
-  //   - a new message arrives (sender or receiver).
+  //   - a new message arrives (sender or receiver);
+  //   - an attachment (image / voice) finishes loading and grows the
+  //     bubble height past the initial layout pass.
+  //
   // We use a ref on the scrollable container and jump-set scrollTop
   // rather than `scrollIntoView` so the user's window scroll is not
   // affected. The effect only runs after the layout pass (next tick)
   // so the new content's `scrollHeight` is the post-render value.
+  //
+  // The attachment re-snap is gated on `nearBottomRef`: if the trainer
+  // has scrolled up to read history, we DON'T yank them back when an
+  // image lands. The threshold is generous (300px) because chat-image
+  // bubbles can grow by ~400px when a photo resolves from its empty
+  // <img> placeholder to its decoded dimensions.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
+
+  const scrollToBottom = useCallback(() => {
+    const node = scrollContainerRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+    nearBottomRef.current = true;
+  }, []);
+
   useEffect(() => {
     const node = scrollContainerRef.current;
     if (!node) return;
-    requestAnimationFrame(() => {
-      node.scrollTop = node.scrollHeight;
-    });
-  }, [chatId, messages.length]);
+    requestAnimationFrame(scrollToBottom);
+  }, [chatId, messages.length, scrollToBottom]);
+
+  useEffect(() => {
+    const node = scrollContainerRef.current;
+    if (!node) return;
+    const onScroll = () => {
+      const distanceFromBottom =
+        node.scrollHeight - node.scrollTop - node.clientHeight;
+      nearBottomRef.current = distanceFromBottom < 300;
+    };
+    node.addEventListener("scroll", onScroll, { passive: true });
+    return () => node.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const handleAttachmentLoaded = useCallback(() => {
+    if (!nearBottomRef.current) return;
+    requestAnimationFrame(scrollToBottom);
+  }, [scrollToBottom]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -205,6 +238,7 @@ export function ChatConversation({
                 chatId={chatId}
                 message={row.message}
                 isOwn={row.message.senderId === trainerUid}
+                onAttachmentLoaded={handleAttachmentLoaded}
               />
             ),
           )
@@ -235,9 +269,15 @@ interface MessageBubbleProps {
   chatId: string;
   message: MessageRow;
   isOwn: boolean;
+  onAttachmentLoaded?: () => void;
 }
 
-function MessageBubble({ chatId, message, isOwn }: MessageBubbleProps) {
+function MessageBubble({
+  chatId,
+  message,
+  isOwn,
+  onAttachmentLoaded,
+}: MessageBubbleProps) {
   const t = useTranslations("chat.conversation");
   const align = isOwn ? "justify-end" : "justify-start";
   const tone = isOwn
@@ -267,6 +307,7 @@ function MessageBubble({ chatId, message, isOwn }: MessageBubbleProps) {
         width={message.imageWidth}
         height={message.imageHeight}
         placeholder={t("imagePhoto")}
+        onLoaded={onAttachmentLoaded}
       />
     );
   } else if (message.kind === "voice" && message.voicePath) {
@@ -276,6 +317,7 @@ function MessageBubble({ chatId, message, isOwn }: MessageBubbleProps) {
         voicePath={message.voicePath}
         durationMs={message.voiceDurationMs}
         placeholder={t("voiceNote")}
+        onLoaded={onAttachmentLoaded}
       />
     );
   } else {
@@ -303,6 +345,7 @@ interface ChatImageBubbleProps {
   width: number | null | undefined;
   height: number | null | undefined;
   placeholder: string;
+  onLoaded?: () => void;
 }
 
 function ChatImageBubble({
@@ -312,6 +355,7 @@ function ChatImageBubble({
   width,
   height,
   placeholder,
+  onLoaded,
 }: ChatImageBubbleProps) {
   const url = useSignedAttachmentUrl(chatId, imagePath);
   if (url === null) {
@@ -332,6 +376,7 @@ function ChatImageBubble({
         loading="lazy"
         style={aspect ? { aspectRatio: aspect } : undefined}
         className="max-h-80 w-auto rounded-lg object-cover"
+        onLoad={onLoaded}
       />
       {caption ? <p className="text-sm">{caption}</p> : null}
     </div>
@@ -343,6 +388,7 @@ interface ChatVoiceBubbleProps {
   voicePath: string;
   durationMs: number | null | undefined;
   placeholder: string;
+  onLoaded?: () => void;
 }
 
 function ChatVoiceBubble({
@@ -350,6 +396,7 @@ function ChatVoiceBubble({
   voicePath,
   durationMs,
   placeholder,
+  onLoaded,
 }: ChatVoiceBubbleProps) {
   const url = useSignedAttachmentUrl(chatId, voicePath);
   const seconds = Math.round((durationMs ?? 0) / 1000);
@@ -358,7 +405,12 @@ function ChatVoiceBubble({
   }
   return (
     <div className="flex flex-col gap-1">
-      <audio controls src={url} className="w-full max-w-xs">
+      <audio
+        controls
+        src={url}
+        className="w-full max-w-xs"
+        onLoadedMetadata={onLoaded}
+      >
         <track kind="captions" />
       </audio>
       {seconds > 0 ? (

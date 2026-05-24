@@ -16,7 +16,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 
@@ -46,6 +48,11 @@ export default async function SchedulePage({
   const { clientId, date } = await searchParams;
   const clients = await listClients();
   const t = await getTranslations("schedule");
+  const tCommon = await getTranslations("common");
+  const selectedClient = clientId
+    ? clients.find((client) => client.uid === clientId) ?? null
+    : null;
+  const isPendingClient = selectedClient?.pendingProvisioning === true;
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
@@ -61,7 +68,29 @@ export default async function SchedulePage({
 
       <ScheduleQueryProvider>
         {clientId ? (
-          <WeekGrid clientId={clientId} focusDate={date} />
+          isPendingClient ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <span>{selectedClient.displayName}</span>
+                  <Badge variant="secondary">{tCommon("pendingSignIn")}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Este usuario todavía no confirmó su primera sesión de Google.
+                  La agenda semanal se habilita cuando pase a estado activo.
+                </p>
+                <Button asChild>
+                  <Link href={`/gc-fitness/clients/${selectedClient.uid}`}>
+                    Abrir pre-carga del cliente
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <WeekGrid clientId={clientId} focusDate={date} />
+          )
         ) : (
           <ClientPicker clients={clients} />
         )}

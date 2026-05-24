@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { ClientRosterEntry } from "@/lib/gc-fitness/client-roster";
 
 interface ClientPickerProps {
@@ -19,6 +20,7 @@ interface ClientPickerProps {
 
 export function ClientPicker({ clients }: ClientPickerProps) {
   const t = useTranslations("schedule.clientPicker");
+  const tCommon = useTranslations("common");
 
   if (clients.length === 0) {
     return (
@@ -49,6 +51,11 @@ export function ClientPicker({ clients }: ClientPickerProps) {
               >
                 <Link href={`/gc-fitness/schedule?clientId=${c.uid}`}>
                   <span className="font-medium">{c.displayName}</span>
+                  {c.pendingProvisioning ? (
+                    <Badge variant="secondary" className="ml-2">
+                      {tCommon("pendingSignIn")}
+                    </Badge>
+                  ) : null}
                   {c.email && c.email !== c.displayName ? (
                     <span className="ml-2 text-xs text-muted-foreground">
                       {c.email}

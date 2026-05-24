@@ -85,16 +85,8 @@ const localizedStringSchema = z
 // document layer.
 const localizedDescriptionSchema = z
   .object({
-    en: z
-      .string()
-      .trim()
-      .min(1, "Description in English is required when supplied.")
-      .max(500, "Keep descriptions under 500 characters."),
-    es: z
-      .string()
-      .trim()
-      .min(1, "Description in Spanish is required when supplied.")
-      .max(500, "Keep descriptions under 500 characters."),
+    en: z.string().trim().max(500, "Keep descriptions under 500 characters.").optional(),
+    es: z.string().trim().max(500, "Keep descriptions under 500 characters.").optional(),
   })
   .strict();
 

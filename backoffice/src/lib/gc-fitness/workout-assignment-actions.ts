@@ -467,8 +467,13 @@ export async function assignTemplateRecurring(
     .doc(parsed.templateId)
     .get();
   if (!templateSnap.exists) throw new Error("Template not found.");
-  const template = templateSnap.data() as { trainerId?: string } & Record<string, unknown>;
-  if (template.trainerId !== trainer.uid) throw new Error("Not your template.");
+  const template = templateSnap.data() as {
+    trainerId?: string;
+    isStandard?: boolean;
+  } & Record<string, unknown>;
+  const canUseTemplate =
+    template.trainerId === trainer.uid || template.isStandard === true;
+  if (!canUseTemplate) throw new Error("Not your template.");
 
   // Plans 21-04 + 21-04b: normalize the THREE accepted input shapes
   // (legacy `weekday`, multi-weekday `weekdays`, canonical `recurrence`) to a
