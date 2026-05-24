@@ -61,7 +61,15 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-sm ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // 260524 — added `max-h-[calc(100vh-2rem)]` + `overflow-y-auto`
+          // for mobile viewport overflow. The previous shape was full
+          // 100vh-wide on mobile but had no max-height, so any modal
+          // with content taller than the viewport (workout assign,
+          // bulk confirm) pushed the CTA off-screen. The `grid` layout
+          // is preserved so the footer can use sticky positioning when
+          // a child opts in. `flex flex-col` is needed for the sticky
+          // footer to anchor correctly.
+          "fixed top-1/2 left-1/2 z-50 flex flex-col w-full max-w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-sm ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -107,7 +115,13 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        // 260524 — `sticky bottom-0 mt-auto` keeps the footer anchored
+        // to the bottom of the (now-scrollable) DialogContent on mobile
+        // viewports. The `bg-background` underlay prevents content
+        // bleed-through when scrolled. Together with the new
+        // DialogContent overflow rules, the Save CTA stays in view on
+        // mobile web no matter how tall the body is.
+        "-mx-4 -mb-4 mt-auto sticky bottom-0 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 backdrop-blur-sm p-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
