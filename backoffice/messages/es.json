@@ -968,7 +968,12 @@
     "loadingExercises": "Cargando ejercicios…",
     "loadError": "No se pudieron cargar los ejercicios.",
     "noExercises": "Aún no hay ejercicios. Creá uno en la biblioteca primero.",
-    "noMatches": "Sin coincidencias."
+    "noMatches": "Sin coincidencias.",
+    "multiAddTrigger": "Agregar varios",
+    "multiAddTitle": "Agregar ejercicios",
+    "multiAddDescription": "Elegí todo lo que quieras sumar — cada uno entra con sets/reps por defecto que podés ajustar después.",
+    "multiAddSelectedCount": "{count} elegidos",
+    "multiAddConfirm": "Agregar {count}"
   },
   "dialogs": {
     "deleteAssignment": {

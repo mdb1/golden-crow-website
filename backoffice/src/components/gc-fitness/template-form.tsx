@@ -71,6 +71,7 @@ import {
 } from "@/lib/gc-fitness/workout-template-schema";
 
 import { ExercisePickerPopover } from "./exercise-picker-popover";
+import { ExerciseMultiAddDialog } from "./exercise-multi-add-dialog";
 
 export type TemplateFormMode = "create" | "edit";
 
@@ -274,6 +275,28 @@ export function TemplateForm({
       notes: "",
       order: fields.length + 1,
     });
+  }
+
+  // Plan 21-01a: batch-add N exercises from the multi-select dialog. Each
+  // new row inherits the default sets/reps/rest_seconds; the trainer can
+  // tweak per-row inputs after the rows land. We respect the 30-row cap
+  // (workoutTemplateSchema.exercises.max(30)) by clipping silently —
+  // anything beyond the cap is dropped. The form-level cap message
+  // surfaces if the user somehow exceeds 30 (e.g., paste-bomb).
+  function appendExercises(exerciseIds: string[]) {
+    const remaining = Math.max(0, 30 - fields.length);
+    const accepted = exerciseIds.slice(0, remaining);
+    if (accepted.length === 0) return;
+    append(
+      accepted.map((exerciseId, idx) => ({
+        exerciseId,
+        sets: 3,
+        reps: 10,
+        rest_seconds: 60,
+        notes: "",
+        order: fields.length + idx + 1,
+      })),
+    );
   }
 
   return (
@@ -735,16 +758,22 @@ export function TemplateForm({
             </SortableContext>
           </DndContext>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={appendExercise}
-            disabled={fields.length >= 30}
-            className="gap-2 self-start"
-          >
-            <Plus className="h-4 w-4" />
-            {t("addExercise")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={appendExercise}
+              disabled={fields.length >= 30}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              {t("addExercise")}
+            </Button>
+            <ExerciseMultiAddDialog
+              onConfirm={appendExercises}
+              disabled={fields.length >= 30}
+            />
+          </div>
         </div>
 
         {/* Form-level error from RHF root */}
