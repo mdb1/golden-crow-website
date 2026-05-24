@@ -40,6 +40,8 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { listEngineeringUsers } from "@/lib/gc-fitness/engineering-actions";
+import { EngineeringAccessCard } from "./_components/EngineeringAccessCard";
 
 export const dynamic = "force-dynamic";
 
@@ -192,7 +194,10 @@ export default async function GCFitnessQAToolsPage() {
     redirect("/gc-fitness/dashboard");
   }
 
-  const activity = await fetchRecentTrainerActivity(trainer);
+  const [activity, engineeringUsers] = await Promise.all([
+    fetchRecentTrainerActivity(trainer),
+    listEngineeringUsers().catch(() => [] as Awaited<ReturnType<typeof listEngineeringUsers>>),
+  ]);
   const tCommon = await getTranslations("common");
 
   return (
@@ -290,6 +295,11 @@ export default async function GCFitnessQAToolsPage() {
           </p>
         </CardContent>
       </Card>
+
+      <EngineeringAccessCard
+        initialUsers={engineeringUsers}
+        currentUid={trainer.uid}
+      />
     </div>
   );
 }
