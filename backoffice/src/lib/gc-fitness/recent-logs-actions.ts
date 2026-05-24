@@ -338,44 +338,60 @@ export async function listRecentLogsForTrainer(): Promise<{
     });
   }
 
-  // 260524 — per-client habit progress for today. Map clientId → "done/total"
-  // so each habit row can render "1/3 habits done today" + a celebratory
-  // emoji when the client hits 100%. "today" uses the trainer's local zone
-  // (Pitfall 1 acceptable here: this is a UX badge for the trainer, not a
-  // wire format — falling back to UTC is harmless on edge cases).
+  // 260524 — habit progress per (clientId, civilDate) so each habit row
+  // can render the right day's status. Today rows show "X/Y habits done
+  // today" + 🎯 on a perfect day; past rows show 🎯 only when the day
+  // was perfect (no partial counts on history — too noisy). Computed
+  // from data already in memory: no extra Firestore queries.
+  // Performance: bucket habit_logs by (clientId, civilDate) first so the
+  // per-pair inner walk is O(logs-on-that-day) instead of O(all-logs).
   const todayCivil = civilDateToday(
     Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
-  const todayHabitProgress = new Map<string, { done: number; total: number }>();
-  clients.forEach((client) => {
-    const habits = habitsByClientId.get(client.uid) ?? [];
-    const scheduledTodayIds = new Set<string>();
-    habits.forEach((h) => {
-      const id = typeof h.id === "string" ? h.id : "";
-      if (id && habitScheduledOn(h, todayCivil)) {
-        scheduledTodayIds.add(id);
-      }
-    });
+  const logsByClientDay = new Map<
+    string,
+    FirebaseFirestore.QueryDocumentSnapshot[]
+  >();
+  habitLogs.forEach((doc) => {
+    const data = doc.data();
+    if (data.deleted === true) return;
+    const cid = typeof data.clientId === "string" ? data.clientId : "";
+    const civ = typeof data.civilDate === "string" ? data.civilDate : "";
+    if (!cid || !civ) return;
+    const key = `${cid}:${civ}`;
+    const bucket = logsByClientDay.get(key);
+    if (bucket) bucket.push(doc);
+    else logsByClientDay.set(key, [doc]);
+  });
+  const habitProgressByDay = new Map<
+    string,
+    { done: number; total: number }
+  >();
+  logsByClientDay.forEach((dayLogs, key) => {
+    const sep = key.indexOf(":");
+    if (sep < 0) return;
+    const clientId = key.slice(0, sep);
+    const civilDate = key.slice(sep + 1);
+    const habits = habitsByClientId.get(clientId) ?? [];
+    if (habits.length === 0) return;
     const habitById = new Map(
       habits.map((h) => [typeof h.id === "string" ? h.id : "", h]),
     );
+    const scheduledIds = new Set<string>();
+    habits.forEach((h) => {
+      const id = typeof h.id === "string" ? h.id : "";
+      if (id && habitScheduledOn(h, civilDate)) scheduledIds.add(id);
+    });
+    if (scheduledIds.size === 0) return;
     let done = 0;
-    habitLogs.forEach((doc) => {
+    for (const doc of dayLogs) {
       const data = doc.data();
-      if (data.clientId !== client.uid) return;
       const habitId = typeof data.habitId === "string" ? data.habitId : "";
-      if (!scheduledTodayIds.has(habitId)) return;
-      const logCivil = typeof data.civilDate === "string" ? data.civilDate : "";
-      if (logCivil !== todayCivil) return;
+      if (!scheduledIds.has(habitId)) continue;
       const habit = habitById.get(habitId);
       if (habit && habitLogCountsAsCompleted(data, habit)) done += 1;
-    });
-    if (scheduledTodayIds.size > 0) {
-      todayHabitProgress.set(client.uid, {
-        done,
-        total: scheduledTodayIds.size,
-      });
     }
+    habitProgressByDay.set(key, { done, total: scheduledIds.size });
   });
 
   const rows: RecentLogRow[] = [];
@@ -440,13 +456,27 @@ export async function listRecentLogsForTrainer(): Promise<{
     const habitId = typeof data.habitId === "string" ? data.habitId : "";
     const habitName = habitNames.get(habitId) ?? "Habit";
     const completed = boolCompleted(data.value);
-    const progress = todayHabitProgress.get(clientId);
-    const isPerfectDay = progress && progress.total > 0 && progress.done >= progress.total;
-    // "1/3 habits done today" suffix on the title; 🎯 prefix on a perfect day.
-    const progressSuffix = progress
-      ? `. ${progress.done}/${progress.total} habits done today`
-      : "";
-    const perfectPrefix = isPerfectDay ? "🎯 " : "";
+    // Use the LOG's civilDate (not "today") so historical rows reflect
+    // their own day's status — never today's. This was the BUG: a Tuesday
+    // row was showing Thursday's "1/3 today" counter.
+    const habitCivilDate =
+      typeof data.civilDate === "string" ? data.civilDate : "";
+    const progress = habitCivilDate
+      ? habitProgressByDay.get(`${clientId}:${habitCivilDate}`)
+      : undefined;
+    const isPerfectDay =
+      progress && progress.total > 0 && progress.done >= progress.total;
+    const isToday = habitCivilDate === todayCivil;
+    let titlePrefix = "";
+    let titleSuffix = "";
+    if (progress && isToday) {
+      titleSuffix = `. ${progress.done}/${progress.total} habits done today`;
+      if (isPerfectDay) titlePrefix = "🎯 ";
+    } else if (isPerfectDay) {
+      // Past day that hit 100% — celebrate, but no partial counts on history.
+      titlePrefix = "🎯 ";
+      titleSuffix = `. All ${progress!.total} habits done that day`;
+    }
 
     rows.push({
       id: `habit:${doc.id}`,
@@ -455,8 +485,8 @@ export async function listRecentLogsForTrainer(): Promise<{
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
       title: completed
-        ? `${perfectPrefix}${nameByClientId.get(clientId) ?? clientId} completed: ${habitName}${progressSuffix}`
-        : `${nameByClientId.get(clientId) ?? clientId} updated: ${habitName}${progressSuffix}`,
+        ? `${titlePrefix}${nameByClientId.get(clientId) ?? clientId} completed: ${habitName}${titleSuffix}`
+        : `${nameByClientId.get(clientId) ?? clientId} updated: ${habitName}${titleSuffix}`,
       detail: completed ? "Completed" : "Pending update",
       workoutLogId: null,
     });
