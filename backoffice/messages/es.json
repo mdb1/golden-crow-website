@@ -858,7 +858,9 @@
     "bulk": {
       "title": "Asignación masiva",
       "subtitle": "Elegí una plantilla + una fecha + varios clientes. Confirmá la lista antes de enviar — todas las asignaciones se guardan de forma atómica.",
-      "backToSchedule": "Volver a la agenda"
+      "backToSchedule": "Volver a la agenda",
+      "emptyHint": "Todavía no tenés clientes. Agregá un cliente primero y volvé para asignar la plantilla.",
+      "emptyCta": "Gestionar clientes"
     },
     "weekGrid": {
       "weekOf": "Semana del {date}",

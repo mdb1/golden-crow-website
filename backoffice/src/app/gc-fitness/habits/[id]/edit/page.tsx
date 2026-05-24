@@ -114,11 +114,19 @@ export default async function EditHabitPage({ params }: PageParams) {
         : undefined),
   };
 
-  const clients = await listClients();
-  const clientOptions = clients.map((c) => ({
-    uid: c.uid,
-    displayName: c.displayName,
-  }));
+  // Plan 20-07: listClients failure shouldn't 500 the edit form — the
+  // habit is editable without picking a new client (clientId is immutable
+  // post-create anyway). Empty roster degrades to a disabled client picker.
+  let clientOptions: { uid: string; displayName: string }[] = [];
+  try {
+    const clients = await listClients();
+    clientOptions = clients.map((c) => ({
+      uid: c.uid,
+      displayName: c.displayName,
+    }));
+  } catch {
+    clientOptions = [];
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">

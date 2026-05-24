@@ -858,7 +858,9 @@
     "bulk": {
       "title": "Bulk Assign",
       "subtitle": "Pick a template + a date + multiple clients. Confirm the list before submitting — all assignments commit atomically.",
-      "backToSchedule": "Back to schedule"
+      "backToSchedule": "Back to schedule",
+      "emptyHint": "You don't have any clients yet. Add a client first, then come back to bulk-assign a template.",
+      "emptyCta": "Manage clients"
     },
     "weekGrid": {
       "weekOf": "Week of {date}",

@@ -45,6 +45,11 @@ export default async function EditTemplatePage({ params }: PageParams) {
 
   const { id } = await params;
   const db = gcFitnessFirestore();
+  // Plan 20-07: a transient Firestore failure on the doc fetch is a
+  // genuine error — let it bubble to the templates/error.tsx boundary
+  // (Plan 20-02) instead of redirecting to the list (which would mask the
+  // failure and make the trainer think the template was deleted). The
+  // "not found" branch below still redirects since that's a different case.
   const snap = await db
     .collection(FirestoreCollections.workoutTemplates)
     .doc(id)
