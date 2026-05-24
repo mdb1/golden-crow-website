@@ -1,10 +1,16 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import type { Metadata } from "next";
 
 import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+
+export const metadata: Metadata = {
+  title: "GC Fitness Admin",
+  description: "GC Fitness trainer backoffice.",
+};
 
 // Plan 13-03 (Phase 13 i18n).
 //
