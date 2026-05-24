@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { MessageCircle, Filter, Dumbbell, ListChecks, Eye, MessageSquare, Camera, Scale } from "lucide-react";
+import {
+  MessageCircle,
+  Filter,
+  Dumbbell,
+  ListChecks,
+  Eye,
+  Camera,
+  Scale,
+  User,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { NudgeButton } from "@/app/gc-fitness/chat/_components/NudgeButton";
 import type { RecentLogRow } from "@/lib/gc-fitness/recent-logs-actions";
 
 interface Props {
@@ -81,8 +89,8 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 <SelectItem value="all">{t("allActivity")}</SelectItem>
                 <SelectItem value="habit">{t("habitsOption")}</SelectItem>
                 <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
-                {/* 260524 — Phase 20: chat / photos / weight categories */}
-                <SelectItem value="chat">Chat</SelectItem>
+                {/* Chat removed: Phase 15 unread badges cover the "client said
+                    something" surface natively. */}
                 <SelectItem value="photo">Photos</SelectItem>
                 <SelectItem value="weight">Body weight</SelectItem>
               </SelectContent>
@@ -114,11 +122,6 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                       <Dumbbell className="h-3.5 w-3.5" />
                       {t("badgeWorkout")}
                     </Badge>
-                  ) : row.category === "chat" ? (
-                    <Badge className="gap-1 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50">
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Chat
-                    </Badge>
                   ) : row.category === "photo" ? (
                     <Badge className="gap-1 border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-50">
                       <Camera className="h-3.5 w-3.5" />
@@ -142,12 +145,17 @@ export function RecentLogsFeed({ logs, clients }: Props) {
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
+                  <Link href={`/gc-fitness/clients/${row.clientId}`}>
+                    <User className="h-4 w-4" />
+                    {t("openProfile")}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
                   <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
                     <MessageCircle className="h-4 w-4" />
                     {t("openChat")}
                   </Link>
                 </Button>
-                <NudgeButton clientId={row.clientId} clientName={row.clientName} />
                 {row.workoutLogId ? (
                   <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
                     <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
