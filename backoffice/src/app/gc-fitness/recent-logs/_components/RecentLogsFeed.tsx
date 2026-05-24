@@ -91,8 +91,9 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
                 {/* Chat removed: Phase 15 unread badges cover the "client said
                     something" surface natively. */}
-                <SelectItem value="photo">Photos</SelectItem>
-                <SelectItem value="weight">Body weight</SelectItem>
+                <SelectItem value="photo">{t("photosOption")}</SelectItem>
+                <SelectItem value="weight">{t("weightOption")}</SelectItem>
+                <SelectItem value="signup">{t("signupOption")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -125,12 +126,17 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                   ) : row.category === "photo" ? (
                     <Badge className="gap-1 border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-50">
                       <Camera className="h-3.5 w-3.5" />
-                      Photo
+                      {t("badgePhoto")}
+                    </Badge>
+                  ) : row.category === "signup" ? (
+                    <Badge className="gap-1 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50">
+                      <User className="h-3.5 w-3.5" />
+                      {t("badgeSignup")}
                     </Badge>
                   ) : (
                     <Badge className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
                       <Scale className="h-3.5 w-3.5" />
-                      Weight
+                      {t("badgeWeight")}
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">
