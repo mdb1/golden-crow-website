@@ -46,6 +46,7 @@ import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-act
 import { getClientDailyTimelineDay } from "@/lib/gc-fitness/client-daily-timeline-actions";
 import { buildClientDailyTimelineDates } from "@/lib/gc-fitness/client-daily-timeline-utils";
 import { ClientDailyTimeline } from "./_components/ClientDailyTimeline";
+import { PendingClientPreload } from "./_components/PendingClientPreload";
 
 export const dynamic = "force-dynamic";
 
@@ -244,17 +245,17 @@ function PendingClientView({
         </p>
       </section>
 
-      <section className="rounded-md border bg-card p-6">
-        <h2 className="mb-2 text-base font-semibold">Pre-cargar contenido</h2>
-        <p className="text-sm text-muted-foreground">
-          Próximamente vas a poder dejarle workouts y hábitos listos antes
-          de que se registre, así arranca con todo configurado el primer
-          día. Por ahora, esperá a que ingrese y después asignále desde la
-          vista normal del cliente. Si querés que apure el ingreso,
-          recordále que se registre con Google usando{" "}
-          <strong>{email}</strong>.
-        </p>
-      </section>
+      {/* P22-04 — pre-load workouts + habits for this pending client.
+          Server actions inside PendingClientPreload write to
+          workout_assignments + habits with pendingEmail set. On first
+          sign-in, convertMirrorToCanonical migrates clientId atomically. */}
+      <PendingClientPreload normalizedEmail={normalizedEmail} />
+
+      <p className="text-xs text-muted-foreground">
+        Cuando <strong>{email}</strong> inicie sesión con Google por primera
+        vez, su perfil se va a crear automáticamente y todo el contenido
+        pre-cargado va a aparecer en su cliente activo.
+      </p>
     </div>
   );
 }

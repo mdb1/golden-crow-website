@@ -460,6 +460,97 @@ export async function createHabit(
   return { id: docId };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P22-04 (MIRROR-04) — createPendingHabit
+// Trainer creates a habit for a PENDING client. The doc carries pendingEmail
+// in lieu of clientId. On the client's first sign-in, convertMirrorToCanonical
+// rewrites clientId + drops pendingEmail atomically.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function createPendingHabit(
+  pendingEmail: string,
+  input: unknown,
+): Promise<{ id: string }> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  // Server-side ownership check on the mirror.
+  const mirrorSnap = await db
+    .collection(FirestoreCollections.userMirror)
+    .doc(pendingEmail)
+    .get();
+  if (!mirrorSnap.exists) throw new Error("Pending client not found.");
+  const mirror = mirrorSnap.data() as { coachId?: string; pre_created?: boolean };
+  if (mirror.coachId !== trainer.uid) throw new Error("Not your pending client.");
+  if (mirror.pre_created !== true) throw new Error("Mirror not marked pre_created.");
+
+  // Reuse the same Zod schema as createHabit — but strip clientId since the
+  // pending-variant uses pendingEmail instead. The schema requires clientId,
+  // so we inject a placeholder before parse + drop it on the way out.
+  const dataWithPlaceholderClient = {
+    ...(input as Record<string, unknown>),
+    clientId: `pending:${pendingEmail}`, // discarded below — only needed for schema parse
+  };
+  const data = habitCreateSchema.parse(dataWithPlaceholderClient);
+
+  const docId = `hab-pending-${pendingEmail}-${randomUUID()}`;
+  const docRef = db.collection(COLLECTION).doc(docId);
+
+  await docRef.set(withoutUndefined({
+    ...data,
+    clientId: null,
+    pendingEmail,
+    reminderDayOfMonth:
+      data.reminderDayOfMonth ??
+      (Array.isArray(data.reminderMonthDays) && data.reminderMonthDays.length > 0
+        ? data.reminderMonthDays[0]
+        : undefined),
+    scheduleDayOfMonth:
+      data.scheduleDayOfMonth ??
+      (Array.isArray(data.scheduleMonthDays) && data.scheduleMonthDays.length > 0
+        ? data.scheduleMonthDays[0]
+        : undefined),
+    startsOn: normalizeStartsOn(data.startsOn),
+    id: docId,
+    trainerId: trainer.uid,
+    deleted: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }));
+
+  return { id: docId };
+}
+
+/**
+ * P22-04 — list pre-loaded habits for a pending client.
+ */
+export async function listPendingHabits(pendingEmail: string): Promise<Array<{
+  id: string;
+  name: string;
+  type: string;
+}>> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(COLLECTION)
+    .where("trainerId", "==", trainer.uid)
+    .where("pendingEmail", "==", pendingEmail)
+    .get();
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    const rawName = data.name;
+    const name =
+      typeof rawName === "string"
+        ? rawName
+        : (rawName as { es?: string; en?: string } | undefined)?.es ?? "(unnamed)";
+    return {
+      id: doc.id,
+      name,
+      type: typeof data.type === "string" ? data.type : "binary",
+    };
+  });
+}
+
 /**
  * Updates an existing trainer-owned habit.
  *

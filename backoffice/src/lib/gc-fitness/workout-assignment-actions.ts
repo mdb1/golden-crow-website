@@ -267,6 +267,98 @@ export async function assignTemplate(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// P22-04 (MIRROR-04) — assignTemplateToPending
+// Same shape as assignTemplate but for a PENDING client (user_mirror/{email}).
+// The doc carries `pendingEmail` instead of a real `clientId` (which is null).
+// On the client's first sign-in, convertMirrorToCanonical swaps pendingEmail
+// for clientId atomically with the user/chat-doc creation batch.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function assignTemplateToPending(input: {
+  templateId: string;
+  pendingEmail: string;
+  scheduledFor: string;
+  scheduledTime?: string | null;
+  meetingNotes?: string | null;
+  timezone?: string | null;
+}): Promise<{ id: string }> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  // Server-side ownership check on the mirror doc (defense in depth — the
+  // rule layer's mirror.coachId==auth.uid check also fires at write time).
+  const mirrorSnap = await db
+    .collection(FirestoreCollections.userMirror)
+    .doc(input.pendingEmail)
+    .get();
+  if (!mirrorSnap.exists) throw new Error("Pending client not found.");
+  const mirror = mirrorSnap.data() as { coachId?: string; pre_created?: boolean };
+  if (mirror.coachId !== trainer.uid) throw new Error("Not your pending client.");
+  if (mirror.pre_created !== true) throw new Error("Mirror not marked pre_created.");
+
+  const templateSnap = await db.collection(TEMPLATES).doc(input.templateId).get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = templateSnap.data() as { trainerId?: string; isStandard?: boolean } & Record<string, unknown>;
+  const canUseTemplate = template.trainerId === trainer.uid || template.isStandard === true;
+  if (!canUseTemplate) throw new Error("Not your template.");
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.scheduledFor)) {
+    throw new Error("Invalid civil date (expected YYYY-MM-DD).");
+  }
+
+  const ymd = input.scheduledFor.replace(/-/g, "");
+  // Doc-id includes mirror-prefixed key so it's distinguishable in Firestore Console.
+  const docId = `asg-pending-${input.pendingEmail}-${ymd}-${randomUUID()}`;
+  const ref = db.collection(ASSIGNMENTS).doc(docId);
+  const templateSnapshot = await templateSnapshotForAssignment(template);
+
+  await ref.set({
+    templateId: input.templateId,
+    templateSnapshot,
+    clientId: null, // canonical client doesn't exist yet
+    pendingEmail: input.pendingEmail,
+    trainerId: trainer.uid,
+    scheduledFor: input.scheduledFor,
+    scheduledTime: input.scheduledTime ?? null,
+    meetingNotes: input.meetingNotes ?? null,
+    timezone: input.timezone ?? null,
+    status: "scheduled" as const,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { id: docId };
+}
+
+/**
+ * P22-04 — list pre-loaded assignments for a pending client.
+ * Drives the PendingClientPreload UI's "already assigned" list.
+ */
+export async function listPendingAssignments(pendingEmail: string): Promise<Array<{
+  id: string;
+  templateName: string;
+  scheduledFor: string;
+}>> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(ASSIGNMENTS)
+    .where("trainerId", "==", trainer.uid)
+    .where("pendingEmail", "==", pendingEmail)
+    .get();
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    const snapshot = (data.templateSnapshot ?? {}) as { name?: unknown };
+    const name = typeof snapshot.name === "string" ? snapshot.name : (snapshot.name as { en?: string; es?: string } | undefined)?.es ?? "(unnamed)";
+    return {
+      id: doc.id,
+      templateName: name,
+      scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // bulkAssignTemplate — N-client atomic WriteBatch (SC#2 acceptance surface)
 // ─────────────────────────────────────────────────────────────────────────────
 
