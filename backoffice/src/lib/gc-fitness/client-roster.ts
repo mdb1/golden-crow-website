@@ -315,11 +315,20 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // chats.unreadCount[trainerUid] — read ONLY the calling trainer's
       // counter (T-11-05-CHAT-UNREAD-SPOOF mitigation: never project a
       // different trainer's count).
-      const chatData = chatDocSnap.data();
-      const unreadMap = (chatData?.unreadCount ?? {}) as Record<string, number>;
-      const rawUnread = unreadMap[trainer.uid];
-      const unreadChatCount =
-        typeof rawUnread === "number" && rawUnread > 0 ? rawUnread : 0;
+      // 260524 — also tolerate the legacy flat top-level
+      // `"unreadCount.{trainerUid}"` field that pre-fix Cloud Function writes
+      // produced (see `readUnreadCountFromRaw` in chat-server-actions.ts).
+      const chatData = (chatDocSnap.data() ?? {}) as Record<string, unknown>;
+      const nestedMap =
+        (chatData.unreadCount as Record<string, number> | undefined) ?? {};
+      const legacyFlat = chatData[`unreadCount.${trainer.uid}`];
+      const rawUnread =
+        typeof nestedMap[trainer.uid] === "number"
+          ? nestedMap[trainer.uid]
+          : typeof legacyFlat === "number"
+            ? (legacyFlat as number)
+            : 0;
+      const unreadChatCount = rawUnread > 0 ? rawUnread : 0;
 
       // This-week compliance — fetch up to 50 logs per habit (>>7 expected),
       // compute per-habit ratio via the Pattern-B pure function, then average.

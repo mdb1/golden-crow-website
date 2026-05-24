@@ -67,7 +67,10 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  gcFitnessFirestore,
+  gcFitnessStorage,
+} from "@/lib/firebase/gc-fitness-admin";
 
 import {
   sendMessageInputSchema,
@@ -95,6 +98,43 @@ function toIso(v: unknown): string | null {
   if (v instanceof Date) return v.toISOString();
   if (typeof v === "string") return v;
   return null;
+}
+
+/**
+ * 260524 — Merge the canonical nested `unreadCount` map with any legacy
+ * flat top-level fields named literally `"unreadCount.X"` (see iOS
+ * `ChatRepository.decodeUnreadCountMerged` for the full background). The
+ * Cloud Function `onMessageCreated` before this PR used
+ * `tx.set(chatRef, payload, { merge: true })` with dotted-string keys —
+ * Firestore's set() treats those as literal field names instead of
+ * nested paths, so docs created before the fix carry `unreadCount.X`
+ * top-level fields and an empty/missing `unreadCount` map. New writes
+ * use the proper nested form; this helper bridges both so existing data
+ * shows the right badges without a backfill.
+ */
+function readUnreadCountFromRaw(
+  data: Record<string, unknown>,
+): Record<string, number> {
+  const merged: Record<string, number> = {};
+  // Pass 1 — legacy flat dotted-key fields.
+  for (const [key, value] of Object.entries(data)) {
+    if (!key.startsWith("unreadCount.")) continue;
+    const uid = key.slice("unreadCount.".length);
+    if (!uid) continue;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      merged[uid] = value;
+    }
+  }
+  // Pass 2 — canonical nested map; overwrites legacy entries on conflict.
+  const nested = data.unreadCount;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    for (const [uid, value] of Object.entries(nested as Record<string, unknown>)) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        merged[uid] = value;
+      }
+    }
+  }
+  return merged;
 }
 
 function projectLastMessage(
@@ -314,8 +354,7 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
       coachId: (data.coachId as string) ?? "",
       lastMessage,
       lastMessageAt,
-      unreadCount:
-        (data.unreadCount as Record<string, number> | undefined) ?? {},
+      unreadCount: readUnreadCountFromRaw(data),
       createdAt: toIso(data.createdAt),
       updatedAt: toIso(data.updatedAt),
     } satisfies ChatRow;
@@ -424,6 +463,114 @@ export async function setReadReceiptForTrainer(
     .doc(messageId)
     .update(
       new FieldPath("readBy", session.uid),
+      FieldValue.serverTimestamp(),
+    );
+
+  return { ok: true };
+}
+
+// ── getChatAttachmentUrl (reader — signed URL for image/voice attachments) ──
+//
+// 260524 — chat messages of kind `image` / `voice` carry a Storage `imagePath`
+// / `voicePath` (`images/{chatId}/{messageId}.jpg`, `voices/{chatId}/{...}.m4a`)
+// per Message.swift (P08-02). The trainer surface previously rendered these
+// as italic placeholders ("📷 Foto" / "🎤 Voice note") because resolving the
+// download URL needed a separate fetch endpoint — V1 carry-forward in
+// 08-04. This action closes that gap by minting a v4 signed URL via the
+// Admin SDK (mirrors `signedUrlForPath` in `progress-photo-actions.ts`)
+// after asserting the trainer owns the chat doc.
+//
+// The URL expires in 60 minutes. The client (MessageBubble) caches the URL
+// in React Query keyed by `(chatId, storagePath)`; the cache TTL inside
+// React Query is shorter than the URL TTL so the client refetches before
+// the URL expires.
+//
+// Ownership precondition (Pitfall 22 + T-08-04-01 defense-in-depth):
+//   The trainer can only fetch URLs for chats they own. The Storage rule
+//   layer ALSO enforces this via `isChatParticipant(chatId)` on the
+//   /images/{chatId}/* and /voices/{chatId}/* paths (storage.rules) — but
+//   Admin SDK signed URLs bypass Storage rules, so the trainer-ownership
+//   gate at the Server Action layer is the SOLE gate at this surface.
+export async function getChatAttachmentUrl(
+  chatId: string,
+  storagePath: string,
+): Promise<string | null> {
+  const session = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  // T-08-04-01 — ownership precondition. The chat doc MUST exist (an
+  // attachment message can only land via /chats/{chatId}/messages writes
+  // which require the parent chat doc to be born). If the doc is missing,
+  // refuse.
+  await assertChatOwnership(db, chatId, session.uid);
+
+  // Path-shape guard — only allow signing for the documented chat paths so
+  // the trainer cannot probe arbitrary Storage paths via this surface.
+  // Mirrors the storage.rules narrowness (`/images/{chatId}/*` and
+  // `/voices/{chatId}/*`).
+  const allowedPrefixes = [`images/${chatId}/`, `voices/${chatId}/`];
+  if (!allowedPrefixes.some((prefix) => storagePath.startsWith(prefix))) {
+    throw new Error("Forbidden");
+  }
+
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const bucketCandidates = [
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
+    projectId ? `${projectId}.appspot.com` : undefined,
+    projectId ? `${projectId}.firebasestorage.app` : undefined,
+  ].filter((value): value is string => Boolean(value));
+
+  for (const bucketName of bucketCandidates) {
+    try {
+      const [url] = await gcFitnessStorage()
+        .bucket(bucketName)
+        .file(storagePath)
+        .getSignedUrl({
+          action: "read",
+          expires: Date.now() + 60 * 60 * 1000,
+        });
+      return url;
+    } catch {
+      // Try next bucket candidate (mirrors `signedUrlForPath` in
+      // progress-photo-actions.ts).
+    }
+  }
+
+  console.warn(
+    `[chat] getChatAttachmentUrl: signed URL failed for all bucket candidates (${storagePath})`,
+  );
+  return null;
+}
+
+// ── markChatReadForTrainer (writer — fast-path unreadCount zero) ───────
+//
+// Trainer opens a thread → instantly zero `chats/{chatId}.unreadCount.{trainerUid}`
+// so the inbox row badge clears in one round-trip instead of waiting for
+// every partner message's per-doc `readBy.{trainerUid}` write to fan in
+// through the `onMessageUpdated` Cloud Function (which the trainer never
+// triggered before this branch existed — the per-message readBy path
+// applied only to messages the trainer's UI actually rendered).
+//
+// 260524: the iOS `ChatRepository.markChatRead` (P15-02) is the same
+// shape. Both surfaces converge on the rule layer's narrow `allow update`
+// branch (P15-01): exactly `{unreadCount.{auth.uid}: 0, updatedAt}` with
+// the value clamp `== 0`. Defense in depth — the Cloud Function still
+// runs and is harmless on an already-zero slot.
+export async function markChatReadForTrainer(
+  chatId: string,
+): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  await assertChatOwnership(db, chatId, session.uid);
+
+  await db
+    .collection(CHATS)
+    .doc(chatId)
+    .update(
+      new FieldPath("unreadCount", session.uid),
+      0,
+      "updatedAt",
       FieldValue.serverTimestamp(),
     );
 

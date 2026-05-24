@@ -30,11 +30,15 @@
 //
 // Trainer uid (Note H) plumbed in from `client.tsx`.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { useChatMessages } from "@/lib/gc-fitness/chat-listener";
-import { setReadReceiptForTrainer } from "@/lib/gc-fitness/chat-server-actions";
+import {
+  getChatAttachmentUrl,
+  markChatReadForTrainer,
+  setReadReceiptForTrainer,
+} from "@/lib/gc-fitness/chat-server-actions";
 import type { MessageRow } from "@/lib/gc-fitness/chat-schema";
 
 import type { ClientRosterEntry } from "../client";
@@ -72,6 +76,14 @@ export function ChatConversation({
   useEffect(() => {
     // Reset the dedupe set when the active chat changes.
     alreadyMarkedRef.current = new Set();
+    // 260524 — FAST path: zero chats/{chatId}.unreadCount.{trainerUid}
+    // on open so the inbox row badge clears in one round-trip instead of
+    // waiting for the per-message readBy fan-in. Idempotent under the
+    // P15-01 rule branch (value clamp == 0); harmless if the slot is
+    // already zero. Mirrors iOS ChatViewModel.start markChatRead call.
+    markChatReadForTrainer(chatId).catch((err) => {
+      console.warn(`[chat] markChatReadForTrainer failed for ${chatId}`, err);
+    });
   }, [chatId]);
 
   useEffect(() => {
@@ -135,6 +147,7 @@ export function ChatConversation({
             ) : (
               <MessageBubble
                 key={row.message.id}
+                chatId={chatId}
                 message={row.message}
                 isOwn={row.message.senderId === trainerUid}
               />
@@ -164,21 +177,25 @@ function DaySeparator({ civilDate }: { civilDate: string }) {
 }
 
 interface MessageBubbleProps {
+  chatId: string;
   message: MessageRow;
   isOwn: boolean;
 }
 
-function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+function MessageBubble({ chatId, message, isOwn }: MessageBubbleProps) {
   const t = useTranslations("chat.conversation");
   const align = isOwn ? "justify-end" : "justify-start";
   const tone = isOwn
     ? "bg-primary text-primary-foreground"
     : "bg-muted text-foreground";
 
-  // V1 attachment rendering (Note I — V2 carry-forward):
-  //   image / voice variants surface as italic placeholders. Full media
-  //   rendering requires a signed-URL fetch endpoint, which lives outside
-  //   this plan's scope.
+  // 260524 — render real photos + voice notes via signed Storage URLs.
+  // Previous V1 carry-forward shipped italic placeholders ("📷 Foto"
+  // / "🎤 Voice note") because resolving the download URL required a
+  // round-trip the inbox UI didn't have. The `getChatAttachmentUrl`
+  // Server Action (chat-server-actions.ts) mints a v4 signed URL via
+  // the Admin SDK after asserting the trainer owns the chat, so the
+  // bubble can lazy-load the asset.
   let body: React.ReactNode;
   if (message.kind === "text") {
     body = (
@@ -186,21 +203,25 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         {message.text ?? ""}
       </p>
     );
-  } else if (message.kind === "image") {
+  } else if (message.kind === "image" && message.imagePath) {
     body = (
-      <span className="text-sm italic">
-        {t("imagePhoto")}
-        {message.text ? ` — ${message.text}` : ""}
-      </span>
+      <ChatImageBubble
+        chatId={chatId}
+        imagePath={message.imagePath}
+        caption={message.text}
+        width={message.imageWidth}
+        height={message.imageHeight}
+        placeholder={t("imagePhoto")}
+      />
     );
-  } else if (message.kind === "voice") {
-    const seconds = Math.round((message.voiceDurationMs ?? 0) / 1000);
+  } else if (message.kind === "voice" && message.voicePath) {
     body = (
-      <span className="text-sm italic">
-        {seconds > 0
-          ? t("voiceNoteWithDuration", { seconds })
-          : t("voiceNote")}
-      </span>
+      <ChatVoiceBubble
+        chatId={chatId}
+        voicePath={message.voicePath}
+        durationMs={message.voiceDurationMs}
+        placeholder={t("voiceNote")}
+      />
     );
   } else {
     // Defensive: future-variant safety. Cast to never-via-string for legibility.
@@ -218,6 +239,114 @@ function MessageBubble({ message, isOwn }: MessageBubbleProps) {
       </div>
     </div>
   );
+}
+
+interface ChatImageBubbleProps {
+  chatId: string;
+  imagePath: string;
+  caption: string | null | undefined;
+  width: number | null | undefined;
+  height: number | null | undefined;
+  placeholder: string;
+}
+
+function ChatImageBubble({
+  chatId,
+  imagePath,
+  caption,
+  width,
+  height,
+  placeholder,
+}: ChatImageBubbleProps) {
+  const url = useSignedAttachmentUrl(chatId, imagePath);
+  if (url === null) {
+    return (
+      <span className="text-sm italic">
+        {placeholder}
+        {caption ? ` — ${caption}` : ""}
+      </span>
+    );
+  }
+  const aspect = width && height ? `${width} / ${height}` : undefined;
+  return (
+    <div className="flex flex-col gap-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={caption ?? placeholder}
+        loading="lazy"
+        style={aspect ? { aspectRatio: aspect } : undefined}
+        className="max-h-80 w-auto rounded-lg object-cover"
+      />
+      {caption ? <p className="text-sm">{caption}</p> : null}
+    </div>
+  );
+}
+
+interface ChatVoiceBubbleProps {
+  chatId: string;
+  voicePath: string;
+  durationMs: number | null | undefined;
+  placeholder: string;
+}
+
+function ChatVoiceBubble({
+  chatId,
+  voicePath,
+  durationMs,
+  placeholder,
+}: ChatVoiceBubbleProps) {
+  const url = useSignedAttachmentUrl(chatId, voicePath);
+  const seconds = Math.round((durationMs ?? 0) / 1000);
+  if (url === null) {
+    return <span className="text-sm italic">{placeholder}</span>;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <audio controls src={url} className="w-full max-w-xs">
+        <track kind="captions" />
+      </audio>
+      {seconds > 0 ? (
+        <span className="text-[10px] opacity-70">{seconds}s</span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Lazy-load a signed Storage URL for a chat attachment. Returns:
+ *   - `undefined` while the URL fetch is in flight;
+ *   - `null` when the fetch failed (caller renders the placeholder);
+ *   - the URL string on success.
+ *
+ * The signed URL expires in 60 minutes (see `getChatAttachmentUrl` in
+ * chat-server-actions.ts). We don't refetch on a timer — the trainer's
+ * inbox sessions are typically shorter than 60 minutes, and React Query's
+ * 10s message-feed refetch would not re-render the bubble unless the
+ * message id changes anyway.
+ */
+function useSignedAttachmentUrl(
+  chatId: string,
+  storagePath: string,
+): string | null | undefined {
+  const [state, setState] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    setState(undefined);
+    getChatAttachmentUrl(chatId, storagePath)
+      .then((url) => {
+        if (cancelled) return;
+        setState(url);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, storagePath]);
+  return state;
 }
 
 function ReactionRow({ reactions }: { reactions: Record<string, string> }) {
