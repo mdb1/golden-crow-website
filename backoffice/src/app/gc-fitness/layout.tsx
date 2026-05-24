@@ -1,6 +1,7 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
+import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
@@ -29,6 +30,7 @@ export default async function GCFitnessLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
+      <FirebaseTelemetryInit />
       <GCFitnessShellProviders>
         <GCFitnessShell trainerUid={trainerUid}>{children}</GCFitnessShell>
       </GCFitnessShellProviders>

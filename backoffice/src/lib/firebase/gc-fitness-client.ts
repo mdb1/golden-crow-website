@@ -1,5 +1,14 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import {
+  getAnalytics,
+  isSupported as isAnalyticsSupported,
+  type Analytics,
+} from "firebase/analytics";
 import { getAuth, type Auth } from "firebase/auth";
+import {
+  getPerformance,
+  type FirebasePerformance,
+} from "firebase/performance";
 
 // Scoped Firebase Web SDK initializer for the gc-fitness Firebase project
 // (`gcfitness-3476b`). The existing MyDNAMap / Pocket Gyms surfaces use the
@@ -23,6 +32,11 @@ const gcFitnessConfig = {
   messagingSenderId:
     process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_APP_ID,
+  // Optional — only present if Analytics has been enabled in the Firebase
+  // Console for this project (web app config will populate it). Safe to be
+  // undefined; getAnalytics() will skip silently.
+  measurementId:
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_MEASUREMENT_ID,
 };
 
 function getGCFitnessApp(): FirebaseApp {
@@ -35,4 +49,44 @@ function getGCFitnessApp(): FirebaseApp {
 
 export function getGCFitnessAuth(): Auth {
   return getAuth(getGCFitnessApp());
+}
+
+// Analytics + Performance — both web SDKs require `window` and are safe-noop
+// on the server. Lazy-cached singletons so HMR / re-renders don't re-init.
+
+let analyticsInstance: Analytics | null = null;
+let analyticsInitPromise: Promise<Analytics | null> | null = null;
+/**
+ * Returns the GC Fitness Analytics instance lazily. Resolves to `null` on
+ * SSR / unsupported browsers (e.g. private-mode without storage). Safe to
+ * call from a useEffect on the client; idempotent across HMR.
+ */
+export function getGCFitnessAnalytics(): Promise<Analytics | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (analyticsInstance) return Promise.resolve(analyticsInstance);
+  if (analyticsInitPromise) return analyticsInitPromise;
+  analyticsInitPromise = isAnalyticsSupported()
+    .then((supported) => {
+      if (!supported) return null;
+      analyticsInstance = getAnalytics(getGCFitnessApp());
+      return analyticsInstance;
+    })
+    .catch(() => null);
+  return analyticsInitPromise;
+}
+
+let performanceInstance: FirebasePerformance | null = null;
+/**
+ * Returns the GC Fitness Performance Monitoring instance lazily. Safe-noop
+ * on the server. The SDK auto-traces page load + HTTPS network requests.
+ */
+export function getGCFitnessPerformance(): FirebasePerformance | null {
+  if (typeof window === "undefined") return null;
+  if (performanceInstance) return performanceInstance;
+  try {
+    performanceInstance = getPerformance(getGCFitnessApp());
+  } catch {
+    performanceInstance = null;
+  }
+  return performanceInstance;
 }
