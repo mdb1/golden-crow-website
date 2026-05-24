@@ -532,6 +532,8 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
   type: string;
   scheduleType: "one-time" | "recurring";
   scheduleCadence: "daily" | "weekly" | "monthly" | null;
+  scheduleWeekdays: number[];
+  scheduleMonthDays: number[];
 }>> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
@@ -560,6 +562,17 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
           : data.scheduleCadence === "daily"
             ? "daily"
             : null,
+      scheduleWeekdays: Array.isArray(data.scheduleWeekdays)
+        ? (data.scheduleWeekdays as number[]).filter((d) => Number.isInteger(d) && d >= 1 && d <= 7)
+        : [],
+      scheduleMonthDays: Array.isArray(data.scheduleMonthDays)
+        ? (data.scheduleMonthDays as number[]).filter((d) => Number.isInteger(d) && d >= 1 && d <= 31)
+        : typeof data.scheduleDayOfMonth === "number" &&
+            Number.isInteger(data.scheduleDayOfMonth) &&
+            data.scheduleDayOfMonth >= 1 &&
+            data.scheduleDayOfMonth <= 31
+          ? [data.scheduleDayOfMonth]
+          : [],
     };
   }).filter((row): row is {
     id: string;
@@ -567,6 +580,8 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
     type: string;
     scheduleType: "one-time" | "recurring";
     scheduleCadence: "daily" | "weekly" | "monthly" | null;
+    scheduleWeekdays: number[];
+    scheduleMonthDays: number[];
   } => row !== null);
 }
 

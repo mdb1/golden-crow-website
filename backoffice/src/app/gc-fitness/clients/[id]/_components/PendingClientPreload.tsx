@@ -29,6 +29,26 @@ import { revalidatePath } from "next/cache";
 import { PendingWorkoutAssignForm } from "./PendingWorkoutAssignForm";
 import { PendingHabitPreloadForm } from "./PendingHabitPreloadForm";
 
+const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
+  0: "Dom",
+  1: "Lun",
+  2: "Mar",
+  3: "Mié",
+  4: "Jue",
+  5: "Vie",
+  6: "Sáb",
+};
+
+const WEEKDAY_LABELS_HABIT: Record<number, string> = {
+  1: "Lun",
+  2: "Mar",
+  3: "Mié",
+  4: "Jue",
+  5: "Vie",
+  6: "Sáb",
+  7: "Dom",
+};
+
 export async function PendingClientPreload({
   normalizedEmail,
 }: {
@@ -199,6 +219,7 @@ export async function PendingClientPreload({
     templateName: string;
     scheduledFor: string;
     cadenceTag: string | null;
+    cadenceDetail: string | null;
     cascadeFromDate: string | null;
   }>>((acc, row) => {
     if (!row.seriesId) {
@@ -207,6 +228,7 @@ export async function PendingClientPreload({
         templateName: row.templateName,
         scheduledFor: row.scheduledFor,
         cadenceTag: null,
+        cadenceDetail: null,
         cascadeFromDate: null,
       });
       return acc;
@@ -223,6 +245,15 @@ export async function PendingClientPreload({
             : recurrence?.kind === "every_n_days"
               ? `Cada ${recurrence.everyN} días`
               : "Recurrente";
+    const cadenceDetail =
+      recurrence?.kind === "weekly"
+        ? WEEKDAY_LABELS_WORKOUT[recurrence.weekday] ?? null
+        : recurrence?.kind === "weekly_days"
+          ? recurrence.weekdays
+              .map((day) => WEEKDAY_LABELS_WORKOUT[day])
+              .filter((day): day is string => Boolean(day))
+              .join(", ")
+          : null;
 
     const existing = acc.find((entry) => entry.cascadeFromDate === `series:${row.seriesId}`);
     if (!existing) {
@@ -231,6 +262,7 @@ export async function PendingClientPreload({
         templateName: row.templateName,
         scheduledFor: row.scheduledFor,
         cadenceTag,
+        cadenceDetail: cadenceDetail || null,
         cascadeFromDate: `series:${row.seriesId}`,
       });
       return acc;
@@ -261,6 +293,7 @@ export async function PendingClientPreload({
                   {row.cadenceTag ? (
                     <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                       {row.cadenceTag}
+                      {row.cadenceDetail ? ` · ${row.cadenceDetail}` : ""}
                     </span>
                   ) : null}
                   <span className="text-xs text-muted-foreground">
@@ -315,9 +348,20 @@ export async function PendingClientPreload({
                     {row.scheduleType === "one-time"
                       ? "Una vez"
                       : row.scheduleCadence === "weekly"
-                        ? "Semanal"
+                        ? `Semanal${
+                            row.scheduleWeekdays.length > 0
+                              ? ` · ${row.scheduleWeekdays
+                                  .map((d) => WEEKDAY_LABELS_HABIT[d])
+                                  .filter((v): v is string => Boolean(v))
+                                  .join(", ")}`
+                              : ""
+                          }`
                         : row.scheduleCadence === "monthly"
-                          ? "Mensual"
+                          ? `Mensual${
+                              row.scheduleMonthDays.length > 0
+                                ? ` · ${row.scheduleMonthDays.join(", ")}`
+                                : ""
+                            }`
                           : "Diaria"}
                   </span>
                 </div>
