@@ -266,6 +266,10 @@
     "title": "Plantillas de entrenamiento",
     "newTemplate": "Nueva plantilla",
     "editTemplate": "Editar plantilla",
+    "newPage": {
+      "title": "Nuevo template de entrenamiento",
+      "subtitle": "Elegí una etiqueta, agregá ejercicios, prescribí series / repeticiones / descanso y guardá."
+    },
     "empty": {
       "headline": "Aún no hay plantillas",
       "body": "Creá tu primera plantilla de entrenamiento."
@@ -849,7 +853,7 @@
   "schedule": {
     "title": "Agenda",
     "subtitle": "Asigná entrenamientos día por día, o usá la asignación masiva para repartir entre varios clientes a la vez.",
-    "bulkAssign": "Asignación masiva",
+    "bulkAssignLabel": "Asignación masiva",
     "clientPicker": {
       "emptyTitle": "Aún no tenés clientes",
       "emptyBody": "Cuando tus clientes inicien sesión en la app de iOS, van a aparecer acá.",

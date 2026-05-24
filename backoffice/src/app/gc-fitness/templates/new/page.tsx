@@ -10,6 +10,7 @@
 // page.
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { ExerciseQueryProvider } from "../../exercises/providers";
@@ -19,6 +20,7 @@ import { NewTemplateClient } from "./client";
 export const dynamic = "force-dynamic";
 
 export default async function NewTemplatePage() {
+  const t = await getTranslations("templates.newPage");
   try {
     await getCurrentTrainer();
   } catch (err) {
@@ -33,10 +35,10 @@ export default async function NewTemplatePage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          New workout template
+          {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Pick a tag, add exercises, prescribe sets / reps / rest, and save.
+          {t("subtitle")}
         </p>
       </div>
       <TemplatesQueryProvider>

@@ -266,6 +266,10 @@
     "title": "Workout templates",
     "newTemplate": "New template",
     "editTemplate": "Edit template",
+    "newPage": {
+      "title": "New workout template",
+      "subtitle": "Pick a tag, add exercises, prescribe sets / reps / rest, and save."
+    },
     "empty": {
       "headline": "No templates yet",
       "body": "Create your first workout template."
@@ -849,7 +853,7 @@
   "schedule": {
     "title": "Schedule",
     "subtitle": "Assign workouts day-by-day, or jump to bulk-assign to fan out to many clients at once.",
-    "bulkAssign": "Bulk assign",
+    "bulkAssignLabel": "Bulk assign",
     "clientPicker": {
       "emptyTitle": "No clients yet",
       "emptyBody": "Once your clients sign in via the iOS app, they'll appear here.",

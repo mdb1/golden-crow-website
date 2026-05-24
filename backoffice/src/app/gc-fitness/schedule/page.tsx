@@ -62,7 +62,7 @@ export default async function SchedulePage({
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
+          <Link href="/gc-fitness/schedule/bulk">{t("bulkAssignLabel")}</Link>
         </Button>
       </header>
 
