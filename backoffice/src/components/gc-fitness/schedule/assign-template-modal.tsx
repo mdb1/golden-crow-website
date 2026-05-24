@@ -101,6 +101,7 @@ export function AssignTemplateModal({
   );
   // Plan 21-04b: every-N-days step (default 2; range 2..30 per Zod).
   const [recurringEveryN, setRecurringEveryN] = useState<number>(2);
+  const [recurringEveryNDraft, setRecurringEveryNDraft] = useState<string>("2");
   const [recurringEndEnabled, setRecurringEndEnabled] = useState(false);
   const [recurringEndDate, setRecurringEndDate] = useState<string>(defaultDate);
   const [submitting, setSubmitting] = useState(false);
@@ -117,6 +118,7 @@ export function AssignTemplateModal({
         new Set([parseCivilToLocalDate(defaultDate).getDay()]),
       );
       setRecurringEveryN(2);
+      setRecurringEveryNDraft("2");
       setRecurringEndEnabled(false);
       setRecurringEndDate(defaultDate);
     }
@@ -276,12 +278,28 @@ export function AssignTemplateModal({
                 type="number"
                 min={2}
                 max={30}
-                value={recurringEveryN}
+                value={recurringEveryNDraft}
                 onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) {
-                    setRecurringEveryN(Math.max(2, Math.min(30, next)));
+                  const raw = event.target.value;
+                  setRecurringEveryNDraft(raw);
+                  if (raw.trim() === "") return;
+                  const next = Number(raw);
+                  if (!Number.isFinite(next)) return;
+                  setRecurringEveryN(Math.max(2, Math.min(30, next)));
+                }}
+                onBlur={() => {
+                  if (recurringEveryNDraft.trim() === "") {
+                    setRecurringEveryNDraft(String(recurringEveryN));
+                    return;
                   }
+                  const next = Number(recurringEveryNDraft);
+                  if (!Number.isFinite(next)) {
+                    setRecurringEveryNDraft(String(recurringEveryN));
+                    return;
+                  }
+                  const normalized = Math.max(2, Math.min(30, next));
+                  setRecurringEveryN(normalized);
+                  setRecurringEveryNDraft(String(normalized));
                 }}
                 className="h-10 w-24 rounded-md border bg-background px-3 text-sm"
               />

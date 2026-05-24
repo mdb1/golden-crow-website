@@ -25,7 +25,7 @@
 // This keeps the form pure and lets the route handle the post-success
 // redirect / refresh.
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -152,6 +152,8 @@ export function TemplateForm({
   const t = useTranslations("templates.form");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [setsDraft, setSetsDraft] = useState<Record<string, string>>({});
+  const [setRepsDraft, setSetRepsDraft] = useState<Record<string, string>>({});
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -531,18 +533,40 @@ export function TemplateForm({
                                 type="number"
                                 min={1}
                                 max={10}
-                                value={numField.value ?? ""}
+                                value={setsDraft[field.id] ?? (numField.value ?? "")}
                                 onChange={(e) =>
                                   {
-                                    const parsed =
-                                      e.target.value === ""
-                                        ? 1
-                                        : Number(e.target.value);
+                                    if (e.target.value === "") {
+                                      setSetsDraft((prev) => ({ ...prev, [field.id]: "" }));
+                                      return;
+                                    }
+                                    const parsed = Number(e.target.value);
+                                    if (!Number.isFinite(parsed)) return;
+                                    setSetsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
                                     numField.onChange(parsed);
                                     syncSetArrays(index, parsed);
                                   }
                                 }
-                                onBlur={numField.onBlur}
+                                onBlur={(e) => {
+                                  const raw = setsDraft[field.id];
+                                  if (raw === "") {
+                                    delete setsDraft[field.id];
+                                    setSetsDraft({ ...setsDraft });
+                                    numField.onBlur();
+                                    return;
+                                  }
+                                  if (raw !== undefined) {
+                                    const parsed = Number(raw);
+                                    if (Number.isFinite(parsed)) {
+                                      numField.onChange(parsed);
+                                      syncSetArrays(index, parsed);
+                                    }
+                                  }
+                                  delete setsDraft[field.id];
+                                  setSetsDraft({ ...setsDraft });
+                                  numField.onBlur();
+                                  e.currentTarget.value = String(form.getValues(`exercises.${index}.sets` as const) ?? "");
+                                }}
                               />
                             </FormControl>
                             {fieldState.error && (
@@ -616,7 +640,8 @@ export function TemplateForm({
                             const repsFallback = Number(
                               form.getValues(`exercises.${index}.reps` as const) ?? 10,
                             );
-                            const repsValue = repsArray[setIdx] ?? repsFallback;
+                            const setKey = `${field.id}-${setIdx}`;
+                            const repsValue = setRepsDraft[setKey] ?? (repsArray[setIdx] ?? repsFallback);
                             const weightValue = weightArray[setIdx];
 
                             return (
@@ -634,22 +659,58 @@ export function TemplateForm({
                                   className="h-10"
                                   value={repsValue}
                                   onChange={(e) => {
+                                    if (e.target.value.trim() === "") {
+                                      setSetRepsDraft((prev) => ({ ...prev, [setKey]: "" }));
+                                      return;
+                                    }
                                     const next = Number(e.target.value);
+                                    if (!Number.isFinite(next)) return;
+                                    setSetRepsDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
                                     const current = toFiniteNumberArray(form.getValues(repsPath));
                                     const safeLen = Math.max(setIdx + 1, current.length);
                                     const filled = Array.from({ length: safeLen }, (_, i) => {
                                       const v = current[i];
                                       return Number.isFinite(v) ? v : repsFallback;
                                     });
-                                    filled[setIdx] = Number.isFinite(next) ? next : repsFallback;
+                                    filled[setIdx] = next;
                                     form.setValue(repsPath, filled, { shouldDirty: true });
-                                    if (setIdx === 0 && Number.isFinite(next)) {
+                                    if (setIdx === 0) {
                                       form.setValue(
                                         `exercises.${index}.reps` as const,
                                         next,
                                         { shouldDirty: true },
                                       );
                                     }
+                                  }}
+                                  onBlur={() => {
+                                    const raw = setRepsDraft[setKey];
+                                    if (raw === "") {
+                                      delete setRepsDraft[setKey];
+                                      setSetRepsDraft({ ...setRepsDraft });
+                                      return;
+                                    }
+                                    if (raw !== undefined) {
+                                      const next = Number(raw);
+                                      if (Number.isFinite(next)) {
+                                        const current = toFiniteNumberArray(form.getValues(repsPath));
+                                        const safeLen = Math.max(setIdx + 1, current.length);
+                                        const filled = Array.from({ length: safeLen }, (_, i) => {
+                                          const v = current[i];
+                                          return Number.isFinite(v) ? v : repsFallback;
+                                        });
+                                        filled[setIdx] = next;
+                                        form.setValue(repsPath, filled, { shouldDirty: true });
+                                        if (setIdx === 0) {
+                                          form.setValue(
+                                            `exercises.${index}.reps` as const,
+                                            next,
+                                            { shouldDirty: true },
+                                          );
+                                        }
+                                      }
+                                    }
+                                    delete setRepsDraft[setKey];
+                                    setSetRepsDraft({ ...setRepsDraft });
                                   }}
                                   aria-label={t("setRepsAria", { count: setIdx + 1 })}
                                 />
