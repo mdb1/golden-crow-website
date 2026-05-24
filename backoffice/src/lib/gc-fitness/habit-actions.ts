@@ -238,9 +238,20 @@ function projectHabitRow(
   id: string,
   data: Record<string, unknown>,
 ): HabitRow {
+  const clientIdRaw =
+    typeof data.clientId === "string" ? data.clientId.trim() : "";
+  const pendingEmailRaw =
+    typeof data.pendingEmail === "string" ? data.pendingEmail.trim().toLowerCase() : "";
+  const resolvedClientId =
+    clientIdRaw.length > 0
+      ? clientIdRaw
+      : pendingEmailRaw.length > 0
+        ? `mirror:${pendingEmailRaw}`
+        : "";
+
   return {
     id,
-    clientId: (data.clientId as string) ?? "",
+    clientId: resolvedClientId,
     trainerId: (data.trainerId as string) ?? "",
     type: (data.type as HabitType) ?? "binary",
     name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
