@@ -15,8 +15,6 @@
 // scope for v1 like templates/exercises — translations stop at the heading).
 
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { HabitsLibraryClient } from "./client";
@@ -40,15 +38,8 @@ export default async function HabitsPage() {
     uid: c.uid,
     displayName: c.displayName,
   }));
-  const t = await getTranslations("habits");
-
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-      </div>
       <HabitsQueryProvider>
         <HabitsLibraryClient clientRoster={clientRoster} />
       </HabitsQueryProvider>

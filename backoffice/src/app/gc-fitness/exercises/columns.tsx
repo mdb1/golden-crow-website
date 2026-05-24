@@ -208,13 +208,21 @@ export function makeColumns(
     {
       accessorKey: "source",
       header: t("source"),
-      cell: ({ row }) => (
-        <Badge
-          variant={row.original.source === "wger" ? "secondary" : "default"}
-        >
-          {row.original.source === "wger" ? t("sourceWger") : t("sourceCustom")}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const isLibrary =
+          row.original.source === "wger" ||
+          row.original.source === "free-exercise-db";
+        return (
+          <div className="flex flex-wrap gap-1">
+            <Badge variant={isLibrary ? "secondary" : "default"}>
+              {row.original.source === "wger" ? t("sourceWger") : t("sourceCustom")}
+            </Badge>
+            <Badge variant="outline">
+              {isLibrary ? t("ownershipLibrary") : t("ownershipMine")}
+            </Badge>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "updatedAt",

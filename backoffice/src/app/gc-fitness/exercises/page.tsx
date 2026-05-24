@@ -17,8 +17,6 @@
 // templates/habits — translations stop at the page shell for v1).
 
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { ExerciseLibraryClient } from "./client";
 import { ExerciseQueryProvider } from "./providers";
@@ -39,15 +37,8 @@ export default async function ExercisesPage() {
     throw err;
   }
 
-  const t = await getTranslations("exercises");
-
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-      </div>
       <ExerciseQueryProvider>
         <ExerciseLibraryClient trainerUid={trainer.uid} />
       </ExerciseQueryProvider>

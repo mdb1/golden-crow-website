@@ -80,15 +80,6 @@ const TAG_OPTION_KEYS = [
   { value: "custom", labelKey: "custom" },
 ] as const;
 
-function parseNumberList(input: string): number[] {
-  return input
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .map((x) => Number(x))
-    .filter((x) => Number.isFinite(x));
-}
-
 function buildDefaults(
   passed?: Partial<WorkoutTemplateInput>,
 ): WorkoutTemplateInput {
@@ -131,6 +122,31 @@ export function TemplateForm({
     name: "exercises",
   });
 
+  function toFiniteNumberArray(input: unknown): number[] {
+    if (!Array.isArray(input)) return [];
+    return input.filter(
+      (v): v is number => typeof v === "number" && Number.isFinite(v),
+    );
+  }
+
+  function syncSetArrays(index: number, nextSets: number) {
+    const safeSets = Math.max(1, Math.min(10, nextSets));
+    const repsPath = `exercises.${index}.repsBySet` as const;
+    const weightPath = `exercises.${index}.weightBySetKg` as const;
+    const repsFallback = Number(form.getValues(`exercises.${index}.reps` as const) ?? 10);
+    const currentReps = toFiniteNumberArray(form.getValues(repsPath));
+    const currentWeight = toFiniteNumberArray(form.getValues(weightPath));
+
+    const nextReps = Array.from({ length: safeSets }, (_, i) => {
+      const v = currentReps[i];
+      return Number.isFinite(v) ? v : repsFallback;
+    });
+    const nextWeight = currentWeight.slice(0, safeSets);
+
+    form.setValue(repsPath, nextReps, { shouldDirty: true });
+    form.setValue(weightPath, nextWeight, { shouldDirty: true });
+  }
+
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
       try {
@@ -142,13 +158,19 @@ export function TemplateForm({
             ...ex,
             ...(Array.isArray(ex.repsBySet) && ex.repsBySet.length > 0
               ? {
-                  repsBySet: ex.repsBySet,
-                  sets: ex.repsBySet.length,
-                  reps: ex.repsBySet[0],
+                  repsBySet: ex.repsBySet.filter(
+                    (n): n is number => Number.isFinite(n),
+                  ),
+                  sets: ex.repsBySet.filter((n) => Number.isFinite(n)).length,
+                  reps: ex.repsBySet.find((n) => Number.isFinite(n)) ?? ex.reps,
                 }
               : {}),
             ...(Array.isArray(ex.weightBySetKg) && ex.weightBySetKg.length > 0
-              ? { weightBySetKg: ex.weightBySetKg }
+              ? {
+                  weightBySetKg: ex.weightBySetKg.filter(
+                    (n): n is number => Number.isFinite(n),
+                  ),
+                }
               : {}),
             ...(ex.supersetGroup?.trim()
               ? { supersetGroup: ex.supersetGroup.trim() }
@@ -394,11 +416,14 @@ export function TemplateForm({
                                 max={10}
                                 value={numField.value ?? ""}
                                 onChange={(e) =>
-                                  numField.onChange(
-                                    e.target.value === ""
-                                      ? undefined
-                                      : Number(e.target.value),
-                                  )
+                                  {
+                                    const parsed =
+                                      e.target.value === ""
+                                        ? 1
+                                        : Number(e.target.value);
+                                    numField.onChange(parsed);
+                                    syncSetArrays(index, parsed);
+                                  }
                                 }
                                 onBlur={numField.onBlur}
                               />
@@ -480,54 +505,84 @@ export function TemplateForm({
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <Controller
-                        control={form.control}
-                        name={`exercises.${index}.repsBySet` as const}
-                        render={({ field: listField }) => (
-                          <FormItem>
-                            <FormLabel>{t("repsBySet")}</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder={t("repsBySetPlaceholder")}
-                                value={
-                                  Array.isArray(listField.value)
-                                    ? listField.value.join(", ")
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  listField.onChange(parseNumberList(e.target.value))
-                                }
-                                onBlur={listField.onBlur}
-                              />
-                            </FormControl>
-                            <FormDescription>{t("repsBySetHint")}</FormDescription>
-                          </FormItem>
-                        )}
-                      />
-                      <Controller
-                        control={form.control}
-                        name={`exercises.${index}.weightBySetKg` as const}
-                        render={({ field: listField }) => (
-                          <FormItem>
-                            <FormLabel>{t("weightBySetKg")}</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder={t("weightBySetKgPlaceholder")}
-                                value={
-                                  Array.isArray(listField.value)
-                                    ? listField.value.join(", ")
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  listField.onChange(parseNumberList(e.target.value))
-                                }
-                                onBlur={listField.onBlur}
-                              />
-                            </FormControl>
-                            <FormDescription>{t("weightBySetKgHint")}</FormDescription>
-                          </FormItem>
-                        )}
-                      />
+                      <div className="sm:col-span-2">
+                        <FormLabel>{t("setRowsTitle")}</FormLabel>
+                        <div className="mt-2 flex flex-col gap-2">
+                          {Array.from({
+                            length: Math.max(
+                              1,
+                              Math.min(10, Number(form.watch(`exercises.${index}.sets` as const) ?? 1)),
+                            ),
+                          }).map((_, setIdx) => {
+                            const repsPath = `exercises.${index}.repsBySet` as const;
+                            const weightPath = `exercises.${index}.weightBySetKg` as const;
+                            const repsArray = toFiniteNumberArray(form.getValues(repsPath));
+                            const weightArray = toFiniteNumberArray(form.getValues(weightPath));
+                            const repsFallback = Number(
+                              form.getValues(`exercises.${index}.reps` as const) ?? 10,
+                            );
+                            const repsValue = repsArray[setIdx] ?? repsFallback;
+                            const weightValue = weightArray[setIdx];
+
+                            return (
+                              <div
+                                key={`${field.id}-set-${setIdx + 1}`}
+                                className="grid grid-cols-[84px,1fr,1fr] items-center gap-2"
+                              >
+                                <span className="text-xs text-muted-foreground">
+                                  {t("setNumber", { count: setIdx + 1 })}
+                                </span>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  value={repsValue}
+                                  onChange={(e) => {
+                                    const next = Number(e.target.value);
+                                    const current = toFiniteNumberArray(form.getValues(repsPath));
+                                    const safeLen = Math.max(setIdx + 1, current.length);
+                                    const filled = Array.from({ length: safeLen }, (_, i) => {
+                                      const v = current[i];
+                                      return Number.isFinite(v) ? v : repsFallback;
+                                    });
+                                    filled[setIdx] = Number.isFinite(next) ? next : repsFallback;
+                                    form.setValue(repsPath, filled, { shouldDirty: true });
+                                  }}
+                                  aria-label={t("setRepsAria", { count: setIdx + 1 })}
+                                />
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={500}
+                                  step="0.5"
+                                  placeholder={t("setWeightPlaceholder")}
+                                  value={weightValue ?? ""}
+                                  onChange={(e) => {
+                                    const current = toFiniteNumberArray(form.getValues(weightPath));
+                                    const nextRaw = e.target.value.trim();
+                                    if (nextRaw === "") {
+                                      const trimmed = current.slice(0, Math.max(setIdx, 0));
+                                      form.setValue(weightPath, trimmed, { shouldDirty: true });
+                                      return;
+                                    }
+                                    const next = Number(nextRaw);
+                                    if (!Number.isFinite(next)) return;
+                                    const safeLen = Math.max(setIdx + 1, current.length);
+                                    const filled = Array.from({ length: safeLen }, (_, i) => {
+                                      const v = current[i];
+                                      return Number.isFinite(v) ? v : 0;
+                                    });
+                                    filled[setIdx] = next;
+                                    form.setValue(weightPath, filled, { shouldDirty: true });
+                                  }}
+                                  aria-label={t("setWeightAria", { count: setIdx + 1 })}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <FormDescription>{t("setRowsHint")}</FormDescription>
+                      </div>
                       <FormField
                         control={form.control}
                         name={`exercises.${index}.supersetGroup` as const}
