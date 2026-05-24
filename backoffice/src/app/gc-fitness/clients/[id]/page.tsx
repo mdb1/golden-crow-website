@@ -67,11 +67,43 @@ export default async function ClientDetailPage({
     throw err;
   }
 
+  // P22 — pending-client (mirror) branch. The roster (client-roster.ts)
+  // surfaces pending clients with uid prefixed `mirror:{normalizedEmail}`
+  // so the trainer can click them; this page must branch on that prefix
+  // BEFORE attempting `users.doc(id).get()` (which would notFound() the
+  // missing canonical user doc and 404 the trainer out of their own
+  // pending client). The pending-client variant reads from
+  // /user_mirror/{normalizedEmail} and renders a minimal read-only view
+  // explaining the pre-load state until the client first signs in.
+  const db = gcFitnessFirestore();
+  if (id.startsWith("mirror:")) {
+    const normalizedEmail = id.slice("mirror:".length);
+    const mirrorSnap = await db
+      .collection(FirestoreCollections.userMirror)
+      .doc(normalizedEmail)
+      .get();
+    if (!mirrorSnap.exists) notFound();
+    const mirror = mirrorSnap.data() as {
+      email?: string;
+      displayName?: string;
+      coachId?: string;
+      coachDisplayName?: string;
+      coachPhotoURL?: string;
+      pre_created?: boolean;
+    };
+    if (mirror.coachId !== trainer.uid) notFound();
+    return (
+      <PendingClientView
+        normalizedEmail={normalizedEmail}
+        mirror={mirror}
+      />
+    );
+  }
+
   // Ownership gate at the route layer (defense in depth — Firestore rules
   // also enforce this). notFound() — NOT redirect — keeps the URL surface
   // uniform: a missing client and a wrong-trainer-client are
   // indistinguishable to the caller.
-  const db = gcFitnessFirestore();
   const clientSnap = await db
     .collection(FirestoreCollections.users)
     .doc(id)
@@ -155,5 +187,74 @@ function WidgetSkeleton({ title }: { title: string }) {
       <h2 className="mb-3 font-medium">{title}</h2>
       <Skeleton className="h-32 w-full" />
     </section>
+  );
+}
+
+/**
+ * P22 — Pending-client (mirror) view. Renders when `[id]` is a
+ * `mirror:{normalizedEmail}` segment from the roster. The full per-client
+ * widget tree (workouts / habits / chat / progress / notes / goals /
+ * daily timeline) is hidden because the canonical /users/{uid} doc
+ * doesn't exist yet — all those readers query by `clientId == uid` and
+ * would error against a non-existent uid.
+ *
+ * Shipped: minimal readable surface so the trainer can confirm who's
+ * waiting + see when they invited them.
+ * Deferred: actual pre-loading of workouts/habits/chat templates to
+ * `user_mirror/{email}/*` subcollections + matching pre-load UI. The
+ * `convertMirrorToCanonical` Cloud Function (functions/src/auth/) would
+ * need to migrate those subcollections on first sign-in; both halves
+ * are queued for a follow-on phase (MIRROR-04 in REQUIREMENTS.md).
+ */
+function PendingClientView({
+  normalizedEmail,
+  mirror,
+}: {
+  normalizedEmail: string;
+  mirror: {
+    email?: string;
+    displayName?: string;
+    coachId?: string;
+    coachDisplayName?: string;
+    coachPhotoURL?: string;
+    pre_created?: boolean;
+  };
+}) {
+  const displayName = mirror.displayName ?? mirror.email ?? normalizedEmail;
+  const email = mirror.email ?? normalizedEmail;
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+      <header className="flex flex-col gap-2">
+        <p className="section-eyebrow">GC Fitness · Pending</p>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">
+          {displayName}
+        </h1>
+        <p className="text-sm text-muted-foreground">{email}</p>
+      </header>
+
+      <section className="rounded-md border bg-card p-6">
+        <h2 className="mb-2 text-base font-semibold">Pendiente de ingreso</h2>
+        <p className="text-sm text-muted-foreground">
+          Este cliente fue pre-invitado y todavía no inició sesión por
+          primera vez. Cuando lo haga con la cuenta de Google asociada a{" "}
+          <code className="rounded bg-muted px-1 py-0.5">{email}</code>, se
+          va a crear su perfil canónico automáticamente y vas a poder
+          asignarle workouts, hábitos, mandarle mensajes y ver su
+          progreso desde acá.
+        </p>
+      </section>
+
+      <section className="rounded-md border bg-card p-6">
+        <h2 className="mb-2 text-base font-semibold">Pre-cargar contenido</h2>
+        <p className="text-sm text-muted-foreground">
+          Próximamente vas a poder dejarle workouts y hábitos listos antes
+          de que se registre, así arranca con todo configurado el primer
+          día. Por ahora, esperá a que ingrese y después asignále desde la
+          vista normal del cliente. Si querés que apure el ingreso,
+          recordále que se registre con Google usando{" "}
+          <strong>{email}</strong>.
+        </p>
+      </section>
+    </div>
   );
 }
