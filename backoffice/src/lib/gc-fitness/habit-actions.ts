@@ -871,6 +871,96 @@ export async function assignHabitTemplate(input: unknown): Promise<{
   return { created: parsed.clientIds.length };
 }
 
+export async function assignHabitTemplateToPending(input: unknown): Promise<{
+  created: number;
+}> {
+  const trainer = await getCurrentTrainer();
+  const parsed = z
+    .object({
+      templateId: z.string().trim().min(1),
+      pendingEmail: z.string().trim().min(1),
+    })
+    .parse(input);
+
+  const db = gcFitnessFirestore();
+  const normalizedPendingEmail = normalizeMirrorEmail(parsed.pendingEmail);
+  const mirrorSnap = await db
+    .collection(FirestoreCollections.userMirror)
+    .doc(normalizedPendingEmail)
+    .get();
+  if (!mirrorSnap.exists) throw new Error("Pending client not found.");
+  const mirror = mirrorSnap.data() as { coachId?: string; pre_created?: boolean };
+  if (mirror.coachId !== trainer.uid) throw new Error("Not your pending client.");
+  if (mirror.pre_created !== true) throw new Error("Mirror not marked pre_created.");
+
+  const templateSnap = await db
+    .collection(TEMPLATE_COLLECTION)
+    .doc(parsed.templateId)
+    .get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = projectHabitTemplateRow(
+    templateSnap.id,
+    templateSnap.data() as Record<string, unknown>,
+  );
+  if (
+    template.deleted ||
+    (template.scope !== "global" && template.trainerId !== trainer.uid)
+  ) {
+    throw new Error("Template not available.");
+  }
+
+  const docId = `hab-pending-${normalizedPendingEmail}-${randomUUID()}`;
+  await db.collection(COLLECTION).doc(docId).set(withoutUndefined({
+    id: docId,
+    clientId: null,
+    pendingEmail: normalizedPendingEmail,
+    trainerId: trainer.uid,
+    type: template.type,
+    name: template.name,
+    ...(template.description ? { description: template.description } : {}),
+    ...(template.options ? { options: template.options } : {}),
+    ...(template.targetValue !== undefined
+      ? { targetValue: template.targetValue }
+      : {}),
+    ...(template.unit ? { unit: template.unit } : {}),
+    ...(template.reminderTime ? { reminderTime: template.reminderTime } : {}),
+    ...(template.reminderCadence
+      ? { reminderCadence: template.reminderCadence }
+      : {}),
+    ...(template.reminderWeekdays
+      ? { reminderWeekdays: template.reminderWeekdays }
+      : {}),
+    ...(template.reminderDayOfMonth !== undefined
+      ? { reminderDayOfMonth: template.reminderDayOfMonth }
+      : {}),
+    ...(template.reminderMonthDays
+      ? { reminderMonthDays: template.reminderMonthDays }
+      : {}),
+    scheduleType: template.scheduleType ?? "recurring",
+    startsOn: template.startsOn ?? todayCivilDateUTC(),
+    ...(template.endsOn ? { endsOn: template.endsOn } : {}),
+    ...(template.scheduleCadence
+      ? { scheduleCadence: template.scheduleCadence }
+      : { scheduleCadence: "daily" }),
+    ...(template.scheduleWeekdays
+      ? { scheduleWeekdays: template.scheduleWeekdays }
+      : {}),
+    ...(template.scheduleDayOfMonth !== undefined
+      ? { scheduleDayOfMonth: template.scheduleDayOfMonth }
+      : {}),
+    ...(template.scheduleMonthDays
+      ? { scheduleMonthDays: template.scheduleMonthDays }
+      : {}),
+    reminderEnabled: template.reminderEnabled,
+    sourceTemplateId: template.id,
+    deleted: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }));
+
+  return { created: 1 };
+}
+
 /**
  * Lists habits assigned to a single client by the calling trainer.
  *

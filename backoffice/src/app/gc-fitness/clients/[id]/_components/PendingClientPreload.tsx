@@ -18,7 +18,9 @@ import {
   listPendingAssignments,
 } from "@/lib/gc-fitness/workout-assignment-actions";
 import {
+  assignHabitTemplateToPending,
   createPendingHabit,
+  listHabitTemplates,
   listPendingHabits,
 } from "@/lib/gc-fitness/habit-actions";
 import { listWorkoutTemplates } from "@/lib/gc-fitness/workout-template-actions";
@@ -29,10 +31,11 @@ export async function PendingClientPreload({
 }: {
   normalizedEmail: string;
 }) {
-  const [{ templates }, pendingWorkouts, pendingHabits] = await Promise.all([
+  const [{ templates: workoutTemplates }, pendingWorkouts, pendingHabits, habitTemplates] = await Promise.all([
     listWorkoutTemplates(),
     listPendingAssignments(normalizedEmail),
     listPendingHabits(normalizedEmail),
+    listHabitTemplates(),
   ]);
 
   async function submitWorkoutAssignment(formData: FormData) {
@@ -83,11 +86,21 @@ export async function PendingClientPreload({
 
   async function submitHabit(formData: FormData) {
     "use server";
+    const templateId = String(formData.get("templateId") ?? "").trim();
     const name = String(formData.get("name") ?? "").trim();
     const type = String(formData.get("type") ?? "binary");
     const optionsRaw = String(formData.get("options") ?? "").trim();
     const targetRaw = String(formData.get("targetValue") ?? "").trim();
     const unitRaw = String(formData.get("unit") ?? "").trim();
+    if (templateId) {
+      await assignHabitTemplateToPending({
+        templateId,
+        pendingEmail: normalizedEmail,
+      });
+      revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
+      revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
+      return;
+    }
     if (!name) return;
     const options = optionsRaw
       .split(",")
@@ -136,44 +149,86 @@ export async function PendingClientPreload({
           </p>
         )}
 
-        <form action={submitWorkoutAssignment} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex flex-1 flex-col gap-1 text-sm">
-            <span className="font-medium">Template</span>
-            <select
-              name="templateId"
-              required
-              className="rounded border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Elegí un template…</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name?.es || t.name?.en || "(sin nombre)"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Fecha</span>
-            <input
-              type="date"
-              name="scheduledFor"
-              required
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Modo</span>
-            <select
-              name="mode"
-              className="rounded border bg-background px-3 py-2 text-sm"
-              defaultValue="once"
-            >
-              <option value="once">Una vez</option>
-              <option value="weekly">Semanal</option>
-              <option value="daily">Diario</option>
-              <option value="everyN">Cada N días</option>
-            </select>
-          </label>
+        <form action={submitWorkoutAssignment} className="flex flex-col gap-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Template</span>
+              <select
+                name="templateId"
+                required
+                className="rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Elegí un template…</option>
+                {workoutTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name?.es || t.name?.en || "(sin nombre)"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Fecha</span>
+              <input
+                type="date"
+                name="scheduledFor"
+                required
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Modo</span>
+              <select
+                name="mode"
+                className="rounded border bg-background px-3 py-2 text-sm"
+                defaultValue="once"
+              >
+                <option value="once">Una vez</option>
+                <option value="weekly">Semanal</option>
+                <option value="daily">Diario</option>
+                <option value="everyN">Cada N días</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Cada N</span>
+              <input
+                type="number"
+                name="everyN"
+                min={2}
+                max={30}
+                defaultValue={2}
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Fin (opcional)</span>
+              <input
+                type="date"
+                name="endDate"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Hora (opcional)</span>
+              <input
+                type="time"
+                name="scheduledTime"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span className="font-medium">Notas (opcional)</span>
+              <input
+                type="text"
+                name="meetingNotes"
+                placeholder="Link o detalle de sesión"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+
           <fieldset className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Weekdays</span>
             <div className="flex flex-wrap gap-2">
@@ -198,48 +253,15 @@ export async function PendingClientPreload({
               ))}
             </div>
           </fieldset>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Cada N</span>
-            <input
-              type="number"
-              name="everyN"
-              min={2}
-              max={30}
-              defaultValue={2}
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Fin (opcional)</span>
-            <input
-              type="date"
-              name="endDate"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Hora (opcional)</span>
-            <input
-              type="time"
-              name="scheduledTime"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm">
-            <span className="font-medium">Notas (opcional)</span>
-            <input
-              type="text"
-              name="meetingNotes"
-              placeholder="Link o detalle de sesión"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            Pre-cargar
-          </button>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Pre-cargar
+            </button>
+          </div>
         </form>
       </section>
 
@@ -265,65 +287,90 @@ export async function PendingClientPreload({
           </p>
         )}
 
-        <form action={submitHabit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex flex-1 flex-col gap-1 text-sm">
-            <span className="font-medium">Nombre del hábito</span>
-            <input
-              type="text"
-              name="name"
-              required
-              minLength={1}
-              maxLength={80}
-              placeholder="Ej: 10 minutos de meditación"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Tipo</span>
-            <select
-              name="type"
-              defaultValue="binary"
-              className="rounded border bg-background px-3 py-2 text-sm"
+        <form action={submitHabit} className="flex flex-col gap-4">
+          <div className="grid gap-3">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Hábito existente (opcional)</span>
+              <select
+                name="templateId"
+                defaultValue=""
+                className="rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Crear uno nuevo…</option>
+                {habitTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {(template.name.es || template.name.en || "(sin nombre)") + " · " + template.type}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground">
+                Si elegís un hábito existente, se ignoran los campos de abajo y se pre-carga ese template.
+              </span>
+            </label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Nombre del hábito</span>
+              <input
+                type="text"
+                name="name"
+                required
+                minLength={1}
+                maxLength={80}
+                placeholder="Ej: 10 minutos de meditación"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Tipo</span>
+              <select
+                name="type"
+                defaultValue="binary"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              >
+                <option value="binary">Binary</option>
+                <option value="multi-choice">Multi-choice</option>
+                <option value="numeric">Numeric</option>
+                <option value="weight">Weight</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Opciones (coma separadas)</span>
+              <input
+                type="text"
+                name="options"
+                placeholder="Alta, Media, Baja"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Target</span>
+              <input
+                type="number"
+                name="targetValue"
+                step="any"
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Unidad</span>
+              <input
+                type="text"
+                name="unit"
+                placeholder="kg, reps, min..."
+                className="rounded border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
             >
-              <option value="binary">Binary</option>
-              <option value="multi-choice">Multi-choice</option>
-              <option value="numeric">Numeric</option>
-              <option value="weight">Weight</option>
-            </select>
-          </label>
-          <label className="flex-1 flex-col gap-1 text-sm">
-            <span className="font-medium">Opciones (coma separadas)</span>
-            <input
-              type="text"
-              name="options"
-              placeholder="Alta, Media, Baja"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Target</span>
-            <input
-              type="number"
-              name="targetValue"
-              step="any"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Unidad</span>
-            <input
-              type="text"
-              name="unit"
-              placeholder="kg, reps, min..."
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            Pre-cargar
-          </button>
+              Pre-cargar
+            </button>
+          </div>
         </form>
 
         <p className="mt-3 text-xs text-muted-foreground">
