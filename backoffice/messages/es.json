@@ -308,7 +308,9 @@
       "deleting": "Eliminando…",
       "deleteDialogConfirm": "Eliminar",
       "deletedToast": "Plantilla eliminada.",
-      "deleteFailedToast": "No se pudo eliminar."
+      "deleteFailedToast": "No se pudo eliminar.",
+      "duplicatedToast": "Plantilla duplicada.",
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
     },
     "form": {
       "nameEn": "Nombre (inglés)",

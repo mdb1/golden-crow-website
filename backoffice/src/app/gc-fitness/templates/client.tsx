@@ -52,7 +52,10 @@ import {
   useWorkoutTemplates,
   WORKOUT_TEMPLATES_BASE_KEY,
 } from "@/lib/gc-fitness/workout-templates-listener";
-import { softDeleteWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
+import {
+  softDeleteWorkoutTemplate,
+  duplicateWorkoutTemplate,
+} from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 import { makeTemplateColumns } from "@/components/gc-fitness/templates/columns";
 
@@ -79,8 +82,29 @@ export function TemplatesLibraryClient() {
       onEdit: (row: WorkoutTemplateRow) =>
         router.push(`/gc-fitness/templates/${row.id}/edit`),
       onDelete: (row: WorkoutTemplateRow) => setConfirmDelete(row),
+      // P21 — duplicate trainer-owned template. Triggers a Server Action
+      // that creates a fork with " (copia)" suffix on the ES + EN name,
+      // then invalidates the templates cache so the new row appears at
+      // the top of the list.
+      onDuplicate: async (row: WorkoutTemplateRow) => {
+        try {
+          const result = await duplicateWorkoutTemplate(row.id);
+          await queryClient.invalidateQueries({
+            queryKey: WORKOUT_TEMPLATES_BASE_KEY,
+          });
+          toast.success(t("duplicatedToast"));
+          // Navigate the trainer straight into the new template's editor
+          // — this matches the iOS UX of "duplicate then refine".
+          router.push(`/gc-fitness/templates/${result.id}/edit`);
+        } catch (err) {
+          console.error("[templates] duplicate failed", err);
+          const message =
+            err instanceof Error ? err.message : t("duplicateFailedToast");
+          toast.error(message);
+        }
+      },
     }),
-    [router],
+    [router, queryClient, t],
   );
 
   const columnsT = useTranslations("templates.columns");

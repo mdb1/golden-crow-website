@@ -308,7 +308,9 @@
       "deleting": "Deleting…",
       "deleteDialogConfirm": "Delete",
       "deletedToast": "Template deleted.",
-      "deleteFailedToast": "Couldn't delete."
+      "deleteFailedToast": "Couldn't delete.",
+      "duplicatedToast": "Template duplicated.",
+      "duplicateFailedToast": "Couldn't duplicate. Please try again."
     },
     "form": {
       "nameEn": "Name (English)",

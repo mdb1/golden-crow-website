@@ -38,6 +38,8 @@ import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actio
 export interface TemplateColumnHandlers {
   onEdit: (row: WorkoutTemplateRow) => void;
   onDelete: (row: WorkoutTemplateRow) => void;
+  // P21 — duplicate ANY trainer-owned template (not just standard forks).
+  onDuplicate: (row: WorkoutTemplateRow) => void;
 }
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -177,13 +179,19 @@ export function makeTemplateColumns(
               {row.original.isStandard ? t("duplicate") : t("edit")}
             </DropdownMenuItem>
             {!row.original.isStandard ? (
-              <DropdownMenuItem
-                onClick={() => handlers.onDelete(row.original)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t("delete")}
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => handlers.onDuplicate(row.original)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  {t("duplicate")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handlers.onDelete(row.original)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {t("delete")}
+                </DropdownMenuItem>
+              </>
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>

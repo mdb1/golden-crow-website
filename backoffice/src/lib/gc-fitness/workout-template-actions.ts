@@ -152,6 +152,57 @@ export async function forkStandardWorkoutTemplate(
   return { id: docId };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P21 (Backoffice Workout Authoring v2) — duplicateWorkoutTemplate
+// Duplicates an existing trainer-owned workout template with " (copia)"
+// suffixed onto the ES + EN name slots. Behaves like forkStandardWorkoutTemplate
+// but works for the trainer's OWN templates (not just isStandard==true).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function duplicateWorkoutTemplate(
+  id: string,
+): Promise<{ id: string }> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const sourceRef = db.collection(COLLECTION).doc(id);
+  const sourceSnap = await sourceRef.get();
+  if (!sourceSnap.exists) {
+    throw new Error("Template not found");
+  }
+  const source = sourceSnap.data() as Record<string, unknown>;
+  // Trainer owns it OR it's a standard template (in which case behave like fork).
+  const ownerId = typeof source.trainerId === "string" ? source.trainerId : "";
+  const isStandard = source.isStandard === true;
+  if (!isStandard && ownerId !== trainer.uid) {
+    throw new Error("Not your template.");
+  }
+
+  const sourceName = (source.name ?? { en: "", es: "" }) as { en?: string; es?: string };
+  const suffixedName = {
+    en: `${sourceName.en ?? ""} (copy)`.trim(),
+    es: `${sourceName.es ?? ""} (copia)`.trim(),
+  };
+
+  const docId = `tpl-${trainer.uid}-${randomUUID()}`;
+  const docRef = db.collection(COLLECTION).doc(docId);
+  await docRef.set({
+    name: suffixedName,
+    description: source.description ?? { en: "", es: "" },
+    tag: typeof source.tag === "string" ? source.tag : "custom",
+    exercises: Array.isArray(source.exercises) ? source.exercises : [],
+    id: docId,
+    trainerId: trainer.uid,
+    isStandard: false, // duplicates are always trainer-owned forks
+    sourceTemplateId: id,
+    version: 1,
+    deleted: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { id: docId };
+}
+
 /**
  * Updates an existing trainer-owned workout template.
  *
