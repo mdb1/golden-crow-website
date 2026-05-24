@@ -25,6 +25,8 @@ import {
 } from "@/lib/gc-fitness/habit-actions";
 import { listWorkoutTemplates } from "@/lib/gc-fitness/workout-template-actions";
 import { revalidatePath } from "next/cache";
+import { PendingWorkoutAssignForm } from "./PendingWorkoutAssignForm";
+import { PendingHabitPreloadForm } from "./PendingHabitPreloadForm";
 
 export async function PendingClientPreload({
   normalizedEmail,
@@ -92,6 +94,19 @@ export async function PendingClientPreload({
     const optionsRaw = String(formData.get("options") ?? "").trim();
     const targetRaw = String(formData.get("targetValue") ?? "").trim();
     const unitRaw = String(formData.get("unit") ?? "").trim();
+    const scheduleType = String(formData.get("scheduleType") ?? "recurring");
+    const startsOn = String(formData.get("startsOn") ?? "").trim();
+    const endsOn = String(formData.get("endsOn") ?? "").trim();
+    const scheduleCadence = String(formData.get("scheduleCadence") ?? "daily");
+    const scheduleWeekdays = formData
+      .getAll("scheduleWeekdays")
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 7);
+    const scheduleDayOfMonthRaw = Number(formData.get("scheduleDayOfMonth") ?? 0);
+    const scheduleDayOfMonth =
+      Number.isInteger(scheduleDayOfMonthRaw) && scheduleDayOfMonthRaw >= 1 && scheduleDayOfMonthRaw <= 31
+        ? scheduleDayOfMonthRaw
+        : undefined;
     if (templateId) {
       await assignHabitTemplateToPending({
         templateId,
@@ -107,17 +122,46 @@ export async function PendingClientPreload({
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0);
     const targetValue = targetRaw.length > 0 ? Number(targetRaw) : undefined;
+    const startsOnValue = startsOn || new Date().toISOString().slice(0, 10);
+    const resolvedType = type as "binary" | "multi-choice" | "numeric" | "weight";
+    const resolvedScheduleType = scheduleType === "one-time" ? "one-time" : "recurring";
+    const resolvedCadence =
+      scheduleCadence === "weekly" || scheduleCadence === "monthly" ? scheduleCadence : "daily";
+    const parsedTarget =
+      Number.isFinite(targetValue) && resolvedType === "numeric" ? targetValue : undefined;
+    const parsedUnit =
+      unitRaw.length > 0 && (resolvedType === "numeric" || resolvedType === "weight")
+        ? unitRaw
+        : undefined;
+    const parsedOptions =
+      resolvedType === "multi-choice" && options.length > 0 ? options : undefined;
+    const parsedWeekdays =
+      resolvedScheduleType === "recurring" && resolvedCadence === "weekly" && scheduleWeekdays.length > 0
+        ? scheduleWeekdays
+        : undefined;
+    const parsedMonthDays =
+      resolvedScheduleType === "recurring" && resolvedCadence === "monthly" && scheduleDayOfMonth !== undefined
+        ? [scheduleDayOfMonth]
+        : undefined;
 
     await createPendingHabit(normalizedEmail, {
-      type,
+      type: resolvedType,
       name,
-      options: options.length > 0 ? options : undefined,
-      targetValue: Number.isFinite(targetValue) ? targetValue : undefined,
-      unit: unitRaw.length > 0 ? unitRaw : undefined,
+      options: parsedOptions,
+      targetValue: parsedTarget,
+      unit: parsedUnit,
       clientId: `pending:${normalizedEmail}`, // overridden by createPendingHabit
       reminderEnabled: false,
-      scheduleType: "recurring",
-      startsOn: new Date().toISOString().slice(0, 10),
+      scheduleType: resolvedScheduleType,
+      startsOn: startsOnValue,
+      endsOn: endsOn || undefined,
+      scheduleCadence: resolvedScheduleType === "recurring" ? resolvedCadence : undefined,
+      scheduleWeekdays: parsedWeekdays,
+      scheduleDayOfMonth:
+        resolvedScheduleType === "recurring" && resolvedCadence === "monthly"
+          ? scheduleDayOfMonth
+          : undefined,
+      scheduleMonthDays: parsedMonthDays,
     });
     revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
     revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
@@ -149,120 +193,13 @@ export async function PendingClientPreload({
           </p>
         )}
 
-        <form action={submitWorkoutAssignment} className="flex flex-col gap-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Template</span>
-              <select
-                name="templateId"
-                required
-                className="rounded border bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Elegí un template…</option>
-                {workoutTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name?.es || t.name?.en || "(sin nombre)"}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Fecha</span>
-              <input
-                type="date"
-                name="scheduledFor"
-                required
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Modo</span>
-              <select
-                name="mode"
-                className="rounded border bg-background px-3 py-2 text-sm"
-                defaultValue="once"
-              >
-                <option value="once">Una vez</option>
-                <option value="weekly">Semanal</option>
-                <option value="daily">Diario</option>
-                <option value="everyN">Cada N días</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Cada N</span>
-              <input
-                type="number"
-                name="everyN"
-                min={2}
-                max={30}
-                defaultValue={2}
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Fin (opcional)</span>
-              <input
-                type="date"
-                name="endDate"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Hora (opcional)</span>
-              <input
-                type="time"
-                name="scheduledTime"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm md:col-span-2">
-              <span className="font-medium">Notas (opcional)</span>
-              <input
-                type="text"
-                name="meetingNotes"
-                placeholder="Link o detalle de sesión"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <fieldset className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Weekdays</span>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: 1, label: "Lun" },
-                { value: 2, label: "Mar" },
-                { value: 3, label: "Mié" },
-                { value: 4, label: "Jue" },
-                { value: 5, label: "Vie" },
-                { value: 6, label: "Sáb" },
-                { value: 0, label: "Dom" },
-              ].map((day) => (
-                <label key={day.value} className="inline-flex items-center gap-1 rounded border px-2 py-1">
-                  <input
-                    type="checkbox"
-                    name="weekdays"
-                    value={String(day.value)}
-                    defaultChecked={day.value === 1}
-                  />
-                  <span>{day.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Pre-cargar
-            </button>
-          </div>
-        </form>
+        <PendingWorkoutAssignForm
+          submitAction={submitWorkoutAssignment}
+          templates={workoutTemplates.map((t) => ({
+            id: t.id,
+            name: t.name?.es || t.name?.en || "(sin nombre)",
+          }))}
+        />
       </section>
 
       {/* ── Habits section ────────────────────────────────────────────── */}
@@ -287,91 +224,13 @@ export async function PendingClientPreload({
           </p>
         )}
 
-        <form action={submitHabit} className="flex flex-col gap-4">
-          <div className="grid gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Hábito existente (opcional)</span>
-              <select
-                name="templateId"
-                defaultValue=""
-                className="rounded border bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Crear uno nuevo…</option>
-                {habitTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {(template.name.es || template.name.en || "(sin nombre)") + " · " + template.type}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-muted-foreground">
-                Si elegís un hábito existente, se ignoran los campos de abajo y se pre-carga ese template.
-              </span>
-            </label>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Nombre del hábito</span>
-              <input
-                type="text"
-                name="name"
-                required
-                minLength={1}
-                maxLength={80}
-                placeholder="Ej: 10 minutos de meditación"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Tipo</span>
-              <select
-                name="type"
-                defaultValue="binary"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              >
-                <option value="binary">Binary</option>
-                <option value="multi-choice">Multi-choice</option>
-                <option value="numeric">Numeric</option>
-                <option value="weight">Weight</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Opciones (coma separadas)</span>
-              <input
-                type="text"
-                name="options"
-                placeholder="Alta, Media, Baja"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Target</span>
-              <input
-                type="number"
-                name="targetValue"
-                step="any"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Unidad</span>
-              <input
-                type="text"
-                name="unit"
-                placeholder="kg, reps, min..."
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Pre-cargar
-            </button>
-          </div>
-        </form>
+        <PendingHabitPreloadForm
+          submitAction={submitHabit}
+          templates={habitTemplates.map((template) => ({
+            id: template.id,
+            label: `${template.name.es || template.name.en || "(sin nombre)"} · ${template.type}`,
+          }))}
+        />
 
         <p className="mt-3 text-xs text-muted-foreground">
           Pre-carga avanzada: podés definir tipo, opciones, target y unidad
