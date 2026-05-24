@@ -157,6 +157,14 @@ export function GCFitnessShell({
           <header className="sticky top-0 z-20 border-b border-border/80 bg-background/78 backdrop-blur-sm">
             <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
               <SidebarTrigger className="-ml-1" />
+              {unreadChatTotal > 0 ? (
+                <Badge
+                  variant="destructive"
+                  className="-ml-2 mr-1 h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px] md:hidden"
+                >
+                  {unreadChatTotal}
+                </Badge>
+              ) : null}
               <Separator orientation="vertical" className="h-4" />
               <div className="min-w-0 flex-1">
                 <p className="section-eyebrow">{t("headerEyebrow")}</p>

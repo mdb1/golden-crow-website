@@ -44,7 +44,6 @@ import type { ChatRow, MessageRow } from "@/lib/gc-fitness/chat-schema";
 
 import type { ClientRosterEntry } from "../client";
 import { MessageInput } from "./MessageInput";
-import { NudgeButton } from "./NudgeButton";
 
 export interface ChatConversationProps {
   chatId: string;
@@ -207,12 +206,6 @@ export function ChatConversation({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b bg-background px-4 py-3">
         <div className="font-medium">{partnerName}</div>
-        {/* P10-08 — trainer-initiated push button. Rendered next to the
-            partner name so it sits in the natural attention zone of the
-            chat header. The chatId IS the clientId per the P08-04
-            deterministic doc-id contract (already documented in
-            `chat-server-actions.ts`'s ownership precondition pattern). */}
-        <NudgeButton clientId={chatId} clientName={partnerName} />
       </div>
       <div
         ref={scrollContainerRef}

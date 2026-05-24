@@ -7,7 +7,7 @@ import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients } from "./client-roster";
 
-export type RecentLogCategory = "habit" | "workout" | "photo" | "weight";
+export type RecentLogCategory = "habit" | "workout" | "photo" | "weight" | "signup";
 
 export interface RecentLogRow {
   id: string;
@@ -224,6 +224,12 @@ export async function listRecentLogsForTrainer(): Promise<{
     .where("trainerId", "==", trainer.uid)
     .limit(600)
     .get();
+  const usersSnapPromise = db
+    .collection(FirestoreCollections.users)
+    .where("coachId", "==", trainer.uid)
+    .where("role", "==", "client")
+    .limit(400)
+    .get();
 
   // Some historical habit logs are missing/incorrect `coachId`.
   // Query per roster client instead of filtering by coachId so we include
@@ -274,12 +280,14 @@ export async function listRecentLogsForTrainer(): Promise<{
 
   const [
     workoutLogsSnap,
+    usersSnap,
     habitLogsSnaps,
     photoSnaps,
     weightSnaps,
     habitsSnaps,
   ] = await Promise.all([
     workoutLogsPromise,
+    usersSnapPromise,
     Promise.all(habitLogPromises),
     Promise.all(photoPromises),
     Promise.all(weightPromises),
@@ -395,6 +403,24 @@ export async function listRecentLogsForTrainer(): Promise<{
   });
 
   const rows: RecentLogRow[] = [];
+
+  usersSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const clientId = doc.id;
+    if (!nameByClientId.has(clientId)) return;
+    const createdAt = asIso(data.createdAt);
+    if (!createdAt) return;
+    rows.push({
+      id: `signup:${clientId}`,
+      category: "signup",
+      eventAt: createdAt,
+      clientId,
+      clientName: nameByClientId.get(clientId) ?? clientId,
+      title: `${nameByClientId.get(clientId) ?? clientId} completed first sign-in`,
+      detail: "Pending client converted to active user",
+      workoutLogId: null,
+    });
+  });
 
   workoutLogsSnap.docs.forEach((doc) => {
     const data = doc.data();

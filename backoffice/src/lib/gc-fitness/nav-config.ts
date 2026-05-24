@@ -41,13 +41,8 @@
  *   6. Settings  — quick-reply templates + trainer preferences (P08-12)
  *
  * Decision: the canonical 6 from CONTEXT.md listed "Push" as the 6th
- * item. P10-08 placed the manual-nudge button inside the chat
- * conversation header (where the trainer is already in-thread with the
- * client). A standalone "Push" sidebar nav item would duplicate the
- * chat surface. The 6th slot instead surfaces "Settings" (P08-12) which
- * is the trainer's natural sibling — quick-reply templates +
- * preferences. The nudge button remains discoverable from the chat
- * conversation header.
+ * item. We intentionally keep "Settings" as the 6th item to avoid
+ * duplicating chat-adjacent communication actions in the sidebar.
  */
 
 import {

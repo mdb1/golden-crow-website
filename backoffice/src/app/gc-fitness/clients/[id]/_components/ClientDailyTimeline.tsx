@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Camera,
   CheckCircle2,
-  Clock3,
   Dumbbell,
   MessageSquare,
   NotebookText,
@@ -200,7 +199,6 @@ export function ClientDailyTimeline({
           <LoadingBlock title={t("progressPhotos")} />
           <LoadingBlock title={t("chat")} />
           <LoadingBlock title={t("coachNotes")} />
-          <LoadingBlock title={t("reminders")} />
         </div>
       ) : selected ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -393,38 +391,6 @@ export function ClientDailyTimeline({
             )}
           </TimelineBlock>
 
-          <TimelineBlock icon={<Clock3 className="size-4" />} title={t("reminders")}>
-            {selected.reminders.length === 0 ? (
-              <Empty>{t("noReminders")}</Empty>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {selected.reminders.map((reminder) => (
-                  <li
-                    key={reminder.id}
-                    className={[
-                      "flex items-center justify-between rounded-md px-3 py-2",
-                      reminder.future ? "bg-muted/40 text-muted-foreground" : "bg-muted",
-                    ].join(" ")}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{reminder.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {reminder.cadence ?? t("reminderDefaultCadence")}
-                        {reminder.time ? ` • ${reminder.time}` : ""}
-                      </span>
-                    </div>
-                    <span className={reminder.completed ? "text-emerald-600" : "text-muted-foreground"}>
-                      {reminder.future
-                        ? t("reminderStatusFutureValue")
-                        : reminder.completed
-                          ? t("reminderStatusDone")
-                          : t("reminderStatusPending")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </TimelineBlock>
         </div>
       ) : (
         <div className="rounded-md border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
@@ -457,8 +423,7 @@ function hasActivity(day: ClientDailyTimelineDay): boolean {
       day.habits.length +
       day.photos.length +
       day.messages.length +
-      day.notes.length +
-      day.reminders.length >
+      day.notes.length >
     0
   );
 }

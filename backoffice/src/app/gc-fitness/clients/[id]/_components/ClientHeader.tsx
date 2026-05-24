@@ -24,7 +24,6 @@ import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { NudgeButton } from "@/app/gc-fitness/chat/_components/NudgeButton";
 
 export interface ClientHeaderProps {
   clientId: string;
@@ -79,7 +78,6 @@ export function ClientHeader({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <NudgeButton clientId={clientId} clientName={displayName} />
         <Button variant="outline" size="sm" asChild>
           <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
             <MessagesSquare className="size-4" />

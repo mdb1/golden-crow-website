@@ -5,7 +5,7 @@
 // Mirrors `/gc-fitness/chat/providers.tsx` (per-route-group client cache
 // pattern) but with looser defaults: the roster doesn't background-poll
 // today — it is a Server-Component render. The provider is included anyway
-// so 11-06's filter-chip + future client-side mutations (Send nudge, etc.)
+// so 11-06's filter-chip + future client-side mutations
 // can use React Query hooks without re-wiring the layout.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
