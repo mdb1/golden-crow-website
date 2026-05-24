@@ -80,6 +80,15 @@ const TAG_OPTION_KEYS = [
   { value: "custom", labelKey: "custom" },
 ] as const;
 
+function parseNumberList(input: string): number[] {
+  return input
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => Number(x))
+    .filter((x) => Number.isFinite(x));
+}
+
 function buildDefaults(
   passed?: Partial<WorkoutTemplateInput>,
 ): WorkoutTemplateInput {
@@ -131,6 +140,19 @@ export function TemplateForm({
           ...values,
           exercises: values.exercises.map((ex, idx) => ({
             ...ex,
+            ...(Array.isArray(ex.repsBySet) && ex.repsBySet.length > 0
+              ? {
+                  repsBySet: ex.repsBySet,
+                  sets: ex.repsBySet.length,
+                  reps: ex.repsBySet[0],
+                }
+              : {}),
+            ...(Array.isArray(ex.weightBySetKg) && ex.weightBySetKg.length > 0
+              ? { weightBySetKg: ex.weightBySetKg }
+              : {}),
+            ...(ex.supersetGroup?.trim()
+              ? { supersetGroup: ex.supersetGroup.trim() }
+              : {}),
             order: idx + 1,
           })),
         };
@@ -452,6 +474,74 @@ export function TemplateForm({
                                 {fieldState.error.message}
                               </FormMessage>
                             )}
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <Controller
+                        control={form.control}
+                        name={`exercises.${index}.repsBySet` as const}
+                        render={({ field: listField }) => (
+                          <FormItem>
+                            <FormLabel>{t("repsBySet")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t("repsBySetPlaceholder")}
+                                value={
+                                  Array.isArray(listField.value)
+                                    ? listField.value.join(", ")
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  listField.onChange(parseNumberList(e.target.value))
+                                }
+                                onBlur={listField.onBlur}
+                              />
+                            </FormControl>
+                            <FormDescription>{t("repsBySetHint")}</FormDescription>
+                          </FormItem>
+                        )}
+                      />
+                      <Controller
+                        control={form.control}
+                        name={`exercises.${index}.weightBySetKg` as const}
+                        render={({ field: listField }) => (
+                          <FormItem>
+                            <FormLabel>{t("weightBySetKg")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t("weightBySetKgPlaceholder")}
+                                value={
+                                  Array.isArray(listField.value)
+                                    ? listField.value.join(", ")
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  listField.onChange(parseNumberList(e.target.value))
+                                }
+                                onBlur={listField.onBlur}
+                              />
+                            </FormControl>
+                            <FormDescription>{t("weightBySetKgHint")}</FormDescription>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`exercises.${index}.supersetGroup` as const}
+                        render={({ field: supersetField }) => (
+                          <FormItem>
+                            <FormLabel>{t("supersetGroup")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t("supersetGroupPlaceholder")}
+                                {...supersetField}
+                                value={supersetField.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormDescription>{t("supersetGroupHint")}</FormDescription>
                           </FormItem>
                         )}
                       />

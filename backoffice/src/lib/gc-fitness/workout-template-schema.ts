@@ -91,6 +91,23 @@ export const exerciseRefSchema = z.object({
     .string()
     .max(500, "Keep coaching notes under 500 characters.")
     .optional(),
+  repsBySet: z
+    .array(
+      z.number().int().min(1, "Reps per set must be at least 1.").max(50, "Reps per set max is 50."),
+    )
+    .max(10, "Maximum 10 rep entries.")
+    .optional(),
+  weightBySetKg: z
+    .array(
+      z.number().min(0, "Weight per set cannot be negative.").max(500, "Weight per set max is 500kg."),
+    )
+    .max(10, "Maximum 10 weight entries.")
+    .optional(),
+  supersetGroup: z
+    .string()
+    .trim()
+    .max(20, "Superset label max is 20 characters.")
+    .optional(),
   order: z.number().int().min(0),
 });
 
