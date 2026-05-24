@@ -19,6 +19,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -81,6 +82,8 @@ export const HABITS_BASE_KEY = ["gc-fitness", "habits"] as const;
 export interface ClientNameEntry {
   uid: string;
   displayName: string;
+  email: string;
+  pendingProvisioning: boolean;
 }
 
 export interface HabitsLibraryClientProps {
@@ -147,6 +150,14 @@ export function HabitsLibraryClient({
     for (const c of clientRoster) m.set(c.uid, c.displayName);
     return m;
   }, [clientRoster]);
+  const activeClientRoster = useMemo(
+    () => clientRoster.filter((c) => !c.pendingProvisioning),
+    [clientRoster],
+  );
+  const pendingClientRoster = useMemo(
+    () => clientRoster.filter((c) => c.pendingProvisioning),
+    [clientRoster],
+  );
 
   const rows = useMemo(() => {
     const all = (data ?? []) as HabitRow[];
@@ -348,12 +359,12 @@ export function HabitsLibraryClient({
             </Button>
           </div>
           <div className="grid max-h-40 gap-2 overflow-auto rounded-md border p-3 md:grid-cols-2">
-            {clientRoster.length === 0 ? (
+            {activeClientRoster.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {t("noClientsHint")}
               </p>
             ) : (
-              clientRoster.map((client) => (
+              activeClientRoster.map((client) => (
                 <Label
                   key={client.uid}
                   className="flex items-center gap-2 text-sm font-normal"
@@ -369,6 +380,26 @@ export function HabitsLibraryClient({
               ))
             )}
           </div>
+          {pendingClientRoster.length > 0 ? (
+            <div className="rounded-md border border-dashed p-3">
+              <p className="text-sm font-medium">Pendientes de ingreso</p>
+              <p className="text-xs text-muted-foreground">
+                Los pending se gestionan desde su vista de pre-carga.
+              </p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {pendingClientRoster.map((client) => (
+                  <li key={client.uid}>
+                    <Link
+                      className="text-sm text-primary hover:underline"
+                      href={`/gc-fitness/clients/pending/${encodeURIComponent(client.email)}`}
+                    >
+                      {client.displayName}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 border-t pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
@@ -459,7 +490,7 @@ export function HabitsLibraryClient({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("allClients")}</SelectItem>
-            {clientRoster.map((c) => (
+            {activeClientRoster.map((c) => (
               <SelectItem key={c.uid} value={c.uid}>
                 {c.displayName}
               </SelectItem>

@@ -37,6 +37,8 @@ export default async function HabitsPage() {
   const clientRoster = clients.map((c) => ({
     uid: c.uid,
     displayName: c.displayName,
+    email: c.email,
+    pendingProvisioning: c.pendingProvisioning,
   }));
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">

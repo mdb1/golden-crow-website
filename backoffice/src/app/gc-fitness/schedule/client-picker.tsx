@@ -21,6 +21,8 @@ interface ClientPickerProps {
 export function ClientPicker({ clients }: ClientPickerProps) {
   const t = useTranslations("schedule.clientPicker");
   const tCommon = useTranslations("common");
+  const activeClients = clients.filter((c) => !c.pendingProvisioning);
+  const pendingClients = clients.filter((c) => c.pendingProvisioning);
 
   if (clients.length === 0) {
     return (
@@ -41,37 +43,64 @@ export function ClientPicker({ clients }: ClientPickerProps) {
         <CardTitle>{t("pickTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="flex flex-col gap-1">
-          {clients.map((c) => (
-            <li key={c.uid}>
-              <Button
-                variant="ghost"
-                className="w-full justify-start"
-                asChild
-              >
-                <Link
-                  href={
-                    c.pendingProvisioning
-                      ? `/gc-fitness/clients/pending/${encodeURIComponent(c.email)}`
-                      : `/gc-fitness/schedule?clientId=${c.uid}`
-                  }
-                >
-                  <span className="font-medium">{c.displayName}</span>
-                  {c.pendingProvisioning ? (
-                    <Badge variant="secondary" className="ml-2">
-                      {tCommon("pendingSignIn")}
-                    </Badge>
-                  ) : null}
-                  {c.email && c.email !== c.displayName ? (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {c.email}
-                    </span>
-                  ) : null}
-                </Link>
-              </Button>
-            </li>
-          ))}
-        </ul>
+        {activeClients.length > 0 ? (
+          <>
+            <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+              Activos
+            </p>
+            <ul className="mb-4 flex flex-col gap-1">
+              {activeClients.map((c) => (
+                <li key={c.uid}>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href={`/gc-fitness/schedule?clientId=${c.uid}`}>
+                      <span className="font-medium">{c.displayName}</span>
+                      {c.email && c.email !== c.displayName ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {c.email}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+
+        {pendingClients.length > 0 ? (
+          <>
+            <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+              Pendientes
+            </p>
+            <ul className="flex flex-col gap-1">
+              {pendingClients.map((c) => (
+                <li key={c.uid}>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href={`/gc-fitness/clients/pending/${encodeURIComponent(c.email)}`}>
+                      <span className="font-medium">{c.displayName}</span>
+                      <Badge variant="secondary" className="ml-2">
+                        {tCommon("pendingSignIn")}
+                      </Badge>
+                      {c.email && c.email !== c.displayName ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {c.email}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </CardContent>
     </Card>
   );
