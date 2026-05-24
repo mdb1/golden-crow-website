@@ -30,6 +30,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
@@ -124,24 +125,18 @@ export function GCFitnessShell({
                       const label = tNav(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            asChild
+                          <SidebarNavLink
+                            href={item.href}
+                            label={label}
                             isActive={active}
-                            tooltip={label}
-                          >
-                            <Link href={item.href}>
-                              <item.icon className="h-4 w-4" />
-                              <span>{label}</span>
-                              {item.href === "/gc-fitness/chat" && unreadChatTotal > 0 ? (
-                                <Badge
-                                  variant="destructive"
-                                  className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
-                                >
-                                  {unreadChatTotal}
-                                </Badge>
-                              ) : null}
-                            </Link>
-                          </SidebarMenuButton>
+                            icon={<item.icon className="h-4 w-4" />}
+                            badge={
+                              item.href === "/gc-fitness/chat" &&
+                              unreadChatTotal > 0
+                                ? unreadChatTotal
+                                : null
+                            }
+                          />
                         </SidebarMenuItem>
                       );
                     })}
@@ -178,5 +173,46 @@ export function GCFitnessShell({
         </SidebarInset>
       </div>
     </SidebarProvider>
+  );
+}
+
+// SidebarNavLink — lives inside <SidebarProvider> so it can read mobile
+// state from useSidebar(). On mobile, tapping a nav item navigates AND
+// closes the drawer (otherwise the user lands on the new page with the
+// sidebar still covering it).
+function SidebarNavLink({
+  href,
+  label,
+  isActive,
+  icon,
+  badge,
+}: {
+  href: string;
+  label: string;
+  isActive: boolean;
+  icon: React.ReactNode;
+  badge: number | null;
+}) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+      <Link
+        href={href}
+        onClick={() => {
+          if (isMobile) setOpenMobile(false);
+        }}
+      >
+        {icon}
+        <span>{label}</span>
+        {badge !== null ? (
+          <Badge
+            variant="destructive"
+            className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+          >
+            {badge}
+          </Badge>
+        ) : null}
+      </Link>
+    </SidebarMenuButton>
   );
 }
