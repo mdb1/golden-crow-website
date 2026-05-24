@@ -32,14 +32,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { useChatMessages } from "@/lib/gc-fitness/chat-listener";
+import { CHATS_BASE_KEY, useChatMessages } from "@/lib/gc-fitness/chat-listener";
 import {
   getChatAttachmentUrl,
   markChatReadForTrainer,
   setReadReceiptForTrainer,
 } from "@/lib/gc-fitness/chat-server-actions";
-import type { MessageRow } from "@/lib/gc-fitness/chat-schema";
+import type { ChatRow, MessageRow } from "@/lib/gc-fitness/chat-schema";
 
 import type { ClientRosterEntry } from "../client";
 import { MessageInput } from "./MessageInput";
@@ -59,6 +60,7 @@ export function ChatConversation({
   const t = useTranslations("chat.conversation");
   const { data, isLoading, error } = useChatMessages(chatId);
   const messages = useMemo(() => data ?? [], [data]);
+  const queryClient = useQueryClient();
 
   const partnerName = useMemo(() => {
     const entry = clientRoster.find((c) => c.uid === chatId);
@@ -78,13 +80,45 @@ export function ChatConversation({
     alreadyMarkedRef.current = new Set();
     // 260524 — FAST path: zero chats/{chatId}.unreadCount.{trainerUid}
     // on open so the inbox row badge clears in one round-trip instead of
-    // waiting for the per-message readBy fan-in. Idempotent under the
-    // P15-01 rule branch (value clamp == 0); harmless if the slot is
-    // already zero. Mirrors iOS ChatViewModel.start markChatRead call.
-    markChatReadForTrainer(chatId).catch((err) => {
-      console.warn(`[chat] markChatReadForTrainer failed for ${chatId}`, err);
+    // waiting for the per-message readBy fan-in.
+    //
+    // Two-stage cache update for instant UI feedback (260524 follow-up):
+    //   1. Optimistically rewrite the cached chats list right now so the
+    //      ChatThreadList badge AND the sidebar badge
+    //      (gc-fitness-shell.tsx -> useTrainerChats) drop to zero in the
+    //      same render tick as the user's click. No server round-trip.
+    //   2. After the Server Action resolves, invalidate so the canonical
+    //      state replaces the optimistic write (and rebuilds the badge
+    //      in case any concurrent message bumped it).
+    queryClient.setQueryData<ChatRow[]>(CHATS_BASE_KEY, (prev) => {
+      if (!prev) return prev;
+      let changed = false;
+      const next = prev.map((row) => {
+        if (row.id !== chatId) return row;
+        const slot = row.unreadCount?.[trainerUid] ?? 0;
+        if (slot === 0) return row;
+        changed = true;
+        return {
+          ...row,
+          unreadCount: { ...row.unreadCount, [trainerUid]: 0 },
+        };
+      });
+      return changed ? next : prev;
     });
-  }, [chatId]);
+
+    let cancelled = false;
+    markChatReadForTrainer(chatId)
+      .then(() => {
+        if (cancelled) return;
+        void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+      })
+      .catch((err) => {
+        console.warn(`[chat] markChatReadForTrainer failed for ${chatId}`, err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, queryClient, trainerUid]);
 
   useEffect(() => {
     const toMark = messages.filter((m) => {
@@ -113,6 +147,24 @@ export function ChatConversation({
   // a TS port for Pitfall 7 same-source-of-truth is a V2 carry-forward.
   const rows = useMemo(() => groupByCivilDate(messages), [messages]);
 
+  // 260524 — auto-scroll the message pane to the most recent message
+  // when:
+  //   - the active chat changes (entering a thread should land you at
+  //     the bottom, mirroring iOS / Slack / Messages behavior);
+  //   - a new message arrives (sender or receiver).
+  // We use a ref on the scrollable container and jump-set scrollTop
+  // rather than `scrollIntoView` so the user's window scroll is not
+  // affected. The effect only runs after the layout pass (next tick)
+  // so the new content's `scrollHeight` is the post-render value.
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = scrollContainerRef.current;
+    if (!node) return;
+    requestAnimationFrame(() => {
+      node.scrollTop = node.scrollHeight;
+    });
+  }, [chatId, messages.length]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b bg-background px-4 py-3">
@@ -124,7 +176,10 @@ export function ChatConversation({
             `chat-server-actions.ts`'s ownership precondition pattern). */}
         <NudgeButton clientId={chatId} clientName={partnerName} />
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+      <div
+        ref={scrollContainerRef}
+        className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
+      >
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             {t("loadingMessages")}

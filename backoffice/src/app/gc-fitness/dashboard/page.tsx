@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  Activity,
   CalendarDays,
   Dumbbell,
   Library,
@@ -30,10 +31,14 @@ export const dynamic = "force-dynamic";
 const quickLinkSpecs = [
   { titleKey: "clientsTitle", descriptionKey: "clientsDescription", href: "/gc-fitness/clients", icon: Users },
   { titleKey: "scheduleTitle", descriptionKey: "scheduleDescription", href: "/gc-fitness/schedule", icon: CalendarDays },
-  { titleKey: "workoutsTitle", descriptionKey: "workoutsDescription", href: "/gc-fitness/templates", icon: Dumbbell },
-  { titleKey: "libraryTitle", descriptionKey: "libraryDescription", href: "/gc-fitness/exercises", icon: Library },
-  { titleKey: "habitsTitle", descriptionKey: "habitsDescription", href: "/gc-fitness/habits", icon: ListChecks },
   { titleKey: "chatTitle", descriptionKey: "chatDescription", href: "/gc-fitness/chat", icon: MessagesSquare },
+  { titleKey: "workoutsTitle", descriptionKey: "workoutsDescription", href: "/gc-fitness/templates", icon: Dumbbell },
+  { titleKey: "habitsTitle", descriptionKey: "habitsDescription", href: "/gc-fitness/habits", icon: ListChecks },
+] as const;
+
+const secondaryLinkSpecs = [
+  { titleKey: "libraryTitle", descriptionKey: "libraryDescription", href: "/gc-fitness/exercises", icon: Library },
+  { title: "Recent logs", description: "Review latest workout logs and training volume.", href: "/gc-fitness/recent-logs", icon: Activity },
 ] as const;
 
 async function getDashboardCounts(trainer: CurrentTrainer) {
@@ -167,6 +172,36 @@ export default async function GCFitnessDashboardPage() {
             </div>
           </Link>
         ))}
+      </section>
+
+      <section className="rounded-lg border bg-card p-5">
+        <h2 className="mb-4 font-heading text-base font-semibold">Secondary tools</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {secondaryLinkSpecs.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-lg border bg-background p-4 text-card-foreground transition hover:border-primary/50 hover:bg-accent/30"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4 text-primary" />
+                    <h3 className="font-heading text-sm font-semibold">
+                      {"titleKey" in item ? tQuick(item.titleKey) : item.title}
+                    </h3>
+                  </div>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {"descriptionKey" in item
+                      ? tQuick(item.descriptionKey)
+                      : item.description}
+                  </p>
+                </div>
+                <Badge variant="secondary">{tCommon("open")}</Badge>
+              </div>
+            </Link>
+          ))}
+        </div>
       </section>
     </div>
   );
