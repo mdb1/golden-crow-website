@@ -242,28 +242,15 @@ export async function listWorkoutTemplates(opts?: {
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
-  let ownQ = db
-    .collection(COLLECTION)
-    .where("trainerId", "==", trainer.uid);
-  let standardQ = db
-    .collection(COLLECTION)
-    .where("isStandard", "==", true);
-
-  if (!opts?.includeDeleted) {
-    ownQ = ownQ.where("deleted", "==", false);
-    standardQ = standardQ.where("deleted", "==", false);
-  }
-  if (opts?.tag) {
-    ownQ = ownQ.where("tag", "==", opts.tag);
-    standardQ = standardQ.where("tag", "==", opts.tag);
-  }
-  ownQ = ownQ.orderBy("updatedAt", "desc");
-  standardQ = standardQ.orderBy("updatedAt", "desc");
-
+  // Keep list queries index-light: query by ownership/global flag only and
+  // apply tag/deleted/sort in memory. This avoids extra composite-index
+  // requirements for trainer accounts.
+  const ownQ = db.collection(COLLECTION).where("trainerId", "==", trainer.uid);
+  const standardQ = db.collection(COLLECTION).where("isStandard", "==", true);
   const [ownSnap, standardSnap] = await Promise.all([ownQ.get(), standardQ.get()]);
   const mergedDocs = [...ownSnap.docs, ...standardSnap.docs];
   const dedup = new Map(mergedDocs.map((d) => [d.id, d]));
-  const templates: WorkoutTemplateRow[] = [...dedup.values()].map((d) => {
+  let templates: WorkoutTemplateRow[] = [...dedup.values()].map((d) => {
     const data = d.data() as Record<string, unknown>;
     const exercises = Array.isArray(data.exercises) ? data.exercises : [];
     return {
@@ -280,6 +267,13 @@ export async function listWorkoutTemplates(opts?: {
       updatedAt: toIso(data.updatedAt),
     };
   });
+
+  if (!opts?.includeDeleted) {
+    templates = templates.filter((t) => !t.deleted);
+  }
+  if (opts?.tag) {
+    templates = templates.filter((t) => t.tag === opts.tag);
+  }
 
   templates.sort((a, b) => {
     const aTs = a.updatedAt ?? "";
