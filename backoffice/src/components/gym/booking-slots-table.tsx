@@ -71,6 +71,7 @@ export function BookingSlotsTable() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<BookingSlotRecord | null>(null);
   const [form, setForm] = useState<SlotFormState>(emptyForm());
+  const [maxCapacityDraft, setMaxCapacityDraft] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -101,8 +102,22 @@ export function BookingSlotsTable() {
     onError: () => setFormError("Failed to delete slot."),
   });
 
-  function openCreate() { setEditingSlot(null); setForm(emptyForm()); setFormError(null); setDialogOpen(true); }
-  function openEdit(slot: BookingSlotRecord) { setEditingSlot(slot); setForm(slotToForm(slot)); setFormError(null); setDialogOpen(true); }
+  function openCreate() {
+    setEditingSlot(null);
+    const next = emptyForm();
+    setForm(next);
+    setMaxCapacityDraft(String(next.maxCapacity));
+    setFormError(null);
+    setDialogOpen(true);
+  }
+  function openEdit(slot: BookingSlotRecord) {
+    setEditingSlot(slot);
+    const next = slotToForm(slot);
+    setForm(next);
+    setMaxCapacityDraft(String(next.maxCapacity));
+    setFormError(null);
+    setDialogOpen(true);
+  }
   function closeDialog() { setDialogOpen(false); setEditingSlot(null); }
 
   function handleSubmit(e: React.FormEvent) {
@@ -180,7 +195,37 @@ export function BookingSlotsTable() {
               <div className="space-y-1"><Label>Start time</Label><Input type="datetime-local" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} required /></div>
               <div className="space-y-1"><Label>End time</Label><Input type="datetime-local" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} required /></div>
             </div>
-            <div className="space-y-1"><Label>Max capacity</Label><Input type="number" min={1} value={form.maxCapacity} onChange={(e) => setForm((f) => ({ ...f, maxCapacity: Number(e.target.value) }))} required /></div>
+            <div className="space-y-1">
+              <Label>Max capacity</Label>
+              <Input
+                type="number"
+                min={1}
+                value={maxCapacityDraft}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setMaxCapacityDraft(raw);
+                  if (raw.trim() === "") return;
+                  const parsed = Number(raw);
+                  if (!Number.isFinite(parsed)) return;
+                  setForm((f) => ({ ...f, maxCapacity: parsed }));
+                }}
+                onBlur={() => {
+                  if (maxCapacityDraft.trim() === "") {
+                    setMaxCapacityDraft(String(form.maxCapacity));
+                    return;
+                  }
+                  const parsed = Number(maxCapacityDraft);
+                  if (!Number.isFinite(parsed)) {
+                    setMaxCapacityDraft(String(form.maxCapacity));
+                    return;
+                  }
+                  const normalized = Math.max(1, parsed);
+                  setForm((f) => ({ ...f, maxCapacity: normalized }));
+                  setMaxCapacityDraft(String(normalized));
+                }}
+                required
+              />
+            </div>
             <div className="space-y-1"><Label>Trainer ID (optional)</Label><Input value={form.trainerId} onChange={(e) => setForm((f) => ({ ...f, trainerId: e.target.value }))} /></div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex flex-wrap gap-2 pt-1">

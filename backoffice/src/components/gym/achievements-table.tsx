@@ -53,6 +53,8 @@ export function AchievementsTable() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AchievementRecord | null>(null);
   const [form, setForm] = useState<AchievementFormState>(emptyForm());
+  const [xpRewardDraft, setXpRewardDraft] = useState<string>("");
+  const [triggerThresholdDraft, setTriggerThresholdDraft] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -80,8 +82,24 @@ export function AchievementsTable() {
     onError: () => setFormError("Failed to delete achievement."),
   });
 
-  function openCreate() { setEditing(null); setForm(emptyForm()); setFormError(null); setDialogOpen(true); }
-  function openEdit(r: AchievementRecord) { setEditing(r); setForm(recordToForm(r)); setFormError(null); setDialogOpen(true); }
+  function openCreate() {
+    setEditing(null);
+    const next = emptyForm();
+    setForm(next);
+    setXpRewardDraft(String(next.xpReward));
+    setTriggerThresholdDraft(String(next.triggerThreshold));
+    setFormError(null);
+    setDialogOpen(true);
+  }
+  function openEdit(r: AchievementRecord) {
+    setEditing(r);
+    const next = recordToForm(r);
+    setForm(next);
+    setXpRewardDraft(String(next.xpReward));
+    setTriggerThresholdDraft(String(next.triggerThreshold));
+    setFormError(null);
+    setDialogOpen(true);
+  }
   function closeDialog() { setDialogOpen(false); setEditing(null); }
 
   function handleSubmit(e: React.FormEvent) {
@@ -133,8 +151,68 @@ export function AchievementsTable() {
             <div className="space-y-1"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} required /></div>
             <div className="space-y-1"><Label>Icon name</Label><Input value={form.iconName} onChange={(e) => setForm((f) => ({ ...f, iconName: e.target.value }))} placeholder="star.fill" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>XP reward</Label><Input type="number" min={0} value={form.xpReward} onChange={(e) => setForm((f) => ({ ...f, xpReward: Number(e.target.value) }))} required /></div>
-              <div className="space-y-1"><Label>Threshold</Label><Input type="number" min={1} value={form.triggerThreshold} onChange={(e) => setForm((f) => ({ ...f, triggerThreshold: Number(e.target.value) }))} required /></div>
+              <div className="space-y-1">
+                <Label>XP reward</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={xpRewardDraft}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setXpRewardDraft(raw);
+                    if (raw.trim() === "") return;
+                    const parsed = Number(raw);
+                    if (!Number.isFinite(parsed)) return;
+                    setForm((f) => ({ ...f, xpReward: parsed }));
+                  }}
+                  onBlur={() => {
+                    if (xpRewardDraft.trim() === "") {
+                      setXpRewardDraft(String(form.xpReward));
+                      return;
+                    }
+                    const parsed = Number(xpRewardDraft);
+                    if (!Number.isFinite(parsed)) {
+                      setXpRewardDraft(String(form.xpReward));
+                      return;
+                    }
+                    const normalized = Math.max(0, parsed);
+                    setForm((f) => ({ ...f, xpReward: normalized }));
+                    setXpRewardDraft(String(normalized));
+                  }}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Threshold</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={triggerThresholdDraft}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setTriggerThresholdDraft(raw);
+                    if (raw.trim() === "") return;
+                    const parsed = Number(raw);
+                    if (!Number.isFinite(parsed)) return;
+                    setForm((f) => ({ ...f, triggerThreshold: parsed }));
+                  }}
+                  onBlur={() => {
+                    if (triggerThresholdDraft.trim() === "") {
+                      setTriggerThresholdDraft(String(form.triggerThreshold));
+                      return;
+                    }
+                    const parsed = Number(triggerThresholdDraft);
+                    if (!Number.isFinite(parsed)) {
+                      setTriggerThresholdDraft(String(form.triggerThreshold));
+                      return;
+                    }
+                    const normalized = Math.max(1, parsed);
+                    setForm((f) => ({ ...f, triggerThreshold: normalized }));
+                    setTriggerThresholdDraft(String(normalized));
+                  }}
+                  required
+                />
+              </div>
             </div>
             <div className="space-y-1">
               <Label>Trigger type</Label>

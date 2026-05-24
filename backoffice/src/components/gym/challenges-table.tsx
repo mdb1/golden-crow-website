@@ -51,6 +51,7 @@ export function ChallengesTable() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ChallengeRecord | null>(null);
   const [form, setForm] = useState<ChallengeFormState>(emptyForm());
+  const [targetValueDraft, setTargetValueDraft] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -78,8 +79,22 @@ export function ChallengesTable() {
     onError: () => setFormError("Failed to delete challenge."),
   });
 
-  function openCreate() { setEditing(null); setForm(emptyForm()); setFormError(null); setDialogOpen(true); }
-  function openEdit(r: ChallengeRecord) { setEditing(r); setForm(recordToForm(r)); setFormError(null); setDialogOpen(true); }
+  function openCreate() {
+    setEditing(null);
+    const next = emptyForm();
+    setForm(next);
+    setTargetValueDraft(String(next.targetValue));
+    setFormError(null);
+    setDialogOpen(true);
+  }
+  function openEdit(r: ChallengeRecord) {
+    setEditing(r);
+    const next = recordToForm(r);
+    setForm(next);
+    setTargetValueDraft(String(next.targetValue));
+    setFormError(null);
+    setDialogOpen(true);
+  }
   function closeDialog() { setDialogOpen(false); setEditing(null); }
 
   function handleSubmit(e: React.FormEvent) {
@@ -141,7 +156,37 @@ export function ChallengesTable() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Target value</Label><Input type="number" min={1} value={form.targetValue} onChange={(e) => setForm((f) => ({ ...f, targetValue: Number(e.target.value) }))} required /></div>
+              <div className="space-y-1">
+                <Label>Target value</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={targetValueDraft}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setTargetValueDraft(raw);
+                    if (raw.trim() === "") return;
+                    const parsed = Number(raw);
+                    if (!Number.isFinite(parsed)) return;
+                    setForm((f) => ({ ...f, targetValue: parsed }));
+                  }}
+                  onBlur={() => {
+                    if (targetValueDraft.trim() === "") {
+                      setTargetValueDraft(String(form.targetValue));
+                      return;
+                    }
+                    const parsed = Number(targetValueDraft);
+                    if (!Number.isFinite(parsed)) {
+                      setTargetValueDraft(String(form.targetValue));
+                      return;
+                    }
+                    const normalized = Math.max(1, parsed);
+                    setForm((f) => ({ ...f, targetValue: normalized }));
+                    setTargetValueDraft(String(normalized));
+                  }}
+                  required
+                />
+              </div>
               <div className="space-y-1"><Label>Deadline</Label><Input type="date" value={form.deadline} onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))} required /></div>
             </div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
