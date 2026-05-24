@@ -45,6 +45,7 @@ export async function PendingClientPreload({
       scheduledFor,
     });
     revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
+    revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
   }
 
   async function submitHabit(formData: FormData) {
@@ -62,6 +63,7 @@ export async function PendingClientPreload({
       startsOn: new Date().toISOString().slice(0, 10),
     });
     revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
+    revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
   }
 
   return (

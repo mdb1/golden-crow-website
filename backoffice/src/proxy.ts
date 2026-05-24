@@ -55,6 +55,25 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
+    // Legacy pending-client URL compatibility:
+    //   /gc-fitness/clients/mirror:{email}
+    // -> /gc-fitness/clients/pending/{email}
+    // This avoids 404s when operators open old deep links.
+    if (pathname.startsWith("/gc-fitness/clients/mirror:")) {
+      const encodedEmail = pathname.slice("/gc-fitness/clients/mirror:".length);
+      let normalizedEmail = encodedEmail;
+      try {
+        normalizedEmail = decodeURIComponent(encodedEmail);
+      } catch {
+        normalizedEmail = encodedEmail;
+      }
+      const redirectURL = new URL(
+        `/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`,
+        request.url,
+      );
+      return NextResponse.redirect(redirectURL);
+    }
+
     const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
     const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
     const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;

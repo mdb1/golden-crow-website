@@ -49,7 +49,13 @@ export function ClientPicker({ clients }: ClientPickerProps) {
                 className="w-full justify-start"
                 asChild
               >
-                <Link href={`/gc-fitness/schedule?clientId=${c.uid}`}>
+                <Link
+                  href={
+                    c.pendingProvisioning
+                      ? `/gc-fitness/clients/pending/${encodeURIComponent(c.email)}`
+                      : `/gc-fitness/schedule?clientId=${c.uid}`
+                  }
+                >
                   <span className="font-medium">{c.displayName}</span>
                   {c.pendingProvisioning ? (
                     <Badge variant="secondary" className="ml-2">

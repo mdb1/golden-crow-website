@@ -252,6 +252,12 @@ export function RosterTable({ rows }: RosterTableProps) {
               <TableRow
                 key={row.id}
                 onClick={() => {
+                  if (row.original.pendingProvisioning) {
+                    router.push(
+                      `/gc-fitness/clients/pending/${encodeURIComponent(row.original.email)}`,
+                    );
+                    return;
+                  }
                   router.push(`/gc-fitness/clients/${row.original.uid}`);
                 }}
                 // hover:bg-accent uses the brand-blue tint (`--accent`) and

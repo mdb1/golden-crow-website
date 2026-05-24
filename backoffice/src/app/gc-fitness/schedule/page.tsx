@@ -82,7 +82,9 @@ export default async function SchedulePage({
                   La agenda semanal se habilita cuando pase a estado activo.
                 </p>
                 <Button asChild>
-                  <Link href={`/gc-fitness/clients/${selectedClient.uid}`}>
+                  <Link
+                    href={`/gc-fitness/clients/pending/${encodeURIComponent(selectedClient.email)}`}
+                  >
                     Abrir pre-carga del cliente
                   </Link>
                 </Button>

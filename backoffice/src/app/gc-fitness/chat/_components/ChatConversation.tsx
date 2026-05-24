@@ -168,17 +168,17 @@ export function ChatConversation({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const node = scrollContainerRef.current;
     if (!node) return;
-    node.scrollTop = node.scrollHeight;
+    node.scrollTo({ top: node.scrollHeight, behavior });
     nearBottomRef.current = true;
   }, []);
 
+  // Initial enter / new-message scroll stays instant ("auto") — the user
+  // expects the thread to LAND at the bottom, not glide into place.
   useEffect(() => {
-    const node = scrollContainerRef.current;
-    if (!node) return;
-    requestAnimationFrame(scrollToBottom);
+    requestAnimationFrame(() => scrollToBottom("auto"));
   }, [chatId, messages.length, scrollToBottom]);
 
   useEffect(() => {
@@ -193,9 +193,14 @@ export function ChatConversation({
     return () => node.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Attachment re-snap glides instead of jumping — the initial instant
+  // scroll already landed the user at the bottom; when an image / audio
+  // finally resolves and pushes content down, an animated catch-up reads
+  // as polish rather than a jolt. Gated on `nearBottomRef` so a trainer
+  // who scrolled up to read history isn't yanked back.
   const handleAttachmentLoaded = useCallback(() => {
     if (!nearBottomRef.current) return;
-    requestAnimationFrame(scrollToBottom);
+    requestAnimationFrame(() => scrollToBottom("smooth"));
   }, [scrollToBottom]);
 
   return (

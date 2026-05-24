@@ -95,6 +95,25 @@ export function BulkAssignForm({
 
   const isWithinCap = selectedUids.size >= 1 && selectedUids.size <= MAX_CLIENTS_PER_BATCH;
 
+  function localizeBulkAssignError(message: string): string {
+    if (message.includes("Pick at least one client")) {
+      return t("errorKeepOne");
+    }
+    if (
+      message.includes("Bulk-assign supports at most") ||
+      message.includes("at most")
+    ) {
+      return t("overCapMessage", {
+        count: selectedUids.size,
+        cap: MAX_CLIENTS_PER_BATCH,
+      });
+    }
+    if (message.includes("templateId is required") || message.includes("Template not found")) {
+      return t("errorPickTemplate");
+    }
+    return t("errorBulkFailed");
+  }
+
   function toggleUid(uid: string) {
     setSelectedUids((prev) => {
       const next = new Set(prev);
@@ -142,10 +161,10 @@ export function BulkAssignForm({
       const firstClientId = finalClientIds[0];
       router.push(`/gc-fitness/schedule?clientId=${firstClientId}`);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("errorBulkFailed");
-      // Surface verbatim — Pitfall 5: no silent truncation. Toast carries
-      // count + verbatim error string only; no UID list (T-04-24).
+      const message = err instanceof Error
+        ? localizeBulkAssignError(err.message)
+        : t("errorBulkFailed");
+      // Localized + normalized user-facing error (no UID lists / internals).
       toast.error(message);
     } finally {
       setSubmitting(false);
