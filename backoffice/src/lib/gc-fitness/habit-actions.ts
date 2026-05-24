@@ -541,6 +541,7 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
     .get();
   return snap.docs.map((doc) => {
     const data = doc.data();
+    if (data.deleted === true) return null;
     const rawName = data.name;
     const name =
       typeof rawName === "string"
@@ -551,7 +552,7 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
       name,
       type: typeof data.type === "string" ? data.type : "binary",
     };
-  });
+  }).filter((row): row is { id: string; name: string; type: string } => row !== null);
 }
 
 /**

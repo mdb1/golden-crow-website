@@ -15,6 +15,7 @@
 import {
   assignTemplateToPending,
   assignTemplateRecurringToPending,
+  deleteAssignment,
   listPendingAssignments,
 } from "@/lib/gc-fitness/workout-assignment-actions";
 import {
@@ -22,6 +23,7 @@ import {
   createPendingHabit,
   listHabitTemplates,
   listPendingHabits,
+  softDeleteHabit,
 } from "@/lib/gc-fitness/habit-actions";
 import { listWorkoutTemplates } from "@/lib/gc-fitness/workout-template-actions";
 import { revalidatePath } from "next/cache";
@@ -167,6 +169,24 @@ export async function PendingClientPreload({
     revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
   }
 
+  async function removePendingWorkout(formData: FormData) {
+    "use server";
+    const assignmentId = String(formData.get("assignmentId") ?? "").trim();
+    if (!assignmentId) return;
+    await deleteAssignment(assignmentId);
+    revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
+    revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
+  }
+
+  async function removePendingHabit(formData: FormData) {
+    "use server";
+    const habitId = String(formData.get("habitId") ?? "").trim();
+    if (!habitId) return;
+    await softDeleteHabit(habitId);
+    revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
+    revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* ── Workouts section ──────────────────────────────────────────── */}
@@ -180,10 +200,21 @@ export async function PendingClientPreload({
                 key={row.id}
                 className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm"
               >
-                <span className="font-medium">{row.templateName}</span>
-                <span className="text-xs text-muted-foreground">
-                  {row.scheduledFor}
-                </span>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="font-medium">{row.templateName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {row.scheduledFor}
+                  </span>
+                </div>
+                <form action={removePendingWorkout}>
+                  <input type="hidden" name="assignmentId" value={row.id} />
+                  <button
+                    type="submit"
+                    className="rounded border px-2 py-1 text-xs text-muted-foreground hover:bg-background"
+                  >
+                    Borrar
+                  </button>
+                </form>
               </li>
             ))}
           </ul>
@@ -213,8 +244,19 @@ export async function PendingClientPreload({
                 key={row.id}
                 className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm"
               >
-                <span className="font-medium">{row.name}</span>
-                <span className="text-xs text-muted-foreground">{row.type}</span>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="font-medium">{row.name}</span>
+                  <span className="text-xs text-muted-foreground">{row.type}</span>
+                </div>
+                <form action={removePendingHabit}>
+                  <input type="hidden" name="habitId" value={row.id} />
+                  <button
+                    type="submit"
+                    className="rounded border px-2 py-1 text-xs text-muted-foreground hover:bg-background"
+                  >
+                    Borrar
+                  </button>
+                </form>
               </li>
             ))}
           </ul>
