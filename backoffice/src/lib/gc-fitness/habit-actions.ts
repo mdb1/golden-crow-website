@@ -530,6 +530,8 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
   id: string;
   name: string;
   type: string;
+  scheduleType: "one-time" | "recurring";
+  scheduleCadence: "daily" | "weekly" | "monthly" | null;
 }>> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
@@ -551,8 +553,21 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
       id: doc.id,
       name,
       type: typeof data.type === "string" ? data.type : "binary",
+      scheduleType: data.scheduleType === "one-time" ? "one-time" : "recurring",
+      scheduleCadence:
+        data.scheduleCadence === "weekly" || data.scheduleCadence === "monthly"
+          ? data.scheduleCadence
+          : data.scheduleCadence === "daily"
+            ? "daily"
+            : null,
     };
-  }).filter((row): row is { id: string; name: string; type: string } => row !== null);
+  }).filter((row): row is {
+    id: string;
+    name: string;
+    type: string;
+    scheduleType: "one-time" | "recurring";
+    scheduleCadence: "daily" | "weekly" | "monthly" | null;
+  } => row !== null);
 }
 
 /**

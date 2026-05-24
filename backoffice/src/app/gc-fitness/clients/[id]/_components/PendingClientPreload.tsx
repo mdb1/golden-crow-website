@@ -19,7 +19,6 @@ import {
   listPendingAssignments,
 } from "@/lib/gc-fitness/workout-assignment-actions";
 import {
-  assignHabitTemplateToPending,
   createPendingHabit,
   listHabitTemplates,
   listPendingHabits,
@@ -109,23 +108,17 @@ export async function PendingClientPreload({
       Number.isInteger(scheduleDayOfMonthRaw) && scheduleDayOfMonthRaw >= 1 && scheduleDayOfMonthRaw <= 31
         ? scheduleDayOfMonthRaw
         : undefined;
-    if (templateId) {
-      await assignHabitTemplateToPending({
-        templateId,
-        pendingEmail: normalizedEmail,
-      });
-      revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
-      revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
-      return;
-    }
-    if (!name) return;
+    const selectedTemplate = templateId
+      ? habitTemplates.find((template) => template.id === templateId)
+      : null;
+    if (!selectedTemplate && !name) return;
     const options = optionsRaw
       .split(",")
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0);
     const targetValue = targetRaw.length > 0 ? Number(targetRaw) : undefined;
     const startsOnValue = startsOn || new Date().toISOString().slice(0, 10);
-    const resolvedType = type as "binary" | "multi-choice" | "numeric" | "weight";
+    const resolvedType = (selectedTemplate?.type ?? type) as "binary" | "multi-choice" | "numeric" | "weight";
     const resolvedScheduleType = scheduleType === "one-time" ? "one-time" : "recurring";
     const resolvedCadence =
       scheduleCadence === "weekly" || scheduleCadence === "monthly" ? scheduleCadence : "daily";
@@ -146,12 +139,22 @@ export async function PendingClientPreload({
         ? [scheduleDayOfMonth]
         : undefined;
 
+    const resolvedName = selectedTemplate
+      ? {
+          en: selectedTemplate.name.en,
+          es: selectedTemplate.name.es,
+        }
+      : name;
+
     await createPendingHabit(normalizedEmail, {
       type: resolvedType,
-      name,
-      options: parsedOptions,
-      targetValue: parsedTarget,
-      unit: parsedUnit,
+      name: resolvedName,
+      options: parsedOptions ?? selectedTemplate?.options,
+      targetValue:
+        parsedTarget !== undefined
+          ? parsedTarget
+          : selectedTemplate?.targetValue,
+      unit: parsedUnit ?? selectedTemplate?.unit,
       clientId: `pending:${normalizedEmail}`, // overridden by createPendingHabit
       reminderEnabled: false,
       scheduleType: resolvedScheduleType,
@@ -172,8 +175,12 @@ export async function PendingClientPreload({
   async function removePendingWorkout(formData: FormData) {
     "use server";
     const assignmentId = String(formData.get("assignmentId") ?? "").trim();
+    const cascadeFromDate = String(formData.get("cascadeFromDate") ?? "").trim();
     if (!assignmentId) return;
-    await deleteAssignment(assignmentId);
+    await deleteAssignment(
+      assignmentId,
+      cascadeFromDate ? { cascadeFromDate } : undefined,
+    );
     revalidatePath(`/gc-fitness/clients/mirror:${normalizedEmail}`);
     revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
   }
@@ -187,6 +194,55 @@ export async function PendingClientPreload({
     revalidatePath(`/gc-fitness/clients/pending/${encodeURIComponent(normalizedEmail)}`);
   }
 
+  const groupedPendingWorkouts = pendingWorkouts.reduce<Array<{
+    id: string;
+    templateName: string;
+    scheduledFor: string;
+    cadenceTag: string | null;
+    cascadeFromDate: string | null;
+  }>>((acc, row) => {
+    if (!row.seriesId) {
+      acc.push({
+        id: row.id,
+        templateName: row.templateName,
+        scheduledFor: row.scheduledFor,
+        cadenceTag: null,
+        cascadeFromDate: null,
+      });
+      return acc;
+    }
+
+    const recurrence = row.recurrence;
+    const cadenceTag =
+      recurrence?.kind === "daily"
+        ? "Diario"
+        : recurrence?.kind === "weekly"
+          ? "Semanal"
+          : recurrence?.kind === "weekly_days"
+            ? "Semanal (varios días)"
+            : recurrence?.kind === "every_n_days"
+              ? `Cada ${recurrence.everyN} días`
+              : "Recurrente";
+
+    const existing = acc.find((entry) => entry.cascadeFromDate === `series:${row.seriesId}`);
+    if (!existing) {
+      acc.push({
+        id: row.id,
+        templateName: row.templateName,
+        scheduledFor: row.scheduledFor,
+        cadenceTag,
+        cascadeFromDate: `series:${row.seriesId}`,
+      });
+      return acc;
+    }
+
+    if (row.scheduledFor < existing.scheduledFor) {
+      existing.id = row.id;
+      existing.scheduledFor = row.scheduledFor;
+    }
+    return acc;
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       {/* ── Workouts section ──────────────────────────────────────────── */}
@@ -195,19 +251,27 @@ export async function PendingClientPreload({
 
         {pendingWorkouts.length > 0 ? (
           <ul className="mb-4 flex flex-col gap-2">
-            {pendingWorkouts.map((row) => (
+            {groupedPendingWorkouts.map((row) => (
               <li
                 key={row.id}
                 className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="font-medium">{row.templateName}</span>
+                  {row.cadenceTag ? (
+                    <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {row.cadenceTag}
+                    </span>
+                  ) : null}
                   <span className="text-xs text-muted-foreground">
                     {row.scheduledFor}
                   </span>
                 </div>
                 <form action={removePendingWorkout}>
                   <input type="hidden" name="assignmentId" value={row.id} />
+                  {row.cascadeFromDate ? (
+                    <input type="hidden" name="cascadeFromDate" value={row.scheduledFor} />
+                  ) : null}
                   <button
                     type="submit"
                     className="rounded border px-2 py-1 text-xs text-muted-foreground hover:bg-background"
@@ -247,6 +311,15 @@ export async function PendingClientPreload({
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="font-medium">{row.name}</span>
                   <span className="text-xs text-muted-foreground">{row.type}</span>
+                  <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {row.scheduleType === "one-time"
+                      ? "Una vez"
+                      : row.scheduleCadence === "weekly"
+                        ? "Semanal"
+                        : row.scheduleCadence === "monthly"
+                          ? "Mensual"
+                          : "Diaria"}
+                  </span>
                 </div>
                 <form action={removePendingHabit}>
                   <input type="hidden" name="habitId" value={row.id} />
@@ -271,6 +344,7 @@ export async function PendingClientPreload({
           templates={habitTemplates.map((template) => ({
             id: template.id,
             label: `${template.name.es || template.name.en || "(sin nombre)"} · ${template.type}`,
+            type: template.type,
           }))}
         />
 

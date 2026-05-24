@@ -9,6 +9,7 @@ type HabitCadence = "daily" | "weekly" | "monthly";
 interface HabitTemplateOption {
   id: string;
   label: string;
+  type: HabitType;
 }
 
 interface PendingHabitPreloadFormProps {
@@ -45,9 +46,13 @@ export function PendingHabitPreloadForm({
 
   const startsOnDefault = useMemo(() => todayCivilDate(), []);
   const templateMode = templateId.length > 0;
-  const showOptions = type === "multi-choice";
-  const showTarget = type === "numeric";
-  const showUnit = type === "numeric" || type === "weight";
+  const selectedTemplateType = templateMode
+    ? templates.find((template) => template.id === templateId)?.type
+    : undefined;
+  const effectiveType = selectedTemplateType ?? type;
+  const showOptions = effectiveType === "multi-choice";
+  const showTarget = effectiveType === "numeric";
+  const showUnit = effectiveType === "numeric" || effectiveType === "weight";
   const showCadence = scheduleType === "recurring";
   const showWeekdays = showCadence && scheduleCadence === "weekly";
   const showMonthDay = showCadence && scheduleCadence === "monthly";
@@ -76,34 +81,40 @@ export function PendingHabitPreloadForm({
         </label>
       </div>
 
-      <fieldset disabled={templateMode} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Nombre del hábito</span>
-            <input
-              type="text"
-              name="name"
-              required={!templateMode}
-              minLength={1}
-              maxLength={80}
-              placeholder="Ej: 10 minutos de meditación"
-              className="rounded border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Tipo</span>
-            <select
-              name="type"
-              value={type}
-              onChange={(event) => setType(event.target.value as HabitType)}
-              className="rounded border bg-background px-3 py-2 text-sm"
-            >
-              <option value="binary">Binary</option>
-              <option value="multi-choice">Multi-choice</option>
-              <option value="numeric">Numeric</option>
-              <option value="weight">Weight</option>
-            </select>
-          </label>
+          {!templateMode ? (
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Nombre del hábito</span>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  minLength={1}
+                  maxLength={80}
+                  placeholder="Ej: 10 minutos de meditación"
+                  className="rounded border bg-background px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Tipo</span>
+                <select
+                  name="type"
+                  value={type}
+                  onChange={(event) => setType(event.target.value as HabitType)}
+                  className="rounded border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="binary">Binary</option>
+                  <option value="multi-choice">Multi-choice</option>
+                  <option value="numeric">Numeric</option>
+                  <option value="weight">Weight</option>
+                </select>
+              </label>
+            </>
+          ) : (
+            <input type="hidden" name="type" value={effectiveType} />
+          )}
           {showOptions ? (
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Opciones (coma separadas)</span>
@@ -221,7 +232,7 @@ export function PendingHabitPreloadForm({
             />
           </label>
         ) : null}
-      </fieldset>
+      </div>
 
       <div className="flex justify-end">
         <button

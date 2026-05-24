@@ -340,6 +340,13 @@ export async function listPendingAssignments(pendingEmail: string): Promise<Arra
   id: string;
   templateName: string;
   scheduledFor: string;
+  seriesId: string | null;
+  recurrence:
+    | { kind: "daily" }
+    | { kind: "weekly"; weekday: number }
+    | { kind: "weekly_days"; weekdays: number[] }
+    | { kind: "every_n_days"; everyN: number }
+    | null;
 }>> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
@@ -357,6 +364,17 @@ export async function listPendingAssignments(pendingEmail: string): Promise<Arra
       id: doc.id,
       templateName: name,
       scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+      seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
+      recurrence:
+        data.recurrence &&
+        typeof data.recurrence === "object" &&
+        typeof (data.recurrence as { kind?: unknown }).kind === "string"
+          ? (data.recurrence as
+              | { kind: "daily" }
+              | { kind: "weekly"; weekday: number }
+              | { kind: "weekly_days"; weekdays: number[] }
+              | { kind: "every_n_days"; everyN: number })
+          : null,
     };
   });
 }
