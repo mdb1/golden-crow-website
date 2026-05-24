@@ -67,6 +67,10 @@ const EMPTY_FILTERS: ExerciseFiltersState = {
   source: [],
 };
 
+interface ExerciseLibraryClientProps {
+  trainerUid: string;
+}
+
 function matchesFilters(row: ExerciseRow, f: ExerciseFiltersState): boolean {
   // Search — case-insensitive substring match on EN and ES name + EN
   // description. Trainers expect to search by either language; lower-casing
@@ -103,10 +107,10 @@ function matchesFilters(row: ExerciseRow, f: ExerciseFiltersState): boolean {
   return true;
 }
 
-export function ExerciseLibraryClient() {
+export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("exercises.list");
-  const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
+  const { data, isLoading, error, hasSnapshot } = useExercisesQuery(trainerUid);
   const [filters, setFilters] = useState<ExerciseFiltersState>(EMPTY_FILTERS);
   const [confirmDelete, setConfirmDelete] = useState<ExerciseRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);

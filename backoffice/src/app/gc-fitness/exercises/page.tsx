@@ -26,8 +26,9 @@ import { ExerciseQueryProvider } from "./providers";
 export const dynamic = "force-dynamic";
 
 export default async function ExercisesPage() {
+  let trainer: Awaited<ReturnType<typeof getCurrentTrainer>>;
   try {
-    await getCurrentTrainer();
+    trainer = await getCurrentTrainer();
   } catch (err) {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
@@ -48,7 +49,7 @@ export default async function ExercisesPage() {
         </h1>
       </div>
       <ExerciseQueryProvider>
-        <ExerciseLibraryClient />
+        <ExerciseLibraryClient trainerUid={trainer.uid} />
       </ExerciseQueryProvider>
     </div>
   );

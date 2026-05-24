@@ -162,10 +162,7 @@ export async function updateExercise(
   id: string,
   input: unknown,
 ): Promise<{ ok: true }> {
-  // Authentication gate — throws Forbidden if no valid trainer session
-  // cookie. UID is no longer needed for an ownership check (v1: any
-  // trainer can edit any trainer-source exercise — see edit page guard).
-  await getCurrentTrainer();
+  const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
   const docRef = db.collection(COLLECTION).doc(id);
@@ -180,10 +177,9 @@ export async function updateExercise(
   if (existing.source === "wger") {
     throw new Error("wger-seeded exercises are read-only.");
   }
-  // Cross-trainer ownership gate intentionally relaxed for v1 — see
-  // /gc-fitness/exercises/[id]/edit/page.tsx comment for context.
-  // wger-seeded docs remain read-only; trainer-source docs are
-  // editable by any signed-in trainer.
+  if (existing.ownerId !== trainer.uid) {
+    throw new Error("Not your exercise.");
+  }
 
   const patch = exerciseUpdateSchema.parse(input);
 
@@ -212,8 +208,7 @@ export async function updateExercise(
 export async function softDeleteExercise(
   id: string,
 ): Promise<{ ok: true }> {
-  // Auth gate only — see updateExercise comment.
-  await getCurrentTrainer();
+  const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
   const docRef = db.collection(COLLECTION).doc(id);
@@ -228,8 +223,9 @@ export async function softDeleteExercise(
   if (existing.source === "wger") {
     throw new Error("Cannot delete wger-seeded exercises.");
   }
-  // Cross-trainer ownership gate intentionally relaxed for v1 — see
-  // updateExercise above for context.
+  if (existing.ownerId !== trainer.uid) {
+    throw new Error("Not your exercise.");
+  }
 
   await docRef.update({
     deleted: true,

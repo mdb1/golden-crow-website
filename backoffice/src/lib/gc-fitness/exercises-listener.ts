@@ -103,6 +103,16 @@ export interface ExerciseRow {
 }
 
 export const EXERCISES_QUERY_KEY = ["gc-fitness", "exercises"] as const;
+const EXERCISES_SCOPE_ALL = "all";
+
+function canTrainerAccessExercise(
+  row: Pick<ExerciseRow, "source" | "ownerId">,
+  trainerUid: string | null,
+): boolean {
+  if (row.source === "wger" || row.source === "free-exercise-db") return true;
+  if (!trainerUid) return false;
+  return row.ownerId === trainerUid;
+}
 
 export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
   const data = d.data();
@@ -184,16 +194,19 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
  * Curation-soft-deleted docs (`deletedAt != null`) are filtered CLIENT-SIDE
  * here — see the file header for why the server-side filter was removed.
  */
-export function useExercisesQuery() {
+export function useExercisesQuery(trainerUidProp?: string | null) {
   const queryClient = useQueryClient();
   const [hasSnapshot, setHasSnapshot] = useState(false);
+  const auth = getGCFitnessAuth();
+  const trainerUid = trainerUidProp ?? auth.currentUser?.uid ?? null;
+  const scopeKey = trainerUid ?? EXERCISES_SCOPE_ALL;
+  const queryKey = [...EXERCISES_QUERY_KEY, scopeKey] as const;
 
   // Mount the Firestore listener exactly once per component instance. The
   // initial-load `Promise` is resolved by the first snapshot via
   // `queryClient.setQueryData`; subsequent snapshots also push through
   // `setQueryData` so the cache + UI stay in sync.
   useEffect(() => {
-    const auth = getGCFitnessAuth();
     const db = getFirestore(auth.app);
     // Fetch ALL exercises ordered by recency; client-side filter drops the
     // curation-soft-deleted ones. See file header for rationale.
@@ -215,23 +228,24 @@ export function useExercisesQuery() {
           // `deleted !== true` filter in the consumers (client.tsx,
           // exercise-picker-popover.tsx) drops the legacy trainer-authored
           // Bool sentinel.
-          .filter((r) => !r.deletedAt);
-        queryClient.setQueryData(EXERCISES_QUERY_KEY, rows);
+          .filter((r) => !r.deletedAt)
+          .filter((r) => canTrainerAccessExercise(r, trainerUid));
+        queryClient.setQueryData([...EXERCISES_QUERY_KEY, scopeKey], rows);
       },
       (err: unknown) => {
         setHasSnapshot(true);
         // Push the error into the cache so `useQuery` surfaces it.
-        queryClient.setQueryData(EXERCISES_QUERY_KEY, () => {
+        queryClient.setQueryData([...EXERCISES_QUERY_KEY, scopeKey], () => {
           throw err;
         });
       },
     );
 
     return () => unsubscribe();
-  }, [queryClient]);
+  }, [queryClient, auth.app, trainerUid, scopeKey]);
 
   const exercisesQuery = useQuery<ExerciseRow[]>({
-    queryKey: EXERCISES_QUERY_KEY,
+    queryKey,
     // The Firestore listener pushes via `setQueryData`. This `queryFn` only
     // runs if the cache is empty AND the listener hasn't yielded yet — it
     // resolves to an empty list so `isLoading` flips to false quickly. The
