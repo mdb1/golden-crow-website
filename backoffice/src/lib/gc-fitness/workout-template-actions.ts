@@ -48,6 +48,7 @@ export interface WorkoutTemplateRow {
   tag: WorkoutTag;
   exerciseCount: number;
   trainerId: string;
+  isStandard: boolean;
   deleted: boolean;
   version: number;
   createdAt: string | null;
@@ -96,7 +97,53 @@ export async function createWorkoutTemplate(
     ...data,
     id: docId,
     trainerId: trainer.uid, // T-04-14: ALWAYS from session, NEVER from input.
+    isStandard: false,
     version: 1, // T-04-15: server-side; never from input.
+    deleted: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { id: docId };
+}
+
+/**
+ * Creates a trainer-owned copy of a standard template.
+ *
+ * This is the "edit without mutating global standard" path.
+ */
+export async function forkStandardWorkoutTemplate(
+  id: string,
+): Promise<{ id: string }> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const sourceRef = db.collection(COLLECTION).doc(id);
+  const sourceSnap = await sourceRef.get();
+  if (!sourceSnap.exists) {
+    throw new Error("Template not found");
+  }
+  const source = sourceSnap.data() as Record<string, unknown>;
+  const isStandard = source.isStandard === true;
+  if (!isStandard) {
+    const ownerId = typeof source.trainerId === "string" ? source.trainerId : "";
+    if (ownerId !== trainer.uid) {
+      throw new Error("Not your template.");
+    }
+    return { id };
+  }
+
+  const docId = `tpl-${trainer.uid}-${randomUUID()}`;
+  const docRef = db.collection(COLLECTION).doc(docId);
+  await docRef.set({
+    name: source.name ?? { en: "", es: "" },
+    description: source.description ?? { en: "", es: "" },
+    tag: typeof source.tag === "string" ? source.tag : "custom",
+    exercises: Array.isArray(source.exercises) ? source.exercises : [],
+    id: docId,
+    trainerId: trainer.uid,
+    isStandard: false,
+    sourceTemplateId: id,
+    version: 1,
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -195,20 +242,28 @@ export async function listWorkoutTemplates(opts?: {
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
-  let q = db
+  let ownQ = db
     .collection(COLLECTION)
     .where("trainerId", "==", trainer.uid);
+  let standardQ = db
+    .collection(COLLECTION)
+    .where("isStandard", "==", true);
 
   if (!opts?.includeDeleted) {
-    q = q.where("deleted", "==", false);
+    ownQ = ownQ.where("deleted", "==", false);
+    standardQ = standardQ.where("deleted", "==", false);
   }
   if (opts?.tag) {
-    q = q.where("tag", "==", opts.tag);
+    ownQ = ownQ.where("tag", "==", opts.tag);
+    standardQ = standardQ.where("tag", "==", opts.tag);
   }
-  q = q.orderBy("updatedAt", "desc");
+  ownQ = ownQ.orderBy("updatedAt", "desc");
+  standardQ = standardQ.orderBy("updatedAt", "desc");
 
-  const snap = await q.get();
-  const templates: WorkoutTemplateRow[] = snap.docs.map((d) => {
+  const [ownSnap, standardSnap] = await Promise.all([ownQ.get(), standardQ.get()]);
+  const mergedDocs = [...ownSnap.docs, ...standardSnap.docs];
+  const dedup = new Map(mergedDocs.map((d) => [d.id, d]));
+  const templates: WorkoutTemplateRow[] = [...dedup.values()].map((d) => {
     const data = d.data() as Record<string, unknown>;
     const exercises = Array.isArray(data.exercises) ? data.exercises : [];
     return {
@@ -218,11 +273,18 @@ export async function listWorkoutTemplates(opts?: {
       tag: (data.tag as WorkoutTag) ?? "custom",
       exerciseCount: exercises.length,
       trainerId: (data.trainerId as string) ?? "",
+      isStandard: data.isStandard === true,
       deleted: data.deleted === true,
       version: typeof data.version === "number" ? data.version : 1,
       createdAt: toIso(data.createdAt),
       updatedAt: toIso(data.updatedAt),
     };
+  });
+
+  templates.sort((a, b) => {
+    const aTs = a.updatedAt ?? "";
+    const bTs = b.updatedAt ?? "";
+    return aTs < bTs ? 1 : aTs > bTs ? -1 : 0;
   });
 
   return { templates };

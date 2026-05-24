@@ -116,7 +116,8 @@ export function makeTemplateColumns(
       header: t("tag"),
       cell: ({ row }) => (
         <Badge variant="secondary" className="capitalize">
-          {TAG_LABELS[row.original.tag] ?? row.original.tag}
+          {(row.original.isStandard ? "Standard · " : "") +
+            (TAG_LABELS[row.original.tag] ?? row.original.tag)}
         </Badge>
       ),
       enableSorting: false,
@@ -173,15 +174,17 @@ export function makeTemplateColumns(
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
               <Edit className="mr-2 h-4 w-4" />
-              {t("edit")}
+              {row.original.isStandard ? t("duplicate") : t("edit")}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handlers.onDelete(row.original)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("delete")}
-            </DropdownMenuItem>
+            {!row.original.isStandard ? (
+              <DropdownMenuItem
+                onClick={() => handlers.onDelete(row.original)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("delete")}
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ),

@@ -236,7 +236,9 @@ export async function assignTemplate(
     string,
     unknown
   >;
-  if (template.trainerId !== trainer.uid) {
+  const canUseTemplate =
+    template.trainerId === trainer.uid || template.isStandard === true;
+  if (!canUseTemplate) {
     throw new Error("Not your template.");
   }
 
@@ -318,7 +320,9 @@ export async function bulkAssignTemplate(
     string,
     unknown
   >;
-  if (template.trainerId !== trainer.uid) {
+  const canUseTemplate =
+    template.trainerId === trainer.uid || template.isStandard === true;
+  if (!canUseTemplate) {
     throw new Error("Not your template.");
   }
 

@@ -19,6 +19,7 @@ import {
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { WorkoutTemplateInput } from "@/lib/gc-fitness/workout-template-schema";
+import { forkStandardWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
 import { ExerciseQueryProvider } from "../../../exercises/providers";
 import { TemplatesQueryProvider } from "../../providers";
 import { EditTemplateClient } from "./client";
@@ -56,6 +57,10 @@ export default async function EditTemplatePage({ params }: PageParams) {
     deleted?: boolean;
   };
 
+  if (data.isStandard === true && data.trainerId !== trainer.uid) {
+    const fork = await forkStandardWorkoutTemplate(id);
+    redirect(`/gc-fitness/templates/${fork.id}/edit`);
+  }
   if (data.trainerId !== trainer.uid) {
     redirect("/gc-fitness/forbidden");
   }
