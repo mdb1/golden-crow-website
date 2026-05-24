@@ -353,6 +353,8 @@
       "weightBySetKgHint": "Optional preload weights used as defaults per set.",
       "setRowsTitle": "Per-set detail",
       "setRowsHint": "Fill reps and weight for each set using separate rows.",
+      "setHeader": "Set",
+      "weightKgShort": "Kg",
       "setNumber": "Set {count}",
       "setRepsAria": "Reps for set {count}",
       "setWeightAria": "Weight for set {count}",

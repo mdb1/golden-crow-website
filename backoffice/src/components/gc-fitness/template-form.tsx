@@ -508,6 +508,17 @@ export function TemplateForm({
                       <div className="sm:col-span-2">
                         <FormLabel>{t("setRowsTitle")}</FormLabel>
                         <div className="mt-2 flex flex-col gap-2">
+                          <div className="grid grid-cols-[84px,1fr,1fr] items-center gap-2 px-1">
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {t("setHeader")}
+                            </span>
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {t("reps")}
+                            </span>
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {t("weightKgShort")}
+                            </span>
+                          </div>
                           {Array.from({
                             length: Math.max(
                               1,
@@ -527,7 +538,7 @@ export function TemplateForm({
                             return (
                               <div
                                 key={`${field.id}-set-${setIdx + 1}`}
-                                className="grid grid-cols-[84px,1fr,1fr] items-center gap-2"
+                                className="grid grid-cols-[84px,1fr,1fr] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
                               >
                                 <span className="text-xs text-muted-foreground">
                                   {t("setNumber", { count: setIdx + 1 })}
@@ -536,6 +547,7 @@ export function TemplateForm({
                                   type="number"
                                   min={1}
                                   max={50}
+                                  className="h-10"
                                   value={repsValue}
                                   onChange={(e) => {
                                     const next = Number(e.target.value);
@@ -555,6 +567,7 @@ export function TemplateForm({
                                   min={0}
                                   max={500}
                                   step="0.5"
+                                  className="h-10"
                                   placeholder={t("setWeightPlaceholder")}
                                   value={weightValue ?? ""}
                                   onChange={(e) => {

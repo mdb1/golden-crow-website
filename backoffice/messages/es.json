@@ -353,6 +353,8 @@
       "weightBySetKgHint": "Opcional. Pre-carga de pesos por serie.",
       "setRowsTitle": "Detalle por serie",
       "setRowsHint": "Cargá reps y peso por cada serie en filas separadas.",
+      "setHeader": "Serie",
+      "weightKgShort": "Kg",
       "setNumber": "Serie {count}",
       "setRepsAria": "Repeticiones de la serie {count}",
       "setWeightAria": "Peso de la serie {count}",
