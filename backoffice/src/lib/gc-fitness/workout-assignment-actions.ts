@@ -577,6 +577,153 @@ export async function assignTemplateRecurring(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// P22 pending mirror — recurring variant
+// Mirrors assignTemplateRecurring but writes pendingEmail + clientId:null.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function assignTemplateRecurringToPending(input: {
+  templateId: string;
+  pendingEmail: string;
+  startDate: string;
+  weekday?: number;
+  weekdays?: number[];
+  recurrence?:
+    | { kind: "daily" }
+    | { kind: "weekly"; weekday: number }
+    | { kind: "weekly_days"; weekdays: number[] }
+    | { kind: "every_n_days"; everyN: number };
+  endDate?: string;
+  scheduledTime?: string | null;
+  meetingNotes?: string | null;
+  timezone?: string | null;
+}): Promise<{ ids: string[]; count: number; windowStart: string; windowEnd: string }> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const pendingEmail = normalizeMirrorEmail(input.pendingEmail);
+
+  const mirrorSnap = await db
+    .collection(FirestoreCollections.userMirror)
+    .doc(pendingEmail)
+    .get();
+  if (!mirrorSnap.exists) throw new Error("Pending client not found.");
+  const mirror = mirrorSnap.data() as { coachId?: string; pre_created?: boolean };
+  if (mirror.coachId !== trainer.uid) throw new Error("Not your pending client.");
+  if (mirror.pre_created !== true) throw new Error("Mirror not marked pre_created.");
+
+  const parsed = assignTemplateRecurringSchema.parse({
+    templateId: input.templateId,
+    clientId: `pending:${pendingEmail}`,
+    startDate: input.startDate,
+    weekday: input.weekday,
+    weekdays: input.weekdays,
+    recurrence: input.recurrence,
+    endDate: input.endDate,
+    scheduledTime: input.scheduledTime ?? undefined,
+    meetingNotes: input.meetingNotes ?? undefined,
+    timezone: input.timezone ?? undefined,
+  });
+
+  const templateSnap = await db
+    .collection(TEMPLATES)
+    .doc(parsed.templateId)
+    .get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = templateSnap.data() as {
+    trainerId?: string;
+    isStandard?: boolean;
+  } & Record<string, unknown>;
+  const canUseTemplate =
+    template.trainerId === trainer.uid || template.isStandard === true;
+  if (!canUseTemplate) throw new Error("Not your template.");
+
+  type RecurrenceRule =
+    | { kind: "single" }
+    | { kind: "daily" }
+    | { kind: "weekly"; weekday: number }
+    | { kind: "weekly_days"; weekdays: number[] }
+    | { kind: "every_n_days"; everyN: number };
+
+  let recurrence: RecurrenceRule;
+  if (parsed.recurrence !== undefined) {
+    recurrence = parsed.recurrence as RecurrenceRule;
+  } else if (parsed.weekdays !== undefined) {
+    const sorted = Array.from(new Set(parsed.weekdays)).sort((a, b) => a - b);
+    recurrence =
+      sorted.length === 1
+        ? { kind: "weekly", weekday: sorted[0] }
+        : { kind: "weekly_days", weekdays: sorted };
+  } else {
+    recurrence = { kind: "weekly", weekday: parsed.weekday! };
+  }
+
+  const hardWindowEnd = addCivilDays(parsed.startDate, NO_END_HORIZON_DAYS);
+  const windowEnd = parsed.endDate ?? hardWindowEnd;
+
+  function matchesRule(date: string, dayIndex: number): boolean {
+    switch (recurrence.kind) {
+      case "single":
+        return date === parsed.startDate;
+      case "daily":
+        return true;
+      case "weekly":
+        return dayIndex === recurrence.weekday;
+      case "weekly_days":
+        return recurrence.weekdays.includes(dayIndex);
+      case "every_n_days": {
+        const [y0, m0, d0] = parsed.startDate.split("-").map(Number);
+        const [y1, m1, d1] = date.split("-").map(Number);
+        const diff =
+          (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
+        return diff >= 0 && diff % recurrence.everyN === 0;
+      }
+    }
+  }
+
+  const dates: string[] = [];
+  for (
+    let date = parsed.startDate;
+    date <= windowEnd;
+    date = addCivilDays(date, 1)
+  ) {
+    if (matchesRule(date, dayOfWeekFromCivil(date))) {
+      dates.push(date);
+      if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
+    }
+  }
+  if (dates.length === 0) throw new Error("No dates generated for that recurrence.");
+  const windowStart = dates[0];
+
+  const templateSnapshot = await templateSnapshotForAssignment(template);
+  const seriesId = randomUUID();
+  const recurrencePayload: Record<string, unknown> = recurrence;
+  const batch = db.batch();
+  const ids: string[] = [];
+  for (const date of dates) {
+    const ymd = date.replace(/-/g, "");
+    const docId = `asg-pending-${pendingEmail}-${ymd}-${randomUUID()}`;
+    const ref = db.collection(ASSIGNMENTS).doc(docId);
+    batch.set(ref, {
+      templateId: parsed.templateId,
+      templateSnapshot,
+      clientId: null,
+      pendingEmail,
+      trainerId: trainer.uid,
+      scheduledFor: date,
+      scheduledTime: parsed.scheduledTime ?? null,
+      meetingNotes: parsed.meetingNotes ?? null,
+      timezone: parsed.timezone ?? null,
+      status: "scheduled" as const,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      recurrence: recurrencePayload,
+      seriesId,
+    });
+    ids.push(docId);
+  }
+  await batch.commit();
+  return { ids, count: ids.length, windowStart, windowEnd };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // editAssignmentScheduledFor — the ONLY edit path (supplemental decision 1)
 // ─────────────────────────────────────────────────────────────────────────────
 
