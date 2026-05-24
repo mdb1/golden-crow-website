@@ -220,8 +220,27 @@ function todayCivilDateUTC(): string {
   return `${y}-${m}-${d}`;
 }
 
+function normalizeCivilDateInput(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const raw = v.trim();
+  if (raw.length === 0) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const dmyMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1];
+    const month = dmyMatch[2];
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+  return undefined;
+}
+
 function normalizeStartsOn(v: unknown): string {
-  return typeof v === "string" && v.length > 0 ? v : todayCivilDateUTC();
+  return normalizeCivilDateInput(v) ?? todayCivilDateUTC();
+}
+
+function normalizeEndsOn(v: unknown): string | undefined {
+  return normalizeCivilDateInput(v);
 }
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
@@ -288,7 +307,7 @@ function projectHabitRow(
     startsOn:
       normalizeStartsOn(data.startsOn),
     endsOn:
-      typeof data.endsOn === "string" ? data.endsOn : undefined,
+      normalizeEndsOn(data.endsOn),
     scheduleCadence:
       data.scheduleCadence === "daily" ||
       data.scheduleCadence === "weekly" ||
@@ -358,7 +377,7 @@ function projectHabitTemplateRow(
     startsOn:
       normalizeStartsOn(data.startsOn),
     endsOn:
-      typeof data.endsOn === "string" ? data.endsOn : undefined,
+      normalizeEndsOn(data.endsOn),
     scheduleCadence:
       data.scheduleCadence === "daily" ||
       data.scheduleCadence === "weekly" ||
