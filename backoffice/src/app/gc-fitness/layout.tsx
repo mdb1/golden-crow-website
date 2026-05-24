@@ -2,6 +2,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
+import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
+import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 
 // Plan 13-03 (Phase 13 i18n).
 //
@@ -17,10 +19,19 @@ export default async function GCFitnessLayout({
 }) {
   const locale = await getLocale();
   const messages = await getMessages();
+  let trainerUid: string | null = null;
+  try {
+    const trainer = await getCurrentTrainer();
+    trainerUid = trainer.uid;
+  } catch {
+    trainerUid = null;
+  }
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <GCFitnessShell>{children}</GCFitnessShell>
+      <GCFitnessShellProviders>
+        <GCFitnessShell trainerUid={trainerUid}>{children}</GCFitnessShell>
+      </GCFitnessShellProviders>
     </NextIntlClientProvider>
   );
 }

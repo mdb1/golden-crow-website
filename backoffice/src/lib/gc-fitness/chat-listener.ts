@@ -63,10 +63,16 @@ export const CHATS_BASE_KEY = ["gc-fitness", "chats"] as const;
  * `lastMessageAt DESC` tiebreaker (per PATTERNS.md Note A — Firestore can't
  * compositely index a dot-path map with a variable key).
  */
-export function useTrainerChats() {
+export function useTrainerChats(enabled: boolean = true) {
   return useQuery<ChatRow[]>({
     queryKey: CHATS_BASE_KEY,
     queryFn: () => listChatsForTrainer(),
+    enabled,
+    // Pin the refetch cadence on the hook itself so the shell badge (BADGE-04)
+    // stays fresh on every gc-fitness route, not just the ones whose
+    // route-group QueryClient happens to set the same defaults.
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }
 

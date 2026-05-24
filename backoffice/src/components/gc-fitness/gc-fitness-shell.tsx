@@ -34,6 +34,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
 import { LanguagePicker } from "@/components/gc-fitness/language-picker";
+import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
+import { Badge } from "@/components/ui/badge";
 
 const HIDDEN_SHELL_PATHS = new Set([
   "/gc-fitness/login",
@@ -73,12 +75,24 @@ const sections = [
   },
 ] as const;
 
-export function GCFitnessShell({ children }: { children: React.ReactNode }) {
+export function GCFitnessShell({
+  children,
+  trainerUid,
+}: {
+  children: React.ReactNode;
+  trainerUid: string | null;
+}) {
   const pathname = usePathname();
   const t = useTranslations("shell");
   const tNav = useTranslations("nav");
+  const shellHidden = HIDDEN_SHELL_PATHS.has(pathname);
+  const chatsQuery = useTrainerChats(!shellHidden && !!trainerUid);
+  const unreadChatTotal = (chatsQuery.data ?? []).reduce((sum, chat) => {
+    if (!trainerUid) return sum;
+    return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
+  }, 0);
 
-  if (HIDDEN_SHELL_PATHS.has(pathname)) {
+  if (shellHidden) {
     return children;
   }
 
@@ -118,6 +132,14 @@ export function GCFitnessShell({ children }: { children: React.ReactNode }) {
                             <Link href={item.href}>
                               <item.icon className="h-4 w-4" />
                               <span>{label}</span>
+                              {item.href === "/gc-fitness/chat" && unreadChatTotal > 0 ? (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+                                >
+                                  {unreadChatTotal}
+                                </Badge>
+                              ) : null}
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
