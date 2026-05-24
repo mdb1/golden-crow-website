@@ -133,6 +133,47 @@ export type AssignTemplateRecurringInput = z.infer<
   typeof assignTemplateRecurringSchema
 >;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical recurrence shape on workout_assignments docs (Plan 21-03)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Mirrors the Swift WorkoutRecurrence enum on iOS. Discriminated by `kind`.
+// Backward-compat: the LEGACY `{ kind: "weekly", weekday: 0..6 }` shape
+// written by `assignTemplateRecurring` is included verbatim so existing PROD
+// docs decode as-is. New recurrence types (`weekly_days`, `every_n_days`,
+// `daily`, `single`) land here for editor + iOS consumer plans 21-04/05.
+//
+// iOS forgiving decoder maps any unknown `kind` to `.single` so an older app
+// reading a newer doc never crashes — Pattern B 5th reuse (forgiving decode).
+
+export const recurrenceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("single"),
+  }),
+  z.object({
+    kind: z.literal("daily"),
+  }),
+  z.object({
+    // Legacy weekly shape — currently written by assignTemplateRecurring.
+    // Single ISO weekday (0=Sun..6=Sat) per JS Date.getDay() convention.
+    kind: z.literal("weekly"),
+    weekday: z.number().int().min(0).max(6),
+  }),
+  z.object({
+    kind: z.literal("weekly_days"),
+    weekdays: z
+      .array(z.number().int().min(0).max(6))
+      .min(1, "At least one weekday is required.")
+      .max(7),
+  }),
+  z.object({
+    kind: z.literal("every_n_days"),
+    everyN: z.number().int().min(2).max(30),
+  }),
+]);
+
+export type RecurrenceRule = z.infer<typeof recurrenceSchema>;
+
 /**
  * `editAssignmentScheduledFor(id, input)` — the ONLY edit path on an
  * existing assignment (per supplemental decision 1 in 04-05-PLAN.md). The
