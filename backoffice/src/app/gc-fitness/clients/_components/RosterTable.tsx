@@ -254,7 +254,10 @@ export function RosterTable({ rows }: RosterTableProps) {
                 onClick={() => {
                   router.push(`/gc-fitness/clients/${row.original.uid}`);
                 }}
-                className="cursor-pointer hover:bg-muted/50"
+                // hover:bg-accent uses the brand-blue tint (`--accent`) and
+                // is clearly perceptible in light mode vs. the previous
+                // bg-muted/50 which was ~50% of a near-white token.
+                className="cursor-pointer transition-colors hover:bg-accent"
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>

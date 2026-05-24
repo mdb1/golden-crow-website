@@ -162,8 +162,8 @@ function ChatThreadRow({
       <button
         type="button"
         onClick={() => onSelect(chat.id)}
-        className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-muted/50 ${
-          isActive ? "bg-muted" : ""
+        className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent ${
+          isActive ? "bg-accent" : ""
         }`}
       >
         <Avatar name={displayName} />
