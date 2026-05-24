@@ -140,9 +140,15 @@ export function ExerciseForm({
     startTransition(async () => {
       try {
         if (mode === "create") {
-          const { id } = await createExercise(values);
+          await createExercise(values);
           toast.success(t("savedToast"));
-          router.push(`/gc-fitness/exercises/${id}/edit`);
+          // 260524 — user-explicit: after a successful create, go back
+          // in navigation (NOT push into /[id]/edit). The previous
+          // redirect to /[id]/edit was deliberate so the user could
+          // upload media immediately, but the user reported the UX
+          // felt jarring. Media upload still works — the user reopens
+          // the exercise from the list.
+          router.back();
           return;
         }
         if (mode === "edit" && exerciseId) {

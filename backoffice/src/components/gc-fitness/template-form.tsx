@@ -137,11 +137,12 @@ export function TemplateForm({
         const result = await onSubmit(normalized);
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
-          router.push("/gc-fitness/templates");
+          // 260524 — go back in nav after create (same UX as exercise + habit forms).
+          router.back();
           return;
         }
         toast.success(t("savedToast"));
-        router.refresh();
+        router.back();
       } catch (err) {
         console.error("[template-form] save failed", err);
         const message =

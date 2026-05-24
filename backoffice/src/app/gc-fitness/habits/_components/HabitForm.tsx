@@ -338,11 +338,13 @@ export function HabitForm({
         const result = await onSubmit(cleaned);
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
-          router.push("/gc-fitness/habits");
+          // 260524 — go back in nav after create (was push to /habits).
+          // Same UX request as the exercise + template flows.
+          router.back();
           return;
         }
         toast.success(t("savedToast"));
-        router.push("/gc-fitness/habits");
+        router.back();
       } catch (err) {
         console.error("[habit-form] save failed", err);
         const message =
