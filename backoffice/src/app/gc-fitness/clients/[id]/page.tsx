@@ -199,13 +199,9 @@ function WidgetSkeleton({ title }: { title: string }) {
  * doesn't exist yet — all those readers query by `clientId == uid` and
  * would error against a non-existent uid.
  *
- * Shipped: minimal readable surface so the trainer can confirm who's
- * waiting + see when they invited them.
- * Deferred: actual pre-loading of workouts/habits/chat templates to
- * `user_mirror/{email}/*` subcollections + matching pre-load UI. The
- * `convertMirrorToCanonical` Cloud Function (functions/src/auth/) would
- * need to migrate those subcollections on first sign-in; both halves
- * are queued for a follow-on phase (MIRROR-04 in REQUIREMENTS.md).
+ * Shipped: minimal readable surface + PendingClientPreload so the trainer can
+ * pre-load workouts/habits before first sign-in. Mirror migration is handled
+ * by `convertMirrorToCanonical` (functions/src/auth/) via pendingEmail swap.
  */
 function PendingClientView({
   normalizedEmail,

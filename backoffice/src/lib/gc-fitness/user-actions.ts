@@ -60,6 +60,7 @@ import {
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
+import { normalizeMirrorEmail } from "./email-normalization";
 
 /**
  * Per-template length cap. 240 chars is generous for a quick-reply
@@ -79,7 +80,7 @@ const MAX_TEMPLATE_CHARS = 240;
 const MAX_TEMPLATES = 20;
 
 const provisionClientSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().email().transform(normalizeMirrorEmail),
   displayName: z.string().trim().max(120).optional(),
 });
 

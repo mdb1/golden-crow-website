@@ -47,6 +47,7 @@ import {
 } from "./habit-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
+import { normalizeMirrorEmail } from "./email-normalization";
 
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
@@ -473,11 +474,12 @@ export async function createPendingHabit(
 ): Promise<{ id: string }> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
+  const normalizedPendingEmail = normalizeMirrorEmail(pendingEmail);
 
   // Server-side ownership check on the mirror.
   const mirrorSnap = await db
     .collection(FirestoreCollections.userMirror)
-    .doc(pendingEmail)
+    .doc(normalizedPendingEmail)
     .get();
   if (!mirrorSnap.exists) throw new Error("Pending client not found.");
   const mirror = mirrorSnap.data() as { coachId?: string; pre_created?: boolean };
@@ -489,17 +491,17 @@ export async function createPendingHabit(
   // so we inject a placeholder before parse + drop it on the way out.
   const dataWithPlaceholderClient = {
     ...(input as Record<string, unknown>),
-    clientId: `pending:${pendingEmail}`, // discarded below — only needed for schema parse
+    clientId: `pending:${normalizedPendingEmail}`, // discarded below — only needed for schema parse
   };
   const data = habitCreateSchema.parse(dataWithPlaceholderClient);
 
-  const docId = `hab-pending-${pendingEmail}-${randomUUID()}`;
+  const docId = `hab-pending-${normalizedPendingEmail}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
 
   await docRef.set(withoutUndefined({
     ...data,
     clientId: null,
-    pendingEmail,
+    pendingEmail: normalizedPendingEmail,
     reminderDayOfMonth:
       data.reminderDayOfMonth ??
       (Array.isArray(data.reminderMonthDays) && data.reminderMonthDays.length > 0
@@ -531,10 +533,11 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
 }>> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
+  const normalizedPendingEmail = normalizeMirrorEmail(pendingEmail);
   const snap = await db
     .collection(COLLECTION)
     .where("trainerId", "==", trainer.uid)
-    .where("pendingEmail", "==", pendingEmail)
+    .where("pendingEmail", "==", normalizedPendingEmail)
     .get();
   return snap.docs.map((doc) => {
     const data = doc.data();

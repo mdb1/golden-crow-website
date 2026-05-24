@@ -41,6 +41,7 @@ import {
 } from "./workout-assignment-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
+import { normalizeMirrorEmail } from "./email-normalization";
 import { civilDateFormat } from "./civil-date";
 
 const TEMPLATES = FirestoreCollections.workoutTemplates;
@@ -284,12 +285,13 @@ export async function assignTemplateToPending(input: {
 }): Promise<{ id: string }> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
+  const pendingEmail = normalizeMirrorEmail(input.pendingEmail);
 
   // Server-side ownership check on the mirror doc (defense in depth — the
   // rule layer's mirror.coachId==auth.uid check also fires at write time).
   const mirrorSnap = await db
     .collection(FirestoreCollections.userMirror)
-    .doc(input.pendingEmail)
+    .doc(pendingEmail)
     .get();
   if (!mirrorSnap.exists) throw new Error("Pending client not found.");
   const mirror = mirrorSnap.data() as { coachId?: string; pre_created?: boolean };
@@ -308,7 +310,7 @@ export async function assignTemplateToPending(input: {
 
   const ymd = input.scheduledFor.replace(/-/g, "");
   // Doc-id includes mirror-prefixed key so it's distinguishable in Firestore Console.
-  const docId = `asg-pending-${input.pendingEmail}-${ymd}-${randomUUID()}`;
+  const docId = `asg-pending-${pendingEmail}-${ymd}-${randomUUID()}`;
   const ref = db.collection(ASSIGNMENTS).doc(docId);
   const templateSnapshot = await templateSnapshotForAssignment(template);
 
@@ -316,7 +318,7 @@ export async function assignTemplateToPending(input: {
     templateId: input.templateId,
     templateSnapshot,
     clientId: null, // canonical client doesn't exist yet
-    pendingEmail: input.pendingEmail,
+    pendingEmail,
     trainerId: trainer.uid,
     scheduledFor: input.scheduledFor,
     scheduledTime: input.scheduledTime ?? null,
@@ -341,10 +343,11 @@ export async function listPendingAssignments(pendingEmail: string): Promise<Arra
 }>> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
+  const normalizedPendingEmail = normalizeMirrorEmail(pendingEmail);
   const snap = await db
     .collection(ASSIGNMENTS)
     .where("trainerId", "==", trainer.uid)
-    .where("pendingEmail", "==", pendingEmail)
+    .where("pendingEmail", "==", normalizedPendingEmail)
     .get();
   return snap.docs.map((doc) => {
     const data = doc.data();

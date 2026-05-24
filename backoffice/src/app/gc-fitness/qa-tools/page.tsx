@@ -28,6 +28,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -275,6 +276,33 @@ export default async function GCFitnessQAToolsPage() {
             </a>
             .
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mirror re-link runbook (P22)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            Use this when a client says “I signed in but I still don’t see my
+            pre-loaded plan”.
+          </p>
+          <ol className="list-decimal space-y-1 pl-4">
+            <li>Open Clients and find the pending mirror row (`mirror:email`).</li>
+            <li>Open the pending detail and verify pre-loaded workouts/habits exist.</li>
+            <li>Ask client to sign out/in with the same Google email.</li>
+            <li>Re-check recent writes feed above for migrated assignment/habit docs.</li>
+            <li>
+              If still broken, run iOS fallback path and inspect{" "}
+              <code>users/{"{uid}"}</code> + <code>user_mirror/{"{email}"}</code>.
+            </li>
+          </ol>
+          <div>
+            <Link href="/gc-fitness/clients" className="underline underline-offset-4">
+              Open clients roster
+            </Link>
+          </div>
         </CardContent>
       </Card>
 
