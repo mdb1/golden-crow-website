@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  CircleX,
   FileText,
   Plus,
   Save,
@@ -47,6 +48,9 @@ import {
 
 type StepKey = TwoPQFormDraftStepKey;
 type FlowState = TwoPQFormDraftState;
+type FieldErrors = Record<string, string>;
+type StepValidationStatus = "valid" | "invalid";
+type StepValidationState = Partial<Record<StepKey, StepValidationStatus>>;
 
 const STUDY_REQUEST_STEPS: StepKey[] = [
   "patientInformation",
@@ -271,6 +275,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function hasErrors(errors: FieldErrors) {
+  return Object.keys(errors).length > 0;
+}
+
+function firstErrorMessage(errors: FieldErrors) {
+  return Object.values(errors)[0] ?? "Complete the highlighted fields.";
+}
+
+function isStepErrorKey(key: string, step: StepKey) {
+  return key === step || key.startsWith(`${step}.`);
+}
+
+function validationStatusFor(errors: FieldErrors): StepValidationStatus {
+  return hasErrors(errors) ? "invalid" : "valid";
+}
+
 function mergeDraftSection<T extends object>(base: T, value: unknown): T {
   return isRecord(value) ? { ...base, ...value } as T : base;
 }
@@ -387,6 +407,218 @@ function resolveDraftStepIndex(
   return 0;
 }
 
+function validateStepFields(
+  step: StepKey,
+  flowState: FlowState,
+  formType: TwoPQFormType
+): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (step === "patientInformation") {
+    if (!flowState.patientInformation.institutionId) {
+      errors["patientInformation.institutionId"] = "Select an institution.";
+    }
+    if (!flowState.patientInformation.doctorId) {
+      errors["patientInformation.doctorId"] = "Select a doctor.";
+    }
+    if (!isValidEmail(flowState.patientInformation.email)) {
+      errors["patientInformation.email"] = "Enter a valid patient email.";
+    }
+    if (!flowState.patientInformation.fullName.trim()) {
+      errors["patientInformation.fullName"] = "Patient full name is required.";
+    }
+  }
+
+  if (step === "medicalInformation") {
+    const integerFields: Array<[string, string, string]> = [
+      [
+        "medicalInformation.previousConceptionsCount",
+        flowState.medicalInformation.previousConceptionsCount,
+        "Numero concepciones previas must be a whole number of 0 or more.",
+      ],
+      [
+        "medicalInformation.previousMiscarriagesCount",
+        flowState.medicalInformation.previousMiscarriagesCount,
+        "Numero abortos previos must be a whole number of 0 or more.",
+      ],
+      [
+        "medicalInformation.previousBirthsCount",
+        flowState.medicalInformation.previousBirthsCount,
+        "Numero nacimientos previos must be a whole number of 0 or more.",
+      ],
+      [
+        "medicalInformation.previousCyclesCount",
+        flowState.medicalInformation.previousCyclesCount,
+        "Numero ciclos previos must be a whole number of 0 or more.",
+      ],
+    ];
+
+    integerFields.forEach(([key, value, message]) => {
+      if (!isNonNegativeInteger(value)) {
+        errors[key] = message;
+      }
+    });
+    if (!flowState.medicalInformation.maleFactor) {
+      errors["medicalInformation.maleFactor"] = "Select Factor masculino.";
+    }
+    if (!flowState.medicalInformation.otherBackground.trim()) {
+      errors["medicalInformation.otherBackground"] = "Otros antecedentes is required.";
+    }
+  }
+
+  if (step === "previousGeneticTests") {
+    if (!flowState.previousGeneticTests.pgtASr) {
+      errors["previousGeneticTests.pgtASr"] = "Select PGT-A / PGT-SR.";
+    }
+    if (!flowState.previousGeneticTests.karyotype) {
+      errors["previousGeneticTests.karyotype"] = "Select CARIOTIPO.";
+    }
+    if (
+      flowState.previousGeneticTests.pgtASr === "si" &&
+      !flowState.previousGeneticTests.pgtResult.trim()
+    ) {
+      errors["previousGeneticTests.pgtResult"] =
+        "RESULTADO PGT is required when PGT-A / PGT-SR is SI.";
+    }
+    if (
+      flowState.previousGeneticTests.karyotype === "si" &&
+      !flowState.previousGeneticTests.karyotypeResult.trim()
+    ) {
+      errors["previousGeneticTests.karyotypeResult"] =
+        "RESULTADO CARIOTIPO is required when CARIOTIPO is SI.";
+    }
+  }
+
+  if (step === "requestedTest") {
+    if (!flowState.requestedTest.pgtA) {
+      errors["requestedTest.pgtA"] = "Select PGT-A.";
+    }
+    if (!flowState.requestedTest.pgtSr) {
+      errors["requestedTest.pgtSr"] = "Select PGT-SR.";
+    }
+    if (
+      flowState.requestedTest.pgtA &&
+      flowState.requestedTest.pgtSr &&
+      flowState.requestedTest.pgtA !== "si" &&
+      flowState.requestedTest.pgtSr !== "si"
+    ) {
+      errors["requestedTest.pgtA"] = "Select SI for at least one requested test.";
+      errors["requestedTest.pgtSr"] = "Select SI for at least one requested test.";
+    }
+  }
+
+  if (step === "requestedTest" && formType === "study_request") {
+    if (!flowState.requestedTest.reportsMosaicism) {
+      errors["requestedTest.reportsMosaicism"] = "Select INFORMA MOSAICISMOS.";
+    }
+    if (!flowState.requestedTest.reportsSex) {
+      errors["requestedTest.reportsSex"] = "Select INFORMA SEXO.";
+    }
+    if (!flowState.requestedTest.requestReason.trim()) {
+      errors["requestedTest.requestReason"] = "MOTIVO DE SOLICITUD is required.";
+    }
+    if (!flowState.requestedTest.requestDate) {
+      errors["requestedTest.requestDate"] = "FECHA is required.";
+    }
+  }
+
+  if (step === "institutionInformation") {
+    if (!flowState.institutionInformation.name.trim()) {
+      errors["institutionInformation.name"] = "Institution name is required.";
+    }
+    if (!optionalValidEmail(flowState.institutionInformation.contactEmail)) {
+      errors["institutionInformation.contactEmail"] =
+        "Enter a valid institution contact email.";
+    }
+  }
+
+  if (step === "sampleInformation") {
+    if (!flowState.sampleInformation.fivCenter.trim()) {
+      errors["sampleInformation.fivCenter"] = "CENTRO FIV is required.";
+    }
+    if (!flowState.sampleInformation.centerCode.trim()) {
+      errors["sampleInformation.centerCode"] = "CODIGO CENTRO is required.";
+    }
+    if (!flowState.sampleInformation.requestingDoctorFullName.trim()) {
+      errors["sampleInformation.requestingDoctorFullName"] =
+        "MEDICO SOLICITANTE full name is required.";
+    }
+    if (!isValidEmail(flowState.sampleInformation.requestingDoctorAuthEmail)) {
+      errors["sampleInformation.requestingDoctorAuthEmail"] =
+        "MEDICO SOLICITANTE auth email must be valid.";
+    }
+    if (!flowState.sampleInformation.sampleType.trim()) {
+      errors["sampleInformation.sampleType"] = "TIPO DE MUESTRA is required.";
+    }
+    if (!flowState.sampleInformation.processedByFirstName.trim()) {
+      errors["sampleInformation.processedByFirstName"] =
+        "PROCESADO POR nombre is required.";
+    }
+    if (!flowState.sampleInformation.processedByLastName.trim()) {
+      errors["sampleInformation.processedByLastName"] =
+        "PROCESADO POR apellido is required.";
+    }
+    if (!flowState.sampleInformation.processDate.trim()) {
+      errors["sampleInformation.processDate"] = "FECHA PROCESO is required.";
+    }
+    if (!flowState.sampleInformation.boxCode.trim()) {
+      errors["sampleInformation.boxCode"] = "CODIGO CAJA is required.";
+    } else if (!isValidBoxCode(flowState.sampleInformation.boxCode)) {
+      errors["sampleInformation.boxCode"] =
+        "CODIGO CAJA must be exactly three letters (A-Z).";
+    }
+  }
+
+  if (step === "caseInformation" && !flowState.selectedCaseId) {
+    if (!flowState.caseInformation.caseLabel.trim()) {
+      errors["caseInformation.caseLabel"] = "2PQ case label is required.";
+    }
+    if (!flowState.caseInformation.caseStatus.trim()) {
+      errors["caseInformation.caseStatus"] = "Select a 2PQ case status.";
+    }
+  }
+
+  if (step === "samplingInformation") {
+    if (flowState.samplingInformation.length === 0) {
+      errors.samplingInformation = "Add at least one 2PQ sampling record.";
+    }
+    const sampleIds = new Set<string>();
+    flowState.samplingInformation.forEach((sampling, index) => {
+      const row = `Sampling ${index + 1}`;
+      const trimmedSampleId = sampling.sampleId.trim();
+      if (!trimmedSampleId) {
+        errors[`samplingInformation.${index}.sampleId`] = `${row}: Sample ID is required.`;
+      } else if (sampleIds.has(trimmedSampleId)) {
+        errors[`samplingInformation.${index}.sampleId`] =
+          `${row}: Sample ID must be unique in this form.`;
+      }
+      sampleIds.add(trimmedSampleId);
+      if (!sampling.sampleType.trim()) {
+        errors[`samplingInformation.${index}.sampleType`] =
+          `${row}: Sample type is required.`;
+      }
+      if (!sampling.processingStatus.trim()) {
+        errors[`samplingInformation.${index}.processingStatus`] =
+          `${row}: Select processing status.`;
+      }
+    });
+  }
+
+  return errors;
+}
+
+function buildInitialStepValidation(
+  flowState: FlowState,
+  steps: StepKey[],
+  stepIndex: number,
+  formType: TwoPQFormType
+): StepValidationState {
+  return steps.slice(0, stepIndex).reduce<StepValidationState>((statuses, step) => {
+    statuses[step] = validationStatusFor(validateStepFields(step, flowState, formType));
+    return statuses;
+  }, {});
+}
+
 function patientToFormState(patient: PatientListItem): PatientInformationFormState {
   return {
     institutionId: patient.institutionId,
@@ -440,6 +672,7 @@ function Field({
   type = "text",
   min,
   step,
+  error,
 }: {
   id: string;
   label: string;
@@ -448,6 +681,7 @@ function Field({
   type?: string;
   min?: string;
   step?: string;
+  error?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -458,18 +692,36 @@ function Field({
         min={min}
         step={step}
         value={value}
+        className={error ? "border-red-300 focus-visible:ring-red-500" : undefined}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => onChange(event.target.value)}
       />
+      <FieldError id={`${id}-error`} message={error} />
     </div>
+  );
+}
+
+function FieldError({ id, message }: { id?: string; message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p id={id} className="text-xs font-medium text-red-600 dark:text-red-300">
+      {message}
+    </p>
   );
 }
 
 function BoxCodeField({
   value,
   onChange,
+  error,
 }: {
   value: string;
   onChange: (value: string) => void;
+  error?: string;
 }) {
   const displayedValue = value.toUpperCase();
 
@@ -484,9 +736,15 @@ function BoxCodeField({
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}
-        className="font-mono text-base font-semibold uppercase"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? "form-box-code-error" : undefined}
+        className={[
+          "font-mono text-base font-semibold uppercase",
+          error ? "border-red-300 focus-visible:ring-red-500" : "",
+        ].join(" ")}
         onChange={(event) => onChange(normalizeBoxCodeInput(event.target.value))}
       />
+      <FieldError id="form-box-code-error" message={error} />
       <p className="text-xs font-medium text-muted-foreground">
         Exactly three letters. Numbers and special characters are not accepted.
       </p>
@@ -552,10 +810,12 @@ function YesNoField({
   label,
   value,
   onChange,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -566,6 +826,7 @@ function YesNoField({
         onChange={onChange}
         placeholder="Seleccionar"
       />
+      <FieldError message={error} />
     </div>
   );
 }
@@ -575,11 +836,13 @@ function TextAreaField({
   label,
   value,
   onChange,
+  error,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -587,8 +850,12 @@ function TextAreaField({
       <Textarea
         id={id}
         value={value}
+        className={error ? "border-red-300 focus-visible:ring-red-500" : undefined}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => onChange(event.target.value)}
       />
+      <FieldError id={`${id}-error`} message={error} />
     </div>
   );
 }
@@ -625,18 +892,27 @@ export function TwoPQFormFlow({
     (doctors.length === 1 && doctors[0]?.institutionId === defaultInstitutionId
       ? doctors[0]?.id ?? ""
       : "");
-
-  const [stepIndex, setStepIndex] = useState(() =>
-    resolveDraftStepIndex(matchingDraft, steps)
+  const initialStepIndex = useMemo(
+    () => resolveDraftStepIndex(matchingDraft, steps),
+    [matchingDraft, steps]
   );
+  const initialFlowState = useMemo(
+    () =>
+      hydrateDraftState(
+        buildInitialState(defaultInstitutionId, defaultDoctorId),
+        matchingDraft
+      ),
+    [defaultDoctorId, defaultInstitutionId, matchingDraft]
+  );
+
+  const [stepIndex, setStepIndex] = useState(initialStepIndex);
   const [pending, setPending] = useState(false);
   const [draftPending, setDraftPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
-  const [state, setState] = useState<FlowState>(() =>
-    hydrateDraftState(
-      buildInitialState(defaultInstitutionId, defaultDoctorId),
-      matchingDraft
-    )
+  const [state, setState] = useState<FlowState>(initialFlowState);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [stepValidation, setStepValidation] = useState<StepValidationState>(() =>
+    buildInitialStepValidation(initialFlowState, steps, initialStepIndex, formType)
   );
   const currentStep = steps[stepIndex] ?? steps[0];
   const currentStepLabel = STEP_LABELS[currentStep];
@@ -908,169 +1184,68 @@ export function TwoPQFormFlow({
     }));
   }
 
-  function validationError(step: StepKey) {
-    if (step === "patientInformation") {
-      if (!state.patientInformation.institutionId) return "Select an institution.";
-      if (!state.patientInformation.doctorId) return "Select a doctor.";
-      if (!isValidEmail(state.patientInformation.email)) {
-        return "Enter a valid patient email.";
-      }
-      if (!state.patientInformation.fullName.trim()) {
-        return "Patient full name is required.";
-      }
-    }
+  function errorFor(key: string) {
+    return fieldErrors[key];
+  }
 
-    if (step === "medicalInformation") {
-      const integerFields: Array<[string, string]> = [
-        [
-          state.medicalInformation.previousConceptionsCount,
-          "Numero concepciones previas",
-        ],
-        [
-          state.medicalInformation.previousMiscarriagesCount,
-          "Numero abortos previos",
-        ],
-        [state.medicalInformation.previousBirthsCount, "Numero nacimientos previos"],
-        [state.medicalInformation.previousCyclesCount, "Numero ciclos previos"],
-      ];
-      const invalidInteger = integerFields.find(
-        ([value]) => !isNonNegativeInteger(value)
-      );
-      if (invalidInteger) {
-        return `${invalidInteger[1]} must be a whole number of 0 or more.`;
-      }
-      if (!state.medicalInformation.maleFactor) {
-        return "Select Factor masculino.";
-      }
-      if (!state.medicalInformation.otherBackground.trim()) {
-        return "Otros antecedentes is required.";
-      }
-    }
+  function setStepErrors(step: StepKey, errors: FieldErrors) {
+    setFieldErrors((current) => ({
+      ...Object.fromEntries(
+        Object.entries(current).filter(([key]) => !isStepErrorKey(key, step))
+      ),
+      ...errors,
+    }));
+    setStepValidation((current) => ({
+      ...current,
+      [step]: validationStatusFor(errors),
+    }));
+  }
 
-    if (step === "previousGeneticTests") {
-      if (!state.previousGeneticTests.pgtASr) {
-        return "Select PGT-A / PGT-SR.";
-      }
-      if (!state.previousGeneticTests.karyotype) {
-        return "Select CARIOTIPO.";
-      }
-      if (
-        state.previousGeneticTests.pgtASr === "si" &&
-        !state.previousGeneticTests.pgtResult.trim()
-      ) {
-        return "RESULTADO PGT is required when PGT-A / PGT-SR is SI.";
-      }
-      if (
-        state.previousGeneticTests.karyotype === "si" &&
-        !state.previousGeneticTests.karyotypeResult.trim()
-      ) {
-        return "RESULTADO CARIOTIPO is required when CARIOTIPO is SI.";
-      }
-    }
-
-    if (step === "requestedTest") {
-      if (!state.requestedTest.pgtA) return "Select PGT-A.";
-      if (!state.requestedTest.pgtSr) return "Select PGT-SR.";
-      if (
-        state.requestedTest.pgtA !== "si" &&
-        state.requestedTest.pgtSr !== "si"
-      ) {
-        return "Select SI for at least one requested test.";
-      }
-    }
-
-    if (step === "requestedTest" && formType === "study_request") {
-      if (!state.requestedTest.reportsMosaicism) {
-        return "Select INFORMA MOSAICISMOS.";
-      }
-      if (!state.requestedTest.reportsSex) {
-        return "Select INFORMA SEXO.";
-      }
-      if (!state.requestedTest.requestReason.trim()) {
-        return "MOTIVO DE SOLICITUD is required.";
-      }
-      if (!state.requestedTest.requestDate) {
-        return "FECHA is required.";
-      }
-    }
-
-    if (step === "institutionInformation") {
-      if (!state.institutionInformation.name.trim()) {
-        return "Institution name is required.";
-      }
-      if (!optionalValidEmail(state.institutionInformation.contactEmail)) {
-        return "Enter a valid institution contact email.";
-      }
-    }
-
-    if (step === "sampleInformation") {
-      if (!state.sampleInformation.fivCenter.trim()) return "CENTRO FIV is required.";
-      if (!state.sampleInformation.centerCode.trim()) {
-        return "CODIGO CENTRO is required.";
-      }
-      if (!state.sampleInformation.requestingDoctorFullName.trim()) {
-        return "MEDICO SOLICITANTE full name is required.";
-      }
-      if (!isValidEmail(state.sampleInformation.requestingDoctorAuthEmail)) {
-        return "MEDICO SOLICITANTE auth email must be valid.";
-      }
-      if (!state.sampleInformation.sampleType.trim()) {
-        return "TIPO DE MUESTRA is required.";
-      }
-      if (!state.sampleInformation.processedByFirstName.trim()) {
-        return "PROCESADO POR nombre is required.";
-      }
-      if (!state.sampleInformation.processedByLastName.trim()) {
-        return "PROCESADO POR apellido is required.";
-      }
-      if (!state.sampleInformation.processDate.trim()) {
-        return "FECHA PROCESO is required.";
-      }
-      if (!state.sampleInformation.boxCode.trim()) {
-        return "CODIGO CAJA is required.";
-      }
-      if (!isValidBoxCode(state.sampleInformation.boxCode)) {
-        return "CODIGO CAJA must be exactly three letters (A-Z).";
-      }
-    }
-
-    if (step === "caseInformation") {
-      if (!state.selectedCaseId) {
-        if (!state.caseInformation.caseLabel.trim()) {
-          return "2PQ case label is required.";
+  function markSkippedStepsInvalid(nextStepIndex: number) {
+    setStepValidation((current) => {
+      const next: StepValidationState = { ...current };
+      steps.forEach((step, index) => {
+        if (index < nextStepIndex && next[step] !== "valid") {
+          next[step] = "invalid";
         }
-        if (!state.caseInformation.caseStatus.trim()) {
-          return "Select a 2PQ case status.";
-        }
-      }
-    }
+      });
+      return next;
+    });
+  }
 
-    if (step === "samplingInformation") {
-      if (state.samplingInformation.length === 0) {
-        return "Add at least one 2PQ sampling record.";
-      }
-      const sampleIds = new Set<string>();
-      for (const [index, sampling] of state.samplingInformation.entries()) {
-        const row = `Sampling ${index + 1}`;
-        if (!sampling.sampleId.trim()) return `${row}: Sample ID is required.`;
-        if (sampleIds.has(sampling.sampleId.trim())) {
-          return `${row}: Sample ID must be unique in this form.`;
-        }
-        sampleIds.add(sampling.sampleId.trim());
-        if (!sampling.sampleType.trim()) return `${row}: Sample type is required.`;
-        if (!sampling.processingStatus.trim()) {
-          return `${row}: Select processing status.`;
-        }
-      }
-    }
+  function validateAllSteps() {
+    const nextErrors: FieldErrors = {};
+    const nextValidation: StepValidationState = {};
+    let firstInvalidStepIndex = -1;
 
-    return null;
+    steps.forEach((step, index) => {
+      const errors = validateStepFields(step, state, formType);
+      const status = validationStatusFor(errors);
+      nextValidation[step] = status;
+      Object.assign(nextErrors, errors);
+      if (status === "invalid" && firstInvalidStepIndex === -1) {
+        firstInvalidStepIndex = index;
+      }
+    });
+
+    setFieldErrors(nextErrors);
+    setStepValidation(nextValidation);
+
+    return {
+      firstInvalidStepIndex,
+      errors: nextErrors,
+    };
   }
 
   async function goNext() {
-    const message = validationError(currentStep);
-    if (message) {
-      setToast({ id: Date.now(), tone: "error", message });
+    const errors = validateStepFields(currentStep, state, formType);
+    setStepErrors(currentStep, errors);
+    if (hasErrors(errors)) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: firstErrorMessage(errors),
+      });
       return;
     }
 
@@ -1094,6 +1269,9 @@ export function TwoPQFormFlow({
 
     try {
       await persistDraftSnapshot(boundedStepIndex);
+      if (boundedStepIndex > stepIndex) {
+        markSkippedStepsInvalid(boundedStepIndex);
+      }
       setStepIndex(boundedStepIndex);
     } catch {
       return;
@@ -1101,9 +1279,14 @@ export function TwoPQFormFlow({
   }
 
   async function submitForm() {
-    const message = validationError(currentStep);
-    if (message) {
-      setToast({ id: Date.now(), tone: "error", message });
+    const { firstInvalidStepIndex, errors } = validateAllSteps();
+    if (firstInvalidStepIndex >= 0) {
+      setStepIndex(firstInvalidStepIndex);
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: firstErrorMessage(errors),
+      });
       return;
     }
 
@@ -1193,7 +1376,12 @@ export function TwoPQFormFlow({
         <div className="grid gap-2 md:grid-cols-5">
           {steps.map((step, index) => {
             const active = step === currentStep;
-            const complete = index < stepIndex;
+            const storedStatus = stepValidation[step];
+            const stepStatus =
+              storedStatus === "valid" &&
+              hasErrors(validateStepFields(step, state, formType))
+                ? "invalid"
+                : storedStatus;
             return (
               <button
                 key={step}
@@ -1204,6 +1392,8 @@ export function TwoPQFormFlow({
                   "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
                   active
                     ? "border-indigo-300 bg-indigo-500/12 text-indigo-950 dark:border-indigo-300/40 dark:text-indigo-100"
+                    : stepStatus === "invalid"
+                      ? "border-red-200 bg-red-50/65 text-red-950 hover:bg-red-50 dark:border-red-300/28 dark:bg-red-950/18 dark:text-red-100"
                     : "border-border/80 bg-background/54 text-muted-foreground hover:bg-background/80",
                 ].join(" ")}
               >
@@ -1213,6 +1403,8 @@ export function TwoPQFormFlow({
                       "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
                       active
                         ? "border-indigo-600 bg-indigo-600 text-white shadow-[0_6px_14px_rgba(79,70,229,0.24)]"
+                        : stepStatus === "invalid"
+                          ? "border-red-300 bg-red-100 text-red-700 dark:border-red-300/42 dark:bg-red-400/12 dark:text-red-200"
                         : "border-indigo-300/80 bg-transparent text-indigo-700 dark:border-indigo-300/45 dark:text-indigo-200",
                     ].join(" ")}
                   >
@@ -1220,7 +1412,11 @@ export function TwoPQFormFlow({
                   </span>
                   <span className="min-w-0 truncate">{STEP_LABELS[step]}</span>
                 </span>
-                {complete ? <CheckCircle2 className="size-4 text-emerald-600" /> : null}
+                {stepStatus === "valid" ? (
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                ) : stepStatus === "invalid" ? (
+                  <CircleX className="size-4 text-red-600" />
+                ) : null}
               </button>
             );
           })}
@@ -1266,6 +1462,7 @@ export function TwoPQFormFlow({
                 emptyLabel="No institution"
                 disabled={Boolean(scopedInstitutionId)}
               />
+              <FieldError message={errorFor("patientInformation.institutionId")} />
             </div>
             <div className="space-y-2">
               <Label>Doctor</Label>
@@ -1286,18 +1483,21 @@ export function TwoPQFormFlow({
                 emptyLabel="No doctor"
                 disabled={Boolean(scopedDoctorId)}
               />
+              <FieldError message={errorFor("patientInformation.doctorId")} />
             </div>
             <Field
               id="form-patient-email"
               label="Email"
               value={state.patientInformation.email}
               onChange={(email) => updatePatientInformation({ email })}
+              error={errorFor("patientInformation.email")}
             />
             <Field
               id="form-patient-full-name"
               label="Full name"
               value={state.patientInformation.fullName}
               onChange={(fullName) => updatePatientInformation({ fullName })}
+              error={errorFor("patientInformation.fullName")}
             />
             <Field
               id="form-patient-mrn"
@@ -1359,6 +1559,7 @@ export function TwoPQFormFlow({
               onChange={(previousConceptionsCount) =>
                 updateMedicalInformation({ previousConceptionsCount })
               }
+              error={errorFor("medicalInformation.previousConceptionsCount")}
             />
             <Field
               id="form-previous-miscarriages"
@@ -1370,6 +1571,7 @@ export function TwoPQFormFlow({
               onChange={(previousMiscarriagesCount) =>
                 updateMedicalInformation({ previousMiscarriagesCount })
               }
+              error={errorFor("medicalInformation.previousMiscarriagesCount")}
             />
             <Field
               id="form-previous-births"
@@ -1381,6 +1583,7 @@ export function TwoPQFormFlow({
               onChange={(previousBirthsCount) =>
                 updateMedicalInformation({ previousBirthsCount })
               }
+              error={errorFor("medicalInformation.previousBirthsCount")}
             />
             <Field
               id="form-previous-cycles"
@@ -1392,11 +1595,13 @@ export function TwoPQFormFlow({
               onChange={(previousCyclesCount) =>
                 updateMedicalInformation({ previousCyclesCount })
               }
+              error={errorFor("medicalInformation.previousCyclesCount")}
             />
             <YesNoField
               label="Factor masculino"
               value={state.medicalInformation.maleFactor}
               onChange={(maleFactor) => updateMedicalInformation({ maleFactor })}
+              error={errorFor("medicalInformation.maleFactor")}
             />
             <div className="md:col-span-2">
               <TextAreaField
@@ -1406,6 +1611,7 @@ export function TwoPQFormFlow({
                 onChange={(otherBackground) =>
                   updateMedicalInformation({ otherBackground })
                 }
+                error={errorFor("medicalInformation.otherBackground")}
               />
             </div>
           </div>
@@ -1417,6 +1623,7 @@ export function TwoPQFormFlow({
               label="PGT-A / PGT-SR"
               value={state.previousGeneticTests.pgtASr}
               onChange={(pgtASr) => updatePreviousGeneticTests({ pgtASr })}
+              error={errorFor("previousGeneticTests.pgtASr")}
             />
             <YesNoField
               label="CARIOTIPO"
@@ -1424,6 +1631,7 @@ export function TwoPQFormFlow({
               onChange={(karyotype) =>
                 updatePreviousGeneticTests({ karyotype })
               }
+              error={errorFor("previousGeneticTests.karyotype")}
             />
             <div className="md:col-span-2">
               <TextAreaField
@@ -1433,6 +1641,7 @@ export function TwoPQFormFlow({
                 onChange={(pgtResult) =>
                   updatePreviousGeneticTests({ pgtResult })
                 }
+                error={errorFor("previousGeneticTests.pgtResult")}
               />
             </div>
             <div className="md:col-span-2">
@@ -1443,6 +1652,7 @@ export function TwoPQFormFlow({
                 onChange={(karyotypeResult) =>
                   updatePreviousGeneticTests({ karyotypeResult })
                 }
+                error={errorFor("previousGeneticTests.karyotypeResult")}
               />
             </div>
           </div>
@@ -1455,11 +1665,13 @@ export function TwoPQFormFlow({
                 label="PGT-A"
                 value={state.requestedTest.pgtA}
                 onChange={(pgtA) => updateRequestedTest({ pgtA })}
+                error={errorFor("requestedTest.pgtA")}
               />
               <YesNoField
                 label="PGT-SR"
                 value={state.requestedTest.pgtSr}
                 onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
+                error={errorFor("requestedTest.pgtSr")}
               />
               <YesNoField
                 label="INFORMA MOSAICISMOS"
@@ -1467,11 +1679,13 @@ export function TwoPQFormFlow({
                 onChange={(reportsMosaicism) =>
                   updateRequestedTest({ reportsMosaicism })
                 }
+                error={errorFor("requestedTest.reportsMosaicism")}
               />
               <YesNoField
                 label="INFORMA SEXO"
                 value={state.requestedTest.reportsSex}
                 onChange={(reportsSex) => updateRequestedTest({ reportsSex })}
+                error={errorFor("requestedTest.reportsSex")}
               />
               <div className="md:col-span-2">
                 <TextAreaField
@@ -1481,6 +1695,7 @@ export function TwoPQFormFlow({
                   onChange={(requestReason) =>
                     updateRequestedTest({ requestReason })
                   }
+                  error={errorFor("requestedTest.requestReason")}
                 />
               </div>
               <Field
@@ -1489,6 +1704,7 @@ export function TwoPQFormFlow({
                 type="date"
                 value={state.requestedTest.requestDate}
                 onChange={(requestDate) => updateRequestedTest({ requestDate })}
+                error={errorFor("requestedTest.requestDate")}
               />
             </div>
           ) : (
@@ -1497,11 +1713,13 @@ export function TwoPQFormFlow({
                 label="PGT-A"
                 value={state.requestedTest.pgtA}
                 onChange={(pgtA) => updateRequestedTest({ pgtA })}
+                error={errorFor("requestedTest.pgtA")}
               />
               <YesNoField
                 label="PGT-SR"
                 value={state.requestedTest.pgtSr}
                 onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
+                error={errorFor("requestedTest.pgtSr")}
               />
             </div>
           )
@@ -1530,6 +1748,7 @@ export function TwoPQFormFlow({
               label="Institution name"
               value={state.institutionInformation.name}
               onChange={(name) => updateInstitutionInformation({ name })}
+              error={errorFor("institutionInformation.name")}
             />
             <div className="md:col-span-2">
               <Field
@@ -1546,6 +1765,7 @@ export function TwoPQFormFlow({
               onChange={(contactEmail) =>
                 updateInstitutionInformation({ contactEmail })
               }
+              error={errorFor("institutionInformation.contactEmail")}
             />
             <Field
               id="form-institution-phone"
@@ -1613,12 +1833,14 @@ export function TwoPQFormFlow({
               label="CENTRO FIV"
               value={state.sampleInformation.fivCenter}
               onChange={(fivCenter) => updateSampleInformation({ fivCenter })}
+              error={errorFor("sampleInformation.fivCenter")}
             />
             <Field
               id="form-center-code"
               label="CODIGO CENTRO"
               value={state.sampleInformation.centerCode}
               onChange={(centerCode) => updateSampleInformation({ centerCode })}
+              error={errorFor("sampleInformation.centerCode")}
             />
             <div className="space-y-2 md:col-span-2">
               <Label>Pick existing MEDICO SOLICITANTE</Label>
@@ -1651,6 +1873,7 @@ export function TwoPQFormFlow({
               onChange={(requestingDoctorFullName) =>
                 updateSampleInformation({ requestingDoctorFullName })
               }
+              error={errorFor("sampleInformation.requestingDoctorFullName")}
             />
             <Field
               id="form-requesting-doctor-auth-email"
@@ -1659,6 +1882,7 @@ export function TwoPQFormFlow({
               onChange={(requestingDoctorAuthEmail) =>
                 updateSampleInformation({ requestingDoctorAuthEmail })
               }
+              error={errorFor("sampleInformation.requestingDoctorAuthEmail")}
             />
             <Field
               id="form-requesting-doctor-auth-uid"
@@ -1727,6 +1951,7 @@ export function TwoPQFormFlow({
                 onChange={(sampleType) => updateSampleInformation({ sampleType })}
                 placeholder="Seleccionar"
               />
+              <FieldError message={errorFor("sampleInformation.sampleType")} />
             </div>
             <Field
               id="form-processed-by-first-name"
@@ -1735,6 +1960,7 @@ export function TwoPQFormFlow({
               onChange={(processedByFirstName) =>
                 updateSampleInformation({ processedByFirstName })
               }
+              error={errorFor("sampleInformation.processedByFirstName")}
             />
             <Field
               id="form-processed-by-last-name"
@@ -1743,6 +1969,7 @@ export function TwoPQFormFlow({
               onChange={(processedByLastName) =>
                 updateSampleInformation({ processedByLastName })
               }
+              error={errorFor("sampleInformation.processedByLastName")}
             />
             <Field
               id="form-process-date"
@@ -1750,10 +1977,12 @@ export function TwoPQFormFlow({
               type="date"
               value={state.sampleInformation.processDate}
               onChange={(processDate) => updateSampleInformation({ processDate })}
+              error={errorFor("sampleInformation.processDate")}
             />
             <BoxCodeField
               value={state.sampleInformation.boxCode}
               onChange={(boxCode) => updateSampleInformation({ boxCode })}
+              error={errorFor("sampleInformation.boxCode")}
             />
           </div>
         ) : null}
@@ -1776,6 +2005,7 @@ export function TwoPQFormFlow({
               label="Case label"
               value={state.caseInformation.caseLabel}
               onChange={(caseLabel) => updateCaseInformation({ caseLabel })}
+              error={errorFor("caseInformation.caseLabel")}
             />
             <div className="space-y-2">
               <Label>Case status</Label>
@@ -1785,6 +2015,7 @@ export function TwoPQFormFlow({
                 onChange={(caseStatus) => updateCaseInformation({ caseStatus })}
                 placeholder="Select status"
               />
+              <FieldError message={errorFor("caseInformation.caseStatus")} />
             </div>
             <Field
               id="form-case-type"
@@ -1867,6 +2098,7 @@ export function TwoPQFormFlow({
                     onChange={(sampleId) =>
                       updateSamplingInformation(index, { sampleId })
                     }
+                    error={errorFor(`samplingInformation.${index}.sampleId`)}
                   />
                   <Field
                     id={`form-sampling-type-${index}`}
@@ -1875,6 +2107,7 @@ export function TwoPQFormFlow({
                     onChange={(sampleType) =>
                       updateSamplingInformation(index, { sampleType })
                     }
+                    error={errorFor(`samplingInformation.${index}.sampleType`)}
                   />
                   <div className="space-y-2">
                     <Label>Processing status</Label>
@@ -1885,6 +2118,9 @@ export function TwoPQFormFlow({
                         updateSamplingInformation(index, { processingStatus })
                       }
                       placeholder="Select status"
+                    />
+                    <FieldError
+                      message={errorFor(`samplingInformation.${index}.processingStatus`)}
                     />
                   </div>
                   <Field
