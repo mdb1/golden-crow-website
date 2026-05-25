@@ -21,9 +21,9 @@ const CONTACT_CHANNELS = [
   },
   {
     label: "Email",
-    value: "federico@goldencrows.com",
+    value: "2pq.info@gmail.com",
     detail: "Shared inbox for administrative follow-up.",
-    href: "mailto:federico@goldencrows.com",
+    href: "mailto:2pq.info@gmail.com",
     actionLabel: "Email",
     icon: Mail,
   },
@@ -52,7 +52,7 @@ export function TwoPQContactSection() {
               className="rounded-xl bg-sky-700 text-white shadow-[0_14px_28px_rgba(3,105,161,0.22)] hover:bg-sky-800"
               asChild
             >
-              <Link href="mailto:federico@goldencrows.com">
+              <Link href="mailto:2pq.info@gmail.com">
                 <Mail className="size-4" />
                 Send email
               </Link>
@@ -70,11 +70,11 @@ export function TwoPQContactSection() {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+        <div className="grid gap-3">
           {CONTACT_CHANNELS.map((channel) => (
             <article
               key={channel.label}
-              className="flex min-h-44 flex-col rounded-[1.4rem] border border-sky-100 bg-white/72 px-4 py-4 shadow-[0_14px_34px_rgba(186,230,253,0.34)] dark:border-sky-300/18 dark:bg-sky-950/24 dark:shadow-none"
+              className="flex min-h-36 flex-col rounded-[1.4rem] border border-sky-100 bg-white/72 px-4 py-4 shadow-[0_14px_34px_rgba(186,230,253,0.34)] dark:border-sky-300/18 dark:bg-sky-950/24 dark:shadow-none"
             >
               <div className="flex size-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-800 dark:bg-sky-400/14 dark:text-sky-50">
                 <channel.icon className="size-5" />
@@ -82,7 +82,7 @@ export function TwoPQContactSection() {
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-900/54 dark:text-sky-100/64">
                 {channel.label}
               </p>
-              <p className="mt-1 break-words font-heading text-lg font-semibold text-sky-950 dark:text-sky-50">
+              <p className="mt-1 break-words font-heading text-lg font-semibold text-sky-950 [overflow-wrap:anywhere] dark:text-sky-50">
                 {channel.value}
               </p>
               <p className="mt-2 text-sm leading-6 text-sky-900/68 dark:text-sky-50/70">
