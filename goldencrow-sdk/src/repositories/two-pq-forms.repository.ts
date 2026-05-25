@@ -19,11 +19,14 @@ import type {
   AdminContext,
   InstitutionRecord,
   PatientRecord,
+  TwoPQFormDraftRecord,
+  TwoPQFormDraftStepKey,
   TwoPQFormRecord,
   TwoPQFormType,
 } from "../types/sdk.types.js";
 
 const FORMS_COLLECTION = "2pq_forms";
+const FORM_DRAFTS_COLLECTION = "2pq-form-drafts";
 const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
@@ -150,6 +153,13 @@ type TwoPQFormInput = {
   sampleInformation?: SampleInformationInput;
   caseInformation?: CaseInformationInput;
   samplingInformation?: SamplingInformationInput[];
+};
+
+type TwoPQFormDraftInput = {
+  formType: TwoPQFormType;
+  currentStep: TwoPQFormDraftStepKey;
+  stepIndex: number;
+  state: Record<string, unknown>;
 };
 
 type ListTwoPQFormsOptions = {
@@ -359,6 +369,35 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     archivedAt: normalizeOptionalString(data.archivedAt),
     archivedByEmail: normalizeOptionalString(data.archivedByEmail),
     archivedByUid: normalizeOptionalString(data.archivedByUid),
+    createdByEmail: normalizeOptionalString(data.createdByEmail),
+    createdByUid: normalizeOptionalString(data.createdByUid),
+    updatedByEmail: normalizeOptionalString(data.updatedByEmail),
+    updatedByUid: normalizeOptionalString(data.updatedByUid),
+  };
+}
+
+function toTwoPQFormDraftRecord(
+  id: string,
+  data: Record<string, unknown>
+): TwoPQFormDraftRecord {
+  const formType = data.formType === "study_request" ? "study_request" : "sample";
+  const state = data.state;
+  return {
+    id,
+    formType,
+    collectionKey: FORM_DRAFTS_COLLECTION,
+    currentStep:
+      typeof data.currentStep === "string"
+        ? data.currentStep as TwoPQFormDraftStepKey
+        : "patientInformation",
+    stepIndex: Number.isInteger(data.stepIndex) ? Number(data.stepIndex) : 0,
+    state: state && typeof state === "object" && !Array.isArray(state)
+      ? state as Record<string, unknown>
+      : {},
+    createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
+    updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+    authorEmail: normalizeOptionalString(data.authorEmail),
+    authorUid: normalizeOptionalString(data.authorUid),
     createdByEmail: normalizeOptionalString(data.createdByEmail),
     createdByUid: normalizeOptionalString(data.createdByUid),
     updatedByEmail: normalizeOptionalString(data.updatedByEmail),
@@ -781,6 +820,70 @@ export async function getTwoPQFormForContext(
   return form;
 }
 
+export async function getTwoPQFormDraftForContext(
+  context: AdminContext
+): Promise<TwoPQFormDraftRecord | null> {
+  const authorUid = normalizeRequiredString(context.uid, "Form draft owner uid");
+  const snapshot = await adminDb
+    .collection(FORM_DRAFTS_COLLECTION)
+    .doc(authorUid)
+    .get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return toTwoPQFormDraftRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>
+  );
+}
+
+export async function upsertTwoPQFormDraftForContext(
+  context: AdminContext,
+  payload: TwoPQFormDraftInput
+): Promise<TwoPQFormDraftRecord> {
+  const authorEmail = normalizeEmail(context.email, "Form draft author email");
+  const authorUid = normalizeRequiredString(context.uid, "Form draft author uid");
+  const now = new Date().toISOString();
+  const reference = adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid);
+  const snapshot = await reference.get();
+  const stepIndex = Number.isInteger(payload.stepIndex)
+    ? Math.max(0, payload.stepIndex)
+    : 0;
+  const document = {
+    id: authorUid,
+    formType: payload.formType,
+    collectionKey: FORM_DRAFTS_COLLECTION,
+    currentStep: payload.currentStep,
+    stepIndex,
+    state: payload.state && typeof payload.state === "object" ? payload.state : {},
+    createdAt:
+      normalizeOptionalString(snapshot.data()?.createdAt) ?? now,
+    updatedAt: now,
+    authorEmail,
+    authorUid,
+    createdByEmail:
+      normalizeOptionalString(snapshot.data()?.createdByEmail) ?? authorEmail,
+    createdByUid:
+      normalizeOptionalString(snapshot.data()?.createdByUid) ?? authorUid,
+    updatedByEmail: authorEmail,
+    updatedByUid: authorUid,
+  };
+
+  await reference.set(document);
+
+  return toTwoPQFormDraftRecord(authorUid, document);
+}
+
+export async function deleteTwoPQFormDraftForContext(
+  context: AdminContext
+): Promise<{ deleted: true; draftId: string }> {
+  const authorUid = normalizeRequiredString(context.uid, "Form draft owner uid");
+  await adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid).delete();
+  return { deleted: true, draftId: authorUid };
+}
+
 export async function archiveTwoPQFormForContext(
   context: AdminContext,
   formId: string
@@ -1060,6 +1163,7 @@ export async function createTwoPQFormForContext(
         };
 
   await adminDb.collection(FORMS_COLLECTION).doc(formId).set(document);
+  await adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid).delete();
 
   return toTwoPQFormRecord(formId, document);
 }

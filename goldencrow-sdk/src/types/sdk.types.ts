@@ -220,6 +220,16 @@ export type TwoPQCollectionKey =
   | "2pq_report"
   | "2pq_client";
 
+export type TwoPQFormDraftStepKey =
+  | "patientInformation"
+  | "medicalInformation"
+  | "previousGeneticTests"
+  | "requestedTest"
+  | "institutionInformation"
+  | "sampleInformation"
+  | "caseInformation"
+  | "samplingInformation";
+
 export interface TwoPQRecord {
   id: string;
   areaKey: TwoPQAreaKey;
@@ -333,6 +343,23 @@ export interface TwoPQFormRecord {
   archivedAt?: string;
   archivedByEmail?: string;
   archivedByUid?: string;
+  createdByEmail?: string;
+  createdByUid?: string;
+  updatedByEmail?: string;
+  updatedByUid?: string;
+}
+
+export interface TwoPQFormDraftRecord {
+  id: string;
+  formType: TwoPQFormType;
+  collectionKey: "2pq-form-drafts";
+  currentStep: TwoPQFormDraftStepKey;
+  stepIndex: number;
+  state: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  authorEmail?: string;
+  authorUid?: string;
   createdByEmail?: string;
   createdByUid?: string;
   updatedByEmail?: string;

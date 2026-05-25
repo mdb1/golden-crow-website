@@ -5,9 +5,12 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   archiveTwoPQFormForContext,
   createTwoPQFormForContext,
+  deleteTwoPQFormDraftForContext,
   deleteTwoPQFormForContext,
+  getTwoPQFormDraftForContext,
   getTwoPQFormForContext,
   listTwoPQFormsForContext,
+  upsertTwoPQFormDraftForContext,
 } from "../repositories/two-pq-forms.repository.js";
 import {
   createTwoPQRecordForContext,
@@ -193,6 +196,17 @@ const TwoPQSamplingInformationSchema = z.object({
   notes: z.string().optional(),
 });
 
+const TwoPQFormDraftStepSchema = z.enum([
+  "patientInformation",
+  "medicalInformation",
+  "previousGeneticTests",
+  "requestedTest",
+  "institutionInformation",
+  "sampleInformation",
+  "caseInformation",
+  "samplingInformation",
+]);
+
 const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   z.object({
     formType: z.literal("study_request"),
@@ -216,6 +230,13 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
     samplingInformation: z.array(TwoPQSamplingInformationSchema).optional(),
   }),
 ]);
+
+const TwoPQFormDraftMutationSchema = z.object({
+  formType: z.enum(["study_request", "sample"]),
+  currentStep: TwoPQFormDraftStepSchema,
+  stepIndex: z.number().int().min(0),
+  state: z.record(z.string(), z.unknown()),
+});
 
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
@@ -281,6 +302,56 @@ function sendTwoPQRouteError(
 
 export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.get("/2pq/form-draft", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const draft = await getTwoPQFormDraftForContext(request.adminContext);
+      return reply.send({ draft });
+    } catch (error) {
+      return sendTwoPQRouteError(request, reply, error);
+    }
+  });
+
+  f.put(
+    "/2pq/form-draft",
+    {
+      schema: {
+        body: TwoPQFormDraftMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const draft = await upsertTwoPQFormDraftForContext(
+          request.adminContext,
+          request.body
+        );
+        return reply.send({ draft });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    }
+  );
+
+  f.delete("/2pq/form-draft", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const result = await deleteTwoPQFormDraftForContext(request.adminContext);
+      return reply.send(result);
+    } catch (error) {
+      return sendTwoPQRouteError(request, reply, error);
+    }
+  });
 
   f.get(
     "/2pq/forms",

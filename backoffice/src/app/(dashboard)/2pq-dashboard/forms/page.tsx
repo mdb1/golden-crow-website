@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { Archive, ArrowLeft, ClipboardList } from "lucide-react";
+import { Archive, ArrowLeft, ClipboardList, FileClock } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQFormCompletionDialog } from "@/components/two-pq-form-completion-dialog";
 import { TwoPQFormsList } from "@/components/two-pq-forms-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getTwoPQForms } from "@/lib/two-pq-server";
+import {
+  TWO_PQ_FORM_LABELS,
+  TWO_PQ_FORM_ROUTES,
+} from "@/lib/two-pq-forms";
+import { getTwoPQFormDraft, getTwoPQForms } from "@/lib/two-pq-server";
 
 export default async function TwoPQFormsPage({
   searchParams,
@@ -17,7 +21,13 @@ export default async function TwoPQFormsPage({
     includeArchivedParam === "1" ||
     includeArchivedParam === "true" ||
     includeArchivedParam === "yes";
-  const forms = await getTwoPQForms({ includeArchived });
+  const [forms, formDraft] = await Promise.all([
+    getTwoPQForms({ includeArchived }),
+    getTwoPQFormDraft(),
+  ]);
+  const draftHref = formDraft
+    ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,12 +37,26 @@ export default async function TwoPQFormsPage({
         title="Forms"
         description="Stored 2PQ study request and sample forms."
         actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/2pq-dashboard">
-              <ArrowLeft className="size-3.5" />
-              Back to dashboard
-            </Link>
-          </Button>
+          <>
+            {formDraft && draftHref ? (
+              <Button variant="default" size="sm" asChild>
+                <Link href={draftHref}>
+                  <FileClock className="size-3.5" />
+                  Continue from draft
+                  <span className="sr-only">
+                    {" "}
+                    {TWO_PQ_FORM_LABELS[formDraft.formType]}
+                  </span>
+                </Link>
+              </Button>
+            ) : null}
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/2pq-dashboard">
+                <ArrowLeft className="size-3.5" />
+                Back to dashboard
+              </Link>
+            </Button>
+          </>
         }
       />
 

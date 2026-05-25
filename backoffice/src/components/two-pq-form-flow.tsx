@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -38,33 +38,15 @@ import {
   type RequestedTestFormState,
   type SampleInformationFormState,
   type SamplingInformationFormState,
+  type TwoPQFormDraftRecord,
+  type TwoPQFormDraftState,
+  type TwoPQFormDraftStepKey,
   type TwoPQFormRecord,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
 
-type StepKey =
-  | "patientInformation"
-  | "medicalInformation"
-  | "previousGeneticTests"
-  | "requestedTest"
-  | "institutionInformation"
-  | "sampleInformation"
-  | "caseInformation"
-  | "samplingInformation";
-
-type FlowState = {
-  selectedPatientId: string;
-  selectedInstitutionId: string;
-  selectedCaseId: string;
-  patientInformation: PatientInformationFormState;
-  medicalInformation: MedicalInformationFormState;
-  previousGeneticTests: PreviousGeneticTestsFormState;
-  requestedTest: RequestedTestFormState;
-  institutionInformation: InstitutionInformationFormState;
-  sampleInformation: SampleInformationFormState;
-  caseInformation: CaseInformationFormState;
-  samplingInformation: SamplingInformationFormState[];
-};
+type StepKey = TwoPQFormDraftStepKey;
+type FlowState = TwoPQFormDraftState;
 
 const STUDY_REQUEST_STEPS: StepKey[] = [
   "patientInformation",
@@ -255,6 +237,95 @@ function buildInitialState(
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeDraftSection<T extends object>(base: T, value: unknown): T {
+  return isRecord(value) ? { ...base, ...value } as T : base;
+}
+
+function hydrateDraftState(
+  defaultState: FlowState,
+  draft: TwoPQFormDraftRecord | null | undefined
+): FlowState {
+  if (!draft?.state || !isRecord(draft.state)) {
+    return defaultState;
+  }
+
+  const draftState = draft.state;
+  return {
+    ...defaultState,
+    selectedPatientId:
+      typeof draftState.selectedPatientId === "string"
+        ? draftState.selectedPatientId
+        : defaultState.selectedPatientId,
+    selectedInstitutionId:
+      typeof draftState.selectedInstitutionId === "string"
+        ? draftState.selectedInstitutionId
+        : defaultState.selectedInstitutionId,
+    selectedCaseId:
+      typeof draftState.selectedCaseId === "string"
+        ? draftState.selectedCaseId
+        : defaultState.selectedCaseId,
+    patientInformation: mergeDraftSection(
+      defaultState.patientInformation,
+      draftState.patientInformation
+    ),
+    medicalInformation: mergeDraftSection(
+      defaultState.medicalInformation,
+      draftState.medicalInformation
+    ),
+    previousGeneticTests: mergeDraftSection(
+      defaultState.previousGeneticTests,
+      draftState.previousGeneticTests
+    ),
+    requestedTest: mergeDraftSection(
+      defaultState.requestedTest,
+      draftState.requestedTest
+    ),
+    institutionInformation: mergeDraftSection(
+      defaultState.institutionInformation,
+      draftState.institutionInformation
+    ),
+    sampleInformation: mergeDraftSection(
+      defaultState.sampleInformation,
+      draftState.sampleInformation
+    ),
+    caseInformation: mergeDraftSection(
+      defaultState.caseInformation,
+      draftState.caseInformation
+    ),
+    samplingInformation:
+      Array.isArray(draftState.samplingInformation) &&
+      draftState.samplingInformation.length > 0
+        ? draftState.samplingInformation.map((entry) =>
+            mergeDraftSection(emptySampling(), entry)
+          )
+        : defaultState.samplingInformation,
+  };
+}
+
+function resolveDraftStepIndex(
+  draft: TwoPQFormDraftRecord | null | undefined,
+  steps: StepKey[]
+) {
+  if (!draft) {
+    return 0;
+  }
+
+  const stepFromKey = steps.indexOf(draft.currentStep);
+  if (stepFromKey >= 0) {
+    return stepFromKey;
+  }
+
+  if (Number.isInteger(draft.stepIndex)) {
+    return Math.min(Math.max(draft.stepIndex, 0), steps.length - 1);
+  }
+
+  return 0;
+}
+
 function patientToFormState(patient: PatientListItem): PatientInformationFormState {
   return {
     institutionId: patient.institutionId,
@@ -383,15 +454,19 @@ export function TwoPQFormFlow({
   doctors,
   patients,
   cases = [],
+  initialDraft = null,
 }: {
   formType: TwoPQFormType;
   institutions: InstitutionListItem[];
   doctors: DoctorListItem[];
   patients: PatientListItem[];
   cases?: TwoPQListItem[];
+  initialDraft?: TwoPQFormDraftRecord | null;
 }) {
   const adminContext = useAdminContext();
   const router = useRouter();
+  const steps = formType === "study_request" ? STUDY_REQUEST_STEPS : SAMPLE_STEPS;
+  const matchingDraft = initialDraft?.formType === formType ? initialDraft : null;
   const scopedInstitutionId =
     adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
       ? adminContext.institutionId ?? ""
@@ -406,13 +481,18 @@ export function TwoPQFormFlow({
       ? doctors[0]?.id ?? ""
       : "");
 
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() =>
+    resolveDraftStepIndex(matchingDraft, steps)
+  );
   const [pending, setPending] = useState(false);
+  const [draftPending, setDraftPending] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [state, setState] = useState<FlowState>(() =>
-    buildInitialState(defaultInstitutionId, defaultDoctorId)
+    hydrateDraftState(
+      buildInitialState(defaultInstitutionId, defaultDoctorId),
+      matchingDraft
+    )
   );
-  const steps = formType === "study_request" ? STUDY_REQUEST_STEPS : SAMPLE_STEPS;
   const currentStep = steps[stepIndex] ?? steps[0];
   const currentStepLabel = STEP_LABELS[currentStep];
   const availableDoctors = doctors.filter((doctor) =>
@@ -469,6 +549,53 @@ export function TwoPQFormFlow({
     () => `${stepIndex + 1} of ${steps.length}`,
     [stepIndex, steps.length]
   );
+  const restoredFromDraft = Boolean(matchingDraft);
+
+  async function persistDraftSnapshot(
+    nextStepIndex: number,
+    nextState: FlowState = state,
+    options: { quiet?: boolean; errorMessage?: string } = {}
+  ) {
+    const boundedStepIndex = Math.min(
+      Math.max(nextStepIndex, 0),
+      steps.length - 1
+    );
+    const nextStep = steps[boundedStepIndex] ?? steps[0];
+
+    if (!options.quiet) {
+      setDraftPending(true);
+    }
+
+    try {
+      await sdkFetch<{ draft: TwoPQFormDraftRecord }>("/2pq/form-draft", {
+        method: "PUT",
+        body: JSON.stringify({
+          formType,
+          currentStep: nextStep,
+          stepIndex: boundedStepIndex,
+          state: nextState,
+        }),
+      });
+    } catch {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: options.errorMessage ?? "Unable to save the form draft.",
+      });
+      throw new Error("Unable to save the form draft.");
+    } finally {
+      if (!options.quiet) {
+        setDraftPending(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    void persistDraftSnapshot(stepIndex, state, {
+      quiet: true,
+      errorMessage: "Unable to prepare the form draft.",
+    }).catch(() => undefined);
+  }, []);
 
   function updatePatientInformation(
     patch: Partial<PatientInformationFormState>
@@ -759,19 +886,49 @@ export function TwoPQFormFlow({
     return null;
   }
 
-  function goNext() {
+  async function goNext() {
     const message = validationError(currentStep);
     if (message) {
       setToast({ id: Date.now(), tone: "error", message });
       return;
     }
-    setStepIndex((current) => Math.min(current + 1, steps.length - 1));
+
+    const nextStepIndex = Math.min(stepIndex + 1, steps.length - 1);
+    try {
+      await persistDraftSnapshot(nextStepIndex);
+      setStepIndex(nextStepIndex);
+    } catch {
+      return;
+    }
+  }
+
+  async function selectStep(nextStepIndex: number) {
+    const boundedStepIndex = Math.min(
+      Math.max(nextStepIndex, 0),
+      steps.length - 1
+    );
+    if (boundedStepIndex === stepIndex) {
+      return;
+    }
+
+    try {
+      await persistDraftSnapshot(boundedStepIndex);
+      setStepIndex(boundedStepIndex);
+    } catch {
+      return;
+    }
   }
 
   async function submitForm() {
     const message = validationError(currentStep);
     if (message) {
       setToast({ id: Date.now(), tone: "error", message });
+      return;
+    }
+
+    try {
+      await persistDraftSnapshot(stepIndex);
+    } catch {
       return;
     }
 
@@ -845,6 +1002,8 @@ export function TwoPQFormFlow({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {restoredFromDraft ? <Badge variant="rose">Recovered draft</Badge> : null}
+            {draftPending ? <Badge variant="outline">Saving draft</Badge> : null}
             <Badge variant="outline">{progressLabel}</Badge>
           </div>
         </div>
@@ -857,7 +1016,8 @@ export function TwoPQFormFlow({
               <button
                 key={step}
                 type="button"
-                onClick={() => setStepIndex(index)}
+                onClick={() => void selectStep(index)}
+                disabled={pending || draftPending}
                 className={[
                   "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
                   active
@@ -1527,8 +1687,8 @@ export function TwoPQFormFlow({
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               variant="outline"
-              onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
-              disabled={stepIndex === 0 || pending}
+              onClick={() => void selectStep(stepIndex - 1)}
+              disabled={stepIndex === 0 || pending || draftPending}
             >
               <ArrowLeft className="size-4" />
               Previous
@@ -1536,7 +1696,7 @@ export function TwoPQFormFlow({
             {stepIndex === steps.length - 1 ? (
               <Button
                 onClick={() => void submitForm()}
-                disabled={pending}
+                disabled={pending || draftPending}
                 className="bg-indigo-600 text-white hover:bg-indigo-700"
               >
                 {pending ? <FileText className="size-4 animate-pulse" /> : <Save className="size-4" />}
@@ -1544,8 +1704,8 @@ export function TwoPQFormFlow({
               </Button>
             ) : (
               <Button
-                onClick={goNext}
-                disabled={pending}
+                onClick={() => void goNext()}
+                disabled={pending || draftPending}
                 className="bg-indigo-600 text-white hover:bg-indigo-700"
               >
                 Continue

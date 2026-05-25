@@ -1,20 +1,29 @@
 import { notFound } from "next/navigation";
 import { TwoPQFormFlow } from "@/components/two-pq-form-flow";
 import { getTwoPQFormTypeFromSlug } from "@/lib/two-pq-forms";
-import { getTwoPQFormLookupData } from "@/lib/two-pq-server";
+import { getTwoPQFormDraft, getTwoPQFormLookupData } from "@/lib/two-pq-server";
 
 export default async function NewTwoPQFormPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ formKind: string }>;
+  searchParams: Promise<{ draft?: string }>;
 }) {
   const { formKind } = await params;
+  const { draft: draftParam } = await searchParams;
   const formType = getTwoPQFormTypeFromSlug(formKind);
   if (!formType) {
     notFound();
   }
 
-  const lookupData = await getTwoPQFormLookupData();
+  const shouldRestoreDraft =
+    draftParam === "1" || draftParam === "true" || draftParam === "yes";
+  const [lookupData, formDraft] = await Promise.all([
+    getTwoPQFormLookupData(),
+    shouldRestoreDraft ? getTwoPQFormDraft() : Promise.resolve(null),
+  ]);
+  const initialDraft = formDraft?.formType === formType ? formDraft : null;
 
   return (
     <div className="flex flex-col">
@@ -24,6 +33,7 @@ export default async function NewTwoPQFormPage({
         doctors={lookupData.doctors}
         patients={lookupData.patients}
         cases={lookupData.cases}
+        initialDraft={initialDraft}
       />
     </div>
   );

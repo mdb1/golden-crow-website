@@ -90,6 +90,30 @@ export type SamplingInformationFormState = {
   notes: string;
 };
 
+export type TwoPQFormDraftStepKey =
+  | "patientInformation"
+  | "medicalInformation"
+  | "previousGeneticTests"
+  | "requestedTest"
+  | "institutionInformation"
+  | "sampleInformation"
+  | "caseInformation"
+  | "samplingInformation";
+
+export type TwoPQFormDraftState = {
+  selectedPatientId: string;
+  selectedInstitutionId: string;
+  selectedCaseId: string;
+  patientInformation: PatientInformationFormState;
+  medicalInformation: MedicalInformationFormState;
+  previousGeneticTests: PreviousGeneticTestsFormState;
+  requestedTest: RequestedTestFormState;
+  institutionInformation: InstitutionInformationFormState;
+  sampleInformation: SampleInformationFormState;
+  caseInformation: CaseInformationFormState;
+  samplingInformation: SamplingInformationFormState[];
+};
+
 export interface TwoPQFormRecord {
   id: string;
   formType: TwoPQFormType;
@@ -120,6 +144,23 @@ export interface TwoPQFormRecord {
   archivedAt?: string;
   archivedByEmail?: string;
   archivedByUid?: string;
+  createdByEmail?: string;
+  createdByUid?: string;
+  updatedByEmail?: string;
+  updatedByUid?: string;
+}
+
+export interface TwoPQFormDraftRecord {
+  id: string;
+  formType: TwoPQFormType;
+  collectionKey: "2pq-form-drafts";
+  currentStep: TwoPQFormDraftStepKey;
+  stepIndex: number;
+  state: TwoPQFormDraftState;
+  createdAt: string;
+  updatedAt: string;
+  authorEmail?: string;
+  authorUid?: string;
   createdByEmail?: string;
   createdByUid?: string;
   updatedByEmail?: string;

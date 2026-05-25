@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ClipboardList, PlusCircle } from "lucide-react";
+import { ArrowRight, ClipboardList, FileClock, PlusCircle } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,16 @@ import {
   canCreatePatientUi,
 } from "@/lib/areas-ui";
 import { TWO_PQ_AREA_CONFIGS } from "@/lib/two-pq-areas";
+import {
+  TWO_PQ_FORM_LABELS,
+  TWO_PQ_FORM_ROUTES,
+  type TwoPQFormDraftRecord,
+} from "@/lib/two-pq-forms";
 
 export function TwoPQDashboardHome({
   adminContext,
   metrics,
+  formDraft,
 }: {
   adminContext: AdminContextRecord;
   metrics: {
@@ -25,10 +31,14 @@ export function TwoPQDashboardHome({
     patients: number;
     roles: number;
   };
+  formDraft?: TwoPQFormDraftRecord | null;
 }) {
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
   const linkedEntityAreas = TWO_PQ_AREA_CONFIGS.filter((area) => linkedEntityKeys.has(area.key));
   const secondaryAreas = TWO_PQ_AREA_CONFIGS.filter((area) => !linkedEntityKeys.has(area.key));
+  const draftHref = formDraft
+    ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
+    : null;
   const scopeCards = [
     {
       key: "institutions",
@@ -126,6 +136,21 @@ export function TwoPQDashboardHome({
                   Completar formulario de muestra
                 </Link>
               </Button>
+              {formDraft && draftHref ? (
+                <Button
+                  className="min-h-11 justify-center whitespace-normal rounded-xl border border-rose-200 bg-white/76 px-5 text-left leading-snug text-rose-950 shadow-[0_14px_32px_rgba(244,63,94,0.14)] hover:bg-rose-50 dark:border-rose-300/24 dark:bg-rose-400/12 dark:text-rose-50 dark:hover:bg-rose-400/18"
+                  asChild
+                >
+                  <Link href={draftHref}>
+                    <FileClock className="size-4" />
+                    Continue from draft
+                    <span className="sr-only">
+                      {" "}
+                      {TWO_PQ_FORM_LABELS[formDraft.formType]}
+                    </span>
+                  </Link>
+                </Button>
+              ) : null}
             </div>
             <Button
               variant="outline"

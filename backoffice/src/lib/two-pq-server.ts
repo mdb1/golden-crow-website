@@ -1,6 +1,6 @@
 import type { DoctorListItem, InstitutionListItem, PatientListItem } from "@/lib/admin-areas";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
-import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
+import type { TwoPQFormDraftRecord, TwoPQFormRecord } from "@/lib/two-pq-forms";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export async function getTwoPQLookupData() {
@@ -51,6 +51,13 @@ export async function getTwoPQForms(options: { includeArchived?: boolean } = {})
     `/2pq/forms${query}`
   );
   return payload.forms;
+}
+
+export async function getTwoPQFormDraft() {
+  const payload = await sdkFetchServer<{ draft: TwoPQFormDraftRecord | null }>(
+    "/2pq/form-draft"
+  );
+  return payload.draft;
 }
 
 export async function getTwoPQForm(formId: string) {
