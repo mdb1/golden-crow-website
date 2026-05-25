@@ -668,13 +668,25 @@ export function TwoPQFormFlow({
                 type="button"
                 onClick={() => setStepIndex(index)}
                 className={[
-                  "flex min-h-14 items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors",
+                  "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
                   active
                     ? "border-indigo-300 bg-indigo-500/12 text-indigo-950 dark:border-indigo-300/40 dark:text-indigo-100"
                     : "border-border/80 bg-background/54 text-muted-foreground hover:bg-background/80",
                 ].join(" ")}
               >
-                <span>{STEP_LABELS[step]}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={[
+                      "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
+                      active
+                        ? "border-indigo-600 bg-indigo-600 text-white shadow-[0_6px_14px_rgba(79,70,229,0.24)]"
+                        : "border-indigo-300/80 bg-transparent text-indigo-700 dark:border-indigo-300/45 dark:text-indigo-200",
+                    ].join(" ")}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 truncate">{STEP_LABELS[step]}</span>
+                </span>
                 {complete ? <CheckCircle2 className="size-4 text-emerald-600" /> : null}
               </button>
             );
