@@ -742,11 +742,11 @@ function validateStepFields(
     }
     if (!flowState.sampleInformation.processedByFirstName.trim()) {
       errors["sampleInformation.processedByFirstName"] =
-        "PROCESADO POR nombre is required.";
+        "NOMBRE is required.";
     }
     if (!flowState.sampleInformation.processedByLastName.trim()) {
       errors["sampleInformation.processedByLastName"] =
-        "PROCESADO POR apellido is required.";
+        "APELLIDO is required.";
     }
     if (!flowState.sampleInformation.processDate.trim()) {
       errors["sampleInformation.processDate"] = "FECHA PROCESO is required.";
@@ -2453,42 +2453,68 @@ export function TwoPQFormFlow({
                 </div>
               </div>
             </section>
-            <div className="space-y-2">
-              <Label>TIPO DE MUESTRA</Label>
-              <OptionSelectField
-                options={SAMPLE_TYPE_OPTIONS}
-                value={state.sampleInformation.sampleType}
-                onChange={(sampleType) => updateSampleInformation({ sampleType })}
-                placeholder="Seleccionar"
-              />
-              <FieldError message={errorFor("sampleInformation.sampleType")} />
-            </div>
-            <Field
-              id="form-processed-by-first-name"
-              label="PROCESADO POR nombre"
-              value={state.sampleInformation.processedByFirstName}
-              onChange={(processedByFirstName) =>
-                updateSampleInformation({ processedByFirstName })
-              }
-              error={errorFor("sampleInformation.processedByFirstName")}
-            />
-            <Field
-              id="form-processed-by-last-name"
-              label="PROCESADO POR apellido"
-              value={state.sampleInformation.processedByLastName}
-              onChange={(processedByLastName) =>
-                updateSampleInformation({ processedByLastName })
-              }
-              error={errorFor("sampleInformation.processedByLastName")}
-            />
-            <Field
-              id="form-process-date"
-              label="FECHA PROCESO"
-              type="date"
-              value={state.sampleInformation.processDate}
-              onChange={(processDate) => updateSampleInformation({ processDate })}
-              error={errorFor("sampleInformation.processDate")}
-            />
+            <section className="md:col-span-2">
+              <div className="border-b border-border/70 pb-5">
+                <div className="mb-4">
+                  <h3 className="font-heading text-lg font-semibold text-foreground">
+                    Muestra
+                  </h3>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>TIPO DE MUESTRA</Label>
+                    <OptionSelectField
+                      options={SAMPLE_TYPE_OPTIONS}
+                      value={state.sampleInformation.sampleType}
+                      onChange={(sampleType) =>
+                        updateSampleInformation({ sampleType })
+                      }
+                      placeholder="Seleccionar"
+                    />
+                    <FieldError message={errorFor("sampleInformation.sampleType")} />
+                  </div>
+                  <Field
+                    id="form-process-date"
+                    label="FECHA PROCESO"
+                    type="date"
+                    value={state.sampleInformation.processDate}
+                    onChange={(processDate) =>
+                      updateSampleInformation({ processDate })
+                    }
+                    error={errorFor("sampleInformation.processDate")}
+                  />
+                </div>
+              </div>
+            </section>
+            <section className="md:col-span-2">
+              <div className="border-b border-border/70 pb-5">
+                <div className="mb-4">
+                  <h3 className="font-heading text-lg font-semibold text-foreground">
+                    Procesado por
+                  </h3>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    id="form-processed-by-first-name"
+                    label="NOMBRE"
+                    value={state.sampleInformation.processedByFirstName}
+                    onChange={(processedByFirstName) =>
+                      updateSampleInformation({ processedByFirstName })
+                    }
+                    error={errorFor("sampleInformation.processedByFirstName")}
+                  />
+                  <Field
+                    id="form-processed-by-last-name"
+                    label="APELLIDO"
+                    value={state.sampleInformation.processedByLastName}
+                    onChange={(processedByLastName) =>
+                      updateSampleInformation({ processedByLastName })
+                    }
+                    error={errorFor("sampleInformation.processedByLastName")}
+                  />
+                </div>
+              </div>
+            </section>
             <BoxCodeField
               value={state.sampleInformation.boxCode}
               onChange={(boxCode) => updateSampleInformation({ boxCode })}
