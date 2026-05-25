@@ -1126,12 +1126,12 @@ export default function LoginPage() {
           : "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.";
 
   return (
-    <main className="auth-liquid-canvas relative isolate min-h-[calc(100vh-5rem)] w-full overflow-hidden rounded-[2rem] border border-white/45 p-4 text-slate-950 shadow-[0_28px_90px_rgba(47,28,70,0.24)] sm:p-6 lg:min-h-[760px]">
+    <main className="auth-liquid-canvas fixed inset-0 isolate min-h-screen w-screen overflow-y-auto text-slate-950">
       <div className="auth-liquid-flow" aria-hidden />
       <div className="auth-liquid-sheen" aria-hidden />
 
-      <div className="relative z-10 grid min-h-[inherit] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(410px,470px)]">
-        <section className="hidden min-h-[640px] flex-col justify-between rounded-[1.5rem] border border-white/45 bg-white/24 p-7 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] backdrop-blur-xl lg:flex">
+      <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-7xl gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(410px,470px)] lg:items-center lg:px-8">
+        <section className="hidden min-h-[min(720px,calc(100vh-3rem))] flex-col justify-between rounded-[1.5rem] border border-white/45 bg-white/24 p-7 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] backdrop-blur-xl lg:flex">
           <div className="space-y-7">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/45 px-3 py-1 text-xs font-semibold text-slate-800">
               <Sparkles className="size-3.5 text-amber-500" />
@@ -1183,7 +1183,7 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="auth-login-panel relative mx-auto flex w-full max-w-[470px] flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:my-auto">
+        <section className="auth-login-panel relative mx-auto flex w-full max-w-[470px] flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-2">
               <p className="section-eyebrow text-slate-500">Secure backoffice</p>
