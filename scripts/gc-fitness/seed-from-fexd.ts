@@ -37,6 +37,7 @@ import {
   commitInChunks,
   type ChunkedWrite,
 } from "./curate-exercise-library";
+import { mapFexdMuscles } from "./fexd-vocabulary-map";
 
 // ---------------------------------------------------------------------------
 // Env + admin init (mirrors curate-exercise-library.ts)
@@ -84,6 +85,62 @@ function initAdmin(): App {
 // CLI
 // ---------------------------------------------------------------------------
 
+/**
+ * Phase 24-03 (Codex MEDIUM allowlist-path migration mitigation).
+ *
+ * Resolves the default --allowlist path with backward-compat:
+ *  - Prefer the Phase 24 path
+ *    (.planning/phases/24-exercise-library-expansion-free-exercise-db/ALLOWLIST-PROPOSAL.md)
+ *  - Fall back to the legacy MO2 path
+ *    (.planning/quick/260522-mo2-.../ALLOWLIST-PROPOSAL.md)
+ *    when the Phase 24 file is missing (operators / scripts pinned to the
+ *    older path keep working until they migrate).
+ *
+ * Exported for unit-test coverage of both resolution branches.
+ */
+export function resolveDefaultAllowlistPath(): string {
+  const phase24 = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "gc-fitness",
+    ".planning",
+    "phases",
+    "24-exercise-library-expansion-free-exercise-db",
+    "ALLOWLIST-PROPOSAL.md",
+  );
+  const legacy = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "gc-fitness",
+    ".planning",
+    "quick",
+    "260522-mo2-replace-exercise-library-with-free-exerc",
+    "ALLOWLIST-PROPOSAL.md",
+  );
+  return fs.existsSync(phase24) ? phase24 : legacy;
+}
+
+/**
+ * Phase 24-03 (Codex HIGH blast-radius mitigation).
+ *
+ * When `--canary <N>` is set, the seed run is capped to the first N picks
+ * from the allowlist. Re-export the slicing as a pure helper so the test
+ * suite can pin the contract without spinning up the full CLI.
+ *
+ *  - `canary === undefined` → input returned unchanged (referential identity
+ *    preserved so callers can detect "no cap" cheaply).
+ *  - `canary >= picks.length` → all picks returned (no past-end truncation).
+ *  - `canary > 0` → first `canary` picks returned.
+ */
+export function applyCanaryCap<T>(picks: T[], canary: number | undefined): T[] {
+  if (canary === undefined) return picks;
+  return picks.slice(0, canary);
+}
+
 export interface CliArgs {
   apply: boolean;
   allowlist: string;
@@ -91,26 +148,23 @@ export interface CliArgs {
   assetsReport: string;
   fexdData: string;
   skipIds: Set<string>;
+  /** Phase 24-03 (Codex HIGH) — cap seed to first N picks; undefined = no cap. */
+  canary: number | undefined;
+  /** Phase 24-03 (Codex HIGH) — emit SEED-RECONCILIATION-{ts}.json; no Firestore writes. */
+  reportOnly: boolean;
 }
 
 export function parseArgs(argv: string[] = process.argv.slice(2)): CliArgs {
   const args: CliArgs = {
     apply: false,
-    allowlist: path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "gc-fitness",
-      ".planning",
-      "quick",
-      "260522-mo2-replace-exercise-library-with-free-exerc",
-      "ALLOWLIST-PROPOSAL.md",
-    ),
+    // Phase 24-03 (Codex MEDIUM) — Phase 24 path if present, else legacy MO2.
+    allowlist: resolveDefaultAllowlistPath(),
     translations: path.resolve(__dirname, "fexd-translations.json"),
     assetsReport: path.resolve(__dirname, "fexd-assets-report.json"),
     fexdData: "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json",
     skipIds: new Set(),
+    canary: undefined,
+    reportOnly: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -122,10 +176,26 @@ export function parseArgs(argv: string[] = process.argv.slice(2)): CliArgs {
     else if (a === "--skip-ids") {
       const list = argv[++i] ?? "";
       args.skipIds = new Set(list.split(",").map((s) => s.trim()).filter(Boolean));
+    } else if (a === "--canary") {
+      // Phase 24-03 (Codex HIGH) — positive-integer guard.
+      const raw = argv[++i] ?? "";
+      const n = Number.parseInt(raw, 10);
+      if (!Number.isFinite(n) || n <= 0 || String(n) !== raw.trim()) {
+        throw new Error(
+          `--canary expects a positive integer; got: ${JSON.stringify(raw)}`,
+        );
+      }
+      args.canary = n;
+    } else if (a === "--report-only") {
+      args.reportOnly = true;
     } else if (a === "--help" || a === "-h") {
       process.stdout.write(
-        "Usage: tsx seed-from-fexd.ts [--apply] [--allowlist <path>] [--translations <path>] [--assets-report <path>] [--skip-ids <csv>]\n\n" +
-          "Default dry-run. --apply opt-in. Idempotent. Routes per-write op: MATCH/soft-delete via batch.update, NEW via batch.set.\n",
+        "Usage: tsx seed-from-fexd.ts [--apply] [--allowlist <path>] [--translations <path>] " +
+          "[--assets-report <path>] [--skip-ids <csv>] [--canary <N>] [--report-only]\n\n" +
+          "Default dry-run. --apply opt-in. Idempotent. Routes per-write op: MATCH/soft-delete via batch.update, NEW via batch.set.\n" +
+          "Default allowlist: Phase 24 path if present, else legacy MO2 path (Codex MEDIUM backward-compat).\n" +
+          "--canary <N>: cap seed to first N picks (Codex HIGH blast-radius mitigation).\n" +
+          "--report-only: emit SEED-RECONCILIATION-{timestamp}.json; do NOT mutate Firestore.\n",
       );
       process.exit(0);
     } else {
@@ -174,6 +244,8 @@ export interface FexdSourceRow {
   level: "beginner" | "intermediate" | "expert";
   category: string;
   instructions: string[];
+  /** Phase 24-03 — force vector (push|pull|static|null). */
+  force: "push" | "pull" | "static" | null;
 }
 
 export interface DocSnapshot {
@@ -245,7 +317,7 @@ export type Plan =
   | { kind: "soft-delete"; patch: Record<string, unknown>; reason: null }
   | { kind: "skip"; patch: null; reason: string };
 
-function buildPayload(
+export function buildPayload(
   pick: AllowlistEntry,
   translation: FexdTranslationEntry,
   asset: AssetReportEntry,
@@ -254,10 +326,10 @@ function buildPayload(
   // Map fexd's `equipment` (singular string) to the array shape gc-fitness
   // already uses elsewhere (existing wger docs have equipment: string[]).
   const equipmentArr = fexd?.equipment ? [fexd.equipment] : [];
-  // muscleGroups (existing schema) takes primaryMuscles as the canonical
-  // bucket; we ALSO write primaryMuscles + secondaryMuscles separately for
-  // downstream filters.
-  const muscleGroups = fexd?.primaryMuscles ?? [];
+  // Phase 24-03 — muscleGroups uses GC canonical vocab via mapFexdMuscles;
+  // primaryMuscles + secondaryMuscles keep the raw FEXD values for
+  // downstream filter UIs (e.g. backoffice picker chip-rows can show both).
+  const muscleGroups = mapFexdMuscles(fexd?.primaryMuscles ?? []);
   return {
     name: { en: translation.name_en, es: translation.name_es },
     description: { en: "", es: "" },
@@ -272,6 +344,12 @@ function buildPayload(
     mechanic: fexd?.mechanic ?? null,
     level: fexd?.level ?? null,
     category: fexd?.category ?? null,
+    // Phase 24-03 — the "force" key is a new enrichment dimension
+    // (push|pull|static|null). Defensive cast for the pre-Phase-24 in-memory
+    // FEXD shape; once a re-pull from upstream lands every row has `force`
+    // typed by the FexdSourceRow contract. canonical() projects "force" so
+    // a doc missing it is detected as kind:'overwrite' on the next dry-run.
+    force: (fexd as { force?: string | null } | null)?.force ?? null,
     imageUrl: asset.imageUrl ?? null,
     endImageUrl: asset.endImageUrl ?? null,
     gifUrl: asset.gifUrl ?? null,
@@ -286,8 +364,11 @@ function isConverged(current: Record<string, unknown>, desired: Record<string, u
   return JSON.stringify(canonical(current)) === JSON.stringify(canonical(desired));
 }
 
-function canonical(o: Record<string, unknown>): Record<string, unknown> {
+export function canonical(o: Record<string, unknown>): Record<string, unknown> {
   // Pick only the fields we care about, in canonical order, sorted.
+  // Phase 24-03 — `force` is now part of the convergence projection so a
+  // doc missing it triggers a kind:'overwrite' (one-time backfill), and the
+  // subsequent re-run reports 0 writes (idempotency preserved).
   const keys = [
     "name",
     "description",
@@ -299,6 +380,7 @@ function canonical(o: Record<string, unknown>): Record<string, unknown> {
     "mechanic",
     "level",
     "category",
+    "force",
     "imageUrl",
     "endImageUrl",
     "gifUrl",
@@ -469,7 +551,14 @@ export async function main(): Promise<void> {
     );
   }
 
-  const picks = parseAllowlistForFexd(fs.readFileSync(args.allowlist, "utf8"));
+  const allPicks = parseAllowlistForFexd(fs.readFileSync(args.allowlist, "utf8"));
+  // Phase 24-03 (Codex HIGH) — apply --canary cap before any Firestore traffic.
+  const picks = applyCanaryCap(allPicks, args.canary);
+  if (args.canary !== undefined) {
+    process.stdout.write(
+      `Canary mode: capping to first ${args.canary} picks (${allPicks.length} in allowlist).\n`,
+    );
+  }
   const translations: FexdTranslations = JSON.parse(
     fs.readFileSync(args.translations, "utf8"),
   );
@@ -559,6 +648,60 @@ export async function main(): Promise<void> {
     if (r.plan.kind === "skip" || shown >= 10) continue;
     process.stdout.write(`  ${r.snap.id} → ${r.plan.kind}\n`);
     shown++;
+  }
+
+  // Phase 24-03 (Codex HIGH auditability) — `--report-only` emits a
+  // SEED-RECONCILIATION-{timestamp}.json artifact and SKIPS the
+  // commitInChunks step entirely. Insert/update/skip counts here can be
+  // cross-referenced against the dry-run prediction within ±2 to detect
+  // race conditions or stale fexd-translations.json between runs.
+  if (args.reportOnly) {
+    type SkipReasonMap = Record<string, number>;
+    const inserts: string[] = [];
+    const updates: string[] = [];
+    const softDeletes: string[] = [];
+    const skipsByReason: SkipReasonMap = {};
+    for (const r of rows) {
+      if (r.plan.kind === "insert") inserts.push(r.snap.id);
+      else if (r.plan.kind === "overwrite") updates.push(r.snap.id);
+      else if (r.plan.kind === "soft-delete") softDeletes.push(r.snap.id);
+      else if (r.plan.kind === "skip") {
+        const key = r.plan.reason ?? "unspecified";
+        skipsByReason[key] = (skipsByReason[key] ?? 0) + 1;
+      }
+    }
+    const report = {
+      generatedAt: new Date().toISOString(),
+      mode: "report-only",
+      allowlistPath: args.allowlist,
+      canary: args.canary ?? null,
+      totals: {
+        picks: picks.length,
+        inserts: inserts.length,
+        updates: updates.length,
+        softDeletes: softDeletes.length,
+        skips: Object.values(skipsByReason).reduce((a, b) => a + b, 0),
+      },
+      inserts: { count: inserts.length, docIds: inserts },
+      updates: { count: updates.length, docIds: updates },
+      softDeletes: { count: softDeletes.length, docIds: softDeletes },
+      skips: { byReason: skipsByReason },
+    };
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const outPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "gc-fitness",
+      ".planning",
+      "phases",
+      "24-exercise-library-expansion-free-exercise-db",
+      `SEED-RECONCILIATION-${ts}.json`,
+    );
+    fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
+    process.stdout.write(`\nWrote SEED-RECONCILIATION report to: ${outPath}\n`);
+    return;
   }
 
   // Build writes + commit (no-op when apply=false).

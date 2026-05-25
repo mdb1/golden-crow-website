@@ -37,6 +37,18 @@ jest.mock("firebase-admin/app", () => ({
   initializeApp: jest.fn(),
 }));
 
+// Phase 24-03 — controllable fs mock so `resolveDefaultAllowlistPath` tests
+// can drive both branches of the Phase24-vs-MO2 shim. We preserve every
+// other fs.* implementation via requireActual so unrelated callers (e.g.
+// future tests that touch fs.readFileSync) keep working.
+jest.mock("node:fs", () => {
+  const actual = jest.requireActual<typeof import("node:fs")>("node:fs");
+  return {
+    ...actual,
+    existsSync: jest.fn(actual.existsSync),
+  };
+});
+
 import * as fs from "node:fs";
 
 import {
@@ -590,18 +602,16 @@ describe("computePatch — Phase 24-03 force convergence (24-03.4)", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveDefaultAllowlistPath — Codex MEDIUM backward-compat (24-03.5)", () => {
-  // We mock fs.existsSync per-test to drive the resolver's two branches.
-  // Cast `as jest.SpyInstance` is intentional — we only ever read `mockImplementation`.
-  let spy: jest.SpyInstance;
+  // fs.existsSync is mocked at module load (see top-level jest.mock above).
+  // Cast through `as unknown as jest.Mock` keeps the type-narrow surface here.
+  const existsMock = fs.existsSync as unknown as jest.Mock;
+
   beforeEach(() => {
-    spy = jest.spyOn(fs, "existsSync");
-  });
-  afterEach(() => {
-    spy.mockRestore();
+    existsMock.mockReset();
   });
 
   it("24-03.5a: returns Phase 24 path when fs.existsSync(phase24) → true", () => {
-    spy.mockImplementation((p: fs.PathLike) =>
+    existsMock.mockImplementation((p: fs.PathLike) =>
       String(p).includes("24-exercise-library-expansion-free-exercise-db"),
     );
     const resolved = resolveDefaultAllowlistPath();
@@ -610,7 +620,7 @@ describe("resolveDefaultAllowlistPath — Codex MEDIUM backward-compat (24-03.5)
   });
 
   it("24-03.5b: falls back to legacy MO2 path when Phase 24 path absent", () => {
-    spy.mockImplementation(() => false);
+    existsMock.mockImplementation(() => false);
     const resolved = resolveDefaultAllowlistPath();
     expect(resolved).toMatch(/260522-mo2/);
     expect(resolved).toMatch(/ALLOWLIST-PROPOSAL\.md$/);
