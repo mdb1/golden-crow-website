@@ -636,20 +636,16 @@ export function TwoPQFormFlow({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/2pq-dashboard">
+          <Link href="/2pq-dashboard/forms">
             <ArrowLeft className="size-3.5" />
-            Back to 2PQ dashboard
+            Back to forms
           </Link>
-        </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/2pq-dashboard/forms">Forms</Link>
         </Button>
       </div>
 
       <section className="glass-panel flex flex-col gap-5 px-5 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">2PQ Forms</p>
             <h2 className="font-heading text-2xl font-semibold text-foreground">
               {TWO_PQ_FORM_LABELS[formType]}
             </h2>
@@ -659,7 +655,6 @@ export function TwoPQFormFlow({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{progressLabel}</Badge>
-            <Badge variant="brand">2pq_forms</Badge>
           </div>
         </div>
 
