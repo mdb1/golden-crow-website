@@ -100,6 +100,24 @@ export interface ExerciseRow {
   gifUrl?: string | null;
   /** 260522-mo2 — bilingual exercise step list. */
   instructions?: { en?: string[] | null; es?: string[] | null } | null;
+  /**
+   * Phase 24-06 — FEXD raw primary muscle tags (vocabulary distinct from
+   * GC canonical `muscleGroups`). Empty array on legacy wger docs that
+   * predate the FEXD enrichment, on trainer-authored docs, and on any
+   * wire shape where the field is absent or malformed. Mirrors
+   * `Exercise.primaryMuscles` on iOS (Phase 24-05).
+   */
+  primaryMuscles?: string[];
+  /** Phase 24-06 — FEXD raw secondary muscle tags (e.g. "triceps"). */
+  secondaryMuscles?: string[];
+  /** Phase 24-06 — Exercise mechanic ("compound" | "isolation" | null). */
+  mechanic?: string | null;
+  /** Phase 24-06 — Difficulty level ("beginner" | "intermediate" | "expert" | null). */
+  level?: string | null;
+  /** Phase 24-06 — FEXD category ("strength" | "powerlifting" | "stretching" | ...). */
+  category?: string | null;
+  /** Phase 24-06 — Force vector ("push" | "pull" | "static" | null). */
+  force?: string | null;
 }
 
 export const EXERCISES_QUERY_KEY = ["gc-fitness", "exercises"] as const;
@@ -180,6 +198,21 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
       typeof data.endImageUrl === "string" ? data.endImageUrl : null,
     gifUrl: typeof data.gifUrl === "string" ? data.gifUrl : null,
     instructions,
+    // Phase 24-06 — FEXD enrichment fields. Defensive reads mirror the
+    // existing pattern above: arrays via Array.isArray (string-instead-of-
+    // array regression returns []), strings via typeof === "string"
+    // (number/object/bool/array regression returns null). NEVER coerce
+    // unknown shapes — Pattern S5 from 24-PATTERNS.md.
+    primaryMuscles: Array.isArray(data.primaryMuscles)
+      ? data.primaryMuscles
+      : [],
+    secondaryMuscles: Array.isArray(data.secondaryMuscles)
+      ? data.secondaryMuscles
+      : [],
+    mechanic: typeof data.mechanic === "string" ? data.mechanic : null,
+    level: typeof data.level === "string" ? data.level : null,
+    category: typeof data.category === "string" ? data.category : null,
+    force: typeof data.force === "string" ? data.force : null,
   };
 }
 

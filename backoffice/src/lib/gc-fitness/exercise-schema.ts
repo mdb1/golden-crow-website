@@ -107,7 +107,15 @@ const tipsSchema = z
   .nullable()
   .optional();
 
-const sourceSchema = z.enum(["wger", "trainer"]);
+// Phase 24-06 — widened to 3-way to match the ExerciseRow union
+// (exercises-listener.ts:80) + the iOS Source enum (Exercise.swift).
+// Trainer-form ingress for a fexd-* doc with `source: "free-exercise-db"`
+// now round-trips through Zod validation. The enum is STILL closed —
+// unknown values reject. The 6 FEXD enrichment fields (primaryMuscles,
+// secondaryMuscles, mechanic, level, category, force) are NOT added to
+// the trainer-input schema — they are admin-script-written only via
+// scripts/gc-fitness/seed-from-fexd.ts (Plan 24-03).
+const sourceSchema = z.enum(["wger", "trainer", "free-exercise-db"]);
 
 // Exercise Codable shape mirrored from Swift. Field-by-field rationale:
 //
