@@ -1,4 +1,5 @@
 import type { DoctorListItem, InstitutionListItem, PatientListItem } from "@/lib/admin-areas";
+import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
@@ -29,16 +30,18 @@ export async function getTwoPQLookupData() {
 }
 
 export async function getTwoPQFormLookupData() {
-  const [institutionsPayload, doctorsPayload, patientsPayload] = await Promise.all([
+  const [institutionsPayload, doctorsPayload, patientsPayload, casesPayload] = await Promise.all([
     sdkFetchServer<{ institutions: InstitutionListItem[] }>("/areas/institutions"),
     sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
     sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
+    sdkFetchServer<{ records: TwoPQListItem[] }>("/2pq/cases"),
   ]);
 
   return {
     institutions: institutionsPayload.institutions,
     doctors: doctorsPayload.doctors,
     patients: patientsPayload.patients,
+    cases: casesPayload.records,
   };
 }
 

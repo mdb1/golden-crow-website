@@ -68,6 +68,28 @@ export type SampleInformationFormState = {
   boxCode: string;
 };
 
+export type CaseInformationFormState = {
+  caseLabel: string;
+  caseStatus: string;
+  caseType: string;
+  priority: string;
+  trackingNumber: string;
+  requestedAt: string;
+  dueAt: string;
+  notes: string;
+};
+
+export type SamplingInformationFormState = {
+  sampleId: string;
+  sampleType: string;
+  processingStatus: string;
+  collectionDate: string;
+  receptionDate: string;
+  runId: string;
+  qcStatus: string;
+  notes: string;
+};
+
 export interface TwoPQFormRecord {
   id: string;
   formType: TwoPQFormType;
@@ -80,12 +102,17 @@ export interface TwoPQFormRecord {
   patientEmail?: string;
   institutionName?: string;
   requestedTestName?: string;
+  selectedCaseId?: string;
+  linkedCaseId?: string;
+  linkedSamplingIds?: string[];
   patientInformation: Record<string, unknown>;
   medicalInformation?: Record<string, unknown>;
   previousGeneticTests?: Record<string, unknown>;
   requestedTest: Record<string, unknown>;
   institutionInformation?: Record<string, unknown>;
   sampleInformation?: Record<string, unknown>;
+  caseInformation?: Record<string, unknown>;
+  samplingInformation?: Record<string, unknown>[];
   createdAt: string;
   updatedAt: string;
   authorEmail?: string;

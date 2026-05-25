@@ -169,6 +169,28 @@ const TwoPQSampleInformationSchema = z.object({
   notes: z.string().optional(),
 });
 
+const TwoPQCaseInformationSchema = z.object({
+  caseLabel: z.string().optional(),
+  caseStatus: z.string().optional(),
+  caseType: z.string().optional(),
+  priority: z.string().optional(),
+  trackingNumber: z.string().optional(),
+  requestedAt: z.string().optional(),
+  dueAt: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const TwoPQSamplingInformationSchema = z.object({
+  sampleId: z.string().optional(),
+  sampleType: z.string().optional(),
+  processingStatus: z.string().optional(),
+  collectionDate: z.string().optional(),
+  receptionDate: z.string().optional(),
+  runId: z.string().optional(),
+  qcStatus: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   z.object({
     formType: z.literal("study_request"),
@@ -184,9 +206,12 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
     formType: z.literal("sample"),
     selectedPatientId: z.string().optional(),
     selectedInstitutionId: z.string().optional(),
+    selectedCaseId: z.string().optional(),
     patientInformation: TwoPQPatientInformationSchema,
     requestedTest: TwoPQRequestedTestSchema,
     sampleInformation: TwoPQSampleInformationSchema,
+    caseInformation: TwoPQCaseInformationSchema.optional(),
+    samplingInformation: z.array(TwoPQSamplingInformationSchema).optional(),
   }),
 ]);
 

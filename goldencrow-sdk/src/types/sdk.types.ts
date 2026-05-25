@@ -315,12 +315,17 @@ export interface TwoPQFormRecord {
   patientEmail?: string;
   institutionName?: string;
   requestedTestName?: string;
+  selectedCaseId?: string;
+  linkedCaseId?: string;
+  linkedSamplingIds?: string[];
   patientInformation: Record<string, unknown>;
   medicalInformation?: Record<string, unknown>;
   previousGeneticTests?: Record<string, unknown>;
   requestedTest: Record<string, unknown>;
   institutionInformation?: Record<string, unknown>;
   sampleInformation?: Record<string, unknown>;
+  caseInformation?: Record<string, unknown>;
+  samplingInformation?: Record<string, unknown>[];
   createdAt: string;
   updatedAt: string;
   authorEmail?: string;

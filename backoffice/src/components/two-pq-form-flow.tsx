@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, FileText, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { OptionSelectField } from "@/components/constrained-fields";
@@ -19,14 +27,17 @@ import type {
 } from "@/lib/admin-areas";
 import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import { sdkFetch } from "@/lib/sdk-client";
+import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import {
   TWO_PQ_FORM_LABELS,
+  type CaseInformationFormState,
   type InstitutionInformationFormState,
   type MedicalInformationFormState,
   type PatientInformationFormState,
   type PreviousGeneticTestsFormState,
   type RequestedTestFormState,
   type SampleInformationFormState,
+  type SamplingInformationFormState,
   type TwoPQFormRecord,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
@@ -37,17 +48,22 @@ type StepKey =
   | "previousGeneticTests"
   | "requestedTest"
   | "institutionInformation"
-  | "sampleInformation";
+  | "sampleInformation"
+  | "caseInformation"
+  | "samplingInformation";
 
 type FlowState = {
   selectedPatientId: string;
   selectedInstitutionId: string;
+  selectedCaseId: string;
   patientInformation: PatientInformationFormState;
   medicalInformation: MedicalInformationFormState;
   previousGeneticTests: PreviousGeneticTestsFormState;
   requestedTest: RequestedTestFormState;
   institutionInformation: InstitutionInformationFormState;
   sampleInformation: SampleInformationFormState;
+  caseInformation: CaseInformationFormState;
+  samplingInformation: SamplingInformationFormState[];
 };
 
 const STUDY_REQUEST_STEPS: StepKey[] = [
@@ -62,6 +78,8 @@ const SAMPLE_STEPS: StepKey[] = [
   "patientInformation",
   "requestedTest",
   "sampleInformation",
+  "caseInformation",
+  "samplingInformation",
 ];
 
 const STEP_LABELS: Record<StepKey, string> = {
@@ -71,6 +89,8 @@ const STEP_LABELS: Record<StepKey, string> = {
   requestedTest: "Test solicitado",
   institutionInformation: "Institution information",
   sampleInformation: "Sample information",
+  caseInformation: "2PQ Case",
+  samplingInformation: "2PQ Sampling",
 };
 
 const YES_NO_OPTIONS = [
@@ -86,6 +106,28 @@ const SAMPLE_TYPE_OPTIONS = [
   },
   { value: "medio de cultivo", label: "medio de cultivo" },
   { value: "otro", label: "otro" },
+];
+
+const CASE_STATUS_OPTIONS = [
+  { value: "intake", label: "Intake" },
+  { value: "active", label: "Active" },
+  { value: "blocked", label: "Blocked" },
+  { value: "reporting", label: "Reporting" },
+  { value: "delivered", label: "Delivered" },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: "routine", label: "Routine" },
+  { value: "priority", label: "Priority" },
+  { value: "urgent", label: "Urgent" },
+];
+
+const PROCESSING_OPTIONS = [
+  { value: "awaiting_reception", label: "Awaiting reception" },
+  { value: "received", label: "Received" },
+  { value: "processing", label: "Processing" },
+  { value: "qc_hold", label: "QC hold" },
+  { value: "ready_for_sequencing", label: "Ready for sequencing" },
 ];
 
 function isValidEmail(value: string) {
@@ -124,6 +166,32 @@ function emptyInstitution(): InstitutionInformationFormState {
   };
 }
 
+function emptyCase(): CaseInformationFormState {
+  return {
+    caseLabel: "",
+    caseStatus: "intake",
+    caseType: "PGT",
+    priority: "routine",
+    trackingNumber: "",
+    requestedAt: "",
+    dueAt: "",
+    notes: "",
+  };
+}
+
+function emptySampling(): SamplingInformationFormState {
+  return {
+    sampleId: "",
+    sampleType: "",
+    processingStatus: "awaiting_reception",
+    collectionDate: "",
+    receptionDate: "",
+    runId: "",
+    qcStatus: "",
+    notes: "",
+  };
+}
+
 function buildInitialState(
   institutionId: string,
   doctorId: string
@@ -131,6 +199,7 @@ function buildInitialState(
   return {
     selectedPatientId: "",
     selectedInstitutionId: "",
+    selectedCaseId: "",
     patientInformation: {
       institutionId,
       doctorId,
@@ -181,6 +250,8 @@ function buildInitialState(
       processDate: "",
       boxCode: "",
     },
+    caseInformation: emptyCase(),
+    samplingInformation: [emptySampling()],
   };
 }
 
@@ -213,6 +284,19 @@ function institutionToFormState(
     state: institution.state ?? "",
     country: institution.country ?? "",
     notes: institution.notes ?? "",
+  };
+}
+
+function caseToFormState(record: TwoPQListItem): CaseInformationFormState {
+  return {
+    caseLabel: record.caseLabel ?? "",
+    caseStatus: record.caseStatus ?? "intake",
+    caseType: record.caseType ?? "",
+    priority: record.priority ?? "routine",
+    trackingNumber: record.trackingNumber ?? "",
+    requestedAt: toDateInputValue(record.requestedAt),
+    dueAt: toDateInputValue(record.dueAt),
+    notes: record.notes ?? "",
   };
 }
 
@@ -298,11 +382,13 @@ export function TwoPQFormFlow({
   institutions,
   doctors,
   patients,
+  cases = [],
 }: {
   formType: TwoPQFormType;
   institutions: InstitutionListItem[];
   doctors: DoctorListItem[];
   patients: PatientListItem[];
+  cases?: TwoPQListItem[];
 }) {
   const adminContext = useAdminContext();
   const router = useRouter();
@@ -351,6 +437,32 @@ export function TwoPQFormFlow({
   const patientOptions = patients.map((patient) => ({
     value: patient.id,
     label: `${patient.fullName} (${patient.id})`,
+  }));
+  const availableCases = cases.filter((caseRecord) => {
+    if (
+      state.patientInformation.institutionId &&
+      caseRecord.institutionId !== state.patientInformation.institutionId
+    ) {
+      return false;
+    }
+    if (
+      state.patientInformation.doctorId &&
+      caseRecord.doctorId !== state.patientInformation.doctorId
+    ) {
+      return false;
+    }
+    if (
+      state.selectedPatientId &&
+      caseRecord.patientId &&
+      caseRecord.patientId !== state.selectedPatientId
+    ) {
+      return false;
+    }
+    return true;
+  });
+  const caseOptions = availableCases.map((caseRecord) => ({
+    value: caseRecord.id,
+    label: `${caseRecord.caseLabel ?? caseRecord.id} (${caseRecord.id})`,
   }));
 
   const progressLabel = useMemo(
@@ -412,6 +524,42 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function updateCaseInformation(patch: Partial<CaseInformationFormState>) {
+    setState((current) => ({
+      ...current,
+      caseInformation: { ...current.caseInformation, ...patch },
+    }));
+  }
+
+  function updateSamplingInformation(
+    index: number,
+    patch: Partial<SamplingInformationFormState>
+  ) {
+    setState((current) => ({
+      ...current,
+      samplingInformation: current.samplingInformation.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry
+      ),
+    }));
+  }
+
+  function addSamplingInformation() {
+    setState((current) => ({
+      ...current,
+      samplingInformation: [...current.samplingInformation, emptySampling()],
+    }));
+  }
+
+  function removeSamplingInformation(index: number) {
+    setState((current) => ({
+      ...current,
+      samplingInformation:
+        current.samplingInformation.length <= 1
+          ? current.samplingInformation
+          : current.samplingInformation.filter((_, entryIndex) => entryIndex !== index),
+    }));
+  }
+
   function selectPatient(patientId: string) {
     const patient = patients.find((candidate) => candidate.id === patientId);
     const patientInstitution = patient
@@ -420,6 +568,7 @@ export function TwoPQFormFlow({
     setState((current) => ({
       ...current,
       selectedPatientId: patientId,
+      selectedCaseId: "",
       selectedInstitutionId: patientInstitution?.id ?? current.selectedInstitutionId,
       institutionInformation: patientInstitution
         ? institutionToFormState(patientInstitution)
@@ -431,6 +580,15 @@ export function TwoPQFormFlow({
             institutionId: defaultInstitutionId,
             doctorId: defaultDoctorId,
           },
+    }));
+  }
+
+  function selectCase(caseId: string) {
+    const caseRecord = cases.find((candidate) => candidate.id === caseId);
+    setState((current) => ({
+      ...current,
+      selectedCaseId: caseId,
+      caseInformation: caseRecord ? caseToFormState(caseRecord) : emptyCase(),
     }));
   }
 
@@ -568,6 +726,36 @@ export function TwoPQFormFlow({
       }
     }
 
+    if (step === "caseInformation") {
+      if (!state.selectedCaseId) {
+        if (!state.caseInformation.caseLabel.trim()) {
+          return "2PQ case label is required.";
+        }
+        if (!state.caseInformation.caseStatus.trim()) {
+          return "Select a 2PQ case status.";
+        }
+      }
+    }
+
+    if (step === "samplingInformation") {
+      if (state.samplingInformation.length === 0) {
+        return "Add at least one 2PQ sampling record.";
+      }
+      const sampleIds = new Set<string>();
+      for (const [index, sampling] of state.samplingInformation.entries()) {
+        const row = `Sampling ${index + 1}`;
+        if (!sampling.sampleId.trim()) return `${row}: Sample ID is required.`;
+        if (sampleIds.has(sampling.sampleId.trim())) {
+          return `${row}: Sample ID must be unique in this form.`;
+        }
+        sampleIds.add(sampling.sampleId.trim());
+        if (!sampling.sampleType.trim()) return `${row}: Sample type is required.`;
+        if (!sampling.processingStatus.trim()) {
+          return `${row}: Select processing status.`;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -604,9 +792,12 @@ export function TwoPQFormFlow({
           : {
               formType,
               selectedPatientId: state.selectedPatientId,
+              selectedCaseId: state.selectedCaseId,
               patientInformation: state.patientInformation,
               requestedTest: state.requestedTest,
               sampleInformation: state.sampleInformation,
+              caseInformation: state.caseInformation,
+              samplingInformation: state.samplingInformation,
             };
       const response = await sdkFetch<{ form: TwoPQFormRecord }>("/2pq/forms", {
         method: "POST",
@@ -714,14 +905,19 @@ export function TwoPQFormFlow({
                   const nextDoctors = doctors.filter(
                     (doctor) => doctor.institutionId === institutionId
                   );
-                  updatePatientInformation({
-                    institutionId,
-                    doctorId: nextDoctors.some(
-                      (doctor) => doctor.id === state.patientInformation.doctorId
-                    )
-                      ? state.patientInformation.doctorId
-                      : "",
-                  });
+                  setState((current) => ({
+                    ...current,
+                    selectedCaseId: "",
+                    patientInformation: {
+                      ...current.patientInformation,
+                      institutionId,
+                      doctorId: nextDoctors.some(
+                        (doctor) => doctor.id === current.patientInformation.doctorId
+                      )
+                        ? current.patientInformation.doctorId
+                        : "",
+                    },
+                  }));
                 }}
                 placeholder="Select institution"
                 emptyLabel="No institution"
@@ -733,7 +929,16 @@ export function TwoPQFormFlow({
               <OptionSelectField
                 options={doctorOptions}
                 value={state.patientInformation.doctorId}
-                onChange={(doctorId) => updatePatientInformation({ doctorId })}
+                onChange={(doctorId) =>
+                  setState((current) => ({
+                    ...current,
+                    selectedCaseId: "",
+                    patientInformation: {
+                      ...current.patientInformation,
+                      doctorId,
+                    },
+                  }))
+                }
                 placeholder="Select doctor"
                 emptyLabel="No doctor"
                 disabled={Boolean(scopedDoctorId)}
@@ -1126,6 +1331,189 @@ export function TwoPQFormFlow({
               value={state.sampleInformation.boxCode}
               onChange={(boxCode) => updateSampleInformation({ boxCode })}
             />
+          </div>
+        ) : null}
+
+        {currentStep === "caseInformation" ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Pick existing 2PQ Case</Label>
+              <OptionSelectField
+                options={caseOptions}
+                value={state.selectedCaseId}
+                onChange={selectCase}
+                placeholder="Select 2PQ case"
+                emptyLabel="Create a new 2PQ case from these fields"
+              />
+            </div>
+            <Field
+              id="form-case-label"
+              label="Case label"
+              value={state.caseInformation.caseLabel}
+              onChange={(caseLabel) => updateCaseInformation({ caseLabel })}
+            />
+            <div className="space-y-2">
+              <Label>Case status</Label>
+              <OptionSelectField
+                options={CASE_STATUS_OPTIONS}
+                value={state.caseInformation.caseStatus}
+                onChange={(caseStatus) => updateCaseInformation({ caseStatus })}
+                placeholder="Select status"
+              />
+            </div>
+            <Field
+              id="form-case-type"
+              label="Case type"
+              value={state.caseInformation.caseType}
+              onChange={(caseType) => updateCaseInformation({ caseType })}
+            />
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <OptionSelectField
+                options={PRIORITY_OPTIONS}
+                value={state.caseInformation.priority}
+                onChange={(priority) => updateCaseInformation({ priority })}
+                placeholder="Select priority"
+              />
+            </div>
+            <Field
+              id="form-case-tracking"
+              label="Tracking number"
+              value={state.caseInformation.trackingNumber}
+              onChange={(trackingNumber) =>
+                updateCaseInformation({ trackingNumber })
+              }
+            />
+            <Field
+              id="form-case-requested-at"
+              label="Requested at"
+              type="date"
+              value={state.caseInformation.requestedAt}
+              onChange={(requestedAt) => updateCaseInformation({ requestedAt })}
+            />
+            <Field
+              id="form-case-due-at"
+              label="Due at"
+              type="date"
+              value={state.caseInformation.dueAt}
+              onChange={(dueAt) => updateCaseInformation({ dueAt })}
+            />
+            <div className="md:col-span-2">
+              <TextAreaField
+                id="form-case-notes"
+                label="Case notes"
+                value={state.caseInformation.notes}
+                onChange={(notes) => updateCaseInformation({ notes })}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {currentStep === "samplingInformation" ? (
+          <div className="space-y-4">
+            {state.samplingInformation.map((sampling, index) => (
+              <div
+                key={index}
+                className="rounded-2xl border border-emerald-200/70 bg-emerald-50/35 p-4 dark:border-emerald-300/20 dark:bg-emerald-950/12"
+              >
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="section-eyebrow">2pq_sampling</p>
+                    <h3 className="font-heading text-lg font-semibold text-foreground">
+                      Sampling {index + 1}
+                    </h3>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeSamplingInformation(index)}
+                    disabled={state.samplingInformation.length <= 1}
+                  >
+                    <Trash2 className="size-3.5" />
+                    Remove
+                  </Button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    id={`form-sampling-id-${index}`}
+                    label="Sample ID"
+                    value={sampling.sampleId}
+                    onChange={(sampleId) =>
+                      updateSamplingInformation(index, { sampleId })
+                    }
+                  />
+                  <Field
+                    id={`form-sampling-type-${index}`}
+                    label="Sample type"
+                    value={sampling.sampleType}
+                    onChange={(sampleType) =>
+                      updateSamplingInformation(index, { sampleType })
+                    }
+                  />
+                  <div className="space-y-2">
+                    <Label>Processing status</Label>
+                    <OptionSelectField
+                      options={PROCESSING_OPTIONS}
+                      value={sampling.processingStatus}
+                      onChange={(processingStatus) =>
+                        updateSamplingInformation(index, { processingStatus })
+                      }
+                      placeholder="Select status"
+                    />
+                  </div>
+                  <Field
+                    id={`form-sampling-collection-${index}`}
+                    label="Collection date"
+                    type="date"
+                    value={sampling.collectionDate}
+                    onChange={(collectionDate) =>
+                      updateSamplingInformation(index, { collectionDate })
+                    }
+                  />
+                  <Field
+                    id={`form-sampling-reception-${index}`}
+                    label="Reception date"
+                    type="date"
+                    value={sampling.receptionDate}
+                    onChange={(receptionDate) =>
+                      updateSamplingInformation(index, { receptionDate })
+                    }
+                  />
+                  <Field
+                    id={`form-sampling-run-${index}`}
+                    label="Run ID"
+                    value={sampling.runId}
+                    onChange={(runId) => updateSamplingInformation(index, { runId })}
+                  />
+                  <Field
+                    id={`form-sampling-qc-${index}`}
+                    label="QC status"
+                    value={sampling.qcStatus}
+                    onChange={(qcStatus) =>
+                      updateSamplingInformation(index, { qcStatus })
+                    }
+                  />
+                  <div className="md:col-span-2">
+                    <TextAreaField
+                      id={`form-sampling-notes-${index}`}
+                      label="Sampling notes"
+                      value={sampling.notes}
+                      onChange={(notes) => updateSamplingInformation(index, { notes })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-fit"
+              onClick={addSamplingInformation}
+            >
+              <Plus className="size-4" />
+              Add sampling
+            </Button>
           </div>
         ) : null}
 

@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, FileText, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  FlaskConical,
+  UserRound,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,6 +91,28 @@ const SAMPLE_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "boxCode", label: "CODIGO CAJA" },
 ];
 
+const CASE_INFORMATION_FIELDS: FieldSpec[] = [
+  { key: "caseLabel", label: "Case label" },
+  { key: "caseStatus", label: "Case status" },
+  { key: "caseType", label: "Case type" },
+  { key: "priority", label: "Priority" },
+  { key: "trackingNumber", label: "Tracking number" },
+  { key: "requestedAt", label: "Requested at", type: "date" },
+  { key: "dueAt", label: "Due at", type: "date" },
+  { key: "notes", label: "Notes" },
+];
+
+const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
+  { key: "sampleId", label: "Sample ID" },
+  { key: "sampleType", label: "Sample type" },
+  { key: "processingStatus", label: "Processing status" },
+  { key: "collectionDate", label: "Collection date", type: "date" },
+  { key: "receptionDate", label: "Reception date", type: "date" },
+  { key: "runId", label: "Run ID" },
+  { key: "qcStatus", label: "QC status" },
+  { key: "notes", label: "Notes" },
+];
+
 function formatDate(value: string, includeTime = false) {
   const dateSource =
     !includeTime && /^\d{4}-\d{2}-\d{2}/.test(value)
@@ -160,6 +190,91 @@ function DetailSection({
           </div>
         ))}
       </dl>
+    </section>
+  );
+}
+
+function getTextValue(data: Record<string, unknown> | undefined, key: string) {
+  const value = data?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
+  const samplingEntries = form.samplingInformation ?? [];
+
+  if (!form.linkedCaseId && samplingEntries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 px-5 py-5 shadow-[0_16px_40px_rgba(16,185,129,0.12)] dark:border-emerald-300/24 dark:bg-emerald-950/20">
+      <div className="flex flex-col gap-1">
+        <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
+          Linked entities
+        </p>
+        <h2 className="font-heading text-xl font-semibold text-emerald-950 dark:text-emerald-50">
+          2PQ Case and sampling records
+        </h2>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {form.linkedCaseId ? (
+          <div className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/14 dark:text-emerald-200">
+                <ClipboardList className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-emerald-950 dark:text-emerald-50">
+                  {getTextValue(form.caseInformation, "caseLabel") ?? form.linkedCaseId}
+                </p>
+                <p className="font-mono text-xs text-emerald-900/70 dark:text-emerald-100/70">
+                  {form.linkedCaseId}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/2pq-dashboard/cases/${encodeURIComponent(form.linkedCaseId)}`}>
+                  Open
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {samplingEntries.map((sampling, index) => {
+          const samplingId =
+            getTextValue(sampling, "id") ?? form.linkedSamplingIds?.[index];
+          if (!samplingId) {
+            return null;
+          }
+
+          return (
+            <div
+              key={`${samplingId}-${index}`}
+              className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/14 dark:text-emerald-200">
+                  <FlaskConical className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-emerald-950 dark:text-emerald-50">
+                    {getTextValue(sampling, "sampleId") ?? samplingId}
+                  </p>
+                  <p className="font-mono text-xs text-emerald-900/70 dark:text-emerald-100/70">
+                    {samplingId}
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/2pq-dashboard/sampling/${encodeURIComponent(samplingId)}`}>
+                    Open
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -255,11 +370,29 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           data={form.institutionInformation}
         />
       ) : (
-        <DetailSection
-          title="Sample information"
-          fields={SAMPLE_INFORMATION_FIELDS}
-          data={form.sampleInformation}
-        />
+        <>
+          <DetailSection
+            title="Sample information"
+            fields={SAMPLE_INFORMATION_FIELDS}
+            data={form.sampleInformation}
+          />
+          <LinkedRecordsSection form={form} />
+          {form.caseInformation ? (
+            <DetailSection
+              title="2PQ Case"
+              fields={CASE_INFORMATION_FIELDS}
+              data={form.caseInformation}
+            />
+          ) : null}
+          {(form.samplingInformation ?? []).map((sampling, index) => (
+            <DetailSection
+              key={`${getTextValue(sampling, "id") ?? index}`}
+              title={`2PQ Sampling ${index + 1}`}
+              fields={SAMPLING_INFORMATION_FIELDS}
+              data={sampling}
+            />
+          ))}
+        </>
       )}
     </div>
   );

@@ -11,6 +11,10 @@ import {
   canViewPatient,
   normalizeRoleEmail,
 } from "./roles.repository.js";
+import {
+  createTwoPQRecordForContext,
+  getTwoPQDetailForContext,
+} from "./two-pq.repository.js";
 import type {
   AdminContext,
   InstitutionRecord,
@@ -111,16 +115,41 @@ type SampleInformationInput = {
   notes?: string;
 };
 
+type CaseInformationInput = {
+  caseLabel?: string;
+  caseStatus?: string;
+  caseType?: string;
+  priority?: string;
+  trackingNumber?: string;
+  requestedAt?: string;
+  dueAt?: string;
+  notes?: string;
+};
+
+type SamplingInformationInput = {
+  sampleId?: string;
+  sampleType?: string;
+  processingStatus?: string;
+  collectionDate?: string;
+  receptionDate?: string;
+  runId?: string;
+  qcStatus?: string;
+  notes?: string;
+};
+
 type TwoPQFormInput = {
   formType: TwoPQFormType;
   selectedPatientId?: string;
   selectedInstitutionId?: string;
+  selectedCaseId?: string;
   patientInformation: PatientInformationInput;
   medicalInformation?: MedicalInformationInput;
   previousGeneticTests?: PreviousGeneticTestsInput;
   requestedTest: RequestedTestInput;
   institutionInformation?: InstitutionInformationInput;
   sampleInformation?: SampleInformationInput;
+  caseInformation?: CaseInformationInput;
+  samplingInformation?: SamplingInformationInput[];
 };
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -277,6 +306,13 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     patientEmail: normalizeOptionalString(data.patientEmail),
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
+    selectedCaseId: normalizeOptionalString(data.selectedCaseId),
+    linkedCaseId: normalizeOptionalString(data.linkedCaseId),
+    linkedSamplingIds: Array.isArray(data.linkedSamplingIds)
+      ? data.linkedSamplingIds
+          .map((entry) => normalizeOptionalString(entry))
+          .filter((entry): entry is string => Boolean(entry))
+      : undefined,
     patientInformation:
       patientInformation && typeof patientInformation === "object"
         ? patientInformation as TwoPQFormRecord["patientInformation"]
@@ -300,6 +336,17 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     sampleInformation:
       data.sampleInformation && typeof data.sampleInformation === "object"
         ? data.sampleInformation as TwoPQFormRecord["sampleInformation"]
+        : undefined,
+    caseInformation:
+      data.caseInformation && typeof data.caseInformation === "object"
+        ? data.caseInformation as TwoPQFormRecord["caseInformation"]
+        : undefined,
+    samplingInformation:
+      Array.isArray(data.samplingInformation)
+        ? data.samplingInformation.filter(
+            (entry): entry is Record<string, unknown> =>
+              Boolean(entry) && typeof entry === "object"
+          ) as TwoPQFormRecord["samplingInformation"]
         : undefined,
     createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
     updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
@@ -576,6 +623,102 @@ function normalizeSampleInformation(input: SampleInformationInput = {}) {
   });
 }
 
+function normalizeCaseInformation(input: CaseInformationInput = {}) {
+  return {
+    caseLabel: normalizeRequiredString(input.caseLabel, "2PQ case label"),
+    caseStatus: normalizeRequiredString(input.caseStatus, "2PQ case status"),
+    caseType: normalizeOptionalString(input.caseType),
+    priority: normalizeOptionalString(input.priority),
+    trackingNumber: normalizeOptionalString(input.trackingNumber),
+    requestedAt: normalizeIsoDateString(input.requestedAt) ?? undefined,
+    dueAt: normalizeIsoDateString(input.dueAt) ?? undefined,
+    notes: normalizeOptionalString(input.notes),
+  };
+}
+
+function normalizeSamplingInformation(
+  input: SamplingInformationInput = {},
+  fallbackCaseLabel: string
+) {
+  return {
+    caseLabel: fallbackCaseLabel,
+    sampleId: normalizeRequiredString(input.sampleId, "2PQ sample ID"),
+    sampleType: normalizeRequiredString(input.sampleType, "2PQ sample type"),
+    processingStatus: normalizeRequiredString(
+      input.processingStatus,
+      "2PQ processing status"
+    ),
+    collectionDate: normalizeIsoDateString(input.collectionDate) ?? undefined,
+    receptionDate: normalizeIsoDateString(input.receptionDate) ?? undefined,
+    runId: normalizeOptionalString(input.runId),
+    qcStatus: normalizeOptionalString(input.qcStatus),
+    notes: normalizeOptionalString(input.notes),
+  };
+}
+
+function normalizeSamplingInformationList(
+  input: SamplingInformationInput[] | undefined,
+  fallbackCaseLabel: string
+) {
+  if (!Array.isArray(input) || input.length === 0) {
+    throw new AdminRepositoryError("At least one 2PQ sampling record is required.", 400);
+  }
+
+  return input.map((entry) => normalizeSamplingInformation(entry, fallbackCaseLabel));
+}
+
+function caseRecordToFormInformation(record: {
+  id: string;
+  caseLabel?: string;
+  caseStatus?: string;
+  caseType?: string;
+  priority?: string;
+  trackingNumber?: string;
+  requestedAt?: string;
+  dueAt?: string;
+  notes?: string;
+}) {
+  return compactRecord({
+    id: record.id,
+    caseLabel: normalizeOptionalString(record.caseLabel),
+    caseStatus: normalizeOptionalString(record.caseStatus),
+    caseType: normalizeOptionalString(record.caseType),
+    priority: normalizeOptionalString(record.priority),
+    trackingNumber: normalizeOptionalString(record.trackingNumber),
+    requestedAt: normalizeOptionalString(record.requestedAt),
+    dueAt: normalizeOptionalString(record.dueAt),
+    notes: normalizeOptionalString(record.notes),
+  });
+}
+
+function samplingRecordToFormInformation(record: {
+  id: string;
+  parent_case?: string;
+  caseLabel?: string;
+  sampleId?: string;
+  sampleType?: string;
+  processingStatus?: string;
+  collectionDate?: string;
+  receptionDate?: string;
+  runId?: string;
+  qcStatus?: string;
+  notes?: string;
+}) {
+  return compactRecord({
+    id: record.id,
+    parent_case: normalizeOptionalString(record.parent_case),
+    caseLabel: normalizeOptionalString(record.caseLabel),
+    sampleId: normalizeOptionalString(record.sampleId),
+    sampleType: normalizeOptionalString(record.sampleType),
+    processingStatus: normalizeOptionalString(record.processingStatus),
+    collectionDate: normalizeOptionalString(record.collectionDate),
+    receptionDate: normalizeOptionalString(record.receptionDate),
+    runId: normalizeOptionalString(record.runId),
+    qcStatus: normalizeOptionalString(record.qcStatus),
+    notes: normalizeOptionalString(record.notes),
+  });
+}
+
 function canViewTwoPQForm(
   context: AdminContext,
   form: Pick<TwoPQFormRecord, "institutionId">
@@ -692,6 +835,97 @@ export async function createTwoPQFormForContext(
   }
 
   const requestedTest = normalizeRequestedTest(payload.requestedTest, payload.formType);
+  const normalizedSampleInformation =
+    payload.formType === "sample"
+      ? normalizeSampleInformation(payload.sampleInformation)
+      : undefined;
+  let selectedCaseId = normalizeOptionalString(payload.selectedCaseId);
+  let linkedCaseId: string | undefined;
+  let linkedSamplingIds: string[] | undefined;
+  let caseInformation: Record<string, unknown> | undefined;
+  let samplingInformation: Record<string, unknown>[] | undefined;
+
+  if (payload.formType === "sample") {
+    let patientIdForLinkedRecords = selectedPatientId;
+    let linkedCaseLabel: string;
+    let normalizedSamplingInformation: ReturnType<
+      typeof normalizeSamplingInformationList
+    >;
+
+    if (selectedCaseId) {
+      const caseDetail = await getTwoPQDetailForContext(
+        context,
+        "cases",
+        selectedCaseId
+      );
+      const caseRecord = caseDetail.record;
+      if (caseRecord.institutionId !== institutionId || caseRecord.doctorId !== doctorId) {
+        throw new AdminRepositoryError(
+          "Selected 2PQ case must belong to the selected institution and doctor.",
+          400
+        );
+      }
+      if (
+        patientIdForLinkedRecords &&
+        caseRecord.patientId &&
+        caseRecord.patientId !== patientIdForLinkedRecords
+      ) {
+        throw new AdminRepositoryError(
+          "Selected 2PQ case must belong to the selected patient.",
+          400
+        );
+      }
+
+      linkedCaseId = caseRecord.id;
+      patientIdForLinkedRecords = patientIdForLinkedRecords ?? caseRecord.patientId;
+      linkedCaseLabel = normalizeRequiredString(caseRecord.caseLabel, "Linked case label");
+      caseInformation = caseRecordToFormInformation(caseRecord);
+      normalizedSamplingInformation = normalizeSamplingInformationList(
+        payload.samplingInformation,
+        linkedCaseLabel
+      );
+    } else {
+      const normalizedCaseInformation = normalizeCaseInformation(
+        payload.caseInformation
+      );
+      linkedCaseLabel = normalizedCaseInformation.caseLabel;
+      normalizedSamplingInformation = normalizeSamplingInformationList(
+        payload.samplingInformation,
+        linkedCaseLabel
+      );
+      const createdCase = await createTwoPQRecordForContext(context, "cases", {
+        ...normalizedCaseInformation,
+        institutionId,
+        doctorId,
+        patientId: patientIdForLinkedRecords,
+      });
+      selectedCaseId = createdCase.id;
+      linkedCaseId = createdCase.id;
+      caseInformation = caseRecordToFormInformation(createdCase);
+    }
+
+    const createdSamplingRecords = [];
+    for (const samplingEntry of normalizedSamplingInformation) {
+      const createdSampling = await createTwoPQRecordForContext(
+        context,
+        "sampling",
+        {
+          ...samplingEntry,
+          institutionId,
+          doctorId,
+          patientId: patientIdForLinkedRecords,
+          parent_case: linkedCaseId,
+        }
+      );
+      createdSamplingRecords.push(createdSampling);
+    }
+
+    linkedSamplingIds = createdSamplingRecords.map((record) => record.id);
+    samplingInformation = createdSamplingRecords.map((record) =>
+      samplingRecordToFormInformation(record)
+    );
+  }
+
   const now = new Date().toISOString();
   const formId = await getNextFormId();
   const baseDocument = {
@@ -706,6 +940,9 @@ export async function createTwoPQFormForContext(
     patientEmail: patientInformation.email,
     institutionName: selectedInstitution?.name ?? null,
     requestedTestName: getRequestedTestName(requestedTest, payload.formType),
+    selectedCaseId: selectedCaseId ?? null,
+    linkedCaseId: linkedCaseId ?? null,
+    linkedSamplingIds: linkedSamplingIds ?? [],
     patientInformation: {
       ...patientInformation,
       institutionId,
@@ -752,7 +989,9 @@ export async function createTwoPQFormForContext(
         }
       : {
           ...baseDocument,
-          sampleInformation: normalizeSampleInformation(payload.sampleInformation),
+          sampleInformation: normalizedSampleInformation,
+          caseInformation: caseInformation ?? null,
+          samplingInformation: samplingInformation ?? [],
         };
 
   await adminDb.collection(FORMS_COLLECTION).doc(formId).set(document);

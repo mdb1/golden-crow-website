@@ -23,6 +23,7 @@ export default async function NewTwoPQFormPage({
         institutions={lookupData.institutions}
         doctors={lookupData.doctors}
         patients={lookupData.patients}
+        cases={lookupData.cases}
       />
     </div>
   );
