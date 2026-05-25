@@ -16,6 +16,8 @@ import {
   Building2,
   CheckCircle2,
   ChevronRight,
+  Dna,
+  Dumbbell,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -738,7 +740,7 @@ function ProjectOption({
       disabled={disabled}
       className="group flex min-h-28 w-full items-start gap-3 rounded-2xl border border-slate-900/10 bg-white/48 p-4 text-left text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:-translate-y-0.5 hover:border-slate-900/15 hover:bg-white/70 focus:outline-none focus:ring-3 focus:ring-cyan-300/45 disabled:cursor-not-allowed disabled:opacity-55"
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-900/10 bg-white/65 text-cyan-700">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-900/10 bg-white/65">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
@@ -1310,7 +1312,7 @@ export default function LoginPage() {
                 project="mydnamap"
                 title="PocketGenes"
                 body="Genomics reports, learning content, community moderation, and account records."
-                icon={<ShieldCheck className="size-5" />}
+                icon={<Dna className="size-5 text-rose-600" />}
                 disabled={loading !== null}
                 onSelect={handleProjectSelect}
               />
@@ -1318,7 +1320,7 @@ export default function LoginPage() {
                 project="pocket-gyms"
                 title="Pocket Gyms"
                 body="Members, training plans, booking surfaces, clinical notes, and achievements."
-                icon={<Building2 className="size-5" />}
+                icon={<Dumbbell className="size-5 text-indigo-600" />}
                 disabled={loading !== null}
                 onSelect={handleProjectSelect}
               />
