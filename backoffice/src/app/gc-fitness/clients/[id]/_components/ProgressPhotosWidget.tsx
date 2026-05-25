@@ -1,9 +1,9 @@
-import Image from "next/image";
 import { Camera } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 import { ProgressPhotoCompare } from "./ProgressPhotoCompare";
+import { ProgressPhotosGridClient } from "./ProgressPhotosGridClient";
 
 export async function ProgressPhotosWidget({
   photos,
@@ -11,7 +11,6 @@ export async function ProgressPhotosWidget({
   photos: ProgressPhotoRow[];
 }) {
   const t = await getTranslations("clients.detail.photos");
-  const tCommon = await getTranslations("common");
   return (
     <section id="progress-photos" className="rounded-md border bg-card p-4">
       <div className="mb-3">
@@ -29,43 +28,7 @@ export async function ProgressPhotosWidget({
       ) : (
         <div className="space-y-4">
           <ProgressPhotoCompare photos={photos} />
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {photos.map((photo) => (
-              <figure key={photo.id} className="overflow-hidden rounded-md border">
-                <div className="relative aspect-[3/4] bg-muted">
-                  {photo.url ? (
-                    <Image
-                      src={photo.url}
-                      alt={photo.caption || t("photoAlt")}
-                      fill
-                      sizes="(min-width: 1024px) 260px, 45vw"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
-                      {t("imageUnavailable")}
-                    </div>
-                  )}
-                </div>
-                <figcaption className="space-y-1 p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium uppercase text-primary">
-                      {photo.angle ?? t("photoFallback")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {photo.checkInDate ??
-                        (photo.takenAt || photo.createdAt
-                          ? new Date(photo.takenAt ?? photo.createdAt ?? "").toLocaleDateString()
-                          : tCommon("noDate"))}
-                    </p>
-                  </div>
-                  {photo.caption ? (
-                    <p className="line-clamp-2 text-sm">{photo.caption}</p>
-                  ) : null}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+          <ProgressPhotosGridClient photos={photos} />
         </div>
       )}
     </section>
