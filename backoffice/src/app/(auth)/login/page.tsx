@@ -450,6 +450,19 @@ function setupNotice(message: string, log?: AuthLog): AuthNotice {
   };
 }
 
+function buildLegacyGoogleProvider(emailHint: string) {
+  const normalizedEmailHint = emailHint.trim();
+  const hasEmailHint = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmailHint);
+  const provider = new GoogleAuthProvider();
+  provider.addScope("email");
+  provider.addScope("profile");
+  provider.setCustomParameters({
+    prompt: "select_account",
+    ...(hasEmailHint ? { login_hint: normalizedEmailHint } : {}),
+  });
+  return provider;
+}
+
 function AuthLogDialog({
   log,
   open,
@@ -822,7 +835,10 @@ export default function LoginPage() {
     setNotice(null);
 
     try {
-      const provider = new GoogleAuthProvider();
+      await firebaseSignOut(auth).catch((err) => {
+        console.warn("Firebase sign-out before Google account selection failed:", err);
+      });
+      const provider = buildLegacyGoogleProvider(email);
       const result = await signInWithPopup(auth, provider);
       await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
