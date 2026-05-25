@@ -220,17 +220,6 @@ export function TemplateForm({
     form.setValue(weightPath, nextWeight, { shouldDirty: true });
   }
 
-  function withPreservedScroll(update: () => void) {
-    if (typeof window === "undefined") {
-      update();
-      return;
-    }
-    const x = window.scrollX;
-    const y = window.scrollY;
-    update();
-    requestAnimationFrame(() => window.scrollTo(x, y));
-  }
-
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
       try {
@@ -705,23 +694,6 @@ export function TemplateForm({
                                     const next = Number(e.target.value);
                                     if (!Number.isFinite(next)) return;
                                     setSetRepsDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
-                                    withPreservedScroll(() => {
-                                      const current = toFiniteNumberArray(form.getValues(repsPath));
-                                      const safeLen = Math.max(setIdx + 1, current.length);
-                                      const filled = Array.from({ length: safeLen }, (_, i) => {
-                                        const v = current[i];
-                                        return Number.isFinite(v) ? v : repsFallback;
-                                      });
-                                      filled[setIdx] = next;
-                                      form.setValue(repsPath, filled, { shouldDirty: true });
-                                      if (setIdx === 0) {
-                                        form.setValue(
-                                          `exercises.${index}.reps` as const,
-                                          next,
-                                          { shouldDirty: true },
-                                        );
-                                      }
-                                    });
                                   }}
                                   onBlur={() => {
                                     const raw = setRepsDraft[setKey];
