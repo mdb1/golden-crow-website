@@ -41,6 +41,12 @@ interface WeightPoint {
   weight: number;
 }
 
+function isPlausibleWeightKg(weight: number): boolean {
+  // Guardrail for corrupted entries (ex: 25kg accidental log in adult profile)
+  // so one bad point doesn't flatten the whole chart.
+  return weight >= 35 && weight <= 300;
+}
+
 function toDate(v: unknown): Date | null {
   if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
     return (v as { toDate: () => Date }).toDate();
@@ -83,6 +89,7 @@ export async function BodyWeightTrendChart({
       const weight = typeof data.valueKg === "number" ? data.valueKg : null;
       const date = toDate(data.recordedAt);
       if (weight === null || !date) return null;
+      if (!isPlausibleWeightKg(weight)) return null;
       if (date < thirtyDaysAgo) return null;
       return { date: date.toISOString().slice(0, 10), weight };
     })
@@ -118,12 +125,20 @@ export async function BodyWeightTrendChart({
       };
       if (data.deleted) return null;
       if (typeof data.value !== "number" || data.value <= 0) return null;
+      if (!isPlausibleWeightKg(data.value)) return null;
       if (typeof data.civilDate !== "string") return null;
       return { date: data.civilDate, weight: data.value };
     })
     .filter((p): p is WeightPoint => p !== null);
     }
   }
+
+  // Keep one point per day (latest wins) to avoid overplot noise.
+  const byDate = new Map<string, number>();
+  for (const p of points) byDate.set(p.date, p.weight);
+  points = Array.from(byDate.entries())
+    .map(([date, weight]) => ({ date, weight }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   if (points.length === 0) {
     return (
