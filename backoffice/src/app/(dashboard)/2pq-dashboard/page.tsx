@@ -7,18 +7,16 @@ import type {
   RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { sdkFetchServer } from "@/lib/sdk-server";
-import { getTwoPQForms } from "@/lib/two-pq-server";
 
 export default async function TwoPQDashboardPage() {
   const adminContext = await getAdminContextServer();
 
-  const [institutionsPayload, doctorsPayload, patientsPayload, rolesPayload, forms] =
+  const [institutionsPayload, doctorsPayload, patientsPayload, rolesPayload] =
     await Promise.all([
       sdkFetchServer<{ institutions: InstitutionListItem[] }>("/areas/institutions"),
       sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
       sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
       sdkFetchServer<{ roles: RoleManagementRecord[] }>("/roles"),
-      getTwoPQForms().catch(() => []),
     ]);
 
   return (
@@ -30,7 +28,6 @@ export default async function TwoPQDashboardPage() {
         patients: patientsPayload.patients.length,
         roles: rolesPayload.roles.length,
       }}
-      forms={forms}
     />
   );
 }
