@@ -101,65 +101,95 @@ export function TwoPQDashboardHome({
         }
       />
 
-      <section className="glass-panel flex flex-col gap-4 border-indigo-200/70 bg-indigo-50/55 px-5 py-5 dark:border-indigo-300/20 dark:bg-indigo-500/10">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <section className="glass-panel border-indigo-100 [background:linear-gradient(160deg,rgba(248,250,255,0.98),rgba(238,242,255,0.98)_42%,rgba(224,231,255,0.92))] px-5 py-5 shadow-[0_18px_56px_rgba(199,210,254,0.36)] dark:border-indigo-400/28 dark:[background:linear-gradient(145deg,rgba(23,18,56,0.98),rgba(33,28,78,0.96)_45%,rgba(99,102,241,0.22))] dark:shadow-[0_24px_80px_-52px_rgba(129,140,248,0.82)]">
+        <div className="flex flex-col gap-5">
           <div>
-            <p className="section-eyebrow text-indigo-700/70 dark:text-indigo-100/70">
-              Formularios 2PQ
+            <p className="section-eyebrow text-indigo-900/55 dark:text-indigo-100/72">
+              2PQ forms
             </p>
-            <h2 className="font-heading text-2xl font-semibold text-foreground">
-              Nuevos flujos de formulario
+            <h2 className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+              Formularios y documentos
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Complete forms in guided steps and store the final document in{" "}
-              <code>2pq_forms</code>.
+            <p className="mt-1 max-w-3xl text-sm text-indigo-900/70 dark:text-indigo-50/72">
+              Complete guided form flows and review the joined submissions stored
+              in <code>2pq_forms</code>.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              size="lg"
-              asChild
-              className="min-h-12 justify-start whitespace-normal bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_16px_38px_rgba(79,70,229,0.28)] hover:bg-indigo-700 sm:max-w-[320px]"
-            >
-              <Link href="/2pq-dashboard/forms/study-request/new">
-                <ClipboardList className="size-5" />
-                Completar formulario de solicitud de estudio
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              asChild
-              className="min-h-12 justify-start whitespace-normal bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_16px_38px_rgba(79,70,229,0.22)] hover:bg-indigo-700 sm:max-w-[280px]"
-            >
-              <Link href="/2pq-dashboard/forms/sample/new">
-                <ClipboardList className="size-5" />
-                Completar formulario de muestra
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="section-eyebrow">Forms</p>
-            <h2 className="font-heading text-2xl font-semibold text-foreground">
-              Existing stored forms
-            </h2>
-            <p className="max-w-4xl text-sm text-muted-foreground">
-              Joined study request and sample form submissions in{" "}
-              <code>2pq_forms</code>.
-            </p>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+              <article className="flex h-full flex-col gap-4 rounded-[1.7rem] border border-indigo-100 [background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(238,242,255,0.82))] px-5 py-5 shadow-[0_12px_32px_rgba(224,231,255,0.78)] dark:border-indigo-300/18 dark:[background:linear-gradient(180deg,rgba(24,22,58,0.98),rgba(30,27,75,0.96)_52%,rgba(79,70,229,0.2))] dark:shadow-none">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-900 dark:bg-indigo-400/14 dark:text-indigo-50">
+                  <ClipboardList className="size-5" />
+                </div>
+                <div>
+                  <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    Solicitud de estudio
+                  </h3>
+                  <p className="mt-1 text-sm text-indigo-900/68 dark:text-indigo-50/72">
+                    Patient, medical, genetic-test, requested-test, and
+                    institution details.
+                  </p>
+                </div>
+                <Button className="mt-auto min-h-11 justify-between whitespace-normal rounded-xl bg-indigo-600 text-left leading-snug text-white hover:bg-indigo-700" asChild>
+                  <Link href="/2pq-dashboard/forms/study-request/new">
+                    Completar formulario de solicitud de estudio
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              </article>
+
+              <article className="flex h-full flex-col gap-4 rounded-[1.7rem] border border-indigo-100 [background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(238,242,255,0.82))] px-5 py-5 shadow-[0_12px_32px_rgba(224,231,255,0.78)] dark:border-indigo-300/18 dark:[background:linear-gradient(180deg,rgba(24,22,58,0.98),rgba(30,27,75,0.96)_52%,rgba(79,70,229,0.2))] dark:shadow-none">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-900 dark:bg-indigo-400/14 dark:text-indigo-50">
+                  <ClipboardList className="size-5" />
+                </div>
+                <div>
+                  <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    Muestra
+                  </h3>
+                  <p className="mt-1 text-sm text-indigo-900/68 dark:text-indigo-50/72">
+                    Requested PGT options plus FIV center, sample type,
+                    processor, process date, and box code.
+                  </p>
+                </div>
+                <Button className="mt-auto min-h-11 justify-between whitespace-normal rounded-xl bg-indigo-600 text-left leading-snug text-white hover:bg-indigo-700" asChild>
+                  <Link href="/2pq-dashboard/forms/sample/new">
+                    Completar formulario de muestra
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              </article>
+            </div>
+
+            <div className="flex min-h-full flex-col gap-4 rounded-[1.7rem] border border-indigo-100 [background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(238,242,255,0.82))] px-5 py-5 shadow-[0_12px_32px_rgba(224,231,255,0.78)] dark:border-indigo-300/18 dark:[background:linear-gradient(180deg,rgba(24,22,58,0.98),rgba(30,27,75,0.96)_52%,rgba(79,70,229,0.2))] dark:shadow-none">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="section-eyebrow text-indigo-900/55 dark:text-indigo-100/72">
+                    Stored forms
+                  </p>
+                  <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    Existing stored forms
+                  </h3>
+                  <p className="mt-1 text-sm text-indigo-900/68 dark:text-indigo-50/72">
+                    Joined study request and sample submissions.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-indigo-200 bg-white/72 text-indigo-950 hover:bg-white dark:border-indigo-300/20 dark:bg-indigo-400/12 dark:text-indigo-50"
+                  asChild
+                >
+                  <Link href="/2pq-dashboard/forms">
+                    Open Forms
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </div>
+              <TwoPQFormsList forms={forms} tone="indigo" />
+            </div>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/2pq-dashboard/forms">
-              Open Forms
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
         </div>
-        <TwoPQFormsList forms={forms} />
       </section>
 
       <section className="flex flex-col gap-4">
