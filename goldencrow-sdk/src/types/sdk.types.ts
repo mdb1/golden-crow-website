@@ -323,7 +323,12 @@ export interface TwoPQFormRecord {
   sampleInformation?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  authorEmail?: string;
+  authorUid?: string;
   createdByEmail?: string;
+  createdByUid?: string;
+  updatedByEmail?: string;
+  updatedByUid?: string;
 }
 
 // CommunityPost — mirrors Firestore posts collection

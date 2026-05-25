@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, FileText } from "lucide-react";
+import { ArrowLeft, CalendarDays, FileText, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -169,6 +169,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
     form.formType === "study_request"
       ? STUDY_REQUESTED_TEST_FIELDS
       : SAMPLE_REQUESTED_TEST_FIELDS;
+  const authorEmail = form.authorEmail ?? form.createdByEmail;
 
   return (
     <div className="flex flex-col gap-5">
@@ -206,6 +207,12 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
               <CalendarDays className="mr-1 size-3.5" />
               {formatDate(form.createdAt, true)}
             </Badge>
+            {authorEmail ? (
+              <Badge variant="outline">
+                <UserRound className="mr-1 size-3.5" />
+                {authorEmail}
+              </Badge>
+            ) : null}
             <Badge variant="outline">
               <FileText className="mr-1 size-3.5" />
               2pq_forms

@@ -51,45 +51,50 @@ export function TwoPQFormsList({
           No stored forms yet.
         </div>
       ) : (
-        visibleForms.map((form) => (
-          <article
-            key={form.id}
-            className={articleClass}
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={iconClass}>
-                  <FileText className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-foreground">
-                    {form.patientName ?? "Unnamed patient"}
-                  </p>
-                  <p className="font-mono text-xs text-muted-foreground">{form.id}</p>
-                </div>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {compactList([
-                  TWO_PQ_FORM_LABELS[form.formType],
-                  form.requestedTestName,
-                  form.institutionName,
-                  form.patientEmail,
-                ])}
-              </p>
-            </div>
+        visibleForms.map((form) => {
+          const authorEmail = form.authorEmail ?? form.createdByEmail;
 
-            <div className="flex flex-wrap items-center gap-2 md:justify-end">
-              <Badge variant="brand">{TWO_PQ_FORM_LABELS[form.formType]}</Badge>
-              <Badge variant="outline">{formatDate(form.createdAt)}</Badge>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/2pq-dashboard/forms/${encodeURIComponent(form.id)}`}>
-                  Open
-                  <ArrowRight className="size-3.5" />
-                </Link>
-              </Button>
-            </div>
-          </article>
-        ))
+          return (
+            <article
+              key={form.id}
+              className={articleClass}
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={iconClass}>
+                    <FileText className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">
+                      {form.patientName ?? "Unnamed patient"}
+                    </p>
+                    <p className="font-mono text-xs text-muted-foreground">{form.id}</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {compactList([
+                    TWO_PQ_FORM_LABELS[form.formType],
+                    form.requestedTestName,
+                    form.institutionName,
+                    form.patientEmail,
+                    authorEmail ? `Author: ${authorEmail}` : undefined,
+                  ])}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <Badge variant="brand">{TWO_PQ_FORM_LABELS[form.formType]}</Badge>
+                <Badge variant="outline">{formatDate(form.createdAt)}</Badge>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/2pq-dashboard/forms/${encodeURIComponent(form.id)}`}>
+                    Open
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </article>
+          );
+        })
       )}
     </div>
   );

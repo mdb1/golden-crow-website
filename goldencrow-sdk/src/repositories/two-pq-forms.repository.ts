@@ -258,6 +258,12 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
   const formType = data.formType === "sample" ? "sample" : "study_request";
   const patientInformation = data.patientInformation;
   const requestedTest = data.requestedTest;
+  const authorEmail =
+    normalizeOptionalString(data.authorEmail) ??
+    normalizeOptionalString(data.createdByEmail);
+  const authorUid =
+    normalizeOptionalString(data.authorUid) ??
+    normalizeOptionalString(data.createdByUid);
 
   return {
     id,
@@ -297,7 +303,12 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
         : undefined,
     createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
     updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+    authorEmail,
+    authorUid,
     createdByEmail: normalizeOptionalString(data.createdByEmail),
+    createdByUid: normalizeOptionalString(data.createdByUid),
+    updatedByEmail: normalizeOptionalString(data.updatedByEmail),
+    updatedByUid: normalizeOptionalString(data.updatedByUid),
   };
 }
 
@@ -573,7 +584,11 @@ function canViewTwoPQForm(
     return true;
   }
 
-  return context.institutionId === form.institutionId;
+  if (context.role === "institution_admin" || context.role === "institution_doctor") {
+    return context.institutionId === form.institutionId;
+  }
+
+  return false;
 }
 
 export async function listTwoPQFormsForContext(
@@ -618,6 +633,8 @@ export async function createTwoPQFormForContext(
   context: AdminContext,
   payload: TwoPQFormInput
 ): Promise<TwoPQFormRecord> {
+  const authorEmail = normalizeEmail(context.email, "Form author email");
+  const authorUid = normalizeRequiredString(context.uid, "Form author uid");
   const patientInformation = normalizePatientInformation(payload.patientInformation);
   const institutionId =
     context.role === "institution_admin" || context.role === "institution_doctor"
@@ -666,6 +683,12 @@ export async function createTwoPQFormForContext(
     if (!canViewInstitution(context, selectedInstitution.id)) {
       throw new AdminRepositoryError("You cannot use this institution.", 403);
     }
+    if (selectedInstitution.id !== institutionId) {
+      throw new AdminRepositoryError(
+        "Selected institution must match the form institution scope.",
+        400
+      );
+    }
   }
 
   const requestedTest = normalizeRequestedTest(payload.requestedTest, payload.formType);
@@ -691,7 +714,12 @@ export async function createTwoPQFormForContext(
     requestedTest,
     createdAt: now,
     updatedAt: now,
-    createdByEmail: context.email,
+    authorEmail,
+    authorUid,
+    createdByEmail: authorEmail,
+    createdByUid: authorUid,
+    updatedByEmail: authorEmail,
+    updatedByUid: authorUid,
   };
 
   const document =

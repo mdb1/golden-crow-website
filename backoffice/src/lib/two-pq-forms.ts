@@ -88,7 +88,12 @@ export interface TwoPQFormRecord {
   sampleInformation?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  authorEmail?: string;
+  authorUid?: string;
   createdByEmail?: string;
+  createdByUid?: string;
+  updatedByEmail?: string;
+  updatedByUid?: string;
 }
 
 export const TWO_PQ_FORM_LABELS: Record<TwoPQFormType, string> = {
