@@ -914,31 +914,57 @@ function BoxCodeField({
   error?: string;
 }) {
   const displayedValue = value.toUpperCase();
+  const isComplete = isValidBoxCode(displayedValue);
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor="form-box-code">CODIGO CAJA</Label>
-      <Input
-        id="form-box-code"
-        value={displayedValue}
-        maxLength={3}
-        pattern="[A-Za-z]{3}"
-        autoCapitalize="characters"
-        autoComplete="off"
-        spellCheck={false}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? "form-box-code-error" : undefined}
-        className={[
-          "font-mono text-base font-semibold uppercase",
-          error ? "border-red-300 focus-visible:ring-red-500" : "",
-        ].join(" ")}
-        onChange={(event) => onChange(normalizeBoxCodeInput(event.target.value))}
-      />
-      <FieldError id="form-box-code-error" message={error} />
-      <p className="text-xs font-medium text-muted-foreground">
-        Exactly three letters. Numbers and special characters are not accepted.
-      </p>
-    </div>
+    <section className="md:col-span-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/72 p-4 shadow-[0_18px_42px_rgba(16,185,129,0.12)] dark:border-emerald-300/20 dark:bg-emerald-950/20">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="section-eyebrow text-emerald-800 dark:text-emerald-200">
+              CODIGO CAJA
+            </p>
+            <Badge
+              variant="outline"
+              className="border-emerald-200 bg-white/72 text-emerald-900 dark:border-emerald-300/22 dark:bg-emerald-400/10 dark:text-emerald-100"
+            >
+              {isComplete ? "Validated" : "Required first"}
+            </Badge>
+          </div>
+          <div className="max-w-xl space-y-2">
+            <Label htmlFor="form-box-code">Three-letter code</Label>
+            <Input
+              id="form-box-code"
+              value={displayedValue}
+              maxLength={3}
+              pattern="[A-Za-z]{3}"
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? "form-box-code-error" : undefined}
+              className={[
+                "bg-white/90 font-mono text-base font-semibold uppercase shadow-sm dark:bg-white/95 dark:text-emerald-950",
+                error ? "border-red-300 focus-visible:ring-red-500" : "",
+              ].join(" ")}
+              onChange={(event) =>
+                onChange(normalizeBoxCodeInput(event.target.value))
+              }
+            />
+            <FieldError id="form-box-code-error" message={error} />
+            <p className="text-xs font-medium text-emerald-950/72 dark:text-emerald-50/74">
+              Exactly three letters. Numbers and special characters are not
+              accepted.
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-start lg:justify-end">
+          <div className="rounded-2xl border border-emerald-100 bg-white/72 p-3 shadow-inner dark:border-emerald-300/18 dark:bg-emerald-50/12">
+            <BoxCodeVisualizer code={displayedValue} />
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -2325,6 +2351,11 @@ export function TwoPQFormFlow({
 
         {currentStep === "sampleInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
+            <BoxCodeField
+              value={state.sampleInformation.boxCode}
+              onChange={(boxCode) => updateSampleInformation({ boxCode })}
+              error={errorFor("sampleInformation.boxCode")}
+            />
             <Field
               id="form-fiv-center"
               label="CENTRO FIV"
@@ -2515,11 +2546,6 @@ export function TwoPQFormFlow({
                 </div>
               </div>
             </section>
-            <BoxCodeField
-              value={state.sampleInformation.boxCode}
-              onChange={(boxCode) => updateSampleInformation({ boxCode })}
-              error={errorFor("sampleInformation.boxCode")}
-            />
           </div>
         ) : null}
 
