@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, CheckCircle2, ClipboardList } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
+import { appText } from "@/lib/language";
 
 const FORM_COMPLETION_CONFETTI = [
   { left: "9%", top: "18%", color: "#c4b5fd", delay: "0ms", duration: "1080ms" },
@@ -19,6 +21,8 @@ const FORM_COMPLETION_CONFETTI = [
 
 export function TwoPQFormCompletionDialog({ createdId }: { createdId?: string }) {
   const router = useRouter();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const [open, setOpen] = useState(Boolean(createdId));
 
   if (!createdId || !open) {
@@ -54,14 +58,15 @@ export function TwoPQFormCompletionDialog({ createdId }: { createdId?: string })
             <CheckCircle2 className="h-12 w-12" />
           </div>
           <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-indigo-50/88">
-            Form completed
+            {t("Form completed")}
           </p>
           <h3 className="mt-2 font-heading text-3xl font-semibold text-white">
-            The 2PQ form is stored and ready
+            {t("The 2PQ form is stored and ready")}
           </h3>
           <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
-            Form <span className="font-mono text-indigo-50">{createdId}</span> is now in{" "}
-            <code>2pq_forms</code> with its author, scope, and linked records preserved.
+            {t("Form")} <span className="font-mono text-indigo-50">{createdId}</span>{" "}
+            {t("is now in")} <code>2pq_forms</code>{" "}
+            {t("with its author, scope, and linked records preserved.")}
           </p>
           <div className="mt-6 grid w-full max-w-lg gap-2 sm:grid-cols-2">
             <Button
@@ -70,7 +75,7 @@ export function TwoPQFormCompletionDialog({ createdId }: { createdId?: string })
             >
               <Link href={`/2pq-dashboard/forms/${encodeURIComponent(createdId)}`}>
                 <ClipboardList className="h-4 w-4" />
-                Open completed form
+                {t("Open completed form")}
               </Link>
             </Button>
             <Button
@@ -78,7 +83,7 @@ export function TwoPQFormCompletionDialog({ createdId }: { createdId?: string })
               onClick={closeAndShowAllForms}
               className="h-12 rounded-[1.1rem] border border-indigo-100/16 bg-indigo-300/18 px-6 text-sm font-semibold text-white shadow-[0_18px_48px_rgba(49,46,129,0.22)] hover:bg-indigo-200/22"
             >
-              See all forms
+              {t("See all forms")}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>

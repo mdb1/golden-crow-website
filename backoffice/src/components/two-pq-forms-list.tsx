@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Archive, ArrowRight, FileText, Trash2 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -19,19 +20,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { sdkFetch } from "@/lib/sdk-client";
-import {
-  TWO_PQ_FORM_LABELS,
-  type TwoPQFormRecord,
-} from "@/lib/two-pq-forms";
+import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
+import { appText } from "@/lib/language";
 
-function formatDate(value: string) {
+function formatDate(value: string, language: "en" | "es") {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(language, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -51,6 +50,8 @@ export function TwoPQFormsList({
 }) {
   const router = useRouter();
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const [pendingAction, setPendingAction] = useState<{
     type: "archive" | "delete";
     form: TwoPQFormRecord;
@@ -90,7 +91,7 @@ export function TwoPQFormsList({
         setToast({
           id: Date.now(),
           tone: "success",
-          message: `Form ${pendingAction.form.id} was deleted.`,
+          message: `${t("Form")} ${pendingAction.form.id} ${t("was deleted.")}`,
         });
       } else {
         await sdkFetch(
@@ -100,7 +101,7 @@ export function TwoPQFormsList({
         setToast({
           id: Date.now(),
           tone: "success",
-          message: `Form ${pendingAction.form.id} was archived.`,
+          message: `${t("Form")} ${pendingAction.form.id} ${t("was archived.")}`,
         });
       }
       setPendingAction(null);
@@ -112,7 +113,7 @@ export function TwoPQFormsList({
         message:
           error instanceof Error
             ? error.message
-            : "Unable to update this form.",
+            : t("Unable to update this form."),
       });
     } finally {
       setIsSubmitting(false);
@@ -126,7 +127,7 @@ export function TwoPQFormsList({
       <div className="grid gap-3">
         {visibleForms.length === 0 ? (
           <div className={emptyClass}>
-            No stored forms yet.
+            {t("No stored forms yet.")}
           </div>
         ) : (
           visibleForms.map((form) => {
@@ -145,31 +146,33 @@ export function TwoPQFormsList({
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground">
-                        {form.patientName ?? "Unnamed patient"}
+                        {form.patientName ?? t("Unnamed patient")}
                       </p>
                       <p className="font-mono text-xs text-muted-foreground">{form.id}</p>
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {compactList([
-                      TWO_PQ_FORM_LABELS[form.formType],
+                      form.formType === "study_request" ? t("Study request") : t("Sample"),
                       form.requestedTestName,
                       form.institutionName,
                       form.patientEmail,
-                      authorEmail ? `Author: ${authorEmail}` : undefined,
+                      authorEmail ? `${t("Author")}: ${authorEmail}` : undefined,
                     ])}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                  <Badge variant="brand">{TWO_PQ_FORM_LABELS[form.formType]}</Badge>
+                  <Badge variant="brand">
+                    {form.formType === "study_request" ? t("Study request") : t("Sample")}
+                  </Badge>
                   {isArchived ? (
-                    <Badge variant="warning">Archived</Badge>
+                    <Badge variant="warning">{t("Archived")}</Badge>
                   ) : null}
-                  <Badge variant="outline">{formatDate(form.createdAt)}</Badge>
+                  <Badge variant="outline">{formatDate(form.createdAt, language)}</Badge>
                   <Button variant="outline" size="sm" asChild>
                     <Link href={`/2pq-dashboard/forms/${encodeURIComponent(form.id)}`}>
-                      Open
+                      {t("Open")}
                       <ArrowRight className="size-3.5" />
                     </Link>
                   </Button>
@@ -181,7 +184,7 @@ export function TwoPQFormsList({
                       onClick={() => setPendingAction({ type: "delete", form })}
                     >
                       <Trash2 className="size-3.5" />
-                      Delete
+                      {t("Delete")}
                     </Button>
                   ) : null}
                   {allowMutations && !canDeleteForms && canArchiveForms && !isArchived ? (
@@ -193,7 +196,7 @@ export function TwoPQFormsList({
                       className="border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-300/20 dark:bg-indigo-400/12 dark:text-indigo-100"
                     >
                       <Archive className="size-3.5" />
-                      Archive
+                      {t("Archive")}
                     </Button>
                   ) : null}
                 </div>
@@ -227,16 +230,18 @@ export function TwoPQFormsList({
               )}
             </AlertDialogMedia>
             <AlertDialogTitle>
-              {pendingAction?.type === "delete" ? "Delete form" : "Archive form"}
+              {pendingAction?.type === "delete"
+                ? t("Delete form")
+                : t("Archive form")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction?.type === "delete"
-                ? `This permanently deletes ${pendingAction.form.id} from 2pq_forms. Linked 2PQ case or sampling records are kept. This is only available to full admins.`
-                : `This archives ${pendingAction?.form.id} so it leaves the default forms list. It can still be reviewed when archived forms are shown.`}
+                ? `${t("This permanently deletes")} ${pendingAction.form.id} ${t("from 2pq_forms. Linked 2PQ case or sampling records are kept. This is only available to full admins.")}`
+                : `${t("This archives")} ${pendingAction?.form.id} ${t("so it leaves the default forms list. It can still be reviewed when archived forms are shown.")}`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>{t("Cancel")}</AlertDialogCancel>
             <Button
               type="button"
               variant={pendingAction?.type === "delete" ? "destructive" : "default"}
@@ -244,10 +249,10 @@ export function TwoPQFormsList({
               disabled={isSubmitting}
             >
               {isSubmitting
-                ? "Working..."
+                ? t("Working...")
                 : pendingAction?.type === "delete"
-                  ? "Delete form"
-                  : "Archive form"}
+                  ? t("Delete form")
+                  : t("Archive form")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

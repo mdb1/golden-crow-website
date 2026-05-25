@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,10 +38,10 @@ import type {
   PatientListItem,
 } from "@/lib/admin-areas";
 import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
+import { appText, type AppLanguage } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import {
-  TWO_PQ_FORM_LABELS,
   type CaseInformationFormState,
   type InstitutionInformationFormState,
   type MedicalInformationFormState,
@@ -98,18 +99,18 @@ const STEP_LABELS: Record<StepKey, string> = {
 };
 
 const YES_NO_OPTIONS = [
-  { value: "si", label: "Sí" },
+  { value: "si", label: "Yes" },
   { value: "no", label: "No" },
 ];
 
 const SAMPLE_TYPE_OPTIONS = [
-  { value: "biopsia de trofoectodermo", label: "Biopsia de trofoectodermo" },
+  { value: "biopsia de trofoectodermo", label: "Trophectoderm biopsy" },
   {
     value: "rebiopsia de trofoectodermo",
-    label: "Rebiopsia de trofoectodermo",
+    label: "Trophectoderm rebiopsy",
   },
-  { value: "medio de cultivo", label: "Medio de cultivo" },
-  { value: "otro", label: "Otro" },
+  { value: "medio de cultivo", label: "Culture media" },
+  { value: "otro", label: "Other" },
 ];
 
 const CASE_STATUS_OPTIONS = [
@@ -196,18 +197,20 @@ function pendingProcessingStep(
 
 function buildFormStorageProcessingSteps(
   flowState: FlowState,
-  formType: TwoPQFormType
+  formType: TwoPQFormType,
+  language: AppLanguage
 ): FormStorageProcessingStep[] {
+  const t = (text: string) => appText(language, text);
   const sharedSteps = [
     pendingProcessingStep(
       "validate-payload",
-      "Validate form payload",
-      "Confirm every required field across the current form is complete."
+      t("Validate form payload"),
+      t("Confirm every required field across the current form is complete.")
     ),
     pendingProcessingStep(
       "save-draft",
-      "Save temporary draft checkpoint",
-      "Persist the final in-progress state before handing it to storage."
+      t("Save temporary draft checkpoint"),
+      t("Persist the final in-progress state before handing it to storage.")
     ),
   ];
 
@@ -217,30 +220,30 @@ function buildFormStorageProcessingSteps(
       pendingProcessingStep(
         "patient",
         flowState.selectedPatientId
-          ? "Link selected scoped patient"
-          : "Create scoped patient",
+          ? t("Link selected scoped patient")
+          : t("Create scoped patient"),
         flowState.selectedPatientId
-          ? `Use patient ${flowState.selectedPatientId} as the form patient.`
-          : "Create the scoped patient from step 1 and link it to the form."
+          ? `${t("Use patient")} ${flowState.selectedPatientId} ${t("as the form patient.")}`
+          : t("Create the scoped patient from step 1 and link it to the form.")
       ),
       pendingProcessingStep(
         "institution",
         flowState.selectedInstitutionId
-          ? "Link selected institution"
-          : "Create scoped institution",
+          ? t("Link selected institution")
+          : t("Create scoped institution"),
         flowState.selectedInstitutionId
-          ? `Use institution ${flowState.selectedInstitutionId} for the request.`
-          : "Create the institution details provided in the request."
+          ? `${t("Use institution")} ${flowState.selectedInstitutionId} ${t("for the request.")}`
+          : t("Create the institution details provided in the request.")
       ),
       pendingProcessingStep(
         "store-form",
-        "Store joined 2PQ form",
-        "Persist the final form document with patient, institution, and test payloads."
+        t("Store joined 2PQ form"),
+        t("Persist the final form document with patient, institution, and test payloads.")
       ),
       pendingProcessingStep(
         "clean-draft",
-        "Clean temporary draft",
-        "Remove the one-user temporary draft after storage succeeds."
+        t("Clean temporary draft"),
+        t("Remove the one-user temporary draft after storage succeeds.")
       ),
     ];
   }
@@ -253,8 +256,8 @@ function buildFormStorageProcessingSteps(
   const samplingSteps = flowState.samplingInformation.map((sampling, index) =>
     pendingProcessingStep(
       `sampling-${index}`,
-      `Create sampling ${sampling.sampleId || index + 1}`,
-      `Link this sampling to ${caseLabel}; collection date, reception date, run ID, and QC status stay nil.`
+      `${t("Create sampling")} ${sampling.sampleId || index + 1}`,
+      `${t("Link this sampling to")} ${caseLabel}; ${t("collection date, reception date, run ID, and QC status stay nil.")}`
     )
   );
 
@@ -262,44 +265,48 @@ function buildFormStorageProcessingSteps(
     ...sharedSteps,
     pendingProcessingStep(
       "patient",
-      flowState.selectedPatientId ? "Link selected scoped patient" : "Create scoped patient",
       flowState.selectedPatientId
-        ? `Use patient ${flowState.selectedPatientId} as the sample patient.`
-        : "Create the scoped patient from step 1 and link it to the stored form."
+        ? t("Link selected scoped patient")
+        : t("Create scoped patient"),
+      flowState.selectedPatientId
+        ? `${t("Use patient")} ${flowState.selectedPatientId} ${t("as the sample patient.")}`
+        : t("Create the scoped patient from step 1 and link it to the stored form.")
     ),
     pendingProcessingStep(
       "doctor",
       flowState.selectedRequestingDoctorId
-        ? "Link selected requesting doctor"
-        : "Create scoped requesting doctor",
+        ? t("Link selected requesting doctor")
+        : t("Create scoped requesting doctor"),
       flowState.selectedRequestingDoctorId
-        ? `Use doctor ${flowState.selectedRequestingDoctorId} as médico solicitante.`
-        : "Create the scoped doctor from the manual médico solicitante fields."
+        ? `${t("Use doctor")} ${flowState.selectedRequestingDoctorId} ${t("as requesting doctor.")}`
+        : t("Create the scoped doctor from the manual requesting doctor fields.")
     ),
     pendingProcessingStep(
       "case",
-      flowState.selectedCaseId ? "Link existing 2PQ case" : `Create 2PQ case ${caseLabel}`,
       flowState.selectedCaseId
-        ? `Use case ${flowState.selectedCaseId} after confirming it matches código caja ${boxCode}.`
-        : "Create the case from step 4 and attach it to the patient, institution, and doctor."
+        ? t("Link existing 2PQ case")
+        : `${t("Create 2PQ case")} ${caseLabel}`,
+      flowState.selectedCaseId
+        ? `${t("Use case")} ${flowState.selectedCaseId} ${t("after confirming it matches box code")} ${boxCode}.`
+        : t("Create the case from step 4 and attach it to the patient, institution, and doctor.")
     ),
     pendingProcessingStep(
       "box-code",
-      "Bind three-letter box code",
+      t("Bind three-letter box code"),
       boxCode
-        ? `Store código caja ${boxCode} as the case three_letter_code and keep the form linked to it.`
-        : "Store the validated código caja as the case three_letter_code."
+        ? `${t("Store box code")} ${boxCode} ${t("as the case three_letter_code and keep the form linked to it.")}`
+        : t("Store the validated box code as the case three_letter_code.")
     ),
     ...samplingSteps,
     pendingProcessingStep(
       "store-form",
-      "Store joined 2PQ form",
-      "Persist the form with linked patient, doctor, case, sample, and sampling records."
+      t("Store joined 2PQ form"),
+      t("Persist the form with linked patient, doctor, case, sample, and sampling records.")
     ),
     pendingProcessingStep(
       "clean-draft",
-      "Clean temporary draft",
-      "Remove the one-user temporary draft after the final form is stored."
+      t("Clean temporary draft"),
+      t("Remove the one-user temporary draft after the final form is stored.")
     ),
   ];
 }
@@ -600,22 +607,24 @@ function resolveDraftStepIndex(
 function validateStepFields(
   step: StepKey,
   flowState: FlowState,
-  formType: TwoPQFormType
+  formType: TwoPQFormType,
+  language: AppLanguage
 ): FieldErrors {
   const errors: FieldErrors = {};
+  const t = (text: string) => appText(language, text);
 
   if (step === "patientInformation") {
     if (!flowState.patientInformation.institutionId) {
-      errors["patientInformation.institutionId"] = "Select an institution.";
+      errors["patientInformation.institutionId"] = t("Select an institution.");
     }
     if (!flowState.patientInformation.doctorId) {
-      errors["patientInformation.doctorId"] = "Select a doctor.";
+      errors["patientInformation.doctorId"] = t("Select a doctor.");
     }
     if (!isValidEmail(flowState.patientInformation.email)) {
-      errors["patientInformation.email"] = "Enter a valid patient email.";
+      errors["patientInformation.email"] = t("Enter a valid patient email.");
     }
     if (!flowState.patientInformation.fullName.trim()) {
-      errors["patientInformation.fullName"] = "Patient full name is required.";
+      errors["patientInformation.fullName"] = t("Patient full name is required.");
     }
   }
 
@@ -624,22 +633,22 @@ function validateStepFields(
       [
         "medicalInformation.previousConceptionsCount",
         flowState.medicalInformation.previousConceptionsCount,
-        "Número de concepciones previas must be a whole number of 0 or more.",
+        t("Previous conceptions must be a whole number of 0 or more."),
       ],
       [
         "medicalInformation.previousMiscarriagesCount",
         flowState.medicalInformation.previousMiscarriagesCount,
-        "Número de abortos previos must be a whole number of 0 or more.",
+        t("Previous miscarriages must be a whole number of 0 or more."),
       ],
       [
         "medicalInformation.previousBirthsCount",
         flowState.medicalInformation.previousBirthsCount,
-        "Número de nacimientos previos must be a whole number of 0 or more.",
+        t("Previous births must be a whole number of 0 or more."),
       ],
       [
         "medicalInformation.previousCyclesCount",
         flowState.medicalInformation.previousCyclesCount,
-        "Número de ciclos previos must be a whole number of 0 or more.",
+        t("Previous cycles must be a whole number of 0 or more."),
       ],
     ];
 
@@ -649,42 +658,42 @@ function validateStepFields(
       }
     });
     if (!flowState.medicalInformation.maleFactor) {
-      errors["medicalInformation.maleFactor"] = "Select factor masculino.";
+      errors["medicalInformation.maleFactor"] = t("Select male factor.");
     }
     if (!flowState.medicalInformation.otherBackground.trim()) {
-      errors["medicalInformation.otherBackground"] = "Otros antecedentes is required.";
+      errors["medicalInformation.otherBackground"] = t("Other background is required.");
     }
   }
 
   if (step === "previousGeneticTests") {
     if (!flowState.previousGeneticTests.pgtASr) {
-      errors["previousGeneticTests.pgtASr"] = "Select PGT-A / PGT-SR.";
+      errors["previousGeneticTests.pgtASr"] = t("Select PGT-A / PGT-SR.");
     }
     if (!flowState.previousGeneticTests.karyotype) {
-      errors["previousGeneticTests.karyotype"] = "Select cariotipo.";
+      errors["previousGeneticTests.karyotype"] = t("Select karyotype.");
     }
     if (
       flowState.previousGeneticTests.pgtASr === "si" &&
       !flowState.previousGeneticTests.pgtResult.trim()
     ) {
       errors["previousGeneticTests.pgtResult"] =
-        "Resultado PGT is required when PGT-A / PGT-SR is Sí.";
+        t("PGT result is required when PGT-A / PGT-SR is Yes.");
     }
     if (
       flowState.previousGeneticTests.karyotype === "si" &&
       !flowState.previousGeneticTests.karyotypeResult.trim()
     ) {
       errors["previousGeneticTests.karyotypeResult"] =
-        "Resultado cariotipo is required when cariotipo is Sí.";
+        t("Karyotype result is required when karyotype is Yes.");
     }
   }
 
   if (step === "requestedTest") {
     if (!flowState.requestedTest.pgtA) {
-      errors["requestedTest.pgtA"] = "Select PGT-A.";
+      errors["requestedTest.pgtA"] = t("Select PGT-A.");
     }
     if (!flowState.requestedTest.pgtSr) {
-      errors["requestedTest.pgtSr"] = "Select PGT-SR.";
+      errors["requestedTest.pgtSr"] = t("Select PGT-SR.");
     }
     if (
       flowState.requestedTest.pgtA &&
@@ -692,104 +701,104 @@ function validateStepFields(
       flowState.requestedTest.pgtA !== "si" &&
       flowState.requestedTest.pgtSr !== "si"
     ) {
-      errors["requestedTest.pgtA"] = "Select Sí for at least one requested test.";
-      errors["requestedTest.pgtSr"] = "Select Sí for at least one requested test.";
+      errors["requestedTest.pgtA"] = t("Select Yes for at least one requested test.");
+      errors["requestedTest.pgtSr"] = t("Select Yes for at least one requested test.");
     }
   }
 
   if (step === "requestedTest" && formType === "study_request") {
     if (!flowState.requestedTest.reportsMosaicism) {
-      errors["requestedTest.reportsMosaicism"] = "Select informa mosaicismos.";
+      errors["requestedTest.reportsMosaicism"] = t("Select reports mosaicism.");
     }
     if (!flowState.requestedTest.reportsSex) {
-      errors["requestedTest.reportsSex"] = "Select informa sexo.";
+      errors["requestedTest.reportsSex"] = t("Select reports sex.");
     }
     if (!flowState.requestedTest.requestReason.trim()) {
-      errors["requestedTest.requestReason"] = "Motivo de solicitud is required.";
+      errors["requestedTest.requestReason"] = t("Request reason is required.");
     }
     if (!flowState.requestedTest.requestDate) {
-      errors["requestedTest.requestDate"] = "Fecha is required.";
+      errors["requestedTest.requestDate"] = t("Date is required.");
     }
   }
 
   if (step === "institutionInformation") {
     if (!flowState.institutionInformation.name.trim()) {
-      errors["institutionInformation.name"] = "Institution name is required.";
+      errors["institutionInformation.name"] = t("Institution name is required.");
     }
     if (!optionalValidEmail(flowState.institutionInformation.contactEmail)) {
       errors["institutionInformation.contactEmail"] =
-        "Enter a valid institution contact email.";
+        t("Enter a valid institution contact email.");
     }
   }
 
   if (step === "sampleInformation") {
     if (!flowState.sampleInformation.fivCenter.trim()) {
-      errors["sampleInformation.fivCenter"] = "Centro FIV is required.";
+      errors["sampleInformation.fivCenter"] = t("FIV center is required.");
     }
     if (!flowState.sampleInformation.centerCode.trim()) {
-      errors["sampleInformation.centerCode"] = "Código centro is required.";
+      errors["sampleInformation.centerCode"] = t("Center code is required.");
     }
     if (!flowState.sampleInformation.requestingDoctorFullName.trim()) {
       errors["sampleInformation.requestingDoctorFullName"] =
-        "Full name is required.";
+        t("Full name is required.");
     }
     if (!isValidEmail(flowState.sampleInformation.requestingDoctorAuthEmail)) {
       errors["sampleInformation.requestingDoctorAuthEmail"] =
-        "Auth email must be valid.";
+        t("Auth email must be valid.");
     }
     if (!flowState.sampleInformation.sampleType.trim()) {
-      errors["sampleInformation.sampleType"] = "Tipo de muestra is required.";
+      errors["sampleInformation.sampleType"] = t("Sample type is required.");
     }
     if (!flowState.sampleInformation.processedByFirstName.trim()) {
       errors["sampleInformation.processedByFirstName"] =
-        "Nombre is required.";
+        t("First name is required.");
     }
     if (!flowState.sampleInformation.processedByLastName.trim()) {
       errors["sampleInformation.processedByLastName"] =
-        "Apellido is required.";
+        t("Last name is required.");
     }
     if (!flowState.sampleInformation.processDate.trim()) {
-      errors["sampleInformation.processDate"] = "Fecha proceso is required.";
+      errors["sampleInformation.processDate"] = t("Process date is required.");
     }
     if (!flowState.sampleInformation.boxCode.trim()) {
-      errors["sampleInformation.boxCode"] = "Código caja is required.";
+      errors["sampleInformation.boxCode"] = t("Box code is required.");
     } else if (!isValidBoxCode(flowState.sampleInformation.boxCode)) {
       errors["sampleInformation.boxCode"] =
-        "Código caja must be exactly three letters (A-Z).";
+        t("Box code must be exactly three letters (A-Z).");
     }
   }
 
   if (step === "caseInformation" && !flowState.selectedCaseId) {
     if (!flowState.caseInformation.caseLabel.trim()) {
-      errors["caseInformation.caseLabel"] = "2PQ case label is required.";
+      errors["caseInformation.caseLabel"] = t("2PQ case label is required.");
     }
     if (!flowState.caseInformation.caseStatus.trim()) {
-      errors["caseInformation.caseStatus"] = "Select a 2PQ case status.";
+      errors["caseInformation.caseStatus"] = t("Select a 2PQ case status.");
     }
   }
 
   if (step === "samplingInformation") {
     if (flowState.samplingInformation.length === 0) {
-      errors.samplingInformation = "Add at least one 2PQ sampling record.";
+      errors.samplingInformation = t("Add at least one 2PQ sampling record.");
     }
     const sampleIds = new Set<string>();
     flowState.samplingInformation.forEach((sampling, index) => {
-      const row = `Sampling ${index + 1}`;
+      const row = `${t("Sampling")} ${index + 1}`;
       const trimmedSampleId = sampling.sampleId.trim();
       if (!trimmedSampleId) {
-        errors[`samplingInformation.${index}.sampleId`] = `${row}: Sample ID is required.`;
+        errors[`samplingInformation.${index}.sampleId`] = `${row}: ${t("Sample ID is required.")}`;
       } else if (sampleIds.has(trimmedSampleId)) {
         errors[`samplingInformation.${index}.sampleId`] =
-          `${row}: Sample ID must be unique in this form.`;
+          `${row}: ${t("Sample ID must be unique in this form.")}`;
       }
       sampleIds.add(trimmedSampleId);
       if (!sampling.sampleType.trim()) {
         errors[`samplingInformation.${index}.sampleType`] =
-          `${row}: Sample type is required.`;
+          `${row}: ${t("Sample type is required.")}`;
       }
       if (!sampling.processingStatus.trim()) {
         errors[`samplingInformation.${index}.processingStatus`] =
-          `${row}: Select processing status.`;
+          `${row}: ${t("Select processing status.")}`;
       }
     });
   }
@@ -801,10 +810,13 @@ function buildInitialStepValidation(
   flowState: FlowState,
   steps: StepKey[],
   stepIndex: number,
-  formType: TwoPQFormType
+  formType: TwoPQFormType,
+  language: AppLanguage
 ): StepValidationState {
   return steps.slice(0, stepIndex).reduce<StepValidationState>((statuses, step) => {
-    statuses[step] = validationStatusFor(validateStepFields(step, flowState, formType));
+    statuses[step] = validationStatusFor(
+      validateStepFields(step, flowState, formType, language)
+    );
     return statuses;
   }, {});
 }
@@ -908,10 +920,12 @@ function BoxCodeField({
   value,
   onChange,
   error,
+  translate,
 }: {
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  translate: (text: string) => string;
 }) {
   const displayedValue = value.toUpperCase();
   const isComplete = isValidBoxCode(displayedValue);
@@ -922,17 +936,17 @@ function BoxCodeField({
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-              Código caja
+              {translate("Box code")}
             </p>
             <Badge
               variant="outline"
               className="border-emerald-200 bg-white/72 text-emerald-900 dark:border-emerald-300/22 dark:bg-emerald-400/10 dark:text-emerald-100"
             >
-              {isComplete ? "Validated" : "Required first"}
+              {isComplete ? translate("Validated") : translate("Required first")}
             </Badge>
           </div>
           <div className="max-w-xl space-y-2">
-            <Label htmlFor="form-box-code">Three-letter code</Label>
+            <Label htmlFor="form-box-code">{translate("Three-letter code")}</Label>
             <Input
               id="form-box-code"
               value={displayedValue}
@@ -953,8 +967,9 @@ function BoxCodeField({
             />
             <FieldError id="form-box-code-error" message={error} />
             <p className="text-xs font-medium text-emerald-950/72 dark:text-emerald-50/74">
-              Exactly three letters. Numbers and special characters are not
-              accepted.
+              {translate(
+                "Exactly three letters. Numbers and special characters are not accepted."
+              )}
             </p>
           </div>
         </div>
@@ -989,7 +1004,13 @@ function BoxCodeVisualizer({ code }: { code: string }) {
   );
 }
 
-function BoxCodeLinkCard({ code }: { code: string }) {
+function BoxCodeLinkCard({
+  code,
+  translate,
+}: {
+  code: string;
+  translate: (text: string) => string;
+}) {
   const normalizedCode = normalizeBoxCodeInput(code);
 
   return (
@@ -998,22 +1019,22 @@ function BoxCodeLinkCard({ code }: { code: string }) {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-              Código caja
+              {translate("Box code")}
             </p>
             <Badge
               variant="outline"
               className="border-emerald-200 bg-white/72 text-emerald-900 dark:border-emerald-300/22 dark:bg-emerald-400/10 dark:text-emerald-100"
             >
-              Validated
+              {translate("Validated")}
             </Badge>
           </div>
           <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">
-            Linked caja request
+            {translate("Linked caja request")}
           </h3>
           <p className="max-w-2xl text-sm text-emerald-950/72 dark:text-emerald-50/74">
-            This sample request will be linked to the validated three-letter caja
-            code. It is shown read-only here before the 2PQ case is created or
-            selected.
+            {translate(
+              "This sample request will be linked to the validated three-letter caja code. It is shown read-only here before the 2PQ case is created or selected."
+            )}
           </p>
         </div>
         <BoxCodeVisualizer code={normalizedCode} />
@@ -1027,20 +1048,24 @@ function YesNoField({
   value,
   onChange,
   error,
+  options,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  options: Array<{ value: string; label: string }>;
+  placeholder: string;
 }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
       <OptionSelectField
-        options={YES_NO_OPTIONS}
+        options={options}
         value={value}
         onChange={onChange}
-        placeholder="Seleccionar"
+        placeholder={placeholder}
       />
       <FieldError message={error} />
     </div>
@@ -1092,7 +1117,9 @@ export function TwoPQFormFlow({
   initialDraft?: TwoPQFormDraftRecord | null;
 }) {
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
   const router = useRouter();
+  const t = (text: string) => appText(language, text);
   const steps = formType === "study_request" ? STUDY_REQUEST_STEPS : SAMPLE_STEPS;
   const matchingDraft = initialDraft?.formType === formType ? initialDraft : null;
   const scopedInstitutionId =
@@ -1128,7 +1155,13 @@ export function TwoPQFormFlow({
   const [state, setState] = useState<FlowState>(initialFlowState);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [stepValidation, setStepValidation] = useState<StepValidationState>(() =>
-    buildInitialStepValidation(initialFlowState, steps, initialStepIndex, formType)
+    buildInitialStepValidation(
+      initialFlowState,
+      steps,
+      initialStepIndex,
+      formType,
+      language
+    )
   );
   const [storageProcessingSteps, setStorageProcessingSteps] = useState<
     FormStorageProcessingStep[]
@@ -1138,7 +1171,7 @@ export function TwoPQFormFlow({
   );
   const [storedFormId, setStoredFormId] = useState<string | null>(null);
   const currentStep = steps[stepIndex] ?? steps[0];
-  const currentStepLabel = STEP_LABELS[currentStep];
+  const currentStepLabel = t(STEP_LABELS[currentStep]);
   const availableDoctors = doctors.filter((doctor) =>
     state.patientInformation.institutionId
       ? doctor.institutionId === state.patientInformation.institutionId
@@ -1212,10 +1245,37 @@ export function TwoPQFormFlow({
       caseRecord.three_letter_code ?? caseRecord.id
     })`,
   }));
+  const yesNoOptions = YES_NO_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const sampleTypeOptions = SAMPLE_TYPE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const personStatusOptions = PERSON_STATUS_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const caseStatusOptions = CASE_STATUS_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const priorityOptions = PRIORITY_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const processingOptions = PROCESSING_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
 
   const progressLabel = useMemo(
-    () => `${stepIndex + 1} of ${steps.length}`,
-    [stepIndex, steps.length]
+    () =>
+      language === "es"
+        ? `${stepIndex + 1} de ${steps.length}`
+        : `${stepIndex + 1} of ${steps.length}`,
+    [language, stepIndex, steps.length]
   );
   const restoredFromDraft = Boolean(matchingDraft);
   const storageProcessingCompletedCount = storageProcessingSteps.filter(
@@ -1306,9 +1366,9 @@ export function TwoPQFormFlow({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: options.errorMessage ?? "Unable to save the form draft.",
+        message: options.errorMessage ?? t("Unable to save the form draft."),
       });
-      throw new Error("Unable to save the form draft.");
+      throw new Error(t("Unable to save the form draft."));
     } finally {
       if (!options.quiet) {
         setDraftPending(false);
@@ -1319,7 +1379,7 @@ export function TwoPQFormFlow({
   useEffect(() => {
     void persistDraftSnapshot(stepIndex, state, {
       quiet: true,
-      errorMessage: "Unable to prepare the form draft.",
+      errorMessage: t("Unable to prepare the form draft."),
     }).catch(() => undefined);
   }, []);
 
@@ -1537,7 +1597,7 @@ export function TwoPQFormFlow({
     let firstInvalidStepIndex = -1;
 
     steps.forEach((step, index) => {
-      const errors = validateStepFields(step, state, formType);
+      const errors = validateStepFields(step, state, formType, language);
       const status = validationStatusFor(errors);
       nextValidation[step] = status;
       Object.assign(nextErrors, errors);
@@ -1556,7 +1616,7 @@ export function TwoPQFormFlow({
   }
 
   async function goNext() {
-    const errors = validateStepFields(currentStep, state, formType);
+    const errors = validateStepFields(currentStep, state, formType, language);
     setStepErrors(currentStep, errors);
     if (hasErrors(errors)) {
       setToast({
@@ -1620,7 +1680,8 @@ export function TwoPQFormFlow({
 
     const nextStorageProcessingSteps = buildFormStorageProcessingSteps(
       state,
-      formType
+      formType,
+      language
     );
     const remoteProcessingStepIds = nextStorageProcessingSteps
       .map((step) => step.id)
@@ -1673,7 +1734,7 @@ export function TwoPQFormFlow({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: `Form ${response.form.id} stored.`,
+        message: `${t("Form")} ${response.form.id} ${t("stored.")}`,
       });
       await wait(700);
       router.push(`/2pq-dashboard/forms?createdId=${response.form.id}`);
@@ -1684,11 +1745,13 @@ export function TwoPQFormFlow({
           step.status === "running" ? { ...step, status: "error" } : step
         )
       );
-      setStorageProcessingError("Unable to store the form. Review the form and try again.");
+      setStorageProcessingError(
+        t("Unable to store the form. Review the form and try again.")
+      );
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Unable to store the form.",
+        message: t("Unable to store the form."),
       });
       setPending(false);
     }
@@ -1713,10 +1776,12 @@ export function TwoPQFormFlow({
         >
           <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-              2PQ form storage processing
+              {t("2PQ form storage processing")}
             </DialogTitle>
             <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
-              The form is being stored with its scoped records and linked 2PQ entities.
+              {t(
+                "The form is being stored with its scoped records and linked 2PQ entities."
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -1725,16 +1790,16 @@ export function TwoPQFormFlow({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Process progress
+                    {t("Process progress")}
                   </p>
                   <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
                     {storageProcessingError
-                      ? "Storage paused on the blocked checklist item."
+                      ? t("Storage paused on the blocked checklist item.")
                       : storedFormId
-                        ? `Form ${storedFormId} stored. Redirecting to forms.`
+                        ? `${t("Form")} ${storedFormId} ${t("stored. Redirecting to forms.")}`
                         : runningStorageStep
                           ? runningStorageStep.detail
-                          : "Preparing the storage checklist."}
+                          : t("Preparing the storage checklist.")}
                   </p>
                 </div>
                 <Badge
@@ -1753,7 +1818,7 @@ export function TwoPQFormFlow({
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Completed
+                    {t("Completed")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
                     {storageProcessingCompletedCount}
@@ -1761,7 +1826,7 @@ export function TwoPQFormFlow({
                 </div>
                 <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Pending
+                    {t("Pending")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
                     {storageProcessingPendingCount}
@@ -1769,7 +1834,7 @@ export function TwoPQFormFlow({
                 </div>
                 <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
-                    Blocked
+                    {t("Blocked")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
                     {storageProcessingBlockedCount}
@@ -1834,7 +1899,7 @@ export function TwoPQFormFlow({
                               : undefined
                           }
                         >
-                          {step.status}
+                          {t(step.status)}
                         </Badge>
                         <span className="font-mono text-xs text-indigo-950/46 dark:text-indigo-50/48">
                           {String(index + 1).padStart(2, "0")}
@@ -1863,7 +1928,7 @@ export function TwoPQFormFlow({
                 disabled={pending}
                 className="h-11 px-6"
               >
-                Close and review form
+                {t("Close and review form")}
               </Button>
             </DialogFooter>
           ) : null}
@@ -1874,7 +1939,7 @@ export function TwoPQFormFlow({
         <Button variant="ghost" size="sm" asChild>
           <Link href="/2pq-dashboard/forms">
             <ArrowLeft className="size-3.5" />
-            Back to forms
+            {t("Back to forms")}
           </Link>
         </Button>
       </div>
@@ -1883,15 +1948,17 @@ export function TwoPQFormFlow({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {TWO_PQ_FORM_LABELS[formType]}
+              {formType === "study_request" ? t("Study request") : t("Sample")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {currentStepLabel}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {restoredFromDraft ? <Badge variant="rose">Recovered draft</Badge> : null}
-            {draftPending ? <Badge variant="outline">Saving draft</Badge> : null}
+            {restoredFromDraft ? (
+              <Badge variant="rose">{t("Recovered draft")}</Badge>
+            ) : null}
+            {draftPending ? <Badge variant="outline">{t("Saving draft")}</Badge> : null}
             <Badge variant="outline">{progressLabel}</Badge>
           </div>
         </div>
@@ -1902,7 +1969,7 @@ export function TwoPQFormFlow({
             const storedStatus = stepValidation[step];
             const stepStatus =
               storedStatus === "valid" &&
-              hasErrors(validateStepFields(step, state, formType))
+              hasErrors(validateStepFields(step, state, formType, language))
                 ? "invalid"
                 : storedStatus;
             return (
@@ -1933,7 +2000,7 @@ export function TwoPQFormFlow({
                   >
                     {index + 1}
                   </span>
-                  <span className="min-w-0 truncate">{STEP_LABELS[step]}</span>
+                  <span className="min-w-0 truncate">{t(STEP_LABELS[step])}</span>
                 </span>
                 {stepStatus === "valid" ? (
                   <CheckCircle2 className="size-4 text-emerald-600" />
@@ -1948,17 +2015,17 @@ export function TwoPQFormFlow({
         {currentStep === "patientInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label>Pick existing patient</Label>
+              <Label>{t("Pick existing patient")}</Label>
               <OptionSelectField
                 options={patientOptions}
                 value={state.selectedPatientId}
                 onChange={selectPatient}
-                placeholder="Select patient"
-                emptyLabel="Manual patient information"
+                placeholder={t("Select patient")}
+                emptyLabel={t("Manual patient information")}
               />
             </div>
             <div className="space-y-2">
-              <Label>Institution</Label>
+              <Label>{t("Institution")}</Label>
               <OptionSelectField
                 options={institutionOptions}
                 value={state.patientInformation.institutionId}
@@ -1981,14 +2048,14 @@ export function TwoPQFormFlow({
                     },
                   }));
                 }}
-                placeholder="Select institution"
-                emptyLabel="No institution"
+                placeholder={t("Select institution")}
+                emptyLabel={t("No institution")}
                 disabled={Boolean(scopedInstitutionId)}
               />
               <FieldError message={errorFor("patientInformation.institutionId")} />
             </div>
             <div className="space-y-2">
-              <Label>Doctor</Label>
+              <Label>{t("Doctor")}</Label>
               <OptionSelectField
                 options={doctorOptions}
                 value={state.patientInformation.doctorId}
@@ -2002,29 +2069,29 @@ export function TwoPQFormFlow({
                     },
                   }))
                 }
-                placeholder="Select doctor"
-                emptyLabel="No doctor"
+                placeholder={t("Select doctor")}
+                emptyLabel={t("No doctor")}
                 disabled={Boolean(scopedDoctorId)}
               />
               <FieldError message={errorFor("patientInformation.doctorId")} />
             </div>
             <Field
               id="form-patient-email"
-              label="Email"
+              label={t("Email")}
               value={state.patientInformation.email}
               onChange={(email) => updatePatientInformation({ email })}
               error={errorFor("patientInformation.email")}
             />
             <Field
               id="form-patient-full-name"
-              label="Full name"
+              label={t("Full name")}
               value={state.patientInformation.fullName}
               onChange={(fullName) => updatePatientInformation({ fullName })}
               error={errorFor("patientInformation.fullName")}
             />
             <Field
               id="form-patient-mrn"
-              label="Medical record number"
+              label={t("Medical record number")}
               value={state.patientInformation.medicalRecordNumber}
               onChange={(medicalRecordNumber) =>
                 updatePatientInformation({ medicalRecordNumber })
@@ -2032,37 +2099,34 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-patient-birth-date"
-              label="Birth date"
+              label={t("Birth date")}
               type="date"
               value={state.patientInformation.birthDate}
               onChange={(birthDate) => updatePatientInformation({ birthDate })}
             />
             <Field
               id="form-patient-sex"
-              label="Sex / gender"
+              label={t("Sex / gender")}
               value={state.patientInformation.sex}
               onChange={(sex) => updatePatientInformation({ sex })}
             />
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>{t("Status")}</Label>
               <OptionSelectField
-                options={PERSON_STATUS_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                }))}
+                options={personStatusOptions}
                 value={state.patientInformation.status}
                 onChange={(status) =>
                   updatePatientInformation({
                     status: status === "inactive" ? "inactive" : "active",
                   })
                 }
-                placeholder="Select status"
+                placeholder={t("Select status")}
               />
             </div>
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-patient-notes"
-                label="Notes"
+                label={t("Notes")}
                 value={state.patientInformation.notes}
                 onChange={(notes) => updatePatientInformation({ notes })}
               />
@@ -2074,7 +2138,7 @@ export function TwoPQFormFlow({
           <div className="grid gap-4 md:grid-cols-2">
             <Field
               id="form-previous-conceptions"
-              label="Número de concepciones previas"
+              label={t("Previous conceptions")}
               type="number"
               min="0"
               step="1"
@@ -2086,7 +2150,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-previous-miscarriages"
-              label="Número de abortos previos"
+              label={t("Previous miscarriages")}
               type="number"
               min="0"
               step="1"
@@ -2098,7 +2162,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-previous-births"
-              label="Número de nacimientos previos"
+              label={t("Previous births")}
               type="number"
               min="0"
               step="1"
@@ -2110,7 +2174,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-previous-cycles"
-              label="Número de ciclos previos"
+              label={t("Previous cycles")}
               type="number"
               min="0"
               step="1"
@@ -2121,15 +2185,17 @@ export function TwoPQFormFlow({
               error={errorFor("medicalInformation.previousCyclesCount")}
             />
             <YesNoField
-              label="Factor masculino"
+              label={t("Male factor")}
               value={state.medicalInformation.maleFactor}
               onChange={(maleFactor) => updateMedicalInformation({ maleFactor })}
               error={errorFor("medicalInformation.maleFactor")}
+              options={yesNoOptions}
+              placeholder={t("Select")}
             />
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-other-background"
-                label="Otros antecedentes"
+                label={t("Other background")}
                 value={state.medicalInformation.otherBackground}
                 onChange={(otherBackground) =>
                   updateMedicalInformation({ otherBackground })
@@ -2147,19 +2213,23 @@ export function TwoPQFormFlow({
               value={state.previousGeneticTests.pgtASr}
               onChange={(pgtASr) => updatePreviousGeneticTests({ pgtASr })}
               error={errorFor("previousGeneticTests.pgtASr")}
+              options={yesNoOptions}
+              placeholder={t("Select")}
             />
             <YesNoField
-              label="Cariotipo"
+              label={t("Karyotype")}
               value={state.previousGeneticTests.karyotype}
               onChange={(karyotype) =>
                 updatePreviousGeneticTests({ karyotype })
               }
               error={errorFor("previousGeneticTests.karyotype")}
+              options={yesNoOptions}
+              placeholder={t("Select")}
             />
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-pgt-result"
-                label="Resultado PGT"
+                label={t("PGT result")}
                 value={state.previousGeneticTests.pgtResult}
                 onChange={(pgtResult) =>
                   updatePreviousGeneticTests({ pgtResult })
@@ -2170,7 +2240,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-karyotype-result"
-                label="Resultado cariotipo"
+                label={t("Karyotype result")}
                 value={state.previousGeneticTests.karyotypeResult}
                 onChange={(karyotypeResult) =>
                   updatePreviousGeneticTests({ karyotypeResult })
@@ -2189,31 +2259,39 @@ export function TwoPQFormFlow({
                 value={state.requestedTest.pgtA}
                 onChange={(pgtA) => updateRequestedTest({ pgtA })}
                 error={errorFor("requestedTest.pgtA")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
               />
               <YesNoField
                 label="PGT-SR"
                 value={state.requestedTest.pgtSr}
                 onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
                 error={errorFor("requestedTest.pgtSr")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
               />
               <YesNoField
-                label="Informa mosaicismos"
+                label={t("Reports mosaicism")}
                 value={state.requestedTest.reportsMosaicism}
                 onChange={(reportsMosaicism) =>
                   updateRequestedTest({ reportsMosaicism })
                 }
                 error={errorFor("requestedTest.reportsMosaicism")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
               />
               <YesNoField
-                label="Informa sexo"
+                label={t("Reports sex")}
                 value={state.requestedTest.reportsSex}
                 onChange={(reportsSex) => updateRequestedTest({ reportsSex })}
                 error={errorFor("requestedTest.reportsSex")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
               />
               <div className="md:col-span-2">
                 <TextAreaField
                   id="form-request-reason"
-                  label="Motivo de solicitud"
+                  label={t("Request reason")}
                   value={state.requestedTest.requestReason}
                   onChange={(requestReason) =>
                     updateRequestedTest({ requestReason })
@@ -2223,7 +2301,7 @@ export function TwoPQFormFlow({
               </div>
               <Field
                 id="form-request-date"
-                label="Fecha"
+                label={t("Date")}
                 type="date"
                 value={state.requestedTest.requestDate}
                 onChange={(requestDate) => updateRequestedTest({ requestDate })}
@@ -2237,12 +2315,16 @@ export function TwoPQFormFlow({
                 value={state.requestedTest.pgtA}
                 onChange={(pgtA) => updateRequestedTest({ pgtA })}
                 error={errorFor("requestedTest.pgtA")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
               />
               <YesNoField
                 label="PGT-SR"
                 value={state.requestedTest.pgtSr}
                 onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
                 error={errorFor("requestedTest.pgtSr")}
+                options={yesNoOptions}
+                placeholder={t("Select")}
               />
             </div>
           )
@@ -2251,24 +2333,24 @@ export function TwoPQFormFlow({
         {currentStep === "institutionInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label>Pick existing institution</Label>
+              <Label>{t("Pick existing institution")}</Label>
               <OptionSelectField
                 options={institutionOptions}
                 value={state.selectedInstitutionId}
                 onChange={selectInstitution}
-                placeholder="Select institution"
-                emptyLabel="Manual institution information"
+                placeholder={t("Select institution")}
+                emptyLabel={t("Manual institution information")}
               />
             </div>
             <Field
               id="form-institution-code"
-              label="Institution code"
+              label={t("Institution code")}
               value={state.institutionInformation.code}
               onChange={(code) => updateInstitutionInformation({ code })}
             />
             <Field
               id="form-institution-name"
-              label="Institution name"
+              label={t("Institution name")}
               value={state.institutionInformation.name}
               onChange={(name) => updateInstitutionInformation({ name })}
               error={errorFor("institutionInformation.name")}
@@ -2276,14 +2358,14 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <Field
                 id="form-institution-legal"
-                label="Legal name"
+                label={t("Legal name")}
                 value={state.institutionInformation.legalName}
                 onChange={(legalName) => updateInstitutionInformation({ legalName })}
               />
             </div>
             <Field
               id="form-institution-email"
-              label="Contact email"
+              label={t("Contact email")}
               value={state.institutionInformation.contactEmail}
               onChange={(contactEmail) =>
                 updateInstitutionInformation({ contactEmail })
@@ -2292,7 +2374,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-institution-phone"
-              label="Contact phone"
+              label={t("Contact phone")}
               value={state.institutionInformation.contactPhone}
               onChange={(contactPhone) =>
                 updateInstitutionInformation({ contactPhone })
@@ -2301,7 +2383,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <Field
                 id="form-institution-address-1"
-                label="Address line 1"
+                label={t("Address line 1")}
                 value={state.institutionInformation.addressLine1}
                 onChange={(addressLine1) =>
                   updateInstitutionInformation({ addressLine1 })
@@ -2311,7 +2393,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <Field
                 id="form-institution-address-2"
-                label="Address line 2"
+                label={t("Address line 2")}
                 value={state.institutionInformation.addressLine2}
                 onChange={(addressLine2) =>
                   updateInstitutionInformation({ addressLine2 })
@@ -2320,13 +2402,13 @@ export function TwoPQFormFlow({
             </div>
             <Field
               id="form-institution-city"
-              label="City"
+              label={t("City")}
               value={state.institutionInformation.city}
               onChange={(city) => updateInstitutionInformation({ city })}
             />
             <Field
               id="form-institution-state"
-              label="State / region"
+              label={t("State / region")}
               value={state.institutionInformation.state}
               onChange={(stateValue) =>
                 updateInstitutionInformation({ state: stateValue })
@@ -2334,14 +2416,14 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-institution-country"
-              label="Country"
+              label={t("Country")}
               value={state.institutionInformation.country}
               onChange={(country) => updateInstitutionInformation({ country })}
             />
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-institution-notes"
-                label="Notes"
+                label={t("Notes")}
                 value={state.institutionInformation.notes}
                 onChange={(notes) => updateInstitutionInformation({ notes })}
               />
@@ -2355,17 +2437,18 @@ export function TwoPQFormFlow({
               value={state.sampleInformation.boxCode}
               onChange={(boxCode) => updateSampleInformation({ boxCode })}
               error={errorFor("sampleInformation.boxCode")}
+              translate={t}
             />
             <Field
               id="form-fiv-center"
-              label="Centro FIV"
+              label={t("FIV center")}
               value={state.sampleInformation.fivCenter}
               onChange={(fivCenter) => updateSampleInformation({ fivCenter })}
               error={errorFor("sampleInformation.fivCenter")}
             />
             <Field
               id="form-center-code"
-              label="Código centro"
+              label={t("Center code")}
               value={state.sampleInformation.centerCode}
               onChange={(centerCode) => updateSampleInformation({ centerCode })}
               error={errorFor("sampleInformation.centerCode")}
@@ -2374,23 +2457,23 @@ export function TwoPQFormFlow({
               <div className="border-y border-border/70 py-5">
                 <div className="mb-4">
                   <h3 className="font-heading text-lg font-semibold text-foreground">
-                    Médico solicitante
+                    {t("Requesting doctor")}
                   </h3>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2 md:col-span-2">
-                    <Label>Pick existing doctor</Label>
+                    <Label>{t("Pick existing doctor")}</Label>
                     <OptionSelectField
                       options={requestingDoctorOptions}
                       value={state.selectedRequestingDoctorId}
                       onChange={selectRequestingDoctor}
-                      placeholder="Select requesting doctor"
-                      emptyLabel="Manual requesting doctor information"
+                      placeholder={t("Select requesting doctor")}
+                      emptyLabel={t("Manual requesting doctor information")}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="form-requesting-doctor-institution">
-                      Institution
+                      {t("Institution")}
                     </Label>
                     <Input
                       id="form-requesting-doctor-institution"
@@ -2404,7 +2487,7 @@ export function TwoPQFormFlow({
                   </div>
                   <Field
                     id="form-requesting-doctor-full-name"
-                    label="Full name"
+                    label={t("Full name")}
                     value={state.sampleInformation.requestingDoctorFullName}
                     onChange={(requestingDoctorFullName) =>
                       updateSampleInformation({ requestingDoctorFullName })
@@ -2413,7 +2496,7 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id="form-requesting-doctor-auth-email"
-                    label="Auth email"
+                    label={t("Auth email")}
                     value={state.sampleInformation.requestingDoctorAuthEmail}
                     onChange={(requestingDoctorAuthEmail) =>
                       updateSampleInformation({ requestingDoctorAuthEmail })
@@ -2422,19 +2505,16 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id="form-requesting-doctor-auth-uid"
-                    label="Auth UID"
+                    label={t("Auth UID")}
                     value={state.sampleInformation.requestingDoctorAuthUid}
                     onChange={(requestingDoctorAuthUid) =>
                       updateSampleInformation({ requestingDoctorAuthUid })
                     }
                   />
                   <div className="space-y-2">
-                    <Label>Status</Label>
+                    <Label>{t("Status")}</Label>
                     <OptionSelectField
-                      options={PERSON_STATUS_OPTIONS.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      }))}
+                      options={personStatusOptions}
                       value={state.sampleInformation.requestingDoctorStatus}
                       onChange={(requestingDoctorStatus) =>
                         updateSampleInformation({
@@ -2444,12 +2524,12 @@ export function TwoPQFormFlow({
                               : "active",
                         })
                       }
-                      placeholder="Select status"
+                      placeholder={t("Select status")}
                     />
                   </div>
                   <Field
                     id="form-requesting-doctor-specialty"
-                    label="Specialty"
+                    label={t("Specialty")}
                     value={state.sampleInformation.requestingDoctorSpecialty}
                     onChange={(requestingDoctorSpecialty) =>
                       updateSampleInformation({ requestingDoctorSpecialty })
@@ -2457,7 +2537,7 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id="form-requesting-doctor-license"
-                    label="License number"
+                    label={t("License number")}
                     value={state.sampleInformation.requestingDoctorLicenseNumber}
                     onChange={(requestingDoctorLicenseNumber) =>
                       updateSampleInformation({ requestingDoctorLicenseNumber })
@@ -2465,7 +2545,7 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id="form-requesting-doctor-phone"
-                    label="Contact phone"
+                    label={t("Contact phone")}
                     value={state.sampleInformation.requestingDoctorContactPhone}
                     onChange={(requestingDoctorContactPhone) =>
                       updateSampleInformation({ requestingDoctorContactPhone })
@@ -2474,7 +2554,7 @@ export function TwoPQFormFlow({
                   <div className="md:col-span-2">
                     <TextAreaField
                       id="form-requesting-doctor-notes"
-                      label="Notes"
+                      label={t("Notes")}
                       value={state.sampleInformation.requestingDoctorNotes}
                       onChange={(requestingDoctorNotes) =>
                         updateSampleInformation({ requestingDoctorNotes })
@@ -2488,25 +2568,25 @@ export function TwoPQFormFlow({
               <div className="border-b border-border/70 pb-5">
                 <div className="mb-4">
                   <h3 className="font-heading text-lg font-semibold text-foreground">
-                    Muestra
+                    {t("Sample")}
                   </h3>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Tipo de muestra</Label>
+                    <Label>{t("Sample type")}</Label>
                     <OptionSelectField
-                      options={SAMPLE_TYPE_OPTIONS}
+                      options={sampleTypeOptions}
                       value={state.sampleInformation.sampleType}
                       onChange={(sampleType) =>
                         updateSampleInformation({ sampleType })
                       }
-                      placeholder="Seleccionar"
+                      placeholder={t("Select")}
                     />
                     <FieldError message={errorFor("sampleInformation.sampleType")} />
                   </div>
                   <Field
                     id="form-process-date"
-                    label="Fecha proceso"
+                    label={t("Process date")}
                     type="date"
                     value={state.sampleInformation.processDate}
                     onChange={(processDate) =>
@@ -2521,13 +2601,13 @@ export function TwoPQFormFlow({
               <div className="border-b border-border/70 pb-5">
                 <div className="mb-4">
                   <h3 className="font-heading text-lg font-semibold text-foreground">
-                    Procesado por
+                    {t("Processed by")}
                   </h3>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field
                     id="form-processed-by-first-name"
-                    label="Nombre"
+                    label={t("First name")}
                     value={state.sampleInformation.processedByFirstName}
                     onChange={(processedByFirstName) =>
                       updateSampleInformation({ processedByFirstName })
@@ -2536,7 +2616,7 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id="form-processed-by-last-name"
-                    label="Apellido"
+                    label={t("Last name")}
                     value={state.sampleInformation.processedByLastName}
                     onChange={(processedByLastName) =>
                       updateSampleInformation({ processedByLastName })
@@ -2551,52 +2631,52 @@ export function TwoPQFormFlow({
 
         {currentStep === "caseInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <BoxCodeLinkCard code={state.sampleInformation.boxCode} />
+            <BoxCodeLinkCard code={state.sampleInformation.boxCode} translate={t} />
             <div className="space-y-2 md:col-span-2">
-              <Label>Pick existing 2PQ case</Label>
+              <Label>{t("Pick existing 2PQ case")}</Label>
               <OptionSelectField
                 options={caseOptions}
                 value={state.selectedCaseId}
                 onChange={selectCase}
-                placeholder="Select 2PQ case"
-                emptyLabel="Create a new 2PQ case from these fields"
+                placeholder={t("Select 2PQ case")}
+                emptyLabel={t("Create a new 2PQ case from these fields")}
               />
             </div>
             <Field
               id="form-case-label"
-              label="Case label"
+              label={t("Case label")}
               value={state.caseInformation.caseLabel}
               onChange={(caseLabel) => updateCaseInformation({ caseLabel })}
               error={errorFor("caseInformation.caseLabel")}
             />
             <div className="space-y-2">
-              <Label>Case status</Label>
+              <Label>{t("Case status")}</Label>
               <OptionSelectField
-                options={CASE_STATUS_OPTIONS}
+                options={caseStatusOptions}
                 value={state.caseInformation.caseStatus}
                 onChange={(caseStatus) => updateCaseInformation({ caseStatus })}
-                placeholder="Select status"
+                placeholder={t("Select status")}
               />
               <FieldError message={errorFor("caseInformation.caseStatus")} />
             </div>
             <Field
               id="form-case-type"
-              label="Case type"
+              label={t("Case type")}
               value={state.caseInformation.caseType}
               onChange={(caseType) => updateCaseInformation({ caseType })}
             />
             <div className="space-y-2">
-              <Label>Priority</Label>
+              <Label>{t("Priority")}</Label>
               <OptionSelectField
-                options={PRIORITY_OPTIONS}
+                options={priorityOptions}
                 value={state.caseInformation.priority}
                 onChange={(priority) => updateCaseInformation({ priority })}
-                placeholder="Select priority"
+                placeholder={t("Select priority")}
               />
             </div>
             <Field
               id="form-case-tracking"
-              label="Tracking number"
+              label={t("Tracking number")}
               value={state.caseInformation.trackingNumber}
               onChange={(trackingNumber) =>
                 updateCaseInformation({ trackingNumber })
@@ -2604,14 +2684,14 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-case-requested-at"
-              label="Requested at"
+              label={t("Requested at")}
               type="date"
               value={state.caseInformation.requestedAt}
               onChange={(requestedAt) => updateCaseInformation({ requestedAt })}
             />
             <Field
               id="form-case-due-at"
-              label="Due at"
+              label={t("Due at")}
               type="date"
               value={state.caseInformation.dueAt}
               onChange={(dueAt) => updateCaseInformation({ dueAt })}
@@ -2619,7 +2699,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-case-notes"
-                label="Case notes"
+                label={t("Case notes")}
                 value={state.caseInformation.notes}
                 onChange={(notes) => updateCaseInformation({ notes })}
               />
@@ -2637,10 +2717,10 @@ export function TwoPQFormFlow({
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-muted-foreground">
-                      2PQ sampling
+                      {t("2PQ sampling")}
                     </p>
                     <h3 className="font-heading text-lg font-semibold text-foreground">
-                      Sampling {index + 1}
+                      {t("Sampling")} {index + 1}
                     </h3>
                   </div>
                   <Button
@@ -2651,13 +2731,13 @@ export function TwoPQFormFlow({
                     disabled={state.samplingInformation.length <= 1}
                   >
                     <Trash2 className="size-3.5" />
-                    Remove
+                    {t("Remove")}
                   </Button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field
                     id={`form-sampling-id-${index}`}
-                    label="Sample ID"
+                    label={t("Sample ID")}
                     value={sampling.sampleId}
                     onChange={(sampleId) =>
                       updateSamplingInformation(index, { sampleId })
@@ -2666,7 +2746,7 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id={`form-sampling-type-${index}`}
-                    label="Sample type"
+                    label={t("Sample type")}
                     value={sampling.sampleType}
                     onChange={(sampleType) =>
                       updateSamplingInformation(index, { sampleType })
@@ -2674,14 +2754,14 @@ export function TwoPQFormFlow({
                     error={errorFor(`samplingInformation.${index}.sampleType`)}
                   />
                   <div className="space-y-2">
-                    <Label>Processing status</Label>
+                    <Label>{t("Processing status")}</Label>
                     <OptionSelectField
-                      options={PROCESSING_OPTIONS}
+                      options={processingOptions}
                       value={sampling.processingStatus}
                       onChange={(processingStatus) =>
                         updateSamplingInformation(index, { processingStatus })
                       }
-                      placeholder="Select status"
+                      placeholder={t("Select status")}
                     />
                     <FieldError
                       message={errorFor(`samplingInformation.${index}.processingStatus`)}
@@ -2690,7 +2770,7 @@ export function TwoPQFormFlow({
                   <div className="md:col-span-2">
                     <TextAreaField
                       id={`form-sampling-notes-${index}`}
-                      label="Sampling notes"
+                      label={t("Sampling notes")}
                       value={sampling.notes}
                       onChange={(notes) => updateSamplingInformation(index, { notes })}
                     />
@@ -2705,7 +2785,7 @@ export function TwoPQFormFlow({
               onClick={addSamplingInformation}
             >
               <Plus className="size-4" />
-              Add sampling
+              {t("Add sampling")}
             </Button>
           </div>
         ) : null}
@@ -2713,9 +2793,11 @@ export function TwoPQFormFlow({
         <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-muted-foreground">
             {selectedInstitution?.name ?? state.institutionInformation.name
-              ? `Institution: ${selectedInstitution?.name ?? state.institutionInformation.name}`
-              : "No institution selected"}{" "}
-            {selectedDoctor ? `· Doctor: ${selectedDoctor.fullName}` : ""}
+              ? `${t("Institution")}: ${
+                  selectedInstitution?.name ?? state.institutionInformation.name
+                }`
+              : t("No institution selected")}{" "}
+            {selectedDoctor ? `· ${t("Doctor")}: ${selectedDoctor.fullName}` : ""}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button
@@ -2724,7 +2806,7 @@ export function TwoPQFormFlow({
               disabled={stepIndex === 0 || pending || draftPending}
             >
               <ArrowLeft className="size-4" />
-              Previous
+              {t("Previous")}
             </Button>
             {stepIndex === steps.length - 1 ? (
               <Button
@@ -2733,7 +2815,7 @@ export function TwoPQFormFlow({
                 className="bg-indigo-600 text-white hover:bg-indigo-700"
               >
                 {pending ? <FileText className="size-4 animate-pulse" /> : <Save className="size-4" />}
-                {pending ? "Storing..." : "Store form"}
+                {pending ? t("Storing...") : t("Store form")}
               </Button>
             ) : (
               <Button
@@ -2741,7 +2823,7 @@ export function TwoPQFormFlow({
                 disabled={pending || draftPending}
                 className="bg-indigo-600 text-white hover:bg-indigo-700"
               >
-                Continue
+                {t("Continue")}
                 <ArrowRight className="size-4" />
               </Button>
             )}

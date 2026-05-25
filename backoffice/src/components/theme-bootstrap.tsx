@@ -3,6 +3,10 @@
 import { useEffect } from "react";
 
 import { APPEARANCE_STORAGE_KEY } from "@/lib/appearance";
+import {
+  LANGUAGE_STORAGE_KEY,
+  resolveAppLanguage,
+} from "@/lib/language";
 
 export function ThemeBootstrap() {
   useEffect(() => {
@@ -16,6 +20,17 @@ export function ThemeBootstrap() {
       document.documentElement.dataset.theme = "light";
       document.documentElement.style.colorScheme = "light";
       document.documentElement.classList.remove("dark");
+    }
+
+    try {
+      const language = resolveAppLanguage(
+        window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
+      );
+      document.documentElement.lang = language;
+      document.documentElement.dataset.language = language;
+    } catch {
+      document.documentElement.lang = "en";
+      document.documentElement.dataset.language = "en";
     }
   }, []);
 

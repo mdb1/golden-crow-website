@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MonitorCog, MoonStar, SunMedium } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import {
   APPEARANCE_STORAGE_KEY,
@@ -9,6 +10,7 @@ import {
   toggleAppearance,
   type AppearanceMode,
 } from "@/lib/appearance";
+import { appText } from "@/lib/language";
 
 function applyAppearance(mode: AppearanceMode) {
   document.documentElement.dataset.theme = mode;
@@ -22,6 +24,7 @@ function readAppearance(): AppearanceMode {
 }
 
 export function AppearanceToggle() {
+  const { language } = useAppLanguage();
   const [appearance, setAppearance] = useState<AppearanceMode>("light");
   const [mounted, setMounted] = useState(false);
 
@@ -46,7 +49,7 @@ export function AppearanceToggle() {
         disabled
       >
         <MonitorCog className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Appearance</span>
+        <span className="hidden sm:inline">{appText(language, "Appearance")}</span>
       </Button>
     );
   }
@@ -59,8 +62,16 @@ export function AppearanceToggle() {
       size="sm"
       className="justify-center px-2 sm:min-w-[116px] sm:justify-start"
       onClick={handleToggle}
-      aria-label={`Switch to ${isLight ? "dark" : "light"} mode`}
-      title={`Switch to ${isLight ? "dark" : "light"} mode`}
+      aria-label={
+        isLight
+          ? appText(language, "Switch to dark mode")
+          : appText(language, "Switch to light mode")
+      }
+      title={
+        isLight
+          ? appText(language, "Switch to dark mode")
+          : appText(language, "Switch to light mode")
+      }
     >
       {isLight ? (
         <SunMedium className="h-3.5 w-3.5" />
@@ -68,7 +79,9 @@ export function AppearanceToggle() {
         <MoonStar className="h-3.5 w-3.5" />
       )}
       <span className="hidden sm:inline">
-        {isLight ? "Light mode" : "Dark mode"}
+        {isLight
+          ? appText(language, "Light mode")
+          : appText(language, "Dark mode")}
       </span>
     </Button>
   );
