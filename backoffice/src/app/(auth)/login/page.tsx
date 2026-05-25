@@ -28,6 +28,15 @@ import {
 import { signIn } from "next-auth/react";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
@@ -49,6 +58,28 @@ type AuthNotice = {
   title: string;
   message: string;
   details?: string[];
+  log?: AuthLog;
+};
+
+type AuthLog = {
+  timestamp: string;
+  surface: "legacy-login";
+  source: string;
+  event: string;
+  message: string;
+  request?: {
+    method: string;
+    path: string;
+  };
+  response?: {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: unknown;
+  };
+  error?: unknown;
+  context?: Record<string, unknown>;
 };
 
 type SignupEligibility = {
@@ -86,6 +117,171 @@ function getErrorCode(error: unknown): string | null {
   return typeof code === "string" ? code : null;
 }
 
+function isAuthNotice(error: unknown): error is AuthNotice {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "tone" in error &&
+    "title" in error &&
+    "message" in error
+  );
+}
+
+const SENSITIVE_AUTH_LOG_KEY = /authorization|cookie|credential|idtoken|password|secret|session|token/i;
+
+function redactForAuthLog(value: unknown, depth = 0): unknown {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  if (typeof value === "undefined") {
+    return "[undefined]";
+  }
+
+  if (value instanceof Error) {
+    const errorData: Record<string, unknown> = {
+      name: value.name,
+      message: value.message,
+    };
+    const code = getErrorCode(value);
+    if (code) errorData.code = code;
+    if (value.stack) errorData.stack = value.stack;
+    const properties = Object.fromEntries(
+      Object.entries(value).filter(
+        ([key]) => !["code", "message", "name", "stack"].includes(key)
+      )
+    );
+    if (Object.keys(properties).length > 0) {
+      errorData.properties = redactForAuthLog(properties, depth + 1);
+    }
+    return errorData;
+  }
+
+  if (depth >= 6) {
+    return "[truncated]";
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactForAuthLog(item, depth + 1));
+  }
+
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        SENSITIVE_AUTH_LOG_KEY.test(key)
+          ? "[redacted]"
+          : redactForAuthLog(nested, depth + 1),
+      ])
+    );
+  }
+
+  return String(value);
+}
+
+function getResponseHeadersForLog(response: Response) {
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = SENSITIVE_AUTH_LOG_KEY.test(key) ? "[redacted]" : value;
+  });
+  return headers;
+}
+
+function authErrorLog({
+  source,
+  event,
+  message,
+  error,
+  context,
+}: {
+  source: string;
+  event: string;
+  message: string;
+  error: unknown;
+  context?: Record<string, unknown>;
+}): AuthLog {
+  return {
+    timestamp: new Date().toISOString(),
+    surface: "legacy-login",
+    source,
+    event,
+    message,
+    error: redactForAuthLog(error),
+    ...(context ? { context: redactForAuthLog(context) as Record<string, unknown> } : {}),
+  };
+}
+
+function authResponseLog({
+  source,
+  event,
+  message,
+  method,
+  path,
+  response,
+  body,
+  context,
+}: {
+  source: string;
+  event: string;
+  message: string;
+  method: string;
+  path: string;
+  response: Response;
+  body: unknown;
+  context?: Record<string, unknown>;
+}): AuthLog {
+  return {
+    timestamp: new Date().toISOString(),
+    surface: "legacy-login",
+    source,
+    event,
+    message,
+    request: { method, path },
+    response: {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: getResponseHeadersForLog(response),
+      body: redactForAuthLog(body),
+    },
+    ...(context ? { context: redactForAuthLog(context) as Record<string, unknown> } : {}),
+  };
+}
+
+function authEventLog({
+  source,
+  event,
+  message,
+  context,
+}: {
+  source: string;
+  event: string;
+  message: string;
+  context?: Record<string, unknown>;
+}): AuthLog {
+  return {
+    timestamp: new Date().toISOString(),
+    surface: "legacy-login",
+    source,
+    event,
+    message,
+    ...(context ? { context: redactForAuthLog(context) as Record<string, unknown> } : {}),
+  };
+}
+
+function formatAuthLog(log: AuthLog) {
+  return JSON.stringify(log, null, 2);
+}
+
 function serverMessage(data: Record<string, unknown>, fallback: string) {
   return typeof data.error === "string" && data.error.trim()
     ? data.error
@@ -94,6 +290,12 @@ function serverMessage(data: Record<string, unknown>, fallback: string) {
 
 function googleNotice(error: unknown): AuthNotice {
   const code = getErrorCode(error);
+  const log = authErrorLog({
+    source: "firebase-web-sdk",
+    event: "google-sign-in",
+    message: "Google sign-in failed before the legacy SDK session could be created.",
+    error,
+  });
 
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
     return {
@@ -101,6 +303,7 @@ function googleNotice(error: unknown): AuthNotice {
       title: "Sign-in window closed",
       message:
         "No session was created. Open Google sign-in again when you are ready.",
+      log,
     };
   }
 
@@ -111,6 +314,7 @@ function googleNotice(error: unknown): AuthNotice {
       message:
         "Allow pop-ups for this site, then try Google sign-in again.",
       details: ["You can also use the email and password option below."],
+      log,
     };
   }
 
@@ -120,6 +324,7 @@ function googleNotice(error: unknown): AuthNotice {
       title: "Network connection interrupted",
       message:
         "The browser could not reach Firebase. Check your connection and try again.",
+      log,
     };
   }
 
@@ -129,17 +334,25 @@ function googleNotice(error: unknown): AuthNotice {
     message:
       "The browser authenticated with Google but the backoffice could not complete the session.",
     details: ["Try again, or use email sign-in if your account has a password."],
+    log,
   };
 }
 
 function emailNotice(error: unknown): AuthNotice {
   const code = getErrorCode(error);
+  const log = authErrorLog({
+    source: "firebase-web-sdk",
+    event: "email-sign-in",
+    message: "Email sign-in failed before the legacy SDK session could be created.",
+    error,
+  });
 
   if (code === "auth/invalid-email") {
     return {
       tone: "error",
       title: "Email format needs a fix",
       message: "Enter the full email address, for example team@pocketgenes.app.",
+      log,
     };
   }
 
@@ -156,6 +369,7 @@ function emailNotice(error: unknown): AuthNotice {
       details: [
         "If this is your first time here, use Create email account so access can be checked before a password is created.",
       ],
+      log,
     };
   }
 
@@ -165,6 +379,7 @@ function emailNotice(error: unknown): AuthNotice {
       title: "Too many attempts",
       message:
         "Firebase temporarily slowed this account down. Wait a few minutes before trying again.",
+      log,
     };
   }
 
@@ -174,6 +389,7 @@ function emailNotice(error: unknown): AuthNotice {
       title: "Network connection interrupted",
       message:
         "The browser could not reach Firebase. Check your connection and try again.",
+      log,
     };
   }
 
@@ -182,10 +398,11 @@ function emailNotice(error: unknown): AuthNotice {
     title: "Email sign-in failed",
     message:
       "The credentials could not be verified. Check the email, password, and account status.",
+    log,
   };
 }
 
-function sdkLoginNotice(status: number, message?: string): AuthNotice {
+function sdkLoginNotice(status: number, message?: string, log?: AuthLog): AuthNotice {
   if (status === 403) {
     return {
       tone: "error",
@@ -196,6 +413,7 @@ function sdkLoginNotice(status: number, message?: string): AuthNotice {
         "Ask a full admin to add the email to the team allowlist or assign an active admin role.",
         "If access was granted moments ago, sign out of Google and try again.",
       ],
+      log,
     };
   }
 
@@ -205,6 +423,7 @@ function sdkLoginNotice(status: number, message?: string): AuthNotice {
       title: "Session token was rejected",
       message:
         "Firebase could not validate the token returned by the browser. Start the sign-in flow again.",
+      log,
     };
   }
 
@@ -215,10 +434,11 @@ function sdkLoginNotice(status: number, message?: string): AuthNotice {
       message ||
       "The authentication service responded, but it did not create a valid backoffice session.",
     details: ["Try again. If it repeats, capture the time and ask the team to inspect SDK logs."],
+    log,
   };
 }
 
-function setupNotice(message: string): AuthNotice {
+function setupNotice(message: string, log?: AuthLog): AuthNotice {
   return {
     tone: "error",
     title: "Account setup could not continue",
@@ -226,10 +446,52 @@ function setupNotice(message: string): AuthNotice {
     details: [
       "Your credentials may be valid, but the backoffice could not load the profile or project context needed after sign-in.",
     ],
+    log,
   };
 }
 
+function AuthLogDialog({
+  log,
+  open,
+  onOpenChange,
+}: {
+  log: AuthLog;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const formattedLog = formatAuthLog(log);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-white/12 bg-slate-950 text-white shadow-[0_30px_90px_rgba(2,6,23,0.55)] sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Authentication error log</DialogTitle>
+          <DialogDescription className="text-white/62">
+            Full client-side diagnostic captured for this failed sign-in attempt.
+            Token, cookie, session, and password-like fields are redacted.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[55vh] overflow-auto rounded-xl border border-white/12 bg-black/35 p-3">
+          <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-cyan-50/82">{formattedLog}</pre>
+        </div>
+        <DialogFooter className="border-white/10 bg-white/[0.04]">
+          <DialogClose asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/18 bg-white/8 text-white hover:bg-white/14"
+            >
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => void }) {
+  const [logsOpen, setLogsOpen] = useState(false);
   const toneClasses = {
     error:
       "border-red-300/45 bg-red-500/13 text-red-50 shadow-[0_18px_44px_rgba(120,20,38,0.25)]",
@@ -250,13 +512,24 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <p className="font-semibold">{notice.title}</p>
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="rounded-md px-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
-            >
-              Dismiss
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {notice.log ? (
+                <button
+                  type="button"
+                  onClick={() => setLogsOpen(true)}
+                  className="rounded-md px-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+                >
+                  Show logs
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="rounded-md px-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
           <p className="mt-1 text-white/78">{notice.message}</p>
           {notice.details && notice.details.length > 0 ? (
@@ -271,6 +544,9 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
           ) : null}
         </div>
       </div>
+      {notice.log ? (
+        <AuthLogDialog log={notice.log} open={logsOpen} onOpenChange={setLogsOpen} />
+      ) : null}
     </aside>
   );
 }
@@ -392,10 +668,30 @@ export default function LoginPage() {
     });
 
     if (!loginRes.ok) {
-      await firebaseSignOut(auth);
       const data = await readJson(loginRes);
+      const message = serverMessage(data, "SDK login failed.");
+      let signOutError: unknown = null;
+      try {
+        await firebaseSignOut(auth);
+      } catch (err) {
+        signOutError = err;
+        console.error("Firebase sign-out after SDK login failure failed:", err);
+      }
       setNotice(
-        sdkLoginNotice(loginRes.status, serverMessage(data, "SDK login failed."))
+        sdkLoginNotice(
+          loginRes.status,
+          message,
+          authResponseLog({
+            source: "legacy-sdk",
+            event: "create-backoffice-session",
+            message,
+            method: "POST",
+            path: "/api/sdk/auth/login",
+            response: loginRes,
+            body: data,
+            ...(signOutError ? { context: { firebaseSignOutError: signOutError } } : {}),
+          })
+        )
       );
       return;
     }
@@ -409,16 +705,52 @@ export default function LoginPage() {
       }),
     ]);
 
+    const [contextData, profileSetupData] = (await Promise.all([
+      readJson(contextRes),
+      readJson(profileSetupRes),
+    ])) as [
+      Record<string, unknown> & { context?: { projectAccess?: unknown } },
+      Record<string, unknown> & { state?: { needsCompletion?: boolean } },
+    ];
+
     if (!contextRes.ok) {
-      throw setupNotice("The SDK session was created, but project access could not be loaded.");
+      const message = serverMessage(
+        contextData,
+        "The SDK session was created, but project access could not be loaded."
+      );
+      throw setupNotice(
+        message,
+        authResponseLog({
+          source: "legacy-sdk",
+          event: "load-project-context",
+          message,
+          method: "GET",
+          path: "/api/sdk/auth/context",
+          response: contextRes,
+          body: contextData,
+        })
+      );
     }
 
     if (!profileSetupRes.ok) {
-      throw setupNotice("The SDK session was created, but profile setup status could not be loaded.");
+      const message = serverMessage(
+        profileSetupData,
+        "The SDK session was created, but profile setup status could not be loaded."
+      );
+      throw setupNotice(
+        message,
+        authResponseLog({
+          source: "legacy-sdk",
+          event: "load-profile-setup",
+          message,
+          method: "GET",
+          path: "/api/sdk/auth/profile-setup",
+          response: profileSetupRes,
+          body: profileSetupData,
+        })
+      );
     }
 
-    const contextData = await contextRes.json();
-    const profileSetupData = await profileSetupRes.json();
     const projectAccess = getLegacyProjectAccess(
       contextData.context?.projectAccess
     );
@@ -463,12 +795,19 @@ export default function LoginPage() {
       return;
     }
 
+    const message =
+      "Firebase accepted the account, but NextAuth did not persist the browser session.";
     setNotice({
       tone: "error",
       title: "Backoffice session handoff failed",
-      message:
-        "Firebase accepted the account, but NextAuth did not persist the browser session.",
+      message,
       details: ["Try again. If it repeats, clear this site's cookies and sign in again."],
+      log: authEventLog({
+        source: "next-auth",
+        event: "credentials-session-handoff",
+        message,
+        context: { project, redirectTo, signInResult },
+      }),
     });
   }
 
@@ -486,8 +825,8 @@ export default function LoginPage() {
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
-      if (typeof err === "object" && err !== null && "tone" in err) {
-        setNotice(err as AuthNotice);
+      if (isAuthNotice(err)) {
+        setNotice(err);
       } else {
         console.error("Login error:", err);
         setNotice(googleNotice(err));
@@ -511,8 +850,8 @@ export default function LoginPage() {
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
-      if (typeof err === "object" && err !== null && "tone" in err) {
-        setNotice(err as AuthNotice);
+      if (isAuthNotice(err)) {
+        setNotice(err);
       } else {
         console.error("Email login error:", err);
         setNotice(emailNotice(err));
@@ -539,24 +878,41 @@ export default function LoginPage() {
       };
 
       if (!response.ok) {
+        const message = serverMessage(data, "Unable to validate this email right now.");
         throw {
           tone: "error",
           title: "Access check could not run",
-          message: serverMessage(data, "Unable to validate this email right now."),
+          message,
           details: ["No account was created. Try again before choosing a password."],
+          log: authResponseLog({
+            source: "legacy-sdk",
+            event: "check-email-signup-eligibility",
+            message,
+            method: "POST",
+            path: "/api/sdk/auth/email-signup/eligibility",
+            response,
+            body: data,
+          }),
         } satisfies AuthNotice;
       }
 
       if (!data.eligible || !data.email) {
+        const message =
+          "The new-user flow only creates accounts for emails already approved by the team.";
         setNotice({
           tone: "error",
           title: "This email is not approved yet",
-          message:
-            "The new-user flow only creates accounts for emails already approved by the team.",
+          message,
           details: [
             "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
             "After approval, return here and run this check again.",
           ],
+          log: authEventLog({
+            source: "legacy-sdk",
+            event: "email-signup-eligibility-denied",
+            message,
+            context: { eligibility: data },
+          }),
         });
         return;
       }
@@ -582,17 +938,24 @@ export default function LoginPage() {
           "This email can create a backoffice account. Choose a password to finish setup.",
       });
     } catch (err) {
-      if (typeof err === "object" && err !== null && "tone" in err) {
-        setNotice(err as AuthNotice);
+      if (isAuthNotice(err)) {
+        setNotice(err);
       } else {
         console.error("Signup eligibility error:", err);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to validate this email right now.";
         setNotice({
           tone: "error",
           title: "Access check failed",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Unable to validate this email right now.",
+          message,
+          log: authErrorLog({
+            source: "legacy-sdk",
+            event: "check-email-signup-eligibility",
+            message,
+            error: err,
+          }),
         });
       }
     } finally {
@@ -622,13 +985,23 @@ export default function LoginPage() {
       const createData = await readJson(createRes);
 
       if (!createRes.ok) {
+        const message = serverMessage(createData, "Unable to create the email account.");
         setNotice({
           tone: "error",
           title: "Account was not created",
-          message: serverMessage(createData, "Unable to create the email account."),
+          message,
           details: [
             "Confirm the email is still approved and use a password with at least 6 characters.",
           ],
+          log: authResponseLog({
+            source: "legacy-sdk",
+            event: "create-email-account",
+            message,
+            method: "POST",
+            path: "/api/sdk/auth/email-signup",
+            response: createRes,
+            body: createData,
+          }),
         });
         return;
       }
@@ -645,18 +1018,25 @@ export default function LoginPage() {
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
-      if (typeof err === "object" && err !== null && "tone" in err) {
-        setNotice(err as AuthNotice);
+      if (isAuthNotice(err)) {
+        setNotice(err);
       } else {
         console.error("Email signup error:", err);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to create the email account.";
         setNotice({
           tone: "error",
           title: "Account setup stopped",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Unable to create the email account.",
+          message,
           details: ["No dashboard access was changed. You can retry from the access check step."],
+          log: authErrorLog({
+            source: "legacy-sdk",
+            event: "create-email-account",
+            message,
+            error: err,
+          }),
         });
       }
     } finally {
@@ -672,12 +1052,20 @@ export default function LoginPage() {
       await finalizeLogin(pendingAuth, project, pendingAuth.redirectTo);
     } catch (err) {
       console.error("Project select error:", err);
+      const message =
+        "The account is valid, but the selected project session could not be saved.";
       setNotice({
         tone: "error",
         title: "Project handoff failed",
-        message:
-          "The account is valid, but the selected project session could not be saved.",
+        message,
         details: ["Try selecting the project again."],
+        log: authErrorLog({
+          source: "next-auth",
+          event: "selected-project-session-handoff",
+          message,
+          error: err,
+          context: { project, redirectTo: pendingAuth.redirectTo },
+        }),
       });
     } finally {
       setLoading(null);
