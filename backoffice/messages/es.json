@@ -137,6 +137,7 @@
       "weightLabel": "Peso: {value}",
       "openChat": "Abrir chat",
       "assignWorkout": "Asignar entrenamiento",
+      "assignHabit": "Asignar hábito",
       "skeleton": {
         "recentWorkouts": "Entrenamientos recientes",
         "habitCompliance": "Adherencia a hábitos (últimos 7 días)",
@@ -209,14 +210,18 @@
         "addCta": "Agregar nota",
         "saveFailed": "Error al guardar",
         "notesForDate": "Notas para {date}",
-        "noNotesForDay": "Sin notas para este día."
+        "noNotesForDay": "Sin notas para este día.",
+        "previousNotes": "Notas previas",
+        "noPreviousNotes": "Sin notas previas."
       },
       "recentWorkouts": {
         "title": "Entrenamientos recientes",
         "empty": "Aún no hay entrenamientos registrados.",
         "untitled": "(sin nombre)",
         "setSingular": "{count} serie",
-        "setPlural": "{count} series"
+        "setPlural": "{count} series",
+        "viewWorkout": "Ver workout",
+        "viewLog": "Ver log"
       },
       "habitCompliance": {
         "title": "Adherencia a hábitos (últimos 7 días)",
@@ -257,6 +262,26 @@
         "logSingular": "{count} registro",
         "logPlural": "{count} registros",
         "ariaLabel": "Tendencia de peso corporal en {count} registros"
+      },
+      "summary": {
+        "title": "Summary",
+        "subtitle": "Resumen de asignaciones activas del cliente.",
+        "workouts": "Workouts asignados",
+        "habits": "Hábitos asignados",
+        "goals": "Goals",
+        "noWorkouts": "Sin workouts activos.",
+        "noHabits": "Sin hábitos activos.",
+        "noGoals": "Sin goals activos.",
+        "untitledWorkout": "(workout sin nombre)",
+        "untitledHabit": "(hábito sin nombre)",
+        "once": "una vez",
+        "daily": "diario",
+        "weekly": "semanal",
+        "weeklyDays": "varios días por semana",
+        "weeklyCount": "{count} días/semana",
+        "monthlyCount": "{count} días/mes",
+        "everyNDays": "cada {everyN} días",
+        "custom": "recurrencia custom"
       }
     }
   },

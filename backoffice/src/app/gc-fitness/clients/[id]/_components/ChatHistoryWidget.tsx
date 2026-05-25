@@ -38,6 +38,12 @@ interface MessagePreviewRow {
   isTrainer: boolean;
 }
 
+interface MessageGroup {
+  key: string;
+  label: string;
+  rows: MessagePreviewRow[];
+}
+
 function toDate(v: unknown): Date | null {
   if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
     return (v as { toDate: () => Date }).toDate();
@@ -95,35 +101,64 @@ export async function ChatHistoryWidget({
     })
     .reverse(); // newest fetched first; reverse so oldest renders at top
 
+  const groups: MessageGroup[] = [];
+  for (const row of rows) {
+    const key = row.createdAt
+      ? row.createdAt.toISOString().slice(0, 13)
+      : "unknown";
+    const label = row.createdAt
+      ? row.createdAt.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+        })
+      : tCommon("emDash");
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) {
+      last.rows.push(row);
+    } else {
+      groups.push({ key, label, rows: [row] });
+    }
+  }
+
   return (
     <section className="flex flex-col rounded-md border bg-card p-4">
       <h2 className="mb-3 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className={
-                row.isTrainer
-                  ? "ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground"
-                  : "mr-auto max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50"
-              }
-            >
-              <p className="mb-1 text-[10px] uppercase tracking-wide opacity-70">
-                {row.isTrainer ? t("coach") : t("client")}
-              </p>
-              <p className="whitespace-pre-wrap break-words">{row.body}</p>
-              <p
-                className={
-                  row.isTrainer
-                    ? "mt-1 text-[10px] text-primary-foreground/70"
-                    : "mt-1 text-[10px] text-emerald-900/70 dark:text-emerald-50/70"
-                }
-              >
-                {row.createdAt ? row.createdAt.toLocaleString() : tCommon("emDash")}
-              </p>
+        <div className="flex flex-col gap-3">
+          {groups.map((group) => (
+            <div key={group.key} className="space-y-2">
+              <p className="text-center text-[11px] text-muted-foreground">{group.label}</p>
+              {group.rows.map((row, index) => (
+                <div
+                  key={row.id}
+                  className={
+                    row.isTrainer
+                      ? "ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground"
+                      : "mr-auto max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50"
+                  }
+                >
+                  <p className="whitespace-pre-wrap break-words">{row.body}</p>
+                  {index === group.rows.length - 1 ? (
+                    <p
+                      className={
+                        row.isTrainer
+                          ? "mt-1 text-[10px] text-primary-foreground/70"
+                          : "mt-1 text-[10px] text-emerald-900/70 dark:text-emerald-50/70"
+                      }
+                    >
+                      {row.createdAt
+                        ? row.createdAt.toLocaleTimeString(undefined, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : tCommon("emDash")}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
             </div>
           ))}
         </div>

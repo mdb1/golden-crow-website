@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -53,6 +53,7 @@ export function ClientDailyTimeline({
     templateName: string;
     seriesId?: string | null;
   } | null>(null);
+  const dayButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const selected = daysByDate[selectedDate] ?? null;
 
@@ -65,6 +66,12 @@ export function ClientDailyTimeline({
     }),
     [daysByDate],
   );
+
+  useEffect(() => {
+    const node = dayButtonRefs.current[selectedDate];
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [selectedDate]);
 
   async function loadDay(day: string) {
     if (daysByDate[day] || loadingDate === day) {
@@ -158,6 +165,9 @@ export function ClientDailyTimeline({
           return (
             <button
               key={day}
+              ref={(node) => {
+                dayButtonRefs.current[day] = node;
+              }}
               type="button"
               onClick={() => void loadDay(day)}
               className={[
@@ -364,9 +374,6 @@ export function ClientDailyTimeline({
                         : "mr-auto bg-muted text-foreground",
                     ].join(" ")}
                   >
-                    <span className="block text-[10px] uppercase opacity-70">
-                      {message.sender === "coach" ? t("coach") : t("client")}
-                    </span>
                     <span className="block whitespace-pre-wrap">{message.body}</span>
                   </li>
                 ))}

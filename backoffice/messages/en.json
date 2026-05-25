@@ -137,6 +137,7 @@
       "weightLabel": "Weight: {value}",
       "openChat": "Open chat",
       "assignWorkout": "Assign workout",
+      "assignHabit": "Assign habit",
       "skeleton": {
         "recentWorkouts": "Recent workouts",
         "habitCompliance": "Habit compliance (last 7 days)",
@@ -209,14 +210,18 @@
         "addCta": "Add note",
         "saveFailed": "Save failed",
         "notesForDate": "Notes for {date}",
-        "noNotesForDay": "No notes for this day."
+        "noNotesForDay": "No notes for this day.",
+        "previousNotes": "Previous notes",
+        "noPreviousNotes": "No previous notes."
       },
       "recentWorkouts": {
         "title": "Recent workouts",
         "empty": "No workouts logged yet.",
         "untitled": "(unnamed)",
         "setSingular": "{count} set",
-        "setPlural": "{count} sets"
+        "setPlural": "{count} sets",
+        "viewWorkout": "View workout",
+        "viewLog": "View log"
       },
       "habitCompliance": {
         "title": "Habit compliance (last 7 days)",
@@ -257,6 +262,26 @@
         "logSingular": "{count} log",
         "logPlural": "{count} logs",
         "ariaLabel": "Body weight trend over {count} log points"
+      },
+      "summary": {
+        "title": "Summary",
+        "subtitle": "Overview of client active assignments.",
+        "workouts": "Assigned workouts",
+        "habits": "Assigned habits",
+        "goals": "Goals",
+        "noWorkouts": "No active workouts.",
+        "noHabits": "No active habits.",
+        "noGoals": "No active goals.",
+        "untitledWorkout": "(untitled workout)",
+        "untitledHabit": "(untitled habit)",
+        "once": "once",
+        "daily": "daily",
+        "weekly": "weekly",
+        "weeklyDays": "multiple weekdays",
+        "weeklyCount": "{count} days/week",
+        "monthlyCount": "{count} days/month",
+        "everyNDays": "every {everyN} days",
+        "custom": "custom recurrence"
       }
     }
   },

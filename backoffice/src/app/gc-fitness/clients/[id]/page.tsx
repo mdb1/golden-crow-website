@@ -39,7 +39,6 @@ import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
 import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
 import { ClientNotesCard } from "./_components/ClientNotesCard";
 import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
-import { ClientGoalsCard } from "./_components/ClientGoalsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
@@ -47,6 +46,7 @@ import { getClientDailyTimelineDay } from "@/lib/gc-fitness/client-daily-timelin
 import { buildClientDailyTimelineDates } from "@/lib/gc-fitness/client-daily-timeline-utils";
 import { ClientDailyTimeline } from "./_components/ClientDailyTimeline";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
+import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 
 export const dynamic = "force-dynamic";
 
@@ -168,9 +168,8 @@ export default async function ClientDetailPage({
           initialEntries={notes.entries}
         />
 
-        <ClientGoalsCard clientId={id} initialGoals={goals} />
-
         <ProgressPhotosWidget photos={progressPhotos} />
+        <ClientSummaryCard clientId={id} goals={goals} />
 
         <ClientDailyTimeline
           clientId={id}

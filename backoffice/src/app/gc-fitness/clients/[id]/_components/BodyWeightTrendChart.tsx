@@ -45,54 +45,75 @@ const CHART_HEIGHT = 140;
 const PADDING_X = 20;
 const PADDING_Y = 20;
 
+function toDate(v: unknown): Date | null {
+  if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
+    return (v as { toDate: () => Date }).toDate();
+  }
+  if (v instanceof Date) return v;
+  if (typeof v === "string") {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 export async function BodyWeightTrendChart({
   clientId,
 }: BodyWeightTrendChartProps) {
   const t = await getTranslations("clients.detail.bodyWeightChart");
   const db = gcFitnessFirestore();
 
-  // Find the client's weight habit(s). The 11-05 aggregator filters out
-  // soft-deleted habits at the query layer; we mirror that here so a
-  // deleted weight habit doesn't poison the inline chart.
-  const habitsSnap = await db
-    .collection(FirestoreCollections.habits)
-    .where("clientId", "==", clientId)
-    .where("type", "==", "weight")
-    .where("deleted", "==", false)
-    .get();
-
-  if (habitsSnap.empty) {
-    return (
-      <section className="rounded-md border bg-card p-4">
-        <h2 className="mb-3 font-medium">{t("title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
-      </section>
-    );
-  }
-
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const habitIds = habitsSnap.docs.map((d) => d.id);
 
-  // Pull the habit unit hint (kg vs lb) from the first weight habit
-  // for the label. The habit schema stores `unit?` as a free-form
-  // string; default to kg when unset (matches the schema's documented
-  // default for the `weight` type).
-  const firstHabit = habitsSnap.docs[0]?.data() as { unit?: string } | undefined;
-  const unitLabel =
-    typeof firstHabit?.unit === "string" && firstHabit.unit.length > 0
-      ? firstHabit.unit
-      : "kg";
+  // Primary source for this widget: /users/{uid}/body_weight_logs
+  // (what trainers are currently loading in production for client profile).
+  // If empty, we fall back to weight habit logs.
+  const directWeightLogsSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .collection("body_weight_logs")
+    .orderBy("recordedAt", "asc")
+    .limit(180)
+    .get()
+    .catch(() => null);
 
-  // Firestore `in` operator caps at 30 values — habitIds.length is
-  // bounded by the v1 design (1-2 weight habits per client).
-  const logsSnap = await db
-    .collection(FirestoreCollections.habitLogs)
-    .where("habitId", "in", habitIds)
-    .where("loggedAt", ">=", thirtyDaysAgo)
-    .orderBy("loggedAt", "asc")
-    .get();
+  let unitLabel = "kg";
+  let points: WeightPoint[] = (directWeightLogsSnap?.docs ?? [])
+    .map((d) => {
+      const data = d.data() as {
+        valueKg?: unknown;
+        recordedAt?: unknown;
+      };
+      const weight = typeof data.valueKg === "number" ? data.valueKg : null;
+      const date = toDate(data.recordedAt);
+      if (weight === null || !date) return null;
+      if (date < thirtyDaysAgo) return null;
+      return { date: date.toISOString().slice(0, 10), weight };
+    })
+    .filter((p): p is WeightPoint => p !== null);
 
-  const points: WeightPoint[] = logsSnap.docs
+  if (points.length === 0) {
+    const habitsSnap = await db
+      .collection(FirestoreCollections.habits)
+      .where("clientId", "==", clientId)
+      .where("type", "==", "weight")
+      .where("deleted", "==", false)
+      .get();
+
+    if (!habitsSnap.empty) {
+      const habitIds = habitsSnap.docs.map((d) => d.id);
+      const firstHabit = habitsSnap.docs[0]?.data() as { unit?: string } | undefined;
+      unitLabel =
+        typeof firstHabit?.unit === "string" && firstHabit.unit.length > 0
+          ? firstHabit.unit
+          : "kg";
+      const logsSnap = await db
+        .collection(FirestoreCollections.habitLogs)
+        .where("habitId", "in", habitIds)
+        .where("loggedAt", ">=", thirtyDaysAgo)
+        .orderBy("loggedAt", "asc")
+        .get();
+      points = logsSnap.docs
     .map((d) => {
       const data = d.data() as {
         civilDate?: string;
@@ -105,6 +126,8 @@ export async function BodyWeightTrendChart({
       return { date: data.civilDate, weight: data.value };
     })
     .filter((p): p is WeightPoint => p !== null);
+    }
+  }
 
   if (points.length === 0) {
     return (

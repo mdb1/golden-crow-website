@@ -20,6 +20,7 @@
 // sets rather than crashing the Suspense boundary.
 
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -33,6 +34,7 @@ interface WorkoutLogRow {
   startedAt: Date | null;
   templateName: string;
   setCount: number;
+  assignmentId: string | null;
 }
 
 function localizedText(value: unknown, fallback: string): string {
@@ -76,12 +78,17 @@ export async function RecentWorkoutsWidget({
       startedAt?: unknown;
       templateSnapshot?: { name?: unknown };
       sets?: unknown[];
+      assignmentId?: unknown;
     };
     return {
       id: d.id,
       startedAt: toDate(data.startedAt),
       templateName: localizedText(data.templateSnapshot?.name, untitled),
       setCount: Array.isArray(data.sets) ? data.sets.length : 0,
+      assignmentId:
+        typeof data.assignmentId === "string" && data.assignmentId.length > 0
+          ? data.assignmentId
+          : null,
     };
   });
 
@@ -109,6 +116,21 @@ export async function RecentWorkoutsWidget({
                     : t("setPlural", { count: row.setCount })}
                 </span>
               </div>
+              {row.assignmentId ? (
+                <Link
+                  href={`/gc-fitness/schedule?clientId=${clientId}&assignmentId=${row.assignmentId}`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t("viewWorkout")}
+                </Link>
+              ) : (
+                <Link
+                  href={`/gc-fitness/recent-logs/workouts/${row.id}`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t("viewLog")}
+                </Link>
+              )}
             </li>
           ))}
         </ul>

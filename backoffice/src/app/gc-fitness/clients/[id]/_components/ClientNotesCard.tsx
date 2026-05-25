@@ -29,6 +29,13 @@ export function ClientNotesCard({
   const [entries, setEntries] = useState(initialEntries);
 
   const notesForSelectedDay = entries.filter((entry) => entry.date === noteDate);
+  const recentEntries = [...entries]
+    .sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    })
+    .slice(0, 8);
 
   return (
     <section className="rounded-md border bg-card p-4">
@@ -109,6 +116,27 @@ export function ClientNotesCard({
                   ? new Date(entry.createdAt).toLocaleString()
                   : tCommon("emDash")}
               </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-5 space-y-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t("previousNotes")}
+        </p>
+        {recentEntries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("noPreviousNotes")}</p>
+        ) : (
+          recentEntries.map((entry, index) => (
+            <div key={`recent-${entry.date}-${index}`} className="rounded-md border p-3 text-sm">
+              <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{entry.date}</span>
+                <span>
+                  {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : tCommon("emDash")}
+                </span>
+              </div>
+              <p className="line-clamp-3 whitespace-pre-wrap">{entry.notes}</p>
             </div>
           ))
         )}
