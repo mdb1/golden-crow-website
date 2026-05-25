@@ -19,6 +19,8 @@
     "fetch-fexd-assets:apply": "tsx fetch-fexd-assets.ts --apply",
     "rewrite:exercise-refs": "tsx rewrite-exercise-refs.ts",
     "rewrite:exercise-refs:apply": "tsx rewrite-exercise-refs.ts --apply",
+    "soft-delete:wger-survivors": "tsx soft-delete-wger-survivors.ts",
+    "soft-delete:wger-survivors:apply": "tsx soft-delete-wger-survivors.ts --apply",
     "seed-fexd": "tsx seed-from-fexd.ts",
     "seed-fexd:apply": "tsx seed-from-fexd.ts --apply",
     "translate:fexd": "tsx translate-fexd-batch.ts",
