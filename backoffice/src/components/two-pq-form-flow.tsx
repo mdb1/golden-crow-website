@@ -112,6 +112,20 @@ const PROCESSING_OPTIONS = [
   { value: "ready_for_sequencing", label: "Ready for sequencing" },
 ];
 
+const BOX_CODE_PATTERN = /^[A-Z]{3}$/;
+
+function normalizeBoxCodeInput(value: string) {
+  return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+}
+
+function normalizeBoxCodeForValidation(value: string) {
+  return value.trim().toUpperCase();
+}
+
+function isValidBoxCode(value: string) {
+  return BOX_CODE_PATTERN.test(normalizeBoxCodeForValidation(value));
+}
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -399,6 +413,90 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+    </div>
+  );
+}
+
+function BoxCodeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const displayedValue = value.toUpperCase();
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="form-box-code">CODIGO CAJA</Label>
+      <Input
+        id="form-box-code"
+        value={displayedValue}
+        maxLength={3}
+        pattern="[A-Za-z]{3}"
+        autoCapitalize="characters"
+        autoComplete="off"
+        spellCheck={false}
+        className="font-mono text-base font-semibold uppercase"
+        onChange={(event) => onChange(normalizeBoxCodeInput(event.target.value))}
+      />
+      <p className="text-xs font-medium text-muted-foreground">
+        Exactly three letters. Numbers and special characters are not accepted.
+      </p>
+    </div>
+  );
+}
+
+function BoxCodeVisualizer({ code }: { code: string }) {
+  const normalizedCode = normalizeBoxCodeInput(code);
+  const glyphs = Array.from(
+    { length: 3 },
+    (_, index) => normalizedCode[index] ?? "-"
+  );
+
+  return (
+    <div className="flex items-center gap-2.5" aria-label={`Caja code ${normalizedCode}`}>
+      {glyphs.map((glyph, index) => (
+        <div
+          key={`${glyph}-${index}`}
+          className="flex h-12 w-12 items-center justify-center rounded-[1rem] border border-emerald-100 bg-white/92 text-lg font-black uppercase text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.16)] dark:border-emerald-300/18 dark:bg-emerald-50/94 dark:text-emerald-950"
+        >
+          {glyph}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BoxCodeLinkCard({ code }: { code: string }) {
+  const normalizedCode = normalizeBoxCodeInput(code);
+
+  return (
+    <div className="md:col-span-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/72 p-4 shadow-[0_18px_42px_rgba(16,185,129,0.12)] dark:border-emerald-300/20 dark:bg-emerald-950/20">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="section-eyebrow text-emerald-800 dark:text-emerald-200">
+              CODIGO CAJA
+            </p>
+            <Badge
+              variant="outline"
+              className="border-emerald-200 bg-white/72 text-emerald-900 dark:border-emerald-300/22 dark:bg-emerald-400/10 dark:text-emerald-100"
+            >
+              Validated
+            </Badge>
+          </div>
+          <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">
+            Linked caja request
+          </h3>
+          <p className="max-w-2xl text-sm text-emerald-950/72 dark:text-emerald-50/74">
+            This sample request will be linked to the validated three-letter caja
+            code. It is shown read-only here before the 2PQ case is created or
+            selected.
+          </p>
+        </div>
+        <BoxCodeVisualizer code={normalizedCode} />
+      </div>
     </div>
   );
 }
@@ -850,6 +948,9 @@ export function TwoPQFormFlow({
       }
       if (!state.sampleInformation.boxCode.trim()) {
         return "CODIGO CAJA is required.";
+      }
+      if (!isValidBoxCode(state.sampleInformation.boxCode)) {
+        return "CODIGO CAJA must be exactly three letters (A-Z).";
       }
     }
 
@@ -1485,9 +1586,7 @@ export function TwoPQFormFlow({
               value={state.sampleInformation.processDate}
               onChange={(processDate) => updateSampleInformation({ processDate })}
             />
-            <Field
-              id="form-box-code"
-              label="CODIGO CAJA"
+            <BoxCodeField
               value={state.sampleInformation.boxCode}
               onChange={(boxCode) => updateSampleInformation({ boxCode })}
             />
@@ -1496,6 +1595,7 @@ export function TwoPQFormFlow({
 
         {currentStep === "caseInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
+            <BoxCodeLinkCard code={state.sampleInformation.boxCode} />
             <div className="space-y-2 md:col-span-2">
               <Label>Pick existing 2PQ Case</Label>
               <OptionSelectField

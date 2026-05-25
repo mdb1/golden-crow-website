@@ -178,6 +178,14 @@ function normalizeRequiredString(value: unknown, label: string) {
   return normalized;
 }
 
+function normalizeThreeLetterCode(value: unknown, label: string) {
+  const normalized = normalizeRequiredString(value, label).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(normalized)) {
+    throw new AdminRepositoryError(`${label} must be exactly three letters (A-Z).`, 400);
+  }
+  return normalized;
+}
+
 function normalizeEmail(value: unknown, label: string) {
   const normalized = normalizeRoleEmail(normalizeRequiredString(value, label));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
@@ -665,7 +673,7 @@ function normalizeSampleInformation(input: SampleInformationInput = {}) {
       "PROCESADO POR apellido"
     ),
     processDate: normalizeRequiredIsoDateString(input.processDate, "FECHA PROCESO"),
-    boxCode: normalizeRequiredString(input.boxCode, "CODIGO CAJA"),
+    boxCode: normalizeThreeLetterCode(input.boxCode, "CODIGO CAJA"),
   });
 }
 
