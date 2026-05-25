@@ -252,8 +252,6 @@
       },
       "bodyWeightChart": {
         "title": "Peso corporal (30 días)",
-        "noHabit": "Aún no hay un hábito de peso corporal asignado.",
-        "assignHabit": "Asignar un hábito de peso corporal →",
         "noLogs": "Sin registros de peso en los últimos 30 días.",
         "latestPrefix": "Último:",
         "logSingular": "{count} registro",

@@ -252,8 +252,6 @@
       },
       "bodyWeightChart": {
         "title": "Body weight (30 days)",
-        "noHabit": "No body-weight habit assigned yet.",
-        "assignHabit": "Assign a body-weight habit →",
         "noLogs": "No weight logs in the last 30 days.",
         "latestPrefix": "Latest:",
         "logSingular": "{count} log",

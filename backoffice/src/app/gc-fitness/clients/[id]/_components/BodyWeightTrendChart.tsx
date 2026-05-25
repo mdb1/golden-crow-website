@@ -23,7 +23,6 @@
 // land inside <title> elements (SVG title, React auto-escaped), so
 // T-11-07-CHART-INJECTION is closed by construction.
 
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
@@ -66,13 +65,7 @@ export async function BodyWeightTrendChart({
     return (
       <section className="rounded-md border bg-card p-4">
         <h2 className="mb-3 font-medium">{t("title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("noHabit")}</p>
-        <Link
-          href={`/gc-fitness/habits/new?clientId=${clientId}&type=weight`}
-          className="mt-2 inline-block text-xs text-primary hover:underline"
-        >
-          {t("assignHabit")}
-        </Link>
+        <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
       </section>
     );
   }
