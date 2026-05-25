@@ -731,11 +731,11 @@ function validateStepFields(
     }
     if (!flowState.sampleInformation.requestingDoctorFullName.trim()) {
       errors["sampleInformation.requestingDoctorFullName"] =
-        "MEDICO SOLICITANTE full name is required.";
+        "Full name is required.";
     }
     if (!isValidEmail(flowState.sampleInformation.requestingDoctorAuthEmail)) {
       errors["sampleInformation.requestingDoctorAuthEmail"] =
-        "MEDICO SOLICITANTE auth email must be valid.";
+        "Auth email must be valid.";
     }
     if (!flowState.sampleInformation.sampleType.trim()) {
       errors["sampleInformation.sampleType"] = "TIPO DE MUESTRA is required.";
@@ -2339,107 +2339,120 @@ export function TwoPQFormFlow({
               onChange={(centerCode) => updateSampleInformation({ centerCode })}
               error={errorFor("sampleInformation.centerCode")}
             />
-            <div className="space-y-2 md:col-span-2">
-              <Label>Pick existing MEDICO SOLICITANTE</Label>
-              <OptionSelectField
-                options={requestingDoctorOptions}
-                value={state.selectedRequestingDoctorId}
-                onChange={selectRequestingDoctor}
-                placeholder="Select requesting doctor"
-                emptyLabel="Manual requesting doctor information"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="form-requesting-doctor-institution">
-                MEDICO SOLICITANTE institution
-              </Label>
-              <Input
-                id="form-requesting-doctor-institution"
-                value={
-                  selectedInstitution
-                    ? `${selectedInstitution.name} (${selectedInstitution.id})`
-                    : state.patientInformation.institutionId
-                }
-                disabled
-              />
-            </div>
-            <Field
-              id="form-requesting-doctor-full-name"
-              label="MEDICO SOLICITANTE full name"
-              value={state.sampleInformation.requestingDoctorFullName}
-              onChange={(requestingDoctorFullName) =>
-                updateSampleInformation({ requestingDoctorFullName })
-              }
-              error={errorFor("sampleInformation.requestingDoctorFullName")}
-            />
-            <Field
-              id="form-requesting-doctor-auth-email"
-              label="MEDICO SOLICITANTE auth email"
-              value={state.sampleInformation.requestingDoctorAuthEmail}
-              onChange={(requestingDoctorAuthEmail) =>
-                updateSampleInformation({ requestingDoctorAuthEmail })
-              }
-              error={errorFor("sampleInformation.requestingDoctorAuthEmail")}
-            />
-            <Field
-              id="form-requesting-doctor-auth-uid"
-              label="MEDICO SOLICITANTE auth uid"
-              value={state.sampleInformation.requestingDoctorAuthUid}
-              onChange={(requestingDoctorAuthUid) =>
-                updateSampleInformation({ requestingDoctorAuthUid })
-              }
-            />
-            <div className="space-y-2">
-              <Label>MEDICO SOLICITANTE status</Label>
-              <OptionSelectField
-                options={PERSON_STATUS_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                }))}
-                value={state.sampleInformation.requestingDoctorStatus}
-                onChange={(requestingDoctorStatus) =>
-                  updateSampleInformation({
-                    requestingDoctorStatus:
-                      requestingDoctorStatus === "inactive" ? "inactive" : "active",
-                  })
-                }
-                placeholder="Select status"
-              />
-            </div>
-            <Field
-              id="form-requesting-doctor-specialty"
-              label="MEDICO SOLICITANTE specialty"
-              value={state.sampleInformation.requestingDoctorSpecialty}
-              onChange={(requestingDoctorSpecialty) =>
-                updateSampleInformation({ requestingDoctorSpecialty })
-              }
-            />
-            <Field
-              id="form-requesting-doctor-license"
-              label="MEDICO SOLICITANTE license number"
-              value={state.sampleInformation.requestingDoctorLicenseNumber}
-              onChange={(requestingDoctorLicenseNumber) =>
-                updateSampleInformation({ requestingDoctorLicenseNumber })
-              }
-            />
-            <Field
-              id="form-requesting-doctor-phone"
-              label="MEDICO SOLICITANTE contact phone"
-              value={state.sampleInformation.requestingDoctorContactPhone}
-              onChange={(requestingDoctorContactPhone) =>
-                updateSampleInformation({ requestingDoctorContactPhone })
-              }
-            />
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-requesting-doctor-notes"
-                label="MEDICO SOLICITANTE notes"
-                value={state.sampleInformation.requestingDoctorNotes}
-                onChange={(requestingDoctorNotes) =>
-                  updateSampleInformation({ requestingDoctorNotes })
-                }
-              />
-            </div>
+            <section className="md:col-span-2">
+              <div className="border-y border-border/70 py-5">
+                <div className="mb-4">
+                  <h3 className="font-heading text-lg font-semibold text-foreground">
+                    Medico solicitante
+                  </h3>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Pick existing doctor</Label>
+                    <OptionSelectField
+                      options={requestingDoctorOptions}
+                      value={state.selectedRequestingDoctorId}
+                      onChange={selectRequestingDoctor}
+                      placeholder="Select requesting doctor"
+                      emptyLabel="Manual requesting doctor information"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="form-requesting-doctor-institution">
+                      Institution
+                    </Label>
+                    <Input
+                      id="form-requesting-doctor-institution"
+                      value={
+                        selectedInstitution
+                          ? `${selectedInstitution.name} (${selectedInstitution.id})`
+                          : state.patientInformation.institutionId
+                      }
+                      disabled
+                    />
+                  </div>
+                  <Field
+                    id="form-requesting-doctor-full-name"
+                    label="Full name"
+                    value={state.sampleInformation.requestingDoctorFullName}
+                    onChange={(requestingDoctorFullName) =>
+                      updateSampleInformation({ requestingDoctorFullName })
+                    }
+                    error={errorFor("sampleInformation.requestingDoctorFullName")}
+                  />
+                  <Field
+                    id="form-requesting-doctor-auth-email"
+                    label="Auth email"
+                    value={state.sampleInformation.requestingDoctorAuthEmail}
+                    onChange={(requestingDoctorAuthEmail) =>
+                      updateSampleInformation({ requestingDoctorAuthEmail })
+                    }
+                    error={errorFor("sampleInformation.requestingDoctorAuthEmail")}
+                  />
+                  <Field
+                    id="form-requesting-doctor-auth-uid"
+                    label="Auth UID"
+                    value={state.sampleInformation.requestingDoctorAuthUid}
+                    onChange={(requestingDoctorAuthUid) =>
+                      updateSampleInformation({ requestingDoctorAuthUid })
+                    }
+                  />
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <OptionSelectField
+                      options={PERSON_STATUS_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      }))}
+                      value={state.sampleInformation.requestingDoctorStatus}
+                      onChange={(requestingDoctorStatus) =>
+                        updateSampleInformation({
+                          requestingDoctorStatus:
+                            requestingDoctorStatus === "inactive"
+                              ? "inactive"
+                              : "active",
+                        })
+                      }
+                      placeholder="Select status"
+                    />
+                  </div>
+                  <Field
+                    id="form-requesting-doctor-specialty"
+                    label="Specialty"
+                    value={state.sampleInformation.requestingDoctorSpecialty}
+                    onChange={(requestingDoctorSpecialty) =>
+                      updateSampleInformation({ requestingDoctorSpecialty })
+                    }
+                  />
+                  <Field
+                    id="form-requesting-doctor-license"
+                    label="License number"
+                    value={state.sampleInformation.requestingDoctorLicenseNumber}
+                    onChange={(requestingDoctorLicenseNumber) =>
+                      updateSampleInformation({ requestingDoctorLicenseNumber })
+                    }
+                  />
+                  <Field
+                    id="form-requesting-doctor-phone"
+                    label="Contact phone"
+                    value={state.sampleInformation.requestingDoctorContactPhone}
+                    onChange={(requestingDoctorContactPhone) =>
+                      updateSampleInformation({ requestingDoctorContactPhone })
+                    }
+                  />
+                  <div className="md:col-span-2">
+                    <TextAreaField
+                      id="form-requesting-doctor-notes"
+                      label="Notes"
+                      value={state.sampleInformation.requestingDoctorNotes}
+                      onChange={(requestingDoctorNotes) =>
+                        updateSampleInformation({ requestingDoctorNotes })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
             <div className="space-y-2">
               <Label>TIPO DE MUESTRA</Label>
               <OptionSelectField
