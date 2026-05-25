@@ -55,6 +55,7 @@ export function ClientDailyTimeline({
   } | null>(null);
   const dayButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [didUserPickDay, setDidUserPickDay] = useState(false);
+  const didAutoCenterInitialDay = useRef(false);
 
   const selected = daysByDate[selectedDate] ?? null;
 
@@ -67,6 +68,14 @@ export function ClientDailyTimeline({
     }),
     [daysByDate],
   );
+
+  useEffect(() => {
+    if (didAutoCenterInitialDay.current) return;
+    const node = dayButtonRefs.current[selectedDate];
+    if (!node) return;
+    node.scrollIntoView({ behavior: "auto", inline: "center", block: "nearest" });
+    didAutoCenterInitialDay.current = true;
+  }, [selectedDate]);
 
   useEffect(() => {
     if (!didUserPickDay) return;

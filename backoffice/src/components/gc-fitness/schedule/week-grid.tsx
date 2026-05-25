@@ -62,6 +62,33 @@ interface WeekGridProps {
    */
   trainerTimezone?: string;
 }
+const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
+  0: "Dom",
+  1: "Lun",
+  2: "Mar",
+  3: "Mié",
+  4: "Jue",
+  5: "Vie",
+  6: "Sáb",
+};
+
+function recurrenceLabel(recurrence: unknown): string | null {
+  if (!recurrence || typeof recurrence !== "object") return null;
+  const rule = recurrence as { kind?: unknown; weekday?: unknown; weekdays?: unknown; everyN?: unknown };
+  if (rule.kind === "daily") return "Diario";
+  if (rule.kind === "weekly") {
+    const d = Number(rule.weekday);
+    return Number.isFinite(d) && WEEKDAY_LABELS_WORKOUT[d] ? `Semanal · ${WEEKDAY_LABELS_WORKOUT[d]}` : "Semanal";
+  }
+  if (rule.kind === "weekly_days") {
+    const days = Array.isArray(rule.weekdays)
+      ? rule.weekdays.map((d) => WEEKDAY_LABELS_WORKOUT[Number(d)]).filter((v): v is string => Boolean(v))
+      : [];
+    return days.length > 0 ? `Semanal · ${days.join(", ")}` : "Semanal";
+  }
+  if (rule.kind === "every_n_days") return `Cada ${Math.max(1, Number(rule.everyN ?? 1))} días`;
+  return null;
+}
 
 /**
  * Returns the civil-date string for the Monday of the week containing
@@ -207,6 +234,7 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
                       | { name?: { en?: string; es?: string }; tag?: string }
                       | undefined;
                     const name = snap?.name?.en ?? t("untitledTemplate");
+                    const recurrence = recurrenceLabel(a.recurrence);
                     return (
                       <li
                         key={a.id}
@@ -235,6 +263,11 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
                         {snap?.tag ? (
                           <Badge variant="secondary" className="w-fit text-[10px]">
                             {snap.tag}
+                          </Badge>
+                        ) : null}
+                        {recurrence ? (
+                          <Badge variant="outline" className="w-fit text-[10px]">
+                            {recurrence}
                           </Badge>
                         ) : null}
                       </li>

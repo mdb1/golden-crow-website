@@ -73,6 +73,7 @@ export interface WorkoutAssignmentRow {
   // "no series" — the dialog uses presence of this field to decide whether
   // to render the recurring radio choice.
   seriesId?: string | null;
+  recurrence?: unknown;
 }
 
 // Coerce Firestore Timestamp | string | undefined to an ISO string (or null).
@@ -169,6 +170,12 @@ function snapToRow(d: {
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
     seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
+    recurrence:
+      data.recurrence &&
+      typeof data.recurrence === "object" &&
+      typeof (data.recurrence as { kind?: unknown }).kind === "string"
+        ? jsonSafe(data.recurrence)
+        : null,
   };
 }
 

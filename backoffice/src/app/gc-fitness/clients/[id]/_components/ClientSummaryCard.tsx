@@ -4,6 +4,15 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
+const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
+  0: "Dom",
+  1: "Lun",
+  2: "Mar",
+  3: "Mié",
+  4: "Jue",
+  5: "Vie",
+  6: "Sáb",
+};
 
 export async function ClientSummaryCard({
   clientId,
@@ -40,10 +49,11 @@ export async function ClientSummaryCard({
       const data = doc.data() as Record<string, unknown>;
       if (data.status !== "scheduled") return null;
       const nameValue = (data.templateSnapshot as { name?: unknown } | undefined)?.name;
+      const recurrence = recurrenceLabel(data.recurrence as Record<string, unknown> | undefined, t);
       return {
         id: doc.id,
         name: localizedName(nameValue, t("untitledWorkout")),
-        recurrence: recurrenceLabel(data.recurrence as Record<string, unknown> | undefined, t),
+        recurrence,
         scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
       };
     })
@@ -148,8 +158,19 @@ function recurrenceLabel(
   t: Awaited<ReturnType<typeof getTranslations>>,
 ): string {
   if (!recurrence || typeof recurrence.kind !== "string") return t("once");
-  if (recurrence.kind === "weekly") return t("weekly");
-  if (recurrence.kind === "weekly_days") return t("weeklyDays");
+  if (recurrence.kind === "weekly") {
+    const weekday = Number(recurrence.weekday);
+    const dayLabel = Number.isFinite(weekday) ? WEEKDAY_LABELS_WORKOUT[weekday] : null;
+    return dayLabel ? `${t("weekly")} · ${dayLabel}` : t("weekly");
+  }
+  if (recurrence.kind === "weekly_days") {
+    const days = Array.isArray(recurrence.weekdays)
+      ? (recurrence.weekdays as number[])
+          .map((d) => WEEKDAY_LABELS_WORKOUT[d])
+          .filter((v): v is string => Boolean(v))
+      : [];
+    return days.length > 0 ? `${t("weeklyDays")} · ${days.join(", ")}` : t("weeklyDays");
+  }
   if (recurrence.kind === "every_n_days") return t("everyNDays", { everyN: Number(recurrence.everyN ?? 1) });
   return t("custom");
 }
@@ -161,18 +182,19 @@ function habitCadenceLabel(
   if (habit.scheduleType === "one-time") return t("once");
   const cadence = typeof habit.scheduleCadence === "string" ? habit.scheduleCadence : "daily";
   if (cadence === "weekly") {
-    const weekdays = Array.isArray(habit.scheduleWeekdays)
-      ? (habit.scheduleWeekdays as number[]).length
-      : 0;
-    return t("weeklyCount", { count: weekdays || 1 });
+    const weekdays = Array.isArray(habit.scheduleWeekdays) ? (habit.scheduleWeekdays as number[]) : [];
+    const mapped = weekdays
+      .map((d) => WEEKDAY_LABELS_WORKOUT[d === 7 ? 0 : d])
+      .filter((v): v is string => Boolean(v));
+    return mapped.length > 0 ? `${t("weekly")} · ${mapped.join(", ")}` : t("weeklyCount", { count: 1 });
   }
   if (cadence === "monthly") {
     const monthDays = Array.isArray(habit.scheduleMonthDays)
-      ? (habit.scheduleMonthDays as number[]).length
+      ? (habit.scheduleMonthDays as number[])
       : typeof habit.scheduleDayOfMonth === "number"
-        ? 1
-        : 0;
-    return t("monthlyCount", { count: monthDays || 1 });
+        ? [habit.scheduleDayOfMonth as number]
+        : [];
+    return monthDays.length > 0 ? `${t("monthlyCount", { count: monthDays.length })} · ${monthDays.join(", ")}` : t("monthlyCount", { count: 1 });
   }
   return t("daily");
 }
