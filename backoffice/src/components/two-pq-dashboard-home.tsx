@@ -18,6 +18,7 @@ import {
   TWO_PQ_FORM_ROUTES,
   type TwoPQFormDraftRecord,
 } from "@/lib/two-pq-forms";
+import { TwoPQContactSection } from "@/components/two-pq-contact-section";
 
 export function TwoPQDashboardHome({
   adminContext,
@@ -331,6 +332,8 @@ export function TwoPQDashboardHome({
           ))}
         </div>
       </section>
+
+      <TwoPQContactSection />
     </div>
   );
 }

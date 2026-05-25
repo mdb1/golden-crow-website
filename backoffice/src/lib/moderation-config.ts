@@ -11,6 +11,7 @@ import {
   FolderOpen,
   KeyRound,
   LayoutDashboard,
+  Mail,
   MessagesSquare,
   ShieldUser,
   Sparkles,
@@ -708,6 +709,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
   })),
   {
     section: "mission",
+    label: "Contact",
+    href: "/2pq-dashboard/contact",
+    description: "2PQ website, phone, and email contact channels",
+    icon: Mail,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "mission",
     label: "Overview",
     href: "/",
     description: "Operations snapshot",
@@ -1002,6 +1011,14 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
       eyebrow: "2PQ",
       title: "Forms",
       description: "Stored study request and sample form submissions.",
+    };
+  }
+
+  if (pathname === "/2pq-dashboard/contact") {
+    return {
+      eyebrow: "2PQ",
+      title: "Contact",
+      description: "Official 2PQ website, phone, and email contact channels.",
     };
   }
 
