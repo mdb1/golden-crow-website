@@ -1,15 +1,6 @@
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required env variable: ${name}`);
-  return value;
-}
-
 export const ENV = {
   PORT: Number(process.env.PORT ?? "3000"),
   NODE_ENV: process.env.NODE_ENV ?? "development",
-  FIREBASE_PROJECT_ID: requireEnv("FIREBASE_ADMIN_PROJECT_ID"),
-  FIREBASE_CLIENT_EMAIL: requireEnv("FIREBASE_ADMIN_CLIENT_EMAIL"),
-  FIREBASE_PRIVATE_KEY: requireEnv("FIREBASE_ADMIN_PRIVATE_KEY"),
   FIREBASE_WEB_API_KEY:
     process.env.FIREBASE_WEB_API_KEY ??
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY ??

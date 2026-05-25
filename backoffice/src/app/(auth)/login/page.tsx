@@ -647,10 +647,16 @@ export default function LoginPage() {
   } | null>(null);
 
   async function readJson(response: Response) {
+    const responseForTextFallback = response.clone();
     try {
       return (await response.json()) as Record<string, unknown>;
     } catch {
-      return {};
+      try {
+        const rawBody = await responseForTextFallback.text();
+        return rawBody.trim() ? { rawBody } : {};
+      } catch {
+        return {};
+      }
     }
   }
 

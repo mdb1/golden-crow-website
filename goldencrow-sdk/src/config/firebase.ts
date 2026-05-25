@@ -188,16 +188,40 @@ export function adminAppFor(project: ProjectKey): App {
   return getOrInit(project);
 }
 
+function lazyAdminHandle<T extends object>(factory: () => T): T {
+  let instance: T | undefined;
+
+  function getInstance() {
+    instance ??= factory();
+    return instance;
+  }
+
+  return new Proxy({} as T, {
+    get(_target, property) {
+      const target = getInstance();
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+    set(_target, property, value) {
+      const target = getInstance();
+      return Reflect.set(target, property, value, target);
+    },
+    has(_target, property) {
+      return property in getInstance();
+    },
+  });
+}
+
 export function adminAuthFor(project: ProjectKey): Auth {
-  return getAuth(getOrInit(project));
+  return lazyAdminHandle(() => getAuth(getOrInit(project)));
 }
 
 export function adminDbFor(project: ProjectKey): Firestore {
-  return getFirestore(getOrInit(project));
+  return lazyAdminHandle(() => getFirestore(getOrInit(project)));
 }
 
 export function adminStorageFor(project: ProjectKey): Storage {
-  return getStorage(getOrInit(project));
+  return lazyAdminHandle(() => getStorage(getOrInit(project)));
 }
 
 // ---------------------------------------------------------------------------
