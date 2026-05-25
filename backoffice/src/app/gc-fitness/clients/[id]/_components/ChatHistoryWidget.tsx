@@ -122,22 +122,22 @@ export async function ChatHistoryWidget({
   }
 
   return (
-    <section className="flex flex-col rounded-md border bg-card p-4">
-      <h2 className="mb-3 font-medium">{t("title")}</h2>
+    <section className="flex flex-col rounded-md border bg-card p-3.5 sm:p-4">
+      <h2 className="mb-2.5 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex max-h-[340px] flex-col gap-2.5 overflow-y-auto pr-1">
           {groups.map((group) => (
-            <div key={group.key} className="space-y-2">
+            <div key={group.key} className="space-y-1.5">
               <p className="text-center text-[11px] text-muted-foreground">{group.label}</p>
               {group.rows.map((row, index) => (
                 <div
                   key={row.id}
                   className={
                     row.isTrainer
-                      ? "ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground"
-                      : "mr-auto max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50"
+                      ? "ml-auto max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+                      : "mr-auto max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-50 px-3 py-1.5 text-sm text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50"
                   }
                 >
                   <p className="whitespace-pre-wrap break-words">{row.body}</p>

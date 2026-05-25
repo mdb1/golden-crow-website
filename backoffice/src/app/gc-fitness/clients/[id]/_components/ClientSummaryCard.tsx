@@ -51,11 +51,11 @@ export async function ClientSummaryCard({
   });
 
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-md border bg-card p-3.5 sm:p-4">
       <h2 className="mb-1 font-medium">{t("title")}</h2>
-      <p className="mb-4 text-sm text-muted-foreground">{t("subtitle")}</p>
+      <p className="mb-3 text-sm text-muted-foreground">{t("subtitle")}</p>
 
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t("workouts")}
@@ -63,9 +63,9 @@ export async function ClientSummaryCard({
           {workouts.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noWorkouts")}</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {workouts.map((row) => (
-                <li key={row.id} className="rounded-md bg-muted px-3 py-2 text-sm">
+                <li key={row.id} className="rounded-md bg-muted px-3 py-1.5 text-sm">
                   <p className="font-medium">{row.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {row.recurrence}
@@ -84,9 +84,9 @@ export async function ClientSummaryCard({
           {habits.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noHabits")}</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {habits.map((row) => (
-                <li key={row.id} className="rounded-md bg-muted px-3 py-2 text-sm">
+                <li key={row.id} className="rounded-md bg-muted px-3 py-1.5 text-sm">
                   <p className="font-medium">{row.name}</p>
                   <p className="text-xs text-muted-foreground">{row.cadence}</p>
                 </li>
@@ -102,9 +102,9 @@ export async function ClientSummaryCard({
           {goals.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noGoals")}</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {goals.slice(0, 8).map((goal) => (
-                <li key={goal.id} className="rounded-md bg-muted px-3 py-2 text-sm">
+                <li key={goal.id} className="rounded-md bg-muted px-3 py-1.5 text-sm">
                   <p className="font-medium">{goal.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {goal.horizon} · {goal.status}
