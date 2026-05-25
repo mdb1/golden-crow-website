@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, PlusCircle } from "lucide-react";
+import { ArrowRight, ClipboardList, PlusCircle } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
+import { TwoPQFormsList } from "@/components/two-pq-forms-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,10 +14,12 @@ import {
   canCreatePatientUi,
 } from "@/lib/areas-ui";
 import { TWO_PQ_AREA_CONFIGS } from "@/lib/two-pq-areas";
+import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
 
 export function TwoPQDashboardHome({
   adminContext,
   metrics,
+  forms,
 }: {
   adminContext: AdminContextRecord;
   metrics: {
@@ -25,6 +28,7 @@ export function TwoPQDashboardHome({
     patients: number;
     roles: number;
   };
+  forms: TwoPQFormRecord[];
 }) {
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
   const linkedEntityAreas = TWO_PQ_AREA_CONFIGS.filter((area) => linkedEntityKeys.has(area.key));
@@ -96,6 +100,67 @@ export function TwoPQDashboardHome({
           </Button>
         }
       />
+
+      <section className="glass-panel flex flex-col gap-4 border-indigo-200/70 bg-indigo-50/55 px-5 py-5 dark:border-indigo-300/20 dark:bg-indigo-500/10">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="section-eyebrow text-indigo-700/70 dark:text-indigo-100/70">
+              Formularios 2PQ
+            </p>
+            <h2 className="font-heading text-2xl font-semibold text-foreground">
+              Nuevos flujos de formulario
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Complete forms in guided steps and store the final document in{" "}
+              <code>2pq_forms</code>.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              size="lg"
+              asChild
+              className="min-h-12 justify-start whitespace-normal bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_16px_38px_rgba(79,70,229,0.28)] hover:bg-indigo-700 sm:max-w-[320px]"
+            >
+              <Link href="/2pq-dashboard/forms/study-request/new">
+                <ClipboardList className="size-5" />
+                Completar formulario de solicitud de estudio
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              asChild
+              className="min-h-12 justify-start whitespace-normal bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_16px_38px_rgba(79,70,229,0.22)] hover:bg-indigo-700 sm:max-w-[280px]"
+            >
+              <Link href="/2pq-dashboard/forms/sample/new">
+                <ClipboardList className="size-5" />
+                Completar formulario de muestra
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="section-eyebrow">Forms</p>
+            <h2 className="font-heading text-2xl font-semibold text-foreground">
+              Existing stored forms
+            </h2>
+            <p className="max-w-4xl text-sm text-muted-foreground">
+              Joined study request and sample form submissions in{" "}
+              <code>2pq_forms</code>.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/2pq-dashboard/forms">
+              Open Forms
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+        <TwoPQFormsList forms={forms} />
+      </section>
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">

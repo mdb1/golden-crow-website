@@ -997,6 +997,22 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
     };
   }
 
+  if (pathname === "/2pq-dashboard/forms") {
+    return {
+      eyebrow: "2PQ",
+      title: "Forms",
+      description: "Stored study request and sample form submissions.",
+    };
+  }
+
+  if (pathname.startsWith("/2pq-dashboard/forms/")) {
+    return {
+      eyebrow: "2PQ",
+      title: "New form",
+      description: "Guided form flow stored in 2pq_forms.",
+    };
+  }
+
   if (pathname.startsWith("/2pq-dashboard/")) {
     const segments = pathname.split("/").filter(Boolean);
     const area = getTwoPQAreaConfig(segments[1] ?? "");

@@ -301,6 +301,31 @@ export interface TwoPQDetailRecord {
   linkedSamplings: TwoPQListItem[];
 }
 
+export type TwoPQFormType = "study_request" | "sample";
+
+export interface TwoPQFormRecord {
+  id: string;
+  formType: TwoPQFormType;
+  collectionKey: "2pq_forms";
+  institutionId: string;
+  doctorId: string;
+  selectedPatientId?: string;
+  selectedInstitutionId?: string;
+  patientName?: string;
+  patientEmail?: string;
+  institutionName?: string;
+  requestedTestName?: string;
+  patientInformation: Record<string, unknown>;
+  medicalInformation?: Record<string, unknown>;
+  previousGeneticTests?: Record<string, unknown>;
+  requestedTest: Record<string, unknown>;
+  institutionInformation?: Record<string, unknown>;
+  sampleInformation?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail?: string;
+}
+
 // CommunityPost — mirrors Firestore posts collection
 export interface CommunityPost {
   id: string;

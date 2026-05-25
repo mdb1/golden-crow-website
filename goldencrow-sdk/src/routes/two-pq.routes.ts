@@ -3,6 +3,10 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  createTwoPQFormForContext,
+  listTwoPQFormsForContext,
+} from "../repositories/two-pq-forms.repository.js";
+import {
   createTwoPQRecordForContext,
   deleteTwoPQRecordForContext,
   getTwoPQDetailForContext,
@@ -75,6 +79,89 @@ const TwoPQMutationSchema = z.object({
   notes: z.string().optional(),
 });
 
+const TwoPQPatientInformationSchema = z.object({
+  institutionId: z.string().optional(),
+  doctorId: z.string().optional(),
+  email: z.string().optional(),
+  fullName: z.string().optional(),
+  medicalRecordNumber: z.string().optional(),
+  birthDate: z.string().optional(),
+  sex: z.string().optional(),
+  status: z.enum(["active", "inactive"]).optional(),
+  notes: z.string().optional(),
+});
+
+const TwoPQInstitutionInformationSchema = z.object({
+  code: z.string().optional(),
+  name: z.string().optional(),
+  legalName: z.string().optional(),
+  contactEmail: z.string().optional(),
+  contactPhone: z.string().optional(),
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const TwoPQMedicalInformationSchema = z.object({
+  clinicalIndication: z.string().optional(),
+  suspectedDiagnosis: z.string().optional(),
+  symptoms: z.string().optional(),
+  familyHistory: z.string().optional(),
+  requestingDoctor: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const TwoPQPreviousGeneticTestsSchema = z.object({
+  hasPreviousTests: z.string().optional(),
+  testDescription: z.string().optional(),
+  labName: z.string().optional(),
+  testDate: z.string().optional(),
+  resultSummary: z.string().optional(),
+  reportAvailable: z.string().optional(),
+});
+
+const TwoPQRequestedTestSchema = z.object({
+  testName: z.string().optional(),
+  testCode: z.string().optional(),
+  priority: z.string().optional(),
+  reason: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const TwoPQSampleInformationSchema = z.object({
+  sampleType: z.string().optional(),
+  sampleId: z.string().optional(),
+  collectionDate: z.string().optional(),
+  collectionSite: z.string().optional(),
+  collectorName: z.string().optional(),
+  storageCondition: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
+  z.object({
+    formType: z.literal("study_request"),
+    selectedPatientId: z.string().optional(),
+    selectedInstitutionId: z.string().optional(),
+    patientInformation: TwoPQPatientInformationSchema,
+    medicalInformation: TwoPQMedicalInformationSchema,
+    previousGeneticTests: TwoPQPreviousGeneticTestsSchema,
+    requestedTest: TwoPQRequestedTestSchema,
+    institutionInformation: TwoPQInstitutionInformationSchema,
+  }),
+  z.object({
+    formType: z.literal("sample"),
+    selectedPatientId: z.string().optional(),
+    selectedInstitutionId: z.string().optional(),
+    patientInformation: TwoPQPatientInformationSchema,
+    requestedTest: TwoPQRequestedTestSchema,
+    sampleInformation: TwoPQSampleInformationSchema,
+  }),
+]);
+
 function buildUnexpectedRouteErrorPayload(
   error: unknown,
   request: Pick<FastifyRequest, "method" | "url" | "params" | "query" | "body">
@@ -131,6 +218,43 @@ function sendTwoPQRouteError(
 
 export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.get("/2pq/forms", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const forms = await listTwoPQFormsForContext(request.adminContext);
+      return reply.send({ forms });
+    } catch (error) {
+      return sendTwoPQRouteError(request, reply, error);
+    }
+  });
+
+  f.post(
+    "/2pq/forms",
+    {
+      schema: {
+        body: TwoPQFormMutationSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await createTwoPQFormForContext(
+          request.adminContext,
+          request.body
+        );
+        return reply.status(201).send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    }
+  );
 
   f.get(
     "/2pq/:areaKey",
