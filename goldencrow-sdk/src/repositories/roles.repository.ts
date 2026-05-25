@@ -388,6 +388,10 @@ export function canEditInstitution(context: AdminContext, institutionId: string)
   return context.role === "institution_admin" && context.institutionId === institutionId;
 }
 
+export function canDeleteInstitution(context: AdminContext, _institutionId: string) {
+  return context.role === "full_admin";
+}
+
 export function canCreateDoctor(context: AdminContext, institutionId: string) {
   if (context.role === "full_admin") {
     return true;
@@ -414,6 +418,17 @@ export function canEditDoctor(context: AdminContext, doctor: Pick<DoctorRecord, 
   }
 
   return context.role === "institution_doctor" && context.doctorId === doctor.id;
+}
+
+export function canDeleteDoctor(
+  context: AdminContext,
+  doctor: Pick<DoctorRecord, "institutionId">
+) {
+  if (context.role === "full_admin") {
+    return true;
+  }
+
+  return context.role === "institution_admin" && context.institutionId === doctor.institutionId;
 }
 
 export function canCreatePatient(
@@ -464,6 +479,13 @@ export function canEditPatient(
     context.institutionId === patient.institutionId &&
     context.doctorId === patient.doctorId
   );
+}
+
+export function canDeletePatient(
+  context: AdminContext,
+  patient: Pick<PatientRecord, "institutionId" | "doctorId">
+) {
+  return canEditPatient(context, patient);
 }
 
 export function canViewRoleRecord(context: AdminContext, record: UserRoleRecord) {

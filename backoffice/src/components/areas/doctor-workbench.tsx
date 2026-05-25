@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import type {
 } from "@/lib/admin-areas";
 import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import {
+  canDeletePatientUi,
   canCreatePatientUi,
   canEditDoctorUi,
   getStatusBadgeVariant,
@@ -481,6 +483,15 @@ export function DoctorWorkbench({
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
                     </Button>
+                    <AreaDeleteDialog
+                      kind="patient"
+                      id={patient.id}
+                      name={patient.fullName}
+                      endpoint={`/areas/patients/${patient.id}`}
+                      disabled={!canDeletePatientUi(adminContext, patient)}
+                      disabledReason="Current role cannot delete this patient."
+                      onDeleted={() => router.refresh()}
+                    />
                   </div>
                 </div>
               ))

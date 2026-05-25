@@ -6,6 +6,8 @@ import {
   createDoctorForContext,
   createInstitutionForContext,
   createPatientForContext,
+  deleteDoctorForContext,
+  deleteInstitutionForContext,
   deletePatientForContext,
   getDoctorDetailForContext,
   getInstitutionDetailForContext,
@@ -146,6 +148,36 @@ export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
     }
   );
 
+  f.delete(
+    "/areas/institutions/:institutionId",
+    {
+      schema: {
+        params: z.object({
+          institutionId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteInstitutionForContext(
+          request.adminContext,
+          request.params.institutionId
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
   f.get(
     "/areas/doctors",
     {
@@ -261,6 +293,36 @@ export async function areasRoutes(fastify: FastifyInstance): Promise<void> {
           request.body
         );
         return reply.send({ doctor });
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.delete(
+    "/areas/doctors/:doctorId",
+    {
+      schema: {
+        params: z.object({
+          doctorId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteDoctorForContext(
+          request.adminContext,
+          request.params.doctorId
+        );
+        return reply.send(result);
       } catch (error) {
         if (isAdminRepositoryError(error)) {
           return reply.status(error.statusCode).send({ error: error.message });

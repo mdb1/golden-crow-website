@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { DoctorListItem } from "@/lib/admin-areas";
 import {
+  canDeleteDoctorUi,
   canEditDoctorUi,
   getStatusBadgeVariant,
 } from "@/lib/areas-ui";
@@ -158,13 +160,22 @@ export function DoctorBrowser({
                 {formatDateTime(doctor.updatedAt) ?? "No timestamp"}
               </div>
 
-              <div className="flex lg:justify-end">
+              <div className="flex gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/areas/doctors/${doctor.id}`}>
                     {canEditDoctorUi(adminContext, doctor) ? "Open" : "Read only"}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
+                <AreaDeleteDialog
+                  kind="doctor"
+                  id={doctor.id}
+                  name={doctor.fullName}
+                  endpoint={`/areas/doctors/${doctor.id}`}
+                  disabled={!canDeleteDoctorUi(adminContext, doctor)}
+                  disabledReason="Only full admins and institution admins can delete doctors in scope."
+                  onDeleted={() => void refetch()}
+                />
               </div>
             </div>
           ))

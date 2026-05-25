@@ -5,13 +5,14 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { InstitutionListItem } from "@/lib/admin-areas";
-import { canEditInstitutionUi } from "@/lib/areas-ui";
+import { canDeleteInstitutionUi, canEditInstitutionUi } from "@/lib/areas-ui";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
 export function InstitutionBrowser({
@@ -151,7 +152,7 @@ export function InstitutionBrowser({
                 {formatDateTime(institution.updatedAt) ?? "No timestamp"}
               </div>
 
-              <div className="flex lg:justify-end">
+              <div className="flex gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/areas/institutions/${institution.id}`}>
                     {canEditInstitutionUi(adminContext, institution.id)
@@ -160,6 +161,15 @@ export function InstitutionBrowser({
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
+                <AreaDeleteDialog
+                  kind="institution"
+                  id={institution.id}
+                  name={institution.name}
+                  endpoint={`/areas/institutions/${institution.id}`}
+                  disabled={!canDeleteInstitutionUi(adminContext, institution.id)}
+                  disabledReason="Only full admins can delete institution roots."
+                  onDeleted={() => void refetch()}
+                />
               </div>
             </div>
           ))

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { PatientListItem } from "@/lib/admin-areas";
 import {
+  canDeletePatientUi,
   canEditPatientUi,
   getStatusBadgeVariant,
 } from "@/lib/areas-ui";
@@ -156,13 +158,22 @@ export function PatientBrowser({
                 {formatDateTime(patient.updatedAt) ?? "No timestamp"}
               </div>
 
-              <div className="flex lg:justify-end">
+              <div className="flex gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/areas/patients/${patient.id}`}>
                     {canEditPatientUi(adminContext, patient) ? "Open" : "Inspect"}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
+                <AreaDeleteDialog
+                  kind="patient"
+                  id={patient.id}
+                  name={patient.fullName}
+                  endpoint={`/areas/patients/${patient.id}`}
+                  disabled={!canDeletePatientUi(adminContext, patient)}
+                  disabledReason="Current role cannot delete this patient."
+                  onDeleted={() => void refetch()}
+                />
               </div>
             </div>
           ))

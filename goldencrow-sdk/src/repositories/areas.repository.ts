@@ -4,12 +4,15 @@ import { adminDbFor } from "../config/firebase.js";
 // downstream `adminDb.collection(...)` call below uses the named-app
 // Firestore handle for "mydnamap" (no default-app slot is touched).
 const adminDb = adminDbFor("mydnamap");
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   canCreateDoctor,
   canCreateInstitution,
   canCreatePatient,
+  canDeleteDoctor,
+  canDeleteInstitution,
+  canDeletePatient,
   canEditDoctor,
   canEditInstitution,
   canEditPatient,
@@ -476,6 +479,16 @@ async function syncPatientRoleRecord(patient: PatientRecord): Promise<void> {
   );
 }
 
+async function deleteDocumentRefs(refs: DocumentReference[]): Promise<void> {
+  const dedupedRefs = [...new Map(refs.map((ref) => [ref.path, ref])).values()];
+
+  for (let index = 0; index < dedupedRefs.length; index += 450) {
+    const batch = adminDb.batch();
+    dedupedRefs.slice(index, index + 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
 export async function listInstitutionsForContext(
   context: AdminContext
 ): Promise<InstitutionListItem[]> {
@@ -735,6 +748,47 @@ export async function updateInstitutionForContext(
   return toInstitutionRecord(institutionId, document);
 }
 
+export async function deleteInstitutionForContext(
+  context: AdminContext,
+  institutionId: string
+): Promise<{
+  success: true;
+  deleted: {
+    institutions: number;
+    doctors: number;
+    patients: number;
+    roles: number;
+  };
+}> {
+  const institution = await ensureInstitutionExists(institutionId);
+  if (!canDeleteInstitution(context, institution.id)) {
+    throw new AdminRepositoryError("You cannot delete this institution.", 403);
+  }
+
+  const [doctorSnapshot, patientSnapshot, roleSnapshot] = await Promise.all([
+    adminDb.collection(DOCTORS_COLLECTION).where("institutionId", "==", institution.id).get(),
+    adminDb.collection(PATIENTS_COLLECTION).where("institutionId", "==", institution.id).get(),
+    adminDb.collection(USER_ROLES_COLLECTION).where("institutionId", "==", institution.id).get(),
+  ]);
+
+  await deleteDocumentRefs([
+    adminDb.collection(INSTITUTIONS_COLLECTION).doc(institution.id),
+    ...doctorSnapshot.docs.map((doc) => doc.ref),
+    ...patientSnapshot.docs.map((doc) => doc.ref),
+    ...roleSnapshot.docs.map((doc) => doc.ref),
+  ]);
+
+  return {
+    success: true,
+    deleted: {
+      institutions: 1,
+      doctors: doctorSnapshot.size,
+      patients: patientSnapshot.size,
+      roles: roleSnapshot.size,
+    },
+  };
+}
+
 export async function listDoctorsForContext(
   context: AdminContext,
   filters?: {
@@ -965,6 +1019,43 @@ export async function updateDoctorForContext(
   await syncDoctorRoleRecord(updatedDoctor, previousEmail);
 
   return updatedDoctor;
+}
+
+export async function deleteDoctorForContext(
+  context: AdminContext,
+  doctorId: string
+): Promise<{
+  success: true;
+  deleted: {
+    doctors: number;
+    patients: number;
+    roles: number;
+  };
+}> {
+  const doctor = await ensureDoctorExists(doctorId);
+  if (!canDeleteDoctor(context, doctor)) {
+    throw new AdminRepositoryError("You cannot delete this doctor.", 403);
+  }
+
+  const [patientSnapshot, roleSnapshot] = await Promise.all([
+    adminDb.collection(PATIENTS_COLLECTION).where("doctorId", "==", doctor.id).get(),
+    adminDb.collection(USER_ROLES_COLLECTION).where("doctorId", "==", doctor.id).get(),
+  ]);
+
+  await deleteDocumentRefs([
+    adminDb.collection(DOCTORS_COLLECTION).doc(doctor.id),
+    ...patientSnapshot.docs.map((doc) => doc.ref),
+    ...roleSnapshot.docs.map((doc) => doc.ref),
+  ]);
+
+  return {
+    success: true,
+    deleted: {
+      doctors: 1,
+      patients: patientSnapshot.size,
+      roles: roleSnapshot.size,
+    },
+  };
 }
 
 export async function listPatientsForContext(
@@ -1203,7 +1294,7 @@ export async function deletePatientForContext(
   patientId: string
 ): Promise<{ success: true }> {
   const patient = await ensurePatientExists(patientId);
-  if (!canEditPatient(context, patient)) {
+  if (!canDeletePatient(context, patient)) {
     throw new AdminRepositoryError("You cannot delete this patient.", 403);
   }
 
@@ -1212,10 +1303,10 @@ export async function deletePatientForContext(
     .where("patientId", "==", patient.id)
     .get();
 
-  const batch = adminDb.batch();
-  batch.delete(adminDb.collection(PATIENTS_COLLECTION).doc(patient.id));
-  roleSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
-  await batch.commit();
+  await deleteDocumentRefs([
+    adminDb.collection(PATIENTS_COLLECTION).doc(patient.id),
+    ...roleSnapshot.docs.map((doc) => doc.ref),
+  ]);
 
   return { success: true };
 }

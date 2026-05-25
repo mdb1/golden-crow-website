@@ -42,6 +42,13 @@ export function canEditInstitutionUi(
   );
 }
 
+export function canDeleteInstitutionUi(
+  context: AdminContextRecord,
+  _institutionId: string
+) {
+  return context.role === "full_admin";
+}
+
 export function canCreateDoctorUi(
   context: AdminContextRecord,
   institutionId?: string
@@ -69,6 +76,17 @@ export function canEditDoctorUi(
   }
 
   return context.role === "institution_doctor" && context.doctorId === doctor.id;
+}
+
+export function canDeleteDoctorUi(
+  context: AdminContextRecord,
+  doctor: Pick<DoctorListItem, "institutionId">
+) {
+  if (context.role === "full_admin") {
+    return true;
+  }
+
+  return context.role === "institution_admin" && context.institutionId === doctor.institutionId;
 }
 
 export function canCreatePatientUi(
@@ -108,6 +126,13 @@ export function canEditPatientUi(
     context.institutionId === patient.institutionId &&
     context.doctorId === patient.doctorId
   );
+}
+
+export function canDeletePatientUi(
+  context: AdminContextRecord,
+  patient: Pick<PatientListItem, "institutionId" | "doctorId">
+) {
+  return canEditPatientUi(context, patient);
 }
 
 type RoleScopeRecord = Pick<

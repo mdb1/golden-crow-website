@@ -1110,8 +1110,8 @@ export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
       {
         role: "full_admin",
         scope: "global",
-        capabilities: ["create", "read", "update"],
-        note: "Full admins can create new institutions and edit any institution record.",
+        capabilities: ["create", "read", "update", "delete"],
+        note: "Full admins can create, edit, and delete institution records.",
       },
       {
         role: "institution_admin",
@@ -1143,14 +1143,14 @@ export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
       {
         role: "full_admin",
         scope: "global",
-        capabilities: ["create", "read", "update"],
-        note: "Full admins can create and edit doctor records globally.",
+        capabilities: ["create", "read", "update", "delete"],
+        note: "Full admins can create, edit, and delete doctor records globally.",
       },
       {
         role: "institution_admin",
         scope: "institution",
-        capabilities: ["create", "read", "update"],
-        note: "Institution admins can manage doctors inside their institution.",
+        capabilities: ["create", "read", "update", "delete"],
+        note: "Institution admins can manage and delete doctors inside their institution.",
       },
       {
         role: "institution_doctor",
