@@ -463,23 +463,23 @@ function AuthLogDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-white/12 bg-slate-950 text-white shadow-[0_30px_90px_rgba(2,6,23,0.55)] sm:max-w-2xl">
+      <DialogContent className="border-white/70 bg-white/92 text-slate-950 shadow-[0_30px_90px_rgba(47,28,70,0.28)] backdrop-blur-2xl sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Authentication error log</DialogTitle>
-          <DialogDescription className="text-white/62">
+          <DialogDescription className="text-slate-600">
             Full client-side diagnostic captured for this failed sign-in attempt.
             Token, cookie, session, and password-like fields are redacted.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[55vh] overflow-auto rounded-xl border border-white/12 bg-black/35 p-3">
+        <div className="max-h-[55vh] overflow-auto rounded-xl border border-slate-900/10 bg-slate-950 p-3">
           <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-cyan-50/82">{formattedLog}</pre>
         </div>
-        <DialogFooter className="border-white/10 bg-white/[0.04]">
+        <DialogFooter className="border-slate-900/10 bg-white/45">
           <DialogClose asChild>
             <Button
               type="button"
               variant="outline"
-              className="border-white/18 bg-white/8 text-white hover:bg-white/14"
+              className="border-slate-900/10 bg-white/70 text-slate-800 hover:bg-white hover:text-slate-950"
             >
               Close
             </Button>
@@ -494,11 +494,11 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
   const [logsOpen, setLogsOpen] = useState(false);
   const toneClasses = {
     error:
-      "border-red-300/45 bg-red-500/13 text-red-50 shadow-[0_18px_44px_rgba(120,20,38,0.25)]",
+      "border-red-200 bg-red-50/82 text-red-950 shadow-[0_18px_44px_rgba(120,20,38,0.14)]",
     info:
-      "border-cyan-200/40 bg-cyan-400/13 text-cyan-50 shadow-[0_18px_44px_rgba(20,82,120,0.22)]",
+      "border-cyan-200 bg-cyan-50/82 text-cyan-950 shadow-[0_18px_44px_rgba(20,82,120,0.12)]",
     success:
-      "border-emerald-200/40 bg-emerald-400/13 text-emerald-50 shadow-[0_18px_44px_rgba(18,105,75,0.22)]",
+      "border-emerald-200 bg-emerald-50/82 text-emerald-950 shadow-[0_18px_44px_rgba(18,105,75,0.12)]",
   } satisfies Record<NoticeTone, string>;
 
   return (
@@ -517,7 +517,7 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
                 <button
                   type="button"
                   onClick={() => setLogsOpen(true)}
-                  className="rounded-md px-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+                  className="rounded-md px-1.5 text-xs font-medium text-slate-600 transition hover:bg-white/70 hover:text-slate-950"
                 >
                   Show logs
                 </button>
@@ -525,18 +525,18 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
               <button
                 type="button"
                 onClick={onDismiss}
-                className="rounded-md px-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+                className="rounded-md px-1.5 text-xs font-medium text-slate-600 transition hover:bg-white/70 hover:text-slate-950"
               >
                 Dismiss
               </button>
             </div>
           </div>
-          <p className="mt-1 text-white/78">{notice.message}</p>
+          <p className="mt-1 text-slate-700">{notice.message}</p>
           {notice.details && notice.details.length > 0 ? (
-            <ul className="mt-2 space-y-1 text-white/68">
+            <ul className="mt-2 space-y-1 text-slate-600">
               {notice.details.map((detail) => (
                 <li key={detail} className="flex gap-2">
-                  <span aria-hidden className="mt-[0.55rem] size-1 rounded-full bg-white/60" />
+                  <span aria-hidden className="mt-[0.55rem] size-1 rounded-full bg-current/70" />
                   <span>{detail}</span>
                 </li>
               ))}
@@ -567,13 +567,13 @@ function FieldShell({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <Label htmlFor={id} className="flex items-center gap-2 text-sm font-semibold text-white">
-          <span className="text-white/56">{icon}</span>
+        <Label htmlFor={id} className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <span className="text-slate-500">{icon}</span>
           {label}
         </Label>
       </div>
       {children}
-      <p id={`${id}-helper`} className="text-xs leading-5 text-white/56">
+      <p id={`${id}-helper`} className="text-xs leading-5 text-slate-600">
         {helper}
       </p>
     </div>
@@ -582,7 +582,7 @@ function FieldShell({
 
 function VersionPill() {
   return (
-    <span className="inline-flex w-fit rounded-full border border-white/16 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase text-white/70">
+    <span className="inline-flex w-fit rounded-full border border-slate-900/10 bg-white/55 px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
       Backoffice v{BACKOFFICE_VERSION}
     </span>
   );
@@ -612,16 +612,16 @@ function ProjectOption({
       type="button"
       onClick={() => onSelect(project)}
       disabled={disabled}
-      className="group flex min-h-28 w-full items-start gap-3 rounded-2xl border border-white/13 bg-white/[0.07] p-4 text-left text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:-translate-y-0.5 hover:border-white/28 hover:bg-white/[0.11] focus:outline-none focus:ring-3 focus:ring-cyan-200/35 disabled:cursor-not-allowed disabled:opacity-55"
+      className="group flex min-h-28 w-full items-start gap-3 rounded-2xl border border-slate-900/10 bg-white/48 p-4 text-left text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:-translate-y-0.5 hover:border-slate-900/15 hover:bg-white/70 focus:outline-none focus:ring-3 focus:ring-cyan-300/45 disabled:cursor-not-allowed disabled:opacity-55"
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/14 bg-white/10 text-cyan-100">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-900/10 bg-white/65 text-cyan-700">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
-        <span className="mt-1 block text-sm leading-5 text-white/58">{body}</span>
+        <span className="mt-1 block text-sm leading-5 text-slate-600">{body}</span>
       </span>
-      <ChevronRight className="mt-1 size-4 text-white/35 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
+      <ChevronRight className="mt-1 size-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" />
     </button>
   );
 }
@@ -1110,23 +1110,23 @@ export default function LoginPage() {
           : "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.";
 
   return (
-    <main className="auth-liquid-canvas relative isolate min-h-[calc(100vh-5rem)] w-full overflow-hidden rounded-[2rem] border border-white/12 bg-slate-950 p-4 text-white shadow-[0_28px_90px_rgba(3,7,18,0.42)] sm:p-6 lg:min-h-[760px]">
+    <main className="auth-liquid-canvas relative isolate min-h-[calc(100vh-5rem)] w-full overflow-hidden rounded-[2rem] border border-white/45 p-4 text-slate-950 shadow-[0_28px_90px_rgba(47,28,70,0.24)] sm:p-6 lg:min-h-[760px]">
       <div className="auth-liquid-flow" aria-hidden />
       <div className="auth-liquid-sheen" aria-hidden />
 
       <div className="relative z-10 grid min-h-[inherit] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(410px,470px)]">
-        <section className="hidden min-h-[640px] flex-col justify-between rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl lg:flex">
+        <section className="hidden min-h-[640px] flex-col justify-between rounded-[1.5rem] border border-white/45 bg-white/24 p-7 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] backdrop-blur-xl lg:flex">
           <div className="space-y-7">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-3 py-1 text-xs font-semibold text-white/75">
-              <Sparkles className="size-3.5 text-amber-200" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/45 px-3 py-1 text-xs font-semibold text-slate-800">
+              <Sparkles className="size-3.5 text-amber-500" />
               Golden Crow operations
             </div>
 
             <div className="max-w-xl space-y-4">
-              <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal text-white">
+              <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal text-slate-950">
                 A sharper front door for focused backoffice work.
               </h1>
-              <p className="max-w-lg text-base leading-7 text-white/68">
+              <p className="max-w-lg text-base leading-7 text-slate-700">
                 Authenticate once, route into the right legacy product, and keep
                 account creation limited to people who are already approved.
               </p>
@@ -1134,23 +1134,23 @@ export default function LoginPage() {
 
             <div className="grid gap-3 xl:grid-cols-3">
               <div className="auth-login-glass rounded-2xl p-4">
-                <ShieldCheck className="mb-3 size-5 text-cyan-100" />
+                <ShieldCheck className="mb-3 size-5 text-cyan-700" />
                 <p className="text-sm font-semibold">Access checked</p>
-                <p className="mt-1 text-xs leading-5 text-white/56">
+                <p className="mt-1 text-xs leading-5 text-slate-600">
                   Firebase identity plus SDK allowlist or admin role.
                 </p>
               </div>
               <div className="auth-login-glass rounded-2xl p-4">
-                <Building2 className="mb-3 size-5 text-emerald-100" />
+                <Building2 className="mb-3 size-5 text-emerald-700" />
                 <p className="text-sm font-semibold">Project aware</p>
-                <p className="mt-1 text-xs leading-5 text-white/56">
+                <p className="mt-1 text-xs leading-5 text-slate-600">
                   PocketGenes and Pocket Gyms stay on the legacy session path.
                 </p>
               </div>
               <div className="auth-login-glass rounded-2xl p-4">
-                <BadgeCheck className="mb-3 size-5 text-amber-100" />
+                <BadgeCheck className="mb-3 size-5 text-amber-600" />
                 <p className="text-sm font-semibold">Version visible</p>
-                <p className="mt-1 text-xs leading-5 text-white/56">
+                <p className="mt-1 text-xs leading-5 text-slate-600">
                   Every pushed backoffice change exposes its version here.
                 </p>
               </div>
@@ -1158,8 +1158,8 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-login-glass rounded-3xl p-5">
-            <p className="text-sm font-semibold text-white">New-user path</p>
-            <p className="mt-2 text-sm leading-6 text-white/62">
+            <p className="text-sm font-semibold text-slate-950">New-user path</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">
               Create email account is not open registration. It first checks
               whether the email is already approved, then creates the password
               only for that invited user.
@@ -1170,11 +1170,11 @@ export default function LoginPage() {
         <section className="auth-login-panel relative mx-auto flex w-full max-w-[470px] flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:my-auto">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-2">
-              <p className="section-eyebrow text-white/58">Secure backoffice</p>
-              <h2 className="font-heading text-3xl font-semibold tracking-normal text-white">
+              <p className="section-eyebrow text-slate-500">Secure backoffice</p>
+              <h2 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
                 {panelTitle}
               </h2>
-              <p className="text-sm leading-6 text-white/60">{panelDescription}</p>
+              <p className="text-sm leading-6 text-slate-600">{panelDescription}</p>
             </div>
             <VersionPill />
           </div>
@@ -1204,7 +1204,7 @@ export default function LoginPage() {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 w-full justify-center text-white/75 hover:bg-white/10 hover:text-white"
+                className="h-10 w-full justify-center text-slate-600 hover:bg-white/60 hover:text-slate-950"
                 onClick={resetToAuth}
                 disabled={loading !== null}
               >
@@ -1219,16 +1219,16 @@ export default function LoginPage() {
               <Button
                 onClick={handleGoogleSignIn}
                 disabled={loading !== null}
-                className="h-11 w-full justify-center rounded-xl bg-white text-slate-950 hover:bg-white/88"
+                className="h-11 w-full justify-center rounded-xl bg-slate-950 text-white hover:bg-slate-800"
               >
                 {loading === "google" ? <LoadingIcon /> : <LogIn className="size-4" />}
                 {loading === "google" ? "Opening Google..." : "Continue with Google"}
               </Button>
 
-              <div className="flex items-center gap-3 text-xs font-medium uppercase text-white/38">
-                <span className="h-px flex-1 bg-white/12" />
+              <div className="flex items-center gap-3 text-xs font-medium uppercase text-slate-400">
+                <span className="h-px flex-1 bg-slate-900/10" />
                 or use email
-                <span className="h-px flex-1 bg-white/12" />
+                <span className="h-px flex-1 bg-slate-900/10" />
               </div>
 
               <form className="space-y-4" onSubmit={handleEmailSignIn}>
@@ -1247,7 +1247,7 @@ export default function LoginPage() {
                     placeholder="team@pocketgenes.app"
                     aria-describedby="login-email-helper"
                     required
-                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
                   />
                 </FieldShell>
 
@@ -1266,7 +1266,7 @@ export default function LoginPage() {
                     placeholder="Password"
                     aria-describedby="login-password-helper"
                     required
-                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
                   />
                 </FieldShell>
 
@@ -1282,19 +1282,19 @@ export default function LoginPage() {
 
               <div className="auth-login-glass rounded-2xl p-4">
                 <div className="flex items-start gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/14 bg-white/10 text-emerald-100">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-900/10 bg-white/65 text-emerald-700">
                     <UserPlus className="size-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white">New invited user?</p>
-                    <p className="mt-1 text-sm leading-6 text-white/60">
+                    <p className="text-sm font-semibold text-slate-950">New invited user?</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
                       This creates the first email/password account only after
                       the backoffice confirms your email is already approved.
                     </p>
                     <Button
                       type="button"
                       variant="outline"
-                      className="mt-3 h-10 w-full justify-center rounded-xl border-white/18 bg-white/8 text-white hover:bg-white/14"
+                      className="mt-3 h-10 w-full justify-center rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
                       disabled={loading !== null}
                       onClick={() => {
                         setSignupEmail(email);
@@ -1313,7 +1313,7 @@ export default function LoginPage() {
 
           {phase === "signup-email" ? (
             <div className="space-y-5">
-              <div className="auth-login-glass rounded-2xl p-4 text-sm leading-6 text-white/62">
+              <div className="auth-login-glass rounded-2xl p-4 text-sm leading-6 text-slate-700">
                 This is a new-user setup flow, not open registration. We check
                 the email against the backend allowlist and active role
                 assignments before creating anything.
@@ -1335,7 +1335,7 @@ export default function LoginPage() {
                     placeholder="admin@institution.com"
                     aria-describedby="signup-email-helper"
                     required
-                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
                   />
                 </FieldShell>
 
@@ -1344,7 +1344,7 @@ export default function LoginPage() {
                     type="button"
                     variant="outline"
                     onClick={resetToAuth}
-                    className="h-11 rounded-xl border-white/18 bg-white/8 text-white hover:bg-white/14"
+                    className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
                   >
                     <ArrowLeft className="size-4" />
                     Back
@@ -1368,12 +1368,12 @@ export default function LoginPage() {
 
           {phase === "signup-password" && signupEligibility ? (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-emerald-200/30 bg-emerald-400/12 p-4 text-sm text-emerald-50">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/82 p-4 text-sm text-emerald-950 shadow-[0_18px_44px_rgba(18,105,75,0.12)]">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
                   <div>
                     <p className="font-semibold">Access approved</p>
-                    <p className="mt-1 leading-6 text-emerald-50/72">
+                    <p className="mt-1 leading-6 text-emerald-800">
                       {signupEligibility.email} was {signupAccessLabel}. Set a
                       password and the account will be created immediately.
                     </p>
@@ -1398,7 +1398,7 @@ export default function LoginPage() {
                     minLength={6}
                     aria-describedby="signup-password-helper"
                     required
-                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
                   />
                 </FieldShell>
 
@@ -1410,7 +1410,7 @@ export default function LoginPage() {
                       setPhase("signup-email");
                       setNotice(null);
                     }}
-                    className="h-11 rounded-xl border-white/18 bg-white/8 text-white hover:bg-white/14"
+                    className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
                   >
                     <ArrowLeft className="size-4" />
                     Back
