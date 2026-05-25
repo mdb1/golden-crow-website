@@ -14,32 +14,40 @@ export async function ClientSummaryCard({
   const t = await getTranslations("clients.detail.summary");
   const db = gcFitnessFirestore();
 
+  // Fail-soft on summary data: this card must never break the whole
+  // client detail route. Some projects can be temporarily missing the
+  // compound index required by strict status+date filters.
   const [assignmentsSnap, habitsSnap] = await Promise.all([
     db
       .collection(FirestoreCollections.workoutAssignments)
       .where("clientId", "==", clientId)
-      .where("status", "==", "scheduled")
       .orderBy("scheduledFor", "asc")
-      .limit(30)
-      .get(),
+      .limit(80)
+      .get()
+      .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
     db
       .collection(FirestoreCollections.habits)
       .where("clientId", "==", clientId)
       .where("deleted", "==", false)
       .limit(40)
-      .get(),
+      .get()
+      .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
   ]);
 
-  const workouts = assignmentsSnap.docs.map((doc) => {
-    const data = doc.data() as Record<string, unknown>;
-    const nameValue = (data.templateSnapshot as { name?: unknown } | undefined)?.name;
-    return {
-      id: doc.id,
-      name: localizedName(nameValue, t("untitledWorkout")),
-      recurrence: recurrenceLabel(data.recurrence as Record<string, unknown> | undefined, t),
-      scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
-    };
-  });
+  const workouts = assignmentsSnap.docs
+    .map((doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      if (data.status !== "scheduled") return null;
+      const nameValue = (data.templateSnapshot as { name?: unknown } | undefined)?.name;
+      return {
+        id: doc.id,
+        name: localizedName(nameValue, t("untitledWorkout")),
+        recurrence: recurrenceLabel(data.recurrence as Record<string, unknown> | undefined, t),
+        scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+      };
+    })
+    .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string } => row !== null)
+    .slice(0, 30);
 
   const habits = habitsSnap.docs.map((doc) => {
     const data = doc.data() as Record<string, unknown>;
