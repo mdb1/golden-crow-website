@@ -56,7 +56,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Dumbbell, ChevronsUpDown, Search } from "lucide-react";
+import { Dumbbell, ChevronsUpDown, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,27 @@ import {
   useExercisesQuery,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
+import {
+  useExerciseFilters,
+  applyFilters,
+  type ExerciseFilters,
+} from "@/lib/gc-fitness/exercise-filter-state";
+import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/gc-fitness/exercise-vocabulary";
+
+// Phase 24-06 Task 3 — render-window cap (Codex MEDIUM). Even with
+// lazy GIFs, rendering 250+ rows + 250 inline images strains the popover.
+// Hard-cap visible rows at 100; when applyFilters returns more, render
+// the first 100 + a "+ N more — refine filter" indicator row so the
+// trainer knows to add filters. The full filtered set is still available
+// via the hook — the cap is presentation-only.
+const RENDER_CAP = 100;
+
+// Phase 24-06 Task 3 — single-select level + mechanic options. Values
+// are FEXD vocabulary (level: "beginner" | "intermediate" | "expert",
+// mechanic: "compound" | "isolation"). i18n labels come from the picker
+// namespace.
+const LEVEL_OPTIONS = ["beginner", "intermediate", "expert"] as const;
+const MECHANIC_OPTIONS = ["compound", "isolation"] as const;
 
 export interface ExercisePickerPopoverProps {
   /** Currently selected exerciseId (or empty string for "none picked yet"). */
@@ -187,13 +208,35 @@ export function ExercisePickerPopover({
   const [open, setOpen] = useState(false);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
-  // Filter soft-deleted out — the picker only shows currently-active
-  // exercises. The trainer's previously-selected exercise (if it has since
-  // been deleted) still resolves via `selected` below so the row keeps
-  // showing the name instead of "(untitled)".
-  const exercises = useMemo(() => {
-    return (data ?? []).filter((r) => r.deleted !== true);
-  }, [data]);
+  // Phase 24-06 Task 3 — filter chip state (muscle/equipment/level/mechanic).
+  // Hook owns the immutable Set update contract (Codex MEDIUM); every
+  // chip click below goes through setFilters() with `new Set(...)`.
+  const { filters, setFilters, isEmpty: filtersEmpty, clear: clearFilters } =
+    useExerciseFilters();
+
+  // Filter soft-deleted out + apply the chip filters. The trainer's
+  // previously-selected exercise (if it has since been deleted) still
+  // resolves via `selected` below so the row keeps showing the name
+  // instead of "(untitled)".
+  //
+  // Codex MEDIUM render-window cap: when the filtered set exceeds 100
+  // rows, render only the first 100 and surface a "+ N more — refine
+  // filter" indicator so the user knows to narrow.
+  const { visible, overflow } = useMemo(() => {
+    const live = (data ?? []).filter((r) => r.deleted !== true);
+    const filtered = applyFilters(live, filters);
+    return {
+      visible: filtered.slice(0, RENDER_CAP),
+      overflow: Math.max(0, filtered.length - RENDER_CAP),
+    };
+  }, [data, filters]);
+
+  // Kept for the empty-state branch: distinguishes "no rows in cache" from
+  // "filters narrowed to zero".
+  const liveCount = useMemo(
+    () => (data ?? []).filter((r) => r.deleted !== true).length,
+    [data],
+  );
 
   const selected = useMemo(
     () => (data ?? []).find((r) => r.id === value) ?? null,
@@ -203,6 +246,44 @@ export function ExercisePickerPopover({
   function handleSelect(id: string) {
     onChange(id);
     setOpen(false);
+  }
+
+  // Phase 24-06 Task 3 — chip toggle helpers (Codex MEDIUM Set mutation
+  // safety). EVERY Set update returns a NEW Set instance. Mutating the
+  // state Set in place (calling Set#add or Set#delete on the field
+  // currently held in React state) does NOT trigger a re-render because
+  // the reference is unchanged. The grep gate in the plan acceptance
+  // forbids any executable line that calls these methods on the literal
+  // state field paths.
+  function toggleMuscle(value: string) {
+    setFilters((prev) => {
+      const next = new Set(prev.muscles);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      // The `next` local is a fresh copy — mutating it before the
+      // setFilters return is safe; React still sees a NEW reference.
+      return { ...prev, muscles: next };
+    });
+  }
+  function toggleEquipment(value: string) {
+    setFilters((prev) => {
+      const next = new Set(prev.equipment);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, equipment: next };
+    });
+  }
+  function toggleLevel(value: string) {
+    setFilters((prev) => ({
+      ...prev,
+      level: prev.level === value ? null : value,
+    }));
+  }
+  function toggleMechanic(value: string) {
+    setFilters((prev) => ({
+      ...prev,
+      mechanic: prev.mechanic === value ? null : value,
+    }));
   }
 
   return (
@@ -272,6 +353,19 @@ export function ExercisePickerPopover({
         className="w-[--radix-popover-trigger-width] p-0"
         align="start"
       >
+        {/* Phase 24-06 Task 3 — filter chip row. Renders ABOVE the
+            search input so the trainer narrows by FEXD enrichment
+            metadata (muscle / equipment / level / mechanic) before
+            scanning a long list. */}
+        <ExercisePickerFilters
+          filters={filters}
+          toggleMuscle={toggleMuscle}
+          toggleEquipment={toggleEquipment}
+          toggleLevel={toggleLevel}
+          toggleMechanic={toggleMechanic}
+          isEmpty={filtersEmpty}
+          onClear={clearFilters}
+        />
         <Command>
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
@@ -285,13 +379,13 @@ export function ExercisePickerPopover({
               <CommandEmpty>{t("loadingExercises")}</CommandEmpty>
             ) : error ? (
               <CommandEmpty>{t("loadError")}</CommandEmpty>
-            ) : exercises.length === 0 ? (
+            ) : liveCount === 0 ? (
               <CommandEmpty>{t("noExercises")}</CommandEmpty>
             ) : (
               <>
                 <CommandEmpty>{t("noMatches")}</CommandEmpty>
                 <CommandGroup>
-                  {exercises.map((ex) => {
+                  {visible.map((ex) => {
                     const esLine = displayEs(ex);
                     return (
                       <CommandItem
@@ -319,6 +413,12 @@ export function ExercisePickerPopover({
                           {(() => {
                             const src = previewSrc(ex);
                             return src ? (
+                              // Phase 24-06 Pitfall 9 mitigation —
+                              // loading="lazy" defers image fetch until
+                              // the row scrolls near the viewport. With
+                              // ~250 wger/fexd rows + inline GIFs this
+                              // keeps the popover snappy at open.
+                              //
                               // unoptimized is unconditional — see the
                               // trigger-selected block above for the
                               // signed-URL rationale.
@@ -329,6 +429,7 @@ export function ExercisePickerPopover({
                                 height={28}
                                 className="h-full w-full object-cover"
                                 unoptimized={!!src}
+                                loading="lazy"
                               />
                             ) : (
                               <Dumbbell className="h-3 w-3" />
@@ -356,6 +457,22 @@ export function ExercisePickerPopover({
                       </CommandItem>
                     );
                   })}
+                  {overflow > 0 && (
+                    // Phase 24-06 Codex MEDIUM render-window cap — when
+                    // applyFilters returns more than RENDER_CAP rows we
+                    // render the first 100 + this disabled indicator so
+                    // the trainer knows to add filters. The full
+                    // filtered set is still available via the hook;
+                    // the cap is presentation-only.
+                    <CommandItem
+                      disabled
+                      value="__overflow__"
+                      className="justify-center text-xs italic text-muted-foreground"
+                      data-testid="exercise-picker-overflow-indicator"
+                    >
+                      {t("overflowMore", { count: overflow })}
+                    </CommandItem>
+                  )}
                 </CommandGroup>
               </>
             )}
@@ -363,5 +480,179 @@ export function ExercisePickerPopover({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 24-06 Task 3 — ExercisePickerFilters (inline sibling component).
+//
+// Renders 4 chip categories above the picker search input. Inline because
+// the component is small (~80 LOC), only used by ExercisePickerPopover,
+// and shares the `picker` translation namespace with its parent (lifting
+// to its own file would require duplicating the i18n wiring).
+//
+// Uses shadcn <Button variant=outline> sized via `size=sm` for the chips
+// (NOT shadcn ToggleGroup — minimal-add per 24-RESEARCH.md). Multi-select
+// chips render as "selected" via `variant=default`; single-select chips
+// flip between `variant=outline` and `variant=default` on selection.
+// ---------------------------------------------------------------------------
+
+interface ExercisePickerFiltersProps {
+  filters: ExerciseFilters;
+  toggleMuscle: (value: string) => void;
+  toggleEquipment: (value: string) => void;
+  toggleLevel: (value: string) => void;
+  toggleMechanic: (value: string) => void;
+  isEmpty: boolean;
+  onClear: () => void;
+}
+
+function ExercisePickerFilters({
+  filters,
+  toggleMuscle,
+  toggleEquipment,
+  toggleLevel,
+  toggleMechanic,
+  isEmpty,
+  onClear,
+}: ExercisePickerFiltersProps) {
+  const t = useTranslations("picker");
+
+  return (
+    <div className="border-b p-2">
+      {/* Muscles (multi-select) */}
+      <ChipRow
+        testId="exercise-picker-chip-group-muscles"
+        label={t("filterMuscles")}
+      >
+        {MUSCLE_GROUPS.map((m) => (
+          <FilterChip
+            key={m}
+            active={filters.muscles.has(m)}
+            onClick={() => toggleMuscle(m)}
+            testId={`exercise-picker-chip-muscles-${m}`}
+            label={formatLabel(m)}
+          />
+        ))}
+      </ChipRow>
+
+      {/* Equipment (multi-select) */}
+      <ChipRow
+        testId="exercise-picker-chip-group-equipment"
+        label={t("filterEquipment")}
+      >
+        {EQUIPMENT.map((e) => (
+          <FilterChip
+            key={e}
+            active={filters.equipment.has(e)}
+            onClick={() => toggleEquipment(e)}
+            testId={`exercise-picker-chip-equipment-${e}`}
+            label={formatLabel(e)}
+          />
+        ))}
+      </ChipRow>
+
+      {/* Level (single-select) */}
+      <ChipRow
+        testId="exercise-picker-chip-group-level"
+        label={t("filterLevel")}
+      >
+        {LEVEL_OPTIONS.map((lvl) => (
+          <FilterChip
+            key={lvl}
+            active={filters.level === lvl}
+            onClick={() => toggleLevel(lvl)}
+            testId={`exercise-picker-chip-level-${lvl}`}
+            label={t(
+              lvl === "beginner"
+                ? "levelBeginner"
+                : lvl === "intermediate"
+                  ? "levelIntermediate"
+                  : "levelExpert",
+            )}
+          />
+        ))}
+      </ChipRow>
+
+      {/* Mechanic (single-select) */}
+      <ChipRow
+        testId="exercise-picker-chip-group-mechanic"
+        label={t("filterMechanic")}
+      >
+        {MECHANIC_OPTIONS.map((mech) => (
+          <FilterChip
+            key={mech}
+            active={filters.mechanic === mech}
+            onClick={() => toggleMechanic(mech)}
+            testId={`exercise-picker-chip-mechanic-${mech}`}
+            label={t(
+              mech === "compound" ? "mechanicCompound" : "mechanicIsolation",
+            )}
+          />
+        ))}
+      </ChipRow>
+
+      {/* Clear-all affordance only when any filter is active. */}
+      {!isEmpty && (
+        <div className="mt-2 flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            className="h-7 gap-1 px-2 text-xs"
+            data-testid="exercise-picker-clear-filters"
+          >
+            <X className="h-3 w-3" />
+            {t("filterClearAll")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChipRow({
+  label,
+  testId,
+  children,
+}: {
+  label: string;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-1 last:mb-0" data-testid={testId}>
+      <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-1">{children}</div>
+    </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  testId,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  testId: string;
+  label: string;
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? "default" : "outline"}
+      size="sm"
+      onClick={onClick}
+      className="h-6 px-2 text-[11px]"
+      data-testid={testId}
+      aria-pressed={active}
+    >
+      {label}
+    </Button>
   );
 }

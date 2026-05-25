@@ -949,7 +949,18 @@
     "multiAddTitle": "Agregar ejercicios",
     "multiAddDescription": "Elegí todo lo que quieras sumar — cada uno entra con sets/reps por defecto que podés ajustar después.",
     "multiAddSelectedCount": "{count} elegidos",
-    "multiAddConfirm": "Agregar {count}"
+    "multiAddConfirm": "Agregar {count}",
+    "filterMuscles": "Músculo",
+    "filterEquipment": "Equipo",
+    "filterLevel": "Nivel",
+    "filterMechanic": "Mecánica",
+    "filterClearAll": "Limpiar filtros",
+    "levelBeginner": "Principiante",
+    "levelIntermediate": "Intermedio",
+    "levelExpert": "Experto",
+    "mechanicCompound": "Compuesto",
+    "mechanicIsolation": "Aislamiento",
+    "overflowMore": "+ {count} más — refiná filtro"
   },
   "dialogs": {
     "deleteAssignment": {
