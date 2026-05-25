@@ -871,12 +871,12 @@ export const TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
   },
   {
     key: "clients",
-    label: "Clients",
-    shortLabel: "Clients",
+    label: "Providers",
+    shortLabel: "Providers",
     description:
-      "Client and stakeholder lane that makes institution, doctor, patient, and role coverage readable from one area.",
+      "Provider and stakeholder lane that makes institution, doctor, patient, and role coverage readable from one area.",
     summary:
-      "This area turns the current access model into a client-facing operations view without losing the underlying institution-doctor-patient relationships.",
+      "This area turns the current access model into a provider-facing operations view without losing the underlying institution-doctor-patient relationships.",
     icon: Users,
     tone: "slate",
     chips: ["People", "Permissions", "Cross-scope"],
