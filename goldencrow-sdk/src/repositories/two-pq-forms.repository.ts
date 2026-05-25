@@ -792,6 +792,7 @@ function normalizeSamplingInformationList(
 
 function caseRecordToFormInformation(record: {
   id: string;
+  three_letter_code?: string;
   caseLabel?: string;
   caseStatus?: string;
   caseType?: string;
@@ -803,6 +804,7 @@ function caseRecordToFormInformation(record: {
 }) {
   return compactRecord({
     id: record.id,
+    three_letter_code: normalizeOptionalString(record.three_letter_code),
     caseLabel: normalizeOptionalString(record.caseLabel),
     caseStatus: normalizeOptionalString(record.caseStatus),
     caseType: normalizeOptionalString(record.caseType),
@@ -1107,7 +1109,9 @@ export async function createTwoPQFormForContext(
   }
 
   let selectedRequestingDoctorId: string | undefined;
-  let normalizedSampleInformation: Record<string, unknown> | undefined;
+  let normalizedSampleInformation:
+    | ReturnType<typeof normalizeSampleInformation>
+    | undefined;
 
   if (payload.formType === "sample") {
     selectedRequestingDoctorId = normalizeOptionalString(payload.selectedRequestingDoctorId);
@@ -1149,6 +1153,11 @@ export async function createTwoPQFormForContext(
   let samplingInformation: Record<string, unknown>[] | undefined;
 
   if (payload.formType === "sample") {
+    if (!normalizedSampleInformation) {
+      throw new AdminRepositoryError("Sample information is required.", 400);
+    }
+
+    const sampleBoxCode = normalizedSampleInformation.boxCode;
     let patientIdForLinkedRecords = selectedPatientId;
     let linkedCaseLabel: string;
     let normalizedSamplingInformation: ReturnType<
@@ -1182,6 +1191,15 @@ export async function createTwoPQFormForContext(
       linkedCaseId = caseRecord.id;
       patientIdForLinkedRecords = patientIdForLinkedRecords ?? caseRecord.patientId;
       linkedCaseLabel = normalizeRequiredString(caseRecord.caseLabel, "Linked case label");
+      const linkedCaseBoxCode = normalizeOptionalString(
+        caseRecord.three_letter_code
+      )?.toUpperCase();
+      if (linkedCaseBoxCode !== sampleBoxCode) {
+        throw new AdminRepositoryError(
+          "Selected 2PQ case must match CODIGO CAJA.",
+          400
+        );
+      }
       caseInformation = caseRecordToFormInformation(caseRecord);
       normalizedSamplingInformation = normalizeSamplingInformationList(
         payload.samplingInformation,
@@ -1198,6 +1216,7 @@ export async function createTwoPQFormForContext(
       );
       const createdCase = await createTwoPQRecordForContext(context, "cases", {
         ...normalizedCaseInformation,
+        three_letter_code: sampleBoxCode,
         institutionId,
         doctorId,
         patientId: patientIdForLinkedRecords,

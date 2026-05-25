@@ -182,9 +182,45 @@ function emptyCase(): CaseInformationFormState {
     caseType: "PGT",
     priority: "routine",
     trackingNumber: "",
-    requestedAt: "",
+    requestedAt: todayDateInputValue(),
     dueAt: "",
     notes: "",
+  };
+}
+
+function newCaseDefaultsForBoxCode(boxCode: string): CaseInformationFormState {
+  const normalizedBoxCode = normalizeBoxCodeInput(boxCode);
+  return {
+    ...emptyCase(),
+    caseLabel: normalizedBoxCode ? `${normalizedBoxCode}XXX` : "",
+  };
+}
+
+function withCaseDefaultsForBoxCode(flowState: FlowState): FlowState {
+  if (flowState.selectedCaseId) {
+    return flowState;
+  }
+
+  const defaults = newCaseDefaultsForBoxCode(flowState.sampleInformation.boxCode);
+  const currentCase = flowState.caseInformation;
+  const nextCase = {
+    ...currentCase,
+    caseLabel: currentCase.caseLabel.trim()
+      ? currentCase.caseLabel
+      : defaults.caseLabel,
+    requestedAt: currentCase.requestedAt || defaults.requestedAt,
+  };
+
+  if (
+    nextCase.caseLabel === currentCase.caseLabel &&
+    nextCase.requestedAt === currentCase.requestedAt
+  ) {
+    return flowState;
+  }
+
+  return {
+    ...flowState,
+    caseInformation: nextCase,
   };
 }
 
@@ -658,7 +694,7 @@ function caseToFormState(record: TwoPQListItem): CaseInformationFormState {
     caseType: record.caseType ?? "",
     priority: record.priority ?? "routine",
     trackingNumber: record.trackingNumber ?? "",
-    requestedAt: toDateInputValue(record.requestedAt),
+    requestedAt: toDateInputValue(record.requestedAt) || todayDateInputValue(),
     dueAt: toDateInputValue(record.dueAt),
     notes: record.notes ?? "",
   };
@@ -949,7 +985,19 @@ export function TwoPQFormFlow({
     value: patient.id,
     label: `${patient.fullName} (${patient.id})`,
   }));
+  const normalizedCaseBoxCode = isValidBoxCode(state.sampleInformation.boxCode)
+    ? normalizeBoxCodeForValidation(state.sampleInformation.boxCode)
+    : "";
   const availableCases = cases.filter((caseRecord) => {
+    if (!normalizedCaseBoxCode) {
+      return false;
+    }
+    if (
+      normalizeBoxCodeInput(caseRecord.three_letter_code ?? "") !==
+      normalizedCaseBoxCode
+    ) {
+      return false;
+    }
     if (
       state.patientInformation.institutionId &&
       caseRecord.institutionId !== state.patientInformation.institutionId
@@ -973,7 +1021,9 @@ export function TwoPQFormFlow({
   });
   const caseOptions = availableCases.map((caseRecord) => ({
     value: caseRecord.id,
-    label: `${caseRecord.caseLabel ?? caseRecord.id} (${caseRecord.id})`,
+    label: `${caseRecord.caseLabel ?? caseRecord.id} (${
+      caseRecord.three_letter_code ?? caseRecord.id
+    })`,
   }));
 
   const progressLabel = useMemo(
@@ -1076,10 +1126,31 @@ export function TwoPQFormFlow({
   }
 
   function updateSampleInformation(patch: Partial<SampleInformationFormState>) {
-    setState((current) => ({
-      ...current,
-      sampleInformation: { ...current.sampleInformation, ...patch },
-    }));
+    setState((current) => {
+      const nextSampleInformation = {
+        ...current.sampleInformation,
+        ...patch,
+      };
+      const boxCodeChanged =
+        Object.prototype.hasOwnProperty.call(patch, "boxCode") &&
+        patch.boxCode !== current.sampleInformation.boxCode;
+
+      if (!boxCodeChanged) {
+        return {
+          ...current,
+          sampleInformation: nextSampleInformation,
+        };
+      }
+
+      return {
+        ...current,
+        selectedCaseId: "",
+        sampleInformation: nextSampleInformation,
+        caseInformation: newCaseDefaultsForBoxCode(
+          nextSampleInformation.boxCode
+        ),
+      };
+    });
   }
 
   function updateCaseInformation(patch: Partial<CaseInformationFormState>) {
@@ -1147,7 +1218,9 @@ export function TwoPQFormFlow({
     setState((current) => ({
       ...current,
       selectedCaseId: caseId,
-      caseInformation: caseRecord ? caseToFormState(caseRecord) : emptyCase(),
+      caseInformation: caseRecord
+        ? caseToFormState(caseRecord)
+        : newCaseDefaultsForBoxCode(current.sampleInformation.boxCode),
     }));
   }
 
@@ -1250,8 +1323,13 @@ export function TwoPQFormFlow({
     }
 
     const nextStepIndex = Math.min(stepIndex + 1, steps.length - 1);
+    const nextState =
+      steps[nextStepIndex] === "caseInformation"
+        ? withCaseDefaultsForBoxCode(state)
+        : state;
     try {
-      await persistDraftSnapshot(nextStepIndex);
+      await persistDraftSnapshot(nextStepIndex, nextState);
+      setState(nextState);
       setStepIndex(nextStepIndex);
     } catch {
       return;
@@ -1268,7 +1346,12 @@ export function TwoPQFormFlow({
     }
 
     try {
-      await persistDraftSnapshot(boundedStepIndex);
+      const nextState =
+        steps[boundedStepIndex] === "caseInformation"
+          ? withCaseDefaultsForBoxCode(state)
+          : state;
+      await persistDraftSnapshot(boundedStepIndex, nextState);
+      setState(nextState);
       if (boundedStepIndex > stepIndex) {
         markSkippedStepsInvalid(boundedStepIndex);
       }
