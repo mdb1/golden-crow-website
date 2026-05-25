@@ -4,6 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   createTwoPQFormForContext,
+  getTwoPQFormForContext,
   listTwoPQFormsForContext,
 } from "../repositories/two-pq-forms.repository.js";
 import {
@@ -105,7 +106,16 @@ const TwoPQInstitutionInformationSchema = z.object({
   notes: z.string().optional(),
 });
 
+const TwoPQIntegerInputSchema = z.union([z.number(), z.string()]);
+const TwoPQBooleanAnswerSchema = z.union([z.boolean(), z.string()]);
+
 const TwoPQMedicalInformationSchema = z.object({
+  previousConceptionsCount: TwoPQIntegerInputSchema.optional(),
+  previousMiscarriagesCount: TwoPQIntegerInputSchema.optional(),
+  previousBirthsCount: TwoPQIntegerInputSchema.optional(),
+  previousCyclesCount: TwoPQIntegerInputSchema.optional(),
+  maleFactor: TwoPQBooleanAnswerSchema.optional(),
+  otherBackground: z.string().optional(),
   clinicalIndication: z.string().optional(),
   suspectedDiagnosis: z.string().optional(),
   symptoms: z.string().optional(),
@@ -115,6 +125,10 @@ const TwoPQMedicalInformationSchema = z.object({
 });
 
 const TwoPQPreviousGeneticTestsSchema = z.object({
+  pgtASr: TwoPQBooleanAnswerSchema.optional(),
+  karyotype: TwoPQBooleanAnswerSchema.optional(),
+  pgtResult: z.string().optional(),
+  karyotypeResult: z.string().optional(),
   hasPreviousTests: z.string().optional(),
   testDescription: z.string().optional(),
   labName: z.string().optional(),
@@ -124,6 +138,12 @@ const TwoPQPreviousGeneticTestsSchema = z.object({
 });
 
 const TwoPQRequestedTestSchema = z.object({
+  pgtA: TwoPQBooleanAnswerSchema.optional(),
+  pgtSr: TwoPQBooleanAnswerSchema.optional(),
+  reportsMosaicism: TwoPQBooleanAnswerSchema.optional(),
+  reportsSex: TwoPQBooleanAnswerSchema.optional(),
+  requestReason: z.string().optional(),
+  requestDate: z.string().optional(),
   testName: z.string().optional(),
   testCode: z.string().optional(),
   priority: z.string().optional(),
@@ -250,6 +270,32 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.body
         );
         return reply.status(201).send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    }
+  );
+
+  f.get(
+    "/2pq/forms/:formId",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await getTwoPQFormForContext(
+          request.adminContext,
+          request.params.formId
+        );
+        return reply.send({ form });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }

@@ -52,6 +52,12 @@ type InstitutionInformationInput = {
 };
 
 type MedicalInformationInput = {
+  previousConceptionsCount?: number | string;
+  previousMiscarriagesCount?: number | string;
+  previousBirthsCount?: number | string;
+  previousCyclesCount?: number | string;
+  maleFactor?: boolean | string;
+  otherBackground?: string;
   clinicalIndication?: string;
   suspectedDiagnosis?: string;
   symptoms?: string;
@@ -61,6 +67,10 @@ type MedicalInformationInput = {
 };
 
 type PreviousGeneticTestsInput = {
+  pgtASr?: boolean | string;
+  karyotype?: boolean | string;
+  pgtResult?: string;
+  karyotypeResult?: string;
   hasPreviousTests?: string;
   testDescription?: string;
   labName?: string;
@@ -70,6 +80,12 @@ type PreviousGeneticTestsInput = {
 };
 
 type RequestedTestInput = {
+  pgtA?: boolean | string;
+  pgtSr?: boolean | string;
+  reportsMosaicism?: boolean | string;
+  reportsSex?: boolean | string;
+  requestReason?: string;
+  requestDate?: string;
   testName?: string;
   testCode?: string;
   priority?: string;
@@ -143,6 +159,41 @@ function normalizeIsoDateString(value: unknown) {
   }
 
   return candidate.toISOString();
+}
+
+function normalizeRequiredIsoDateString(value: unknown, label: string) {
+  const normalized = normalizeRequiredString(value, label);
+  const candidate = new Date(normalized);
+  if (Number.isNaN(candidate.getTime())) {
+    throw new AdminRepositoryError(`${label} must be a valid date value.`, 400);
+  }
+
+  return candidate.toISOString();
+}
+
+function normalizeNonNegativeInteger(value: unknown, label: string) {
+  const normalized =
+    typeof value === "number" ? value : Number(normalizeRequiredString(value, label));
+  if (!Number.isInteger(normalized) || normalized < 0) {
+    throw new AdminRepositoryError(`${label} must be a whole number of 0 or more.`, 400);
+  }
+  return normalized;
+}
+
+function normalizeBooleanAnswer(value: unknown, label: string) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = normalizeRequiredString(value, label).toLowerCase();
+  if (["si", "sí", "yes", "true", "1"].includes(normalized)) {
+    return true;
+  }
+  if (["no", "false", "0"].includes(normalized)) {
+    return false;
+  }
+
+  throw new AdminRepositoryError(`${label} must be SI or NO.`, 400);
 }
 
 function normalizeStatus(value: unknown): "active" | "inactive" {
@@ -326,7 +377,36 @@ function normalizeInstitutionInformation(input: InstitutionInformationInput) {
   });
 }
 
-function normalizeMedicalInformation(input: MedicalInformationInput = {}) {
+function normalizeMedicalInformation(
+  input: MedicalInformationInput = {},
+  formType: TwoPQFormType = "study_request"
+) {
+  if (formType === "study_request") {
+    return compactRecord({
+      previousConceptionsCount: normalizeNonNegativeInteger(
+        input.previousConceptionsCount,
+        "Numero concepciones previas"
+      ),
+      previousMiscarriagesCount: normalizeNonNegativeInteger(
+        input.previousMiscarriagesCount,
+        "Numero abortos previos"
+      ),
+      previousBirthsCount: normalizeNonNegativeInteger(
+        input.previousBirthsCount,
+        "Numero nacimientos previos"
+      ),
+      previousCyclesCount: normalizeNonNegativeInteger(
+        input.previousCyclesCount,
+        "Numero ciclos previos"
+      ),
+      maleFactor: normalizeBooleanAnswer(input.maleFactor, "Factor masculino"),
+      otherBackground: normalizeRequiredString(
+        input.otherBackground,
+        "Otros antecedentes"
+      ),
+    });
+  }
+
   return compactRecord({
     clinicalIndication: normalizeRequiredString(
       input.clinicalIndication,
@@ -340,7 +420,26 @@ function normalizeMedicalInformation(input: MedicalInformationInput = {}) {
   });
 }
 
-function normalizePreviousGeneticTests(input: PreviousGeneticTestsInput = {}) {
+function normalizePreviousGeneticTests(
+  input: PreviousGeneticTestsInput = {},
+  formType: TwoPQFormType = "study_request"
+) {
+  if (formType === "study_request") {
+    const pgtASr = normalizeBooleanAnswer(input.pgtASr, "PGT-A / PGT-SR");
+    const karyotype = normalizeBooleanAnswer(input.karyotype, "CARIOTIPO");
+
+    return compactRecord({
+      pgtASr,
+      karyotype,
+      pgtResult: pgtASr
+        ? normalizeRequiredString(input.pgtResult, "RESULTADO PGT")
+        : normalizeOptionalString(input.pgtResult),
+      karyotypeResult: karyotype
+        ? normalizeRequiredString(input.karyotypeResult, "RESULTADO CARIOTIPO")
+        : normalizeOptionalString(input.karyotypeResult),
+    });
+  }
+
   return compactRecord({
     hasPreviousTests: normalizeRequiredString(
       input.hasPreviousTests,
@@ -354,7 +453,33 @@ function normalizePreviousGeneticTests(input: PreviousGeneticTestsInput = {}) {
   });
 }
 
-function normalizeRequestedTest(input: RequestedTestInput) {
+function normalizeRequestedTest(
+  input: RequestedTestInput,
+  formType: TwoPQFormType = "sample"
+) {
+  if (formType === "study_request") {
+    const pgtA = normalizeBooleanAnswer(input.pgtA, "PGT-A");
+    const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
+    if (!pgtA && !pgtSr) {
+      throw new AdminRepositoryError("At least one requested test must be SI.", 400);
+    }
+
+    return compactRecord({
+      pgtA,
+      pgtSr,
+      reportsMosaicism: normalizeBooleanAnswer(
+        input.reportsMosaicism,
+        "INFORMA MOSAICISMOS"
+      ),
+      reportsSex: normalizeBooleanAnswer(input.reportsSex, "INFORMA SEXO"),
+      requestReason: normalizeRequiredString(
+        input.requestReason,
+        "MOTIVO DE SOLICITUD"
+      ),
+      requestDate: normalizeRequiredIsoDateString(input.requestDate, "FECHA"),
+    });
+  }
+
   return compactRecord({
     testName: normalizeRequiredString(input.testName, "Requested test"),
     testCode: normalizeOptionalString(input.testCode),
@@ -362,6 +487,24 @@ function normalizeRequestedTest(input: RequestedTestInput) {
     reason: normalizeOptionalString(input.reason),
     notes: normalizeOptionalString(input.notes),
   });
+}
+
+function getRequestedTestName(
+  requestedTest: Record<string, unknown>,
+  formType: TwoPQFormType
+) {
+  if (formType === "study_request") {
+    const selectedTests = [
+      requestedTest.pgtA === true ? "PGT-A" : null,
+      requestedTest.pgtSr === true ? "PGT-SR" : null,
+    ].filter((value): value is string => Boolean(value));
+
+    return selectedTests.length > 0
+      ? selectedTests.join(" / ")
+      : "Solicitud de estudio";
+  }
+
+  return normalizeOptionalString(requestedTest.testName) ?? "Requested test";
 }
 
 function normalizeSampleInformation(input: SampleInformationInput = {}) {
@@ -402,6 +545,27 @@ export async function listTwoPQFormsForContext(
     .map((doc) => toTwoPQFormRecord(doc.id, doc.data() as Record<string, unknown>))
     .filter((form) => canViewTwoPQForm(context, form))
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export async function getTwoPQFormForContext(
+  context: AdminContext,
+  formId: string
+): Promise<TwoPQFormRecord> {
+  const normalizedFormId = normalizeRequiredString(formId, "Form id");
+  const snapshot = await adminDb.collection(FORMS_COLLECTION).doc(normalizedFormId).get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Form not found.", 404);
+  }
+
+  const form = toTwoPQFormRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>
+  );
+  if (!canViewTwoPQForm(context, form)) {
+    throw new AdminRepositoryError("You cannot view this form.", 403);
+  }
+
+  return form;
 }
 
 export async function createTwoPQFormForContext(
@@ -458,7 +622,7 @@ export async function createTwoPQFormForContext(
     }
   }
 
-  const requestedTest = normalizeRequestedTest(payload.requestedTest);
+  const requestedTest = normalizeRequestedTest(payload.requestedTest, payload.formType);
   const now = new Date().toISOString();
   const formId = await getNextFormId();
   const baseDocument = {
@@ -472,7 +636,7 @@ export async function createTwoPQFormForContext(
     patientName: patientInformation.fullName,
     patientEmail: patientInformation.email,
     institutionName: selectedInstitution?.name ?? null,
-    requestedTestName: requestedTest.testName,
+    requestedTestName: getRequestedTestName(requestedTest, payload.formType),
     patientInformation: {
       ...patientInformation,
       institutionId,
@@ -488,9 +652,13 @@ export async function createTwoPQFormForContext(
     payload.formType === "study_request"
       ? {
           ...baseDocument,
-          medicalInformation: normalizeMedicalInformation(payload.medicalInformation),
+          medicalInformation: normalizeMedicalInformation(
+            payload.medicalInformation,
+            payload.formType
+          ),
           previousGeneticTests: normalizePreviousGeneticTests(
-            payload.previousGeneticTests
+            payload.previousGeneticTests,
+            payload.formType
           ),
           institutionInformation: normalizeInstitutionInformation(
             payload.institutionInformation ?? {

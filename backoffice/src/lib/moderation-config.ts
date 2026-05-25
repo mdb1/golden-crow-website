@@ -1006,6 +1006,15 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   }
 
   if (pathname.startsWith("/2pq-dashboard/forms/")) {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments[3] !== "new") {
+      return {
+        eyebrow: "2PQ",
+        title: "Form detail",
+        description: "Stored 2PQ form submission details.",
+      };
+    }
+
     return {
       eyebrow: "2PQ",
       title: "New form",

@@ -73,12 +73,25 @@ const STEP_LABELS: Record<StepKey, string> = {
   sampleInformation: "Sample information",
 };
 
+const YES_NO_OPTIONS = [
+  { value: "si", label: "SI" },
+  { value: "no", label: "NO" },
+];
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function optionalValidEmail(value: string) {
   return !value.trim() || isValidEmail(value);
+}
+
+function isNonNegativeInteger(value: string) {
+  if (!value.trim()) {
+    return false;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0;
 }
 
 function toDateInputValue(value?: string) {
@@ -120,20 +133,18 @@ function buildInitialState(
       notes: "",
     },
     medicalInformation: {
-      clinicalIndication: "",
-      suspectedDiagnosis: "",
-      symptoms: "",
-      familyHistory: "",
-      requestingDoctor: "",
-      notes: "",
+      previousConceptionsCount: "",
+      previousMiscarriagesCount: "",
+      previousBirthsCount: "",
+      previousCyclesCount: "",
+      maleFactor: "",
+      otherBackground: "",
     },
     previousGeneticTests: {
-      hasPreviousTests: "",
-      testDescription: "",
-      labName: "",
-      testDate: "",
-      resultSummary: "",
-      reportAvailable: "",
+      pgtASr: "",
+      karyotype: "",
+      pgtResult: "",
+      karyotypeResult: "",
     },
     requestedTest: {
       testName: "",
@@ -141,6 +152,12 @@ function buildInitialState(
       priority: "",
       reason: "",
       notes: "",
+      pgtA: "",
+      pgtSr: "",
+      reportsMosaicism: "",
+      reportsSex: "",
+      requestReason: "",
+      requestDate: "",
     },
     institutionInformation: emptyInstitution(),
     sampleInformation: {
@@ -193,12 +210,16 @@ function Field({
   value,
   onChange,
   type = "text",
+  min,
+  step,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  min?: string;
+  step?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -206,8 +227,32 @@ function Field({
       <Input
         id={id}
         type={type}
+        min={min}
+        step={step}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function YesNoField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <OptionSelectField
+        options={YES_NO_OPTIONS}
+        value={value}
+        onChange={onChange}
+        placeholder="Seleccionar"
       />
     </div>
   );
@@ -400,22 +445,83 @@ export function TwoPQFormFlow({
       }
     }
 
-    if (
-      step === "medicalInformation" &&
-      !state.medicalInformation.clinicalIndication.trim()
-    ) {
-      return "Clinical indication is required.";
+    if (step === "medicalInformation") {
+      const integerFields: Array<[string, string]> = [
+        [
+          state.medicalInformation.previousConceptionsCount,
+          "Numero concepciones previas",
+        ],
+        [
+          state.medicalInformation.previousMiscarriagesCount,
+          "Numero abortos previos",
+        ],
+        [state.medicalInformation.previousBirthsCount, "Numero nacimientos previos"],
+        [state.medicalInformation.previousCyclesCount, "Numero ciclos previos"],
+      ];
+      const invalidInteger = integerFields.find(
+        ([value]) => !isNonNegativeInteger(value)
+      );
+      if (invalidInteger) {
+        return `${invalidInteger[1]} must be a whole number of 0 or more.`;
+      }
+      if (!state.medicalInformation.maleFactor) {
+        return "Select Factor masculino.";
+      }
+      if (!state.medicalInformation.otherBackground.trim()) {
+        return "Otros antecedentes is required.";
+      }
+    }
+
+    if (step === "previousGeneticTests") {
+      if (!state.previousGeneticTests.pgtASr) {
+        return "Select PGT-A / PGT-SR.";
+      }
+      if (!state.previousGeneticTests.karyotype) {
+        return "Select CARIOTIPO.";
+      }
+      if (
+        state.previousGeneticTests.pgtASr === "si" &&
+        !state.previousGeneticTests.pgtResult.trim()
+      ) {
+        return "RESULTADO PGT is required when PGT-A / PGT-SR is SI.";
+      }
+      if (
+        state.previousGeneticTests.karyotype === "si" &&
+        !state.previousGeneticTests.karyotypeResult.trim()
+      ) {
+        return "RESULTADO CARIOTIPO is required when CARIOTIPO is SI.";
+      }
     }
 
     if (
-      step === "previousGeneticTests" &&
-      !state.previousGeneticTests.hasPreviousTests.trim()
+      step === "requestedTest" &&
+      formType === "sample" &&
+      !state.requestedTest.testName.trim()
     ) {
-      return "Select whether previous genetic tests exist.";
-    }
-
-    if (step === "requestedTest" && !state.requestedTest.testName.trim()) {
       return "Requested test is required.";
+    }
+
+    if (step === "requestedTest" && formType === "study_request") {
+      if (!state.requestedTest.pgtA) return "Select PGT-A.";
+      if (!state.requestedTest.pgtSr) return "Select PGT-SR.";
+      if (
+        state.requestedTest.pgtA !== "si" &&
+        state.requestedTest.pgtSr !== "si"
+      ) {
+        return "Select SI for at least one requested test.";
+      }
+      if (!state.requestedTest.reportsMosaicism) {
+        return "Select INFORMA MOSAICISMOS.";
+      }
+      if (!state.requestedTest.reportsSex) {
+        return "Select INFORMA SEXO.";
+      }
+      if (!state.requestedTest.requestReason.trim()) {
+        return "MOTIVO DE SOLICITUD is required.";
+      }
+      if (!state.requestedTest.requestDate) {
+        return "FECHA is required.";
+      }
     }
 
     if (step === "institutionInformation") {
@@ -657,56 +763,63 @@ export function TwoPQFormFlow({
 
         {currentStep === "medicalInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-clinical-indication"
-                label="Clinical indication"
-                value={state.medicalInformation.clinicalIndication}
-                onChange={(clinicalIndication) =>
-                  updateMedicalInformation({ clinicalIndication })
-                }
-              />
-            </div>
             <Field
-              id="form-suspected-diagnosis"
-              label="Suspected diagnosis"
-              value={state.medicalInformation.suspectedDiagnosis}
-              onChange={(suspectedDiagnosis) =>
-                updateMedicalInformation({ suspectedDiagnosis })
+              id="form-previous-conceptions"
+              label="numero concepciones previas"
+              type="number"
+              min="0"
+              step="1"
+              value={state.medicalInformation.previousConceptionsCount}
+              onChange={(previousConceptionsCount) =>
+                updateMedicalInformation({ previousConceptionsCount })
               }
             />
             <Field
-              id="form-requesting-doctor"
-              label="Requesting doctor"
-              value={state.medicalInformation.requestingDoctor}
-              onChange={(requestingDoctor) =>
-                updateMedicalInformation({ requestingDoctor })
+              id="form-previous-miscarriages"
+              label="numero abortos previos"
+              type="number"
+              min="0"
+              step="1"
+              value={state.medicalInformation.previousMiscarriagesCount}
+              onChange={(previousMiscarriagesCount) =>
+                updateMedicalInformation({ previousMiscarriagesCount })
               }
+            />
+            <Field
+              id="form-previous-births"
+              label="numero nacimientos previos"
+              type="number"
+              min="0"
+              step="1"
+              value={state.medicalInformation.previousBirthsCount}
+              onChange={(previousBirthsCount) =>
+                updateMedicalInformation({ previousBirthsCount })
+              }
+            />
+            <Field
+              id="form-previous-cycles"
+              label="numero ciclos previos"
+              type="number"
+              min="0"
+              step="1"
+              value={state.medicalInformation.previousCyclesCount}
+              onChange={(previousCyclesCount) =>
+                updateMedicalInformation({ previousCyclesCount })
+              }
+            />
+            <YesNoField
+              label="Factor masculino"
+              value={state.medicalInformation.maleFactor}
+              onChange={(maleFactor) => updateMedicalInformation({ maleFactor })}
             />
             <div className="md:col-span-2">
               <TextAreaField
-                id="form-symptoms"
-                label="Symptoms"
-                value={state.medicalInformation.symptoms}
-                onChange={(symptoms) => updateMedicalInformation({ symptoms })}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-family-history"
-                label="Family history"
-                value={state.medicalInformation.familyHistory}
-                onChange={(familyHistory) =>
-                  updateMedicalInformation({ familyHistory })
+                id="form-other-background"
+                label="otros antecedentes"
+                value={state.medicalInformation.otherBackground}
+                onChange={(otherBackground) =>
+                  updateMedicalInformation({ otherBackground })
                 }
-              />
-            </div>
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-medical-notes"
-                label="Notes"
-                value={state.medicalInformation.notes}
-                onChange={(notes) => updateMedicalInformation({ notes })}
               />
             </div>
           </div>
@@ -714,59 +827,35 @@ export function TwoPQFormFlow({
 
         {currentStep === "previousGeneticTests" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Previous tests?</Label>
-              <OptionSelectField
-                options={[
-                  { value: "yes", label: "Yes" },
-                  { value: "no", label: "No" },
-                  { value: "unknown", label: "Unknown" },
-                ]}
-                value={state.previousGeneticTests.hasPreviousTests}
-                onChange={(hasPreviousTests) =>
-                  updatePreviousGeneticTests({ hasPreviousTests })
-                }
-                placeholder="Select answer"
-              />
-            </div>
-            <Field
-              id="form-previous-test-date"
-              label="Test date"
-              type="date"
-              value={state.previousGeneticTests.testDate}
-              onChange={(testDate) => updatePreviousGeneticTests({ testDate })}
+            <YesNoField
+              label="PGT-A / PGT-SR"
+              value={state.previousGeneticTests.pgtASr}
+              onChange={(pgtASr) => updatePreviousGeneticTests({ pgtASr })}
             />
-            <Field
-              id="form-previous-lab"
-              label="Lab name"
-              value={state.previousGeneticTests.labName}
-              onChange={(labName) => updatePreviousGeneticTests({ labName })}
-            />
-            <Field
-              id="form-report-available"
-              label="Report available"
-              value={state.previousGeneticTests.reportAvailable}
-              onChange={(reportAvailable) =>
-                updatePreviousGeneticTests({ reportAvailable })
+            <YesNoField
+              label="CARIOTIPO"
+              value={state.previousGeneticTests.karyotype}
+              onChange={(karyotype) =>
+                updatePreviousGeneticTests({ karyotype })
               }
             />
             <div className="md:col-span-2">
               <TextAreaField
-                id="form-previous-description"
-                label="Test description"
-                value={state.previousGeneticTests.testDescription}
-                onChange={(testDescription) =>
-                  updatePreviousGeneticTests({ testDescription })
+                id="form-pgt-result"
+                label="RESULTADO PGT"
+                value={state.previousGeneticTests.pgtResult}
+                onChange={(pgtResult) =>
+                  updatePreviousGeneticTests({ pgtResult })
                 }
               />
             </div>
             <div className="md:col-span-2">
               <TextAreaField
-                id="form-previous-results"
-                label="Result summary"
-                value={state.previousGeneticTests.resultSummary}
-                onChange={(resultSummary) =>
-                  updatePreviousGeneticTests({ resultSummary })
+                id="form-karyotype-result"
+                label="RESULTADO CARIOTIPO"
+                value={state.previousGeneticTests.karyotypeResult}
+                onChange={(karyotypeResult) =>
+                  updatePreviousGeneticTests({ karyotypeResult })
                 }
               />
             </div>
@@ -774,42 +863,86 @@ export function TwoPQFormFlow({
         ) : null}
 
         {currentStep === "requestedTest" ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field
-              id="form-test-name"
-              label="Requested test"
-              value={state.requestedTest.testName}
-              onChange={(testName) => updateRequestedTest({ testName })}
-            />
-            <Field
-              id="form-test-code"
-              label="Test code"
-              value={state.requestedTest.testCode}
-              onChange={(testCode) => updateRequestedTest({ testCode })}
-            />
-            <Field
-              id="form-test-priority"
-              label="Priority"
-              value={state.requestedTest.priority}
-              onChange={(priority) => updateRequestedTest({ priority })}
-            />
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-test-reason"
-                label="Reason"
-                value={state.requestedTest.reason}
-                onChange={(reason) => updateRequestedTest({ reason })}
+          formType === "study_request" ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <YesNoField
+                label="PGT-A"
+                value={state.requestedTest.pgtA}
+                onChange={(pgtA) => updateRequestedTest({ pgtA })}
+              />
+              <YesNoField
+                label="PGT-SR"
+                value={state.requestedTest.pgtSr}
+                onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
+              />
+              <YesNoField
+                label="INFORMA MOSAICISMOS"
+                value={state.requestedTest.reportsMosaicism}
+                onChange={(reportsMosaicism) =>
+                  updateRequestedTest({ reportsMosaicism })
+                }
+              />
+              <YesNoField
+                label="INFORMA SEXO"
+                value={state.requestedTest.reportsSex}
+                onChange={(reportsSex) => updateRequestedTest({ reportsSex })}
+              />
+              <div className="md:col-span-2">
+                <TextAreaField
+                  id="form-request-reason"
+                  label="MOTIVO DE SOLICITUD"
+                  value={state.requestedTest.requestReason}
+                  onChange={(requestReason) =>
+                    updateRequestedTest({ requestReason })
+                  }
+                />
+              </div>
+              <Field
+                id="form-request-date"
+                label="FECHA"
+                type="date"
+                value={state.requestedTest.requestDate}
+                onChange={(requestDate) => updateRequestedTest({ requestDate })}
               />
             </div>
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-test-notes"
-                label="Notes"
-                value={state.requestedTest.notes}
-                onChange={(notes) => updateRequestedTest({ notes })}
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                id="form-test-name"
+                label="Requested test"
+                value={state.requestedTest.testName}
+                onChange={(testName) => updateRequestedTest({ testName })}
               />
+              <Field
+                id="form-test-code"
+                label="Test code"
+                value={state.requestedTest.testCode}
+                onChange={(testCode) => updateRequestedTest({ testCode })}
+              />
+              <Field
+                id="form-test-priority"
+                label="Priority"
+                value={state.requestedTest.priority}
+                onChange={(priority) => updateRequestedTest({ priority })}
+              />
+              <div className="md:col-span-2">
+                <TextAreaField
+                  id="form-test-reason"
+                  label="Reason"
+                  value={state.requestedTest.reason}
+                  onChange={(reason) => updateRequestedTest({ reason })}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <TextAreaField
+                  id="form-test-notes"
+                  label="Notes"
+                  value={state.requestedTest.notes}
+                  onChange={(notes) => updateRequestedTest({ notes })}
+                />
+              </div>
             </div>
-          </div>
+          )
         ) : null}
 
         {currentStep === "institutionInformation" ? (

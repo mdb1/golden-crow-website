@@ -46,3 +46,10 @@ export async function getTwoPQForms() {
   const payload = await sdkFetchServer<{ forms: TwoPQFormRecord[] }>("/2pq/forms");
   return payload.forms;
 }
+
+export async function getTwoPQForm(formId: string) {
+  const payload = await sdkFetchServer<{ form: TwoPQFormRecord }>(
+    `/2pq/forms/${encodeURIComponent(formId)}`
+  );
+  return payload.form;
+}

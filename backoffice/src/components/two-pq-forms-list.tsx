@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   TWO_PQ_FORM_LABELS,
-  TWO_PQ_FORM_ROUTES,
   type TwoPQFormRecord,
 } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
@@ -69,8 +68,8 @@ export function TwoPQFormsList({
               <Badge variant="brand">{TWO_PQ_FORM_LABELS[form.formType]}</Badge>
               <Badge variant="outline">{formatDate(form.createdAt)}</Badge>
               <Button variant="outline" size="sm" asChild>
-                <Link href={TWO_PQ_FORM_ROUTES[form.formType]}>
-                  New similar form
+                <Link href={`/2pq-dashboard/forms/${encodeURIComponent(form.id)}`}>
+                  Open
                   <ArrowRight className="size-3.5" />
                 </Link>
               </Button>

@@ -27,21 +27,19 @@ export type InstitutionInformationFormState = {
 };
 
 export type MedicalInformationFormState = {
-  clinicalIndication: string;
-  suspectedDiagnosis: string;
-  symptoms: string;
-  familyHistory: string;
-  requestingDoctor: string;
-  notes: string;
+  previousConceptionsCount: string;
+  previousMiscarriagesCount: string;
+  previousBirthsCount: string;
+  previousCyclesCount: string;
+  maleFactor: string;
+  otherBackground: string;
 };
 
 export type PreviousGeneticTestsFormState = {
-  hasPreviousTests: string;
-  testDescription: string;
-  labName: string;
-  testDate: string;
-  resultSummary: string;
-  reportAvailable: string;
+  pgtASr: string;
+  karyotype: string;
+  pgtResult: string;
+  karyotypeResult: string;
 };
 
 export type RequestedTestFormState = {
@@ -50,6 +48,12 @@ export type RequestedTestFormState = {
   priority: string;
   reason: string;
   notes: string;
+  pgtA: string;
+  pgtSr: string;
+  reportsMosaicism: string;
+  reportsSex: string;
+  requestReason: string;
+  requestDate: string;
 };
 
 export type SampleInformationFormState = {
