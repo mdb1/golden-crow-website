@@ -32,11 +32,14 @@
 //     PLAN 08-12 ("tapping a quick-reply INSERTS its text into the
 //     MessageInput textarea — does NOT auto-send").
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
-import { sendTrainerMessage } from "@/lib/gc-fitness/chat-server-actions";
+import {
+  sendTrainerMessage,
+  uploadTrainerChatAttachment,
+} from "@/lib/gc-fitness/chat-server-actions";
 import { CHATS_BASE_KEY } from "@/lib/gc-fitness/chat-listener";
 
 import { QuickReplyDropdown } from "./QuickReplyDropdown";
@@ -51,6 +54,8 @@ export function MessageInput({ chatId }: MessageInputProps) {
   const t = useTranslations("chat.composer");
   const [text, setText] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [uploading, setUploading] = useState(false);
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -67,6 +72,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
       });
       void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
       setText("");
+      requestAnimationFrame(() => textareaRef.current?.focus());
     },
     onError: (err) => {
       const message = err instanceof Error ? err.message : t("errorFallback");
@@ -74,7 +80,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
     },
   });
 
-  const canSend = text.trim().length > 0 && !mutation.isPending;
+  const canSend = text.trim().length > 0 && !mutation.isPending && !uploading;
 
   const handleSubmit = useCallback(() => {
     const trimmed = text.trim();
@@ -89,6 +95,78 @@ export function MessageInput({ chatId }: MessageInputProps) {
     setText((prev) => (prev.trim().length === 0 ? reply : `${prev}\n${reply}`));
   }, []);
 
+  const fileToBase64 = useCallback((file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("read-failed"));
+      reader.onload = () => {
+        const result = String(reader.result ?? "");
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const getAudioDurationMs = useCallback((file: File) => {
+    return new Promise<number>((resolve) => {
+      const url = URL.createObjectURL(file);
+      const audio = document.createElement("audio");
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => {
+        const ms = Math.max(0, Math.round((audio.duration || 0) * 1000));
+        URL.revokeObjectURL(url);
+        resolve(ms);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(0);
+      };
+      audio.src = url;
+    });
+  }, []);
+
+  const handleAttachment = useCallback(
+    async (file: File, kind: "image" | "voice") => {
+      try {
+        setSubmitError(null);
+        setUploading(true);
+        const base64Data = await fileToBase64(file);
+        const uploaded = await uploadTrainerChatAttachment({
+          chatId,
+          kind,
+          fileName: file.name,
+          mimeType: file.type,
+          base64Data,
+        });
+        if (kind === "image") {
+          await sendTrainerMessage({
+            chatId,
+            kind: "image",
+            imagePath: uploaded.storagePath,
+          });
+        } else {
+          const duration = await getAudioDurationMs(file);
+          await sendTrainerMessage({
+            chatId,
+            kind: "voice",
+            voicePath: uploaded.storagePath,
+            voiceDurationMs: duration,
+          });
+        }
+        void queryClient.invalidateQueries({ queryKey: [...CHATS_BASE_KEY, chatId, "messages"] });
+        void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      } catch (err) {
+        const message = err instanceof Error ? err.message : t("errorFallback");
+        setSubmitError(message);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [chatId, fileToBase64, getAudioDurationMs, queryClient, t],
+  );
+
   return (
     <form
       onSubmit={(e) => {
@@ -98,11 +176,42 @@ export function MessageInput({ chatId }: MessageInputProps) {
       className="flex flex-col gap-1 border-t bg-background p-3"
     >
       <div className="flex items-end gap-2">
+        <label className="cursor-pointer rounded-md border border-input px-2 py-2 text-xs">
+          📷
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={mutation.isPending || uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.currentTarget.value = "";
+              if (!file) return;
+              void handleAttachment(file, "image");
+            }}
+          />
+        </label>
+        <label className="cursor-pointer rounded-md border border-input px-2 py-2 text-xs">
+          🎤
+          <input
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            disabled={mutation.isPending || uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.currentTarget.value = "";
+              if (!file) return;
+              void handleAttachment(file, "voice");
+            }}
+          />
+        </label>
         <QuickReplyDropdown
           onSelect={handleQuickReplySelect}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || uploading}
         />
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -115,7 +224,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
           placeholder={t("placeholder")}
           rows={1}
           aria-label={t("messageAria")}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || uploading}
           className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
@@ -123,7 +232,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
           disabled={!canSend}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {mutation.isPending ? t("sending") : t("send")}
+          {mutation.isPending || uploading ? t("sending") : t("send")}
         </button>
       </div>
       {submitError && (

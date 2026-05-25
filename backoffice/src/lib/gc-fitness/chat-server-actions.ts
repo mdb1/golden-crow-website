@@ -83,6 +83,48 @@ import { FirestoreCollections } from "./collections";
 const CHATS = FirestoreCollections.chats;
 const MESSAGES = FirestoreCollections.messages;
 
+export async function uploadTrainerChatAttachment(input: {
+  chatId: string;
+  kind: "image" | "voice";
+  fileName: string;
+  mimeType: string;
+  base64Data: string;
+}): Promise<{ storagePath: string }> {
+  const session = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  await assertChatOwnership(db, input.chatId, session.uid, {
+    missingMessage: "Chat not found",
+  });
+
+  const ext =
+    (input.fileName.split(".").pop() ?? "").toLowerCase() ||
+    (input.kind === "image" ? "jpg" : "m4a");
+  const safeExt = ext.replace(/[^a-z0-9]/g, "") || (input.kind === "image" ? "jpg" : "m4a");
+  const messageId = db.collection(CHATS).doc(input.chatId).collection(MESSAGES).doc().id;
+  const prefix = input.kind === "image" ? "images" : "voices";
+  const storagePath = `${prefix}/${input.chatId}/${messageId}.${safeExt}`;
+
+  const bytes = Buffer.from(input.base64Data, "base64");
+  if (bytes.length === 0) {
+    throw new Error("Empty upload");
+  }
+  const maxBytes = input.kind === "image" ? 10 * 1024 * 1024 : 15 * 1024 * 1024;
+  if (bytes.length > maxBytes) {
+    throw new Error("Attachment too large");
+  }
+
+  const bucket = gcFitnessStorage().bucket();
+  await bucket.file(storagePath).save(bytes, {
+    resumable: false,
+    metadata: {
+      contentType: input.mimeType || undefined,
+      cacheControl: "public,max-age=31536000,immutable",
+    },
+  });
+
+  return { storagePath };
+}
+
 /**
  * Coerces a Firestore Timestamp (or any value exposing `.toDate()`) to an
  * ISO string. Returns null for missing / unknown shapes. Mirrors the
