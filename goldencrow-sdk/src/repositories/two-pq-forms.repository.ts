@@ -5,9 +5,13 @@ import { adminDbFor } from "../config/firebase.js";
 // Firestore handle for "mydnamap" (no default-app slot is touched).
 const adminDb = adminDbFor("mydnamap");
 import { AdminRepositoryError } from "./admin-errors.js";
-import { createPatientForContext } from "./areas.repository.js";
+import {
+  createDoctorForContext,
+  createPatientForContext,
+} from "./areas.repository.js";
 import {
   canCreatePatient,
+  canViewDoctor,
   canViewInstitution,
   canViewPatient,
   normalizeRoleEmail,
@@ -18,6 +22,7 @@ import {
 } from "./two-pq.repository.js";
 import type {
   AdminContext,
+  DoctorRecord,
   InstitutionRecord,
   PatientRecord,
   TwoPQFormDraftRecord,
@@ -106,6 +111,14 @@ type SampleInformationInput = {
   centerCode?: string;
   requestingDoctorFirstName?: string;
   requestingDoctorLastName?: string;
+  requestingDoctorFullName?: string;
+  requestingDoctorAuthEmail?: string;
+  requestingDoctorAuthUid?: string;
+  requestingDoctorSpecialty?: string;
+  requestingDoctorLicenseNumber?: string;
+  requestingDoctorContactPhone?: string;
+  requestingDoctorStatus?: "active" | "inactive";
+  requestingDoctorNotes?: string;
   sampleType?: string;
   processedByFirstName?: string;
   processedByLastName?: string;
@@ -146,6 +159,7 @@ type TwoPQFormInput = {
   selectedPatientId?: string;
   selectedInstitutionId?: string;
   selectedCaseId?: string;
+  selectedRequestingDoctorId?: string;
   patientInformation: PatientInformationInput;
   medicalInformation?: MedicalInformationInput;
   previousGeneticTests?: PreviousGeneticTestsInput;
@@ -287,6 +301,25 @@ function toInstitutionRecord(id: string, data: Record<string, unknown>): Institu
   };
 }
 
+function toDoctorRecord(id: string, data: Record<string, unknown>): DoctorRecord {
+  const now = new Date().toISOString();
+
+  return {
+    id,
+    institutionId: normalizeOptionalString(data.institutionId) ?? "",
+    authEmail: normalizeRoleEmail(normalizeOptionalString(data.authEmail) ?? ""),
+    authUid: normalizeOptionalString(data.authUid),
+    fullName: normalizeOptionalString(data.fullName) ?? id,
+    specialty: normalizeOptionalString(data.specialty),
+    licenseNumber: normalizeOptionalString(data.licenseNumber),
+    contactPhone: normalizeOptionalString(data.contactPhone),
+    status: data.status === "inactive" ? "inactive" : "active",
+    notes: normalizeOptionalString(data.notes),
+    createdAt: normalizeOptionalString(data.createdAt) ?? now,
+    updatedAt: normalizeOptionalString(data.updatedAt) ?? now,
+  };
+}
+
 function toPatientRecord(id: string, data: Record<string, unknown>): PatientRecord {
   const now = new Date().toISOString();
 
@@ -330,6 +363,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
+    selectedRequestingDoctorId: normalizeOptionalString(data.selectedRequestingDoctorId),
     linkedCaseId: normalizeOptionalString(data.linkedCaseId),
     linkedSamplingIds: Array.isArray(data.linkedSamplingIds)
       ? data.linkedSamplingIds
@@ -439,6 +473,15 @@ async function getInstitutionById(institutionId: string) {
   }
 
   return toInstitutionRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+}
+
+async function getDoctorById(doctorId: string) {
+  const snapshot = await adminDb.collection(DOCTORS_COLLECTION).doc(doctorId).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return toDoctorRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
 }
 
 async function getPatientById(patientId: string) {
@@ -641,7 +684,30 @@ function getRequestedTestName(
   return normalizeOptionalString(requestedTest.testName) ?? "Requested test";
 }
 
-function normalizeSampleInformation(input: SampleInformationInput = {}) {
+function normalizeRequestingDoctorCreateInput(
+  input: SampleInformationInput = {},
+  institutionId: string
+) {
+  return {
+    institutionId,
+    authEmail: normalizeEmail(input.requestingDoctorAuthEmail, "MEDICO SOLICITANTE auth email"),
+    authUid: normalizeOptionalString(input.requestingDoctorAuthUid),
+    fullName: normalizeRequiredString(
+      input.requestingDoctorFullName,
+      "MEDICO SOLICITANTE full name"
+    ),
+    specialty: normalizeOptionalString(input.requestingDoctorSpecialty),
+    licenseNumber: normalizeOptionalString(input.requestingDoctorLicenseNumber),
+    contactPhone: normalizeOptionalString(input.requestingDoctorContactPhone),
+    status: input.requestingDoctorStatus === "inactive" ? "inactive" as const : "active" as const,
+    notes: normalizeOptionalString(input.requestingDoctorNotes),
+  };
+}
+
+function normalizeSampleInformation(
+  input: SampleInformationInput = {},
+  requestingDoctor: DoctorRecord
+) {
   const sampleType = normalizeRequiredString(input.sampleType, "TIPO DE MUESTRA");
   const allowedSampleTypes = new Set([
     "biopsia de trofoectodermo",
@@ -656,14 +722,16 @@ function normalizeSampleInformation(input: SampleInformationInput = {}) {
   return compactRecord({
     fivCenter: normalizeRequiredString(input.fivCenter, "CENTRO FIV"),
     centerCode: normalizeRequiredString(input.centerCode, "CODIGO CENTRO"),
-    requestingDoctorFirstName: normalizeRequiredString(
-      input.requestingDoctorFirstName,
-      "MEDICO SOLICITANTE nombre"
-    ),
-    requestingDoctorLastName: normalizeRequiredString(
-      input.requestingDoctorLastName,
-      "MEDICO SOLICITANTE apellido"
-    ),
+    requestingDoctorId: requestingDoctor.id,
+    requestingDoctorInstitutionId: requestingDoctor.institutionId,
+    requestingDoctorFullName: requestingDoctor.fullName,
+    requestingDoctorAuthEmail: requestingDoctor.authEmail,
+    requestingDoctorAuthUid: requestingDoctor.authUid,
+    requestingDoctorSpecialty: requestingDoctor.specialty,
+    requestingDoctorLicenseNumber: requestingDoctor.licenseNumber,
+    requestingDoctorContactPhone: requestingDoctor.contactPhone,
+    requestingDoctorStatus: requestingDoctor.status,
+    requestingDoctorNotes: requestingDoctor.notes,
     sampleType,
     processedByFirstName: normalizeRequiredString(
       input.processedByFirstName,
@@ -1038,11 +1106,42 @@ export async function createTwoPQFormForContext(
     selectedPatientId = selectedPatient.id;
   }
 
+  let selectedRequestingDoctorId: string | undefined;
+  let normalizedSampleInformation: Record<string, unknown> | undefined;
+
+  if (payload.formType === "sample") {
+    selectedRequestingDoctorId = normalizeOptionalString(payload.selectedRequestingDoctorId);
+    let requestingDoctor: DoctorRecord | null = null;
+
+    if (selectedRequestingDoctorId) {
+      requestingDoctor = await getDoctorById(selectedRequestingDoctorId);
+      if (!requestingDoctor) {
+        throw new AdminRepositoryError("Selected requesting doctor not found.", 404);
+      }
+      if (!canViewDoctor(context, requestingDoctor)) {
+        throw new AdminRepositoryError("You cannot use this requesting doctor.", 403);
+      }
+      if (requestingDoctor.institutionId !== institutionId) {
+        throw new AdminRepositoryError(
+          "Selected requesting doctor must belong to the selected institution.",
+          400
+        );
+      }
+    } else {
+      requestingDoctor = await createDoctorForContext(
+        context,
+        normalizeRequestingDoctorCreateInput(payload.sampleInformation, institutionId)
+      );
+      selectedRequestingDoctorId = requestingDoctor.id;
+    }
+
+    normalizedSampleInformation = normalizeSampleInformation(
+      payload.sampleInformation,
+      requestingDoctor
+    );
+  }
+
   const requestedTest = normalizeRequestedTest(payload.requestedTest, payload.formType);
-  const normalizedSampleInformation =
-    payload.formType === "sample"
-      ? normalizeSampleInformation(payload.sampleInformation)
-      : undefined;
   let selectedCaseId = normalizeOptionalString(payload.selectedCaseId);
   let linkedCaseId: string | undefined;
   let linkedSamplingIds: string[] | undefined;
@@ -1140,6 +1239,7 @@ export async function createTwoPQFormForContext(
     doctorId,
     selectedPatientId: selectedPatientId ?? null,
     selectedInstitutionId: selectedInstitutionId ?? null,
+    selectedRequestingDoctorId: selectedRequestingDoctorId ?? null,
     patientName: patientInformation.fullName,
     patientEmail: patientInformation.email,
     institutionName: selectedInstitution?.name ?? null,

@@ -83,8 +83,16 @@ const SAMPLE_REQUESTED_TEST_FIELDS: FieldSpec[] = [
 const SAMPLE_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "fivCenter", label: "CENTRO FIV" },
   { key: "centerCode", label: "CODIGO CENTRO" },
-  { key: "requestingDoctorFirstName", label: "MEDICO SOLICITANTE nombre" },
-  { key: "requestingDoctorLastName", label: "MEDICO SOLICITANTE apellido" },
+  { key: "requestingDoctorId", label: "MEDICO SOLICITANTE ID" },
+  { key: "requestingDoctorInstitutionId", label: "MEDICO SOLICITANTE institution ID" },
+  { key: "requestingDoctorFullName", label: "MEDICO SOLICITANTE full name" },
+  { key: "requestingDoctorAuthEmail", label: "MEDICO SOLICITANTE auth email" },
+  { key: "requestingDoctorAuthUid", label: "MEDICO SOLICITANTE auth uid" },
+  { key: "requestingDoctorSpecialty", label: "MEDICO SOLICITANTE specialty" },
+  { key: "requestingDoctorLicenseNumber", label: "MEDICO SOLICITANTE license number" },
+  { key: "requestingDoctorContactPhone", label: "MEDICO SOLICITANTE contact phone" },
+  { key: "requestingDoctorStatus", label: "MEDICO SOLICITANTE status" },
+  { key: "requestingDoctorNotes", label: "MEDICO SOLICITANTE notes" },
   { key: "sampleType", label: "TIPO DE MUESTRA" },
   { key: "processedByFirstName", label: "PROCESADO POR nombre" },
   { key: "processedByLastName", label: "PROCESADO POR apellido" },
@@ -322,6 +330,55 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
+  if (form.formType !== "sample") {
+    return null;
+  }
+
+  const requestingDoctorId =
+    form.selectedRequestingDoctorId ??
+    getTextValue(form.sampleInformation, "requestingDoctorId");
+
+  return (
+    <section className="rounded-2xl border border-violet-200/80 bg-violet-50/72 px-5 py-5 shadow-[0_16px_38px_rgba(124,58,237,0.12)] dark:border-violet-300/24 dark:bg-violet-950/20">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/78 text-violet-700 shadow-sm dark:bg-violet-400/12 dark:text-violet-200">
+            <UserRound className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="section-eyebrow text-violet-700 dark:text-violet-200">
+              MEDICO SOLICITANTE link
+            </p>
+            <h2 className="font-heading text-xl font-semibold text-violet-950 dark:text-violet-50">
+              {getTextValue(form.sampleInformation, "requestingDoctorFullName") ??
+                "Requesting doctor"}
+            </h2>
+            <p className="mt-1 text-sm text-violet-950/72 dark:text-violet-50/74">
+              {requestingDoctorId
+                ? "This sample form is linked to the scoped requesting doctor record."
+                : "This sample form does not have a requesting doctor link stored."}
+            </p>
+            {requestingDoctorId ? (
+              <p className="mt-2 font-mono text-xs text-violet-900/74 dark:text-violet-100/74">
+                {requestingDoctorId}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        {requestingDoctorId ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/areas/doctors/${encodeURIComponent(requestingDoctorId)}`}>
+              Open doctor
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
   const requestedTestFields =
     form.formType === "study_request"
@@ -380,6 +437,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       </section>
 
       <PatientLinkSection form={form} />
+      <RequestingDoctorLinkSection form={form} />
 
       <DetailSection
         title="Patient information"

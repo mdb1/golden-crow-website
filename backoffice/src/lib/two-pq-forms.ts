@@ -59,8 +59,14 @@ export type RequestedTestFormState = {
 export type SampleInformationFormState = {
   fivCenter: string;
   centerCode: string;
-  requestingDoctorFirstName: string;
-  requestingDoctorLastName: string;
+  requestingDoctorFullName: string;
+  requestingDoctorAuthEmail: string;
+  requestingDoctorAuthUid: string;
+  requestingDoctorSpecialty: string;
+  requestingDoctorLicenseNumber: string;
+  requestingDoctorContactPhone: string;
+  requestingDoctorStatus: "active" | "inactive";
+  requestingDoctorNotes: string;
   sampleType: string;
   processedByFirstName: string;
   processedByLastName: string;
@@ -104,6 +110,7 @@ export type TwoPQFormDraftState = {
   selectedPatientId: string;
   selectedInstitutionId: string;
   selectedCaseId: string;
+  selectedRequestingDoctorId: string;
   patientInformation: PatientInformationFormState;
   medicalInformation: MedicalInformationFormState;
   previousGeneticTests: PreviousGeneticTestsFormState;
@@ -127,6 +134,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   selectedCaseId?: string;
+  selectedRequestingDoctorId?: string;
   linkedCaseId?: string;
   linkedSamplingIds?: string[];
   patientInformation: Record<string, unknown>;

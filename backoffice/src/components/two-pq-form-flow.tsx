@@ -238,8 +238,14 @@ function buildInitialState(
     sampleInformation: {
       fivCenter: "",
       centerCode: "",
-      requestingDoctorFirstName: "",
-      requestingDoctorLastName: "",
+      requestingDoctorFullName: "",
+      requestingDoctorAuthEmail: "",
+      requestingDoctorAuthUid: "",
+      requestingDoctorSpecialty: "",
+      requestingDoctorLicenseNumber: "",
+      requestingDoctorContactPhone: "",
+      requestingDoctorStatus: "active",
+      requestingDoctorNotes: "",
       sampleType: "",
       processedByFirstName: "",
       processedByLastName: "",
@@ -248,6 +254,7 @@ function buildInitialState(
     },
     caseInformation: emptyCase(),
     samplingInformation: [emptySampling()],
+    selectedRequestingDoctorId: "",
   };
 }
 
@@ -257,6 +264,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function mergeDraftSection<T extends object>(base: T, value: unknown): T {
   return isRecord(value) ? { ...base, ...value } as T : base;
+}
+
+function mergeSampleInformationDraft(
+  base: SampleInformationFormState,
+  value: unknown
+): SampleInformationFormState {
+  const merged = mergeDraftSection(base, value);
+  if (!isRecord(value) || merged.requestingDoctorFullName.trim()) {
+    return merged;
+  }
+
+  const firstName =
+    typeof value.requestingDoctorFirstName === "string"
+      ? value.requestingDoctorFirstName.trim()
+      : "";
+  const lastName =
+    typeof value.requestingDoctorLastName === "string"
+      ? value.requestingDoctorLastName.trim()
+      : "";
+
+  return {
+    ...merged,
+    requestingDoctorFullName: [firstName, lastName].filter(Boolean).join(" "),
+  };
 }
 
 function hydrateDraftState(
@@ -282,6 +313,10 @@ function hydrateDraftState(
       typeof draftState.selectedCaseId === "string"
         ? draftState.selectedCaseId
         : defaultState.selectedCaseId,
+    selectedRequestingDoctorId:
+      typeof draftState.selectedRequestingDoctorId === "string"
+        ? draftState.selectedRequestingDoctorId
+        : defaultState.selectedRequestingDoctorId,
     patientInformation: mergeDraftSection(
       defaultState.patientInformation,
       draftState.patientInformation
@@ -302,7 +337,7 @@ function hydrateDraftState(
       defaultState.institutionInformation,
       draftState.institutionInformation
     ),
-    sampleInformation: mergeDraftSection(
+    sampleInformation: mergeSampleInformationDraft(
       defaultState.sampleInformation,
       draftState.sampleInformation
     ),
@@ -612,6 +647,16 @@ export function TwoPQFormFlow({
     value: doctor.id,
     label: `${doctor.fullName} (${doctor.id})`,
   }));
+  const requestingDoctorOptions = doctors
+    .filter((doctor) =>
+      state.patientInformation.institutionId
+        ? doctor.institutionId === state.patientInformation.institutionId
+        : true
+    )
+    .map((doctor) => ({
+      value: doctor.id,
+      label: `${doctor.fullName} (${doctor.authEmail || doctor.id})`,
+    }));
   const patientOptions = patients.map((patient) => ({
     value: patient.id,
     label: `${patient.fullName} (${patient.id})`,
@@ -794,6 +839,7 @@ export function TwoPQFormFlow({
       ...current,
       selectedPatientId: patientId,
       selectedCaseId: "",
+      selectedRequestingDoctorId: "",
       selectedInstitutionId: patientInstitution?.id ?? current.selectedInstitutionId,
       institutionInformation: patientInstitution
         ? institutionToFormState(patientInstitution)
@@ -817,11 +863,33 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function selectRequestingDoctor(doctorId: string) {
+    const doctor = doctors.find((candidate) => candidate.id === doctorId);
+    setState((current) => ({
+      ...current,
+      selectedRequestingDoctorId: doctorId,
+      sampleInformation: doctor
+        ? {
+            ...current.sampleInformation,
+            requestingDoctorFullName: doctor.fullName,
+            requestingDoctorAuthEmail: doctor.authEmail,
+            requestingDoctorAuthUid: doctor.authUid ?? "",
+            requestingDoctorSpecialty: doctor.specialty ?? "",
+            requestingDoctorLicenseNumber: doctor.licenseNumber ?? "",
+            requestingDoctorContactPhone: doctor.contactPhone ?? "",
+            requestingDoctorStatus: doctor.status,
+            requestingDoctorNotes: doctor.notes ?? "",
+          }
+        : current.sampleInformation,
+    }));
+  }
+
   function selectInstitution(institutionId: string) {
     const institution = institutions.find((candidate) => candidate.id === institutionId);
     setState((current) => ({
       ...current,
       selectedInstitutionId: institutionId,
+      selectedRequestingDoctorId: "",
       institutionInformation: institution
         ? institutionToFormState(institution)
         : emptyInstitution(),
@@ -928,11 +996,11 @@ export function TwoPQFormFlow({
       if (!state.sampleInformation.centerCode.trim()) {
         return "CODIGO CENTRO is required.";
       }
-      if (!state.sampleInformation.requestingDoctorFirstName.trim()) {
-        return "MEDICO SOLICITANTE nombre is required.";
+      if (!state.sampleInformation.requestingDoctorFullName.trim()) {
+        return "MEDICO SOLICITANTE full name is required.";
       }
-      if (!state.sampleInformation.requestingDoctorLastName.trim()) {
-        return "MEDICO SOLICITANTE apellido is required.";
+      if (!isValidEmail(state.sampleInformation.requestingDoctorAuthEmail)) {
+        return "MEDICO SOLICITANTE auth email must be valid.";
       }
       if (!state.sampleInformation.sampleType.trim()) {
         return "TIPO DE MUESTRA is required.";
@@ -1051,6 +1119,7 @@ export function TwoPQFormFlow({
               formType,
               selectedPatientId: state.selectedPatientId,
               selectedCaseId: state.selectedCaseId,
+              selectedRequestingDoctorId: state.selectedRequestingDoctorId,
               patientInformation: state.patientInformation,
               requestedTest: state.requestedTest,
               sampleInformation: state.sampleInformation,
@@ -1169,6 +1238,7 @@ export function TwoPQFormFlow({
                   setState((current) => ({
                     ...current,
                     selectedCaseId: "",
+                    selectedRequestingDoctorId: "",
                     patientInformation: {
                       ...current.patientInformation,
                       institutionId,
@@ -1538,22 +1608,105 @@ export function TwoPQFormFlow({
               value={state.sampleInformation.centerCode}
               onChange={(centerCode) => updateSampleInformation({ centerCode })}
             />
+            <div className="space-y-2 md:col-span-2">
+              <Label>Pick existing MEDICO SOLICITANTE</Label>
+              <OptionSelectField
+                options={requestingDoctorOptions}
+                value={state.selectedRequestingDoctorId}
+                onChange={selectRequestingDoctor}
+                placeholder="Select requesting doctor"
+                emptyLabel="Manual requesting doctor information"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="form-requesting-doctor-institution">
+                MEDICO SOLICITANTE institution
+              </Label>
+              <Input
+                id="form-requesting-doctor-institution"
+                value={
+                  selectedInstitution
+                    ? `${selectedInstitution.name} (${selectedInstitution.id})`
+                    : state.patientInformation.institutionId
+                }
+                disabled
+              />
+            </div>
             <Field
-              id="form-requesting-doctor-first-name"
-              label="MEDICO SOLICITANTE nombre"
-              value={state.sampleInformation.requestingDoctorFirstName}
-              onChange={(requestingDoctorFirstName) =>
-                updateSampleInformation({ requestingDoctorFirstName })
+              id="form-requesting-doctor-full-name"
+              label="MEDICO SOLICITANTE full name"
+              value={state.sampleInformation.requestingDoctorFullName}
+              onChange={(requestingDoctorFullName) =>
+                updateSampleInformation({ requestingDoctorFullName })
               }
             />
             <Field
-              id="form-requesting-doctor-last-name"
-              label="MEDICO SOLICITANTE apellido"
-              value={state.sampleInformation.requestingDoctorLastName}
-              onChange={(requestingDoctorLastName) =>
-                updateSampleInformation({ requestingDoctorLastName })
+              id="form-requesting-doctor-auth-email"
+              label="MEDICO SOLICITANTE auth email"
+              value={state.sampleInformation.requestingDoctorAuthEmail}
+              onChange={(requestingDoctorAuthEmail) =>
+                updateSampleInformation({ requestingDoctorAuthEmail })
               }
             />
+            <Field
+              id="form-requesting-doctor-auth-uid"
+              label="MEDICO SOLICITANTE auth uid"
+              value={state.sampleInformation.requestingDoctorAuthUid}
+              onChange={(requestingDoctorAuthUid) =>
+                updateSampleInformation({ requestingDoctorAuthUid })
+              }
+            />
+            <div className="space-y-2">
+              <Label>MEDICO SOLICITANTE status</Label>
+              <OptionSelectField
+                options={PERSON_STATUS_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+                value={state.sampleInformation.requestingDoctorStatus}
+                onChange={(requestingDoctorStatus) =>
+                  updateSampleInformation({
+                    requestingDoctorStatus:
+                      requestingDoctorStatus === "inactive" ? "inactive" : "active",
+                  })
+                }
+                placeholder="Select status"
+              />
+            </div>
+            <Field
+              id="form-requesting-doctor-specialty"
+              label="MEDICO SOLICITANTE specialty"
+              value={state.sampleInformation.requestingDoctorSpecialty}
+              onChange={(requestingDoctorSpecialty) =>
+                updateSampleInformation({ requestingDoctorSpecialty })
+              }
+            />
+            <Field
+              id="form-requesting-doctor-license"
+              label="MEDICO SOLICITANTE license number"
+              value={state.sampleInformation.requestingDoctorLicenseNumber}
+              onChange={(requestingDoctorLicenseNumber) =>
+                updateSampleInformation({ requestingDoctorLicenseNumber })
+              }
+            />
+            <Field
+              id="form-requesting-doctor-phone"
+              label="MEDICO SOLICITANTE contact phone"
+              value={state.sampleInformation.requestingDoctorContactPhone}
+              onChange={(requestingDoctorContactPhone) =>
+                updateSampleInformation({ requestingDoctorContactPhone })
+              }
+            />
+            <div className="md:col-span-2">
+              <TextAreaField
+                id="form-requesting-doctor-notes"
+                label="MEDICO SOLICITANTE notes"
+                value={state.sampleInformation.requestingDoctorNotes}
+                onChange={(requestingDoctorNotes) =>
+                  updateSampleInformation({ requestingDoctorNotes })
+                }
+              />
+            </div>
             <div className="space-y-2">
               <Label>TIPO DE MUESTRA</Label>
               <OptionSelectField

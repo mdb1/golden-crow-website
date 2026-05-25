@@ -326,6 +326,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   selectedCaseId?: string;
+  selectedRequestingDoctorId?: string;
   linkedCaseId?: string;
   linkedSamplingIds?: string[];
   patientInformation: Record<string, unknown>;
