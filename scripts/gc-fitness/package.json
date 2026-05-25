@@ -17,6 +17,8 @@
     "backfill:fexd-vocab:apply": "tsx backfill-fexd-vocabulary.ts --apply",
     "fetch-fexd-assets": "tsx fetch-fexd-assets.ts",
     "fetch-fexd-assets:apply": "tsx fetch-fexd-assets.ts --apply",
+    "rewrite:exercise-refs": "tsx rewrite-exercise-refs.ts",
+    "rewrite:exercise-refs:apply": "tsx rewrite-exercise-refs.ts --apply",
     "seed-fexd": "tsx seed-from-fexd.ts",
     "seed-fexd:apply": "tsx seed-from-fexd.ts --apply",
     "translate:fexd": "tsx translate-fexd-batch.ts",
