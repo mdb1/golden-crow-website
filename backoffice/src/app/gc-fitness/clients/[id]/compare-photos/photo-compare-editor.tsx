@@ -27,6 +27,13 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   const before = angled.find((p) => p.id === beforeId);
   const after = angled.find((p) => p.id === afterId);
 
+  function defaultsForAngle(nextAngle: Angle): { before: string; after: string } {
+    const next = photos.filter((p) => (p.angle ?? "front") === nextAngle && p.url);
+    const afterDefault = next[0]?.id ?? "";
+    const beforeDefault = next[1]?.id ?? next[0]?.id ?? "";
+    return { before: beforeDefault, after: afterDefault };
+  }
+
   function onDragStart(kind: "before" | "after", e: React.PointerEvent<HTMLDivElement>) {
     const t = kind === "before" ? beforeT : afterT;
     dragging.current = kind;
@@ -47,7 +54,17 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   return (
     <section className="rounded-md border bg-card p-4">
       <div className="mb-3 flex flex-wrap gap-2">
-        <select className="h-10 rounded-md border px-2" value={angle} onChange={(e) => { setAngle(e.target.value as Angle); setBeforeId(""); setAfterId(""); }}>
+        <select
+          className="h-10 rounded-md border px-2"
+          value={angle}
+          onChange={(e) => {
+            const nextAngle = e.target.value as Angle;
+            const defaults = defaultsForAngle(nextAngle);
+            setAngle(nextAngle);
+            setBeforeId(defaults.before);
+            setAfterId(defaults.after);
+          }}
+        >
           <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option>
         </select>
         <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => setBeforeId(e.target.value)}>
