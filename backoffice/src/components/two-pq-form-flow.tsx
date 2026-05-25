@@ -63,12 +63,34 @@ type FieldErrors = Record<string, string>;
 type StepValidationStatus = "valid" | "invalid";
 type StepValidationState = Partial<Record<StepKey, StepValidationStatus>>;
 type FormStorageProcessingStatus = "pending" | "running" | "success" | "error";
+type WholeDataValidationStatus = "running" | "success" | "error";
 
 type FormStorageProcessingStep = {
   id: string;
   label: string;
   detail: string;
   status: FormStorageProcessingStatus;
+};
+
+type WholeDataValidationIssue = {
+  id: string;
+  step: StepKey;
+  stepLabel: string;
+  fieldLabel: string;
+  message: string;
+  fieldKey?: string;
+};
+
+type WholeDataValidationReport = {
+  status: WholeDataValidationStatus;
+  issues: WholeDataValidationIssue[];
+};
+
+type WholeDataValidationResult = {
+  fieldErrors: FieldErrors;
+  stepValidation: StepValidationState;
+  issues: WholeDataValidationIssue[];
+  firstInvalidStepIndex: number;
 };
 
 const STUDY_REQUEST_STEPS: StepKey[] = [
@@ -96,6 +118,54 @@ const STEP_LABELS: Record<StepKey, string> = {
   sampleInformation: "Sample information",
   caseInformation: "2PQ case",
   samplingInformation: "2PQ sampling",
+};
+
+const VALIDATION_FIELD_LABELS: Record<string, string> = {
+  selectedPatientId: "Pick existing patient",
+  selectedInstitutionId: "Pick existing institution",
+  selectedRequestingDoctorId: "Pick existing doctor",
+  selectedCaseId: "Pick existing 2PQ case",
+  "patientInformation.institutionId": "Institution",
+  "patientInformation.doctorId": "Doctor",
+  "patientInformation.email": "Email",
+  "patientInformation.fullName": "Full name",
+  "patientInformation.birthDate": "Birth date",
+  "medicalInformation.previousConceptionsCount": "Previous conceptions",
+  "medicalInformation.previousMiscarriagesCount": "Previous miscarriages",
+  "medicalInformation.previousBirthsCount": "Previous births",
+  "medicalInformation.previousCyclesCount": "Previous cycles",
+  "medicalInformation.maleFactor": "Male factor",
+  "medicalInformation.otherBackground": "Other background",
+  "previousGeneticTests.pgtASr": "PGT-A / PGT-SR",
+  "previousGeneticTests.karyotype": "Karyotype",
+  "previousGeneticTests.pgtResult": "PGT result",
+  "previousGeneticTests.karyotypeResult": "Karyotype result",
+  "requestedTest.pgtA": "PGT-A",
+  "requestedTest.pgtSr": "PGT-SR",
+  "requestedTest.reportsMosaicism": "Reports mosaicism",
+  "requestedTest.reportsSex": "Reports sex",
+  "requestedTest.requestReason": "Request reason",
+  "requestedTest.requestDate": "Date",
+  "institutionInformation.name": "Institution name",
+  "institutionInformation.contactEmail": "Contact email",
+  "sampleInformation.fivCenter": "FIV center",
+  "sampleInformation.centerCode": "Center code",
+  "sampleInformation.requestingDoctorFullName": "Requesting doctor",
+  "sampleInformation.requestingDoctorAuthEmail": "Auth email",
+  "sampleInformation.sampleType": "Sample type",
+  "sampleInformation.processedByFirstName": "First name",
+  "sampleInformation.processedByLastName": "Last name",
+  "sampleInformation.processDate": "Process date",
+  "sampleInformation.boxCode": "Box code",
+  "caseInformation.caseLabel": "Case label",
+  "caseInformation.caseStatus": "Case status",
+  "caseInformation.priority": "Priority",
+  "caseInformation.requestedAt": "Requested at",
+  "caseInformation.dueAt": "Due at",
+  samplingInformation: "2PQ sampling",
+  "samplingInformation.sampleId": "Sample ID",
+  "samplingInformation.sampleType": "Sample type",
+  "samplingInformation.processingStatus": "Processing status",
 };
 
 const YES_NO_OPTIONS = [
@@ -163,6 +233,25 @@ function isNonNegativeInteger(value: string) {
   }
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0;
+}
+
+function isValidDateInput(value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue || !/^\d{4}-\d{2}-\d{2}$/.test(trimmedValue)) {
+    return false;
+  }
+  const [year, month, day] = trimmedValue.split("-").map(Number);
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    candidate.getUTCFullYear() === year &&
+    candidate.getUTCMonth() === month - 1 &&
+    candidate.getUTCDate() === day
+  );
+}
+
+function optionalValidDateInput(value: string) {
+  return !value.trim() || isValidDateInput(value);
 }
 
 function toDateInputValue(value?: string) {
@@ -468,7 +557,16 @@ function firstErrorMessage(errors: FieldErrors) {
 }
 
 function isStepErrorKey(key: string, step: StepKey) {
-  return key === step || key.startsWith(`${step}.`);
+  if (key === step || key.startsWith(`${step}.`)) {
+    return true;
+  }
+
+  return (
+    (step === "patientInformation" && key === "selectedPatientId") ||
+    (step === "institutionInformation" && key === "selectedInstitutionId") ||
+    (step === "sampleInformation" && key === "selectedRequestingDoctorId") ||
+    (step === "caseInformation" && key === "selectedCaseId")
+  );
 }
 
 function validationStatusFor(errors: FieldErrors): StepValidationStatus {
@@ -626,6 +724,12 @@ function validateStepFields(
     if (!flowState.patientInformation.fullName.trim()) {
       errors["patientInformation.fullName"] = t("Patient full name is required.");
     }
+    if (
+      flowState.patientInformation.birthDate &&
+      !optionalValidDateInput(flowState.patientInformation.birthDate)
+    ) {
+      errors["patientInformation.birthDate"] = t("Birth date must be a valid date.");
+    }
   }
 
   if (step === "medicalInformation") {
@@ -718,6 +822,8 @@ function validateStepFields(
     }
     if (!flowState.requestedTest.requestDate) {
       errors["requestedTest.requestDate"] = t("Date is required.");
+    } else if (!isValidDateInput(flowState.requestedTest.requestDate)) {
+      errors["requestedTest.requestDate"] = t("Date must be a valid date.");
     }
   }
 
@@ -748,6 +854,12 @@ function validateStepFields(
     }
     if (!flowState.sampleInformation.sampleType.trim()) {
       errors["sampleInformation.sampleType"] = t("Sample type is required.");
+    } else if (
+      !SAMPLE_TYPE_OPTIONS.some(
+        (option) => option.value === flowState.sampleInformation.sampleType
+      )
+    ) {
+      errors["sampleInformation.sampleType"] = t("Sample type is not valid.");
     }
     if (!flowState.sampleInformation.processedByFirstName.trim()) {
       errors["sampleInformation.processedByFirstName"] =
@@ -759,6 +871,8 @@ function validateStepFields(
     }
     if (!flowState.sampleInformation.processDate.trim()) {
       errors["sampleInformation.processDate"] = t("Process date is required.");
+    } else if (!isValidDateInput(flowState.sampleInformation.processDate)) {
+      errors["sampleInformation.processDate"] = t("Process date must be a valid date.");
     }
     if (!flowState.sampleInformation.boxCode.trim()) {
       errors["sampleInformation.boxCode"] = t("Box code is required.");
@@ -774,6 +888,36 @@ function validateStepFields(
     }
     if (!flowState.caseInformation.caseStatus.trim()) {
       errors["caseInformation.caseStatus"] = t("Select a 2PQ case status.");
+    } else if (
+      !CASE_STATUS_OPTIONS.some(
+        (option) => option.value === flowState.caseInformation.caseStatus
+      )
+    ) {
+      errors["caseInformation.caseStatus"] = t("Case status is not valid.");
+    }
+    if (
+      flowState.caseInformation.priority &&
+      !PRIORITY_OPTIONS.some(
+        (option) => option.value === flowState.caseInformation.priority
+      )
+    ) {
+      errors["caseInformation.priority"] = t("Priority is not valid.");
+    }
+    if (!flowState.caseInformation.requestedAt.trim()) {
+      errors["caseInformation.requestedAt"] =
+        t("Requested at is required for a new 2PQ case.");
+    }
+    if (
+      flowState.caseInformation.requestedAt &&
+      !optionalValidDateInput(flowState.caseInformation.requestedAt)
+    ) {
+      errors["caseInformation.requestedAt"] = t("Requested at must be a valid date.");
+    }
+    if (
+      flowState.caseInformation.dueAt &&
+      !optionalValidDateInput(flowState.caseInformation.dueAt)
+    ) {
+      errors["caseInformation.dueAt"] = t("Due at must be a valid date.");
     }
   }
 
@@ -785,13 +929,15 @@ function validateStepFields(
     flowState.samplingInformation.forEach((sampling, index) => {
       const row = `${t("Sampling")} ${index + 1}`;
       const trimmedSampleId = sampling.sampleId.trim();
+      const normalizedSampleId = trimmedSampleId.toLowerCase();
       if (!trimmedSampleId) {
         errors[`samplingInformation.${index}.sampleId`] = `${row}: ${t("Sample ID is required.")}`;
-      } else if (sampleIds.has(trimmedSampleId)) {
+      } else if (sampleIds.has(normalizedSampleId)) {
         errors[`samplingInformation.${index}.sampleId`] =
           `${row}: ${t("Sample ID must be unique in this form.")}`;
+      } else {
+        sampleIds.add(normalizedSampleId);
       }
-      sampleIds.add(trimmedSampleId);
       if (!sampling.sampleType.trim()) {
         errors[`samplingInformation.${index}.sampleType`] =
           `${row}: ${t("Sample type is required.")}`;
@@ -799,6 +945,13 @@ function validateStepFields(
       if (!sampling.processingStatus.trim()) {
         errors[`samplingInformation.${index}.processingStatus`] =
           `${row}: ${t("Select processing status.")}`;
+      } else if (
+        !PROCESSING_OPTIONS.some(
+          (option) => option.value === sampling.processingStatus
+        )
+      ) {
+        errors[`samplingInformation.${index}.processingStatus`] =
+          `${row}: ${t("Processing status is not valid.")}`;
       }
     });
   }
@@ -819,6 +972,247 @@ function buildInitialStepValidation(
     );
     return statuses;
   }, {});
+}
+
+function validationFieldLabel(fieldKey: string, language: AppLanguage) {
+  const t = (text: string) => appText(language, text);
+  const samplingMatch = /^samplingInformation\.(\d+)\.(.+)$/.exec(fieldKey);
+  if (samplingMatch) {
+    const rowNumber = Number(samplingMatch[1]) + 1;
+    const rowFieldLabel =
+      VALIDATION_FIELD_LABELS[`samplingInformation.${samplingMatch[2]}`] ??
+      samplingMatch[2];
+
+    return `${t("Sampling")} ${rowNumber}: ${t(rowFieldLabel)}`;
+  }
+
+  return t(VALIDATION_FIELD_LABELS[fieldKey] ?? fieldKey);
+}
+
+function validateWholeDocument({
+  flowState,
+  steps,
+  formType,
+  language,
+  institutions,
+  doctors,
+  patients,
+  cases,
+}: {
+  flowState: FlowState;
+  steps: StepKey[];
+  formType: TwoPQFormType;
+  language: AppLanguage;
+  institutions: InstitutionListItem[];
+  doctors: DoctorListItem[];
+  patients: PatientListItem[];
+  cases: TwoPQListItem[];
+}): WholeDataValidationResult {
+  const t = (text: string) => appText(language, text);
+  const fieldErrors: FieldErrors = {};
+  const issues: WholeDataValidationIssue[] = [];
+  const invalidSteps = new Set<StepKey>();
+  const issueIds = new Set<string>();
+
+  function addIssue(step: StepKey, fieldKey: string, message: string) {
+    const issueId = `${step}:${fieldKey}:${message}`;
+    if (issueIds.has(issueId)) {
+      return;
+    }
+
+    issueIds.add(issueId);
+    invalidSteps.add(step);
+    if (!fieldErrors[fieldKey]) {
+      fieldErrors[fieldKey] = message;
+    }
+    issues.push({
+      id: issueId,
+      step,
+      stepLabel: t(STEP_LABELS[step]),
+      fieldLabel: validationFieldLabel(fieldKey, language),
+      message,
+      fieldKey,
+    });
+  }
+
+  steps.forEach((step) => {
+    const stepErrors = validateStepFields(step, flowState, formType, language);
+    Object.entries(stepErrors).forEach(([fieldKey, message]) => {
+      addIssue(step, fieldKey, message);
+    });
+  });
+
+  const institutionId = flowState.patientInformation.institutionId;
+  const doctorId = flowState.patientInformation.doctorId;
+  const selectedInstitution = institutionId
+    ? institutions.find((institution) => institution.id === institutionId)
+    : null;
+  const selectedDoctor = doctorId
+    ? doctors.find((doctor) => doctor.id === doctorId)
+    : null;
+
+  if (institutionId && !selectedInstitution) {
+    addIssue(
+      "patientInformation",
+      "patientInformation.institutionId",
+      t("Selected institution is not available in the current lookup data.")
+    );
+  }
+
+  if (doctorId && !selectedDoctor) {
+    addIssue(
+      "patientInformation",
+      "patientInformation.doctorId",
+      t("Selected doctor is not available in the current lookup data.")
+    );
+  }
+
+  if (selectedDoctor && institutionId && selectedDoctor.institutionId !== institutionId) {
+    addIssue(
+      "patientInformation",
+      "patientInformation.doctorId",
+      t("Selected doctor must belong to the selected institution.")
+    );
+  }
+
+  if (flowState.selectedPatientId) {
+    const selectedPatient = patients.find(
+      (patient) => patient.id === flowState.selectedPatientId
+    );
+    if (!selectedPatient) {
+      addIssue(
+        "patientInformation",
+        "selectedPatientId",
+        t("Selected patient is not available in the current lookup data.")
+      );
+    } else if (
+      selectedPatient.institutionId !== institutionId ||
+      selectedPatient.doctorId !== doctorId
+    ) {
+      addIssue(
+        "patientInformation",
+        "selectedPatientId",
+        t("Selected patient must belong to the selected institution and doctor.")
+      );
+    }
+  }
+
+  if (formType === "study_request" && flowState.selectedInstitutionId) {
+    const requestInstitution = institutions.find(
+      (institution) => institution.id === flowState.selectedInstitutionId
+    );
+    if (!requestInstitution) {
+      addIssue(
+        "institutionInformation",
+        "selectedInstitutionId",
+        t("Selected institution is not available in the current lookup data.")
+      );
+    } else if (institutionId && requestInstitution.id !== institutionId) {
+      addIssue(
+        "institutionInformation",
+        "selectedInstitutionId",
+        t("Selected institution must match the form institution scope.")
+      );
+    }
+  }
+
+  if (formType === "sample") {
+    const boxCode = normalizeBoxCodeForValidation(flowState.sampleInformation.boxCode);
+    const selectedRequestingDoctorId = flowState.selectedRequestingDoctorId;
+    if (selectedRequestingDoctorId) {
+      const requestingDoctor = doctors.find(
+        (doctor) => doctor.id === selectedRequestingDoctorId
+      );
+      if (!requestingDoctor) {
+        addIssue(
+          "sampleInformation",
+          "selectedRequestingDoctorId",
+          t("Selected requesting doctor is not available in the current lookup data.")
+        );
+      } else if (requestingDoctor.institutionId !== institutionId) {
+        addIssue(
+          "sampleInformation",
+          "selectedRequestingDoctorId",
+          t("Selected requesting doctor must belong to the selected institution.")
+        );
+      }
+    }
+
+    if (flowState.selectedCaseId) {
+      const selectedCase = cases.find(
+        (caseRecord) => caseRecord.id === flowState.selectedCaseId
+      );
+      if (!selectedCase) {
+        addIssue(
+          "caseInformation",
+          "selectedCaseId",
+          t("Selected 2PQ case is not available in the current lookup data.")
+        );
+      } else {
+        if (
+          selectedCase.institutionId !== institutionId ||
+          selectedCase.doctorId !== doctorId
+        ) {
+          addIssue(
+            "caseInformation",
+            "selectedCaseId",
+            t("Selected 2PQ case must belong to the selected institution and doctor.")
+          );
+        }
+        if (!flowState.selectedPatientId && selectedCase.patientId) {
+          addIssue(
+            "caseInformation",
+            "selectedCaseId",
+            t("Selected 2PQ case is already linked to an existing patient. Pick that patient or create a new case.")
+          );
+        }
+        if (
+          flowState.selectedPatientId &&
+          selectedCase.patientId &&
+          selectedCase.patientId !== flowState.selectedPatientId
+        ) {
+          addIssue(
+            "caseInformation",
+            "selectedCaseId",
+            t("Selected 2PQ case must belong to the selected patient.")
+          );
+        }
+        if (
+          isValidBoxCode(boxCode) &&
+          normalizeBoxCodeForValidation(selectedCase.three_letter_code ?? "") !== boxCode
+        ) {
+          addIssue(
+            "caseInformation",
+            "selectedCaseId",
+            t("Selected 2PQ case must match the validated box code.")
+          );
+        }
+      }
+    } else if (
+      isValidBoxCode(boxCode) &&
+      flowState.caseInformation.caseLabel.trim() &&
+      !flowState.caseInformation.caseLabel.trim().toUpperCase().startsWith(boxCode)
+    ) {
+      addIssue(
+        "caseInformation",
+        "caseInformation.caseLabel",
+        t("Case label must start with the validated box code.")
+      );
+    }
+  }
+
+  const stepValidation = steps.reduce<StepValidationState>((next, step) => {
+    next[step] = invalidSteps.has(step) ? "invalid" : "valid";
+    return next;
+  }, {});
+  const firstInvalidStepIndex = steps.findIndex((step) => invalidSteps.has(step));
+
+  return {
+    fieldErrors,
+    stepValidation,
+    issues,
+    firstInvalidStepIndex,
+  };
 }
 
 function patientToFormState(patient: PatientListItem): PatientInformationFormState {
@@ -1169,6 +1563,8 @@ export function TwoPQFormFlow({
   const [storageProcessingError, setStorageProcessingError] = useState<string | null>(
     null
   );
+  const [wholeDataValidationReport, setWholeDataValidationReport] =
+    useState<WholeDataValidationReport | null>(null);
   const [storedFormId, setStoredFormId] = useState<string | null>(null);
   const currentStep = steps[stepIndex] ?? steps[0];
   const currentStepLabel = t(STEP_LABELS[currentStep]);
@@ -1303,6 +1699,8 @@ export function TwoPQFormFlow({
   const runningStorageStep = storageProcessingSteps.find(
     (step) => step.status === "running"
   );
+  const processDialogOpen =
+    Boolean(wholeDataValidationReport) || storageProcessingSteps.length > 0;
 
   function updateStorageProcessingStep(
     stepId: string,
@@ -1591,30 +1989,6 @@ export function TwoPQFormFlow({
     });
   }
 
-  function validateAllSteps() {
-    const nextErrors: FieldErrors = {};
-    const nextValidation: StepValidationState = {};
-    let firstInvalidStepIndex = -1;
-
-    steps.forEach((step, index) => {
-      const errors = validateStepFields(step, state, formType, language);
-      const status = validationStatusFor(errors);
-      nextValidation[step] = status;
-      Object.assign(nextErrors, errors);
-      if (status === "invalid" && firstInvalidStepIndex === -1) {
-        firstInvalidStepIndex = index;
-      }
-    });
-
-    setFieldErrors(nextErrors);
-    setStepValidation(nextValidation);
-
-    return {
-      firstInvalidStepIndex,
-      errors: nextErrors,
-    };
-  }
-
   async function goNext() {
     const errors = validateStepFields(currentStep, state, formType, language);
     setStepErrors(currentStep, errors);
@@ -1667,19 +2041,54 @@ export function TwoPQFormFlow({
   }
 
   async function submitForm() {
-    const { firstInvalidStepIndex, errors } = validateAllSteps();
-    if (firstInvalidStepIndex >= 0) {
-      setStepIndex(firstInvalidStepIndex);
+    const submissionState =
+      formType === "sample" ? withCaseDefaultsForBoxCode(state) : state;
+    if (submissionState !== state) {
+      setState(submissionState);
+    }
+
+    setStorageProcessingSteps([]);
+    setStorageProcessingError(null);
+    setStoredFormId(null);
+    setWholeDataValidationReport({ status: "running", issues: [] });
+    setPending(true);
+    await wait(180);
+
+    const wholeValidation = validateWholeDocument({
+      flowState: submissionState,
+      steps,
+      formType,
+      language,
+      institutions,
+      doctors,
+      patients,
+      cases,
+    });
+    setFieldErrors(wholeValidation.fieldErrors);
+    setStepValidation(wholeValidation.stepValidation);
+
+    if (wholeValidation.issues.length > 0) {
+      setWholeDataValidationReport({
+        status: "error",
+        issues: wholeValidation.issues,
+      });
+      if (wholeValidation.firstInvalidStepIndex >= 0) {
+        setStepIndex(wholeValidation.firstInvalidStepIndex);
+      }
       setToast({
         id: Date.now(),
         tone: "error",
-        message: firstErrorMessage(errors),
+        message: t("Whole data validation found issues before storage."),
       });
+      setPending(false);
       return;
     }
 
+    setWholeDataValidationReport({ status: "success", issues: [] });
+    await wait(260);
+
     const nextStorageProcessingSteps = buildFormStorageProcessingSteps(
-      state,
+      submissionState,
       formType,
       language
     );
@@ -1687,38 +2096,35 @@ export function TwoPQFormFlow({
       .map((step) => step.id)
       .filter((stepId) => stepId !== "validate-payload" && stepId !== "save-draft");
     setStorageProcessingSteps(nextStorageProcessingSteps);
-    setStorageProcessingError(null);
-    setStoredFormId(null);
-    setPending(true);
 
     try {
       await runStorageProcessingStep("validate-payload", async () => wait(160));
       await runStorageProcessingStep("save-draft", async () =>
-        persistDraftSnapshot(stepIndex)
+        persistDraftSnapshot(stepIndex, submissionState)
       );
 
       const body =
         formType === "study_request"
           ? {
               formType,
-              selectedPatientId: state.selectedPatientId,
-              selectedInstitutionId: state.selectedInstitutionId,
-              patientInformation: state.patientInformation,
-              medicalInformation: state.medicalInformation,
-              previousGeneticTests: state.previousGeneticTests,
-              requestedTest: state.requestedTest,
-              institutionInformation: state.institutionInformation,
+              selectedPatientId: submissionState.selectedPatientId,
+              selectedInstitutionId: submissionState.selectedInstitutionId,
+              patientInformation: submissionState.patientInformation,
+              medicalInformation: submissionState.medicalInformation,
+              previousGeneticTests: submissionState.previousGeneticTests,
+              requestedTest: submissionState.requestedTest,
+              institutionInformation: submissionState.institutionInformation,
             }
           : {
               formType,
-              selectedPatientId: state.selectedPatientId,
-              selectedCaseId: state.selectedCaseId,
-              selectedRequestingDoctorId: state.selectedRequestingDoctorId,
-              patientInformation: state.patientInformation,
-              requestedTest: state.requestedTest,
-              sampleInformation: state.sampleInformation,
-              caseInformation: state.caseInformation,
-              samplingInformation: state.samplingInformation,
+              selectedPatientId: submissionState.selectedPatientId,
+              selectedCaseId: submissionState.selectedCaseId,
+              selectedRequestingDoctorId: submissionState.selectedRequestingDoctorId,
+              patientInformation: submissionState.patientInformation,
+              requestedTest: submissionState.requestedTest,
+              sampleInformation: submissionState.sampleInformation,
+              caseInformation: submissionState.caseInformation,
+              samplingInformation: submissionState.samplingInformation,
             };
       const firstRemoteStepId = remoteProcessingStepIds[0];
       if (firstRemoteStepId) {
@@ -1739,19 +2145,21 @@ export function TwoPQFormFlow({
       await wait(700);
       router.push(`/2pq-dashboard/forms?createdId=${response.form.id}`);
       router.refresh();
-    } catch {
+    } catch (error) {
       setStorageProcessingSteps((current) =>
         current.map((step) =>
           step.status === "running" ? { ...step, status: "error" } : step
         )
       );
-      setStorageProcessingError(
-        t("Unable to store the form. Review the form and try again.")
-      );
+      const errorMessage =
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : t("Unable to store the form. Review the form and try again.");
+      setStorageProcessingError(errorMessage);
       setToast({
         id: Date.now(),
         tone: "error",
-        message: t("Unable to store the form."),
+        message: errorMessage,
       });
       setPending(false);
     }
@@ -1761,9 +2169,10 @@ export function TwoPQFormFlow({
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
       <Dialog
-        open={storageProcessingSteps.length > 0}
+        open={processDialogOpen}
         onOpenChange={(open) => {
           if (!open && !pending) {
+            setWholeDataValidationReport(null);
             setStorageProcessingSteps([]);
             setStorageProcessingError(null);
             setStoredFormId(null);
@@ -1776,22 +2185,115 @@ export function TwoPQFormFlow({
         >
           <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-              {t("2PQ form storage processing")}
+              {t("2PQ form storage")}
             </DialogTitle>
             <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
               {t(
-                "The form is being stored with its scoped records and linked 2PQ entities."
+                "Phase 1 validates the whole document. Phase 2 stores the scoped records and linked 2PQ entities."
               )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+            {wholeDataValidationReport ? (
+              <div className="rounded-[1.5rem] border border-indigo-100 bg-white/78 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
+                      {t("Phase 1")}
+                    </p>
+                    <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                      {t("Whole data validation")}
+                    </h3>
+                    <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
+                      {wholeDataValidationReport.status === "running"
+                        ? t(
+                            "Checking required fields, formats, linked records, and cross-step consistency."
+                          )
+                        : wholeDataValidationReport.status === "success"
+                          ? t(
+                              "No missing or malformed data was found. Storage processing can continue."
+                            )
+                          : t("Fix these issues before storage processing starts.")}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      wholeDataValidationReport.status === "success"
+                        ? "success"
+                        : wholeDataValidationReport.status === "error"
+                          ? "destructive"
+                          : "brand"
+                    }
+                    className={
+                      wholeDataValidationReport.status === "running"
+                        ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
+                        : undefined
+                    }
+                  >
+                    {t(wholeDataValidationReport.status)}
+                  </Badge>
+                </div>
+
+                {wholeDataValidationReport.status === "running" ? (
+                  <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-indigo-100 bg-indigo-50/70 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-300/16 dark:bg-indigo-400/10 dark:text-indigo-50/72">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-700 dark:text-indigo-200" />
+                    {t("Running whole document validation.")}
+                  </div>
+                ) : null}
+
+                {wholeDataValidationReport.status === "success" ? (
+                  <div className="mt-5 flex items-center gap-3 rounded-[1.15rem] border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {t("Whole data validation passed.")}
+                  </div>
+                ) : null}
+
+                {wholeDataValidationReport.status === "error" ? (
+                  <div className="mt-5 grid gap-3">
+                    {wholeDataValidationReport.issues.map((issue, index) => (
+                      <div
+                        key={issue.id}
+                        className="rounded-[1.15rem] border border-red-200 bg-red-50/82 px-4 py-4 text-red-950 dark:border-red-300/22 dark:bg-red-950/22 dark:text-red-100"
+                      >
+                        <div className="flex gap-3">
+                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-xs font-semibold text-red-700 dark:border-red-300/24 dark:bg-red-400/10 dark:text-red-100">
+                            {index + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold">
+                                {issue.stepLabel}
+                              </p>
+                              <span className="text-xs text-red-950/48 dark:text-red-100/54">
+                                /
+                              </span>
+                              <p className="text-sm font-semibold">
+                                {issue.fieldLabel}
+                              </p>
+                            </div>
+                            <p className="mt-1 text-sm text-red-950/72 dark:text-red-100/72">
+                              {issue.message}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {storageProcessingSteps.length > 0 ? (
             <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
-                    {t("Process progress")}
+                    {t("Phase 2")}
                   </p>
+                  <h3 className="mt-2 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                    {t("2PQ form storage processing")}
+                  </h3>
                   <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
                     {storageProcessingError
                       ? t("Storage paused on the blocked checklist item.")
@@ -1842,6 +2344,7 @@ export function TwoPQFormFlow({
                 </div>
               </div>
             </div>
+            ) : null}
 
             {storageProcessingError ? (
               <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
@@ -1849,6 +2352,7 @@ export function TwoPQFormFlow({
               </div>
             ) : null}
 
+            {storageProcessingSteps.length > 0 ? (
             <div className="grid gap-3">
               {storageProcessingSteps.map((step, index) => (
                 <div
@@ -1913,14 +2417,16 @@ export function TwoPQFormFlow({
                 </div>
               ))}
             </div>
+            ) : null}
           </div>
 
-          {storageProcessingError ? (
+          {wholeDataValidationReport?.status === "error" || storageProcessingError ? (
             <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  setWholeDataValidationReport(null);
                   setStorageProcessingSteps([]);
                   setStorageProcessingError(null);
                   setStoredFormId(null);
@@ -1928,7 +2434,7 @@ export function TwoPQFormFlow({
                 disabled={pending}
                 className="h-11 px-6"
               >
-                {t("Close and review form")}
+                {t("Close and review data")}
               </Button>
             </DialogFooter>
           ) : null}
@@ -2023,6 +2529,7 @@ export function TwoPQFormFlow({
                 placeholder={t("Select patient")}
                 emptyLabel={t("Manual patient information")}
               />
+              <FieldError message={errorFor("selectedPatientId")} />
             </div>
             <div className="space-y-2">
               <Label>{t("Institution")}</Label>
@@ -2103,6 +2610,7 @@ export function TwoPQFormFlow({
               type="date"
               value={state.patientInformation.birthDate}
               onChange={(birthDate) => updatePatientInformation({ birthDate })}
+              error={errorFor("patientInformation.birthDate")}
             />
             <Field
               id="form-patient-sex"
@@ -2341,6 +2849,7 @@ export function TwoPQFormFlow({
                 placeholder={t("Select institution")}
                 emptyLabel={t("Manual institution information")}
               />
+              <FieldError message={errorFor("selectedInstitutionId")} />
             </div>
             <Field
               id="form-institution-code"
@@ -2470,6 +2979,7 @@ export function TwoPQFormFlow({
                       placeholder={t("Select requesting doctor")}
                       emptyLabel={t("Manual requesting doctor information")}
                     />
+                    <FieldError message={errorFor("selectedRequestingDoctorId")} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="form-requesting-doctor-institution">
@@ -2641,6 +3151,7 @@ export function TwoPQFormFlow({
                 placeholder={t("Select 2PQ case")}
                 emptyLabel={t("Create a new 2PQ case from these fields")}
               />
+              <FieldError message={errorFor("selectedCaseId")} />
             </div>
             <Field
               id="form-case-label"
@@ -2673,6 +3184,7 @@ export function TwoPQFormFlow({
                 onChange={(priority) => updateCaseInformation({ priority })}
                 placeholder={t("Select priority")}
               />
+              <FieldError message={errorFor("caseInformation.priority")} />
             </div>
             <Field
               id="form-case-tracking"
@@ -2688,6 +3200,7 @@ export function TwoPQFormFlow({
               type="date"
               value={state.caseInformation.requestedAt}
               onChange={(requestedAt) => updateCaseInformation({ requestedAt })}
+              error={errorFor("caseInformation.requestedAt")}
             />
             <Field
               id="form-case-due-at"
@@ -2695,6 +3208,7 @@ export function TwoPQFormFlow({
               type="date"
               value={state.caseInformation.dueAt}
               onChange={(dueAt) => updateCaseInformation({ dueAt })}
+              error={errorFor("caseInformation.dueAt")}
             />
             <div className="md:col-span-2">
               <TextAreaField

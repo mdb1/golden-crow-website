@@ -200,6 +200,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select reports sex.": "Seleccioná informa sexo.",
   "Request reason is required.": "Motivo de solicitud es requerido.",
   "Date is required.": "Fecha es requerida.",
+  "Birth date must be a valid date.":
+    "Fecha de nacimiento debe ser una fecha válida.",
+  "Date must be a valid date.": "Fecha debe ser una fecha válida.",
   "Institution name is required.": "Nombre de institución es requerido.",
   "Enter a valid institution contact email.":
     "Ingresá un email de contacto de institución válido.",
@@ -208,14 +211,24 @@ const SPANISH_TEXT: Record<string, string> = {
   "Full name is required.": "Nombre completo es requerido.",
   "Auth email must be valid.": "Email de autenticación debe ser válido.",
   "Sample type is required.": "Tipo de muestra es requerido.",
+  "Sample type is not valid.": "Tipo de muestra no es válido.",
   "First name is required.": "Nombre es requerido.",
   "Last name is required.": "Apellido es requerido.",
   "Process date is required.": "Fecha proceso es requerida.",
+  "Process date must be a valid date.":
+    "Fecha proceso debe ser una fecha válida.",
   "Box code is required.": "Código caja es requerido.",
   "Box code must be exactly three letters (A-Z).":
     "Código caja debe tener exactamente tres letras (A-Z).",
   "2PQ case label is required.": "Etiqueta del caso 2PQ es requerida.",
   "Select a 2PQ case status.": "Seleccioná un estado de caso 2PQ.",
+  "Case status is not valid.": "Estado del caso no es válido.",
+  "Priority is not valid.": "Prioridad no es válida.",
+  "Requested at is required for a new 2PQ case.":
+    "Solicitado el es requerido para un nuevo caso 2PQ.",
+  "Requested at must be a valid date.":
+    "Solicitado el debe ser una fecha válida.",
+  "Due at must be a valid date.": "Vence el debe ser una fecha válida.",
   "Add at least one 2PQ sampling record.":
     "Agregá al menos un registro de muestreo 2PQ.",
   Sampling: "Muestreo",
@@ -223,6 +236,36 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sample ID must be unique in this form.":
     "Sample ID debe ser único en este formulario.",
   "Select processing status.": "Seleccioná estado de procesamiento.",
+  "Processing status is not valid.":
+    "Estado de procesamiento no es válido.",
+  "Selected institution is not available in the current lookup data.":
+    "La institución seleccionada no está disponible en los datos actuales.",
+  "Selected doctor is not available in the current lookup data.":
+    "El médico seleccionado no está disponible en los datos actuales.",
+  "Selected doctor must belong to the selected institution.":
+    "El médico seleccionado debe pertenecer a la institución seleccionada.",
+  "Selected patient is not available in the current lookup data.":
+    "El paciente seleccionado no está disponible en los datos actuales.",
+  "Selected patient must belong to the selected institution and doctor.":
+    "El paciente seleccionado debe pertenecer a la institución y al médico seleccionados.",
+  "Selected institution must match the form institution scope.":
+    "La institución seleccionada debe coincidir con el alcance institucional del formulario.",
+  "Selected requesting doctor is not available in the current lookup data.":
+    "El médico solicitante seleccionado no está disponible en los datos actuales.",
+  "Selected requesting doctor must belong to the selected institution.":
+    "El médico solicitante seleccionado debe pertenecer a la institución seleccionada.",
+  "Selected 2PQ case is not available in the current lookup data.":
+    "El caso 2PQ seleccionado no está disponible en los datos actuales.",
+  "Selected 2PQ case must belong to the selected institution and doctor.":
+    "El caso 2PQ seleccionado debe pertenecer a la institución y al médico seleccionados.",
+  "Selected 2PQ case is already linked to an existing patient. Pick that patient or create a new case.":
+    "El caso 2PQ seleccionado ya está vinculado a un paciente existente. Elegí ese paciente o creá un caso nuevo.",
+  "Selected 2PQ case must belong to the selected patient.":
+    "El caso 2PQ seleccionado debe pertenecer al paciente seleccionado.",
+  "Selected 2PQ case must match the validated box code.":
+    "El caso 2PQ seleccionado debe coincidir con el código caja validado.",
+  "Case label must start with the validated box code.":
+    "La etiqueta del caso debe comenzar con el código caja validado.",
   "Box code": "Código caja",
   Validated: "Validado",
   "Required first": "Requerido primero",
@@ -241,9 +284,26 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to store the form. Review the form and try again.":
     "No se pudo guardar el formulario. Revisá el formulario e intentá nuevamente.",
   "Unable to store the form.": "No se pudo guardar el formulario.",
+  "Whole data validation found issues before storage.":
+    "La validación completa encontró problemas antes del guardado.",
+  "2PQ form storage": "Guardado de formulario 2PQ",
+  "Phase 1 validates the whole document. Phase 2 stores the scoped records and linked 2PQ entities.":
+    "La fase 1 valida todo el documento. La fase 2 guarda los registros de alcance y las entidades 2PQ vinculadas.",
   "2PQ form storage processing": "Procesamiento de guardado del formulario 2PQ",
   "The form is being stored with its scoped records and linked 2PQ entities.":
     "El formulario se está guardando con sus registros de alcance y entidades 2PQ vinculadas.",
+  "Phase 1": "Fase 1",
+  "Whole data validation": "Validación completa de datos",
+  "Checking required fields, formats, linked records, and cross-step consistency.":
+    "Revisando campos requeridos, formatos, registros vinculados y consistencia entre pasos.",
+  "No missing or malformed data was found. Storage processing can continue.":
+    "No se encontraron datos faltantes o mal formados. El guardado puede continuar.",
+  "Fix these issues before storage processing starts.":
+    "Corregí estos problemas antes de iniciar el guardado.",
+  "Running whole document validation.":
+    "Ejecutando validación completa del documento.",
+  "Whole data validation passed.": "La validación completa fue exitosa.",
+  "Phase 2": "Fase 2",
   "Process progress": "Progreso del proceso",
   "Storage paused on the blocked checklist item.":
     "El almacenamiento se pausó en el elemento bloqueado de la lista.",
@@ -256,6 +316,7 @@ const SPANISH_TEXT: Record<string, string> = {
   success: "completo",
   error: "error",
   "Close and review form": "Cerrar y revisar formulario",
+  "Close and review data": "Cerrar y revisar datos",
   "Back to forms": "Volver a formularios",
   "Recovered draft": "Borrador recuperado",
   "Saving draft": "Guardando borrador",
