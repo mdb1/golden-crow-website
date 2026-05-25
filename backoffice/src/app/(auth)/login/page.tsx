@@ -1237,11 +1237,11 @@ export default function LoginPage() {
 
             <div className="max-w-[680px] space-y-5">
               <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
-                A sharper front door for focused backoffice work.
+                Run Golden Crow operations from one focused workspace.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-slate-700">
-                Authenticate once, route into the right legacy product, and keep
-                account creation limited to people who are already approved.
+                Manage users, roles, reports, files, 2PQ forms, institutions,
+                doctors, and patients with the right product context always in view.
               </p>
             </div>
 
@@ -1249,28 +1249,31 @@ export default function LoginPage() {
               <div className="auth-feature-card rounded-2xl p-4">
                 <ShieldCheck className="size-5 text-cyan-700" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Access checked
+                  Scoped control
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Firebase identity plus SDK allowlist or active admin role.
+                  Full admins see the whole operation, while institution teams stay
+                  inside their assigned doctors, patients, and forms.
                 </p>
               </div>
               <div className="auth-feature-card rounded-2xl p-4">
                 <Building2 className="size-5 text-emerald-700" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Project aware
+                  Product aware
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  PocketGenes and Pocket Gyms stay on the legacy session path.
+                  Switch between PocketGenes, Pocket Gyms, and 2PQ workflows
+                  without losing the operational context of each product.
                 </p>
               </div>
               <div className="auth-feature-card rounded-2xl p-4">
                 <KeyRound className="size-5 text-amber-600" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Version visible
+                  Traceable changes
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Every pushed backoffice change exposes its version here.
+                  Each release keeps the backoffice version visible, so support
+                  and operators can identify the exact build in use.
                 </p>
               </div>
             </div>
