@@ -31,9 +31,11 @@
 import { useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { ArrowLeft } from "lucide-react";
 
 import { ChatThreadList } from "./_components/ChatThreadList";
 import { ChatConversation } from "./_components/ChatConversation";
+import { Button } from "@/components/ui/button";
 
 export interface ClientRosterEntry {
   uid: string;
@@ -72,7 +74,12 @@ export function ChatInboxClient({
 
   return (
     <div className="grid h-[calc(100vh-12rem)] min-h-0 grid-cols-12 gap-0 overflow-hidden rounded-md border bg-card">
-      <div className="col-span-12 overflow-y-auto border-b md:col-span-4 md:border-b-0 md:border-r">
+      <div
+        className={[
+          "col-span-12 overflow-y-auto border-b md:col-span-4 md:border-b-0 md:border-r",
+          activeChatId ? "hidden md:block" : "block",
+        ].join(" ")}
+      >
         <ChatThreadList
           trainerUid={trainerUid}
           activeChatId={activeChatId}
@@ -80,13 +87,26 @@ export function ChatInboxClient({
           clientRoster={clientRoster}
         />
       </div>
-      <div className="col-span-12 flex min-h-0 flex-col md:col-span-8">
+      <div
+        className={[
+          "col-span-12 min-h-0 flex-col md:col-span-8 md:flex",
+          activeChatId ? "flex" : "hidden md:flex",
+        ].join(" ")}
+      >
         {activeChatId ? (
-          <ChatConversation
-            chatId={activeChatId}
-            trainerUid={trainerUid}
-            clientRoster={clientRoster}
-          />
+          <>
+            <div className="flex items-center gap-2 border-b px-3 py-2 md:hidden">
+              <Button variant="ghost" size="sm" onClick={() => setActiveChatId(null)}>
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                {t("backToThreads")}
+              </Button>
+            </div>
+            <ChatConversation
+              chatId={activeChatId}
+              trainerUid={trainerUid}
+              clientRoster={clientRoster}
+            />
+          </>
         ) : (
           <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
             {t("selectThread")}

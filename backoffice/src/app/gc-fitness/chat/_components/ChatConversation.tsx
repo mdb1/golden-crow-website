@@ -93,7 +93,7 @@ export function ChatConversation({
       if (!prev) return prev;
       let changed = false;
       const next = prev.map((row) => {
-        if (row.id !== chatId) return row;
+        if (row.id !== chatId && row.clientId !== chatId) return row;
         const slot = row.unreadCount?.[trainerUid] ?? 0;
         if (slot === 0) return row;
         changed = true;

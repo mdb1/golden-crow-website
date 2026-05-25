@@ -740,7 +740,8 @@
       "body": "When a client messages you, it appears here."
     },
     "inbox": {
-      "selectThread": "Select a conversation from the list to get started."
+      "selectThread": "Select a conversation from the list to get started.",
+      "backToThreads": "Threads"
     },
     "conversation": {
       "loadingMessages": "Loading messages…",

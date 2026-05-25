@@ -101,13 +101,13 @@ export function GCFitnessShell({
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar variant="floating" collapsible="icon" className="border-none bg-transparent p-2">
-          <SidebarHeader className="glass-panel gap-3 px-3 py-3">
-            <div className="px-2">
-              <p className="section-eyebrow">{t("eyebrow")}</p>
-              <p className="font-heading text-lg font-semibold text-sidebar-foreground">
+          <SidebarHeader className="glass-panel gap-3 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
+            <div className="px-2 group-data-[collapsible=icon]:px-0">
+              <p className="section-eyebrow group-data-[collapsible=icon]:hidden">{t("eyebrow")}</p>
+              <p className="font-heading text-lg font-semibold text-sidebar-foreground group-data-[collapsible=icon]:text-center">
                 {t("appName")}
               </p>
-              <p className="mt-1 text-sm text-sidebar-foreground/70">
+              <p className="mt-1 text-sm text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
                 {t("tagline")}
               </p>
             </div>
@@ -146,8 +146,8 @@ export function GCFitnessShell({
             ))}
           </SidebarContent>
           <SidebarSeparator />
-          <SidebarFooter className="gap-3 px-4 pb-4 pt-2">
-            <p className="text-xs text-sidebar-foreground/65">
+          <SidebarFooter className="gap-3 px-4 pb-4 pt-2 group-data-[collapsible=icon]:px-2">
+            <p className="text-xs text-sidebar-foreground/65 group-data-[collapsible=icon]:hidden">
               {t("footerBlurb")}
             </p>
             <SignOutButton />

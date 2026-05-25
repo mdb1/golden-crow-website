@@ -740,7 +740,8 @@
       "body": "Cuando un cliente te escriba, aparecerá acá."
     },
     "inbox": {
-      "selectThread": "Seleccioná una conversación de la lista para empezar."
+      "selectThread": "Seleccioná una conversación de la lista para empezar.",
+      "backToThreads": "Conversaciones"
     },
     "conversation": {
       "loadingMessages": "Cargando mensajes…",
