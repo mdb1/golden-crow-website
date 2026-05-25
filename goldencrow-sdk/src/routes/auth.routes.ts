@@ -6,8 +6,8 @@ import { adminAuthFor } from "../config/firebase.js";
 // Pitfall 16 — Session cookies are minted via the MyDNAMap project (the
 // canonical legacy auth surface for the backoffice). Both verifyIdToken
 // and createSessionCookie below operate on the mydnamap Auth handle. A
-// future Pocket Gyms or gc-fitness session-cookie flow would route to a
-// separate handler bound to its own named-app accessor.
+// future non-legacy session-cookie flow would route to a separate handler
+// bound to its own named-app accessor.
 const adminAuth = adminAuthFor("mydnamap");
 import {
   getAdminCapabilities,
