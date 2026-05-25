@@ -14,6 +14,15 @@
 //   C.beh.7   Missing media-asset (status != uploaded|skipped) → kind:'skip'
 //   C.beh.9 (assembly) MATCH+soft-delete→op:'update', NEW→op:'set' through commitInChunks
 //
+// Phase 24-03 extensions (7 new cases):
+//   24-03.1   buildPayload now derives muscleGroups via mapFexdMuscles
+//   24-03.2   buildPayload propagates `force` (push|pull|static|null)
+//   24-03.3   canonical() includes "force" in its key list → idempotency converges with force
+//   24-03.4   computePatch update-path: doc missing `force` returns kind:'overwrite' with patch.force
+//   24-03.5   resolveDefaultAllowlistPath: Phase 24 path when fs.existsSync→true; legacy path otherwise
+//   24-03.6   --canary <N> caps allowlist to first N picks (slice helper)
+//   24-03.7   parseArgs --canary parses positive integer; --report-only flips flag
+//
 // firebase-admin/firestore is mocked — no live network calls.
 
 jest.mock("firebase-admin/firestore", () => ({
@@ -28,16 +37,23 @@ jest.mock("firebase-admin/app", () => ({
   initializeApp: jest.fn(),
 }));
 
+import * as fs from "node:fs";
+
 import {
   parseArgs,
   resolveTranslation,
   computePatch,
   buildWritesFromPicks,
+  buildPayload,
+  canonical,
+  resolveDefaultAllowlistPath,
+  applyCanaryCap,
   type FexdTranslations,
   type FexdTranslationEntry,
   type AllowlistEntry,
   type DocSnapshot,
   type AssetReport,
+  type FexdSourceRow,
 } from "../seed-from-fexd";
 
 // ---------------------------------------------------------------------------
@@ -99,6 +115,7 @@ const PICKS: AllowlistEntry[] = [
 ];
 
 // Minimal fexd source — only the fields seed-from-fexd reads.
+// Phase 24-03: `force` field added to FexdSourceRow.
 const FEXD_SOURCE: Record<string, Partial<DocSnapshot["fexd"]>> = {
   Barbell_Squat: {
     primaryMuscles: ["quadriceps"],
@@ -107,6 +124,7 @@ const FEXD_SOURCE: Record<string, Partial<DocSnapshot["fexd"]>> = {
     mechanic: "compound",
     level: "intermediate",
     category: "strength",
+    force: "push",
   },
   Bodyweight_Squat: {
     primaryMuscles: ["quadriceps"],
@@ -115,6 +133,7 @@ const FEXD_SOURCE: Record<string, Partial<DocSnapshot["fexd"]>> = {
     mechanic: "compound",
     level: "beginner",
     category: "strength",
+    force: "push",
   },
 };
 
@@ -196,11 +215,15 @@ describe("computePatch — MATCH (C.beh.2 + C.beh.5 + C.beh.7)", () => {
         },
         primaryMuscles: ["quadriceps"],
         secondaryMuscles: ["glutes", "lower back"],
+        // Phase 24-03: muscleGroups now GC canonical via mapFexdMuscles;
+        // `quadriceps` is a 1:1 passthrough so the converged shape matches.
         muscleGroups: ["quadriceps"],
         equipment: ["barbell"],
         mechanic: "compound",
         level: "intermediate",
         category: "strength",
+        // Phase 24-03: `force` must be present on the doc for convergence.
+        force: "push",
       },
       fexd: FEXD_SOURCE.Barbell_Squat as never,
     };
@@ -262,11 +285,14 @@ describe("computePatch — NEW (C.beh.3)", () => {
         },
         primaryMuscles: ["quadriceps"],
         secondaryMuscles: ["glutes"],
+        // Phase 24-03: muscleGroups now GC canonical via mapFexdMuscles.
         muscleGroups: ["quadriceps"],
         equipment: ["body only"],
         mechanic: "compound",
         level: "beginner",
         category: "strength",
+        // Phase 24-03: `force` participates in the canonical convergence check.
+        force: "push",
       },
       fexd: FEXD_SOURCE.Bodyweight_Squat as never,
     };
@@ -381,5 +407,267 @@ describe("module shape", () => {
     expect(typeof resolveTranslation).toBe("function");
     expect(typeof computePatch).toBe("function");
     expect(typeof buildWritesFromPicks).toBe("function");
+    // Phase 24-03 — new exports
+    expect(typeof buildPayload).toBe("function");
+    expect(typeof canonical).toBe("function");
+    expect(typeof resolveDefaultAllowlistPath).toBe("function");
+    expect(typeof applyCanaryCap).toBe("function");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 24-03 — buildPayload vocab map + force field (24-03.1 + 24-03.2)
+// ---------------------------------------------------------------------------
+
+describe("buildPayload — Phase 24-03 vocab map + force (24-03.1, 24-03.2)", () => {
+  const minimalPick: AllowlistEntry = {
+    exerciseId: "fexd-Demo",
+    fexdSlug: "Demo",
+    fexdDir: "Demo",
+    disposition: "NEW",
+  };
+  const minimalTranslation: FexdTranslationEntry = {
+    name_en: "Demo",
+    name_es: "Demo ES",
+    instructions_en: ["go"],
+    instructions_es: ["andá"],
+  };
+  const minimalAsset = {
+    status: "uploaded" as const,
+    imageUrl: "https://example.test/start.jpg",
+    endImageUrl: "https://example.test/end.jpg",
+    gifUrl: "https://example.test/preview.gif",
+  };
+
+  it("24-03.1: muscleGroups is derived via mapFexdMuscles (lats+middle back → ['back'])", () => {
+    const fexd: FexdSourceRow = {
+      id: "Demo",
+      name: "Demo",
+      primaryMuscles: ["lats", "middle back"],
+      secondaryMuscles: [],
+      equipment: "barbell",
+      mechanic: "compound",
+      level: "intermediate",
+      category: "strength",
+      instructions: ["go"],
+      force: "pull",
+    };
+    const payload = buildPayload(minimalPick, minimalTranslation, minimalAsset, fexd);
+    expect(payload.muscleGroups).toEqual(["back"]);
+    // primaryMuscles retains the raw FEXD vocab (downstream filter affordance).
+    expect(payload.primaryMuscles).toEqual(["lats", "middle back"]);
+  });
+
+  it("24-03.1: muscleGroups dedupes (abdominals → abs, single bucket)", () => {
+    const fexd: FexdSourceRow = {
+      id: "Demo",
+      name: "Demo",
+      primaryMuscles: ["abdominals"],
+      secondaryMuscles: [],
+      equipment: null,
+      mechanic: null,
+      level: "beginner",
+      category: "strength",
+      instructions: [],
+      force: "static",
+    };
+    const payload = buildPayload(minimalPick, minimalTranslation, minimalAsset, fexd);
+    expect(payload.muscleGroups).toEqual(["abs"]);
+  });
+
+  it("24-03.2: payload.force mirrors fexd.force (push|pull|static)", () => {
+    const fexd: FexdSourceRow = {
+      id: "Demo",
+      name: "Demo",
+      primaryMuscles: ["chest"],
+      secondaryMuscles: [],
+      equipment: "barbell",
+      mechanic: "compound",
+      level: "intermediate",
+      category: "strength",
+      instructions: [],
+      force: "push",
+    };
+    expect(buildPayload(minimalPick, minimalTranslation, minimalAsset, fexd).force).toBe("push");
+  });
+
+  it("24-03.2: payload.force is null when fexd is null", () => {
+    expect(
+      buildPayload(minimalPick, minimalTranslation, minimalAsset, null).force,
+    ).toBeNull();
+  });
+
+  it("24-03.2: payload.force is null when fexd.force is null (e.g., cardio/stretching)", () => {
+    const fexd = {
+      id: "Demo",
+      name: "Demo",
+      primaryMuscles: ["chest"],
+      secondaryMuscles: [],
+      equipment: null,
+      mechanic: null,
+      level: "beginner",
+      category: "cardio",
+      instructions: [],
+      force: null,
+    } as unknown as FexdSourceRow;
+    expect(buildPayload(minimalPick, minimalTranslation, minimalAsset, fexd).force).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 24-03 — canonical() projects the `force` field (24-03.3)
+// ---------------------------------------------------------------------------
+
+describe("canonical — Phase 24-03 keys list (24-03.3)", () => {
+  it("24-03.3: `force` is included in the canonical key projection", () => {
+    const projected = canonical({
+      name: { en: "X", es: "X" },
+      description: { en: "", es: "" },
+      instructions: { en: [], es: [] },
+      primaryMuscles: [],
+      secondaryMuscles: [],
+      muscleGroups: [],
+      equipment: [],
+      mechanic: null,
+      level: null,
+      category: null,
+      force: "push",
+      imageUrl: null,
+      endImageUrl: null,
+      gifUrl: null,
+      source: "free-exercise-db",
+      // a junk field that must NOT appear in the projection
+      __noise: "should not project",
+    } as Record<string, unknown>);
+    expect(Object.prototype.hasOwnProperty.call(projected, "force")).toBe(true);
+    expect((projected as Record<string, unknown>).force).toBe("push");
+    expect(Object.prototype.hasOwnProperty.call(projected, "__noise")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 24-03 — convergence update path when doc missing `force` (24-03.4)
+// ---------------------------------------------------------------------------
+
+describe("computePatch — Phase 24-03 force convergence (24-03.4)", () => {
+  it("24-03.4: a MATCH doc missing `force` returns kind:'overwrite' with patch.force set", () => {
+    const snap: DocSnapshot = {
+      id: "wger-aaaa1111",
+      exists: true,
+      data: {
+        // converged on every Phase 24-03 field EXCEPT `force` (absent)
+        name: { en: "Barbell Squat", es: "Sentadilla con barra" },
+        description: { en: "", es: "" },
+        source: "free-exercise-db",
+        version: 2,
+        imageUrl: ASSETS_REPORT["wger-aaaa1111"].imageUrl,
+        endImageUrl: ASSETS_REPORT["wger-aaaa1111"].endImageUrl,
+        gifUrl: ASSETS_REPORT["wger-aaaa1111"].gifUrl,
+        instructions: {
+          en: ["Stand under the bar."],
+          es: ["De pie bajo la barra."],
+        },
+        primaryMuscles: ["quadriceps"],
+        secondaryMuscles: ["glutes", "lower back"],
+        muscleGroups: ["quadriceps"],
+        equipment: ["barbell"],
+        mechanic: "compound",
+        level: "intermediate",
+        category: "strength",
+        // force intentionally absent — this is the pre-Phase-24 shape
+      },
+      fexd: FEXD_SOURCE.Barbell_Squat as never,
+    };
+    const plan = computePatch(snap, PICKS[0], TRANSLATIONS, ASSETS_REPORT, new Set());
+    expect(plan.kind).toBe("overwrite");
+    expect(plan.patch).not.toBeNull();
+    expect(plan.patch!.force).toBe("push");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 24-03 — resolveDefaultAllowlistPath shim (24-03.5)
+// ---------------------------------------------------------------------------
+
+describe("resolveDefaultAllowlistPath — Codex MEDIUM backward-compat (24-03.5)", () => {
+  // We mock fs.existsSync per-test to drive the resolver's two branches.
+  // Cast `as jest.SpyInstance` is intentional — we only ever read `mockImplementation`.
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(fs, "existsSync");
+  });
+  afterEach(() => {
+    spy.mockRestore();
+  });
+
+  it("24-03.5a: returns Phase 24 path when fs.existsSync(phase24) → true", () => {
+    spy.mockImplementation((p: fs.PathLike) =>
+      String(p).includes("24-exercise-library-expansion-free-exercise-db"),
+    );
+    const resolved = resolveDefaultAllowlistPath();
+    expect(resolved).toMatch(/24-exercise-library-expansion-free-exercise-db/);
+    expect(resolved).toMatch(/ALLOWLIST-PROPOSAL\.md$/);
+  });
+
+  it("24-03.5b: falls back to legacy MO2 path when Phase 24 path absent", () => {
+    spy.mockImplementation(() => false);
+    const resolved = resolveDefaultAllowlistPath();
+    expect(resolved).toMatch(/260522-mo2/);
+    expect(resolved).toMatch(/ALLOWLIST-PROPOSAL\.md$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 24-03 — --canary slicing helper (24-03.6 + 24-03.7)
+// ---------------------------------------------------------------------------
+
+describe("applyCanaryCap — Codex HIGH blast-radius mitigation (24-03.6)", () => {
+  const makePicks = (n: number): AllowlistEntry[] =>
+    Array.from({ length: n }, (_, i) => ({
+      exerciseId: `fexd-Demo${i}`,
+      fexdSlug: `Demo${i}`,
+      fexdDir: `Demo${i}`,
+      disposition: "NEW" as const,
+    }));
+
+  it("24-03.6: --canary 5 over 100 picks returns first 5", () => {
+    const out = applyCanaryCap(makePicks(100), 5);
+    expect(out).toHaveLength(5);
+    expect(out[0].exerciseId).toBe("fexd-Demo0");
+    expect(out[4].exerciseId).toBe("fexd-Demo4");
+  });
+
+  it("24-03.6: undefined canary returns picks unchanged (no cap)", () => {
+    const picks = makePicks(7);
+    expect(applyCanaryCap(picks, undefined)).toBe(picks);
+  });
+
+  it("24-03.6: canary >= picks.length returns all picks (no truncation past end)", () => {
+    const picks = makePicks(3);
+    expect(applyCanaryCap(picks, 10)).toHaveLength(3);
+  });
+});
+
+describe("parseArgs — Phase 24-03 flags (24-03.7)", () => {
+  it("24-03.7: defaults canary=undefined and reportOnly=false", () => {
+    const args = parseArgs([]);
+    expect(args.canary).toBeUndefined();
+    expect(args.reportOnly).toBe(false);
+  });
+
+  it("24-03.7: --canary 10 parses as positive integer", () => {
+    const args = parseArgs(["--canary", "10"]);
+    expect(args.canary).toBe(10);
+  });
+
+  it("24-03.7: --canary 0 or negative throws (positive-integer guard)", () => {
+    expect(() => parseArgs(["--canary", "0"])).toThrow(/positive integer/i);
+    expect(() => parseArgs(["--canary", "-3"])).toThrow(/positive integer/i);
+    expect(() => parseArgs(["--canary", "notanumber"])).toThrow(/positive integer/i);
+  });
+
+  it("24-03.7: --report-only flips reportOnly to true", () => {
+    const args = parseArgs(["--report-only"]);
+    expect(args.reportOnly).toBe(true);
   });
 });
