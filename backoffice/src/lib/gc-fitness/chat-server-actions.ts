@@ -423,6 +423,7 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
 export async function fetchMessages(
   chatId: string,
   limit = 50,
+  beforeCreatedAt?: string | null,
 ): Promise<MessageRow[]> {
   const session = await getCurrentTrainer();
   const db = gcFitnessFirestore();
@@ -443,13 +444,20 @@ export async function fetchMessages(
 
   const clampedLimit = Math.min(Math.max(limit, 1), 200);
 
-  const snap = await db
+  let query = db
     .collection(CHATS)
     .doc(chatId)
     .collection(MESSAGES)
-    .orderBy("createdAt", "desc")
-    .limit(clampedLimit)
-    .get();
+    .orderBy("createdAt", "desc");
+
+  if (beforeCreatedAt) {
+    const beforeDate = new Date(beforeCreatedAt);
+    if (!Number.isNaN(beforeDate.getTime())) {
+      query = query.where("createdAt", "<", beforeDate);
+    }
+  }
+
+  const snap = await query.limit(clampedLimit).get();
 
   return snap.docs.map((doc) => {
     const data = doc.data();

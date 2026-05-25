@@ -68,7 +68,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
     onSuccess: () => {
       // Refresh the active thread + the inbox sort order.
       void queryClient.invalidateQueries({
-        queryKey: [...CHATS_BASE_KEY, chatId, "messages"],
+        queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
       });
       void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
       setText("");
@@ -154,7 +154,9 @@ export function MessageInput({ chatId }: MessageInputProps) {
             voiceDurationMs: duration,
           });
         }
-        void queryClient.invalidateQueries({ queryKey: [...CHATS_BASE_KEY, chatId, "messages"] });
+        void queryClient.invalidateQueries({
+          queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
+        });
         void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
         requestAnimationFrame(() => textareaRef.current?.focus());
       } catch (err) {

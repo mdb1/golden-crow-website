@@ -57,8 +57,18 @@ export function ChatConversation({
   clientRoster,
 }: ChatConversationProps) {
   const t = useTranslations("chat.conversation");
-  const { data, isLoading, error } = useChatMessages(chatId);
-  const messages = useMemo(() => data ?? [], [data]);
+  const {
+    data,
+    isLoading,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useChatMessages(chatId);
+  const messages = useMemo(
+    () => (data?.pages ?? []).flatMap((page) => page),
+    [data],
+  );
   const queryClient = useQueryClient();
 
   const partnerName = useMemo(() => {
@@ -166,6 +176,7 @@ export function ChatConversation({
   // <img> placeholder to its decoded dimensions.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
+  const previousScrollHeightRef = useRef(0);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const node = scrollContainerRef.current;
@@ -191,6 +202,31 @@ export function ChatConversation({
     node.addEventListener("scroll", onScroll, { passive: true });
     return () => node.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    const node = scrollContainerRef.current;
+    if (!node) return;
+    const onScrollTopFetchOlder = () => {
+      if (node.scrollTop > 80) return;
+      if (!hasNextPage || isFetchingNextPage) return;
+      previousScrollHeightRef.current = node.scrollHeight;
+      void fetchNextPage();
+    };
+    node.addEventListener("scroll", onScrollTopFetchOlder, { passive: true });
+    return () => node.removeEventListener("scroll", onScrollTopFetchOlder);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    if (!isFetchingNextPage) {
+      const node = scrollContainerRef.current;
+      if (!node) return;
+      const previous = previousScrollHeightRef.current;
+      if (previous <= 0) return;
+      const diff = node.scrollHeight - previous;
+      if (diff > 0) node.scrollTop += diff;
+      previousScrollHeightRef.current = 0;
+    }
+  }, [isFetchingNextPage, messages.length]);
 
   // Attachment re-snap glides instead of jumping — the initial instant
   // scroll already landed the user at the bottom; when an image / audio
@@ -224,22 +260,29 @@ export function ChatConversation({
             {t("noMessagesYet", { name: partnerName })}
           </div>
         ) : (
-          rows.map((row) =>
-            row.kind === "separator" ? (
-              <DaySeparator
-                key={`sep-${row.civilDate}`}
-                civilDate={row.civilDate}
-              />
-            ) : (
-              <MessageBubble
-                key={row.message.id}
-                chatId={chatId}
-                message={row.message}
-                isOwn={row.message.senderId === trainerUid}
-                onAttachmentLoaded={handleAttachmentLoaded}
-              />
-            ),
-          )
+          <>
+            {isFetchingNextPage ? (
+              <div className="py-2 text-center text-xs text-muted-foreground">
+                {t("loadingMessages")}
+              </div>
+            ) : null}
+            {rows.map((row) =>
+              row.kind === "separator" ? (
+                <DaySeparator
+                  key={`sep-${row.civilDate}`}
+                  civilDate={row.civilDate}
+                />
+              ) : (
+                <MessageBubble
+                  key={row.message.id}
+                  chatId={chatId}
+                  message={row.message}
+                  isOwn={row.message.senderId === trainerUid}
+                  onAttachmentLoaded={handleAttachmentLoaded}
+                />
+              ),
+            )}
+          </>
         )}
       </div>
       <div className="shrink-0 border-t bg-background">

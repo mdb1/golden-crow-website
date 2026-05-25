@@ -41,7 +41,7 @@
 // `'use client'` component and calls the gc-fitness Server Actions via
 // next's "use server" boundary.
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import {
   fetchMessages,
@@ -89,11 +89,17 @@ export function useTrainerChats(enabled: boolean = true) {
  * active thread stays tight while the trainer is typing.
  */
 export function useChatMessages(chatId: string | null) {
-  return useQuery<MessageRow[]>({
-    queryKey: [...CHATS_BASE_KEY, chatId, "messages"],
-    queryFn: () =>
-      chatId ? fetchMessages(chatId, 50) : Promise.resolve([]),
+  return useInfiniteQuery<MessageRow[], Error>({
+    queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
+    queryFn: ({ pageParam }) =>
+      chatId ? fetchMessages(chatId, 50, (pageParam as string | null | undefined) ?? null) : Promise.resolve([]),
     enabled: chatId !== null,
     refetchInterval: 10_000,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.length) return undefined;
+      const first = lastPage[0];
+      return first.createdAt ?? undefined;
+    },
   });
 }
