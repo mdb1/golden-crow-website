@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 export default function AccessDeniedPage() {
   return (
-    <div className="glass-panel flex w-full flex-col gap-6 px-6 py-7 text-left">
+    <div className="glass-panel mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-7 text-left">
       <div className="flex flex-col gap-2">
         <p className="section-eyebrow">Pocket Genes</p>
         <h1 className="font-heading text-3xl font-semibold text-foreground">

@@ -234,6 +234,128 @@
     color: var(--eyebrow);
   }
 
+  .auth-liquid-canvas {
+    background:
+      linear-gradient(135deg, rgba(4, 12, 18, 0.96), rgba(18, 8, 28, 0.94) 46%, rgba(10, 26, 24, 0.96)),
+      #071015;
+  }
+
+  .auth-liquid-canvas::before {
+    content: "";
+    position: absolute;
+    inset: -36%;
+    background:
+      conic-gradient(
+        from 128deg at 46% 52%,
+        rgba(20, 184, 166, 0.8),
+        rgba(245, 158, 11, 0.76),
+        rgba(244, 63, 94, 0.78),
+        rgba(99, 102, 241, 0.7),
+        rgba(34, 197, 94, 0.74),
+        rgba(20, 184, 166, 0.8)
+      );
+    filter: blur(34px) saturate(1.16);
+    opacity: 0.78;
+    transform-origin: center;
+    animation: auth-liquid-drift 24s ease-in-out infinite alternate;
+  }
+
+  .auth-liquid-canvas::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(110deg, rgba(255, 255, 255, 0.11), transparent 34%, rgba(255, 255, 255, 0.08) 64%, transparent),
+      linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      54px 54px,
+      54px 54px;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), transparent 88%);
+    opacity: 0.42;
+  }
+
+  .auth-liquid-flow {
+    position: absolute;
+    inset: -18%;
+    background:
+      radial-gradient(ellipse at 18% 22%, rgba(250, 204, 21, 0.5), transparent 34%),
+      radial-gradient(ellipse at 78% 28%, rgba(56, 189, 248, 0.48), transparent 32%),
+      radial-gradient(ellipse at 52% 78%, rgba(16, 185, 129, 0.44), transparent 35%),
+      linear-gradient(135deg, rgba(244, 63, 94, 0.22), rgba(99, 102, 241, 0.22));
+    filter: blur(16px);
+    mix-blend-mode: screen;
+    opacity: 0.92;
+    animation: auth-liquid-slide 18s ease-in-out infinite alternate;
+  }
+
+  .auth-liquid-sheen {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(105deg, transparent 4%, rgba(255, 255, 255, 0.1) 18%, transparent 36%),
+      linear-gradient(to top, rgba(3, 7, 18, 0.72), transparent 46%, rgba(3, 7, 18, 0.3));
+    opacity: 0.86;
+  }
+
+  .auth-login-panel,
+  .auth-login-glass {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background:
+      linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.68));
+    box-shadow:
+      0 24px 70px rgba(3, 7, 18, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.11);
+    backdrop-filter: blur(22px);
+  }
+
+  .auth-login-panel {
+    background:
+      linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(7, 12, 24, 0.78));
+  }
+
+  .auth-login-notice {
+    animation: auth-notice-in 220ms ease-out;
+  }
+
+  @keyframes auth-liquid-drift {
+    0% {
+      transform: translate3d(-4%, -2%, 0) rotate(0deg) scale(1);
+    }
+    100% {
+      transform: translate3d(5%, 4%, 0) rotate(18deg) scale(1.08);
+    }
+  }
+
+  @keyframes auth-liquid-slide {
+    0% {
+      transform: translate3d(-2%, 3%, 0) skew(-3deg, 1deg);
+    }
+    100% {
+      transform: translate3d(3%, -2%, 0) skew(2deg, -2deg);
+    }
+  }
+
+  @keyframes auth-notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.35rem) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .auth-liquid-canvas::before,
+    .auth-liquid-flow,
+    .auth-login-notice {
+      animation: none;
+    }
+  }
+
   .two-pq-create-dock {
     background-image: linear-gradient(
       180deg,

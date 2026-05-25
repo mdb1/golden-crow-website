@@ -2,16 +2,31 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import {
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
 } from "firebase/auth";
+import {
+  AlertCircle,
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
+  KeyRound,
+  Loader2,
+  LockKeyhole,
+  LogIn,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+  UserPlus,
+} from "lucide-react";
 import { signIn } from "next-auth/react";
 import { auth } from "@/lib/firebase";
-import { HelperBanner } from "@/components/helper-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +34,22 @@ import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
+type LoadingState =
+  | "google"
+  | "email"
+  | "signup-email"
+  | "signup-password"
+  | "project"
+  | null;
+
+type NoticeTone = "error" | "info" | "success";
+
+type AuthNotice = {
+  tone: NoticeTone;
+  title: string;
+  message: string;
+  details?: string[];
+};
 
 type SignupEligibility = {
   email: string;
@@ -46,18 +77,288 @@ function getLegacyProjectAccess(value: unknown): ProjectKey[] {
   );
 }
 
+function getErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return null;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+}
+
+function serverMessage(data: Record<string, unknown>, fallback: string) {
+  return typeof data.error === "string" && data.error.trim()
+    ? data.error
+    : fallback;
+}
+
+function googleNotice(error: unknown): AuthNotice {
+  const code = getErrorCode(error);
+
+  if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+    return {
+      tone: "info",
+      title: "Sign-in window closed",
+      message:
+        "No session was created. Open Google sign-in again when you are ready.",
+    };
+  }
+
+  if (code === "auth/popup-blocked") {
+    return {
+      tone: "error",
+      title: "Browser blocked the sign-in window",
+      message:
+        "Allow pop-ups for this site, then try Google sign-in again.",
+      details: ["You can also use the email and password option below."],
+    };
+  }
+
+  if (code === "auth/network-request-failed") {
+    return {
+      tone: "error",
+      title: "Network connection interrupted",
+      message:
+        "The browser could not reach Firebase. Check your connection and try again.",
+    };
+  }
+
+  return {
+    tone: "error",
+    title: "Google sign-in did not finish",
+    message:
+      "The browser authenticated with Google but the backoffice could not complete the session.",
+    details: ["Try again, or use email sign-in if your account has a password."],
+  };
+}
+
+function emailNotice(error: unknown): AuthNotice {
+  const code = getErrorCode(error);
+
+  if (code === "auth/invalid-email") {
+    return {
+      tone: "error",
+      title: "Email format needs a fix",
+      message: "Enter the full email address, for example team@pocketgenes.app.",
+    };
+  }
+
+  if (
+    code === "auth/invalid-credential" ||
+    code === "auth/user-not-found" ||
+    code === "auth/wrong-password"
+  ) {
+    return {
+      tone: "error",
+      title: "Email and password did not match",
+      message:
+        "Use the email and password for an existing backoffice account.",
+      details: [
+        "If this is your first time here, use Create email account so access can be checked before a password is created.",
+      ],
+    };
+  }
+
+  if (code === "auth/too-many-requests") {
+    return {
+      tone: "error",
+      title: "Too many attempts",
+      message:
+        "Firebase temporarily slowed this account down. Wait a few minutes before trying again.",
+    };
+  }
+
+  if (code === "auth/network-request-failed") {
+    return {
+      tone: "error",
+      title: "Network connection interrupted",
+      message:
+        "The browser could not reach Firebase. Check your connection and try again.",
+    };
+  }
+
+  return {
+    tone: "error",
+    title: "Email sign-in failed",
+    message:
+      "The credentials could not be verified. Check the email, password, and account status.",
+  };
+}
+
+function sdkLoginNotice(status: number, message?: string): AuthNotice {
+  if (status === 403) {
+    return {
+      tone: "error",
+      title: "This account is not approved for backoffice access",
+      message:
+        "Authentication worked, but the SDK did not find an active allowlist entry or admin role assignment for this email.",
+      details: [
+        "Ask a full admin to add the email to the team allowlist or assign an active admin role.",
+        "If access was granted moments ago, sign out of Google and try again.",
+      ],
+    };
+  }
+
+  if (status === 401) {
+    return {
+      tone: "error",
+      title: "Session token was rejected",
+      message:
+        "Firebase could not validate the token returned by the browser. Start the sign-in flow again.",
+    };
+  }
+
+  return {
+    tone: "error",
+    title: "Backoffice session could not be created",
+    message:
+      message ||
+      "The authentication service responded, but it did not create a valid backoffice session.",
+    details: ["Try again. If it repeats, capture the time and ask the team to inspect SDK logs."],
+  };
+}
+
+function setupNotice(message: string): AuthNotice {
+  return {
+    tone: "error",
+    title: "Account setup could not continue",
+    message,
+    details: [
+      "Your credentials may be valid, but the backoffice could not load the profile or project context needed after sign-in.",
+    ],
+  };
+}
+
+function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => void }) {
+  const toneClasses = {
+    error:
+      "border-red-300/45 bg-red-500/13 text-red-50 shadow-[0_18px_44px_rgba(120,20,38,0.25)]",
+    info:
+      "border-cyan-200/40 bg-cyan-400/13 text-cyan-50 shadow-[0_18px_44px_rgba(20,82,120,0.22)]",
+    success:
+      "border-emerald-200/40 bg-emerald-400/13 text-emerald-50 shadow-[0_18px_44px_rgba(18,105,75,0.22)]",
+  } satisfies Record<NoticeTone, string>;
+
+  return (
+    <aside
+      role="alert"
+      aria-live="polite"
+      className={`auth-login-notice rounded-2xl border px-4 py-3 text-sm backdrop-blur-xl ${toneClasses[notice.tone]}`}
+    >
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 size-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-semibold">{notice.title}</p>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-md px-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              Dismiss
+            </button>
+          </div>
+          <p className="mt-1 text-white/78">{notice.message}</p>
+          {notice.details && notice.details.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-white/68">
+              {notice.details.map((detail) => (
+                <li key={detail} className="flex gap-2">
+                  <span aria-hidden className="mt-[0.55rem] size-1 rounded-full bg-white/60" />
+                  <span>{detail}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function FieldShell({
+  id,
+  icon,
+  label,
+  helper,
+  children,
+}: {
+  id: string;
+  icon: ReactNode;
+  label: string;
+  helper: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor={id} className="flex items-center gap-2 text-sm font-semibold text-white">
+          <span className="text-white/56">{icon}</span>
+          {label}
+        </Label>
+      </div>
+      {children}
+      <p id={`${id}-helper`} className="text-xs leading-5 text-white/56">
+        {helper}
+      </p>
+    </div>
+  );
+}
+
+function VersionPill() {
+  return (
+    <span className="inline-flex w-fit rounded-full border border-white/16 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase text-white/70">
+      Backoffice v{BACKOFFICE_VERSION}
+    </span>
+  );
+}
+
+function LoadingIcon() {
+  return <Loader2 className="size-4 animate-spin" />;
+}
+
+function ProjectOption({
+  project,
+  title,
+  body,
+  icon,
+  disabled,
+  onSelect,
+}: {
+  project: ProjectKey;
+  title: string;
+  body: string;
+  icon: ReactNode;
+  disabled: boolean;
+  onSelect: (project: ProjectKey) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(project)}
+      disabled={disabled}
+      className="group flex min-h-28 w-full items-start gap-3 rounded-2xl border border-white/13 bg-white/[0.07] p-4 text-left text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:-translate-y-0.5 hover:border-white/28 hover:bg-white/[0.11] focus:outline-none focus:ring-3 focus:ring-cyan-200/35 disabled:cursor-not-allowed disabled:opacity-55"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/14 bg-white/10 text-cyan-100">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="mt-1 block text-sm leading-5 text-white/58">{body}</span>
+      </span>
+      <ChevronRight className="mt-1 size-4 text-white/35 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
+    </button>
+  );
+}
+
 export default function LoginPage() {
-  const [loading, setLoading] = useState<
-    "google" | "email" | "signup-email" | "signup-password" | null
-  >(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<LoadingState>(null);
+  const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
-  const [signupEligibility, setSignupEligibility] = useState<SignupEligibility | null>(
-    null
-  );
+  const [signupEligibility, setSignupEligibility] =
+    useState<SignupEligibility | null>(null);
 
   const [phase, setPhase] = useState<Phase>("auth");
   const [pendingAuth, setPendingAuth] = useState<{
@@ -92,11 +393,11 @@ export default function LoginPage() {
 
     if (!loginRes.ok) {
       await firebaseSignOut(auth);
-      if (loginRes.status === 403) {
-        window.location.href = "/access-denied";
-        return;
-      }
-      throw new Error("SDK login failed");
+      const data = await readJson(loginRes);
+      setNotice(
+        sdkLoginNotice(loginRes.status, serverMessage(data, "SDK login failed."))
+      );
+      return;
     }
 
     const [contextRes, profileSetupRes] = await Promise.all([
@@ -109,11 +410,11 @@ export default function LoginPage() {
     ]);
 
     if (!contextRes.ok) {
-      throw new Error("Failed to fetch project access");
+      throw setupNotice("The SDK session was created, but project access could not be loaded.");
     }
 
     if (!profileSetupRes.ok) {
-      throw new Error("Failed to fetch profile setup state");
+      throw setupNotice("The SDK session was created, but profile setup status could not be loaded.");
     }
 
     const contextData = await contextRes.json();
@@ -162,12 +463,18 @@ export default function LoginPage() {
       return;
     }
 
-    throw new Error("NextAuth sign-in failed");
+    setNotice({
+      tone: "error",
+      title: "Backoffice session handoff failed",
+      message:
+        "Firebase accepted the account, but NextAuth did not persist the browser session.",
+      details: ["Try again. If it repeats, clear this site's cookies and sign in again."],
+    });
   }
 
   async function handleGoogleSignIn() {
     setLoading("google");
-    setError(null);
+    setNotice(null);
 
     try {
       const provider = new GoogleAuthProvider();
@@ -179,8 +486,12 @@ export default function LoginPage() {
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
-      console.error("Login error:", err);
-      setError("Sign in failed. Please try again.");
+      if (typeof err === "object" && err !== null && "tone" in err) {
+        setNotice(err as AuthNotice);
+      } else {
+        console.error("Login error:", err);
+        setNotice(googleNotice(err));
+      }
     } finally {
       setLoading(null);
     }
@@ -189,7 +500,7 @@ export default function LoginPage() {
   async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading("email");
-    setError(null);
+    setNotice(null);
 
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
@@ -200,8 +511,12 @@ export default function LoginPage() {
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
-      console.error("Email login error:", err);
-      setError("Email sign in failed. Confirm the credentials and try again.");
+      if (typeof err === "object" && err !== null && "tone" in err) {
+        setNotice(err as AuthNotice);
+      } else {
+        console.error("Email login error:", err);
+        setNotice(emailNotice(err));
+      }
     } finally {
       setLoading(null);
     }
@@ -210,7 +525,7 @@ export default function LoginPage() {
   async function handleSignupEligibility(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading("signup-email");
-    setError(null);
+    setNotice(null);
     setSignupEligibility(null);
 
     try {
@@ -224,32 +539,62 @@ export default function LoginPage() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error || "Unable to validate this email.");
+        throw {
+          tone: "error",
+          title: "Access check could not run",
+          message: serverMessage(data, "Unable to validate this email right now."),
+          details: ["No account was created. Try again before choosing a password."],
+        } satisfies AuthNotice;
       }
 
       if (!data.eligible || !data.email) {
-        throw new Error(
-          "This email does not have backoffice access yet. Ask a full admin to add it through the allowlist or role assignments first."
-        );
+        setNotice({
+          tone: "error",
+          title: "This email is not approved yet",
+          message:
+            "The new-user flow only creates accounts for emails already approved by the team.",
+          details: [
+            "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
+            "After approval, return here and run this check again.",
+          ],
+        });
+        return;
       }
 
       if (data.accountExists) {
-        throw new Error(
-          "An account already exists for this email. Sign in with email to continue profile setup."
-        );
+        setNotice({
+          tone: "info",
+          title: "An account already exists for this email",
+          message:
+            "Use the email sign-in form instead. This new-user flow only creates the first password for invited accounts.",
+        });
+        return;
       }
 
       setSignupEmail(data.email);
       setSignupEligibility(data as SignupEligibility);
       setSignupPassword("");
       setPhase("signup-password");
+      setNotice({
+        tone: "success",
+        title: "Access approved",
+        message:
+          "This email can create a backoffice account. Choose a password to finish setup.",
+      });
     } catch (err) {
-      console.error("Signup eligibility error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to validate this email right now."
-      );
+      if (typeof err === "object" && err !== null && "tone" in err) {
+        setNotice(err as AuthNotice);
+      } else {
+        console.error("Signup eligibility error:", err);
+        setNotice({
+          tone: "error",
+          title: "Access check failed",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Unable to validate this email right now.",
+        });
+      }
     } finally {
       setLoading(null);
     }
@@ -263,7 +608,7 @@ export default function LoginPage() {
     }
 
     setLoading("signup-password");
-    setError(null);
+    setNotice(null);
 
     try {
       const createRes = await fetch("/api/sdk/auth/email-signup", {
@@ -277,10 +622,15 @@ export default function LoginPage() {
       const createData = await readJson(createRes);
 
       if (!createRes.ok) {
-        throw new Error(
-          (typeof createData.error === "string" && createData.error) ||
-            "Unable to create the email account."
-        );
+        setNotice({
+          tone: "error",
+          title: "Account was not created",
+          message: serverMessage(createData, "Unable to create the email account."),
+          details: [
+            "Confirm the email is still approved and use a password with at least 6 characters.",
+          ],
+        });
+        return;
       }
 
       const result = await signInWithEmailAndPassword(
@@ -295,12 +645,20 @@ export default function LoginPage() {
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
-      console.error("Email signup error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to create the email account."
-      );
+      if (typeof err === "object" && err !== null && "tone" in err) {
+        setNotice(err as AuthNotice);
+      } else {
+        console.error("Email signup error:", err);
+        setNotice({
+          tone: "error",
+          title: "Account setup stopped",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Unable to create the email account.",
+          details: ["No dashboard access was changed. You can retry from the access check step."],
+        });
+      }
     } finally {
       setLoading(null);
     }
@@ -308,13 +666,19 @@ export default function LoginPage() {
 
   async function handleProjectSelect(project: ProjectKey) {
     if (!pendingAuth) return;
-    setLoading("google");
-    setError(null);
+    setLoading("project");
+    setNotice(null);
     try {
       await finalizeLogin(pendingAuth, project, pendingAuth.redirectTo);
     } catch (err) {
       console.error("Project select error:", err);
-      setError("Failed to complete sign in. Please try again.");
+      setNotice({
+        tone: "error",
+        title: "Project handoff failed",
+        message:
+          "The account is valid, but the selected project session could not be saved.",
+        details: ["Try selecting the project again."],
+      });
     } finally {
       setLoading(null);
     }
@@ -322,7 +686,7 @@ export default function LoginPage() {
 
   function resetToAuth() {
     setPhase("auth");
-    setError(null);
+    setNotice(null);
     setSignupEligibility(null);
     setSignupPassword("");
   }
@@ -333,249 +697,348 @@ export default function LoginPage() {
       : "approved through an active role assignment"
     : "approved through the team allowlist";
 
+  const panelTitle =
+    phase === "select"
+      ? "Choose your workspace"
+      : phase === "signup-email"
+        ? "Create an email account"
+        : phase === "signup-password"
+          ? "Finish new-user setup"
+          : "Welcome back";
+
+  const panelDescription =
+    phase === "select"
+      ? "Your account can manage more than one legacy product. Pick where to continue."
+      : phase === "signup-email"
+        ? "This path is for invited new users who do not have an email password yet."
+        : phase === "signup-password"
+          ? "Access is approved. Set the first password for this account."
+          : "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.";
+
   return (
-    <div className="glass-panel flex w-full flex-col gap-6">
-      {phase === "select" && pendingAuth && (
-        <div className="flex flex-col gap-4 px-6 py-7">
-          <div className="flex flex-col gap-2">
-            <p className="section-eyebrow">Golden Crow</p>
-            <h1 className="font-heading text-3xl font-semibold text-foreground">
-              Choose a project
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Select the product you want to manage.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {pendingAuth.projectAccess.includes("mydnamap") && (
-              <button
-                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-                onClick={() => handleProjectSelect("mydnamap")}
-                disabled={loading !== null}
-              >
-                <span className="text-2xl">🧬</span>
-                <span className="font-semibold text-card-foreground">PocketGenes</span>
-                <span className="text-sm text-muted-foreground">
-                  Genomics reports, community, and account management.
-                </span>
-              </button>
-            )}
-            {pendingAuth.projectAccess.includes("pocket-gyms") && (
-              <button
-                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-                onClick={() => handleProjectSelect("pocket-gyms")}
-                disabled={loading !== null}
-              >
-                <span className="text-2xl">🏋️</span>
-                <span className="font-semibold text-card-foreground">Pocket Gyms</span>
-                <span className="text-sm text-muted-foreground">
-                  Members, training plans, bookings, and achievements.
-                </span>
-              </button>
-            )}
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="pt-1">
-            <span className="rounded-full border border-border/70 bg-background/55 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Backoffice v{BACKOFFICE_VERSION}
-            </span>
-          </div>
-        </div>
-      )}
+    <main className="auth-liquid-canvas relative isolate min-h-[calc(100vh-5rem)] w-full overflow-hidden rounded-[2rem] border border-white/12 bg-slate-950 p-4 text-white shadow-[0_28px_90px_rgba(3,7,18,0.42)] sm:p-6 lg:min-h-[760px]">
+      <div className="auth-liquid-flow" aria-hidden />
+      <div className="auth-liquid-sheen" aria-hidden />
 
-      {phase === "auth" && (
-        <div className="flex flex-col gap-6 px-6 py-7">
-          <div className="flex flex-col gap-2">
-            <p className="section-eyebrow">Golden Crow</p>
-            <h1 className="font-heading text-3xl font-semibold text-foreground">
-              Admin Sign In
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to the moderation console with a Google or email-based admin
-              account.
-            </p>
-          </div>
-
-          <HelperBanner title="Access is still backend-controlled." tone="blue">
-            Google sign-in and email sign-in work when the authenticated email is on
-            the team allowlist or has an active Firebase role assignment such as
-            full admin, institution admin, or institution doctor.
-          </HelperBanner>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-          <Button
-            onClick={handleGoogleSignIn}
-            disabled={loading !== null}
-            className="w-full justify-center"
-          >
-            {loading === "google" ? "Signing in..." : "Sign in with Google"}
-          </Button>
-
-          <form className="flex flex-col gap-4" onSubmit={handleEmailSignIn}>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="team@pocketgenes.app"
-                required
-              />
+      <div className="relative z-10 grid min-h-[inherit] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(410px,470px)]">
+        <section className="hidden min-h-[640px] flex-col justify-between rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl lg:flex">
+          <div className="space-y-7">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-3 py-1 text-xs font-semibold text-white/75">
+              <Sparkles className="size-3.5 text-amber-200" />
+              Golden Crow operations
             </div>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Password"
-                required
-              />
-            </div>
-            <Button type="submit" disabled={loading !== null} className="w-full">
-              {loading === "email" ? "Signing in..." : "Sign in with email"}
-            </Button>
-          </form>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={loading !== null}
-            onClick={() => {
-              setSignupEmail(email);
-              setError(null);
-              setPhase("signup-email");
-            }}
-          >
-            Create email account
-          </Button>
-
-          <div className="pt-1">
-            <span className="rounded-full border border-border/70 bg-background/55 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Backoffice v{BACKOFFICE_VERSION}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {phase === "signup-email" && (
-        <div className="flex flex-col gap-6 px-6 py-7">
-          <div className="flex flex-col gap-2">
-            <p className="section-eyebrow">Golden Crow</p>
-            <h1 className="font-heading text-3xl font-semibold text-foreground">
-              Check access first
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Enter the email that should get a new admin account. We will verify
-              the allowlist or role assignment before asking for a password.
-            </p>
-          </div>
-
-          <HelperBanner title="No account is created yet." tone="blue">
-            This step only checks whether the email already has backoffice access.
-          </HelperBanner>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-          <form className="flex flex-col gap-4" onSubmit={handleSignupEligibility}>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                autoComplete="email"
-                value={signupEmail}
-                onChange={(event) => setSignupEmail(event.target.value)}
-                placeholder="admin@institution.com"
-                required
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <Button type="button" variant="outline" onClick={resetToAuth}>
-                Back
-              </Button>
-              <Button type="submit" disabled={loading !== null}>
-                {loading === "signup-email" ? "Checking..." : "Continue"}
-              </Button>
-            </div>
-          </form>
-
-          <div className="pt-1">
-            <span className="rounded-full border border-border/70 bg-background/55 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Backoffice v{BACKOFFICE_VERSION}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {phase === "signup-password" && signupEligibility && (
-        <div className="flex flex-col gap-6 px-6 py-7">
-          <div className="flex flex-col gap-2">
-            <p className="section-eyebrow">Golden Crow</p>
-            <h1 className="font-heading text-3xl font-semibold text-foreground">
-              Create the account
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Access is approved for <span className="font-medium text-foreground">{signupEligibility.email}</span>.
-              Set a password and we will create the account immediately.
-            </p>
-          </div>
-
-          <HelperBanner title="Access approved" tone="green">
-            This email was {signupAccessLabel}. After the account is created, you
-            will be signed in and moved into the complete-profile flow.
-          </HelperBanner>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-          <form className="flex flex-col gap-4" onSubmit={handleEmailAccountCreation}>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={signupPassword}
-                onChange={(event) => setSignupPassword(event.target.value)}
-                placeholder="Choose a password"
-                minLength={6}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Use at least 6 characters.
+            <div className="max-w-xl space-y-4">
+              <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal text-white">
+                A sharper front door for focused backoffice work.
+              </h1>
+              <p className="max-w-lg text-base leading-7 text-white/68">
+                Authenticate once, route into the right legacy product, and keep
+                account creation limited to people who are already approved.
               </p>
             </div>
-            <div className="flex items-center justify-between gap-3">
+
+            <div className="grid gap-3 xl:grid-cols-3">
+              <div className="auth-login-glass rounded-2xl p-4">
+                <ShieldCheck className="mb-3 size-5 text-cyan-100" />
+                <p className="text-sm font-semibold">Access checked</p>
+                <p className="mt-1 text-xs leading-5 text-white/56">
+                  Firebase identity plus SDK allowlist or admin role.
+                </p>
+              </div>
+              <div className="auth-login-glass rounded-2xl p-4">
+                <Building2 className="mb-3 size-5 text-emerald-100" />
+                <p className="text-sm font-semibold">Project aware</p>
+                <p className="mt-1 text-xs leading-5 text-white/56">
+                  PocketGenes and Pocket Gyms stay on the legacy session path.
+                </p>
+              </div>
+              <div className="auth-login-glass rounded-2xl p-4">
+                <BadgeCheck className="mb-3 size-5 text-amber-100" />
+                <p className="text-sm font-semibold">Version visible</p>
+                <p className="mt-1 text-xs leading-5 text-white/56">
+                  Every pushed backoffice change exposes its version here.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="auth-login-glass rounded-3xl p-5">
+            <p className="text-sm font-semibold text-white">New-user path</p>
+            <p className="mt-2 text-sm leading-6 text-white/62">
+              Create email account is not open registration. It first checks
+              whether the email is already approved, then creates the password
+              only for that invited user.
+            </p>
+          </div>
+        </section>
+
+        <section className="auth-login-panel relative mx-auto flex w-full max-w-[470px] flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:my-auto">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-2">
+              <p className="section-eyebrow text-white/58">Secure backoffice</p>
+              <h2 className="font-heading text-3xl font-semibold tracking-normal text-white">
+                {panelTitle}
+              </h2>
+              <p className="text-sm leading-6 text-white/60">{panelDescription}</p>
+            </div>
+            <VersionPill />
+          </div>
+
+          {notice ? (
+            <Notice notice={notice} onDismiss={() => setNotice(null)} />
+          ) : null}
+
+          {phase === "select" && pendingAuth ? (
+            <div className="space-y-4">
+              <ProjectOption
+                project="mydnamap"
+                title="PocketGenes"
+                body="Genomics reports, learning content, community moderation, and account records."
+                icon={<ShieldCheck className="size-5" />}
+                disabled={loading !== null}
+                onSelect={handleProjectSelect}
+              />
+              <ProjectOption
+                project="pocket-gyms"
+                title="Pocket Gyms"
+                body="Members, training plans, booking surfaces, clinical notes, and achievements."
+                icon={<Building2 className="size-5" />}
+                disabled={loading !== null}
+                onSelect={handleProjectSelect}
+              />
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => {
-                  setPhase("signup-email");
-                  setError(null);
-                }}
+                variant="ghost"
+                className="h-10 w-full justify-center text-white/75 hover:bg-white/10 hover:text-white"
+                onClick={resetToAuth}
+                disabled={loading !== null}
               >
-                Back
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading !== null || signupPassword.trim().length < 6}
-              >
-                {loading === "signup-password"
-                  ? "Creating account..."
-                  : "Create account"}
+                <ArrowLeft className="size-4" />
+                Use a different account
               </Button>
             </div>
-          </form>
+          ) : null}
 
-          <div className="pt-1">
-            <span className="rounded-full border border-border/70 bg-background/55 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Backoffice v{BACKOFFICE_VERSION}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
+          {phase === "auth" ? (
+            <div className="space-y-5">
+              <Button
+                onClick={handleGoogleSignIn}
+                disabled={loading !== null}
+                className="h-11 w-full justify-center rounded-xl bg-white text-slate-950 hover:bg-white/88"
+              >
+                {loading === "google" ? <LoadingIcon /> : <LogIn className="size-4" />}
+                {loading === "google" ? "Opening Google..." : "Continue with Google"}
+              </Button>
+
+              <div className="flex items-center gap-3 text-xs font-medium uppercase text-white/38">
+                <span className="h-px flex-1 bg-white/12" />
+                or use email
+                <span className="h-px flex-1 bg-white/12" />
+              </div>
+
+              <form className="space-y-4" onSubmit={handleEmailSignIn}>
+                <FieldShell
+                  id="login-email"
+                  label="Email"
+                  helper="Use the email that has backoffice access."
+                  icon={<Mail className="size-4" />}
+                >
+                  <Input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="team@pocketgenes.app"
+                    aria-describedby="login-email-helper"
+                    required
+                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                  />
+                </FieldShell>
+
+                <FieldShell
+                  id="login-password"
+                  label="Password"
+                  helper="For existing email accounts. New users should use the account creation flow below."
+                  icon={<LockKeyhole className="size-4" />}
+                >
+                  <Input
+                    id="login-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Password"
+                    aria-describedby="login-password-helper"
+                    required
+                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                  />
+                </FieldShell>
+
+                <Button
+                  type="submit"
+                  disabled={loading !== null}
+                  className="h-11 w-full justify-center rounded-xl"
+                >
+                  {loading === "email" ? <LoadingIcon /> : <KeyRound className="size-4" />}
+                  {loading === "email" ? "Checking credentials..." : "Sign in with email"}
+                </Button>
+              </form>
+
+              <div className="auth-login-glass rounded-2xl p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/14 bg-white/10 text-emerald-100">
+                    <UserPlus className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white">New invited user?</p>
+                    <p className="mt-1 text-sm leading-6 text-white/60">
+                      This creates the first email/password account only after
+                      the backoffice confirms your email is already approved.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-3 h-10 w-full justify-center rounded-xl border-white/18 bg-white/8 text-white hover:bg-white/14"
+                      disabled={loading !== null}
+                      onClick={() => {
+                        setSignupEmail(email);
+                        setNotice(null);
+                        setPhase("signup-email");
+                      }}
+                    >
+                      <UserPlus className="size-4" />
+                      Create email account
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {phase === "signup-email" ? (
+            <div className="space-y-5">
+              <div className="auth-login-glass rounded-2xl p-4 text-sm leading-6 text-white/62">
+                This is a new-user setup flow, not open registration. We check
+                the email against the backend allowlist and active role
+                assignments before creating anything.
+              </div>
+
+              <form className="space-y-4" onSubmit={handleSignupEligibility}>
+                <FieldShell
+                  id="signup-email"
+                  label="Invited email"
+                  helper="Enter the exact email a full admin approved for backoffice access."
+                  icon={<Mail className="size-4" />}
+                >
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    autoComplete="email"
+                    value={signupEmail}
+                    onChange={(event) => setSignupEmail(event.target.value)}
+                    placeholder="admin@institution.com"
+                    aria-describedby="signup-email-helper"
+                    required
+                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                  />
+                </FieldShell>
+
+                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetToAuth}
+                    className="h-11 rounded-xl border-white/18 bg-white/8 text-white hover:bg-white/14"
+                  >
+                    <ArrowLeft className="size-4" />
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading !== null}
+                    className="h-11 justify-center rounded-xl"
+                  >
+                    {loading === "signup-email" ? (
+                      <LoadingIcon />
+                    ) : (
+                      <ShieldCheck className="size-4" />
+                    )}
+                    {loading === "signup-email" ? "Checking access..." : "Check access first"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+
+          {phase === "signup-password" && signupEligibility ? (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-emerald-200/30 bg-emerald-400/12 p-4 text-sm text-emerald-50">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Access approved</p>
+                    <p className="mt-1 leading-6 text-emerald-50/72">
+                      {signupEligibility.email} was {signupAccessLabel}. Set a
+                      password and the account will be created immediately.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <form className="space-y-4" onSubmit={handleEmailAccountCreation}>
+                <FieldShell
+                  id="signup-password"
+                  label="New password"
+                  helper="Use at least 6 characters. You will be signed in after the account is created."
+                  icon={<KeyRound className="size-4" />}
+                >
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={signupPassword}
+                    onChange={(event) => setSignupPassword(event.target.value)}
+                    placeholder="Choose a password"
+                    minLength={6}
+                    aria-describedby="signup-password-helper"
+                    required
+                    className="h-11 rounded-xl border-white/18 bg-white/95 px-4 text-slate-950 placeholder:text-slate-500"
+                  />
+                </FieldShell>
+
+                <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPhase("signup-email");
+                      setNotice(null);
+                    }}
+                    className="h-11 rounded-xl border-white/18 bg-white/8 text-white hover:bg-white/14"
+                  >
+                    <ArrowLeft className="size-4" />
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading !== null || signupPassword.trim().length < 6}
+                    className="h-11 justify-center rounded-xl"
+                  >
+                    {loading === "signup-password" ? (
+                      <LoadingIcon />
+                    ) : (
+                      <UserPlus className="size-4" />
+                    )}
+                    {loading === "signup-password" ? "Creating account..." : "Create account"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+        </section>
+      </div>
+    </main>
   );
 }
