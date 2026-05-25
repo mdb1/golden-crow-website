@@ -2181,7 +2181,7 @@ export function TwoPQFormFlow({
       >
         <DialogContent
           showCloseButton={false}
-          className="h-[min(46rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(250,251,255,0.98),rgba(238,242,255,0.98)_54%,rgba(199,210,254,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.24)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,24,39,0.98),rgba(30,27,75,0.96)_48%,rgba(79,70,229,0.22))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.38)]"
+          className="h-[min(48rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] w-[min(96vw,96rem)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(250,251,255,0.98),rgba(238,242,255,0.98)_54%,rgba(199,210,254,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.24)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,24,39,0.98),rgba(30,27,75,0.96)_48%,rgba(79,70,229,0.22))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.38)]"
         >
           <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
             <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
@@ -2194,7 +2194,15 @@ export function TwoPQFormFlow({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 overflow-y-auto px-6 py-5">
+            <div
+              className={[
+                "grid gap-5",
+                wholeDataValidationReport && storageProcessingSteps.length > 0
+                  ? "xl:grid-cols-[minmax(24rem,0.85fr)_minmax(42rem,1.35fr)] xl:items-start"
+                  : "",
+              ].join(" ")}
+            >
             {wholeDataValidationReport ? (
               <div className="rounded-[1.5rem] border border-indigo-100 bg-white/78 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -2285,6 +2293,7 @@ export function TwoPQFormFlow({
             ) : null}
 
             {storageProcessingSteps.length > 0 ? (
+            <div className="space-y-5">
             <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -2344,7 +2353,6 @@ export function TwoPQFormFlow({
                 </div>
               </div>
             </div>
-            ) : null}
 
             {storageProcessingError ? (
               <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
@@ -2352,8 +2360,7 @@ export function TwoPQFormFlow({
               </div>
             ) : null}
 
-            {storageProcessingSteps.length > 0 ? (
-            <div className="grid gap-3">
+            <div className="grid gap-3 2xl:grid-cols-2">
               {storageProcessingSteps.map((step, index) => (
                 <div
                   key={step.id}
@@ -2417,7 +2424,9 @@ export function TwoPQFormFlow({
                 </div>
               ))}
             </div>
+            </div>
             ) : null}
+            </div>
           </div>
 
           {wholeDataValidationReport?.status === "error" || storageProcessingError ? (
