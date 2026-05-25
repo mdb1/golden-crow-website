@@ -146,6 +146,15 @@ function toDateInputValue(value?: string) {
   return value ? value.slice(0, 10) : "";
 }
 
+function todayDateInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function emptyInstitution(): InstitutionInformationFormState {
   return {
     code: "",
@@ -249,7 +258,7 @@ function buildInitialState(
       sampleType: "",
       processedByFirstName: "",
       processedByLastName: "",
-      processDate: "",
+      processDate: todayDateInputValue(),
       boxCode: "",
     },
     caseInformation: emptyCase(),
@@ -271,8 +280,11 @@ function mergeSampleInformationDraft(
   value: unknown
 ): SampleInformationFormState {
   const merged = mergeDraftSection(base, value);
-  if (!isRecord(value) || merged.requestingDoctorFullName.trim()) {
-    return merged;
+  const mergedWithProcessDate = merged.processDate.trim()
+    ? merged
+    : { ...merged, processDate: todayDateInputValue() };
+  if (!isRecord(value) || mergedWithProcessDate.requestingDoctorFullName.trim()) {
+    return mergedWithProcessDate;
   }
 
   const firstName =
@@ -285,7 +297,7 @@ function mergeSampleInformationDraft(
       : "";
 
   return {
-    ...merged,
+    ...mergedWithProcessDate,
     requestingDoctorFullName: [firstName, lastName].filter(Boolean).join(" "),
   };
 }
