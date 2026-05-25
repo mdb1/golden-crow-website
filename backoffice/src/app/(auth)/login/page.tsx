@@ -1124,7 +1124,7 @@ export default function LoginPage() {
           : "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.";
 
   return (
-    <main className="auth-liquid-canvas fixed inset-0 isolate min-h-screen w-screen overflow-y-auto text-slate-950">
+    <main className="auth-liquid-canvas fixed inset-0 isolate min-h-screen w-full overflow-x-hidden overflow-y-auto text-slate-950">
       <div className="auth-liquid-flow" aria-hidden />
       <div className="auth-liquid-sheen" aria-hidden />
 
