@@ -1,0 +1,929 @@
+{
+  "_meta": {
+    "description": "EN+ES name + instructions translations for the fexd allowlist approved at 260522-mo2 Task A.gate (63 picks).",
+    "generated_by": "Claude inline during /gsd:quick 260522-mo2 Task C execution",
+    "generated_at": "2026-05-22T20:30:00Z",
+    "pick_count": 63,
+    "applies_to_plan": "260522-mo2-replace-exercise-library-with-free-exerc"
+  },
+  "fexd-Barbell_Full_Squat": {
+    "name_en": "Barbell Full Squat",
+    "name_es": "Sentadilla completa con barra",
+    "instructions_en": [
+      "Set the bar on a rack just above shoulder level, load it, step under it, and place the back of your shoulders below the neck across the bar.",
+      "Grip the bar with both arms wider than shoulder-width, lift it off the rack by pushing with your legs and straightening your torso, then step away from the rack with your feet shoulder-width apart and toes slightly turned out.",
+      "Slowly lower the bar by bending the knees and pushing the hips back as if sitting on a chair, keeping a straight back and head up, until the upper legs touch the lower legs.",
+      "Begin to raise the bar by pushing the floor with the heel of your foot, mainly straightening the legs while extending the torso back to the starting position."
+    ],
+    "instructions_es": [
+      "Coloca la barra sobre los trapecios superiores, con los pies a la anchura de los hombros.",
+      "Agarra la barra con las manos más anchas que los hombros y sácala del rack empujando con las piernas.",
+      "Desciende flexionando rodillas y caderas como si te sentaras en una silla, manteniendo la espalda recta hasta que los muslos toquen los gemelos.",
+      "Vuelve a subir empujando con los talones hasta extender completamente las piernas."
+    ]
+  },
+  "fexd-Barbell_Squat": {
+    "name_en": "Barbell Squat",
+    "name_es": "Sentadilla con barra",
+    "instructions_en": [
+      "Set the barbell on a rack at shoulder height, step under it, position the bar across your upper back, and lift it off the rack.",
+      "Step back, set your feet shoulder-width apart, keep your chest up, and brace your core.",
+      "Lower your hips by flexing knees and hips until thighs are parallel to the floor.",
+      "Drive through your heels to return to the standing position."
+    ],
+    "instructions_es": [
+      "Coloca la barra sobre el rack a la altura de los hombros, métete debajo y apóyala en la parte alta de la espalda.",
+      "Sácala del rack, da un paso atrás y coloca los pies a la anchura de los hombros con el pecho arriba.",
+      "Baja flexionando rodillas y caderas hasta que los muslos queden paralelos al suelo.",
+      "Empuja con los talones para volver a la posición inicial."
+    ]
+  },
+  "fexd-Bodyweight_Squat": {
+    "name_en": "Bodyweight Squat",
+    "name_es": "Sentadilla con peso corporal",
+    "instructions_en": [
+      "Stand with your feet shoulder-width apart and your hands behind your head or extended in front for balance.",
+      "Lower your hips by flexing the knees and pushing the hips back as if sitting in a chair, keeping a straight back.",
+      "Continue until thighs are parallel to the floor (or as deep as mobility allows), then drive through the heels to stand back up."
+    ],
+    "instructions_es": [
+      "De pie con los pies a la anchura de los hombros y los brazos extendidos al frente para equilibrio.",
+      "Baja las caderas flexionando rodillas y caderas como si te sentaras en una silla, manteniendo la espalda recta.",
+      "Desciende hasta que los muslos queden paralelos al suelo (o tan profundo como permita tu movilidad), luego empuja con los talones para volver a la posición inicial."
+    ]
+  },
+  "fexd-Dumbbell_Lunges": {
+    "name_en": "Dumbbell Lunges",
+    "name_es": "Zancadas con mancuernas",
+    "instructions_en": [
+      "Stand with your torso upright, holding a dumbbell in each hand at your sides.",
+      "Step forward with one leg, lowering your hips until both knees are bent at roughly 90 degrees; the back knee should hover just above the floor and the front knee should not pass over the front toes.",
+      "Push back through the heel of the front foot to return to the standing position, then repeat with the other leg."
+    ],
+    "instructions_es": [
+      "De pie con el torso recto y una mancuerna en cada mano a los lados del cuerpo.",
+      "Da un paso adelante con una pierna bajando las caderas hasta que ambas rodillas estén flexionadas en ángulo de 90°; la rodilla trasera debe quedar justo encima del suelo y la delantera no debe sobrepasar la punta del pie.",
+      "Empuja con el talón delantero para volver a la posición inicial y alterna con la otra pierna."
+    ]
+  },
+  "fexd-Dumbbell_Squat": {
+    "name_en": "Dumbbell Squat",
+    "name_es": "Sentadilla con mancuernas",
+    "instructions_en": [
+      "Stand holding a dumbbell in each hand with your arms straight down at your sides.",
+      "Keep your feet shoulder-width apart and your back straight as you lower your hips by bending the knees.",
+      "Descend until your thighs are parallel to the floor, then push through the heels to return to the standing position."
+    ],
+    "instructions_es": [
+      "De pie sujetando una mancuerna en cada mano con los brazos extendidos a los lados.",
+      "Mantén los pies a la anchura de los hombros y la espalda recta mientras bajas las caderas flexionando las rodillas.",
+      "Desciende hasta que los muslos queden paralelos al suelo, luego empuja con los talones para volver a la posición inicial."
+    ]
+  },
+  "fexd-Front_Barbell_Squat": {
+    "name_en": "Front Barbell Squat",
+    "name_es": "Sentadilla frontal con barra",
+    "instructions_en": [
+      "Set the barbell on a rack, step under it, and rest the bar across the front of your shoulders with your elbows up and crossed over the bar.",
+      "Lift the bar off the rack and step back, with feet shoulder-width apart.",
+      "Lower your hips by flexing knees and hips, keeping the torso upright, until thighs are parallel to the floor.",
+      "Drive through your heels to return to the standing position."
+    ],
+    "instructions_es": [
+      "Coloca la barra apoyada en la parte delantera de los hombros con los codos altos y cruzados sobre la barra.",
+      "Sácala del rack y da un paso atrás con los pies a la anchura de los hombros.",
+      "Baja las caderas flexionando rodillas y caderas manteniendo el torso recto hasta que los muslos queden paralelos al suelo.",
+      "Empuja con los talones para volver a la posición inicial."
+    ]
+  },
+  "wger-18104387-4567-4c1e-8d03-db0b274646dd": {
+    "name_en": "Hack Squat",
+    "name_es": "Sentadilla Hack",
+    "instructions_en": [
+      "Position yourself in the hack squat machine with your back flat against the pad and your shoulders under the shoulder pads.",
+      "Place your feet shoulder-width apart on the platform.",
+      "Release the safety bars and lower the weight by bending the knees until your thighs are parallel to the platform.",
+      "Push through the heels to return to the starting position."
+    ],
+    "instructions_es": [
+      "Colócate en la máquina con la espalda apoyada en la almohadilla y los hombros bajo las almohadillas.",
+      "Coloca los pies a la anchura de los hombros sobre la plataforma.",
+      "Libera las barras de seguridad y baja el peso flexionando las rodillas hasta que los muslos queden paralelos a la plataforma.",
+      "Empuja con los talones para volver a la posición inicial."
+    ]
+  },
+  "wger-66a42396-c207-44da-bc75-758a89d32404": {
+    "name_en": "Leg Press",
+    "name_es": "Prensa de piernas",
+    "instructions_en": [
+      "Sit in the leg press machine with your back firmly against the pad.",
+      "Place your feet shoulder-width apart on the platform.",
+      "Release the safety bars and lower the platform by bending the knees until they form a 90-degree angle.",
+      "Push the platform back up through the heels without locking the knees."
+    ],
+    "instructions_es": [
+      "Siéntate en la máquina con la espalda firmemente apoyada.",
+      "Coloca los pies a la anchura de los hombros sobre la plataforma.",
+      "Libera las barras de seguridad y baja la plataforma flexionando las rodillas hasta formar un ángulo de 90°.",
+      "Empuja la plataforma con los talones sin bloquear las rodillas."
+    ]
+  },
+  "fexd-Barbell_Deadlift": {
+    "name_en": "Barbell Deadlift",
+    "name_es": "Peso muerto con barra",
+    "instructions_en": [
+      "Stand in front of a loaded barbell with your feet hip-width apart.",
+      "Bend at the hips and knees to grip the bar with hands just outside your legs.",
+      "Lift the bar by extending the hips and knees, keeping the back straight, until you are standing upright.",
+      "Lower the bar back to the floor under control by reversing the motion."
+    ],
+    "instructions_es": [
+      "Acércate a la barra con los pies a la anchura de las caderas y agárrala con un agarre prono.",
+      "Flexiona caderas y rodillas para sujetar la barra con las manos justo fuera de las piernas.",
+      "Levanta la barra extendiendo caderas y rodillas, manteniendo la espalda recta, hasta quedar de pie.",
+      "Baja la barra al suelo de forma controlada invirtiendo el movimiento."
+    ]
+  },
+  "wger-19a289c0-33af-4055-bb34-3570c2975d3d": {
+    "name_en": "Barbell Hip Thrust",
+    "name_es": "Empuje de cadera con barra",
+    "instructions_en": [
+      "Sit on the floor with your upper back against a bench and a barbell across your hips.",
+      "Plant your feet firmly on the floor about shoulder-width apart.",
+      "Drive through your heels to lift the bar by extending your hips until your body forms a straight line from shoulders to knees.",
+      "Squeeze your glutes at the top, then lower the hips back to the starting position."
+    ],
+    "instructions_es": [
+      "Siéntate en el suelo con la parte alta de la espalda contra un banco y una barra sobre las caderas.",
+      "Coloca los pies firmes en el suelo a la anchura de los hombros.",
+      "Empuja con los talones para elevar la barra extendiendo las caderas hasta que el cuerpo forme una línea recta de los hombros a las rodillas.",
+      "Aprieta los glúteos arriba y baja las caderas a la posición inicial."
+    ]
+  },
+  "fexd-Good_Morning": {
+    "name_en": "Good Morning",
+    "name_es": "Buenos días con barra",
+    "instructions_en": [
+      "Place a barbell across the top of your shoulders, with your feet shoulder-width apart and knees slightly bent.",
+      "Keeping a slight bend in the knees and a straight back, hinge at the hips to lower your torso forward.",
+      "Stop when your torso is roughly parallel to the floor, then drive your hips forward to return to the standing position."
+    ],
+    "instructions_es": [
+      "Coloca una barra sobre los trapecios con los pies a la anchura de los hombros y las rodillas ligeramente flexionadas.",
+      "Mantén una ligera flexión en las rodillas y la espalda recta; inclínate hacia adelante desde las caderas.",
+      "Detente cuando el torso esté aproximadamente paralelo al suelo, luego empuja las caderas adelante para volver a la posición inicial."
+    ]
+  },
+  "fexd-Romanian_Deadlift": {
+    "name_en": "Romanian Deadlift",
+    "name_es": "Peso muerto rumano",
+    "instructions_en": [
+      "Hold a barbell at hip level with a pronated grip, feet hip-width apart and knees slightly bent.",
+      "Hinge at the hips and lower the bar along the front of your legs while keeping your back flat.",
+      "Stop when you feel a stretch in your hamstrings, typically just below the knees.",
+      "Drive your hips forward to return to the standing position."
+    ],
+    "instructions_es": [
+      "Sostén la barra a la altura de las caderas con un agarre prono, pies a la anchura de las caderas y rodillas ligeramente flexionadas.",
+      "Inclínate desde las caderas bajando la barra por el frente de las piernas con la espalda recta.",
+      "Detente cuando notes el estiramiento en isquiotibiales, normalmente justo bajo las rodillas.",
+      "Empuja las caderas adelante para volver a la posición inicial."
+    ]
+  },
+  "fexd-Seated_Good_Mornings": {
+    "name_en": "Seated Good Mornings",
+    "name_es": "Buenos días sentado",
+    "instructions_en": [
+      "Sit on a box or bench with a barbell across your upper back and your feet flat on the floor.",
+      "Keeping your back flat, hinge at the hips and lower your torso toward your thighs.",
+      "Squeeze your lower back and glutes to return to the upright seated position."
+    ],
+    "instructions_es": [
+      "Siéntate en una caja o banco con una barra sobre los trapecios y los pies apoyados en el suelo.",
+      "Mantén la espalda recta e inclínate desde las caderas bajando el torso hacia los muslos.",
+      "Aprieta lumbares y glúteos para volver a la posición sentada erguida."
+    ]
+  },
+  "fexd-Stiff-Legged_Barbell_Deadlift": {
+    "name_en": "Stiff-Legged Barbell Deadlift",
+    "name_es": "Peso muerto con piernas rígidas",
+    "instructions_en": [
+      "Stand holding a barbell at hip level with your feet hip-width apart and knees only slightly bent.",
+      "Hinge at the hips to lower the bar along your legs while keeping the legs nearly straight and the back flat.",
+      "Stop when you feel a deep stretch in the hamstrings, then drive your hips forward to return to standing."
+    ],
+    "instructions_es": [
+      "De pie sujetando una barra a la altura de las caderas con los pies a la anchura de las caderas y las rodillas apenas flexionadas.",
+      "Inclínate desde las caderas bajando la barra por las piernas manteniéndolas casi rectas y la espalda recta.",
+      "Detente cuando notes un estiramiento profundo en isquiotibiales y empuja las caderas adelante para volver a la posición inicial."
+    ]
+  },
+  "fexd-Sumo_Deadlift": {
+    "name_en": "Sumo Deadlift",
+    "name_es": "Peso muerto sumo",
+    "instructions_en": [
+      "Stand with a wide stance, toes pointed slightly outward, and a barbell on the floor in front of you.",
+      "Bend at the hips and knees to grip the bar with hands inside your knees.",
+      "Lift the bar by driving the hips forward and extending the knees, keeping the chest up and back flat.",
+      "Lower the bar back to the floor under control."
+    ],
+    "instructions_es": [
+      "De pie con una postura amplia, puntas ligeramente hacia afuera y la barra en el suelo frente a ti.",
+      "Flexiona caderas y rodillas para sujetar la barra con las manos por dentro de las rodillas.",
+      "Levanta la barra empujando las caderas adelante y extendiendo las rodillas, pecho arriba y espalda recta.",
+      "Baja la barra al suelo de forma controlada."
+    ]
+  },
+  "wger-dda69c96-62d4-4690-aa07-a4a0f6ceb63a": {
+    "name_en": "Decline Dumbbell Bench Press",
+    "name_es": "Press de banca declinado con mancuernas",
+    "instructions_en": [
+      "Lie on a decline bench, hooking your legs under the leg pad, with a dumbbell in each hand at chest level.",
+      "Press the dumbbells up until your arms are fully extended above the chest.",
+      "Lower the dumbbells back down to the sides of your chest under control."
+    ],
+    "instructions_es": [
+      "Acuéstate en un banco declinado, sujeta las piernas bajo el soporte y sostén una mancuerna en cada mano a la altura del pecho.",
+      "Empuja las mancuernas hacia arriba hasta extender los brazos completamente sobre el pecho.",
+      "Baja las mancuernas a los lados del pecho de forma controlada."
+    ]
+  },
+  "wger-3717d144-7815-4a97-9a56-956fb889c996": {
+    "name_en": "Dumbbell Bench Press",
+    "name_es": "Press de banca con mancuernas",
+    "instructions_en": [
+      "Lie flat on a bench with a dumbbell in each hand at chest level, palms facing forward.",
+      "Press both dumbbells up until your arms are fully extended above your chest.",
+      "Lower the dumbbells back to chest level under control without letting them touch the chest."
+    ],
+    "instructions_es": [
+      "Acuéstate en un banco plano con una mancuerna en cada mano a la altura del pecho y las palmas hacia adelante.",
+      "Empuja ambas mancuernas hacia arriba hasta extender los brazos sobre el pecho.",
+      "Baja las mancuernas al pecho de forma controlada sin que toquen el pecho."
+    ]
+  },
+  "fexd-Incline_Dumbbell_Flyes": {
+    "name_en": "Incline Dumbbell Flyes",
+    "name_es": "Aperturas en banco inclinado con mancuernas",
+    "instructions_en": [
+      "Lie back on an incline bench set to about 30 degrees with a dumbbell in each hand held above your chest, palms facing each other.",
+      "With a slight bend in the elbows, lower the dumbbells out to the sides in a wide arc until you feel a stretch in the chest.",
+      "Squeeze the chest to bring the dumbbells back together over your chest."
+    ],
+    "instructions_es": [
+      "Acuéstate en un banco inclinado a unos 30 grados con una mancuerna en cada mano sobre el pecho, palmas enfrentadas.",
+      "Con los codos ligeramente flexionados, baja las mancuernas hacia los lados en arco amplio hasta notar el estiramiento.",
+      "Aprieta el pecho para juntar las mancuernas sobre el pecho."
+    ]
+  },
+  "fexd-Incline_Dumbbell_Press": {
+    "name_en": "Incline Dumbbell Press",
+    "name_es": "Press inclinado con mancuernas",
+    "instructions_en": [
+      "Lie back on an incline bench set to about 30-45 degrees with a dumbbell in each hand at shoulder level.",
+      "Press both dumbbells up until your arms are fully extended above your upper chest.",
+      "Lower the dumbbells back to shoulder level under control."
+    ],
+    "instructions_es": [
+      "Acuéstate en un banco inclinado a 30-45 grados con una mancuerna en cada mano a la altura de los hombros.",
+      "Empuja ambas mancuernas hasta extender los brazos sobre la parte alta del pecho.",
+      "Baja las mancuernas a la altura de los hombros de forma controlada."
+    ]
+  },
+  "fexd-Incline_Push-Up_Close-Grip": {
+    "name_en": "Incline Push-Up Close-Grip",
+    "name_es": "Flexiones inclinadas con agarre cerrado",
+    "instructions_en": [
+      "Place your hands close together on an elevated surface such as a bench, with your body in a straight line and toes on the floor.",
+      "Lower your chest toward your hands by bending the elbows close to your sides.",
+      "Push back to the starting position by extending the elbows."
+    ],
+    "instructions_es": [
+      "Coloca las manos juntas sobre una superficie elevada como un banco, con el cuerpo en línea recta y los pies en el suelo.",
+      "Baja el pecho hacia las manos flexionando los codos cerca del cuerpo.",
+      "Empuja de vuelta a la posición inicial extendiendo los codos."
+    ]
+  },
+  "fexd-Incline_Push-Up_Reverse_Grip": {
+    "name_en": "Incline Push-Up Reverse Grip",
+    "name_es": "Flexiones inclinadas con agarre supino",
+    "instructions_en": [
+      "Place your hands on an elevated surface with your fingers pointed backward toward your feet.",
+      "With your body in a straight line, lower your chest toward your hands by bending the elbows.",
+      "Push back to the starting position by extending the elbows."
+    ],
+    "instructions_es": [
+      "Coloca las manos sobre una superficie elevada con los dedos apuntando hacia atrás (hacia los pies).",
+      "Con el cuerpo en línea recta, baja el pecho hacia las manos flexionando los codos.",
+      "Empuja de vuelta a la posición inicial extendiendo los codos."
+    ]
+  },
+  "fexd-Plyo_Push-up": {
+    "name_en": "Plyo Push-up",
+    "name_es": "Flexiones pliométricas",
+    "instructions_en": [
+      "Start in a standard push-up position with your hands shoulder-width apart and body in a straight line.",
+      "Lower your chest to the floor by bending the elbows.",
+      "Explosively press up so that your hands leave the ground at the top of the movement.",
+      "Land softly and immediately drop into the next repetition."
+    ],
+    "instructions_es": [
+      "Empieza en posición de flexión estándar con las manos a la anchura de los hombros y el cuerpo en línea recta.",
+      "Baja el pecho hacia el suelo flexionando los codos.",
+      "Empuja explosivamente hasta que las manos despeguen del suelo en la parte alta del movimiento.",
+      "Aterriza suave e inicia la siguiente repetición."
+    ]
+  },
+  "fexd-Push-Ups_With_Feet_Elevated": {
+    "name_en": "Push-Ups With Feet Elevated",
+    "name_es": "Flexiones con pies elevados",
+    "instructions_en": [
+      "Get into a push-up position with your hands shoulder-width apart on the floor and your feet elevated on a bench or box.",
+      "Lower your chest to the floor by bending the elbows, keeping your body in a straight line.",
+      "Push back to the starting position by extending the elbows."
+    ],
+    "instructions_es": [
+      "Ponte en posición de flexión con las manos a la anchura de los hombros en el suelo y los pies elevados sobre un banco o caja.",
+      "Baja el pecho hacia el suelo flexionando los codos, manteniendo el cuerpo recto.",
+      "Empuja de vuelta a la posición inicial extendiendo los codos."
+    ]
+  },
+  "fexd-Arnold_Dumbbell_Press": {
+    "name_en": "Arnold Dumbbell Press",
+    "name_es": "Press Arnold con mancuernas",
+    "instructions_en": [
+      "Sit on a bench with back support, holding a dumbbell in each hand in front of your shoulders with palms facing you.",
+      "Press the dumbbells overhead while rotating your wrists so the palms face forward at the top.",
+      "Reverse the motion to return to the starting position with palms facing you."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco con respaldo sujetando una mancuerna en cada mano frente a los hombros con las palmas hacia ti.",
+      "Empuja las mancuernas por encima de la cabeza girando las muñecas hasta que las palmas miren al frente.",
+      "Invierte el movimiento para volver a la posición inicial con las palmas hacia ti."
+    ]
+  },
+  "wger-5912d7ed-6a0e-4b4c-b30a-fc9f3f890fc1": {
+    "name_en": "Barbell Shoulder Press",
+    "name_es": "Press de hombros con barra",
+    "instructions_en": [
+      "Sit on a bench with back support and hold a barbell at shoulder height with hands slightly wider than shoulder-width.",
+      "Press the barbell overhead until your arms are fully extended.",
+      "Lower the barbell back to shoulder level under control."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco con respaldo y sujeta una barra a la altura de los hombros con las manos un poco más anchas que los hombros.",
+      "Empuja la barra por encima de la cabeza hasta extender los brazos.",
+      "Baja la barra a la altura de los hombros de forma controlada."
+    ]
+  },
+  "wger-14d5cdbc-9b17-4296-a282-0a81cd3c4c4e": {
+    "name_en": "Dumbbell Shoulder Press",
+    "name_es": "Press de hombros con mancuernas",
+    "instructions_en": [
+      "Sit on a bench with back support, holding a dumbbell in each hand at shoulder level with palms facing forward.",
+      "Press both dumbbells overhead until your arms are fully extended.",
+      "Lower the dumbbells back to shoulder level under control."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco con respaldo, una mancuerna en cada mano a la altura de los hombros y palmas hacia adelante.",
+      "Empuja ambas mancuernas por encima de la cabeza hasta extender los brazos.",
+      "Baja las mancuernas a la altura de los hombros de forma controlada."
+    ]
+  },
+  "fexd-Seated_Dumbbell_Press": {
+    "name_en": "Seated Dumbbell Press",
+    "name_es": "Press sentado con mancuernas",
+    "instructions_en": [
+      "Sit on an upright bench with a dumbbell in each hand at shoulder height, palms facing forward.",
+      "Press both dumbbells overhead until your arms are fully extended.",
+      "Lower the dumbbells back to shoulder height under control."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco vertical con una mancuerna en cada mano a la altura de los hombros, palmas hacia adelante.",
+      "Empuja ambas mancuernas por encima de la cabeza hasta extender los brazos.",
+      "Baja las mancuernas a la altura de los hombros de forma controlada."
+    ]
+  },
+  "wger-7b1e458f-1857-4c2f-8463-7d67d4b2db93": {
+    "name_en": "Standing Military Press",
+    "name_es": "Press militar de pie",
+    "instructions_en": [
+      "Stand with the barbell racked at shoulder height, feet shoulder-width apart.",
+      "Grip the bar slightly wider than shoulder-width, lift it off the rack and step back.",
+      "Press the bar overhead until your arms are fully extended.",
+      "Lower the bar back to shoulder level under control."
+    ],
+    "instructions_es": [
+      "De pie con la barra en el rack a la altura de los hombros y los pies a la anchura de los hombros.",
+      "Agarra la barra un poco más ancho que los hombros, sácala y da un paso atrás.",
+      "Empuja la barra por encima de la cabeza hasta extender los brazos.",
+      "Baja la barra a la altura de los hombros de forma controlada."
+    ]
+  },
+  "wger-94a5c406-7bcd-47f3-9687-bdf92a763932": {
+    "name_en": "Bent Over Barbell Row",
+    "name_es": "Remo inclinado con barra",
+    "instructions_en": [
+      "Hold a barbell with a pronated grip, bend the knees slightly and hinge at the hips until your torso is almost parallel to the floor.",
+      "Pull the bar up to your lower chest, squeezing the shoulder blades together.",
+      "Lower the bar back to the starting position under control."
+    ],
+    "instructions_es": [
+      "Sostén la barra con un agarre prono, flexiona ligeramente las rodillas e inclina el torso hasta casi paralelo al suelo.",
+      "Tira de la barra hacia la parte baja del pecho, juntando las escápulas.",
+      "Baja la barra a la posición inicial de forma controlada."
+    ]
+  },
+  "fexd-Bent-Arm_Dumbbell_Pullover": {
+    "name_en": "Bent-Arm Dumbbell Pullover",
+    "name_es": "Pullover con mancuerna y brazos flexionados",
+    "instructions_en": [
+      "Lie across a bench with only your upper back resting on it, holding a dumbbell with both hands above your chest with elbows bent.",
+      "Lower the dumbbell back behind your head with the arms still bent until you feel a stretch in the lats.",
+      "Pull the dumbbell back over your chest by squeezing the lats and chest."
+    ],
+    "instructions_es": [
+      "Acuéstate atravesado sobre un banco con solo la parte alta de la espalda apoyada, sujetando una mancuerna con ambas manos sobre el pecho con los codos flexionados.",
+      "Baja la mancuerna por detrás de la cabeza con los brazos flexionados hasta notar estiramiento en dorsales.",
+      "Tira de la mancuerna de vuelta sobre el pecho apretando dorsales y pecho."
+    ]
+  },
+  "fexd-Dumbbell_One-Arm_Upright_Row": {
+    "name_en": "Dumbbell One-Arm Upright Row",
+    "name_es": "Remo al mentón a una mano con mancuerna",
+    "instructions_en": [
+      "Stand holding a dumbbell in one hand in front of your thigh with a pronated grip.",
+      "Pull the dumbbell up close to your body until your elbow is at shoulder height.",
+      "Lower the dumbbell back to the starting position under control.",
+      "Repeat on the other arm."
+    ],
+    "instructions_es": [
+      "De pie sujetando una mancuerna con una mano frente al muslo con un agarre prono.",
+      "Tira de la mancuerna cerca del cuerpo hasta que el codo quede a la altura del hombro.",
+      "Baja la mancuerna a la posición inicial de forma controlada.",
+      "Repite con el otro brazo."
+    ]
+  },
+  "wger-32c129f7-cc28-4ebc-8465-e4fa62e220b1": {
+    "name_en": "Lying T-Bar Row",
+    "name_es": "Remo en T tumbado",
+    "instructions_en": [
+      "Lie face down on a T-bar machine with your feet planted on the foot platforms.",
+      "Grip the handles with both hands and pull them toward your chest, squeezing the shoulder blades.",
+      "Lower the handles back to the starting position under control."
+    ],
+    "instructions_es": [
+      "Acuéstate boca abajo sobre la máquina T-bar con los pies apoyados en las plataformas.",
+      "Agarra las asas con ambas manos y tira hacia el pecho juntando las escápulas.",
+      "Baja las asas a la posición inicial de forma controlada."
+    ]
+  },
+  "fexd-One-Arm_Dumbbell_Row": {
+    "name_en": "One-Arm Dumbbell Row",
+    "name_es": "Remo a una mano con mancuerna",
+    "instructions_en": [
+      "Place one knee and the same-side hand on a bench, with the other foot on the floor and a dumbbell in the free hand.",
+      "Pull the dumbbell up to your hip, squeezing the back muscles at the top.",
+      "Lower the dumbbell back to a hanging position under control.",
+      "Repeat with the other arm."
+    ],
+    "instructions_es": [
+      "Apoya una rodilla y la mano del mismo lado sobre un banco, con el otro pie en el suelo y una mancuerna en la mano libre.",
+      "Tira de la mancuerna hacia la cadera apretando los músculos de la espalda arriba.",
+      "Baja la mancuerna a la posición colgada de forma controlada.",
+      "Repite con el otro brazo."
+    ]
+  },
+  "fexd-Straight_Bar_Bench_Mid_Rows": {
+    "name_en": "Straight Bar Bench Mid Rows",
+    "name_es": "Remo medio con barra recta en banco",
+    "instructions_en": [
+      "Lie face down on an incline bench holding a straight barbell with a pronated grip.",
+      "Pull the bar up toward the bottom of the bench until it touches the underside.",
+      "Lower the bar back to the starting position under control."
+    ],
+    "instructions_es": [
+      "Acuéstate boca abajo en un banco inclinado sujetando una barra recta con agarre prono.",
+      "Tira de la barra hacia la parte inferior del banco hasta tocarlo por debajo.",
+      "Baja la barra a la posición inicial de forma controlada."
+    ]
+  },
+  "fexd-Straight-Arm_Dumbbell_Pullover": {
+    "name_en": "Straight-Arm Dumbbell Pullover",
+    "name_es": "Pullover con mancuerna y brazos rectos",
+    "instructions_en": [
+      "Lie across a bench with only your upper back resting on it, holding a single dumbbell over your chest with arms nearly straight.",
+      "Lower the dumbbell back behind your head with the arms straight until you feel a stretch in the lats.",
+      "Pull the dumbbell back over your chest by squeezing the lats."
+    ],
+    "instructions_es": [
+      "Acuéstate atravesado sobre un banco con solo la parte alta de la espalda apoyada, sujetando una mancuerna sobre el pecho con los brazos casi rectos.",
+      "Baja la mancuerna por detrás de la cabeza con los brazos rectos hasta notar estiramiento en dorsales.",
+      "Tira de la mancuerna de vuelta sobre el pecho apretando los dorsales."
+    ]
+  },
+  "fexd-Chin-Up": {
+    "name_en": "Chin-Up",
+    "name_es": "Dominada supina",
+    "instructions_en": [
+      "Grip a pull-up bar with a supinated (palms-facing-you) grip about shoulder-width apart.",
+      "Hang with your arms fully extended.",
+      "Pull yourself up until your chin clears the bar.",
+      "Lower yourself back to the hanging position under control."
+    ],
+    "instructions_es": [
+      "Agarra una barra de dominadas con agarre supino (palmas hacia ti) a la anchura de los hombros.",
+      "Cuelga con los brazos completamente extendidos.",
+      "Súbete hasta que la barbilla supere la barra.",
+      "Bájate a la posición colgada de forma controlada."
+    ]
+  },
+  "fexd-Pullups": {
+    "name_en": "Pull-Ups",
+    "name_es": "Dominadas",
+    "instructions_en": [
+      "Grip a pull-up bar with a pronated grip slightly wider than shoulder-width.",
+      "Hang with your arms fully extended.",
+      "Pull yourself up until your chin clears the bar.",
+      "Lower yourself back to the hanging position under control."
+    ],
+    "instructions_es": [
+      "Agarra una barra de dominadas con un agarre prono un poco más ancho que los hombros.",
+      "Cuelga con los brazos completamente extendidos.",
+      "Súbete hasta que la barbilla supere la barra.",
+      "Bájate a la posición colgada de forma controlada."
+    ]
+  },
+  "fexd-Straight-Arm_Pulldown": {
+    "name_en": "Straight-Arm Pulldown",
+    "name_es": "Jalón con brazos rectos en polea",
+    "instructions_en": [
+      "Stand facing a cable machine with a straight bar attached to the high pulley, gripping it with arms extended overhead.",
+      "Keeping your arms straight, pull the bar down to your thighs by squeezing the lats.",
+      "Slowly raise the bar back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie frente a la máquina de polea con una barra recta enganchada arriba, agárrala con los brazos extendidos hacia arriba.",
+      "Manteniendo los brazos rectos, baja la barra hasta los muslos apretando los dorsales.",
+      "Sube la barra lentamente a la posición inicial."
+    ]
+  },
+  "fexd-V-Bar_Pulldown": {
+    "name_en": "V-Bar Pulldown",
+    "name_es": "Jalón con barra V",
+    "instructions_en": [
+      "Sit at a lat pulldown station with the V-bar attached to the high pulley.",
+      "Grip the V-bar with both hands and pull it down to your upper chest, squeezing the back at the bottom.",
+      "Slowly let the bar rise back to the starting position."
+    ],
+    "instructions_es": [
+      "Siéntate en la estación de jalón con una barra V en la polea alta.",
+      "Agarra la barra V con ambas manos y bájala hasta la parte alta del pecho apretando la espalda abajo.",
+      "Deja que la barra vuelva lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Wide-Grip_Lat_Pulldown": {
+    "name_en": "Wide-Grip Lat Pulldown",
+    "name_es": "Jalón al pecho con agarre ancho",
+    "instructions_en": [
+      "Sit at a lat pulldown station and grip the bar with hands wider than shoulder-width, palms facing forward.",
+      "Pull the bar down to your upper chest, squeezing the shoulder blades together.",
+      "Slowly let the bar rise back to the starting position."
+    ],
+    "instructions_es": [
+      "Siéntate en la estación de jalón y agarra la barra más ancho que los hombros con las palmas hacia adelante.",
+      "Baja la barra hasta la parte alta del pecho juntando las escápulas.",
+      "Sube la barra lentamente a la posición inicial."
+    ]
+  },
+  "wger-928eeae3-d849-4605-a470-048ca259a8c5": {
+    "name_en": "Barbell Lunge",
+    "name_es": "Zancada con barra",
+    "instructions_en": [
+      "Stand with a barbell across your upper back and your feet hip-width apart.",
+      "Step forward with one leg, lowering your hips until both knees are bent at roughly 90 degrees.",
+      "Push back through the heel of the front foot to return to the starting position.",
+      "Repeat with the other leg."
+    ],
+    "instructions_es": [
+      "De pie con una barra sobre los trapecios y los pies a la anchura de las caderas.",
+      "Da un paso adelante con una pierna bajando las caderas hasta que ambas rodillas formen 90°.",
+      "Empuja con el talón delantero para volver a la posición inicial.",
+      "Alterna con la otra pierna."
+    ]
+  },
+  "wger-2f8ee51b-f493-47f7-8b2a-1da16c128f73": {
+    "name_en": "Cable Crunch",
+    "name_es": "Encogimiento en polea",
+    "instructions_en": [
+      "Kneel below a high pulley with a rope attachment and hold the rope behind your head.",
+      "Flex the abs to crunch your torso down toward your knees.",
+      "Slowly return to the starting position with the abs under tension."
+    ],
+    "instructions_es": [
+      "Arrodíllate bajo una polea alta con una cuerda y sujétala detrás de la cabeza.",
+      "Contrae los abdominales encogiendo el torso hacia las rodillas.",
+      "Vuelve lentamente a la posición inicial con los abdominales bajo tensión."
+    ]
+  },
+  "fexd-Crunches": {
+    "name_en": "Crunches",
+    "name_es": "Encogimientos abdominales",
+    "instructions_en": [
+      "Lie on your back with your knees bent and feet flat on the floor.",
+      "Place your hands behind your head without pulling on the neck.",
+      "Crunch your torso up by flexing the abs until your shoulder blades come off the floor.",
+      "Slowly lower back down to the starting position."
+    ],
+    "instructions_es": [
+      "Acuéstate boca arriba con las rodillas flexionadas y los pies apoyados en el suelo.",
+      "Coloca las manos detrás de la cabeza sin tirar del cuello.",
+      "Encoge el torso contrayendo los abdominales hasta despegar las escápulas del suelo.",
+      "Baja lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Dead_Bug": {
+    "name_en": "Dead Bug",
+    "name_es": "Bicho muerto",
+    "instructions_en": [
+      "Lie on your back with your arms extended toward the ceiling and your knees bent at 90 degrees over your hips.",
+      "Slowly lower the opposite arm and leg toward the floor while keeping the lower back pressed into the floor.",
+      "Return to the starting position and repeat with the other arm and leg."
+    ],
+    "instructions_es": [
+      "Acuéstate boca arriba con los brazos extendidos hacia el techo y las rodillas flexionadas a 90° sobre las caderas.",
+      "Baja lentamente el brazo y la pierna opuestos hacia el suelo manteniendo la zona lumbar pegada al suelo.",
+      "Vuelve a la posición inicial y repite con el otro brazo y pierna."
+    ]
+  },
+  "wger-9e34bc01-9cec-4ee2-a9bb-9c937a471c24": {
+    "name_en": "Hanging Leg Raise",
+    "name_es": "Elevación de piernas colgado",
+    "instructions_en": [
+      "Hang from a pull-up bar with your arms fully extended and legs straight.",
+      "Keeping the legs straight (or slightly bent for an easier variation), raise them until they form a 90-degree angle with your torso.",
+      "Lower the legs back to the starting position under control."
+    ],
+    "instructions_es": [
+      "Cuelga de una barra de dominadas con los brazos extendidos y las piernas rectas.",
+      "Manteniendo las piernas rectas (o ligeramente flexionadas para versión fácil), súbelas hasta formar 90° con el torso.",
+      "Baja las piernas a la posición inicial de forma controlada."
+    ]
+  },
+  "fexd-Plank": {
+    "name_en": "Plank",
+    "name_es": "Plancha",
+    "instructions_en": [
+      "Lie face down resting on your forearms and your toes, with the elbows directly under the shoulders.",
+      "Lift your body off the floor so it forms a straight line from your shoulders to your ankles.",
+      "Hold the position while bracing your core, keeping the hips level."
+    ],
+    "instructions_es": [
+      "Apoya los antebrazos en el suelo con los codos directamente debajo de los hombros y las puntas de los pies en el suelo.",
+      "Eleva el cuerpo formando una línea recta de los hombros a los tobillos.",
+      "Mantén la posición contrayendo el core con las caderas niveladas."
+    ]
+  },
+  "fexd-Russian_Twist": {
+    "name_en": "Russian Twist",
+    "name_es": "Giro ruso",
+    "instructions_en": [
+      "Sit on the floor with your knees bent and feet either on the floor or lifted, leaning back slightly to engage the core.",
+      "Hold a weight or simply clasp your hands in front of your chest.",
+      "Twist your torso to one side, then to the other, keeping the abs engaged throughout."
+    ],
+    "instructions_es": [
+      "Siéntate con las rodillas flexionadas y los pies en el suelo o elevados, inclinando ligeramente el torso atrás para activar el core.",
+      "Sostén un peso o junta las manos frente al pecho.",
+      "Gira el torso a un lado y luego al otro manteniendo los abdominales activos."
+    ]
+  },
+  "wger-6e46833d-fd83-4c1a-90af-eb3f3a917199": {
+    "name_en": "Barbell Seated Calf Raise",
+    "name_es": "Elevación de gemelos sentado con barra",
+    "instructions_en": [
+      "Sit on a bench with the balls of your feet on a raised platform and a barbell resting across your thighs.",
+      "Raise your heels as high as possible by extending the ankles, squeezing the calves at the top.",
+      "Lower the heels back down for a full stretch."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco con las puntas de los pies sobre una plataforma elevada y una barra apoyada en los muslos.",
+      "Eleva los talones lo más alto posible extendiendo los tobillos y apretando los gemelos arriba.",
+      "Baja los talones para un estiramiento completo."
+    ]
+  },
+  "wger-7ce443b6-eb84-4f65-b05f-461c1cc8bcc0": {
+    "name_en": "Seated Calf Raise",
+    "name_es": "Elevación de gemelos sentado",
+    "instructions_en": [
+      "Sit on the seated calf raise machine with the balls of your feet on the platform and the pads on your thighs.",
+      "Raise your heels as high as possible by extending the ankles.",
+      "Lower the heels back down for a full stretch."
+    ],
+    "instructions_es": [
+      "Siéntate en la máquina con las puntas de los pies sobre la plataforma y las almohadillas sobre los muslos.",
+      "Eleva los talones lo más alto posible extendiendo los tobillos.",
+      "Baja los talones para un estiramiento completo."
+    ]
+  },
+  "fexd-Standing_Calf_Raises": {
+    "name_en": "Standing Calf Raises",
+    "name_es": "Elevación de gemelos de pie",
+    "instructions_en": [
+      "Stand on the platform of a standing calf raise machine with your shoulders under the pads and the balls of your feet on the platform.",
+      "Raise your heels as high as possible by extending the ankles.",
+      "Lower the heels back down for a full stretch."
+    ],
+    "instructions_es": [
+      "Colócate en la máquina de gemelos de pie con los hombros bajo las almohadillas y las puntas de los pies en la plataforma.",
+      "Eleva los talones lo más alto posible extendiendo los tobillos.",
+      "Baja los talones para un estiramiento completo."
+    ]
+  },
+  "fexd-Barbell_Curl": {
+    "name_en": "Barbell Curl",
+    "name_es": "Curl de bíceps con barra",
+    "instructions_en": [
+      "Stand holding a barbell with a supinated grip at hip level, hands shoulder-width apart.",
+      "Keeping your upper arms stationary, curl the bar by flexing the elbows until the bar reaches shoulder level.",
+      "Slowly lower the bar back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie sujetando una barra con agarre supino a la altura de las caderas, manos a la anchura de los hombros.",
+      "Manteniendo los brazos estables, flexiona los codos para subir la barra hasta los hombros.",
+      "Baja la barra lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Barbell_Shrug": {
+    "name_en": "Barbell Shrug",
+    "name_es": "Encogimientos con barra",
+    "instructions_en": [
+      "Stand holding a barbell at hip level with a pronated grip, feet shoulder-width apart.",
+      "Lift your shoulders straight up toward your ears, squeezing the traps.",
+      "Lower the shoulders back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie sujetando una barra a la altura de las caderas con agarre prono y los pies a la anchura de los hombros.",
+      "Eleva los hombros directamente hacia las orejas apretando los trapecios.",
+      "Baja los hombros a la posición inicial."
+    ]
+  },
+  "fexd-Cable_Preacher_Curl": {
+    "name_en": "Cable Preacher Curl",
+    "name_es": "Curl predicador en polea",
+    "instructions_en": [
+      "Position a preacher bench in front of a low cable pulley with a straight or EZ bar attachment.",
+      "Sit on the bench with the back of your arms resting on the pad, gripping the bar with a supinated grip.",
+      "Curl the bar toward your shoulders by flexing the elbows, then slowly lower back to the starting position."
+    ],
+    "instructions_es": [
+      "Coloca un banco predicador frente a una polea baja con barra recta o EZ.",
+      "Siéntate apoyando la parte de atrás de los brazos sobre la almohadilla y agarra la barra con un agarre supino.",
+      "Flexiona los codos subiendo la barra hacia los hombros, luego baja lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Dumbbell_Bicep_Curl": {
+    "name_en": "Dumbbell Bicep Curl",
+    "name_es": "Curl de bíceps con mancuernas",
+    "instructions_en": [
+      "Stand with a dumbbell in each hand at your sides, arms fully extended and palms facing forward.",
+      "Curl the dumbbells up by flexing the elbows, keeping the upper arms stationary.",
+      "Slowly lower the dumbbells back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie con una mancuerna en cada mano a los lados, brazos extendidos y palmas hacia adelante.",
+      "Flexiona los codos subiendo las mancuernas, manteniendo los brazos estables.",
+      "Baja las mancuernas lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Dumbbell_Shrug": {
+    "name_en": "Dumbbell Shrug",
+    "name_es": "Encogimientos con mancuernas",
+    "instructions_en": [
+      "Stand with a dumbbell in each hand at your sides, arms straight and palms facing your body.",
+      "Lift your shoulders straight up toward your ears, squeezing the traps.",
+      "Lower the shoulders back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie con una mancuerna en cada mano a los lados, brazos rectos y palmas mirando al cuerpo.",
+      "Eleva los hombros hacia las orejas apretando los trapecios.",
+      "Baja los hombros a la posición inicial."
+    ]
+  },
+  "fexd-Face_Pull": {
+    "name_en": "Face Pull",
+    "name_es": "Face pull en polea",
+    "instructions_en": [
+      "Set a cable pulley at upper-chest or face height and attach a rope.",
+      "Grip both ends of the rope with palms facing each other, step back, and lean slightly back.",
+      "Pull the rope toward your face, separating the ends as your hands reach the sides of your head, squeezing the rear delts.",
+      "Slowly return to the starting position."
+    ],
+    "instructions_es": [
+      "Coloca una polea a la altura del pecho alto o la cara y engancha una cuerda.",
+      "Sostén los dos extremos de la cuerda con las palmas enfrentadas, da un paso atrás e inclínate ligeramente.",
+      "Tira de la cuerda hacia la cara separando los extremos cuando las manos lleguen a los lados de la cabeza, apretando los deltoides posteriores.",
+      "Vuelve lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Hammer_Curls": {
+    "name_en": "Hammer Curls",
+    "name_es": "Curl martillo",
+    "instructions_en": [
+      "Stand with a dumbbell in each hand at your sides with palms facing your body (neutral grip).",
+      "Curl the dumbbells up by flexing the elbows, keeping the palms facing each other throughout.",
+      "Slowly lower the dumbbells back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie con una mancuerna en cada mano a los lados con las palmas mirando al cuerpo (agarre neutro).",
+      "Flexiona los codos subiendo las mancuernas, manteniendo las palmas enfrentadas en todo el movimiento.",
+      "Baja las mancuernas lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Preacher_Curl": {
+    "name_en": "Preacher Curl",
+    "name_es": "Curl en banco predicador",
+    "instructions_en": [
+      "Sit at a preacher bench with the back of your arms resting on the pad, holding a barbell with a supinated grip.",
+      "Curl the bar toward your shoulders by flexing the elbows.",
+      "Slowly lower the bar back to the starting position with the arms fully extended (but not locked)."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco predicador apoyando la parte de atrás de los brazos sobre la almohadilla y sujeta una barra con agarre supino.",
+      "Flexiona los codos subiendo la barra hacia los hombros.",
+      "Baja la barra lentamente a la posición inicial con los brazos extendidos (sin bloquear)."
+    ]
+  },
+  "fexd-Seated_Bent-Over_Rear_Delt_Raise": {
+    "name_en": "Seated Bent-Over Rear Delt Raise",
+    "name_es": "Elevación posterior sentado inclinado",
+    "instructions_en": [
+      "Sit on the edge of a bench with a dumbbell in each hand, hinge forward at the hips until your torso is close to your thighs.",
+      "With a slight bend in the elbows, raise the dumbbells out to the sides until they are parallel to the floor.",
+      "Slowly lower the dumbbells back to the starting position."
+    ],
+    "instructions_es": [
+      "Siéntate en el borde de un banco con una mancuerna en cada mano e inclínate desde las caderas hasta que el torso quede cerca de los muslos.",
+      "Con los codos ligeramente flexionados, eleva las mancuernas hacia los lados hasta quedar paralelas al suelo.",
+      "Baja las mancuernas lentamente a la posición inicial."
+    ]
+  },
+  "fexd-Side_Lateral_Raise": {
+    "name_en": "Side Lateral Raise",
+    "name_es": "Elevaciones laterales",
+    "instructions_en": [
+      "Stand with a dumbbell in each hand at your sides, palms facing your body.",
+      "With a slight bend in the elbows, raise the dumbbells out to the sides until your arms are parallel to the floor.",
+      "Slowly lower the dumbbells back to the starting position."
+    ],
+    "instructions_es": [
+      "De pie con una mancuerna en cada mano a los lados, palmas mirando al cuerpo.",
+      "Con los codos ligeramente flexionados, eleva las mancuernas hacia los lados hasta que los brazos queden paralelos al suelo.",
+      "Baja las mancuernas lentamente a la posición inicial."
+    ]
+  },
+  "wger-49189e88-40b6-4c0d-a784-0cc3abbb8e75": {
+    "name_en": "Standing Leg Curl",
+    "name_es": "Curl femoral de pie",
+    "instructions_en": [
+      "Stand at the standing leg curl machine with one leg against the lever pad just above the ankle.",
+      "Holding the support handles for balance, flex the knee to curl the lever toward your glute.",
+      "Slowly lower the leg back to the starting position.",
+      "Repeat with the other leg."
+    ],
+    "instructions_es": [
+      "De pie en la máquina con una pierna apoyada en la almohadilla justo arriba del tobillo.",
+      "Sujetando las asas de apoyo para equilibrio, flexiona la rodilla acercando la almohadilla al glúteo.",
+      "Baja la pierna lentamente a la posición inicial.",
+      "Repite con la otra pierna."
+    ]
+  },
+  "fexd-Two-Arm_Dumbbell_Preacher_Curl": {
+    "name_en": "Two-Arm Dumbbell Preacher Curl",
+    "name_es": "Curl predicador con mancuernas a dos manos",
+    "instructions_en": [
+      "Sit at a preacher bench holding a dumbbell in each hand, with the back of your arms resting on the pad.",
+      "Curl both dumbbells toward your shoulders by flexing the elbows.",
+      "Slowly lower the dumbbells back to the starting position with the arms fully extended (but not locked)."
+    ],
+    "instructions_es": [
+      "Siéntate en un banco predicador con una mancuerna en cada mano apoyando la parte de atrás de los brazos sobre la almohadilla.",
+      "Flexiona ambos codos subiendo las mancuernas hacia los hombros.",
+      "Baja las mancuernas lentamente a la posición inicial con los brazos extendidos (sin bloquear)."
+    ]
+  },
+  "fexd-Thigh_Abductor": {
+    "name_en": "Thigh Abductor",
+    "name_es": "Abductor de cadera en máquina",
+    "instructions_en": [
+      "Sit in the abductor machine with the pads against the outside of your thighs.",
+      "Press your thighs outward against the pads, squeezing the glutes.",
+      "Slowly return to the starting position under control."
+    ],
+    "instructions_es": [
+      "Siéntate en la máquina de abductor con las almohadillas contra el exterior de los muslos.",
+      "Empuja los muslos hacia afuera contra las almohadillas apretando los glúteos.",
+      "Vuelve lentamente a la posición inicial."
+    ]
+  }
+}
