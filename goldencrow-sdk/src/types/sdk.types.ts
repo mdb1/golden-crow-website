@@ -330,6 +330,9 @@ export interface TwoPQFormRecord {
   updatedAt: string;
   authorEmail?: string;
   authorUid?: string;
+  archivedAt?: string;
+  archivedByEmail?: string;
+  archivedByUid?: string;
   createdByEmail?: string;
   createdByUid?: string;
   updatedByEmail?: string;

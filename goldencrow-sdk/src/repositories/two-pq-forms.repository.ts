@@ -152,6 +152,10 @@ type TwoPQFormInput = {
   samplingInformation?: SamplingInformationInput[];
 };
 
+type ListTwoPQFormsOptions = {
+  includeArchived?: boolean;
+};
+
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -352,6 +356,9 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
     authorEmail,
     authorUid,
+    archivedAt: normalizeOptionalString(data.archivedAt),
+    archivedByEmail: normalizeOptionalString(data.archivedByEmail),
+    archivedByUid: normalizeOptionalString(data.archivedByUid),
     createdByEmail: normalizeOptionalString(data.createdByEmail),
     createdByUid: normalizeOptionalString(data.createdByUid),
     updatedByEmail: normalizeOptionalString(data.updatedByEmail),
@@ -735,7 +742,8 @@ function canViewTwoPQForm(
 }
 
 export async function listTwoPQFormsForContext(
-  context: AdminContext
+  context: AdminContext,
+  options: ListTwoPQFormsOptions = {}
 ): Promise<TwoPQFormRecord[]> {
   const snapshot =
     context.role === "full_admin"
@@ -748,6 +756,7 @@ export async function listTwoPQFormsForContext(
   return snapshot.docs
     .map((doc) => toTwoPQFormRecord(doc.id, doc.data() as Record<string, unknown>))
     .filter((form) => canViewTwoPQForm(context, form))
+    .filter((form) => options.includeArchived || !form.archivedAt)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
@@ -770,6 +779,62 @@ export async function getTwoPQFormForContext(
   }
 
   return form;
+}
+
+export async function archiveTwoPQFormForContext(
+  context: AdminContext,
+  formId: string
+): Promise<TwoPQFormRecord> {
+  const normalizedFormId = normalizeRequiredString(formId, "Form id");
+  const reference = adminDb.collection(FORMS_COLLECTION).doc(normalizedFormId);
+  const snapshot = await reference.get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Form not found.", 404);
+  }
+
+  const form = toTwoPQFormRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>
+  );
+  if (!canViewTwoPQForm(context, form)) {
+    throw new AdminRepositoryError("You cannot archive this form.", 403);
+  }
+
+  const now = new Date().toISOString();
+  const archivedDocument = {
+    archivedAt: form.archivedAt ?? now,
+    archivedByEmail: form.archivedByEmail ?? context.email,
+    archivedByUid: form.archivedByUid ?? context.uid,
+    updatedAt: now,
+    updatedByEmail: context.email,
+    updatedByUid: context.uid,
+  };
+
+  await reference.set(archivedDocument, { merge: true });
+
+  return toTwoPQFormRecord(normalizedFormId, {
+    ...(snapshot.data() as Record<string, unknown>),
+    ...archivedDocument,
+  });
+}
+
+export async function deleteTwoPQFormForContext(
+  context: AdminContext,
+  formId: string
+): Promise<{ deleted: true; formId: string }> {
+  if (context.role !== "full_admin") {
+    throw new AdminRepositoryError("Only full admins can delete forms.", 403);
+  }
+
+  const normalizedFormId = normalizeRequiredString(formId, "Form id");
+  const reference = adminDb.collection(FORMS_COLLECTION).doc(normalizedFormId);
+  const snapshot = await reference.get();
+  if (!snapshot.exists) {
+    throw new AdminRepositoryError("Form not found.", 404);
+  }
+
+  await reference.delete();
+  return { deleted: true, formId: normalizedFormId };
 }
 
 export async function createTwoPQFormForContext(

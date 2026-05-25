@@ -3,7 +3,9 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  archiveTwoPQFormForContext,
   createTwoPQFormForContext,
+  deleteTwoPQFormForContext,
   getTwoPQFormForContext,
   listTwoPQFormsForContext,
 } from "../repositories/two-pq-forms.repository.js";
@@ -215,6 +217,14 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   }),
 ]);
 
+const TwoPQFormsQuerySchema = z.object({
+  includeArchived: z.string().optional(),
+});
+
+function parseBooleanQueryFlag(value: string | undefined) {
+  return value === "1" || value === "true" || value === "yes";
+}
+
 function buildUnexpectedRouteErrorPayload(
   error: unknown,
   request: Pick<FastifyRequest, "method" | "url" | "params" | "query" | "body">
@@ -272,18 +282,28 @@ function sendTwoPQRouteError(
 export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
-  f.get("/2pq/forms", async (request, reply) => {
-    if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated admin context" });
-    }
+  f.get(
+    "/2pq/forms",
+    {
+      schema: {
+        querystring: TwoPQFormsQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
 
-    try {
-      const forms = await listTwoPQFormsForContext(request.adminContext);
-      return reply.send({ forms });
-    } catch (error) {
-      return sendTwoPQRouteError(request, reply, error);
+      try {
+        const forms = await listTwoPQFormsForContext(request.adminContext, {
+          includeArchived: parseBooleanQueryFlag(request.query.includeArchived),
+        });
+        return reply.send({ forms });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
     }
-  });
+  );
 
   f.post(
     "/2pq/forms",
@@ -329,6 +349,58 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.params.formId
         );
         return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    }
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/archive",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const form = await archiveTwoPQFormForContext(
+          request.adminContext,
+          request.params.formId
+        );
+        return reply.send({ form });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    }
+  );
+
+  f.delete(
+    "/2pq/forms/:formId",
+    {
+      schema: {
+        params: z.object({
+          formId: z.string().min(1),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await deleteTwoPQFormForContext(
+          request.adminContext,
+          request.params.formId
+        );
+        return reply.send(result);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }

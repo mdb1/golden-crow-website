@@ -45,8 +45,11 @@ export async function getTwoPQFormLookupData() {
   };
 }
 
-export async function getTwoPQForms() {
-  const payload = await sdkFetchServer<{ forms: TwoPQFormRecord[] }>("/2pq/forms");
+export async function getTwoPQForms(options: { includeArchived?: boolean } = {}) {
+  const query = options.includeArchived ? "?includeArchived=1" : "";
+  const payload = await sdkFetchServer<{ forms: TwoPQFormRecord[] }>(
+    `/2pq/forms${query}`
+  );
   return payload.forms;
 }
 
