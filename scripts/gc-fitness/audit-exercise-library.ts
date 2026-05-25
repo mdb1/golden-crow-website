@@ -26,6 +26,11 @@ import * as path from "node:path";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
+// Plan 24-04 Task 5 — convergence-proof flag. Imports the shared
+// UNMAPPED_ACCEPTED parser from rewrite-exercise-refs.ts so the audit + the
+// rewrite gate stay in lockstep on the same hand-curated source of truth.
+import { parseUnmappedAccepted } from "./rewrite-exercise-refs";
+
 // ---------------------------------------------------------------------------
 // Env loading + admin init (mirrors backoffice/scripts/seed-gc-fitness-library.cjs)
 // ---------------------------------------------------------------------------
@@ -79,21 +84,61 @@ function initAdmin() {
 
 interface CliArgs {
   output: string | null;
+  /** Plan 24-04 Task 5 — when true, run the convergence-proof audit instead
+   *  of the legacy allowlist proposal. Scans workout_templates for any
+   *  unaccepted wger-* refs and exits 1 if any are found. */
+  checkWgerRefs: boolean;
+  /** Plan 24-04 Task 5 — path to WGER-TO-FEXD-REWRITE.md (used only by
+   *  --check-wger-refs to load the UNMAPPED_ACCEPTED set). */
+  rewriteMap: string;
+  /** Plan 24-04 Task 5 — when true under --check-wger-refs, print the
+   *  one-line convergence report to stdout (default behavior; the flag is
+   *  reserved for future modes that suppress stdout). */
+  stdout: boolean;
 }
+
+const DEFAULT_REWRITE_MAP_PATH_FOR_AUDIT = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "gc-fitness",
+  ".planning",
+  "phases",
+  "24-exercise-library-expansion-free-exercise-db",
+  "WGER-TO-FEXD-REWRITE.md",
+);
 
 function parseArgs(): CliArgs {
   const argv = process.argv.slice(2);
-  const args: CliArgs = { output: null };
+  const args: CliArgs = {
+    output: null,
+    checkWgerRefs: false,
+    rewriteMap: DEFAULT_REWRITE_MAP_PATH_FOR_AUDIT,
+    stdout: true,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--output" || a === "-o") {
       args.output = argv[++i] ?? null;
+    } else if (a === "--check-wger-refs") {
+      // Plan 24-04 Task 5 convergence-proof gate.
+      args.checkWgerRefs = true;
+    } else if (a === "--rewriteMap") {
+      args.rewriteMap = path.resolve(argv[++i] ?? "");
+    } else if (a === "--stdout") {
+      args.stdout = true;
     } else if (a === "--help" || a === "-h") {
       process.stdout.write(
-        "Usage: tsx audit-exercise-library.ts [--output <path>]\n\n" +
-          "Reads /exercises from Firestore (project gcfitness-3476b) and writes\n" +
-          "an ALLOWLIST-PROPOSAL.md to <path>. If --output is omitted, the\n" +
-          "proposal is printed to stdout. NO Firestore writes.\n",
+        "Usage: tsx audit-exercise-library.ts [--output <path>] [--check-wger-refs] [--rewriteMap <path>] [--stdout]\n\n" +
+          "Default mode — reads /exercises from Firestore (project gcfitness-3476b)\n" +
+          "and writes an ALLOWLIST-PROPOSAL.md to <path>. If --output is omitted,\n" +
+          "the proposal is printed to stdout. NO Firestore writes.\n\n" +
+          "--check-wger-refs: convergence-proof audit (Plan 24-04 Task 5). Scans\n" +
+          "  workout_templates for any wger-* exerciseId that is NOT in the\n" +
+          "  UNMAPPED_ACCEPTED section of WGER-TO-FEXD-REWRITE.md. Prints\n" +
+          "  'K unaccepted wger references in workout_templates' and exits 0 if\n" +
+          "  K == 0, else exits 1. Codex HIGH single-point-of-failure mitigation.\n",
       );
       process.exit(0);
     } else {
@@ -702,9 +747,55 @@ async function main(): Promise<void> {
   const app = initAdmin();
   const db = getFirestore(app);
 
+  // Plan 24-04 Task 5 — convergence-proof gate. Short-circuits the legacy
+  // audit work entirely. Scans workout_templates for any wger-* exerciseId
+  // that is NOT in the UNMAPPED_ACCEPTED section of WGER-TO-FEXD-REWRITE.md.
+  // Prints the locked phrase 'K unaccepted wger references in workout_templates'
+  // and exits 0 if K == 0, else exits 1. The phrase is grepped by Plan 24-04's
+  // runbook + Plan 24-07's closeout — do not change the wording.
+  if (args.checkWgerRefs) {
+    if (!fs.existsSync(args.rewriteMap)) {
+      throw new Error(
+        `WGER-TO-FEXD-REWRITE.md not found at ${args.rewriteMap}. Pass --rewriteMap <path> to override.`,
+      );
+    }
+    const md = fs.readFileSync(args.rewriteMap, "utf8");
+    const unmappedAccepted = parseUnmappedAccepted(md);
+
+    const tplSnap = await db.collection("workout_templates").get();
+    let count = 0;
+    const offending: Array<{ templateId: string; exerciseId: string }> = [];
+    for (const tplDoc of tplSnap.docs) {
+      const data = tplDoc.data() as { exercises?: Array<{ exerciseId?: string }> };
+      const exercises = Array.isArray(data.exercises) ? data.exercises : [];
+      for (const ex of exercises) {
+        const id = ex?.exerciseId;
+        if (typeof id !== "string") continue;
+        if (!id.startsWith("wger-")) continue;
+        if (unmappedAccepted.has(id)) continue;
+        count++;
+        offending.push({ templateId: tplDoc.id, exerciseId: id });
+      }
+    }
+    // Locked phrase — Plan 24-04 + Plan 24-07 grep for this exact wording.
+    process.stdout.write(`${count} unaccepted wger references in workout_templates\n`);
+    if (count > 0) {
+      for (const o of offending.slice(0, 50)) {
+        process.stderr.write(`  ${o.templateId}: ${o.exerciseId}\n`);
+      }
+      if (offending.length > 50) {
+        process.stderr.write(`  … and ${offending.length - 50} more\n`);
+      }
+      process.exit(1);
+    }
+    return;
+  }
+
   process.stdout.write("Reading /exercises from Firestore (project gcfitness-3476b)...\n");
-  // READ-ONLY: the only Firestore access is the line below. Grep this file for
-  // .set( / .update( / .delete( / .commit( — there are none.
+  // READ-ONLY: every Firestore access in this file uses `.get()` only. Grep
+  // this file for .set( / .update( / .delete( / .commit( — there are none.
+  // (The Plan 24-04 Task 5 --check-wger-refs branch above also uses `.get()`
+  // on workout_templates; same read-only contract.)
   const snap = await db.collection("exercises").get();
 
   const allDocs: ExerciseDoc[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) })) as ExerciseDoc[];
