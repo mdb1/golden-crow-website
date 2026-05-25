@@ -63,7 +63,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
             <AdjustCard title="Before" t={beforeT} onScale={(v) => setBeforeT((x) => ({ ...x, scale: v }))} onReset={() => setBeforeT({ scale: 1, x: 0, y: 0 })} />
             <AdjustCard title="After" t={afterT} onScale={(v) => setAfterT((x) => ({ ...x, scale: v }))} onReset={() => setAfterT({ scale: 1, x: 0, y: 0 })} />
           </div>
-          <div className="relative mx-auto aspect-[3/4] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
+          <div className="relative mx-auto h-[calc(100vh-22rem)] min-h-[420px] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
             <MovableImage url={after.url} alt="after" t={afterT} onDragStart={(e) => onDragStart("after", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
             <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
               <MovableImage url={before.url} alt="before" t={beforeT} onDragStart={(e) => onDragStart("before", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
@@ -82,7 +82,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
 function MovableImage({ url, alt, t, onDragStart, onDragMove, onDragEnd }: { url: string; alt: string; t: Transform; onDragStart: (e: React.PointerEvent<HTMLDivElement>) => void; onDragMove: (e: React.PointerEvent<HTMLDivElement>) => void; onDragEnd: () => void; }) {
   return (
     <div className="absolute inset-0 cursor-move touch-none" onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}>
-      <Image src={url} alt={alt} fill sizes="100vw" className="object-cover select-none" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale})`, transformOrigin: "center center" }} draggable={false} />
+      <Image src={url} alt={alt} fill sizes="100vw" className="object-contain select-none" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale})`, transformOrigin: "center center" }} draggable={false} />
     </div>
   );
 }
@@ -99,4 +99,3 @@ function AdjustCard({ title, t, onScale, onReset }: { title: string; t: Transfor
     </div>
   );
 }
-
