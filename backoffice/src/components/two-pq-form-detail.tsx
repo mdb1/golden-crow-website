@@ -24,6 +24,7 @@ type FieldSpec = {
 };
 
 const PATIENT_FIELDS: FieldSpec[] = [
+  { key: "patientId", label: "Scoped patient ID" },
   { key: "fullName", label: "Full name" },
   { key: "email", label: "Email" },
   { key: "institutionId", label: "Institution ID" },
@@ -279,6 +280,48 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
+  const patientId = form.selectedPatientId ?? getTextValue(form.patientInformation, "patientId");
+
+  return (
+    <section className="rounded-2xl border border-sky-200/80 bg-sky-50/72 px-5 py-5 shadow-[0_16px_38px_rgba(14,165,233,0.12)] dark:border-sky-300/24 dark:bg-sky-950/20">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/78 text-sky-700 shadow-sm dark:bg-sky-400/12 dark:text-sky-200">
+            <UserRound className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="section-eyebrow text-sky-700 dark:text-sky-200">
+              Step 1 patient link
+            </p>
+            <h2 className="font-heading text-xl font-semibold text-sky-950 dark:text-sky-50">
+              {form.patientName ?? getTextValue(form.patientInformation, "fullName") ?? "Scoped patient"}
+            </h2>
+            <p className="mt-1 text-sm text-sky-950/72 dark:text-sky-50/74">
+              {patientId
+                ? "This form is linked to the scoped patient record used for Step 1."
+                : "This legacy form does not have a scoped patient link stored."}
+            </p>
+            {patientId ? (
+              <p className="mt-2 font-mono text-xs text-sky-900/74 dark:text-sky-100/74">
+                {patientId}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        {patientId ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/areas/patients/${encodeURIComponent(patientId)}`}>
+              Open patient
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
   const requestedTestFields =
     form.formType === "study_request"
@@ -335,6 +378,8 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           </div>
         </div>
       </section>
+
+      <PatientLinkSection form={form} />
 
       <DetailSection
         title="Patient information"

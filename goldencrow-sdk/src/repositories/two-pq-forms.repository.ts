@@ -5,6 +5,7 @@ import { adminDbFor } from "../config/firebase.js";
 // Firestore handle for "mydnamap" (no default-app slot is touched).
 const adminDb = adminDbFor("mydnamap");
 import { AdminRepositoryError } from "./admin-errors.js";
+import { createPatientForContext } from "./areas.repository.js";
 import {
   canCreatePatient,
   canViewInstitution,
@@ -971,7 +972,7 @@ export async function createTwoPQFormForContext(
   await validateDoctorInstitutionLink(institutionId, doctorId);
 
   let selectedPatient: PatientRecord | null = null;
-  const selectedPatientId = normalizeOptionalString(payload.selectedPatientId);
+  let selectedPatientId = normalizeOptionalString(payload.selectedPatientId);
   if (selectedPatientId) {
     selectedPatient = await getPatientById(selectedPatientId);
     if (!selectedPatient) {
@@ -1008,6 +1009,33 @@ export async function createTwoPQFormForContext(
         400
       );
     }
+  }
+
+  if (!selectedPatientId) {
+    selectedPatient = await createPatientForContext(context, {
+      institutionId,
+      doctorId,
+      email: patientInformation.email,
+      fullName: patientInformation.fullName,
+      medicalRecordNumber:
+        typeof patientInformation.medicalRecordNumber === "string"
+          ? patientInformation.medicalRecordNumber
+          : undefined,
+      birthDate:
+        typeof patientInformation.birthDate === "string"
+          ? patientInformation.birthDate
+          : undefined,
+      sex:
+        typeof patientInformation.sex === "string"
+          ? patientInformation.sex
+          : undefined,
+      status: patientInformation.status === "inactive" ? "inactive" : "active",
+      notes:
+        typeof patientInformation.notes === "string"
+          ? patientInformation.notes
+          : undefined,
+    });
+    selectedPatientId = selectedPatient.id;
   }
 
   const requestedTest = normalizeRequestedTest(payload.requestedTest, payload.formType);
@@ -1121,6 +1149,7 @@ export async function createTwoPQFormForContext(
     linkedSamplingIds: linkedSamplingIds ?? [],
     patientInformation: {
       ...patientInformation,
+      patientId: selectedPatientId,
       institutionId,
       doctorId,
     },
