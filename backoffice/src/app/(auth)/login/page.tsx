@@ -12,7 +12,6 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
-  BadgeCheck,
   Building2,
   CheckCircle2,
   ChevronRight,
@@ -22,7 +21,6 @@ import {
   LogIn,
   Mail,
   ShieldCheck,
-  Sparkles,
   UserPlus,
 } from "lucide-react";
 import { signIn } from "next-auth/react";
@@ -1130,59 +1128,7 @@ export default function LoginPage() {
       <div className="auth-liquid-flow" aria-hidden />
       <div className="auth-liquid-sheen" aria-hidden />
 
-      <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-7xl gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(410px,470px)] lg:items-center lg:px-8">
-        <section className="hidden min-h-[min(720px,calc(100vh-3rem))] flex-col justify-between rounded-[1.5rem] border border-white/45 bg-white/24 p-7 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] backdrop-blur-xl lg:flex">
-          <div className="space-y-7">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/45 px-3 py-1 text-xs font-semibold text-slate-800">
-              <Sparkles className="size-3.5 text-amber-500" />
-              Golden Crow operations
-            </div>
-
-            <div className="max-w-xl space-y-4">
-              <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal text-slate-950">
-                A sharper front door for focused backoffice work.
-              </h1>
-              <p className="max-w-lg text-base leading-7 text-slate-700">
-                Authenticate once, route into the right legacy product, and keep
-                account creation limited to people who are already approved.
-              </p>
-            </div>
-
-            <div className="grid gap-3 xl:grid-cols-3">
-              <div className="auth-login-glass rounded-2xl p-4">
-                <ShieldCheck className="mb-3 size-5 text-cyan-700" />
-                <p className="text-sm font-semibold">Access checked</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Firebase identity plus SDK allowlist or admin role.
-                </p>
-              </div>
-              <div className="auth-login-glass rounded-2xl p-4">
-                <Building2 className="mb-3 size-5 text-emerald-700" />
-                <p className="text-sm font-semibold">Project aware</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  PocketGenes and Pocket Gyms stay on the legacy session path.
-                </p>
-              </div>
-              <div className="auth-login-glass rounded-2xl p-4">
-                <BadgeCheck className="mb-3 size-5 text-amber-600" />
-                <p className="text-sm font-semibold">Version visible</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Every pushed backoffice change exposes its version here.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="auth-login-glass rounded-3xl p-5">
-            <p className="text-sm font-semibold text-slate-950">New-user path</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              Create email account is not open registration. It first checks
-              whether the email is already approved, then creates the password
-              only for that invited user.
-            </p>
-          </div>
-        </section>
-
+      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-5 py-6 sm:px-6 lg:px-8">
         <section className="auth-login-panel relative mx-auto flex w-full max-w-[470px] flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-2">
