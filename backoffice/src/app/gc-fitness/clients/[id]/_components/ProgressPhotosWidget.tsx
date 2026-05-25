@@ -1,14 +1,17 @@
 import { Camera } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
-import { ProgressPhotoCompare } from "./ProgressPhotoCompare";
 import { ProgressPhotosGridClient } from "./ProgressPhotosGridClient";
+import { Button } from "@/components/ui/button";
 
 export async function ProgressPhotosWidget({
   photos,
+  clientId,
 }: {
   photos: ProgressPhotoRow[];
+  clientId: string;
 }) {
   const t = await getTranslations("clients.detail.photos");
   return (
@@ -27,10 +30,24 @@ export async function ProgressPhotosWidget({
         </div>
       ) : (
         <div className="space-y-4">
-          <ProgressPhotoCompare photos={photos} />
+          <div className="flex justify-end">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/gc-fitness/clients/${clientId}/compare-photos${buildDefaultCompareQuery(photos)}`}>
+                Abrir comparador
+              </Link>
+            </Button>
+          </div>
           <ProgressPhotosGridClient photos={photos} />
         </div>
       )}
     </section>
   );
+}
+
+function buildDefaultCompareQuery(photos: ProgressPhotoRow[]): string {
+  const front = photos.filter((p) => (p.angle ?? "front") === "front" && p.url);
+  if (front.length === 0) return "?angle=front";
+  const after = front[0];
+  const before = front[1] ?? front[0];
+  return `?angle=front&before=${encodeURIComponent(before.id)}&after=${encodeURIComponent(after.id)}`;
 }

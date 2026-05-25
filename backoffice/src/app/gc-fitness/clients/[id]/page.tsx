@@ -169,7 +169,7 @@ export default async function ClientDetailPage({
           initialEntries={notes.entries}
         />
 
-        <ProgressPhotosWidget photos={progressPhotos} />
+        <ProgressPhotosWidget photos={progressPhotos} clientId={id} />
 
         <ClientDailyTimeline
           clientId={id}
