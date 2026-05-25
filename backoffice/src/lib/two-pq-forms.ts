@@ -89,10 +89,6 @@ export type SamplingInformationFormState = {
   sampleId: string;
   sampleType: string;
   processingStatus: string;
-  collectionDate: string;
-  receptionDate: string;
-  runId: string;
-  qcStatus: string;
   notes: string;
 };
 

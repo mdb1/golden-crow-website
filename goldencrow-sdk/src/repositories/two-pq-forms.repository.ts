@@ -147,10 +147,6 @@ type SamplingInformationInput = {
   sampleId?: string;
   sampleType?: string;
   processingStatus?: string;
-  collectionDate?: string;
-  receptionDate?: string;
-  runId?: string;
-  qcStatus?: string;
   notes?: string;
 };
 
@@ -771,10 +767,10 @@ function normalizeSamplingInformation(
       input.processingStatus,
       "2PQ processing status"
     ),
-    collectionDate: normalizeIsoDateString(input.collectionDate) ?? undefined,
-    receptionDate: normalizeIsoDateString(input.receptionDate) ?? undefined,
-    runId: normalizeOptionalString(input.runId),
-    qcStatus: normalizeOptionalString(input.qcStatus),
+    collectionDate: undefined,
+    receptionDate: undefined,
+    runId: undefined,
+    qcStatus: undefined,
     notes: normalizeOptionalString(input.notes),
   };
 }

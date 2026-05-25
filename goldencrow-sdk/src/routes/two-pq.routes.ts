@@ -197,10 +197,6 @@ const TwoPQSamplingInformationSchema = z.object({
   sampleId: z.string().optional(),
   sampleType: z.string().optional(),
   processingStatus: z.string().optional(),
-  collectionDate: z.string().optional(),
-  receptionDate: z.string().optional(),
-  runId: z.string().optional(),
-  qcStatus: z.string().optional(),
   notes: z.string().optional(),
 });
 

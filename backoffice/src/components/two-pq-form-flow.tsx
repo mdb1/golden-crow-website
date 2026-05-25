@@ -229,10 +229,6 @@ function emptySampling(): SamplingInformationFormState {
     sampleId: "",
     sampleType: "",
     processingStatus: "awaiting_reception",
-    collectionDate: "",
-    receptionDate: "",
-    runId: "",
-    qcStatus: "",
     notes: "",
   };
 }
@@ -358,6 +354,19 @@ function mergeSampleInformationDraft(
   };
 }
 
+function mergeSamplingInformationDraft(
+  value: unknown
+): SamplingInformationFormState {
+  const merged = mergeDraftSection(emptySampling(), value);
+
+  return {
+    sampleId: merged.sampleId,
+    sampleType: merged.sampleType,
+    processingStatus: merged.processingStatus,
+    notes: merged.notes,
+  };
+}
+
 function hydrateDraftState(
   defaultState: FlowState,
   draft: TwoPQFormDraftRecord | null | undefined
@@ -417,7 +426,7 @@ function hydrateDraftState(
       Array.isArray(draftState.samplingInformation) &&
       draftState.samplingInformation.length > 0
         ? draftState.samplingInformation.map((entry) =>
-            mergeDraftSection(emptySampling(), entry)
+            mergeSamplingInformationDraft(entry)
           )
         : defaultState.samplingInformation,
   };
@@ -2206,38 +2215,6 @@ export function TwoPQFormFlow({
                       message={errorFor(`samplingInformation.${index}.processingStatus`)}
                     />
                   </div>
-                  <Field
-                    id={`form-sampling-collection-${index}`}
-                    label="Collection date"
-                    type="date"
-                    value={sampling.collectionDate}
-                    onChange={(collectionDate) =>
-                      updateSamplingInformation(index, { collectionDate })
-                    }
-                  />
-                  <Field
-                    id={`form-sampling-reception-${index}`}
-                    label="Reception date"
-                    type="date"
-                    value={sampling.receptionDate}
-                    onChange={(receptionDate) =>
-                      updateSamplingInformation(index, { receptionDate })
-                    }
-                  />
-                  <Field
-                    id={`form-sampling-run-${index}`}
-                    label="Run ID"
-                    value={sampling.runId}
-                    onChange={(runId) => updateSamplingInformation(index, { runId })}
-                  />
-                  <Field
-                    id={`form-sampling-qc-${index}`}
-                    label="QC status"
-                    value={sampling.qcStatus}
-                    onChange={(qcStatus) =>
-                      updateSamplingInformation(index, { qcStatus })
-                    }
-                  />
                   <div className="md:col-span-2">
                     <TextAreaField
                       id={`form-sampling-notes-${index}`}
