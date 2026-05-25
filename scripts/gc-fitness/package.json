@@ -19,6 +19,8 @@
     "fetch-fexd-assets:apply": "tsx fetch-fexd-assets.ts --apply",
     "seed-fexd": "tsx seed-from-fexd.ts",
     "seed-fexd:apply": "tsx seed-from-fexd.ts --apply",
+    "translate:fexd": "tsx translate-fexd-batch.ts",
+    "translate:fexd:prompt": "tsx translate-fexd-batch.ts --emit-prompt",
     "verify-fexd-assets": "tsx verify-fexd-assets.ts",
     "test": "jest"
   },
