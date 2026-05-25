@@ -90,26 +90,26 @@ const STEP_LABELS: Record<StepKey, string> = {
   patientInformation: "Patient information",
   medicalInformation: "Medical information",
   previousGeneticTests: "Previous genetic tests",
-  requestedTest: "Test solicitado",
+  requestedTest: "Requested test",
   institutionInformation: "Institution information",
   sampleInformation: "Sample information",
-  caseInformation: "2PQ Case",
-  samplingInformation: "2PQ Sampling",
+  caseInformation: "2PQ case",
+  samplingInformation: "2PQ sampling",
 };
 
 const YES_NO_OPTIONS = [
-  { value: "si", label: "SI" },
-  { value: "no", label: "NO" },
+  { value: "si", label: "Sí" },
+  { value: "no", label: "No" },
 ];
 
 const SAMPLE_TYPE_OPTIONS = [
-  { value: "biopsia de trofoectodermo", label: "biopsia de trofoectodermo" },
+  { value: "biopsia de trofoectodermo", label: "Biopsia de trofoectodermo" },
   {
     value: "rebiopsia de trofoectodermo",
-    label: "rebiopsia de trofoectodermo",
+    label: "Rebiopsia de trofoectodermo",
   },
-  { value: "medio de cultivo", label: "medio de cultivo" },
-  { value: "otro", label: "otro" },
+  { value: "medio de cultivo", label: "Medio de cultivo" },
+  { value: "otro", label: "Otro" },
 ];
 
 const CASE_STATUS_OPTIONS = [
@@ -273,22 +273,22 @@ function buildFormStorageProcessingSteps(
         ? "Link selected requesting doctor"
         : "Create scoped requesting doctor",
       flowState.selectedRequestingDoctorId
-        ? `Use doctor ${flowState.selectedRequestingDoctorId} as MEDICO SOLICITANTE.`
-        : "Create the scoped doctor from the manual MEDICO SOLICITANTE fields."
+        ? `Use doctor ${flowState.selectedRequestingDoctorId} as médico solicitante.`
+        : "Create the scoped doctor from the manual médico solicitante fields."
     ),
     pendingProcessingStep(
       "case",
       flowState.selectedCaseId ? "Link existing 2PQ case" : `Create 2PQ case ${caseLabel}`,
       flowState.selectedCaseId
-        ? `Use case ${flowState.selectedCaseId} after confirming it matches CODIGO CAJA ${boxCode}.`
+        ? `Use case ${flowState.selectedCaseId} after confirming it matches código caja ${boxCode}.`
         : "Create the case from step 4 and attach it to the patient, institution, and doctor."
     ),
     pendingProcessingStep(
       "box-code",
       "Bind three-letter box code",
       boxCode
-        ? `Store CODIGO CAJA ${boxCode} as the case three_letter_code and keep the form linked to it.`
-        : "Store the validated CODIGO CAJA as the case three_letter_code."
+        ? `Store código caja ${boxCode} as the case three_letter_code and keep the form linked to it.`
+        : "Store the validated código caja as the case three_letter_code."
     ),
     ...samplingSteps,
     pendingProcessingStep(
@@ -624,22 +624,22 @@ function validateStepFields(
       [
         "medicalInformation.previousConceptionsCount",
         flowState.medicalInformation.previousConceptionsCount,
-        "Numero concepciones previas must be a whole number of 0 or more.",
+        "Número de concepciones previas must be a whole number of 0 or more.",
       ],
       [
         "medicalInformation.previousMiscarriagesCount",
         flowState.medicalInformation.previousMiscarriagesCount,
-        "Numero abortos previos must be a whole number of 0 or more.",
+        "Número de abortos previos must be a whole number of 0 or more.",
       ],
       [
         "medicalInformation.previousBirthsCount",
         flowState.medicalInformation.previousBirthsCount,
-        "Numero nacimientos previos must be a whole number of 0 or more.",
+        "Número de nacimientos previos must be a whole number of 0 or more.",
       ],
       [
         "medicalInformation.previousCyclesCount",
         flowState.medicalInformation.previousCyclesCount,
-        "Numero ciclos previos must be a whole number of 0 or more.",
+        "Número de ciclos previos must be a whole number of 0 or more.",
       ],
     ];
 
@@ -649,7 +649,7 @@ function validateStepFields(
       }
     });
     if (!flowState.medicalInformation.maleFactor) {
-      errors["medicalInformation.maleFactor"] = "Select Factor masculino.";
+      errors["medicalInformation.maleFactor"] = "Select factor masculino.";
     }
     if (!flowState.medicalInformation.otherBackground.trim()) {
       errors["medicalInformation.otherBackground"] = "Otros antecedentes is required.";
@@ -661,21 +661,21 @@ function validateStepFields(
       errors["previousGeneticTests.pgtASr"] = "Select PGT-A / PGT-SR.";
     }
     if (!flowState.previousGeneticTests.karyotype) {
-      errors["previousGeneticTests.karyotype"] = "Select CARIOTIPO.";
+      errors["previousGeneticTests.karyotype"] = "Select cariotipo.";
     }
     if (
       flowState.previousGeneticTests.pgtASr === "si" &&
       !flowState.previousGeneticTests.pgtResult.trim()
     ) {
       errors["previousGeneticTests.pgtResult"] =
-        "RESULTADO PGT is required when PGT-A / PGT-SR is SI.";
+        "Resultado PGT is required when PGT-A / PGT-SR is Sí.";
     }
     if (
       flowState.previousGeneticTests.karyotype === "si" &&
       !flowState.previousGeneticTests.karyotypeResult.trim()
     ) {
       errors["previousGeneticTests.karyotypeResult"] =
-        "RESULTADO CARIOTIPO is required when CARIOTIPO is SI.";
+        "Resultado cariotipo is required when cariotipo is Sí.";
     }
   }
 
@@ -692,23 +692,23 @@ function validateStepFields(
       flowState.requestedTest.pgtA !== "si" &&
       flowState.requestedTest.pgtSr !== "si"
     ) {
-      errors["requestedTest.pgtA"] = "Select SI for at least one requested test.";
-      errors["requestedTest.pgtSr"] = "Select SI for at least one requested test.";
+      errors["requestedTest.pgtA"] = "Select Sí for at least one requested test.";
+      errors["requestedTest.pgtSr"] = "Select Sí for at least one requested test.";
     }
   }
 
   if (step === "requestedTest" && formType === "study_request") {
     if (!flowState.requestedTest.reportsMosaicism) {
-      errors["requestedTest.reportsMosaicism"] = "Select INFORMA MOSAICISMOS.";
+      errors["requestedTest.reportsMosaicism"] = "Select informa mosaicismos.";
     }
     if (!flowState.requestedTest.reportsSex) {
-      errors["requestedTest.reportsSex"] = "Select INFORMA SEXO.";
+      errors["requestedTest.reportsSex"] = "Select informa sexo.";
     }
     if (!flowState.requestedTest.requestReason.trim()) {
-      errors["requestedTest.requestReason"] = "MOTIVO DE SOLICITUD is required.";
+      errors["requestedTest.requestReason"] = "Motivo de solicitud is required.";
     }
     if (!flowState.requestedTest.requestDate) {
-      errors["requestedTest.requestDate"] = "FECHA is required.";
+      errors["requestedTest.requestDate"] = "Fecha is required.";
     }
   }
 
@@ -724,10 +724,10 @@ function validateStepFields(
 
   if (step === "sampleInformation") {
     if (!flowState.sampleInformation.fivCenter.trim()) {
-      errors["sampleInformation.fivCenter"] = "CENTRO FIV is required.";
+      errors["sampleInformation.fivCenter"] = "Centro FIV is required.";
     }
     if (!flowState.sampleInformation.centerCode.trim()) {
-      errors["sampleInformation.centerCode"] = "CODIGO CENTRO is required.";
+      errors["sampleInformation.centerCode"] = "Código centro is required.";
     }
     if (!flowState.sampleInformation.requestingDoctorFullName.trim()) {
       errors["sampleInformation.requestingDoctorFullName"] =
@@ -738,24 +738,24 @@ function validateStepFields(
         "Auth email must be valid.";
     }
     if (!flowState.sampleInformation.sampleType.trim()) {
-      errors["sampleInformation.sampleType"] = "TIPO DE MUESTRA is required.";
+      errors["sampleInformation.sampleType"] = "Tipo de muestra is required.";
     }
     if (!flowState.sampleInformation.processedByFirstName.trim()) {
       errors["sampleInformation.processedByFirstName"] =
-        "NOMBRE is required.";
+        "Nombre is required.";
     }
     if (!flowState.sampleInformation.processedByLastName.trim()) {
       errors["sampleInformation.processedByLastName"] =
-        "APELLIDO is required.";
+        "Apellido is required.";
     }
     if (!flowState.sampleInformation.processDate.trim()) {
-      errors["sampleInformation.processDate"] = "FECHA PROCESO is required.";
+      errors["sampleInformation.processDate"] = "Fecha proceso is required.";
     }
     if (!flowState.sampleInformation.boxCode.trim()) {
-      errors["sampleInformation.boxCode"] = "CODIGO CAJA is required.";
+      errors["sampleInformation.boxCode"] = "Código caja is required.";
     } else if (!isValidBoxCode(flowState.sampleInformation.boxCode)) {
       errors["sampleInformation.boxCode"] =
-        "CODIGO CAJA must be exactly three letters (A-Z).";
+        "Código caja must be exactly three letters (A-Z).";
     }
   }
 
@@ -921,8 +921,8 @@ function BoxCodeField({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="section-eyebrow text-emerald-800 dark:text-emerald-200">
-              CODIGO CAJA
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              Código caja
             </p>
             <Badge
               variant="outline"
@@ -997,8 +997,8 @@ function BoxCodeLinkCard({ code }: { code: string }) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="section-eyebrow text-emerald-800 dark:text-emerald-200">
-              CODIGO CAJA
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              Código caja
             </p>
             <Badge
               variant="outline"
@@ -2074,7 +2074,7 @@ export function TwoPQFormFlow({
           <div className="grid gap-4 md:grid-cols-2">
             <Field
               id="form-previous-conceptions"
-              label="numero concepciones previas"
+              label="Número de concepciones previas"
               type="number"
               min="0"
               step="1"
@@ -2086,7 +2086,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-previous-miscarriages"
-              label="numero abortos previos"
+              label="Número de abortos previos"
               type="number"
               min="0"
               step="1"
@@ -2098,7 +2098,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-previous-births"
-              label="numero nacimientos previos"
+              label="Número de nacimientos previos"
               type="number"
               min="0"
               step="1"
@@ -2110,7 +2110,7 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-previous-cycles"
-              label="numero ciclos previos"
+              label="Número de ciclos previos"
               type="number"
               min="0"
               step="1"
@@ -2129,7 +2129,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-other-background"
-                label="otros antecedentes"
+                label="Otros antecedentes"
                 value={state.medicalInformation.otherBackground}
                 onChange={(otherBackground) =>
                   updateMedicalInformation({ otherBackground })
@@ -2149,7 +2149,7 @@ export function TwoPQFormFlow({
               error={errorFor("previousGeneticTests.pgtASr")}
             />
             <YesNoField
-              label="CARIOTIPO"
+              label="Cariotipo"
               value={state.previousGeneticTests.karyotype}
               onChange={(karyotype) =>
                 updatePreviousGeneticTests({ karyotype })
@@ -2159,7 +2159,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-pgt-result"
-                label="RESULTADO PGT"
+                label="Resultado PGT"
                 value={state.previousGeneticTests.pgtResult}
                 onChange={(pgtResult) =>
                   updatePreviousGeneticTests({ pgtResult })
@@ -2170,7 +2170,7 @@ export function TwoPQFormFlow({
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-karyotype-result"
-                label="RESULTADO CARIOTIPO"
+                label="Resultado cariotipo"
                 value={state.previousGeneticTests.karyotypeResult}
                 onChange={(karyotypeResult) =>
                   updatePreviousGeneticTests({ karyotypeResult })
@@ -2197,7 +2197,7 @@ export function TwoPQFormFlow({
                 error={errorFor("requestedTest.pgtSr")}
               />
               <YesNoField
-                label="INFORMA MOSAICISMOS"
+                label="Informa mosaicismos"
                 value={state.requestedTest.reportsMosaicism}
                 onChange={(reportsMosaicism) =>
                   updateRequestedTest({ reportsMosaicism })
@@ -2205,7 +2205,7 @@ export function TwoPQFormFlow({
                 error={errorFor("requestedTest.reportsMosaicism")}
               />
               <YesNoField
-                label="INFORMA SEXO"
+                label="Informa sexo"
                 value={state.requestedTest.reportsSex}
                 onChange={(reportsSex) => updateRequestedTest({ reportsSex })}
                 error={errorFor("requestedTest.reportsSex")}
@@ -2213,7 +2213,7 @@ export function TwoPQFormFlow({
               <div className="md:col-span-2">
                 <TextAreaField
                   id="form-request-reason"
-                  label="MOTIVO DE SOLICITUD"
+                  label="Motivo de solicitud"
                   value={state.requestedTest.requestReason}
                   onChange={(requestReason) =>
                     updateRequestedTest({ requestReason })
@@ -2223,7 +2223,7 @@ export function TwoPQFormFlow({
               </div>
               <Field
                 id="form-request-date"
-                label="FECHA"
+                label="Fecha"
                 type="date"
                 value={state.requestedTest.requestDate}
                 onChange={(requestDate) => updateRequestedTest({ requestDate })}
@@ -2358,14 +2358,14 @@ export function TwoPQFormFlow({
             />
             <Field
               id="form-fiv-center"
-              label="CENTRO FIV"
+              label="Centro FIV"
               value={state.sampleInformation.fivCenter}
               onChange={(fivCenter) => updateSampleInformation({ fivCenter })}
               error={errorFor("sampleInformation.fivCenter")}
             />
             <Field
               id="form-center-code"
-              label="CODIGO CENTRO"
+              label="Código centro"
               value={state.sampleInformation.centerCode}
               onChange={(centerCode) => updateSampleInformation({ centerCode })}
               error={errorFor("sampleInformation.centerCode")}
@@ -2374,7 +2374,7 @@ export function TwoPQFormFlow({
               <div className="border-y border-border/70 py-5">
                 <div className="mb-4">
                   <h3 className="font-heading text-lg font-semibold text-foreground">
-                    Medico solicitante
+                    Médico solicitante
                   </h3>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -2493,7 +2493,7 @@ export function TwoPQFormFlow({
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>TIPO DE MUESTRA</Label>
+                    <Label>Tipo de muestra</Label>
                     <OptionSelectField
                       options={SAMPLE_TYPE_OPTIONS}
                       value={state.sampleInformation.sampleType}
@@ -2506,7 +2506,7 @@ export function TwoPQFormFlow({
                   </div>
                   <Field
                     id="form-process-date"
-                    label="FECHA PROCESO"
+                    label="Fecha proceso"
                     type="date"
                     value={state.sampleInformation.processDate}
                     onChange={(processDate) =>
@@ -2527,7 +2527,7 @@ export function TwoPQFormFlow({
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field
                     id="form-processed-by-first-name"
-                    label="NOMBRE"
+                    label="Nombre"
                     value={state.sampleInformation.processedByFirstName}
                     onChange={(processedByFirstName) =>
                       updateSampleInformation({ processedByFirstName })
@@ -2536,7 +2536,7 @@ export function TwoPQFormFlow({
                   />
                   <Field
                     id="form-processed-by-last-name"
-                    label="APELLIDO"
+                    label="Apellido"
                     value={state.sampleInformation.processedByLastName}
                     onChange={(processedByLastName) =>
                       updateSampleInformation({ processedByLastName })
@@ -2553,7 +2553,7 @@ export function TwoPQFormFlow({
           <div className="grid gap-4 md:grid-cols-2">
             <BoxCodeLinkCard code={state.sampleInformation.boxCode} />
             <div className="space-y-2 md:col-span-2">
-              <Label>Pick existing 2PQ Case</Label>
+              <Label>Pick existing 2PQ case</Label>
               <OptionSelectField
                 options={caseOptions}
                 value={state.selectedCaseId}
@@ -2636,7 +2636,9 @@ export function TwoPQFormFlow({
               >
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="section-eyebrow">2pq_sampling</p>
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      2PQ sampling
+                    </p>
                     <h3 className="font-heading text-lg font-semibold text-foreground">
                       Sampling {index + 1}
                     </h3>
