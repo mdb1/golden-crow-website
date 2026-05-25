@@ -27,6 +27,7 @@ import { getTranslations } from "next-intl/server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { BodyWeightTrendChartClient } from "./BodyWeightTrendChartClient";
 
 export interface BodyWeightTrendChartProps {
   clientId: string;
@@ -39,11 +40,6 @@ interface WeightPoint {
   /** weight value (unit-agnostic — see note below) */
   weight: number;
 }
-
-const CHART_WIDTH = 320;
-const CHART_HEIGHT = 140;
-const PADDING_X = 20;
-const PADDING_Y = 20;
 
 function toDate(v: unknown): Date | null {
   if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
@@ -138,33 +134,6 @@ export async function BodyWeightTrendChart({
     );
   }
 
-  const weights = points.map((p) => p.weight);
-  const minW = Math.min(...weights);
-  const maxW = Math.max(...weights);
-  // Avoid divide-by-zero when every point is identical. A 1.0 default
-  // range produces a flat horizontal line in the chart, which is the
-  // correct visual for "no change".
-  const rangeW = Math.max(1, maxW - minW);
-
-  const innerW = CHART_WIDTH - 2 * PADDING_X;
-  const innerH = CHART_HEIGHT - 2 * PADDING_Y;
-
-  function xForIndex(i: number): number {
-    if (points.length === 1) return PADDING_X + innerW / 2;
-    return PADDING_X + (i * innerW) / (points.length - 1);
-  }
-  function yForWeight(w: number): number {
-    return PADDING_Y + innerH - ((w - minW) / rangeW) * innerH;
-  }
-
-  const pathD = points
-    .map((p, i) => {
-      const x = xForIndex(i).toFixed(1);
-      const y = yForWeight(p.weight).toFixed(1);
-      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-
   const latest = points[points.length - 1];
   const delta =
     points.length > 1 ? latest.weight - points[0].weight : null;
@@ -197,40 +166,7 @@ export async function BodyWeightTrendChart({
           ? t("logSingular", { count: points.length })
           : t("logPlural", { count: points.length })}
       </p>
-      <svg
-        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        className="h-32 w-full text-foreground"
-        role="img"
-        aria-label={t("ariaLabel", { count: points.length })}
-      >
-        <line
-          x1={PADDING_X}
-          x2={CHART_WIDTH - PADDING_X}
-          y1={CHART_HEIGHT - PADDING_Y}
-          y2={CHART_HEIGHT - PADDING_Y}
-          stroke="currentColor"
-          strokeOpacity={0.15}
-        />
-        <path
-          d={pathD}
-          stroke="currentColor"
-          strokeWidth={1.5}
-          fill="none"
-        />
-        {points.map((p, i) => (
-          <circle
-            key={`${p.date}-${i}`}
-            cx={xForIndex(i)}
-            cy={yForWeight(p.weight)}
-            r={2.5}
-            fill="currentColor"
-          >
-            <title>
-              {p.date}: {p.weight} {unitLabel}
-            </title>
-          </circle>
-        ))}
-      </svg>
+      <BodyWeightTrendChartClient data={points} unitLabel={unitLabel} />
     </section>
   );
 }

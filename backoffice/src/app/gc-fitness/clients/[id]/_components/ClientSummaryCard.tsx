@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
+import { Badge } from "@/components/ui/badge";
 
 export async function ClientSummaryCard({
   clientId,
@@ -48,6 +49,7 @@ export async function ClientSummaryCard({
     })
     .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string } => row !== null)
     .slice(0, 30);
+  const workoutsGrouped = groupWorkouts(workouts);
 
   const habits = habitsSnap.docs.map((doc) => {
     const data = doc.data() as Record<string, unknown>;
@@ -72,12 +74,15 @@ export async function ClientSummaryCard({
             <p className="text-sm text-muted-foreground">{t("noWorkouts")}</p>
           ) : (
             <ul className="space-y-1.5">
-              {workouts.map((row) => (
-                <li key={row.id} className="rounded-md bg-muted px-3 py-1.5 text-sm">
-                  <p className="font-medium">{row.name}</p>
+              {workoutsGrouped.map((row) => (
+                <li key={row.key} className="rounded-md bg-muted px-3 py-1.5 text-sm">
+                  <div className="mb-0.5 flex items-center gap-2">
+                    <p className="font-medium">{row.name}</p>
+                    <Badge variant="secondary">{row.recurrence}</Badge>
+                    {row.count > 1 ? <Badge variant="outline">x{row.count}</Badge> : null}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {row.recurrence}
-                    {row.scheduledFor ? ` · ${row.scheduledFor}` : ""}
+                    {row.nextDate ? `${t("nextDate")} ${row.nextDate}` : t("noDate")}
                   </p>
                 </li>
               ))}
@@ -170,4 +175,23 @@ function habitCadenceLabel(
     return t("monthlyCount", { count: monthDays || 1 });
   }
   return t("daily");
+}
+
+function groupWorkouts(
+  rows: Array<{ id: string; name: string; recurrence: string; scheduledFor: string }>,
+): Array<{ key: string; name: string; recurrence: string; count: number; nextDate: string }> {
+  const map = new Map<string, { key: string; name: string; recurrence: string; count: number; nextDate: string }>();
+  for (const row of rows) {
+    const key = `${row.name}__${row.recurrence}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { key, name: row.name, recurrence: row.recurrence, count: 1, nextDate: row.scheduledFor });
+      continue;
+    }
+    existing.count += 1;
+    if (!existing.nextDate || (row.scheduledFor && row.scheduledFor < existing.nextDate)) {
+      existing.nextDate = row.scheduledFor;
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }

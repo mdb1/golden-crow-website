@@ -54,6 +54,7 @@ export function ClientDailyTimeline({
     seriesId?: string | null;
   } | null>(null);
   const dayButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [didUserPickDay, setDidUserPickDay] = useState(false);
 
   const selected = daysByDate[selectedDate] ?? null;
 
@@ -68,12 +69,14 @@ export function ClientDailyTimeline({
   );
 
   useEffect(() => {
+    if (!didUserPickDay) return;
     const node = dayButtonRefs.current[selectedDate];
     if (!node) return;
     node.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [selectedDate]);
+  }, [selectedDate, didUserPickDay]);
 
   async function loadDay(day: string) {
+    setDidUserPickDay(true);
     if (daysByDate[day] || loadingDate === day) {
       setSelectedDate(day);
       return;

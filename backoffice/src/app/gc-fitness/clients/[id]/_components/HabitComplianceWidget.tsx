@@ -5,6 +5,7 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import type { HabitType } from "@/lib/gc-fitness/habit-schema";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 export interface HabitComplianceWidgetProps {
   clientId: string;
@@ -16,6 +17,8 @@ interface HabitRow {
   name: string;
   ratio: number;
   pct: number;
+  scheduledCount: number;
+  completedCount: number;
 }
 
 function buildLastSevenCivilDates(timezone: string): string[] {
@@ -138,6 +141,8 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
         name: localizedName(habit.name, unnamed),
         ratio: clamped,
         pct: Math.round(clamped * 100),
+        scheduledCount: denominator,
+        completedCount: numerator,
       };
     }),
   );
@@ -150,12 +155,19 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {rows.map((row) => (
-            <li key={row.id} className="flex items-center gap-3 text-sm">
-              <span className="flex-1 truncate font-medium">{row.name}</span>
-              <Progress value={row.pct} className="h-2 w-24" />
-              <span className="w-10 text-right tabular-nums text-muted-foreground">{row.pct}%</span>
+            <li key={row.id} className="rounded-md border bg-muted/35 p-3 text-sm">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <span className="truncate font-medium">{row.name}</span>
+                <Badge variant="secondary" className="tabular-nums">
+                  {row.pct}%
+                </Badge>
+              </div>
+              <Progress value={row.pct} className="h-2.5 w-full" />
+              <p className="mt-2 text-xs text-muted-foreground">
+                {row.completedCount}/{row.scheduledCount || 0} {t("daysCompleted")}
+              </p>
             </li>
           ))}
         </ul>

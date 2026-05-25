@@ -226,7 +226,8 @@
       "habitCompliance": {
         "title": "Habit compliance (last 7 days)",
         "empty": "No habits assigned yet.",
-        "unnamed": "(unnamed habit)"
+        "unnamed": "(unnamed habit)",
+        "daysCompleted": "days completed"
       },
       "chatHistory": {
         "title": "Recent messages",
@@ -281,7 +282,9 @@
         "weeklyCount": "{count} days/week",
         "monthlyCount": "{count} days/month",
         "everyNDays": "every {everyN} days",
-        "custom": "custom recurrence"
+        "custom": "custom recurrence",
+        "nextDate": "Next",
+        "noDate": "No date"
       }
     }
   },
