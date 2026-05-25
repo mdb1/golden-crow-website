@@ -301,6 +301,10 @@
     opacity: 0.9;
   }
 
+  .auth-login-stage,
+  .auth-brand-panel,
+  .auth-feature-card,
+  .auth-path-card,
   .auth-login-panel,
   .auth-login-glass {
     border: 1px solid rgba(255, 255, 255, 0.54);
@@ -313,10 +317,50 @@
     backdrop-filter: blur(24px) saturate(1.18);
   }
 
+  .auth-login-stage {
+    border-color: rgba(255, 255, 255, 0.58);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.18)),
+      linear-gradient(135deg, rgba(255, 154, 194, 0.42), rgba(125, 141, 255, 0.3) 42%, rgba(102, 226, 202, 0.32));
+    box-shadow:
+      0 34px 110px rgba(34, 23, 54, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  }
+
+  .auth-brand-panel {
+    border-color: rgba(255, 255, 255, 0.62);
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.22)),
+      radial-gradient(circle at 10% 18%, rgba(255, 255, 255, 0.52), transparent 30%),
+      radial-gradient(circle at 90% 24%, rgba(255, 255, 255, 0.34), transparent 32%),
+      linear-gradient(145deg, rgba(255, 185, 216, 0.38), rgba(159, 148, 255, 0.3) 48%, rgba(108, 226, 198, 0.32));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.66),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .auth-feature-card {
+    border-color: rgba(255, 255, 255, 0.68);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.28));
+    box-shadow:
+      0 18px 48px rgba(58, 43, 93, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  }
+
+  .auth-path-card {
+    border-color: rgba(255, 255, 255, 0.72);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.4));
+    box-shadow:
+      0 22px 58px rgba(58, 43, 93, 0.13),
+      inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  }
+
   .auth-login-panel {
     border-color: rgba(255, 255, 255, 0.72);
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.66));
     box-shadow:
       0 28px 90px rgba(47, 28, 70, 0.28),
       inset 0 1px 0 rgba(255, 255, 255, 0.74);

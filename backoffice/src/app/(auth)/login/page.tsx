@@ -1227,8 +1227,65 @@ export default function LoginPage() {
       <div className="auth-liquid-flow" aria-hidden />
       <div className="auth-liquid-sheen" aria-hidden />
 
-      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-5 py-6 sm:px-6 lg:px-8">
-        <section className="auth-login-panel relative mx-auto flex w-full max-w-[470px] flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6">
+      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+        <section className="auth-login-stage relative mx-auto grid w-full max-w-[1240px] gap-5 rounded-[2rem] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.78fr)] lg:p-6">
+          <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+              <CheckCircle2 className="size-4 text-amber-500" />
+              Golden Crow operations
+            </div>
+
+            <div className="max-w-[680px] space-y-5">
+              <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
+                A sharper front door for focused backoffice work.
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-slate-700">
+                Authenticate once, route into the right legacy product, and keep
+                account creation limited to people who are already approved.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="auth-feature-card rounded-2xl p-4">
+                <ShieldCheck className="size-5 text-cyan-700" />
+                <p className="mt-4 text-sm font-semibold text-slate-950">
+                  Access checked
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Firebase identity plus SDK allowlist or active admin role.
+                </p>
+              </div>
+              <div className="auth-feature-card rounded-2xl p-4">
+                <Building2 className="size-5 text-emerald-700" />
+                <p className="mt-4 text-sm font-semibold text-slate-950">
+                  Project aware
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  PocketGenes and Pocket Gyms stay on the legacy session path.
+                </p>
+              </div>
+              <div className="auth-feature-card rounded-2xl p-4">
+                <KeyRound className="size-5 text-amber-600" />
+                <p className="mt-4 text-sm font-semibold text-slate-950">
+                  Version visible
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Every pushed backoffice change exposes its version here.
+                </p>
+              </div>
+            </div>
+
+            <div className="auth-path-card mt-auto rounded-2xl p-5">
+              <p className="text-sm font-semibold text-slate-950">New-user path</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
+                Create email account is not open registration. It first checks
+                whether the email is already approved, then creates the password
+                only for that invited user.
+              </p>
+            </div>
+          </aside>
+
+          <section className="auth-login-panel relative flex w-full flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-2">
               <p className="section-eyebrow text-slate-500">Secure backoffice</p>
@@ -1492,6 +1549,7 @@ export default function LoginPage() {
               </form>
             </div>
           ) : null}
+          </section>
         </section>
       </div>
     </main>
