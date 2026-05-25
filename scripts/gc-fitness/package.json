@@ -13,6 +13,8 @@
     "apply": "tsx curate-exercise-library.ts --apply",
     "backfill-series-id": "tsx backfill-series-id.ts",
     "backfill-series-id:apply": "tsx backfill-series-id.ts --apply",
+    "backfill:fexd-vocab": "tsx backfill-fexd-vocabulary.ts",
+    "backfill:fexd-vocab:apply": "tsx backfill-fexd-vocabulary.ts --apply",
     "fetch-fexd-assets": "tsx fetch-fexd-assets.ts",
     "fetch-fexd-assets:apply": "tsx fetch-fexd-assets.ts --apply",
     "seed-fexd": "tsx seed-from-fexd.ts",
