@@ -1,6 +1,8 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 
+const DEFAULT_FIREBASE_APP_NAME = "[DEFAULT]";
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -16,7 +18,10 @@ let _auth: Auth | undefined;
 
 function getFirebaseApp(): FirebaseApp {
   if (!_app) {
-    _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]!;
+    const existingDefaultApp = getApps().find(
+      (app) => app.name === DEFAULT_FIREBASE_APP_NAME,
+    );
+    _app = existingDefaultApp ?? initializeApp(firebaseConfig);
   }
   return _app;
 }
