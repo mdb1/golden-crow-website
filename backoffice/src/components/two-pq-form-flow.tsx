@@ -7,8 +7,10 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  CircleDashed,
   CircleX,
   FileText,
+  Loader2,
   Plus,
   Save,
   Trash2,
@@ -18,6 +20,14 @@ import { useAdminContext } from "@/components/admin-context-provider";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +61,14 @@ type FlowState = TwoPQFormDraftState;
 type FieldErrors = Record<string, string>;
 type StepValidationStatus = "valid" | "invalid";
 type StepValidationState = Partial<Record<StepKey, StepValidationStatus>>;
+type FormStorageProcessingStatus = "pending" | "running" | "success" | "error";
+
+type FormStorageProcessingStep = {
+  id: string;
+  label: string;
+  detail: string;
+  status: FormStorageProcessingStatus;
+};
 
 const STUDY_REQUEST_STEPS: StepKey[] = [
   "patientInformation",
@@ -157,6 +175,133 @@ function todayDateInputValue() {
   const day = String(today.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function pendingProcessingStep(
+  id: string,
+  label: string,
+  detail: string
+): FormStorageProcessingStep {
+  return {
+    id,
+    label,
+    detail,
+    status: "pending",
+  };
+}
+
+function buildFormStorageProcessingSteps(
+  flowState: FlowState,
+  formType: TwoPQFormType
+): FormStorageProcessingStep[] {
+  const sharedSteps = [
+    pendingProcessingStep(
+      "validate-payload",
+      "Validate form payload",
+      "Confirm every required field across the current form is complete."
+    ),
+    pendingProcessingStep(
+      "save-draft",
+      "Save temporary draft checkpoint",
+      "Persist the final in-progress state before handing it to storage."
+    ),
+  ];
+
+  if (formType === "study_request") {
+    return [
+      ...sharedSteps,
+      pendingProcessingStep(
+        "patient",
+        flowState.selectedPatientId
+          ? "Link selected scoped patient"
+          : "Create scoped patient",
+        flowState.selectedPatientId
+          ? `Use patient ${flowState.selectedPatientId} as the form patient.`
+          : "Create the scoped patient from step 1 and link it to the form."
+      ),
+      pendingProcessingStep(
+        "institution",
+        flowState.selectedInstitutionId
+          ? "Link selected institution"
+          : "Create scoped institution",
+        flowState.selectedInstitutionId
+          ? `Use institution ${flowState.selectedInstitutionId} for the request.`
+          : "Create the institution details provided in the request."
+      ),
+      pendingProcessingStep(
+        "store-form",
+        "Store joined 2PQ form",
+        "Persist the final form document with patient, institution, and test payloads."
+      ),
+      pendingProcessingStep(
+        "clean-draft",
+        "Clean temporary draft",
+        "Remove the one-user temporary draft after storage succeeds."
+      ),
+    ];
+  }
+
+  const boxCode = normalizeBoxCodeInput(flowState.sampleInformation.boxCode);
+  const caseLabel =
+    flowState.selectedCaseId ||
+    flowState.caseInformation.caseLabel ||
+    (boxCode ? `${boxCode}XXX` : "new case");
+  const samplingSteps = flowState.samplingInformation.map((sampling, index) =>
+    pendingProcessingStep(
+      `sampling-${index}`,
+      `Create sampling ${sampling.sampleId || index + 1}`,
+      `Link this sampling to ${caseLabel}; collection date, reception date, run ID, and QC status stay nil.`
+    )
+  );
+
+  return [
+    ...sharedSteps,
+    pendingProcessingStep(
+      "patient",
+      flowState.selectedPatientId ? "Link selected scoped patient" : "Create scoped patient",
+      flowState.selectedPatientId
+        ? `Use patient ${flowState.selectedPatientId} as the sample patient.`
+        : "Create the scoped patient from step 1 and link it to the stored form."
+    ),
+    pendingProcessingStep(
+      "doctor",
+      flowState.selectedRequestingDoctorId
+        ? "Link selected requesting doctor"
+        : "Create scoped requesting doctor",
+      flowState.selectedRequestingDoctorId
+        ? `Use doctor ${flowState.selectedRequestingDoctorId} as MEDICO SOLICITANTE.`
+        : "Create the scoped doctor from the manual MEDICO SOLICITANTE fields."
+    ),
+    pendingProcessingStep(
+      "case",
+      flowState.selectedCaseId ? "Link existing 2PQ case" : `Create 2PQ case ${caseLabel}`,
+      flowState.selectedCaseId
+        ? `Use case ${flowState.selectedCaseId} after confirming it matches CODIGO CAJA ${boxCode}.`
+        : "Create the case from step 4 and attach it to the patient, institution, and doctor."
+    ),
+    pendingProcessingStep(
+      "box-code",
+      "Bind three-letter box code",
+      boxCode
+        ? `Store CODIGO CAJA ${boxCode} as the case three_letter_code and keep the form linked to it.`
+        : "Store the validated CODIGO CAJA as the case three_letter_code."
+    ),
+    ...samplingSteps,
+    pendingProcessingStep(
+      "store-form",
+      "Store joined 2PQ form",
+      "Persist the form with linked patient, doctor, case, sample, and sampling records."
+    ),
+    pendingProcessingStep(
+      "clean-draft",
+      "Clean temporary draft",
+      "Remove the one-user temporary draft after the final form is stored."
+    ),
+  ];
 }
 
 function emptyInstitution(): InstitutionInformationFormState {
@@ -959,6 +1104,13 @@ export function TwoPQFormFlow({
   const [stepValidation, setStepValidation] = useState<StepValidationState>(() =>
     buildInitialStepValidation(initialFlowState, steps, initialStepIndex, formType)
   );
+  const [storageProcessingSteps, setStorageProcessingSteps] = useState<
+    FormStorageProcessingStep[]
+  >([]);
+  const [storageProcessingError, setStorageProcessingError] = useState<string | null>(
+    null
+  );
+  const [storedFormId, setStoredFormId] = useState<string | null>(null);
   const currentStep = steps[stepIndex] ?? steps[0];
   const currentStepLabel = STEP_LABELS[currentStep];
   const availableDoctors = doctors.filter((doctor) =>
@@ -1040,6 +1192,64 @@ export function TwoPQFormFlow({
     [stepIndex, steps.length]
   );
   const restoredFromDraft = Boolean(matchingDraft);
+  const storageProcessingCompletedCount = storageProcessingSteps.filter(
+    (step) => step.status === "success"
+  ).length;
+  const storageProcessingBlockedCount = storageProcessingSteps.filter(
+    (step) => step.status === "error"
+  ).length;
+  const storageProcessingPendingCount = storageProcessingSteps.filter(
+    (step) => step.status === "pending"
+  ).length;
+  const storageProcessingPercent =
+    storageProcessingSteps.length > 0
+      ? storedFormId
+        ? 100
+        : Math.max(
+            pending ? 4 : 0,
+            Math.round(
+              (storageProcessingCompletedCount /
+                Math.max(storageProcessingSteps.length, 1)) *
+                100
+            )
+          )
+      : 0;
+  const runningStorageStep = storageProcessingSteps.find(
+    (step) => step.status === "running"
+  );
+
+  function updateStorageProcessingStep(
+    stepId: string,
+    status: FormStorageProcessingStatus
+  ) {
+    setStorageProcessingSteps((current) =>
+      current.map((step) => (step.id === stepId ? { ...step, status } : step))
+    );
+  }
+
+  async function runStorageProcessingStep(
+    stepId: string,
+    action?: () => Promise<void>
+  ) {
+    updateStorageProcessingStep(stepId, "running");
+    try {
+      await action?.();
+      updateStorageProcessingStep(stepId, "success");
+      await wait(140);
+    } catch (error) {
+      updateStorageProcessingStep(stepId, "error");
+      throw error;
+    }
+  }
+
+  async function completeStorageProcessingStepSequence(stepIds: string[]) {
+    for (const stepId of stepIds) {
+      updateStorageProcessingStep(stepId, "running");
+      await wait(120);
+      updateStorageProcessingStep(stepId, "success");
+      await wait(120);
+    }
+  }
 
   async function persistDraftSnapshot(
     nextStepIndex: number,
@@ -1382,14 +1592,24 @@ export function TwoPQFormFlow({
       return;
     }
 
-    try {
-      await persistDraftSnapshot(stepIndex);
-    } catch {
-      return;
-    }
-
+    const nextStorageProcessingSteps = buildFormStorageProcessingSteps(
+      state,
+      formType
+    );
+    const remoteProcessingStepIds = nextStorageProcessingSteps
+      .map((step) => step.id)
+      .filter((stepId) => stepId !== "validate-payload" && stepId !== "save-draft");
+    setStorageProcessingSteps(nextStorageProcessingSteps);
+    setStorageProcessingError(null);
+    setStoredFormId(null);
     setPending(true);
+
     try {
+      await runStorageProcessingStep("validate-payload", async () => wait(160));
+      await runStorageProcessingStep("save-draft", async () =>
+        persistDraftSnapshot(stepIndex)
+      );
+
       const body =
         formType === "study_request"
           ? {
@@ -1413,19 +1633,32 @@ export function TwoPQFormFlow({
               caseInformation: state.caseInformation,
               samplingInformation: state.samplingInformation,
             };
+      const firstRemoteStepId = remoteProcessingStepIds[0];
+      if (firstRemoteStepId) {
+        updateStorageProcessingStep(firstRemoteStepId, "running");
+      }
       const response = await sdkFetch<{ form: TwoPQFormRecord }>("/2pq/forms", {
         method: "POST",
         body: JSON.stringify(body),
       });
+      await completeStorageProcessingStepSequence(remoteProcessingStepIds);
+      setStoredFormId(response.form.id);
 
       setToast({
         id: Date.now(),
         tone: "success",
         message: `Form ${response.form.id} stored.`,
       });
+      await wait(700);
       router.push(`/2pq-dashboard/forms?createdId=${response.form.id}`);
       router.refresh();
     } catch {
+      setStorageProcessingSteps((current) =>
+        current.map((step) =>
+          step.status === "running" ? { ...step, status: "error" } : step
+        )
+      );
+      setStorageProcessingError("Unable to store the form. Review the form and try again.");
       setToast({
         id: Date.now(),
         tone: "error",
@@ -1438,6 +1671,178 @@ export function TwoPQFormFlow({
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <Dialog
+        open={storageProcessingSteps.length > 0}
+        onOpenChange={(open) => {
+          if (!open && !pending) {
+            setStorageProcessingSteps([]);
+            setStorageProcessingError(null);
+            setStoredFormId(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="h-[min(46rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-indigo-100 [background:linear-gradient(155deg,rgba(250,251,255,0.98),rgba(238,242,255,0.98)_54%,rgba(199,210,254,0.94))] p-0 text-indigo-950 shadow-[0_34px_120px_rgba(99,102,241,0.24)] dark:border-indigo-400/28 dark:[background:linear-gradient(150deg,rgba(17,24,39,0.98),rgba(30,27,75,0.96)_48%,rgba(79,70,229,0.22))] dark:text-indigo-50 dark:shadow-[0_30px_110px_rgba(49,46,129,0.38)]"
+        >
+          <DialogHeader className="relative border-b border-indigo-100 px-6 py-5 pr-16 dark:border-indigo-300/16">
+            <DialogTitle className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+              2PQ form storage processing
+            </DialogTitle>
+            <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
+              The form is being stored with its scoped records and linked 2PQ entities.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+            <div className="rounded-[1.5rem] border border-indigo-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Process progress
+                  </p>
+                  <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/72">
+                    {storageProcessingError
+                      ? "Storage paused on the blocked checklist item."
+                      : storedFormId
+                        ? `Form ${storedFormId} stored. Redirecting to forms.`
+                        : runningStorageStep
+                          ? runningStorageStep.detail
+                          : "Preparing the storage checklist."}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
+                >
+                  {storageProcessingPercent}%
+                </Badge>
+              </div>
+              <div className="mt-4 h-3 overflow-hidden rounded-full bg-indigo-100/90 dark:bg-indigo-950/50">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,rgba(79,70,229,0.94),rgba(14,165,233,0.92))] transition-[width] duration-300"
+                  style={{ width: `${storageProcessingPercent}%` }}
+                />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Completed
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    {storageProcessingCompletedCount}
+                  </p>
+                </div>
+                <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Pending
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    {storageProcessingPendingCount}
+                  </p>
+                </div>
+                <div className="rounded-[1.15rem] border border-indigo-100 bg-white/78 px-4 py-4 dark:border-indigo-200/16 dark:bg-indigo-950/24">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-950/52 dark:text-indigo-50/58">
+                    Blocked
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    {storageProcessingBlockedCount}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {storageProcessingError ? (
+              <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                {storageProcessingError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-3">
+              {storageProcessingSteps.map((step, index) => (
+                <div
+                  key={step.id}
+                  className="rounded-[1.25rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_12px_30px_rgba(224,231,255,0.58)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none"
+                >
+                  <div className="flex gap-3">
+                    <div
+                      className={[
+                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
+                        step.status === "success"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-200"
+                          : step.status === "error"
+                            ? "border-red-200 bg-red-50 text-red-700 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-200"
+                            : step.status === "running"
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/20 dark:bg-indigo-400/10 dark:text-indigo-200"
+                              : "border-indigo-100 bg-white text-indigo-400 dark:border-indigo-300/16 dark:bg-indigo-950/20 dark:text-indigo-200/58",
+                      ].join(" ")}
+                    >
+                      {step.status === "success" ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : step.status === "error" ? (
+                        <CircleX className="h-4 w-4" />
+                      ) : step.status === "running" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CircleDashed className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-heading text-sm font-semibold text-indigo-950 dark:text-indigo-50">
+                          {step.label}
+                        </p>
+                        <Badge
+                          variant={
+                            step.status === "success"
+                              ? "success"
+                              : step.status === "error"
+                                ? "destructive"
+                                : step.status === "running"
+                                  ? "brand"
+                                  : "outline"
+                          }
+                          className={
+                            step.status === "running"
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-100"
+                              : undefined
+                          }
+                        >
+                          {step.status}
+                        </Badge>
+                        <span className="font-mono text-xs text-indigo-950/46 dark:text-indigo-50/48">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-indigo-950/64 dark:text-indigo-50/66">
+                        {step.detail}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {storageProcessingError ? (
+            <DialogFooter className="gap-3 border-indigo-100/90 bg-white/55 px-6 py-5 dark:border-indigo-300/14 dark:bg-indigo-950/16">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setStorageProcessingSteps([]);
+                  setStorageProcessingError(null);
+                  setStoredFormId(null);
+                }}
+                disabled={pending}
+                className="h-11 px-6"
+              >
+                Close and review form
+              </Button>
+            </DialogFooter>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
