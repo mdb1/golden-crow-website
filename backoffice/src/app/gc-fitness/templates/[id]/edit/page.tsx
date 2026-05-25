@@ -60,13 +60,20 @@ export default async function EditTemplatePage({ params }: PageParams) {
   const data = snap.data() as Record<string, unknown> & {
     trainerId?: string;
     deleted?: boolean;
+    isStandard?: boolean;
   };
 
-  if (data.isStandard === true && data.trainerId !== trainer.uid) {
+  const ownerId = typeof data.trainerId === "string" ? data.trainerId : "";
+  // Legacy compatibility: some global templates can be missing `isStandard`
+  // and/or owner metadata. Treat ownerless templates as standard so edit
+  // routes fork instead of bouncing to forbidden.
+  const isStandardLike = data.isStandard === true || ownerId.length === 0;
+
+  if (isStandardLike && ownerId !== trainer.uid) {
     const fork = await forkStandardWorkoutTemplate(id);
     redirect(`/gc-fitness/templates/${fork.id}/edit`);
   }
-  if (data.trainerId !== trainer.uid) {
+  if (ownerId !== trainer.uid) {
     redirect("/gc-fitness/forbidden");
   }
   if (data.deleted === true) {
