@@ -447,7 +447,7 @@ export async function fetchMessages(
     .collection(CHATS)
     .doc(chatId)
     .collection(MESSAGES)
-    .orderBy("createdAt", "asc")
+    .orderBy("createdAt", "desc")
     .limit(clampedLimit)
     .get();
 
@@ -474,7 +474,7 @@ export async function fetchMessages(
       reactions: (data.reactions as Record<string, string> | undefined) ?? {},
       readBy,
     } satisfies MessageRow;
-  });
+  }).reverse();
 }
 
 // ── setReadReceiptForTrainer (writer — readBy[trainerUid] = ts) ────────

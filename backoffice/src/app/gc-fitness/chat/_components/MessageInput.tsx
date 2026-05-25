@@ -182,7 +182,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
             type="file"
             accept="image/*"
             className="hidden"
-            disabled={mutation.isPending || uploading}
+            disabled={uploading}
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.currentTarget.value = "";
@@ -197,7 +197,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
             type="file"
             accept="audio/*"
             className="hidden"
-            disabled={mutation.isPending || uploading}
+            disabled={uploading}
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.currentTarget.value = "";
@@ -208,7 +208,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
         </label>
         <QuickReplyDropdown
           onSelect={handleQuickReplySelect}
-          disabled={mutation.isPending || uploading}
+          disabled={uploading}
         />
         <textarea
           ref={textareaRef}
@@ -224,7 +224,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
           placeholder={t("placeholder")}
           rows={1}
           aria-label={t("messageAria")}
-          disabled={mutation.isPending || uploading}
+          disabled={uploading}
           className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
