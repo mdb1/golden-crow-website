@@ -57,13 +57,15 @@ export type RequestedTestFormState = {
 };
 
 export type SampleInformationFormState = {
+  fivCenter: string;
+  centerCode: string;
+  requestingDoctorFirstName: string;
+  requestingDoctorLastName: string;
   sampleType: string;
-  sampleId: string;
-  collectionDate: string;
-  collectionSite: string;
-  collectorName: string;
-  storageCondition: string;
-  notes: string;
+  processedByFirstName: string;
+  processedByLastName: string;
+  processDate: string;
+  boxCode: string;
 };
 
 export interface TwoPQFormRecord {

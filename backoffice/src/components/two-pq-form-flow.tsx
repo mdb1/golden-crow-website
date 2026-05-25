@@ -78,6 +78,16 @@ const YES_NO_OPTIONS = [
   { value: "no", label: "NO" },
 ];
 
+const SAMPLE_TYPE_OPTIONS = [
+  { value: "biopsia de trofoectodermo", label: "biopsia de trofoectodermo" },
+  {
+    value: "rebiopsia de trofoectodermo",
+    label: "rebiopsia de trofoectodermo",
+  },
+  { value: "medio de cultivo", label: "medio de cultivo" },
+  { value: "otro", label: "otro" },
+];
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -161,13 +171,15 @@ function buildInitialState(
     },
     institutionInformation: emptyInstitution(),
     sampleInformation: {
+      fivCenter: "",
+      centerCode: "",
+      requestingDoctorFirstName: "",
+      requestingDoctorLastName: "",
       sampleType: "",
-      sampleId: "",
-      collectionDate: "",
-      collectionSite: "",
-      collectorName: "",
-      storageCondition: "",
-      notes: "",
+      processedByFirstName: "",
+      processedByLastName: "",
+      processDate: "",
+      boxCode: "",
     },
   };
 }
@@ -493,15 +505,7 @@ export function TwoPQFormFlow({
       }
     }
 
-    if (
-      step === "requestedTest" &&
-      formType === "sample" &&
-      !state.requestedTest.testName.trim()
-    ) {
-      return "Requested test is required.";
-    }
-
-    if (step === "requestedTest" && formType === "study_request") {
+    if (step === "requestedTest") {
       if (!state.requestedTest.pgtA) return "Select PGT-A.";
       if (!state.requestedTest.pgtSr) return "Select PGT-SR.";
       if (
@@ -510,6 +514,9 @@ export function TwoPQFormFlow({
       ) {
         return "Select SI for at least one requested test.";
       }
+    }
+
+    if (step === "requestedTest" && formType === "study_request") {
       if (!state.requestedTest.reportsMosaicism) {
         return "Select INFORMA MOSAICISMOS.";
       }
@@ -533,8 +540,32 @@ export function TwoPQFormFlow({
       }
     }
 
-    if (step === "sampleInformation" && !state.sampleInformation.sampleType.trim()) {
-      return "Sample type is required.";
+    if (step === "sampleInformation") {
+      if (!state.sampleInformation.fivCenter.trim()) return "CENTRO FIV is required.";
+      if (!state.sampleInformation.centerCode.trim()) {
+        return "CODIGO CENTRO is required.";
+      }
+      if (!state.sampleInformation.requestingDoctorFirstName.trim()) {
+        return "MEDICO SOLICITANTE nombre is required.";
+      }
+      if (!state.sampleInformation.requestingDoctorLastName.trim()) {
+        return "MEDICO SOLICITANTE apellido is required.";
+      }
+      if (!state.sampleInformation.sampleType.trim()) {
+        return "TIPO DE MUESTRA is required.";
+      }
+      if (!state.sampleInformation.processedByFirstName.trim()) {
+        return "PROCESADO POR nombre is required.";
+      }
+      if (!state.sampleInformation.processedByLastName.trim()) {
+        return "PROCESADO POR apellido is required.";
+      }
+      if (!state.sampleInformation.processDate.trim()) {
+        return "FECHA PROCESO is required.";
+      }
+      if (!state.sampleInformation.boxCode.trim()) {
+        return "CODIGO CAJA is required.";
+      }
     }
 
     return null;
@@ -907,40 +938,16 @@ export function TwoPQFormFlow({
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                id="form-test-name"
-                label="Requested test"
-                value={state.requestedTest.testName}
-                onChange={(testName) => updateRequestedTest({ testName })}
+              <YesNoField
+                label="PGT-A"
+                value={state.requestedTest.pgtA}
+                onChange={(pgtA) => updateRequestedTest({ pgtA })}
               />
-              <Field
-                id="form-test-code"
-                label="Test code"
-                value={state.requestedTest.testCode}
-                onChange={(testCode) => updateRequestedTest({ testCode })}
+              <YesNoField
+                label="PGT-SR"
+                value={state.requestedTest.pgtSr}
+                onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
               />
-              <Field
-                id="form-test-priority"
-                label="Priority"
-                value={state.requestedTest.priority}
-                onChange={(priority) => updateRequestedTest({ priority })}
-              />
-              <div className="md:col-span-2">
-                <TextAreaField
-                  id="form-test-reason"
-                  label="Reason"
-                  value={state.requestedTest.reason}
-                  onChange={(reason) => updateRequestedTest({ reason })}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <TextAreaField
-                  id="form-test-notes"
-                  label="Notes"
-                  value={state.requestedTest.notes}
-                  onChange={(notes) => updateRequestedTest({ notes })}
-                />
-              </div>
             </div>
           )
         ) : null}
@@ -1047,58 +1054,71 @@ export function TwoPQFormFlow({
         {currentStep === "sampleInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <Field
-              id="form-sample-type"
-              label="Sample type"
-              value={state.sampleInformation.sampleType}
-              onChange={(sampleType) => updateSampleInformation({ sampleType })}
+              id="form-fiv-center"
+              label="CENTRO FIV"
+              value={state.sampleInformation.fivCenter}
+              onChange={(fivCenter) => updateSampleInformation({ fivCenter })}
             />
             <Field
-              id="form-sample-id"
-              label="Sample id"
-              value={state.sampleInformation.sampleId}
-              onChange={(sampleId) => updateSampleInformation({ sampleId })}
+              id="form-center-code"
+              label="CODIGO CENTRO"
+              value={state.sampleInformation.centerCode}
+              onChange={(centerCode) => updateSampleInformation({ centerCode })}
             />
             <Field
-              id="form-sample-collection-date"
-              label="Collection date"
-              type="date"
-              value={state.sampleInformation.collectionDate}
-              onChange={(collectionDate) =>
-                updateSampleInformation({ collectionDate })
+              id="form-requesting-doctor-first-name"
+              label="MEDICO SOLICITANTE nombre"
+              value={state.sampleInformation.requestingDoctorFirstName}
+              onChange={(requestingDoctorFirstName) =>
+                updateSampleInformation({ requestingDoctorFirstName })
               }
             />
             <Field
-              id="form-sample-site"
-              label="Collection site"
-              value={state.sampleInformation.collectionSite}
-              onChange={(collectionSite) =>
-                updateSampleInformation({ collectionSite })
+              id="form-requesting-doctor-last-name"
+              label="MEDICO SOLICITANTE apellido"
+              value={state.sampleInformation.requestingDoctorLastName}
+              onChange={(requestingDoctorLastName) =>
+                updateSampleInformation({ requestingDoctorLastName })
               }
             />
-            <Field
-              id="form-sample-collector"
-              label="Collector name"
-              value={state.sampleInformation.collectorName}
-              onChange={(collectorName) =>
-                updateSampleInformation({ collectorName })
-              }
-            />
-            <Field
-              id="form-sample-storage"
-              label="Storage condition"
-              value={state.sampleInformation.storageCondition}
-              onChange={(storageCondition) =>
-                updateSampleInformation({ storageCondition })
-              }
-            />
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-sample-notes"
-                label="Notes"
-                value={state.sampleInformation.notes}
-                onChange={(notes) => updateSampleInformation({ notes })}
+            <div className="space-y-2">
+              <Label>TIPO DE MUESTRA</Label>
+              <OptionSelectField
+                options={SAMPLE_TYPE_OPTIONS}
+                value={state.sampleInformation.sampleType}
+                onChange={(sampleType) => updateSampleInformation({ sampleType })}
+                placeholder="Seleccionar"
               />
             </div>
+            <Field
+              id="form-processed-by-first-name"
+              label="PROCESADO POR nombre"
+              value={state.sampleInformation.processedByFirstName}
+              onChange={(processedByFirstName) =>
+                updateSampleInformation({ processedByFirstName })
+              }
+            />
+            <Field
+              id="form-processed-by-last-name"
+              label="PROCESADO POR apellido"
+              value={state.sampleInformation.processedByLastName}
+              onChange={(processedByLastName) =>
+                updateSampleInformation({ processedByLastName })
+              }
+            />
+            <Field
+              id="form-process-date"
+              label="FECHA PROCESO"
+              type="date"
+              value={state.sampleInformation.processDate}
+              onChange={(processDate) => updateSampleInformation({ processDate })}
+            />
+            <Field
+              id="form-box-code"
+              label="CODIGO CAJA"
+              value={state.sampleInformation.boxCode}
+              onChange={(boxCode) => updateSampleInformation({ boxCode })}
+            />
           </div>
         ) : null}
 

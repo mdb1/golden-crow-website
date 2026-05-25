@@ -67,21 +67,20 @@ const STUDY_REQUESTED_TEST_FIELDS: FieldSpec[] = [
 ];
 
 const SAMPLE_REQUESTED_TEST_FIELDS: FieldSpec[] = [
-  { key: "testName", label: "Requested test" },
-  { key: "testCode", label: "Test code" },
-  { key: "priority", label: "Priority" },
-  { key: "reason", label: "Reason" },
-  { key: "notes", label: "Notes" },
+  { key: "pgtA", label: "PGT-A", type: "boolean" },
+  { key: "pgtSr", label: "PGT-SR", type: "boolean" },
 ];
 
 const SAMPLE_INFORMATION_FIELDS: FieldSpec[] = [
-  { key: "sampleType", label: "Sample type" },
-  { key: "sampleId", label: "Sample id" },
-  { key: "collectionDate", label: "Collection date", type: "date" },
-  { key: "collectionSite", label: "Collection site" },
-  { key: "collectorName", label: "Collector name" },
-  { key: "storageCondition", label: "Storage condition" },
-  { key: "notes", label: "Notes" },
+  { key: "fivCenter", label: "CENTRO FIV" },
+  { key: "centerCode", label: "CODIGO CENTRO" },
+  { key: "requestingDoctorFirstName", label: "MEDICO SOLICITANTE nombre" },
+  { key: "requestingDoctorLastName", label: "MEDICO SOLICITANTE apellido" },
+  { key: "sampleType", label: "TIPO DE MUESTRA" },
+  { key: "processedByFirstName", label: "PROCESADO POR nombre" },
+  { key: "processedByLastName", label: "PROCESADO POR apellido" },
+  { key: "processDate", label: "FECHA PROCESO", type: "date" },
+  { key: "boxCode", label: "CODIGO CAJA" },
 ];
 
 function formatDate(value: string, includeTime = false) {

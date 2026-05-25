@@ -94,7 +94,15 @@ type RequestedTestInput = {
 };
 
 type SampleInformationInput = {
+  fivCenter?: string;
+  centerCode?: string;
+  requestingDoctorFirstName?: string;
+  requestingDoctorLastName?: string;
   sampleType?: string;
+  processedByFirstName?: string;
+  processedByLastName?: string;
+  processDate?: string;
+  boxCode?: string;
   sampleId?: string;
   collectionDate?: string;
   collectionSite?: string;
@@ -457,11 +465,20 @@ function normalizeRequestedTest(
   input: RequestedTestInput,
   formType: TwoPQFormType = "sample"
 ) {
-  if (formType === "study_request") {
+  const hasPgtAnswer =
+    typeof input.pgtA !== "undefined" || typeof input.pgtSr !== "undefined";
+  if (formType === "study_request" || hasPgtAnswer) {
     const pgtA = normalizeBooleanAnswer(input.pgtA, "PGT-A");
     const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
     if (!pgtA && !pgtSr) {
       throw new AdminRepositoryError("At least one requested test must be SI.", 400);
+    }
+
+    if (formType === "sample") {
+      return compactRecord({
+        pgtA,
+        pgtSr,
+      });
     }
 
     return compactRecord({
@@ -493,7 +510,11 @@ function getRequestedTestName(
   requestedTest: Record<string, unknown>,
   formType: TwoPQFormType
 ) {
-  if (formType === "study_request") {
+  if (
+    formType === "study_request" ||
+    "pgtA" in requestedTest ||
+    "pgtSr" in requestedTest
+  ) {
     const selectedTests = [
       requestedTest.pgtA === true ? "PGT-A" : null,
       requestedTest.pgtSr === true ? "PGT-SR" : null,
@@ -508,14 +529,39 @@ function getRequestedTestName(
 }
 
 function normalizeSampleInformation(input: SampleInformationInput = {}) {
+  const sampleType = normalizeRequiredString(input.sampleType, "TIPO DE MUESTRA");
+  const allowedSampleTypes = new Set([
+    "biopsia de trofoectodermo",
+    "rebiopsia de trofoectodermo",
+    "medio de cultivo",
+    "otro",
+  ]);
+  if (!allowedSampleTypes.has(sampleType)) {
+    throw new AdminRepositoryError("TIPO DE MUESTRA is not valid.", 400);
+  }
+
   return compactRecord({
-    sampleType: normalizeRequiredString(input.sampleType, "Sample type"),
-    sampleId: normalizeOptionalString(input.sampleId),
-    collectionDate: normalizeIsoDateString(input.collectionDate),
-    collectionSite: normalizeOptionalString(input.collectionSite),
-    collectorName: normalizeOptionalString(input.collectorName),
-    storageCondition: normalizeOptionalString(input.storageCondition),
-    notes: normalizeOptionalString(input.notes),
+    fivCenter: normalizeRequiredString(input.fivCenter, "CENTRO FIV"),
+    centerCode: normalizeRequiredString(input.centerCode, "CODIGO CENTRO"),
+    requestingDoctorFirstName: normalizeRequiredString(
+      input.requestingDoctorFirstName,
+      "MEDICO SOLICITANTE nombre"
+    ),
+    requestingDoctorLastName: normalizeRequiredString(
+      input.requestingDoctorLastName,
+      "MEDICO SOLICITANTE apellido"
+    ),
+    sampleType,
+    processedByFirstName: normalizeRequiredString(
+      input.processedByFirstName,
+      "PROCESADO POR nombre"
+    ),
+    processedByLastName: normalizeRequiredString(
+      input.processedByLastName,
+      "PROCESADO POR apellido"
+    ),
+    processDate: normalizeRequiredIsoDateString(input.processDate, "FECHA PROCESO"),
+    boxCode: normalizeRequiredString(input.boxCode, "CODIGO CAJA"),
   });
 }
 

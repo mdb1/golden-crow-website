@@ -152,7 +152,15 @@ const TwoPQRequestedTestSchema = z.object({
 });
 
 const TwoPQSampleInformationSchema = z.object({
+  fivCenter: z.string().optional(),
+  centerCode: z.string().optional(),
+  requestingDoctorFirstName: z.string().optional(),
+  requestingDoctorLastName: z.string().optional(),
   sampleType: z.string().optional(),
+  processedByFirstName: z.string().optional(),
+  processedByLastName: z.string().optional(),
+  processDate: z.string().optional(),
+  boxCode: z.string().optional(),
   sampleId: z.string().optional(),
   collectionDate: z.string().optional(),
   collectionSite: z.string().optional(),
