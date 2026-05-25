@@ -39,8 +39,8 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/80 bg-background/78 backdrop-blur-sm">
-      <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
+    <header className="sticky top-0 z-20 h-(--app-header-height) border-b border-border/80 bg-background/78 backdrop-blur-sm">
+      <div className="flex h-(--app-header-height) items-center gap-3 px-4 lg:px-6">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-4" />
       <div className="min-w-0 flex-1">

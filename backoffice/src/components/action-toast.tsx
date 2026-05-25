@@ -39,7 +39,7 @@ export function ActionToast({
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[80] w-[min(26rem,calc(100vw-2rem))]">
+    <div className="pointer-events-none fixed right-4 top-[calc(var(--app-header-height)+1.5rem)] z-[80] w-[min(26rem,calc(100vw-2rem))]">
       <div
         className={cn(
           "pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-sm",

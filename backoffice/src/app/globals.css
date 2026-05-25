@@ -89,6 +89,7 @@
   --ambient-grid-line: rgba(164, 185, 220, 0.06);
   --ambient-fade-top: rgba(9, 12, 18, 1);
   --ambient-fade-mid: rgba(9, 12, 18, 0.7);
+  --app-header-height: 4rem;
   --badge-brand-bg: rgba(126, 181, 255, 0.18);
   --badge-brand-border: rgba(126, 181, 255, 0.35);
   --badge-brand-fg: #eaf3ff;
