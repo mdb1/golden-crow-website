@@ -17,6 +17,8 @@ const DEFAULT_ICON_COLOR = "#5A4FCF";
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const PHONE_PATTERN = /^[0-9+()\-\s]{7,20}$/;
+const GOOGLE_PROVIDER_ID = "google.com";
+const PASSWORD_PROVIDER_ID = "password";
 
 type RecordData = Record<string, unknown>;
 
@@ -27,6 +29,9 @@ export interface EmailSignupEligibility {
   viaRoleAssignment: boolean;
   role?: AdminRole;
   accountExists: boolean;
+  accountHasGoogle: boolean;
+  accountHasPassword: boolean;
+  signInProviders: string[];
   projectAccess: ProjectKey[];
 }
 
@@ -192,6 +197,13 @@ export async function getEmailSignupEligibility(
   const authUser = access.email
     ? await adminAuth.getUserByEmail(access.email).catch(() => null)
     : null;
+  const signInProviders = [
+    ...new Set(
+      authUser?.providerData
+        .map((provider) => provider.providerId)
+        .filter((providerId): providerId is string => Boolean(providerId)) ?? []
+    ),
+  ].sort();
 
   return {
     email: access.email,
@@ -200,6 +212,9 @@ export async function getEmailSignupEligibility(
     viaRoleAssignment: access.viaRoleAssignment,
     role: access.roleRecord?.role,
     accountExists: Boolean(authUser),
+    accountHasGoogle: signInProviders.includes(GOOGLE_PROVIDER_ID),
+    accountHasPassword: signInProviders.includes(PASSWORD_PROVIDER_ID),
+    signInProviders,
     projectAccess: access.projectAccess,
   };
 }

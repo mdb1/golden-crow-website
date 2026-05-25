@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
+  fetchSignInMethodsForEmail,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -87,6 +88,9 @@ type SignupEligibility = {
   viaRoleAssignment: boolean;
   role?: "full_admin" | "institution_admin" | "institution_doctor" | "patient";
   accountExists: boolean;
+  accountHasGoogle?: boolean;
+  accountHasPassword?: boolean;
+  signInProviders?: string[];
   projectAccess: ProjectKey[];
 };
 
@@ -98,6 +102,8 @@ const ROLE_LABELS: Record<NonNullable<SignupEligibility["role"]>, string> = {
 };
 
 const LEGACY_PROJECT_KEYS = new Set<ProjectKey>(["mydnamap", "pocket-gyms"]);
+const GOOGLE_SIGN_IN_METHOD = "google.com";
+const PASSWORD_SIGN_IN_METHOD = "password";
 
 function getLegacyProjectAccess(value: unknown): ProjectKey[] {
   if (!Array.isArray(value)) return [];
@@ -122,6 +128,15 @@ function isAuthNotice(error: unknown): error is AuthNotice {
     "tone" in error &&
     "title" in error &&
     "message" in error
+  );
+}
+
+function isCredentialMismatch(error: unknown): boolean {
+  const code = getErrorCode(error);
+  return (
+    code === "auth/invalid-credential" ||
+    code === "auth/user-not-found" ||
+    code === "auth/wrong-password"
   );
 }
 
@@ -192,6 +207,20 @@ function getResponseHeadersForLog(response: Response) {
     headers[key] = SENSITIVE_AUTH_LOG_KEY.test(key) ? "[redacted]" : value;
   });
   return headers;
+}
+
+async function readJson(response: Response) {
+  const responseForTextFallback = response.clone();
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    try {
+      const rawBody = await responseForTextFallback.text();
+      return rawBody.trim() ? { rawBody } : {};
+    } catch {
+      return {};
+    }
+  }
 }
 
 function authErrorLog({
@@ -334,6 +363,90 @@ function googleNotice(error: unknown): AuthNotice {
     details: ["Try again, or use email sign-in if your account has a password."],
     log,
   };
+}
+
+async function googleOnlyPasswordNotice(
+  error: unknown,
+  attemptedEmail: string
+): Promise<AuthNotice | null> {
+  if (!isCredentialMismatch(error)) return null;
+
+  const normalizedEmail = attemptedEmail.trim();
+  if (!normalizedEmail) return null;
+
+  try {
+    const response = await fetch("/api/sdk/auth/email-signup/eligibility", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalizedEmail }),
+    });
+    const data = (await readJson(response)) as Partial<SignupEligibility>;
+    const signInMethods = Array.isArray(data.signInProviders)
+      ? data.signInProviders.filter(
+          (provider): provider is string => typeof provider === "string"
+        )
+      : [];
+
+    if (
+      response.ok &&
+      data.accountExists === true &&
+      data.accountHasGoogle === true &&
+      data.accountHasPassword === false
+    ) {
+      const message =
+        "A user was found with that email, but it has no password registered.";
+
+      return {
+        tone: "error",
+        title: "This account uses Google sign-in",
+        message,
+        details: [
+          "Use Continue with Google to sign in with that user.",
+          "Password login will keep failing until a password provider is added to the Firebase account.",
+        ],
+        log: authErrorLog({
+          source: "legacy-sdk",
+          event: "email-sign-in-google-only-account",
+          message,
+          error,
+          context: { email: normalizedEmail, signInMethods },
+        }),
+      };
+    }
+  } catch (lookupError) {
+    console.warn("SDK sign-in method lookup failed:", lookupError);
+  }
+
+  try {
+    const signInMethods = await fetchSignInMethodsForEmail(auth, normalizedEmail);
+    const hasGoogle = signInMethods.includes(GOOGLE_SIGN_IN_METHOD);
+    const hasPassword = signInMethods.includes(PASSWORD_SIGN_IN_METHOD);
+
+    if (!hasGoogle || hasPassword) return null;
+
+    const message =
+      "A user was found with that email, but it has no password registered.";
+
+    return {
+      tone: "error",
+      title: "This account uses Google sign-in",
+      message,
+      details: [
+        "Use Continue with Google to sign in with that user.",
+        "Password login will keep failing until a password provider is added to the Firebase account.",
+      ],
+      log: authErrorLog({
+        source: "firebase-web-sdk",
+        event: "email-sign-in-google-only-account",
+        message,
+        error,
+        context: { email: normalizedEmail, signInMethods },
+      }),
+    };
+  } catch (lookupError) {
+    console.warn("Firebase sign-in method lookup failed:", lookupError);
+    return null;
+  }
 }
 
 function emailNotice(error: unknown): AuthNotice {
@@ -657,20 +770,6 @@ export default function LoginPage() {
     redirectTo: string;
   } | null>(null);
 
-  async function readJson(response: Response) {
-    const responseForTextFallback = response.clone();
-    try {
-      return (await response.json()) as Record<string, unknown>;
-    } catch {
-      try {
-        const rawBody = await responseForTextFallback.text();
-        return rawBody.trim() ? { rawBody } : {};
-      } catch {
-        return {};
-      }
-    }
-  }
-
   async function handleAuthSuccess(options: {
     idToken: string;
     name: string;
@@ -874,7 +973,7 @@ export default function LoginPage() {
         setNotice(err);
       } else {
         console.error("Email login error:", err);
-        setNotice(emailNotice(err));
+        setNotice((await googleOnlyPasswordNotice(err, email)) ?? emailNotice(err));
       }
     } finally {
       setLoading(null);
