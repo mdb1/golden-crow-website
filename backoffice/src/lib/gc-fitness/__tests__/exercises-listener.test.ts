@@ -114,3 +114,73 @@ describe("snapToRow source discrimination (260522-mo2 Revision fix #1)", () => {
     expect(row.deletedReason).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 24-06 — 6 new FEXD enrichment fields on ExerciseRow + snapToRow.
+// snapToRow must be defensive: an absent field decodes to a safe default
+// ([] for arrays, null for strings) — never throws, never coerces "wger"
+// into an Exercise.primaryMuscles string. The forgiving reads mirror the
+// existing pattern at lines 163-182 of exercises-listener.ts.
+// ---------------------------------------------------------------------------
+
+describe("snapToRow Phase 24-06 enrichment fields", () => {
+  it("Phase 24 case 1: doc lacking the 6 new fields returns []/null defaults", () => {
+    const snap = makeSnap("legacy-wger-doc", {
+      ...BASE_DATA,
+      source: "wger",
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = snapToRow(snap as any);
+    expect(row.primaryMuscles).toEqual([]);
+    expect(row.secondaryMuscles).toEqual([]);
+    expect(row.mechanic).toBeNull();
+    expect(row.level).toBeNull();
+    expect(row.category).toBeNull();
+    expect(row.force).toBeNull();
+  });
+
+  it("Phase 24 case 2: doc with all 6 populated returns correct typed values", () => {
+    const snap = makeSnap("fexd-Bench_Press", {
+      ...BASE_DATA,
+      source: "free-exercise-db",
+      primaryMuscles: ["chest"],
+      secondaryMuscles: ["triceps", "shoulders"],
+      mechanic: "compound",
+      level: "intermediate",
+      category: "strength",
+      force: "push",
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = snapToRow(snap as any);
+    expect(row.primaryMuscles).toEqual(["chest"]);
+    expect(row.secondaryMuscles).toEqual(["triceps", "shoulders"]);
+    expect(row.mechanic).toBe("compound");
+    expect(row.level).toBe("intermediate");
+    expect(row.category).toBe("strength");
+    expect(row.force).toBe("push");
+  });
+
+  it("Phase 24 case 3: malformed primaryMuscles (string instead of array) defensively returns []", () => {
+    const snap = makeSnap("malformed-doc", {
+      ...BASE_DATA,
+      source: "free-exercise-db",
+      // primaryMuscles arrives as a STRING (wire-shape regression). The
+      // defensive Array.isArray guard MUST nil-default to [] rather than
+      // coercing the string into the row.
+      primaryMuscles: "chest",
+      secondaryMuscles: 42,
+      mechanic: 17,
+      level: false,
+      category: { en: "strength" },
+      force: ["push"],
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = snapToRow(snap as any);
+    expect(row.primaryMuscles).toEqual([]);
+    expect(row.secondaryMuscles).toEqual([]);
+    expect(row.mechanic).toBeNull();
+    expect(row.level).toBeNull();
+    expect(row.category).toBeNull();
+    expect(row.force).toBeNull();
+  });
+});

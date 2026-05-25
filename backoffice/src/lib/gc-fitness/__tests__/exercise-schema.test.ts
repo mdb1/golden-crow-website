@@ -128,13 +128,33 @@ describe("exerciseSchema", () => {
     ).toBe("Media couldn't be uploaded. Try again.");
   });
 
-  // T10: source enum closed
-  it("rejects a source value outside {wger, trainer}", () => {
+  // T10: source enum closed (Phase 24-06 — widened to 3-way to mirror the
+  // ExerciseRow union + the iOS Source enum, see exercises-listener.ts:80
+  // and Exercise.swift Source enum). The enum is STILL closed — values
+  // outside {wger, trainer, free-exercise-db} still reject.
+  it("rejects a source value outside {wger, trainer, free-exercise-db}", () => {
     const result = exerciseSchema.safeParse({
       ...VALID_INPUT,
       source: "other",
     });
     expect(result.success).toBe(false);
+  });
+
+  // T10b (Phase 24-06): wger continues to validate (no regression).
+  it("accepts source: 'wger' (regression guard)", () => {
+    const parsed = exerciseSchema.parse({ ...VALID_INPUT, source: "wger" });
+    expect(parsed.source).toBe("wger");
+  });
+
+  // T10c (Phase 24-06): the new free-exercise-db source now validates.
+  // Trainer-form ingress writing a fexd-* doc id with source:"free-exercise-db"
+  // must round-trip — prior to 24-06 the 2-way enum rejected this value.
+  it("accepts source: 'free-exercise-db' (Phase 24-06)", () => {
+    const parsed = exerciseSchema.parse({
+      ...VALID_INPUT,
+      source: "free-exercise-db",
+    });
+    expect(parsed.source).toBe("free-exercise-db");
   });
 
   // Bonus: equipment empty → verbatim UI-SPEC copy with curly quotes
