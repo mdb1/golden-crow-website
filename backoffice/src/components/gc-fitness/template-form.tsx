@@ -154,6 +154,7 @@ export function TemplateForm({
   const [pending, startTransition] = useTransition();
   const [setsDraft, setSetsDraft] = useState<Record<string, string>>({});
   const [setRepsDraft, setSetRepsDraft] = useState<Record<string, string>>({});
+  const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -217,6 +218,17 @@ export function TemplateForm({
 
     form.setValue(repsPath, nextReps, { shouldDirty: true });
     form.setValue(weightPath, nextWeight, { shouldDirty: true });
+  }
+
+  function withPreservedScroll(update: () => void) {
+    if (typeof window === "undefined") {
+      update();
+      return;
+    }
+    const x = window.scrollX;
+    const y = window.scrollY;
+    update();
+    requestAnimationFrame(() => window.scrollTo(x, y));
   }
 
   const submit = form.handleSubmit((values) => {
@@ -591,15 +603,42 @@ export function TemplateForm({
                                 type="number"
                                 min={0}
                                 max={600}
-                                value={numField.value ?? ""}
-                                onChange={(e) =>
-                                  numField.onChange(
-                                    e.target.value === ""
-                                      ? undefined
-                                      : Number(e.target.value),
-                                  )
-                                }
-                                onBlur={numField.onBlur}
+                                value={restSecondsDraft[field.id] ?? (numField.value ?? "")}
+                                onChange={(e) => {
+                                  if (e.target.value === "") {
+                                    setRestSecondsDraft((prev) => ({ ...prev, [field.id]: "" }));
+                                    return;
+                                  }
+                                  const parsed = Number(e.target.value);
+                                  if (!Number.isFinite(parsed)) return;
+                                  setRestSecondsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
+                                  numField.onChange(parsed);
+                                }}
+                                onBlur={() => {
+                                  const raw = restSecondsDraft[field.id];
+                                  if (raw === "") {
+                                    setRestSecondsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[field.id];
+                                      return next;
+                                    });
+                                    numField.onChange(undefined);
+                                    numField.onBlur();
+                                    return;
+                                  }
+                                  if (raw !== undefined) {
+                                    const parsed = Number(raw);
+                                    if (Number.isFinite(parsed)) {
+                                      numField.onChange(parsed);
+                                    }
+                                  }
+                                  setRestSecondsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
+                                  numField.onBlur();
+                                }}
                               />
                             </FormControl>
                             {fieldState.error && (
@@ -666,21 +705,23 @@ export function TemplateForm({
                                     const next = Number(e.target.value);
                                     if (!Number.isFinite(next)) return;
                                     setSetRepsDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
-                                    const current = toFiniteNumberArray(form.getValues(repsPath));
-                                    const safeLen = Math.max(setIdx + 1, current.length);
-                                    const filled = Array.from({ length: safeLen }, (_, i) => {
-                                      const v = current[i];
-                                      return Number.isFinite(v) ? v : repsFallback;
+                                    withPreservedScroll(() => {
+                                      const current = toFiniteNumberArray(form.getValues(repsPath));
+                                      const safeLen = Math.max(setIdx + 1, current.length);
+                                      const filled = Array.from({ length: safeLen }, (_, i) => {
+                                        const v = current[i];
+                                        return Number.isFinite(v) ? v : repsFallback;
+                                      });
+                                      filled[setIdx] = next;
+                                      form.setValue(repsPath, filled, { shouldDirty: true });
+                                      if (setIdx === 0) {
+                                        form.setValue(
+                                          `exercises.${index}.reps` as const,
+                                          next,
+                                          { shouldDirty: true },
+                                        );
+                                      }
                                     });
-                                    filled[setIdx] = next;
-                                    form.setValue(repsPath, filled, { shouldDirty: true });
-                                    if (setIdx === 0) {
-                                      form.setValue(
-                                        `exercises.${index}.reps` as const,
-                                        next,
-                                        { shouldDirty: true },
-                                      );
-                                    }
                                   }}
                                   onBlur={() => {
                                     const raw = setRepsDraft[setKey];

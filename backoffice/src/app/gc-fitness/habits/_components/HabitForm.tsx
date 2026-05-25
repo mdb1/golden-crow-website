@@ -162,6 +162,7 @@ export function HabitForm({
   const t = useTranslations("habits.form");
   const [pending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [targetValueDraft, setTargetValueDraft] = useState<string>("");
 
   // Resolver swap based on mode. In edit mode the type is closure-captured
   // from the initial defaults; in create mode the type is read from the
@@ -599,15 +600,30 @@ export function HabitForm({
                     step="any"
                     min={0}
                     placeholder={t("dailyTargetPlaceholder")}
-                    value={field.value ?? ""}
-                    onChange={(e) =>
-                      field.onChange(
-                        e.target.value === ""
-                          ? undefined
-                          : Number(e.target.value),
-                      )
-                    }
-                    onBlur={field.onBlur}
+                    value={targetValueDraft !== "" ? targetValueDraft : (field.value ?? "")}
+                    onChange={(e) => {
+                      if (e.target.value === "") {
+                        setTargetValueDraft("");
+                        return;
+                      }
+                      const parsed = Number(e.target.value);
+                      if (!Number.isFinite(parsed)) return;
+                      setTargetValueDraft(e.target.value);
+                      field.onChange(parsed);
+                    }}
+                    onBlur={() => {
+                      if (targetValueDraft === "") {
+                        field.onChange(undefined);
+                        field.onBlur();
+                        return;
+                      }
+                      const parsed = Number(targetValueDraft);
+                      if (Number.isFinite(parsed)) {
+                        field.onChange(parsed);
+                      }
+                      setTargetValueDraft("");
+                      field.onBlur();
+                    }}
                   />
                 </FormControl>
                 <FormDescription>{t("dailyTargetHint")}</FormDescription>
