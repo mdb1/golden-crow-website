@@ -284,7 +284,8 @@
         "everyNDays": "every {everyN} days",
         "custom": "custom recurrence",
         "nextDate": "Next",
-        "noDate": "No date"
+        "noDate": "No date",
+        "showPastWorkouts": "Show past workouts ({count})"
       }
     }
   },

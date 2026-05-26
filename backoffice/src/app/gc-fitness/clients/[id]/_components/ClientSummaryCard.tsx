@@ -55,11 +55,15 @@ export async function ClientSummaryCard({
         name: localizedName(nameValue, t("untitledWorkout")),
         recurrence,
         scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+        isRecurring: isRecurringRecurrence(data.recurrence as Record<string, unknown> | undefined),
       };
     })
-    .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string } => row !== null)
+    .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string; isRecurring: boolean } => row !== null)
     .slice(0, 30);
-  const workoutsGrouped = groupWorkouts(workouts);
+  const todayCivil = new Date().toISOString().slice(0, 10);
+  const visibleWorkouts = workouts.filter((row) => row.isRecurring || row.scheduledFor >= todayCivil);
+  const pastWorkouts = workouts.filter((row) => !row.isRecurring && row.scheduledFor < todayCivil);
+  const workoutsGrouped = groupWorkouts(visibleWorkouts);
 
   const habits = habitsSnap.docs.map((doc) => {
     const data = doc.data() as Record<string, unknown>;
@@ -83,20 +87,43 @@ export async function ClientSummaryCard({
           {workouts.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noWorkouts")}</p>
           ) : (
-            <ul className="space-y-1.5">
-              {workoutsGrouped.map((row) => (
-                <li key={row.key} className="rounded-md bg-muted px-3 py-1.5 text-sm">
-                  <div className="mb-0.5 flex items-center gap-2">
-                    <p className="font-medium">{row.name}</p>
-                    <Badge variant="secondary">{row.recurrence}</Badge>
-                    {row.count > 1 ? <Badge variant="outline">x{row.count}</Badge> : null}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {row.nextDate ? `${t("nextDate")} ${row.nextDate}` : t("noDate")}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-2">
+              <ul className="space-y-1.5">
+                {workoutsGrouped.map((row) => (
+                  <li key={row.key} className="rounded-md bg-muted px-3 py-1.5 text-sm">
+                    <div className="mb-0.5 flex items-center gap-2">
+                      <p className="font-medium">{row.name}</p>
+                      <Badge variant="secondary">{row.recurrence}</Badge>
+                      {row.count > 1 ? <Badge variant="outline">x{row.count}</Badge> : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {row.nextDate ? `${t("nextDate")} ${row.nextDate}` : t("noDate")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+
+              {pastWorkouts.length > 0 ? (
+                <details className="group rounded-md border border-dashed px-3 py-2">
+                  <summary className="cursor-pointer list-none text-sm font-medium text-muted-foreground hover:text-foreground">
+                    {t("showPastWorkouts", { count: pastWorkouts.length })}
+                  </summary>
+                  <ul className="mt-3 space-y-1.5">
+                    {groupWorkouts(pastWorkouts).map((row) => (
+                      <li key={row.key} className="rounded-md bg-muted/70 px-3 py-1.5 text-sm">
+                        <div className="mb-0.5 flex items-center gap-2">
+                          <p className="font-medium">{row.name}</p>
+                          <Badge variant="secondary">{row.recurrence}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {t("nextDate")} {row.nextDate}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </div>
           )}
         </div>
 
@@ -173,6 +200,11 @@ function recurrenceLabel(
   }
   if (recurrence.kind === "every_n_days") return t("everyNDays", { everyN: Number(recurrence.everyN ?? 1) });
   return t("custom");
+}
+
+function isRecurringRecurrence(recurrence: Record<string, unknown> | undefined): boolean {
+  if (!recurrence || typeof recurrence.kind !== "string") return false;
+  return recurrence.kind !== "one-time";
 }
 
 function habitCadenceLabel(
