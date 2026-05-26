@@ -7,6 +7,7 @@ import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 
 type Angle = "front" | "side" | "back";
 type Transform = { scale: number; x: number; y: number };
+type CompareMode = "side-by-side" | "slider";
 
 export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRow[] }) {
   const params = useSearchParams();
@@ -19,7 +20,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   const [beforeId, setBeforeId] = useState(defaultBefore);
   const [afterId, setAfterId] = useState(defaultAfter);
   const [split, setSplit] = useState(50);
-  const [mode, setMode] = useState<"side-by-side" | "slider">("side-by-side");
+  const [mode, setMode] = useState<CompareMode>("side-by-side");
   const [beforeT, setBeforeT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const [afterT, setAfterT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const dragging = useRef<null | "before" | "after">(null);
@@ -107,9 +108,25 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
               <input type="range" min={1} max={99} value={split} onChange={(e) => setSplit(Number(e.target.value))} className="w-full" />
             </>
           ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <CompareStaticImage url={before.url} alt="before" />
-              <CompareStaticImage url={after.url} alt="after" />
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                  onClick={() =>
+                    void exportSideBySideJpg({
+                      before,
+                      after,
+                    })
+                  }
+                >
+                  Descargar JPG
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <CompareStaticImage url={before.url} alt="before" date={before.checkInDate ?? dateFromRow(before)} />
+                <CompareStaticImage url={after.url} alt="after" date={after.checkInDate ?? dateFromRow(after)} />
+              </div>
             </div>
           )}
         </div>
@@ -120,12 +137,137 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   );
 }
 
-function CompareStaticImage({ url, alt }: { url: string; alt: string }) {
+function CompareStaticImage({ url, alt, date }: { url: string; alt: string; date: string }) {
   return (
-    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md border bg-muted">
+    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md border border-black bg-black">
       <Image src={url} alt={alt} fill sizes="(min-width: 1024px) 48vw, 100vw" className="object-contain" />
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-black/90 px-3 py-2 text-xs text-white">
+        <span className="font-medium uppercase">{alt}</span>
+        <span>{date}</span>
+      </div>
     </div>
   );
+}
+
+function dateFromRow(photo: ProgressPhotoRow): string {
+  const source = photo.takenAt ?? photo.createdAt;
+  return source ? new Date(source).toLocaleDateString() : photo.id;
+}
+
+async function exportSideBySideJpg({
+  before,
+  after,
+}: {
+  before: ProgressPhotoRow;
+  after: ProgressPhotoRow;
+}) {
+  if (!before.url || !after.url) return;
+
+  const [beforeImg, afterImg] = await Promise.all([
+    loadImage(before.url),
+    loadImage(after.url),
+  ]);
+
+  const panelWidth = 1200;
+  const panelHeight = 1600;
+  const gap = 32;
+  const labelHeight = 110;
+  const canvas = document.createElement("canvas");
+  canvas.width = panelWidth * 2 + gap * 3;
+  canvas.height = panelHeight + gap * 2;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawPanel({
+    ctx,
+    img: beforeImg,
+    x: gap,
+    y: gap,
+    width: panelWidth,
+    height: panelHeight,
+    label: before.checkInDate ?? dateFromRow(before),
+    title: "Before",
+    labelHeight,
+  });
+
+  drawPanel({
+    ctx,
+    img: afterImg,
+    x: panelWidth + gap * 2,
+    y: gap,
+    width: panelWidth,
+    height: panelHeight,
+    label: after.checkInDate ?? dateFromRow(after),
+    title: "After",
+    labelHeight,
+  });
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `compare-${before.checkInDate ?? before.id}-vs-${after.checkInDate ?? after.id}.jpg`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function drawPanel({
+  ctx,
+  img,
+  x,
+  y,
+  width,
+  height,
+  label,
+  title,
+  labelHeight,
+}: {
+  ctx: CanvasRenderingContext2D;
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  title: string;
+  labelHeight: number;
+}) {
+  const framePadding = 28;
+  const contentX = x + framePadding;
+  const contentY = y + framePadding;
+  const contentWidth = width - framePadding * 2;
+  const contentHeight = height - framePadding * 2 - labelHeight;
+
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(x, y, width, height);
+
+  const scale = Math.min(contentWidth / img.naturalWidth, contentHeight / img.naturalHeight);
+  const drawWidth = img.naturalWidth * scale;
+  const drawHeight = img.naturalHeight * scale;
+  const drawX = contentX + (contentWidth - drawWidth) / 2;
+  const drawY = contentY + (contentHeight - drawHeight) / 2;
+
+  ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 44px system-ui, -apple-system, sans-serif";
+  ctx.fillText(title, x + framePadding, height - labelHeight + 44);
+  ctx.font = "500 36px system-ui, -apple-system, sans-serif";
+  ctx.fillText(label, x + framePadding, height - labelHeight + 82);
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    img.src = src;
+  });
 }
 
 function MovableImage({ url, alt, t, onDragStart, onDragMove, onDragEnd }: { url: string; alt: string; t: Transform; onDragStart: (e: React.PointerEvent<HTMLDivElement>) => void; onDragMove: (e: React.PointerEvent<HTMLDivElement>) => void; onDragEnd: () => void; }) {
