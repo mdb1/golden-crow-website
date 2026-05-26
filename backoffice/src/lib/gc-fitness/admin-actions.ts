@@ -532,3 +532,17 @@ export async function deleteCoachCascade(
     throw error;
   }
 }
+
+export async function previewClientCascade(
+  clientUid: string,
+): Promise<Awaited<ReturnType<typeof buildClientCascadePlan>>> {
+  await getCurrentAdmin();
+  return buildClientCascadePlan(clientUid);
+}
+
+export async function previewCoachCascade(
+  coachUid: string,
+): Promise<Awaited<ReturnType<typeof buildCoachCascadePlan>>> {
+  await getCurrentAdmin();
+  return buildCoachCascadePlan(coachUid);
+}

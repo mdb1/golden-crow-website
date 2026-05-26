@@ -7,13 +7,19 @@ import {
   deleteClientCascade,
   deleteCoachCascade,
   listCoachesForAdmin,
+  previewClientCascade,
+  previewCoachCascade,
   promoteUserToAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   try {
     await getCurrentAdmin();
   } catch (err) {
@@ -22,6 +28,26 @@ export default async function AdminPage() {
       redirect("/gc-fitness/forbidden");
     }
     throw err;
+  }
+
+  const sp = await searchParams;
+  const deleteTarget = typeof sp.deleteTarget === "string" ? sp.deleteTarget : null;
+  const targetUid = typeof sp.targetUid === "string" ? sp.targetUid.trim() : "";
+  let clientPreview: Awaited<ReturnType<typeof previewClientCascade>> | null = null;
+  let coachPreview: Awaited<ReturnType<typeof previewCoachCascade>> | null = null;
+  if (deleteTarget === "client" && targetUid.length > 0) {
+    try {
+      clientPreview = await previewClientCascade(targetUid);
+    } catch {
+      clientPreview = null;
+    }
+  }
+  if (deleteTarget === "coach" && targetUid.length > 0) {
+    try {
+      coachPreview = await previewCoachCascade(targetUid);
+    } catch {
+      coachPreview = null;
+    }
   }
 
   const coaches = await listCoachesForAdmin();
@@ -165,77 +191,125 @@ export default async function AdminPage() {
       </section>
 
       <section className="grid gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-2">
-        <form action={deleteClientAction} className="space-y-2 rounded-xl border p-4">
+        <div className="space-y-2 rounded-xl border p-4">
           <p className="text-sm font-semibold text-red-700">Delete client (cascade)</p>
-          <p className="text-xs text-muted-foreground">
-            Deletes client user, auth account, logs, habits, chat, goals, notes and progress photos
-            metadata.
-          </p>
-          <input
-            name="clientUid"
-            required
-            placeholder="client uid"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          />
-          <input
-            name="confirmation"
-            required
-            placeholder="Type: DELETE CLIENT"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          />
-          <button
-            type="submit"
-            name="mode"
-            value="dry_run"
-            className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Dry run
-          </button>
-          <button
-            type="submit"
-            name="mode"
-            value="execute"
-            className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
-          >
-            Delete client
-          </button>
-        </form>
+          <p className="text-xs text-muted-foreground">Step 1: preview impact. Step 2: execute.</p>
+          <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+            <li>Direct: client auth account + <code>users/{`{clientUid}`}</code>.</li>
+            <li>Cascade: chat thread, workout logs, assignments, habits, habit logs, goals, notes, progress photos metadata.</li>
+            <li>Client loses relationship with coach because client document is deleted.</li>
+          </ul>
+          <form action="/gc-fitness/admin" method="get" className="space-y-2">
+            <input type="hidden" name="deleteTarget" value="client" />
+            <input
+              name="targetUid"
+              required
+              placeholder="client uid"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+            <button
+              type="submit"
+              className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
+            >
+              Preview deletion (dry run)
+            </button>
+          </form>
+          {clientPreview ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              <p className="font-semibold">Preview result</p>
+              <p>Total docs approx: {clientPreview.totalApprox}</p>
+              <p>chat: {clientPreview.chatDocExists ? "yes" : "no"}</p>
+              <p>workout_logs: {clientPreview.workoutLogs}</p>
+              <p>workout_assignments: {clientPreview.workoutAssignments}</p>
+              <p>habits: {clientPreview.habits}</p>
+              <p>habit_logs: {clientPreview.habitLogs}</p>
+              <p>client_goals: {clientPreview.clientGoals}</p>
+              <p>client_notes: {clientPreview.clientNotes}</p>
+              <p>progress_photos: {clientPreview.progressPhotos}</p>
+            </div>
+          ) : null}
+          <form action={deleteClientAction} className="space-y-2">
+            <input
+              name="clientUid"
+              required
+              defaultValue={deleteTarget === "client" ? targetUid : ""}
+              placeholder="client uid (same as preview)"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+            <input
+              name="confirmation"
+              required
+              placeholder="Type: DELETE CLIENT"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+            <button
+              type="submit"
+              name="mode"
+              value="execute"
+              className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+            >
+              Delete client
+            </button>
+          </form>
+        </div>
 
-        <form action={deleteCoachAction} className="space-y-2 rounded-xl border p-4">
+        <div className="space-y-2 rounded-xl border p-4">
           <p className="text-sm font-semibold text-red-700">Delete coach (cascade)</p>
-          <p className="text-xs text-muted-foreground">
-            Deletes coach auth/profile and cascades through linked clients plus coach-owned templates,
-            exercises, chats, and mirrors.
-          </p>
-          <input
-            name="coachUid"
-            required
-            placeholder="coach uid"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          />
-          <input
-            name="confirmation"
-            required
-            placeholder="Type: DELETE COACH"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          />
-          <button
-            type="submit"
-            name="mode"
-            value="dry_run"
-            className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Dry run
-          </button>
-          <button
-            type="submit"
-            name="mode"
-            value="execute"
-            className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
-          >
-            Delete coach
-          </button>
-        </form>
+          <p className="text-xs text-muted-foreground">Step 1: preview impact. Step 2: execute.</p>
+          <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+            <li>Direct: coach auth account + <code>users/{`{coachUid}`}</code>.</li>
+            <li>Cascade: linked clients (and their own cascade), templates, custom exercises, chats, mirrors.</li>
+          </ul>
+          <form action="/gc-fitness/admin" method="get" className="space-y-2">
+            <input type="hidden" name="deleteTarget" value="coach" />
+            <input
+              name="targetUid"
+              required
+              placeholder="coach uid"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+            <button
+              type="submit"
+              className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
+            >
+              Preview deletion (dry run)
+            </button>
+          </form>
+          {coachPreview ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              <p className="font-semibold">Preview result</p>
+              <p>Total docs approx: {coachPreview.totalApprox}</p>
+              <p>linked clients: {coachPreview.clients}</p>
+              <p>workout_templates: {coachPreview.workoutTemplates}</p>
+              <p>exercises: {coachPreview.exercises}</p>
+              <p>user_mirror: {coachPreview.userMirror}</p>
+              <p>chats: {coachPreview.chats}</p>
+            </div>
+          ) : null}
+          <form action={deleteCoachAction} className="space-y-2">
+            <input
+              name="coachUid"
+              required
+              defaultValue={deleteTarget === "coach" ? targetUid : ""}
+              placeholder="coach uid (same as preview)"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+            <input
+              name="confirmation"
+              required
+              placeholder="Type: DELETE COACH"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            />
+            <button
+              type="submit"
+              name="mode"
+              value="execute"
+              className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+            >
+              Delete coach
+            </button>
+          </form>
+        </div>
       </section>
     </div>
   );
