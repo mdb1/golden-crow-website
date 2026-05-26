@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
-import { getCoachAdminDetail } from "@/lib/gc-fitness/admin-actions";
+import {
+  deactivateClientForCoach,
+  getCoachAdminDetail,
+  removePendingClientForCoach,
+} from "@/lib/gc-fitness/admin-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +29,22 @@ export default async function CoachAdminDetailPage({
   const { uid } = await params;
   const detail = await getCoachAdminDetail(uid);
   if (!detail) notFound();
+
+  async function deactivateClientAction(formData: FormData) {
+    "use server";
+    const coachUid = String(formData.get("coachUid") ?? "");
+    const clientUid = String(formData.get("clientUid") ?? "");
+    await deactivateClientForCoach({ coachUid, clientUid });
+    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
+  }
+
+  async function removePendingAction(formData: FormData) {
+    "use server";
+    const coachUid = String(formData.get("coachUid") ?? "");
+    const email = String(formData.get("email") ?? "");
+    await removePendingClientForCoach({ coachUid, email });
+    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
@@ -63,19 +84,92 @@ export default async function CoachAdminDetailPage({
                 <th className="px-4 py-2 font-medium">Client</th>
                 <th className="px-4 py-2 font-medium">UID</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
-              {detail.linkedClients.map((client) => (
-                <tr key={client.uid} className="border-t">
-                  <td className="px-4 py-2">
-                    <div className="font-medium">{client.displayName || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{client.email}</div>
+              {detail.linkedClients.length === 0 ? (
+                <tr className="border-t">
+                  <td className="px-4 py-2 text-muted-foreground" colSpan={4}>
+                    No linked clients.
                   </td>
-                  <td className="px-4 py-2 font-mono text-xs">{client.uid}</td>
-                  <td className="px-4 py-2">{client.deleted ? "deleted" : "active"}</td>
                 </tr>
-              ))}
+              ) : (
+                detail.linkedClients.map((client) => (
+                  <tr key={client.uid} className="border-t">
+                    <td className="px-4 py-2">
+                      <div className="font-medium">{client.displayName || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{client.email}</div>
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">{client.uid}</td>
+                    <td className="px-4 py-2">{client.deleted ? "deleted" : "active"}</td>
+                    <td className="px-4 py-2">
+                      {!client.deleted ? (
+                        <form action={deactivateClientAction}>
+                          <input type="hidden" name="coachUid" value={detail.coach.uid} />
+                          <input type="hidden" name="clientUid" value={client.uid} />
+                          <button
+                            type="submit"
+                            className="inline-flex h-8 items-center rounded-md border border-red-300 px-3 text-xs font-medium text-red-700 hover:bg-red-50"
+                          >
+                            Deactivate
+                          </button>
+                        </form>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Pending clients</h2>
+          <p className="text-xs text-muted-foreground">
+            Pre-provisioned clients in <code>user_mirror</code> for this coach.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[780px] text-sm">
+            <thead className="bg-muted/40 text-left">
+              <tr>
+                <th className="px-4 py-2 font-medium">Email</th>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.pendingClients.length === 0 ? (
+                <tr className="border-t">
+                  <td className="px-4 py-2 text-muted-foreground" colSpan={3}>
+                    No pending clients.
+                  </td>
+                </tr>
+              ) : (
+                detail.pendingClients.map((pending) => (
+                  <tr key={pending.email} className="border-t">
+                    <td className="px-4 py-2">{pending.email}</td>
+                    <td className="px-4 py-2">{pending.displayName || "—"}</td>
+                    <td className="px-4 py-2">
+                      <form action={removePendingAction}>
+                        <input type="hidden" name="coachUid" value={detail.coach.uid} />
+                        <input type="hidden" name="email" value={pending.email} />
+                        <button
+                          type="submit"
+                          className="inline-flex h-8 items-center rounded-md border border-red-300 px-3 text-xs font-medium text-red-700 hover:bg-red-50"
+                        >
+                          Remove pending
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

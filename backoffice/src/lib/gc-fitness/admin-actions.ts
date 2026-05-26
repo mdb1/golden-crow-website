@@ -26,6 +26,11 @@ export interface CoachLinkedClientRow {
   deleted: boolean;
 }
 
+export interface PendingCoachClientRow {
+  email: string;
+  displayName: string;
+}
+
 export interface AdminOperationRow {
   id: string;
   kind: string;
@@ -41,6 +46,7 @@ export interface CoachAdminDetail {
   habitsCount: number;
   chatsCount: number;
   linkedClients: CoachLinkedClientRow[];
+  pendingClients: PendingCoachClientRow[];
   recentOperations: AdminOperationRow[];
 }
 
@@ -129,11 +135,12 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
     return null;
   }
 
-  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap] = await Promise.all([
+  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, pendingSnap] = await Promise.all([
     db.collection(FirestoreCollections.workoutAssignments).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.habits).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.chats).where("coachId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.users).where("coachId", "==", coachUid).get(),
+    db.collection(FirestoreCollections.userMirror).where("coachId", "==", coachUid).get(),
   ]);
 
   const linkedClients: CoachLinkedClientRow[] = linkedClientsSnap.docs.map((doc) => {
@@ -146,6 +153,15 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
     };
   });
   linkedClients.sort((a, b) => a.email.localeCompare(b.email));
+
+  const pendingClients: PendingCoachClientRow[] = pendingSnap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      email: (data.email as string | undefined) ?? doc.id,
+      displayName: (data.displayName as string | undefined) ?? "",
+    };
+  });
+  pendingClients.sort((a, b) => a.email.localeCompare(b.email));
 
   let recentOperations: AdminOperationRow[] = [];
   try {
@@ -183,6 +199,7 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
     habitsCount: habitsAgg.data().count,
     chatsCount: chatsAgg.data().count,
     linkedClients,
+    pendingClients,
     recentOperations,
   };
 }
@@ -593,4 +610,71 @@ export async function getDeletionTargetInfo(uid: string): Promise<DeletionTarget
     email: (snap.get("email") as string | undefined) ?? null,
     displayName: (snap.get("displayName") as string | undefined) ?? null,
   };
+}
+
+const deactivateClientSchema = z.object({
+  coachUid: z.string().trim().min(6).max(128),
+  clientUid: z.string().trim().min(6).max(128),
+});
+
+export async function deactivateClientForCoach(input: unknown): Promise<{ ok: true }> {
+  const admin = await getCurrentAdmin();
+  const parsed = deactivateClientSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const ref = db.collection(FirestoreCollections.users).doc(parsed.clientUid);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new Error("Client not found.");
+  }
+  if (snap.get("coachId") !== parsed.coachUid) {
+    throw new Error("Client does not belong to this coach.");
+  }
+
+  await ref.update({
+    deleted: true,
+    deletedAt: FieldValue.serverTimestamp(),
+    deactivatedBy: admin.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  try {
+    await gcFitnessAuth().updateUser(parsed.clientUid, { disabled: true });
+  } catch {
+    // fail-soft
+  }
+  await writeAdminOperationLog({
+    actorUid: admin.uid,
+    kind: "delete_client_cascade",
+    mode: "execute",
+    targetUid: parsed.clientUid,
+    status: "success",
+    summary: { action: "deactivate_client", coachUid: parsed.coachUid },
+  });
+  return { ok: true };
+}
+
+const removePendingSchema = z.object({
+  coachUid: z.string().trim().min(6).max(128),
+  email: z.string().trim().toLowerCase().email(),
+});
+
+export async function removePendingClientForCoach(input: unknown): Promise<{ ok: true }> {
+  const admin = await getCurrentAdmin();
+  const parsed = removePendingSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const ref = db.collection(FirestoreCollections.userMirror).doc(parsed.email);
+  const snap = await ref.get();
+  if (!snap.exists) return { ok: true };
+  if (snap.get("coachId") !== parsed.coachUid) {
+    throw new Error("Pending client does not belong to this coach.");
+  }
+  await ref.delete();
+  await writeAdminOperationLog({
+    actorUid: admin.uid,
+    kind: "delete_client_cascade",
+    mode: "execute",
+    targetUid: parsed.coachUid,
+    status: "success",
+    summary: { action: "remove_pending_client", email: parsed.email },
+  });
+  return { ok: true };
 }
