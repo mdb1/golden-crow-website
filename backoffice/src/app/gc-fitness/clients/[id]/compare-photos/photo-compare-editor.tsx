@@ -168,41 +168,45 @@ async function exportSideBySideJpg({
     loadImage(after.url),
   ]);
 
-  const panelWidth = 1200;
-  const panelHeight = 1600;
-  const gap = 32;
-  const labelHeight = 110;
+  const outerMargin = 96;
+  const panelWidth = 1320;
+  const panelHeight = 1760;
+  const gap = 56;
+  const labelHeight = 140;
+  const cornerRadius = 42;
   const canvas = document.createElement("canvas");
-  canvas.width = panelWidth * 2 + gap * 3;
-  canvas.height = panelHeight + gap * 2;
+  canvas.width = panelWidth * 2 + gap * 3 + outerMargin * 2;
+  canvas.height = panelHeight + gap * 2 + outerMargin * 2;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawPanel({
     ctx,
     img: beforeImg,
-    x: gap,
-    y: gap,
+    x: outerMargin + gap,
+    y: outerMargin + gap,
     width: panelWidth,
     height: panelHeight,
     label: before.checkInDate ?? dateFromRow(before),
     title: "Before",
     labelHeight,
+    radius: cornerRadius,
   });
 
   drawPanel({
     ctx,
     img: afterImg,
-    x: panelWidth + gap * 2,
-    y: gap,
+    x: outerMargin + panelWidth + gap * 2,
+    y: outerMargin + gap,
     width: panelWidth,
     height: panelHeight,
     label: after.checkInDate ?? dateFromRow(after),
     title: "After",
     labelHeight,
+    radius: cornerRadius,
   });
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
@@ -225,6 +229,7 @@ function drawPanel({
   label,
   title,
   labelHeight,
+  radius,
 }: {
   ctx: CanvasRenderingContext2D;
   img: HTMLImageElement;
@@ -235,13 +240,17 @@ function drawPanel({
   label: string;
   title: string;
   labelHeight: number;
+  radius: number;
 }) {
-  const framePadding = 28;
+  const framePadding = 38;
   const contentX = x + framePadding;
   const contentY = y + framePadding;
   const contentWidth = width - framePadding * 2;
   const contentHeight = height - framePadding * 2 - labelHeight;
 
+  ctx.save();
+  roundedRectPath(ctx, x, y, width, height, radius);
+  ctx.clip();
   ctx.fillStyle = "#000000";
   ctx.fillRect(x, y, width, height);
 
@@ -254,10 +263,29 @@ function drawPanel({
   ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 44px system-ui, -apple-system, sans-serif";
-  ctx.fillText(title, x + framePadding, height - labelHeight + 44);
-  ctx.font = "500 36px system-ui, -apple-system, sans-serif";
-  ctx.fillText(label, x + framePadding, height - labelHeight + 82);
+  ctx.font = "700 58px system-ui, -apple-system, sans-serif";
+  ctx.fillText(title, x + framePadding, height - labelHeight + 58);
+  ctx.font = "500 42px system-ui, -apple-system, sans-serif";
+  ctx.fillText(label, x + framePadding, height - labelHeight + 108);
+  ctx.restore();
+}
+
+function roundedRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
