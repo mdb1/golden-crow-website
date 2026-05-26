@@ -334,28 +334,50 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
         .get(),
     ]);
 
+  const clientEmailByUid = new Map<string, string>();
+  for (const doc of usersSnap.docs) {
+    const data = doc.data() as { email?: string; role?: string };
+    if (data.role === "client" && typeof data.email === "string" && data.email.length > 0) {
+      clientEmailByUid.set(doc.id, data.email);
+    }
+  }
+
   const rows: CoachActivityRow[] = [];
 
   for (const doc of habitsSnap.docs) {
     const data = doc.data() as {
       trainerId?: string;
       clientId?: string;
+      pendingEmail?: string;
       createdAt?: unknown;
       title?: string;
+      name?: unknown;
     };
     const coachUid = data.trainerId ?? "";
     const coach = coachByUid.get(coachUid);
     if (!coach) continue;
+    let habitName = "";
+    if (typeof data.title === "string") habitName = data.title;
+    else if (data.name && typeof data.name === "object") {
+      const raw = data.name as Record<string, unknown>;
+      if (typeof raw.es === "string") habitName = raw.es;
+      else if (typeof raw.en === "string") habitName = raw.en;
+    }
+    const clientUid = typeof data.clientId === "string" ? data.clientId : null;
+    const pendingEmail =
+      typeof data.pendingEmail === "string" && data.pendingEmail.length > 0
+        ? data.pendingEmail
+        : null;
     rows.push({
       id: `habit:${doc.id}`,
       kind: "habit_assigned",
       coachUid,
       coachName: coach.displayName,
       coachEmail: coach.email,
-      clientUid: typeof data.clientId === "string" ? data.clientId : null,
-      clientEmail: null,
+      clientUid,
+      clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
-      summary: `Assigned habit${data.title ? `: ${data.title}` : ""}`,
+      summary: `Assigned habit${habitName ? `: ${habitName}` : ""}`,
     });
   }
 
@@ -394,21 +416,34 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
     const data = doc.data() as {
       trainerId?: string;
       clientId?: string;
+      pendingEmail?: string;
       createdAt?: unknown;
-      templateSnapshot?: { name?: string };
+      templateSnapshot?: { name?: unknown };
     };
     const coachUid = data.trainerId ?? "";
     const coach = coachByUid.get(coachUid);
     if (!coach) continue;
-    const templateName = data.templateSnapshot?.name ?? "";
+    const nameRaw = data.templateSnapshot?.name;
+    let templateName = "";
+    if (typeof nameRaw === "string") templateName = nameRaw;
+    else if (nameRaw && typeof nameRaw === "object") {
+      const raw = nameRaw as Record<string, unknown>;
+      if (typeof raw.es === "string") templateName = raw.es;
+      else if (typeof raw.en === "string") templateName = raw.en;
+    }
+    const clientUid = typeof data.clientId === "string" ? data.clientId : null;
+    const pendingEmail =
+      typeof data.pendingEmail === "string" && data.pendingEmail.length > 0
+        ? data.pendingEmail
+        : null;
     rows.push({
       id: `assignment:${doc.id}`,
       kind: "workout_assigned",
       coachUid,
       coachName: coach.displayName,
       coachEmail: coach.email,
-      clientUid: typeof data.clientId === "string" ? data.clientId : null,
-      clientEmail: null,
+      clientUid,
+      clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned workout${templateName ? `: ${templateName}` : ""}`,
     });
