@@ -25,6 +25,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   const [afterT, setAfterT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const dragging = useRef<null | "before" | "after">(null);
   const dragOrigin = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
+  const sliderContainerRef = useRef<HTMLDivElement | null>(null);
 
   const before = angled.find((p) => p.id === beforeId);
   const after = angled.find((p) => p.id === afterId);
@@ -98,7 +99,21 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
               className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
               onClick={async () => {
                 try {
-                  await exportSideBySideJpg({ before, after });
+                  if (mode === "slider") {
+                    const rect = sliderContainerRef.current?.getBoundingClientRect();
+                    if (!rect) throw new Error("Slider container not mounted");
+                    await exportSliderSnapshotJpg({
+                      before,
+                      after,
+                      split,
+                      beforeT,
+                      afterT,
+                      cssWidth: rect.width,
+                      cssHeight: rect.height,
+                    });
+                  } else {
+                    await exportSideBySideJpg({ before, after });
+                  }
                 } catch (err) {
                   // eslint-disable-next-line no-console
                   console.error("[compare-photos] export failed:", err);
@@ -119,7 +134,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
                 <AdjustCard title="Before" t={beforeT} onScale={(v) => setBeforeT((x) => ({ ...x, scale: v }))} onReset={() => setBeforeT({ scale: 1, x: 0, y: 0 })} />
                 <AdjustCard title="After" t={afterT} onScale={(v) => setAfterT((x) => ({ ...x, scale: v }))} onReset={() => setAfterT({ scale: 1, x: 0, y: 0 })} />
               </div>
-              <div className="relative mx-auto h-[calc(100vh-22rem)] min-h-[420px] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
+              <div ref={sliderContainerRef} className="relative mx-auto h-[calc(100vh-22rem)] min-h-[420px] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
                 <MovableImage url={after.url} alt="after" t={afterT} onDragStart={(e) => onDragStart("after", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
                 <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
                   <MovableImage url={before.url} alt="before" t={beforeT} onDragStart={(e) => onDragStart("before", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
@@ -224,6 +239,156 @@ async function exportSideBySideJpg({
   link.download = `compare-${before.checkInDate ?? before.id}-vs-${after.checkInDate ?? after.id}.jpg`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+// Exports the current slider snapshot: after image as the base, before image
+// clipped to the left of the divider, vertical divider at `split%`, and the
+// user's pan/zoom transforms preserved. `cssWidth`/`cssHeight` are the
+// on-screen container dimensions (from getBoundingClientRect) so we can scale
+// the CSS-pixel transforms (`beforeT.x` / `afterT.x`) into canvas pixels.
+async function exportSliderSnapshotJpg({
+  before,
+  after,
+  split,
+  beforeT,
+  afterT,
+  cssWidth,
+  cssHeight,
+}: {
+  before: ProgressPhotoRow;
+  after: ProgressPhotoRow;
+  split: number;
+  beforeT: Transform;
+  afterT: Transform;
+  cssWidth: number;
+  cssHeight: number;
+}) {
+  if (!before.url || !after.url) return;
+  if (cssWidth <= 0 || cssHeight <= 0) throw new Error("Empty slider bounds");
+
+  const [beforeImg, afterImg] = await Promise.all([
+    loadImageViaProxy(before.id),
+    loadImageViaProxy(after.id),
+  ]);
+
+  const outerMargin = 96;
+  const labelHeight = 140;
+  const cornerRadius = 42;
+  const targetPanelWidth = 1640;
+  const targetPanelHeight = Math.round(targetPanelWidth * (cssHeight / cssWidth));
+  const dividerWidth = 4;
+  const scaleRatio = targetPanelWidth / cssWidth;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetPanelWidth + outerMargin * 2;
+  canvas.height = targetPanelHeight + outerMargin * 2 + labelHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const panelX = outerMargin;
+  const panelY = outerMargin;
+  const panelW = targetPanelWidth;
+  const panelH = targetPanelHeight;
+
+  ctx.save();
+  roundedRectPath(ctx, panelX, panelY, panelW, panelH, cornerRadius);
+  ctx.clip();
+  ctx.fillStyle = "#1f1f1f";
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+
+  // After image (base, full width).
+  drawContainedWithTransform({
+    ctx,
+    img: afterImg,
+    panelX,
+    panelY,
+    panelW,
+    panelH,
+    t: afterT,
+    scaleRatio,
+  });
+
+  // Before image clipped to the left `split%` of the panel.
+  const splitPx = (panelW * split) / 100;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(panelX, panelY, splitPx, panelH);
+  ctx.clip();
+  drawContainedWithTransform({
+    ctx,
+    img: beforeImg,
+    panelX,
+    panelY,
+    panelW,
+    panelH,
+    t: beforeT,
+    scaleRatio,
+  });
+  ctx.restore();
+
+  // Divider line.
+  ctx.fillStyle = "#facc15";
+  ctx.fillRect(panelX + splitPx - dividerWidth / 2, panelY, dividerWidth, panelH);
+
+  ctx.restore();
+
+  // Bottom labels (Before — date | After — date) outside the rounded panel.
+  const beforeLabel = before.checkInDate ?? dateFromRow(before);
+  const afterLabel = after.checkInDate ?? dateFromRow(after);
+  ctx.fillStyle = "#111111";
+  ctx.font = "700 54px system-ui, -apple-system, sans-serif";
+  const labelY = panelY + panelH + 86;
+  ctx.textAlign = "left";
+  ctx.fillText(`Before · ${beforeLabel}`, panelX, labelY);
+  ctx.textAlign = "right";
+  ctx.fillText(`After · ${afterLabel}`, panelX + panelW, labelY);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `compare-slider-${beforeLabel}-vs-${afterLabel}.jpg`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// Mirrors the CSS `object-contain` + `transform: translate(x,y) scale(s)` of
+// MovableImage on the canvas. Translates are in on-screen CSS pixels and get
+// multiplied by `scaleRatio` to land in canvas pixels.
+function drawContainedWithTransform({
+  ctx,
+  img,
+  panelX,
+  panelY,
+  panelW,
+  panelH,
+  t,
+  scaleRatio,
+}: {
+  ctx: CanvasRenderingContext2D;
+  img: HTMLImageElement;
+  panelX: number;
+  panelY: number;
+  panelW: number;
+  panelH: number;
+  t: Transform;
+  scaleRatio: number;
+}) {
+  const baseScale = Math.min(panelW / img.naturalWidth, panelH / img.naturalHeight);
+  const baseW = img.naturalWidth * baseScale;
+  const baseH = img.naturalHeight * baseScale;
+  const centerX = panelX + panelW / 2 + t.x * scaleRatio;
+  const centerY = panelY + panelH / 2 + t.y * scaleRatio;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.scale(t.scale, t.scale);
+  ctx.drawImage(img, -baseW / 2, -baseH / 2, baseW, baseH);
+  ctx.restore();
 }
 
 function drawPanel({
