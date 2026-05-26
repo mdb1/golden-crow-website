@@ -906,6 +906,14 @@ export const GYM_NAV: AdminNavItem[] = [
     visibleRoles: AREA_ROLES,
   },
   {
+    section: "gym-overview",
+    label: "iOS App Mirror",
+    href: "/gym/mobile-app",
+    description: "PocketGym iOS app collections and controls",
+    icon: Activity,
+    visibleRoles: AREA_ROLES,
+  },
+  {
     section: "gym-members",
     label: "Members",
     href: "/gym/members",
@@ -1298,6 +1306,9 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
 
   if (pathname === "/gym/dashboard") {
     return { eyebrow: "Gym", title: "Dashboard", description: "Key Pocket Gyms metrics: members, active plans, and upcoming bookings." };
+  }
+  if (pathname === "/gym/mobile-app") {
+    return { eyebrow: "Pocket Gyms", title: "iOS app mirror", description: "Admin mirror for the current PocketGym iOS app collections, status flows, files, state payloads, care team assignments, and activity audit trail." };
   }
   if (pathname === "/gym/members") {
     return { eyebrow: "Gym", title: "Members", description: "Pocket Gyms member list with search and profile access." };

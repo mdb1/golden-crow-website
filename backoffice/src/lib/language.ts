@@ -43,6 +43,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Switch to PocketGenes": "Cambiar a PocketGenes",
   "Switch to Pocket Gyms": "Cambiar a Pocket Gyms",
   "Gym operations console.": "Consola de operaciones del gimnasio.",
+  "PocketGym iOS app collections and controls":
+    "Colecciones y controles de la app iOS PocketGym",
+  "iOS app mirror": "Espejo app iOS",
+  "Admin mirror for the current PocketGym iOS app collections, status flows, files, state payloads, care team assignments, and activity audit trail.":
+    "Espejo administrativo para las colecciones actuales de la app iOS PocketGym: estados, turnos, archivos, datos persistidos, equipo de cuidado y auditoría de actividad.",
   "Trainer coaching console.": "Consola de coaching para entrenadores.",
   "Readable operations console for the live Firebase model.":
     "Consola operativa legible para el modelo Firebase en vivo.",
@@ -78,6 +83,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Patients: "Pacientes",
   "Roles & Permissions": "Roles y permisos",
   Dashboard: "Dashboard",
+  "iOS App Mirror": "Espejo app iOS",
   Members: "Miembros",
   Scheduling: "Agenda",
   Programs: "Programas",
