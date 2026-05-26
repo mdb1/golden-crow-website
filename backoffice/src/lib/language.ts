@@ -39,6 +39,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Signing out...": "Cerrando sesión...",
   Switch: "Cambiar",
   "Switch project": "Cambiar proyecto",
+  "Switching...": "Cambiando...",
+  "Switch to PocketGenes": "Cambiar a PocketGenes",
+  "Switch to Pocket Gyms": "Cambiar a Pocket Gyms",
   "Gym operations console.": "Consola de operaciones del gimnasio.",
   "Trainer coaching console.": "Consola de coaching para entrenadores.",
   "Readable operations console for the live Firebase model.":
