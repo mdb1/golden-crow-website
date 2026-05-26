@@ -56,6 +56,23 @@ export interface CoachAllowlistRow {
   updatedAtISO: string | null;
 }
 
+export interface CoachActivityRow {
+  id: string;
+  kind:
+    | "habit_assigned"
+    | "workout_template_created"
+    | "workout_assigned"
+    | "client_pre_provisioned"
+    | "client_first_login";
+  coachUid: string;
+  coachName: string;
+  coachEmail: string;
+  clientUid: string | null;
+  clientEmail: string | null;
+  occurredAtISO: string | null;
+  summary: string;
+}
+
 export interface DeletionTargetInfo {
   exists: boolean;
   role: string | null;
@@ -64,6 +81,15 @@ export interface DeletionTargetInfo {
 }
 
 const emailSchema = z.string().trim().toLowerCase().email();
+
+function toIsoMaybe(value: unknown): string | null {
+  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  return null;
+}
 
 function rolesFromClaims(claims: Record<string, unknown> | undefined): string[] {
   const result = new Set<string>();
@@ -255,6 +281,195 @@ export async function listCoachAllowlist(): Promise<CoachAllowlistRow[]> {
       };
     })
     .filter((row) => !trainerEmails.has(row.email.toLowerCase()));
+}
+
+export async function listRecentCoachActivity(limit = 80): Promise<CoachActivityRow[]> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+
+  const trainerSnap = await db
+    .collection(FirestoreCollections.users)
+    .where("role", "==", "trainer")
+    .where("deleted", "==", false)
+    .get();
+
+  const coachByUid = new Map<
+    string,
+    { email: string; displayName: string }
+  >();
+  for (const doc of trainerSnap.docs) {
+    const data = doc.data() as { email?: string; displayName?: string };
+    coachByUid.set(doc.id, {
+      email: data.email ?? "",
+      displayName: data.displayName ?? data.email ?? doc.id,
+    });
+  }
+
+  const [habitsSnap, templatesSnap, assignmentsSnap, mirrorSnap, usersSnap] =
+    await Promise.all([
+      db
+        .collection(FirestoreCollections.habits)
+        .orderBy("createdAt", "desc")
+        .limit(120)
+        .get(),
+      db
+        .collection(FirestoreCollections.workoutTemplates)
+        .orderBy("createdAt", "desc")
+        .limit(120)
+        .get(),
+      db
+        .collection(FirestoreCollections.workoutAssignments)
+        .orderBy("createdAt", "desc")
+        .limit(120)
+        .get(),
+      db
+        .collection(FirestoreCollections.userMirror)
+        .orderBy("createdAt", "desc")
+        .limit(120)
+        .get(),
+      db
+        .collection(FirestoreCollections.users)
+        .orderBy("createdAt", "desc")
+        .limit(160)
+        .get(),
+    ]);
+
+  const rows: CoachActivityRow[] = [];
+
+  for (const doc of habitsSnap.docs) {
+    const data = doc.data() as {
+      trainerId?: string;
+      clientId?: string;
+      createdAt?: unknown;
+      title?: string;
+    };
+    const coachUid = data.trainerId ?? "";
+    const coach = coachByUid.get(coachUid);
+    if (!coach) continue;
+    rows.push({
+      id: `habit:${doc.id}`,
+      kind: "habit_assigned",
+      coachUid,
+      coachName: coach.displayName,
+      coachEmail: coach.email,
+      clientUid: typeof data.clientId === "string" ? data.clientId : null,
+      clientEmail: null,
+      occurredAtISO: toIsoMaybe(data.createdAt),
+      summary: `Assigned habit${data.title ? `: ${data.title}` : ""}`,
+    });
+  }
+
+  for (const doc of templatesSnap.docs) {
+    const data = doc.data() as {
+      trainerId?: string;
+      createdAt?: unknown;
+      name?: unknown;
+    };
+    const coachUid = data.trainerId ?? "";
+    const coach = coachByUid.get(coachUid);
+    if (!coach) continue;
+    let templateName = "";
+    if (typeof data.name === "string") templateName = data.name;
+    else if (
+      data.name &&
+      typeof data.name === "object" &&
+      typeof (data.name as Record<string, unknown>).es === "string"
+    ) {
+      templateName = String((data.name as Record<string, unknown>).es);
+    }
+    rows.push({
+      id: `template:${doc.id}`,
+      kind: "workout_template_created",
+      coachUid,
+      coachName: coach.displayName,
+      coachEmail: coach.email,
+      clientUid: null,
+      clientEmail: null,
+      occurredAtISO: toIsoMaybe(data.createdAt),
+      summary: `Created workout template${templateName ? `: ${templateName}` : ""}`,
+    });
+  }
+
+  for (const doc of assignmentsSnap.docs) {
+    const data = doc.data() as {
+      trainerId?: string;
+      clientId?: string;
+      createdAt?: unknown;
+      templateSnapshot?: { name?: string };
+    };
+    const coachUid = data.trainerId ?? "";
+    const coach = coachByUid.get(coachUid);
+    if (!coach) continue;
+    const templateName = data.templateSnapshot?.name ?? "";
+    rows.push({
+      id: `assignment:${doc.id}`,
+      kind: "workout_assigned",
+      coachUid,
+      coachName: coach.displayName,
+      coachEmail: coach.email,
+      clientUid: typeof data.clientId === "string" ? data.clientId : null,
+      clientEmail: null,
+      occurredAtISO: toIsoMaybe(data.createdAt),
+      summary: `Assigned workout${templateName ? `: ${templateName}` : ""}`,
+    });
+  }
+
+  for (const doc of mirrorSnap.docs) {
+    const data = doc.data() as {
+      coachId?: string;
+      email?: string;
+      createdAt?: unknown;
+      pre_created?: boolean;
+    };
+    const coachUid = data.coachId ?? "";
+    const coach = coachByUid.get(coachUid);
+    if (!coach || data.pre_created !== true) continue;
+    rows.push({
+      id: `mirror:${doc.id}`,
+      kind: "client_pre_provisioned",
+      coachUid,
+      coachName: coach.displayName,
+      coachEmail: coach.email,
+      clientUid: null,
+      clientEmail: (data.email ?? doc.id) as string,
+      occurredAtISO: toIsoMaybe(data.createdAt),
+      summary: "Pre-provisioned pending client",
+    });
+  }
+
+  for (const doc of usersSnap.docs) {
+    const data = doc.data() as {
+      role?: string;
+      coachId?: string;
+      email?: string;
+      createdAt?: unknown;
+      deleted?: boolean;
+    };
+    if (data.role !== "client") continue;
+    if (data.deleted === true) continue;
+    const coachUid = data.coachId ?? "";
+    const coach = coachByUid.get(coachUid);
+    if (!coach) continue;
+    rows.push({
+      id: `first-login:${doc.id}`,
+      kind: "client_first_login",
+      coachUid,
+      coachName: coach.displayName,
+      coachEmail: coach.email,
+      clientUid: doc.id,
+      clientEmail: data.email ?? null,
+      occurredAtISO: toIsoMaybe(data.createdAt),
+      summary: "Client completed first login",
+    });
+  }
+
+  rows.sort((a, b) => {
+    const ta = a.occurredAtISO ?? "";
+    const tb = b.occurredAtISO ?? "";
+    return tb.localeCompare(ta);
+  });
+
+  return rows.slice(0, Math.max(1, Math.min(limit, 200)));
 }
 
 const removeAllowlistSchema = z.object({

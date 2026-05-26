@@ -7,6 +7,7 @@ import {
   deleteCoachCascade,
   listCoachesForAdmin,
   listCoachAllowlist,
+  listRecentCoachActivity,
   removeCoachEmailFromAllowlist,
   previewCoachCascade,
   promoteUserToAdmin,
@@ -48,6 +49,7 @@ export default async function AdminPage({
 
   const coaches = await listCoachesForAdmin();
   const allowlistRows = await listCoachAllowlist();
+  const recentCoachActivity = await listRecentCoachActivity(80);
 
   async function addAllowlistEmailAction(formData: FormData) {
     "use server";
@@ -235,6 +237,64 @@ export default async function AdminPage({
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Recent coach activity</h2>
+          <p className="text-xs text-muted-foreground">
+            High-level usage events: habits, workout templates/assignments, pre-provisioning and first client logins.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-sm">
+            <thead className="bg-muted/40 text-left">
+              <tr>
+                <th className="px-4 py-2 font-medium">When (UTC)</th>
+                <th className="px-4 py-2 font-medium">Coach</th>
+                <th className="px-4 py-2 font-medium">Event</th>
+                <th className="px-4 py-2 font-medium">Client</th>
+                <th className="px-4 py-2 font-medium">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentCoachActivity.length === 0 ? (
+                <tr className="border-t">
+                  <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={5}>
+                    No recent coach activity found.
+                  </td>
+                </tr>
+              ) : (
+                recentCoachActivity.map((row) => (
+                  <tr key={row.id} className="border-t">
+                    <td className="px-4 py-2">{row.occurredAtISO ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <Link
+                        href={`/gc-fitness/admin/coaches/${row.coachUid}`}
+                        className="font-medium underline underline-offset-2"
+                      >
+                        {row.coachName}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">{row.coachEmail}</div>
+                    </td>
+                    <td className="px-4 py-2">{row.summary}</td>
+                    <td className="px-4 py-2">
+                      {row.clientUid || row.clientEmail ? (
+                        <div className="space-y-0.5">
+                          <div className="font-mono text-xs">{row.clientUid ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">{row.clientEmail ?? "—"}</div>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{row.kind}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
