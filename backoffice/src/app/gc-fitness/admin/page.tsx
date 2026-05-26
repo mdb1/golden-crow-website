@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
@@ -134,7 +135,12 @@ export default async function AdminPage() {
               {coaches.map((coach) => (
                 <tr key={coach.uid} className="border-t">
                   <td className="px-4 py-2">
-                    <div className="font-medium">{coach.displayName || "—"}</div>
+                    <Link
+                      href={`/gc-fitness/admin/coaches/${coach.uid}`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      {coach.displayName || "—"}
+                    </Link>
                     <div className="text-xs text-muted-foreground">{coach.email}</div>
                   </td>
                   <td className="px-4 py-2 font-mono text-xs">{coach.uid}</td>

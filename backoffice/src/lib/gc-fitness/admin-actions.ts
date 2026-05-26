@@ -19,6 +19,31 @@ export interface CoachAdminRow {
 
 type OperationMode = "dry_run" | "execute";
 
+export interface CoachLinkedClientRow {
+  uid: string;
+  email: string;
+  displayName: string;
+  deleted: boolean;
+}
+
+export interface AdminOperationRow {
+  id: string;
+  kind: string;
+  mode: string;
+  status: string;
+  createdAtISO: string | null;
+  errorMessage: string | null;
+}
+
+export interface CoachAdminDetail {
+  coach: CoachAdminRow;
+  workoutAssignmentsCount: number;
+  habitsCount: number;
+  chatsCount: number;
+  linkedClients: CoachLinkedClientRow[];
+  recentOperations: AdminOperationRow[];
+}
+
 const emailSchema = z.string().trim().toLowerCase().email();
 
 function rolesFromClaims(claims: Record<string, unknown> | undefined): string[] {
@@ -76,6 +101,71 @@ export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
 
   rows.sort((a, b) => a.email.localeCompare(b.email));
   return rows;
+}
+
+export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminDetail | null> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const coachDoc = await db.collection(FirestoreCollections.users).doc(coachUid).get();
+  if (!coachDoc.exists) {
+    return null;
+  }
+  const baseList = await listCoachesForAdmin();
+  const coach = baseList.find((row) => row.uid === coachUid);
+  if (!coach) {
+    return null;
+  }
+
+  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, opsSnap] = await Promise.all([
+    db.collection(FirestoreCollections.workoutAssignments).where("trainerId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.habits).where("trainerId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.chats).where("coachId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.users).where("coachId", "==", coachUid).get(),
+    db
+      .collection(FirestoreCollections.adminOperations)
+      .where("targetUid", "==", coachUid)
+      .orderBy("createdAt", "desc")
+      .limit(15)
+      .get(),
+  ]);
+
+  const linkedClients: CoachLinkedClientRow[] = linkedClientsSnap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      uid: doc.id,
+      email: (data.email as string | undefined) ?? "",
+      displayName: (data.displayName as string | undefined) ?? "",
+      deleted: data.deleted === true,
+    };
+  });
+  linkedClients.sort((a, b) => a.email.localeCompare(b.email));
+
+  const recentOperations: AdminOperationRow[] = opsSnap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      kind: String(data.kind ?? ""),
+      mode: String(data.mode ?? ""),
+      status: String(data.status ?? ""),
+      createdAtISO:
+        data.createdAt && typeof data.createdAt.toDate === "function"
+          ? data.createdAt.toDate().toISOString()
+          : null,
+      errorMessage:
+        typeof data.errorMessage === "string" && data.errorMessage.length > 0
+          ? data.errorMessage
+          : null,
+    };
+  });
+
+  return {
+    coach,
+    workoutAssignmentsCount: assignmentsAgg.data().count,
+    habitsCount: habitsAgg.data().count,
+    chatsCount: chatsAgg.data().count,
+    linkedClients,
+    recentOperations,
+  };
 }
 
 export async function addCoachEmailToAllowlist(input: unknown): Promise<{ ok: true; email: string }> {
