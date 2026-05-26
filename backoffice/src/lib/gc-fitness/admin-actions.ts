@@ -116,17 +116,11 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
     return null;
   }
 
-  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, opsSnap] = await Promise.all([
+  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap] = await Promise.all([
     db.collection(FirestoreCollections.workoutAssignments).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.habits).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.chats).where("coachId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.users).where("coachId", "==", coachUid).get(),
-    db
-      .collection(FirestoreCollections.adminOperations)
-      .where("targetUid", "==", coachUid)
-      .orderBy("createdAt", "desc")
-      .limit(15)
-      .get(),
   ]);
 
   const linkedClients: CoachLinkedClientRow[] = linkedClientsSnap.docs.map((doc) => {
@@ -140,23 +134,35 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
   });
   linkedClients.sort((a, b) => a.email.localeCompare(b.email));
 
-  const recentOperations: AdminOperationRow[] = opsSnap.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      kind: String(data.kind ?? ""),
-      mode: String(data.mode ?? ""),
-      status: String(data.status ?? ""),
-      createdAtISO:
-        data.createdAt && typeof data.createdAt.toDate === "function"
-          ? data.createdAt.toDate().toISOString()
-          : null,
-      errorMessage:
-        typeof data.errorMessage === "string" && data.errorMessage.length > 0
-          ? data.errorMessage
-          : null,
-    };
-  });
+  let recentOperations: AdminOperationRow[] = [];
+  try {
+    const opsSnap = await db
+      .collection(FirestoreCollections.adminOperations)
+      .where("targetUid", "==", coachUid)
+      .orderBy("createdAt", "desc")
+      .limit(15)
+      .get();
+    recentOperations = opsSnap.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        kind: String(data.kind ?? ""),
+        mode: String(data.mode ?? ""),
+        status: String(data.status ?? ""),
+        createdAtISO:
+          data.createdAt && typeof data.createdAt.toDate === "function"
+            ? data.createdAt.toDate().toISOString()
+            : null,
+        errorMessage:
+          typeof data.errorMessage === "string" && data.errorMessage.length > 0
+            ? data.errorMessage
+            : null,
+      };
+    });
+  } catch {
+    // Fail-soft: if the composite index is missing, keep detail page usable.
+    recentOperations = [];
+  }
 
   return {
     coach,
