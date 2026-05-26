@@ -813,9 +813,11 @@
       "sending": "Sending…",
       "send": "Send",
       "errorFallback": "Couldn't send.",
-      "voiceUnsupported": "Unsupported audio format. Try m4a, mp3, wav, or webm.",
+      "voiceUnsupported": "Unsupported audio format. Try m4a, mp4, mp3, wav, or aac.",
+      "voiceUnsupportedIOS": "This audio format is not iPhone-compatible. Use m4a, mp4, mp3, wav, or aac.",
       "recordingPermissionDenied": "Couldn't access the microphone. Check browser permissions.",
       "recordingFailed": "Audio recording failed.",
+      "recordingFormatUnsupported": "This browser can't record in an iPhone-compatible format. Select an existing m4a/mp4 audio file instead.",
       "pendingClientBlocked": "This client is pending activation. You can view the thread, but you cannot send messages yet."
     },
     "quickReply": {

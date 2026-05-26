@@ -813,9 +813,11 @@
       "sending": "Enviando…",
       "send": "Enviar",
       "errorFallback": "No se pudo enviar.",
-      "voiceUnsupported": "Formato de audio no compatible. Probá con m4a, mp3, wav o webm.",
+      "voiceUnsupported": "Formato de audio no compatible. Probá con m4a, mp4, mp3, wav o aac.",
+      "voiceUnsupportedIOS": "Este audio no es compatible con iPhone. Usá m4a, mp4, mp3, wav o aac.",
       "recordingPermissionDenied": "No se pudo acceder al micrófono. Revisá los permisos del navegador.",
       "recordingFailed": "Falló la grabación de audio.",
+      "recordingFormatUnsupported": "Este navegador no permite grabar en formato compatible con iPhone. Seleccioná un audio m4a/mp4 manualmente.",
       "pendingClientBlocked": "Este cliente está pendiente de activación. Podés ver el hilo, pero no enviar mensajes todavía."
     },
     "quickReply": {

@@ -149,9 +149,19 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
         if (kind === "voice") {
           const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
           const isAudioMime = file.type.startsWith("audio/");
-          const knownAudioExt = ["m4a", "mp3", "wav", "aac", "webm", "ogg", "mp4"];
+          const knownAudioExt = ["m4a", "mp3", "wav", "aac", "mp4"];
+          const isIOSFriendlyMime =
+            file.type === "" ||
+            file.type.includes("mp4") ||
+            file.type.includes("mpeg") ||
+            file.type.includes("wav") ||
+            file.type.includes("aac");
           if (!isAudioMime && !knownAudioExt.includes(ext)) {
             setSubmitError(t("voiceUnsupported"));
+            return;
+          }
+          if (!isIOSFriendlyMime && !knownAudioExt.includes(ext)) {
+            setSubmitError(t("voiceUnsupportedIOS"));
             return;
           }
         }
@@ -217,11 +227,18 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
       mediaStreamRef.current = stream;
       audioChunksRef.current = [];
       const mimeType =
-        MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : MediaRecorder.isTypeSupported("audio/mp4")
-            ? "audio/mp4"
+        MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : MediaRecorder.isTypeSupported("audio/m4a")
+            ? "audio/m4a"
             : "";
+      if (!mimeType) {
+        setSubmitError(t("recordingFormatUnsupported"));
+        stopMediaTracks();
+        setIsRecording(false);
+        fallbackAudioInputRef.current?.click();
+        return;
+      }
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
@@ -238,11 +255,9 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
         const ext =
           blob.type.includes("mp4") || blob.type.includes("m4a")
             ? "m4a"
-            : blob.type.includes("ogg")
-              ? "ogg"
-              : "webm";
+            : "m4a";
         const file = new File([blob], `recording-${Date.now()}.${ext}`, {
-          type: blob.type || "audio/webm",
+          type: blob.type || "audio/mp4",
         });
         void handleAttachment(file, "voice");
         stopMediaTracks();
