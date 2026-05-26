@@ -442,23 +442,89 @@ function ChatVoiceBubble({
   onLoaded,
 }: ChatVoiceBubbleProps) {
   const url = useSignedAttachmentUrl(chatId, voicePath);
-  const seconds = Math.round((durationMs ?? 0) / 1000);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [totalTime, setTotalTime] = useState(Math.max(0, Math.round((durationMs ?? 0) / 1000)));
+
+  const togglePlayPause = useCallback(async () => {
+    const node = audioRef.current;
+    if (!node) return;
+    if (node.paused) {
+      await node.play();
+      setIsPlaying(true);
+      return;
+    }
+    node.pause();
+    setIsPlaying(false);
+  }, []);
+
+  const formatTime = useCallback((seconds: number) => {
+    const safe = Math.max(0, Math.floor(seconds));
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }, []);
+
   if (url === null) {
     return <span className="text-sm italic">{placeholder}</span>;
   }
+  const max = Math.max(totalTime, 1);
+  const progress = Math.min(Math.max(currentTime, 0), max);
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-64 flex-col gap-2">
       <audio
-        controls
+        ref={audioRef}
         src={url}
-        className="w-full max-w-xs"
-        onLoadedMetadata={onLoaded}
+        preload="metadata"
+        className="hidden"
+        onLoadedMetadata={(event) => {
+          const next = Number.isFinite(event.currentTarget.duration)
+            ? Math.max(0, Math.round(event.currentTarget.duration))
+            : Math.max(0, Math.round((durationMs ?? 0) / 1000));
+          setTotalTime(next);
+          onLoaded?.();
+        }}
+        onTimeUpdate={(event) => {
+          setCurrentTime(event.currentTarget.currentTime);
+        }}
+        onEnded={() => {
+          setIsPlaying(false);
+          setCurrentTime(0);
+        }}
       >
         <track kind="captions" />
       </audio>
-      {seconds > 0 ? (
-        <span className="text-[10px] opacity-70">{seconds}s</span>
-      ) : null}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void togglePlayPause()}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/70 text-xs font-semibold text-foreground ring-1 ring-border transition hover:bg-background"
+          aria-label={isPlaying ? "Pause voice note" : "Play voice note"}
+        >
+          {isPlaying ? "❚❚" : "▶"}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={max}
+          step={0.1}
+          value={progress}
+          onChange={(event) => {
+            const node = audioRef.current;
+            if (!node) return;
+            const next = Number(event.currentTarget.value);
+            node.currentTime = next;
+            setCurrentTime(next);
+          }}
+          className="h-1.5 w-full cursor-pointer accent-foreground"
+          aria-label="Voice note progress"
+        />
+        <span className="w-20 text-right text-[10px] opacity-70">
+          {formatTime(currentTime)} / {formatTime(totalTime)}
+        </span>
+      </div>
     </div>
   );
 }
