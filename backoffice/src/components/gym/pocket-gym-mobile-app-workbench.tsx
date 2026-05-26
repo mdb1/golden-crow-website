@@ -154,34 +154,34 @@ const statusOptions: AppointmentStatus[] = [
 
 const featureRows = [
   {
-    title: "Auth and member identity",
+    title: "Athlete roster",
     source: "pocketgym_users",
-    coverage: "Live iOS sign-in roster with uid, email, display name, and source Firebase.",
+    coverage: "Identify athletes coming from Pocket Gym and keep uid/email context available for coaching follow-up.",
   },
   {
-    title: "Dashboard, profile, habits, progress, and training logs",
+    title: "Athlete signals",
     source: "pocketgym_state",
-    coverage: "Decoded app payload summary for profile preferences, habits, body metrics, and completed workouts.",
+    coverage: "Review goals, weekly training target, habit volume, body metrics, and completed workout history as coach decision signals.",
   },
   {
-    title: "Turnos and coach review",
+    title: "Turno review queue",
     source: "pocketgym_turnos",
-    coverage: "Backoffice can review appointment requests and move them through the same iOS statuses.",
+    coverage: "Accept, decline, cancel, or complete appointment requests from the coach side of the circuit.",
   },
   {
-    title: "Files and appointment attachments",
+    title: "File review",
     source: "pocketgym_files",
-    coverage: "User and appointment-scoped uploads are visible with storage/download references.",
+    coverage: "Inspect receipts, progress photos, medical files, contracts, and appointment-scoped attachments uploaded by athletes.",
   },
   {
-    title: "Care team",
+    title: "Care-team coordination",
     source: "care_team_assignments",
-    coverage: "Assigned coaches and physicians are visible by user, role, active state, and contact details.",
+    coverage: "See the coach and physician context assigned to each athlete, including active and primary roles.",
   },
   {
-    title: "Community ecosystem",
+    title: "Community context",
     source: "community_posts, community_users, public_profiles",
-    coverage: "Shared PocketGenes community collections remain available through the Community moderation hub.",
+    coverage: "Use existing community moderation only as context around public profile and activity visibility.",
   },
 ] as const;
 
@@ -328,7 +328,7 @@ export function PocketGymMobileAppWorkbench() {
     return (
       <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-4 py-4">
         <p className="text-sm text-destructive">
-          Unable to load the PocketGym iOS mirror. Confirm the SDK can access
+          Unable to load the Pocket Gym coach console. Confirm the SDK can access
           the MyDNAMap Firebase project.
         </p>
         <Button
@@ -350,33 +350,33 @@ export function PocketGymMobileAppWorkbench() {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatTile
           icon={Users}
-          label="iOS users"
+          label="Athletes"
           value={data.counts.users}
-          detail="Signed-in PocketGym users from pocketgym_users."
+          detail="Athlete identities available for coach follow-up."
         />
         <StatTile
           icon={Dumbbell}
-          label="App states"
+          label="Signal profiles"
           value={data.counts.states}
-          detail="Persisted profile, habits, body metrics, and workout logs."
+          detail="Goals, habits, body metrics, and workout activity."
         />
         <StatTile
           icon={CalendarClock}
-          label="Appointments"
+          label="Turnos"
           value={data.counts.appointments}
           detail={`${data.counts.pendingAppointments} pending coach review.`}
         />
         <StatTile
           icon={FileText}
-          label="Files"
+          label="Files to review"
           value={data.counts.files}
-          detail="User and appointment attachments from the iOS vault."
+          detail="Athlete and appointment attachments awaiting context."
         />
       </div>
 
       <SectionShell
-        title="iOS feature coverage"
-        description="Every major PocketGym iOS surface is mapped to the Firebase collection the app actually uses, with the available backoffice control shown here."
+        title="Coach workflow coverage"
+        description="Pocket Gym remains the athlete-facing app. This console turns the same activity into coach queues, review points, and follow-up context."
       >
         <div className="grid gap-3 lg:grid-cols-2">
           {featureRows.map((feature) => (
@@ -392,7 +392,7 @@ export function PocketGymMobileAppWorkbench() {
                   </p>
                 </div>
                 <Badge variant="success" className="shrink-0">
-                  Mirrored
+                  Coach-side
                 </Badge>
               </div>
               <p className="mt-3 text-sm text-muted-foreground">
@@ -404,31 +404,31 @@ export function PocketGymMobileAppWorkbench() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/community">
-              Open Community Hub
+              Open community context
               <MessagesSquare className="h-3.5 w-3.5" />
             </Link>
           </Button>
           <Button variant="outline" size="sm" onClick={() => overview.refetch()}>
             <RefreshCcw className="h-3.5 w-3.5" />
-            Refresh mirror
+            Refresh console
           </Button>
         </div>
       </SectionShell>
 
       <SectionShell
-        title="Mobile users"
-        description="Users created by the iOS app in pocketgym_users. The app still authenticates against the MyDNAMap Firebase project, so uid is the shared identity key."
+        title="Athlete roster"
+        description="Athletes available to the coach from pocketgym_users. The uid remains the shared identity key for follow-up and cross-surface links."
       >
         {data.users.length === 0 ? (
-          <EmptyRow>No PocketGym iOS users found.</EmptyRow>
+          <EmptyRow>No Pocket Gym athletes found.</EmptyRow>
         ) : (
           <div className="overflow-x-auto rounded-lg border bg-background/72">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">User</th>
+                  <th className="px-4 py-3 font-medium">Athlete</th>
                   <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium">Source</th>
+                  <th className="px-4 py-3 font-medium">Auth source</th>
                   <th className="px-4 py-3 font-medium">Updated</th>
                 </tr>
               </thead>
@@ -463,11 +463,11 @@ export function PocketGymMobileAppWorkbench() {
       </SectionShell>
 
       <SectionShell
-        title="Dashboard, habits, progress, and workout state"
-        description="Decoded summaries from pocketgym_state payloads. These are the records powering the iOS dashboard, profile editor, habit logger, progress screen, and completed workout history."
+        title="Athlete signals"
+        description="Coach-readable summaries of goals, adherence, progress, and completed workouts. These indicate who may need review, feedback, or a plan adjustment."
       >
         {data.states.length === 0 ? (
-          <EmptyRow>No mobile app state documents found.</EmptyRow>
+          <EmptyRow>No athlete signal documents found.</EmptyRow>
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
             {data.states.map((state) => (
@@ -514,18 +514,18 @@ export function PocketGymMobileAppWorkbench() {
       </SectionShell>
 
       <SectionShell
-        title="Turnos"
-        description="Appointments from pocketgym_turnos. Changing the status here writes the same status values the iOS coach/client flows use."
+        title="Turno review queue"
+        description="Appointment requests from pocketgym_turnos. Coaches can accept, decline, cancel, or complete each turno from this operational queue."
       >
         {data.appointments.length === 0 ? (
-          <EmptyRow>No PocketGym appointments found.</EmptyRow>
+          <EmptyRow>No Pocket Gym turnos found.</EmptyRow>
         ) : (
           <div className="overflow-x-auto rounded-lg border bg-background/72">
             <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="px-4 py-3 font-medium">Appointment</th>
-                  <th className="px-4 py-3 font-medium">Client</th>
+                  <th className="px-4 py-3 font-medium">Athlete</th>
                   <th className="px-4 py-3 font-medium">Starts</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Coach action</th>
@@ -588,11 +588,11 @@ export function PocketGymMobileAppWorkbench() {
       </SectionShell>
 
       <SectionShell
-        title="Files and attachments"
-        description="Uploads from pocketgym_files, including user-level documents and appointment-scoped receipts, progress photos, medical files, contracts, and other attachments."
+        title="File review"
+        description="Uploads from pocketgym_files, including athlete-level documents and appointment-scoped receipts, progress photos, medical files, contracts, and other attachments."
       >
         {data.files.length === 0 ? (
-          <EmptyRow>No PocketGym files found.</EmptyRow>
+          <EmptyRow>No Pocket Gym files found.</EmptyRow>
         ) : (
           <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
             {data.files.map((file) => (
@@ -636,7 +636,7 @@ export function PocketGymMobileAppWorkbench() {
 
       <SectionShell
         title="Care team assignments"
-        description="Professionals assigned to the iOS care-team hub, grouped by user and preserving primary/active state."
+        description="Professionals assigned to each athlete, grouped for coach coordination and preserving primary/active state."
       >
         {data.careTeams.length === 0 ? (
           <EmptyRow>No care team assignments found.</EmptyRow>
@@ -649,7 +649,7 @@ export function PocketGymMobileAppWorkbench() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-foreground">User care team</p>
+                    <p className="font-medium text-foreground">Athlete care team</p>
                     <p className="font-mono text-xs text-muted-foreground">
                       {team.userId}
                     </p>
@@ -693,11 +693,11 @@ export function PocketGymMobileAppWorkbench() {
       </SectionShell>
 
       <SectionShell
-        title="Interaction audit"
-        description="App-generated and backoffice-generated pocketgym_interactions entries for appointment, file, care-team, habit, body metric, and workout events."
+        title="Coach activity trail"
+        description="Recent pocketgym_interactions entries that help coaches understand appointment, file, care-team, habit, body metric, and workout activity."
       >
         {data.interactions.length === 0 ? (
-          <EmptyRow>No PocketGym interactions found.</EmptyRow>
+          <EmptyRow>No Pocket Gym activity found.</EmptyRow>
         ) : (
           <div className="grid gap-3">
             {data.interactions.map((interaction) => (

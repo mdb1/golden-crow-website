@@ -133,13 +133,13 @@ export function BookingSlotsTable() {
   const isMutating = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   if (isLoading) return <div className="flex flex-col gap-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
-  if (error) return <p className="text-sm text-destructive">Failed to load booking slots.</p>;
+  if (error) return <p className="text-sm text-destructive">Failed to load coach availability.</p>;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button size="sm" onClick={openCreate}>
-          <Plus className="h-3.5 w-3.5 mr-1" />Add Slot
+          <Plus className="h-3.5 w-3.5 mr-1" />Add availability
         </Button>
       </div>
 
@@ -150,13 +150,13 @@ export function BookingSlotsTable() {
             <th className="pb-2 pr-4 font-medium">Type</th>
             <th className="pb-2 pr-4 font-medium">Date</th>
             <th className="pb-2 pr-4 font-medium">Start</th>
-            <th className="pb-2 pr-4 font-medium">Capacity</th>
+            <th className="pb-2 pr-4 font-medium">Booked / capacity</th>
             <th className="pb-2 font-medium" />
           </tr>
         </thead>
         <tbody>
           {(data?.slots ?? []).length === 0 && (
-            <tr><td colSpan={6} className="py-4 text-muted-foreground">No booking slots yet.</td></tr>
+            <tr><td colSpan={6} className="py-4 text-muted-foreground">No coach availability slots yet.</td></tr>
           )}
           {(data?.slots ?? []).map((slot) => (
             <tr key={slot.id} className="border-b last:border-0">
@@ -176,7 +176,7 @@ export function BookingSlotsTable() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingSlot ? "Edit Slot" : "New Slot"}</DialogTitle>
+            <DialogTitle>{editingSlot ? "Edit availability" : "New availability"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="flex flex-col gap-3 mt-2">
             <div className="space-y-1"><Label>Title</Label><Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} required /></div>
@@ -229,7 +229,7 @@ export function BookingSlotsTable() {
             <div className="space-y-1"><Label>Trainer ID (optional)</Label><Input value={form.trainerId} onChange={(e) => setForm((f) => ({ ...f, trainerId: e.target.value }))} /></div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button type="submit" disabled={isMutating}>{isMutating ? "Saving..." : editingSlot ? "Save changes" : "Create slot"}</Button>
+              <Button type="submit" disabled={isMutating}>{isMutating ? "Saving..." : editingSlot ? "Save changes" : "Create availability"}</Button>
               {editingSlot && (
                 <Button type="button" variant="destructive" onClick={() => deleteMutation.mutate(editingSlot.id)} disabled={isMutating}>
                   {deleteMutation.isPending ? "Deleting..." : "Delete"}

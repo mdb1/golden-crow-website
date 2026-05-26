@@ -11,9 +11,9 @@ export default async function NewTrainingPlanPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title="New Training Plan"
-        description="Create a weekly training plan for this member."
+        eyebrow="Pocket Gyms"
+        title="New training plan"
+        description="Create a weekly coaching plan for this athlete."
       />
       <TrainingPlanForm uid={uid} />
     </div>

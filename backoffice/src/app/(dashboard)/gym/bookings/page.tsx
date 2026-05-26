@@ -5,9 +5,9 @@ export default function GymBookingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title="Bookings"
-        description="View all member bookings and their status. Filter by confirmed or cancelled."
+        eyebrow="Pocket Gyms"
+        title="Session requests"
+        description="Review athlete bookings and their status. Filter by confirmed or cancelled."
       />
       <BookingsTable />
     </div>

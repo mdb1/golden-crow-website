@@ -42,12 +42,37 @@ const SPANISH_TEXT: Record<string, string> = {
   "Switching...": "Cambiando...",
   "Switch to PocketGenes": "Cambiar a PocketGenes",
   "Switch to Pocket Gyms": "Cambiar a Pocket Gyms",
-  "Gym operations console.": "Consola de operaciones del gimnasio.",
-  "PocketGym iOS app collections and controls":
-    "Colecciones y controles de la app iOS PocketGym",
-  "iOS app mirror": "Espejo app iOS",
-  "Admin mirror for the current PocketGym iOS app collections, status flows, files, state payloads, care team assignments, and activity audit trail.":
-    "Espejo administrativo para las colecciones actuales de la app iOS PocketGym: estados, turnos, archivos, datos persistidos, equipo de cuidado y auditoría de actividad.",
+  "Coach operations console.": "Consola de operaciones del coach.",
+  "Coach queues and athlete signals":
+    "Colas del coach y señales de atletas",
+  "Coach console": "Consola del coach",
+  "Coach-facing queues, athlete signals, files, care-team context, and activity history that complement the user app.":
+    "Colas del coach, señales de atletas, archivos, contexto del equipo de cuidado e historial de actividad que complementan la app del usuario.",
+  "Coach dashboard": "Dashboard del coach",
+  "Key coach-side metrics: athletes, active plans, and upcoming sessions.":
+    "Métricas clave del lado del coach: atletas, planes activos y próximas sesiones.",
+  "Athlete roster": "Roster de atletas",
+  "Coach roster with profile, plan, evaluation, nutrition, and history access.":
+    "Roster del coach con acceso a perfil, plan, evaluación, nutrición e historial.",
+  "Athlete detail": "Detalle de atleta",
+  "Athlete profile with coaching plans, evaluations, nutrition, and clinical history.":
+    "Perfil del atleta con planes de coaching, evaluaciones, nutrición e historial clínico.",
+  "Create and edit weekly coaching plans for an athlete.":
+    "Crear y editar planes semanales de coaching para un atleta.",
+  "Record a coach-side physical assessment for an athlete.":
+    "Registrar una evaluación física del lado del coach para un atleta.",
+  "Create and edit daily nutrition guidance for an athlete.":
+    "Crear y editar guía nutricional diaria para un atleta.",
+  "Coach availability": "Disponibilidad del coach",
+  "Manage available training slots athletes can request.":
+    "Gestionar turnos de entrenamiento disponibles que los atletas pueden solicitar.",
+  "Session requests": "Solicitudes de sesión",
+  "Review athlete bookings and their confirmation status.":
+    "Revisar reservas de atletas y su estado de confirmación.",
+  "Create and edit achievement definitions that coaches use to reinforce progress.":
+    "Crear y editar logros que los coaches usan para reforzar el progreso.",
+  "Create and edit challenge definitions for athlete motivation.":
+    "Crear y editar desafíos para motivar atletas.",
   "Trainer coaching console.": "Consola de coaching para entrenadores.",
   "Readable operations console for the live Firebase model.":
     "Consola operativa legible para el modelo Firebase en vivo.",
@@ -83,10 +108,23 @@ const SPANISH_TEXT: Record<string, string> = {
   Patients: "Pacientes",
   "Roles & Permissions": "Roles y permisos",
   Dashboard: "Dashboard",
-  "iOS App Mirror": "Espejo app iOS",
+  "Coach Console": "Consola del coach",
+  "Coach Dashboard": "Dashboard del coach",
+  "Coach workload metrics": "Métricas de carga del coach",
+  Athletes: "Atletas",
+  "Roster and athlete profiles": "Roster y perfiles de atletas",
+  "Coach schedule": "Agenda del coach",
+  "Session availability and booking review":
+    "Disponibilidad de sesiones y revisión de reservas",
+  Programs: "Programas",
+  "Motivation tools coaches manage":
+    "Herramientas de motivación gestionadas por coaches",
+  "Coach Availability": "Disponibilidad del coach",
+  "Available training slots": "Turnos de entrenamiento disponibles",
+  "Session Requests": "Solicitudes de sesión",
+  "Bookings and status review": "Reservas y revisión de estado",
   Members: "Miembros",
   Scheduling: "Agenda",
-  Programs: "Programas",
   "Booking Slots": "Turnos disponibles",
   Bookings: "Reservas",
   Achievements: "Logros",

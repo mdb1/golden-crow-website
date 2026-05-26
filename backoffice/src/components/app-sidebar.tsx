@@ -68,7 +68,7 @@ export function AppSidebar({
           </div>
           <p className="mt-1 text-sm text-sidebar-foreground/70">
             {adminContext.project === "pocket-gyms"
-              ? appText(language, "Gym operations console.")
+              ? appText(language, "Coach operations console.")
               : adminContext.project === "gc-fitness"
                 ? appText(language, "Trainer coaching console.")
                 : appText(

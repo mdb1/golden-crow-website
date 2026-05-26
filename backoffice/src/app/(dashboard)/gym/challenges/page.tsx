@@ -5,9 +5,9 @@ export default function GymChallengesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
+        eyebrow="Pocket Gyms"
         title="Challenges"
-        description="Define gym-wide challenges that members can complete for rewards."
+        description="Define coach-managed challenges athletes can complete for rewards."
       />
       <ChallengesTable />
     </div>

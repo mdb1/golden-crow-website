@@ -86,7 +86,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/gym/members">Back to members</Link>
+          <Link href="/gym/members">Back to athletes</Link>
         </Button>
         <span className="font-mono text-xs text-muted-foreground">{uid}</span>
       </div>
@@ -94,7 +94,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="plans">Training Plans</TabsTrigger>
+          <TabsTrigger value="plans">Coaching plans</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
           <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
           <TabsTrigger value="clinical">Clinical History</TabsTrigger>
@@ -110,7 +110,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
             <ProfileField label="Age" value={member.age} />
             <ProfileField label="Gender" value={member.gender} />
             <ProfileField
-              label="Member Since"
+              label="Athlete since"
               value={new Date(member.memberSince).toLocaleDateString()}
             />
             <ProfileField label="Gym" value={member.gymId} />
@@ -137,7 +137,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
           <div className="mt-4 flex flex-col gap-3">
             <div className="flex justify-end">
               <Button size="sm" asChild>
-                <Link href={`/gym/training-plans/${uid}/new`}>Add Plan</Link>
+                <Link href={`/gym/training-plans/${uid}/new`}>Add coaching plan</Link>
               </Button>
             </div>
             {plans.isLoading && <Skeleton className="h-32 w-full" />}
@@ -164,7 +164,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
                         colSpan={5}
                         className="py-4 text-muted-foreground"
                       >
-                        No training plans yet.
+                        No coaching plans yet.
                       </td>
                     </tr>
                   )}
@@ -230,7 +230,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
                         colSpan={3}
                         className="py-4 text-muted-foreground"
                       >
-                        No evaluations yet.
+                        No coach evaluations yet.
                       </td>
                     </tr>
                   )}
@@ -262,7 +262,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
             <div className="flex justify-end">
               <Button size="sm" asChild>
                 <Link href={`/gym/nutrition/${uid}/new`}>
-                  Add Nutrition Plan
+                  Add nutrition guidance
                 </Link>
               </Button>
             </div>
@@ -289,7 +289,7 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
                         colSpan={4}
                         className="py-4 text-muted-foreground"
                       >
-                        No nutrition plans yet.
+                        No nutrition guidance yet.
                       </td>
                     </tr>
                   )}

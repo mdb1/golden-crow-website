@@ -10,9 +10,9 @@ export default async function NewNutritionPlanPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title="New Nutrition Plan"
-        description="Create a daily meal plan for this member."
+        eyebrow="Pocket Gyms"
+        title="New nutrition plan"
+        description="Create daily nutrition guidance for this athlete."
       />
       <NutritionPlanForm uid={uid} />
     </div>

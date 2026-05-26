@@ -23,9 +23,9 @@ export default async function EditEvaluationPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title="Edit Evaluation"
-        description="Update this member's physical assessment."
+        eyebrow="Pocket Gyms"
+        title="Edit evaluation"
+        description="Update this athlete's coach-side physical assessment."
       />
       <EvaluationForm
         uid={uid}

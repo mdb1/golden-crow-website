@@ -878,20 +878,20 @@ export const GYM_SECTIONS: SectionDescriptor[] = [
   },
   {
     key: "gym-members",
-    label: "Members",
-    description: "Gym member management.",
+    label: "Athletes",
+    description: "Coach roster and athlete profiles.",
     visibleRoles: AREA_ROLES,
   },
   {
     key: "gym-scheduling",
-    label: "Scheduling",
-    description: "Booking slots and bookings.",
+    label: "Coach schedule",
+    description: "Session availability and booking review.",
     visibleRoles: AREA_ROLES,
   },
   {
     key: "gym-programs",
     label: "Programs",
-    description: "Achievements and challenges.",
+    description: "Motivation tools coaches manage.",
     visibleRoles: AREA_ROLES,
   },
 ];
@@ -899,41 +899,41 @@ export const GYM_SECTIONS: SectionDescriptor[] = [
 export const GYM_NAV: AdminNavItem[] = [
   {
     section: "gym-overview",
-    label: "Dashboard",
+    label: "Coach Dashboard",
     href: "/gym/dashboard",
-    description: "Key gym metrics",
+    description: "Coach workload metrics",
     icon: LayoutDashboard,
     visibleRoles: AREA_ROLES,
   },
   {
     section: "gym-overview",
-    label: "iOS App Mirror",
-    href: "/gym/mobile-app",
-    description: "PocketGym iOS app collections and controls",
+    label: "Coach Console",
+    href: "/gym/coach-console",
+    description: "Coach queues and athlete signals",
     icon: Activity,
     visibleRoles: AREA_ROLES,
   },
   {
     section: "gym-members",
-    label: "Members",
+    label: "Athletes",
     href: "/gym/members",
-    description: "Gym member list and profiles",
+    description: "Roster and athlete profiles",
     icon: Users,
     visibleRoles: AREA_ROLES,
   },
   {
     section: "gym-scheduling",
-    label: "Booking Slots",
+    label: "Coach Availability",
     href: "/gym/booking-slots",
-    description: "Available time slot management",
+    description: "Available training slots",
     icon: Calendar,
     visibleRoles: AREA_ROLES,
   },
   {
     section: "gym-scheduling",
-    label: "Bookings",
+    label: "Session Requests",
     href: "/gym/bookings",
-    description: "Booking list and status",
+    description: "Bookings and status review",
     icon: Calendar,
     visibleRoles: AREA_ROLES,
   },
@@ -1305,37 +1305,37 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   }
 
   if (pathname === "/gym/dashboard") {
-    return { eyebrow: "Gym", title: "Dashboard", description: "Key Pocket Gyms metrics: members, active plans, and upcoming bookings." };
+    return { eyebrow: "Pocket Gyms", title: "Coach dashboard", description: "Key coach-side metrics: athletes, active plans, and upcoming sessions." };
   }
-  if (pathname === "/gym/mobile-app") {
-    return { eyebrow: "Pocket Gyms", title: "iOS app mirror", description: "Admin mirror for the current PocketGym iOS app collections, status flows, files, state payloads, care team assignments, and activity audit trail." };
+  if (pathname === "/gym/coach-console" || pathname === "/gym/mobile-app") {
+    return { eyebrow: "Pocket Gyms", title: "Coach console", description: "Coach-facing queues, athlete signals, files, care-team context, and activity history that complement the user app." };
   }
   if (pathname === "/gym/members") {
-    return { eyebrow: "Gym", title: "Members", description: "Pocket Gyms member list with search and profile access." };
+    return { eyebrow: "Pocket Gyms", title: "Athlete roster", description: "Coach roster with profile, plan, evaluation, nutrition, and history access." };
   }
   if (pathname.startsWith("/gym/members/")) {
-    return { eyebrow: "Gym", title: "Member detail", description: "Member profile with training plans, evaluations, nutrition, and clinical history." };
+    return { eyebrow: "Pocket Gyms", title: "Athlete detail", description: "Athlete profile with coaching plans, evaluations, nutrition, and clinical history." };
   }
   if (pathname.startsWith("/gym/training-plans/")) {
-    return { eyebrow: "Gym", title: "Training plan editor", description: "Create and edit weekly training plans for a gym member." };
+    return { eyebrow: "Pocket Gyms", title: "Training plan editor", description: "Create and edit weekly coaching plans for an athlete." };
   }
   if (pathname.startsWith("/gym/evaluations/")) {
-    return { eyebrow: "Gym", title: "Evaluation form", description: "Record a physical assessment for a gym member." };
+    return { eyebrow: "Pocket Gyms", title: "Evaluation form", description: "Record a coach-side physical assessment for an athlete." };
   }
   if (pathname.startsWith("/gym/nutrition/")) {
-    return { eyebrow: "Gym", title: "Nutrition plan editor", description: "Create and edit daily nutrition plans for a gym member." };
+    return { eyebrow: "Pocket Gyms", title: "Nutrition plan editor", description: "Create and edit daily nutrition guidance for an athlete." };
   }
   if (pathname === "/gym/booking-slots") {
-    return { eyebrow: "Gym", title: "Booking slots", description: "Manage available training time slots." };
+    return { eyebrow: "Pocket Gyms", title: "Coach availability", description: "Manage available training slots athletes can request." };
   }
   if (pathname === "/gym/bookings") {
-    return { eyebrow: "Gym", title: "Bookings", description: "View all bookings and their confirmation status." };
+    return { eyebrow: "Pocket Gyms", title: "Session requests", description: "Review athlete bookings and their confirmation status." };
   }
   if (pathname === "/gym/achievements") {
-    return { eyebrow: "Gym", title: "Achievements", description: "Create and edit achievement definitions awarded to members." };
+    return { eyebrow: "Pocket Gyms", title: "Achievements", description: "Create and edit achievement definitions that coaches use to reinforce progress." };
   }
   if (pathname === "/gym/challenges") {
-    return { eyebrow: "Gym", title: "Challenges", description: "Create and edit challenge definitions for gym members." };
+    return { eyebrow: "Pocket Gyms", title: "Challenges", description: "Create and edit challenge definitions for athlete motivation." };
   }
 
   return {

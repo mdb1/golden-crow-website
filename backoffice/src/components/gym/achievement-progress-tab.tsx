@@ -31,7 +31,7 @@ export function AchievementProgressTab({ uid }: { uid: string }) {
       )}
       {earned.data && earned.data.earned.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No achievements earned yet.
+          No athlete achievements earned yet.
         </p>
       )}
       {earned.data && earned.data.earned.length > 0 && (

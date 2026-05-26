@@ -5,9 +5,9 @@ export default function GymMembersPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title="Members"
-        description="Pocket Gyms member list. Click a member to view their profile, plans, and history."
+        eyebrow="Pocket Gyms"
+        title="Athlete roster"
+        description="Coach roster for reviewing athlete profiles, plans, evaluations, nutrition, and history."
       />
       <MembersTable />
     </div>

@@ -53,9 +53,9 @@ export default async function EditTrainingPlanPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
+        eyebrow="Pocket Gyms"
         title={plan.name}
-        description="Edit this member's training plan."
+        description="Edit this athlete's coaching plan."
       />
       <TrainingPlanForm uid={uid} planId={planId} initialPlan={plan} />
     </div>

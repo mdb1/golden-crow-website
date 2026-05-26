@@ -23,9 +23,9 @@ export default async function EditNutritionPlanPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title={String(plan.name ?? "Nutrition Plan")}
-        description="Edit this member's nutrition plan."
+        eyebrow="Pocket Gyms"
+        title={String(plan.name ?? "Nutrition plan")}
+        description="Edit this athlete's nutrition guidance."
       />
       <NutritionPlanForm
         uid={uid}

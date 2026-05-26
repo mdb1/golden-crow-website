@@ -39,7 +39,7 @@ export function DocumentsTab({ uid }: { uid: string }) {
       )}
       {documents.data && documents.data.documents.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No documents uploaded yet.
+          No athlete documents uploaded yet.
         </p>
       )}
       {documents.data && documents.data.documents.length > 0 && (
@@ -69,7 +69,7 @@ export function DocumentsTab({ uid }: { uid: string }) {
                 rel="noopener noreferrer"
                 className="text-xs text-primary underline-offset-4 hover:underline"
               >
-                View File
+                Review file
               </a>
             </div>
           ))}

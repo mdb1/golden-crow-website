@@ -25,7 +25,7 @@ export function MembersTable() {
   if (error) {
     return (
       <p className="text-sm text-destructive">
-        Failed to load members. Make sure the SDK is running.
+        Failed to load athletes. Make sure the SDK is running.
       </p>
     );
   }
@@ -35,7 +35,7 @@ export function MembersTable() {
       columns={columns}
       data={data?.members ?? []}
       filterKey="global"
-      filterPlaceholder="Search by name..."
+      filterPlaceholder="Search athletes by name..."
     />
   );
 }

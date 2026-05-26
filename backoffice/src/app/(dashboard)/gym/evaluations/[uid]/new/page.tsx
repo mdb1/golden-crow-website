@@ -10,9 +10,9 @@ export default async function NewEvaluationPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
-        title="New Evaluation"
-        description="Record a physical assessment for this member."
+        eyebrow="Pocket Gyms"
+        title="New evaluation"
+        description="Record a coach-side physical assessment for this athlete."
       />
       <EvaluationForm uid={uid} />
     </div>

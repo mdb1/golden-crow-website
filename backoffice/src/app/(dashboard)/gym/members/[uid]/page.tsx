@@ -34,9 +34,9 @@ export default async function GymMemberDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Gym"
+        eyebrow="Pocket Gyms"
         title={member.displayName}
-        description="Gym member profile with training plans, evaluations, nutrition, and clinical history."
+        description="Athlete profile with coaching plans, evaluations, nutrition, and clinical history."
       />
       <MemberWorkbench member={member} />
     </div>

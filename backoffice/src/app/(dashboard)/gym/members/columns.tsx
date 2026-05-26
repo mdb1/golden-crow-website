@@ -18,7 +18,7 @@ export interface GymMember {
 export const columns: ColumnDef<GymMember>[] = [
   {
     accessorKey: "displayName",
-    header: "Name",
+    header: "Athlete",
     cell: ({ row }) => (
       <span className="font-medium">{row.original.displayName}</span>
     ),
@@ -39,7 +39,7 @@ export const columns: ColumnDef<GymMember>[] = [
   },
   {
     accessorKey: "memberSince",
-    header: "Member Since",
+    header: "Athlete since",
     cell: ({ row }) =>
       new Date(row.original.memberSince).toLocaleDateString(),
   },
@@ -48,7 +48,7 @@ export const columns: ColumnDef<GymMember>[] = [
     header: "",
     cell: ({ row }) => (
       <Button variant="ghost" size="sm" asChild>
-        <Link href={`/gym/members/${row.original.id}`}>View</Link>
+        <Link href={`/gym/members/${row.original.id}`}>Review</Link>
       </Button>
     ),
   },

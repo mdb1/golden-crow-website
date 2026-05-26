@@ -14,24 +14,24 @@ export function GymStatsCards({ stats }: { stats: GymStatsRecord }) {
     <div className="grid gap-3">
       <MetricCard
         icon={Users}
-        title="Members"
-        description="Active gym members registered in Pocket Gyms."
+        title="Athletes"
+        description="Active athletes available for coach follow-up."
         value={stats.memberCount}
         href="/gym/members"
         tone="blue"
       />
       <MetricCard
         icon={Dumbbell}
-        title="Active Training Plans"
-        description="Training plans currently in effect across all members."
+        title="Active coaching plans"
+        description="Training plans currently in effect across the athlete roster."
         value={stats.activeTrainingPlanCount}
         href="/gym/members"
         tone="green"
       />
       <MetricCard
         icon={Calendar}
-        title="Upcoming Bookings"
-        description="Confirmed bookings for future time slots."
+        title="Upcoming sessions"
+        description="Confirmed athlete sessions for future time slots."
         value={stats.upcomingBookingCount}
         href="/gym/bookings"
         tone="blue"
