@@ -20,7 +20,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   const [beforeId, setBeforeId] = useState(defaultBefore);
   const [afterId, setAfterId] = useState(defaultAfter);
   const [split, setSplit] = useState(50);
-  const [mode, setMode] = useState<CompareMode>("side-by-side");
+  const [mode, setMode] = useState<CompareMode>("slider");
   const [beforeT, setBeforeT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const [afterT, setAfterT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const dragging = useRef<null | "before" | "after">(null);
@@ -78,18 +78,32 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
       </div>
       {before?.url && after?.url ? (
         <div className="space-y-4">
-          <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-lg border p-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-lg border p-1 sm:w-auto">
+              <button
+                className={`rounded-md px-3 py-1.5 text-sm ${mode === "slider" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                onClick={() => setMode("slider")}
+              >
+                Deslizador
+              </button>
+              <button
+                className={`rounded-md px-3 py-1.5 text-sm ${mode === "side-by-side" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                onClick={() => setMode("side-by-side")}
+              >
+                Lado a lado
+              </button>
+            </div>
             <button
-              className={`rounded-md px-3 py-1.5 text-sm ${mode === "side-by-side" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              onClick={() => setMode("side-by-side")}
+              type="button"
+              className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+              onClick={() =>
+                void exportSideBySideJpg({
+                  before,
+                  after,
+                })
+              }
             >
-              Lado a lado
-            </button>
-            <button
-              className={`rounded-md px-3 py-1.5 text-sm ${mode === "slider" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              onClick={() => setMode("slider")}
-            >
-              Deslizador
+              Descargar JPG
             </button>
           </div>
           {mode === "slider" ? (
@@ -109,20 +123,6 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
             </>
           ) : (
             <div className="space-y-3">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-                  onClick={() =>
-                    void exportSideBySideJpg({
-                      before,
-                      after,
-                    })
-                  }
-                >
-                  Descargar JPG
-                </button>
-              </div>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <CompareStaticImage url={before.url} alt="before" date={before.checkInDate ?? dateFromRow(before)} />
                 <CompareStaticImage url={after.url} alt="after" date={after.checkInDate ?? dateFromRow(after)} />
