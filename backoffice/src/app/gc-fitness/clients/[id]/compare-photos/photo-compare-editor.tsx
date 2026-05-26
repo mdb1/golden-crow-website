@@ -96,12 +96,19 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
             <button
               type="button"
               className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-              onClick={() =>
-                void exportSideBySideJpg({
-                  before,
-                  after,
-                })
-              }
+              onClick={async () => {
+                try {
+                  await exportSideBySideJpg({ before, after });
+                } catch (err) {
+                  // eslint-disable-next-line no-console
+                  console.error("[compare-photos] export failed:", err);
+                  alert(
+                    `No se pudo descargar el JPG: ${
+                      err instanceof Error ? err.message : String(err)
+                    }`,
+                  );
+                }
+              }}
             >
               Descargar JPG
             </button>
@@ -164,8 +171,8 @@ async function exportSideBySideJpg({
   if (!before.url || !after.url) return;
 
   const [beforeImg, afterImg] = await Promise.all([
-    loadImage(before.url),
-    loadImage(after.url),
+    loadImageViaProxy(before.id),
+    loadImageViaProxy(after.id),
   ]);
 
   const outerMargin = 96;
@@ -288,14 +295,31 @@ function roundedRectPath(
   ctx.closePath();
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-    img.src = src;
-  });
+// Fetches a progress photo through the same-origin proxy endpoint so the
+// canvas exporter avoids GCS-signed-URL CORS issues that taint the canvas
+// and make `toBlob` return null.
+async function loadImageViaProxy(photoId: string): Promise<HTMLImageElement> {
+  const res = await fetch(
+    `/api/gc-fitness/photo-proxy?photoId=${encodeURIComponent(photoId)}`,
+    { credentials: "same-origin" },
+  );
+  if (!res.ok) {
+    throw new Error(`Photo proxy failed (${res.status}) for ${photoId}`);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Failed to decode image: ${photoId}`));
+      img.src = objectUrl;
+    });
+  } finally {
+    // Defer revoke so the image can stay decoded long enough for the canvas
+    // draw to read pixels. 60s is generous; the export typically finishes in <1s.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  }
 }
 
 function MovableImage({ url, alt, t, onDragStart, onDragMove, onDragEnd }: { url: string; alt: string; t: Transform; onDragStart: (e: React.PointerEvent<HTMLDivElement>) => void; onDragMove: (e: React.PointerEvent<HTMLDivElement>) => void; onDragEnd: () => void; }) {
