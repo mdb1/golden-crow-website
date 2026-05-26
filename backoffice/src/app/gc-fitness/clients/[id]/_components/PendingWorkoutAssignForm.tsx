@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface WorkoutTemplateOption {
   id: string;
@@ -29,12 +29,24 @@ export function PendingWorkoutAssignForm({
   submitAction,
 }: PendingWorkoutAssignFormProps) {
   const [mode, setMode] = useState<AssignMode>("once");
+  const formRef = useRef<HTMLFormElement>(null);
   const isRecurring = mode !== "once";
   const showWeekdays = mode === "weekly";
   const showEveryN = mode === "everyN";
 
+  // Wrap the server action so we can reset React-controlled state (`mode`)
+  // and the native form fields together. Without this the controlled `mode`
+  // outlives the submission (still "weekly") while the uncontrolled date /
+  // weekday checkboxes reset, leaving the form in an inconsistent state
+  // where the Weekdays picker is still rendered without a matching mode.
+  async function handleSubmit(formData: FormData) {
+    await submitAction(formData);
+    setMode("once");
+    formRef.current?.reset();
+  }
+
   return (
-    <form action={submitAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={handleSubmit} className="flex flex-col gap-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Template</span>
