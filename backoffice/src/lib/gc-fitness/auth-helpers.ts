@@ -37,6 +37,44 @@ export interface CurrentTrainer {
   uid: string;
   email: string;
   role: "trainer";
+  isAdmin: boolean;
+  roles: string[];
+}
+
+export interface CurrentAdmin {
+  uid: string;
+  email: string;
+  role: "admin";
+  isTrainer: boolean;
+  roles: string[];
+}
+
+export interface CurrentGCFitnessUser {
+  uid: string;
+  email: string;
+  isTrainer: boolean;
+  isAdmin: boolean;
+  roles: string[];
+}
+
+function normalizeRolesFromToken(decodedToken: Record<string, unknown>): string[] {
+  const set = new Set<string>();
+  const role = decodedToken.role;
+  if (typeof role === "string" && role.trim().length > 0) {
+    set.add(role.trim().toLowerCase());
+  }
+  const roles = decodedToken.roles;
+  if (Array.isArray(roles)) {
+    for (const value of roles) {
+      if (typeof value === "string" && value.trim().length > 0) {
+        set.add(value.trim().toLowerCase());
+      }
+    }
+  }
+  if (decodedToken.admin === true) {
+    set.add("admin");
+  }
+  return Array.from(set);
 }
 
 /**
@@ -50,7 +88,7 @@ export interface CurrentTrainer {
  * Throws a different, descriptive error for misconfigured env vars — that
  * is a deployment bug, not an auth event.
  */
-export async function getCurrentTrainer(): Promise<CurrentTrainer> {
+export async function getCurrentGCFitnessUser(): Promise<CurrentGCFitnessUser> {
   const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
   const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
   const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
@@ -90,9 +128,43 @@ export async function getCurrentTrainer(): Promise<CurrentTrainer> {
 
   const { decodedToken } = tokens;
   const email = (decodedToken.email ?? "").toLowerCase();
+  const tokenRecord = decodedToken as unknown as Record<string, unknown>;
+  const roles = normalizeRolesFromToken(tokenRecord);
+  const isTrainer = roles.includes("trainer");
+  const isAdmin = roles.includes("admin");
   return {
     uid: decodedToken.uid,
     email,
+    isTrainer,
+    isAdmin,
+    roles,
+  };
+}
+
+export async function getCurrentTrainer(): Promise<CurrentTrainer> {
+  const user = await getCurrentGCFitnessUser();
+  if (!user.isTrainer) {
+    throw new Error("Forbidden");
+  }
+  return {
+    uid: user.uid,
+    email: user.email,
     role: "trainer",
+    isAdmin: user.isAdmin,
+    roles: user.roles,
+  };
+}
+
+export async function getCurrentAdmin(): Promise<CurrentAdmin> {
+  const user = await getCurrentGCFitnessUser();
+  if (!user.isAdmin) {
+    throw new Error("Forbidden");
+  }
+  return {
+    uid: user.uid,
+    email: user.email,
+    role: "admin",
+    isTrainer: user.isTrainer,
+    roles: user.roles,
   };
 }

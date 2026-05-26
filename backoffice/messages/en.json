@@ -37,6 +37,7 @@
     "library": "Library",
     "habits": "Habits",
     "communication": "Communication",
+    "admin": "Admin",
     "chat": "Chat",
     "settings": "Settings",
     "clientsSection": "Clients",
@@ -45,13 +46,16 @@
     "contentSectionDescription": "Workout templates, habits, exercise library.",
     "engagementSection": "Engagement",
     "engagementSectionDescription": "Chat inbox + trainer settings.",
+    "adminSection": "Admin",
+    "adminSectionDescription": "Platform administration and access control.",
     "clientsDescription": "Roster with last activity, compliance, unread chat.",
     "recentLogsDescription": "Cross-client recent habit/workout activity feed.",
     "workoutsDescription": "Workout-template authoring + assignments.",
     "habitsDescription": "Habit CRUD + per-client assignment.",
     "exercisesDescription": "Exercise library + GIF management.",
     "chatDescription": "Trainer inbox + per-client message threads.",
-    "settingsDescription": "Quick-reply templates + trainer preferences."
+    "settingsDescription": "Quick-reply templates + trainer preferences.",
+    "adminDescription": "Coach/admin access and operator controls."
   },
   "shell": {
     "eyebrow": "Golden Crow",

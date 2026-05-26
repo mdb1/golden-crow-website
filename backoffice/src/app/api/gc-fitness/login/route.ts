@@ -32,6 +32,24 @@ function fallbackName(email: string): string {
   return localPart || email;
 }
 
+function mergeRoles(existingClaims: Record<string, unknown>): string[] {
+  const roles = new Set<string>();
+  const claimRole = existingClaims.role;
+  if (typeof claimRole === "string" && claimRole.trim().length > 0) {
+    roles.add(claimRole.trim().toLowerCase());
+  }
+  const claimRoles = existingClaims.roles;
+  if (Array.isArray(claimRoles)) {
+    for (const value of claimRoles) {
+      if (typeof value === "string" && value.trim().length > 0) {
+        roles.add(value.trim().toLowerCase());
+      }
+    }
+  }
+  roles.add("trainer");
+  return Array.from(roles);
+}
+
 async function upsertTrainerProfile(
   decoded: DecodedIdToken,
   email: string,
@@ -152,11 +170,17 @@ export async function POST(request: Request) {
     }
 
     try {
-      await gcFitnessAuth().setCustomUserClaims(decoded.uid, {
-        ...(decoded as DecodedIdToken & {
+      const existingClaims =
+        ((decoded as DecodedIdToken & {
           customClaims?: Record<string, unknown>;
-        }).customClaims,
+        }).customClaims ??
+          {}) as Record<string, unknown>;
+      const roles = mergeRoles(existingClaims);
+      await gcFitnessAuth().setCustomUserClaims(decoded.uid, {
+        ...existingClaims,
         role: "trainer",
+        roles,
+        admin: roles.includes("admin"),
       });
     } catch (claimErr) {
       // eslint-disable-next-line no-console

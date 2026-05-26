@@ -119,6 +119,12 @@ export const FirestoreCollections = {
    * the deterministic doc id is `${coachId}_${clientId}`.
    */
   clientNotes: "client_notes",
+
+  /**
+   * GC Fitness coach allowlist managed from the admin backoffice.
+   * Doc id: normalized lowercase email.
+   */
+  coachAllowlist: "coach_allowlist",
 } as const;
 
 /**

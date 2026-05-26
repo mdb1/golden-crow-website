@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
-import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { getCurrentGCFitnessUser } from "@/lib/gc-fitness/auth-helpers";
 
 export const metadata: Metadata = {
   title: "GC Fitness Admin",
@@ -27,18 +27,23 @@ export default async function GCFitnessLayout({
   const locale = await getLocale();
   const messages = await getMessages();
   let trainerUid: string | null = null;
+  let isAdmin = false;
   try {
-    const trainer = await getCurrentTrainer();
-    trainerUid = trainer.uid;
+    const user = await getCurrentGCFitnessUser();
+    trainerUid = user.uid;
+    isAdmin = user.isAdmin;
   } catch {
     trainerUid = null;
+    isAdmin = false;
   }
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <FirebaseTelemetryInit />
       <GCFitnessShellProviders>
-        <GCFitnessShell trainerUid={trainerUid}>{children}</GCFitnessShell>
+        <GCFitnessShell trainerUid={trainerUid} isAdmin={isAdmin}>
+          {children}
+        </GCFitnessShell>
       </GCFitnessShellProviders>
     </NextIntlClientProvider>
   );

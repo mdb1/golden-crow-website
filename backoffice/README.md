@@ -192,17 +192,70 @@ Storage rules cap user-uploaded chat images and progress photos at 1 MB.
 The iOS app compresses images before upload, but oversized files are still
 rejected at the rule layer.
 
-### Trainer login
+### Trainer and admin login (multi-role)
 
-For now, any authenticated Google account can enter the GC Fitness backoffice.
-The login endpoint promotes the signed-in Firebase user to `role: "trainer"`
-and upserts `users/{trainerUid}` with email, display name, photo URL, and
-trainer role so clients can display coach identity.
+GC Fitness now supports multi-role custom claims:
 
-If you want to restrict access later, wire `GC_FITNESS_TEAM_ALLOWLIST` back in
-the auth gate and redeploy.
+- `trainer`
+- `admin`
+
+A single user can hold both roles at the same time (`trainer + admin`).
+
+On login (`/api/gc-fitness/login`), the system always ensures the user has
+`trainer` role and preserves any existing `admin` role. Claims are normalized
+as:
+
+- `role`: `"trainer"` (primary compatibility flag)
+- `roles`: string array (example: `["trainer", "admin"]`)
+- `admin`: boolean mirror (`true` when `roles` contains `admin`)
+
+The login endpoint also upserts `users/{trainerUid}` with email, display name,
+photo URL, and trainer profile fields so clients can display coach identity.
 
 1. Log in at `/gc-fitness/login`.
+
+### GC Fitness admin console
+
+Route: `/gc-fitness/admin` (admin-only).
+
+Current capabilities:
+
+- List all coaches (`users.role == "trainer"`) with:
+  - roles
+  - clients count
+  - custom workouts count
+  - custom exercises count
+- Add coach email to allowlist (`coach_allowlist/{email}` doc)
+- Promote an existing user email to admin (`trainer + admin` by default)
+- Delete client with cascade
+- Delete coach with cascade (including linked clients)
+
+If a non-admin user opens `/gc-fitness/admin`, the app redirects to
+`/gc-fitness/forbidden`.
+
+### Create a new admin user (runbook)
+
+1. Ensure the person can sign in with Google on `/gc-fitness/login`.
+2. Open `/gc-fitness/admin` with an existing admin account.
+3. In **Promote existing user to admin**, submit the target email.
+4. Ask that user to sign out and sign in again to refresh token claims.
+5. Confirm they can open `/gc-fitness/admin`.
+
+Resulting role model:
+
+- Trainer-only: `roles = ["trainer"]`
+- Admin-only (supported): `roles = ["admin"]`
+- Trainer + admin (recommended for coach operators): `roles = ["trainer", "admin"]`
+
+### Cascade deletion safety
+
+Admin console currently exposes destructive operations:
+
+- `Delete client (cascade)` requires confirmation text `DELETE CLIENT`
+- `Delete coach (cascade)` requires confirmation text `DELETE COACH`
+
+Both actions run server-side with Firebase Admin SDK and are intended for
+operator-only recovery/cleanup workflows.
 
 ### Add or assign a client
 

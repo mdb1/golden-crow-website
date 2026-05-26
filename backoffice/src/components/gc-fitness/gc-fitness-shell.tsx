@@ -10,6 +10,7 @@ import {
   Library,
   ListChecks,
   MessagesSquare,
+  Shield,
   Settings,
   Users,
 } from "lucide-react";
@@ -79,9 +80,11 @@ const sections = [
 export function GCFitnessShell({
   children,
   trainerUid,
+  isAdmin,
 }: {
   children: React.ReactNode;
   trainerUid: string | null;
+  isAdmin: boolean;
 }) {
   const pathname = usePathname();
   const t = useTranslations("shell");
@@ -96,6 +99,16 @@ export function GCFitnessShell({
   if (shellHidden) {
     return children;
   }
+
+  const resolvedSections = isAdmin
+    ? [
+        ...sections,
+        {
+          sectionKey: "admin",
+          items: [{ labelKey: "admin", href: "/gc-fitness/admin", icon: Shield }],
+        },
+      ]
+    : sections;
 
   return (
     <SidebarProvider>
@@ -113,7 +126,7 @@ export function GCFitnessShell({
             </div>
           </SidebarHeader>
           <SidebarContent>
-            {sections.map((section) => (
+            {resolvedSections.map((section) => (
               <SidebarGroup key={section.sectionKey}>
                 <SidebarGroupLabel>{tNav(section.sectionKey)}</SidebarGroupLabel>
                 <SidebarGroupContent>

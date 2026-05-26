@@ -37,6 +37,7 @@
     "library": "Biblioteca",
     "habits": "Hábitos",
     "communication": "Comunicación",
+    "admin": "Admin",
     "chat": "Chat",
     "settings": "Configuración",
     "clientsSection": "Clientes",
@@ -45,13 +46,16 @@
     "contentSectionDescription": "Plantillas de entrenamiento, hábitos y biblioteca de ejercicios.",
     "engagementSection": "Comunicación",
     "engagementSectionDescription": "Bandeja de chat y preferencias del entrenador.",
+    "adminSection": "Admin",
+    "adminSectionDescription": "Administración de plataforma y control de acceso.",
     "clientsDescription": "Plantel con última actividad, adherencia y chat sin leer.",
     "recentLogsDescription": "Actividad reciente de hábitos y entrenamientos entre clientes.",
     "workoutsDescription": "Creación y asignación de plantillas de entrenamiento.",
     "habitsDescription": "CRUD de hábitos y asignación por cliente.",
     "exercisesDescription": "Biblioteca de ejercicios y gestión de GIFs.",
     "chatDescription": "Bandeja del entrenador y conversaciones por cliente.",
-    "settingsDescription": "Respuestas rápidas y preferencias del entrenador."
+    "settingsDescription": "Respuestas rápidas y preferencias del entrenador.",
+    "adminDescription": "Accesos de coaches/admin y controles operativos."
   },
   "shell": {
     "eyebrow": "Golden Crow",
