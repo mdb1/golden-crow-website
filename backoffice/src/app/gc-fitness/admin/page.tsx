@@ -15,6 +15,7 @@ import {
   promoteUserToAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { AdminSubmitButton } from "./_components/admin-submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,9 @@ export default async function AdminPage({
   }
 
   const sp = await searchParams;
+  const op = typeof sp.op === "string" ? sp.op : null;
+  const ok = typeof sp.ok === "string" ? sp.ok : null;
+  const actionMessage = op && ok === "1" ? `Action completed: ${op}.` : null;
   const deleteTarget = typeof sp.deleteTarget === "string" ? sp.deleteTarget : null;
   const targetUid = typeof sp.targetUid === "string" ? sp.targetUid.trim() : "";
   let clientPreview: Awaited<ReturnType<typeof previewClientCascade>> | null = null;
@@ -64,6 +68,7 @@ export default async function AdminPage({
     const email = String(formData.get("email") ?? "");
     await addCoachEmailToAllowlist(email);
     revalidatePath("/gc-fitness/admin");
+    redirect("/gc-fitness/admin?op=allowlist_add&ok=1");
   }
 
   async function promoteToAdminAction(formData: FormData) {
@@ -71,6 +76,7 @@ export default async function AdminPage({
     const email = String(formData.get("email") ?? "");
     await promoteUserToAdmin({ email, keepTrainer: true });
     revalidatePath("/gc-fitness/admin");
+    redirect("/gc-fitness/admin?op=promote_admin&ok=1");
   }
 
   async function removeAllowlistEmailAction(formData: FormData) {
@@ -78,6 +84,7 @@ export default async function AdminPage({
     const email = String(formData.get("email") ?? "");
     await removeCoachEmailFromAllowlist({ email });
     revalidatePath("/gc-fitness/admin");
+    redirect("/gc-fitness/admin?op=allowlist_remove&ok=1");
   }
 
   async function deleteClientAction(formData: FormData) {
@@ -87,6 +94,7 @@ export default async function AdminPage({
     const mode = String(formData.get("mode") ?? "dry_run");
     await deleteClientCascade({ clientUid, confirmation, mode });
     revalidatePath("/gc-fitness/admin");
+    redirect("/gc-fitness/admin?op=delete_client&ok=1");
   }
 
   async function deleteCoachAction(formData: FormData) {
@@ -96,6 +104,7 @@ export default async function AdminPage({
     const mode = String(formData.get("mode") ?? "dry_run");
     await deleteCoachCascade({ coachUid, confirmation, mode });
     revalidatePath("/gc-fitness/admin");
+    redirect("/gc-fitness/admin?op=delete_coach&ok=1");
   }
 
   return (
@@ -109,6 +118,11 @@ export default async function AdminPage({
           same time.
         </p>
       </div>
+      {actionMessage ? (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          {actionMessage}
+        </div>
+      ) : null}
 
       <section className="grid gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-2">
         <form action={addAllowlistEmailAction} className="space-y-2 rounded-xl border p-4">
@@ -123,12 +137,11 @@ export default async function AdminPage({
             placeholder="coach@email.com"
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
           />
-          <button
-            type="submit"
+          <AdminSubmitButton
+            idleLabel="Add email"
+            pendingLabel="Adding..."
             className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Add email
-          </button>
+          />
         </form>
 
         <form action={promoteToAdminAction} className="space-y-2 rounded-xl border p-4">
@@ -143,12 +156,11 @@ export default async function AdminPage({
             placeholder="user@email.com"
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
           />
-          <button
-            type="submit"
+          <AdminSubmitButton
+            idleLabel="Promote user"
+            pendingLabel="Promoting..."
             className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Promote user
-          </button>
+          />
         </form>
       </section>
 
@@ -185,12 +197,11 @@ export default async function AdminPage({
                     <td className="px-4 py-2">
                       <form action={removeAllowlistEmailAction}>
                         <input type="hidden" name="email" value={row.email} />
-                        <button
-                          type="submit"
+                        <AdminSubmitButton
+                          idleLabel="Remove"
+                          pendingLabel="Removing..."
                           className="inline-flex h-8 items-center rounded-md border border-red-300 px-3 text-xs font-medium text-red-700 hover:bg-red-50"
-                        >
-                          Remove
-                        </button>
+                        />
                       </form>
                     </td>
                   </tr>
@@ -270,12 +281,11 @@ export default async function AdminPage({
               placeholder="client uid"
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             />
-            <button
-              type="submit"
+            <AdminSubmitButton
+              idleLabel="Preview deletion (dry run)"
+              pendingLabel="Previewing..."
               className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
-            >
-              Preview deletion (dry run)
-            </button>
+            />
           </form>
           {clientPreview ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
@@ -317,14 +327,13 @@ export default async function AdminPage({
               placeholder='Type exactly: DELETE CLIENT'
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             />
-            <button
-              type="submit"
+            <AdminSubmitButton
+              idleLabel="Confirm and delete client"
+              pendingLabel="Deleting client..."
               name="mode"
               value="execute"
               className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
-            >
-              Confirm and delete client
-            </button>
+            />
           </form>
         </div>
 
@@ -343,12 +352,11 @@ export default async function AdminPage({
               placeholder="coach uid"
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             />
-            <button
-              type="submit"
+            <AdminSubmitButton
+              idleLabel="Preview deletion (dry run)"
+              pendingLabel="Previewing..."
               className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
-            >
-              Preview deletion (dry run)
-            </button>
+            />
           </form>
           {coachPreview ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
@@ -387,14 +395,13 @@ export default async function AdminPage({
               placeholder='Type exactly: DELETE COACH'
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             />
-            <button
-              type="submit"
+            <AdminSubmitButton
+              idleLabel="Confirm and delete coach"
+              pendingLabel="Deleting coach..."
               name="mode"
               value="execute"
               className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
-            >
-              Confirm and delete coach
-            </button>
+            />
           </form>
         </div>
       </section>

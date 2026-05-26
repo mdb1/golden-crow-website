@@ -243,6 +243,12 @@ async function assertTrainerOwnsClient(
   if (data.coachId !== trainerUid) {
     throw new Error("Forbidden");
   }
+  if (data.role !== "client") {
+    throw new Error("Client not found");
+  }
+  if (data.deleted === true) {
+    throw new Error("Client not found");
+  }
 }
 
 // ── sendTrainerMessage (writer — Pitfall 22 client-doc untouched) ──────

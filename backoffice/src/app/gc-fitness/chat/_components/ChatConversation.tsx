@@ -49,12 +49,14 @@ export interface ChatConversationProps {
   chatId: string;
   trainerUid: string;
   clientRoster: ClientRosterEntry[];
+  isPendingClient?: boolean;
 }
 
 export function ChatConversation({
   chatId,
   trainerUid,
   clientRoster,
+  isPendingClient = false,
 }: ChatConversationProps) {
   const t = useTranslations("chat.conversation");
   const {
@@ -286,7 +288,7 @@ export function ChatConversation({
         )}
       </div>
       <div className="shrink-0 border-t bg-background">
-        <MessageInput chatId={chatId} />
+        <MessageInput chatId={chatId} disabled={isPendingClient} />
       </div>
     </div>
   );

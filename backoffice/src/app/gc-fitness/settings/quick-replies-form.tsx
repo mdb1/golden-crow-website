@@ -41,7 +41,7 @@
 // (manual refresh after save is a documented V2 carry-forward, see
 // must_haves.truths in PLAN 08-12).
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -104,6 +104,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
   const router = useRouter();
   const t = useTranslations("settings.quickRepliesForm");
   const [pending, startTransition] = useTransition();
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const form = useForm<FormShape>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,6 +133,8 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
         const replies = values.replies.map((r) => r.value);
         await updateChatQuickReplies({ replies });
         toast.success(t("savedToast"));
+        setSavedAt(Date.now());
+        form.reset({ replies: values.replies });
         // Refresh so the server-rendered Settings page re-fetches via
         // `getCurrentTrainerProfile()`, and so any other server-rendered
         // surface that reads the trainer profile sees the new value.
@@ -246,9 +249,14 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
             <Plus className="mr-1 h-4 w-4" />
             {t("addCta")}
           </Button>
-          <Button type="submit" disabled={pending}>
+          <div className="flex items-center gap-2">
+            {savedAt && !pending && !form.formState.isDirty ? (
+              <span className="text-xs text-emerald-700">{t("savedInline")}</span>
+            ) : null}
+            <Button type="submit" disabled={pending || !form.formState.isDirty}>
             {pending ? t("saving") : t("save")}
-          </Button>
+            </Button>
+          </div>
         </div>
       </form>
     </Form>

@@ -804,7 +804,8 @@
       "messageAria": "Message text",
       "sending": "Sending…",
       "send": "Send",
-      "errorFallback": "Couldn't send."
+      "errorFallback": "Couldn't send.",
+      "pendingClientBlocked": "This client is pending activation. You can view the thread, but you cannot send messages yet."
     },
     "quickReply": {
       "triggerAria": "Insert quick reply",
@@ -836,6 +837,7 @@
       "addCta": "Add quick reply",
       "save": "Save",
       "saving": "Saving…",
+      "savedInline": "Saved",
       "savedToast": "Quick replies saved.",
       "saveFailedToast": "Couldn't save.",
       "maxCharsError": "Max {max} characters.",

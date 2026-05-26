@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 export interface ClientRosterEntry {
   uid: string;
   displayName: string;
+  pendingProvisioning: boolean;
 }
 
 export interface ChatInboxClientProps {
@@ -57,6 +58,8 @@ export function ChatInboxClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeChatId = searchParams.get("chatId") ?? null;
+  const activeClient = clientRoster.find((c) => c.uid === activeChatId) ?? null;
+  const activeClientIsPending = Boolean(activeClient?.pendingProvisioning);
 
   const setActiveChatId = useCallback(
     (chatId: string | null) => {
@@ -105,6 +108,7 @@ export function ChatInboxClient({
               chatId={activeChatId}
               trainerUid={trainerUid}
               clientRoster={clientRoster}
+              isPendingClient={activeClientIsPending}
             />
           </>
         ) : (

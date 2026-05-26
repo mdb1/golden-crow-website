@@ -46,11 +46,12 @@ import { QuickReplyDropdown } from "./QuickReplyDropdown";
 
 export interface MessageInputProps {
   chatId: string;
+  disabled?: boolean;
   /** 08-12 quick-reply templates — reserved API slot (dropdown self-fetches in V1). */
   trainerQuickReplies?: string[];
 }
 
-export function MessageInput({ chatId }: MessageInputProps) {
+export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
   const t = useTranslations("chat.composer");
   const [text, setText] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -80,7 +81,8 @@ export function MessageInput({ chatId }: MessageInputProps) {
     },
   });
 
-  const canSend = text.trim().length > 0 && !mutation.isPending && !uploading;
+  const canSend =
+    text.trim().length > 0 && !mutation.isPending && !uploading && !disabled;
 
   const handleSubmit = useCallback(() => {
     const trimmed = text.trim();
@@ -184,7 +186,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
             type="file"
             accept="image/*"
             className="hidden"
-            disabled={uploading}
+            disabled={uploading || disabled}
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.currentTarget.value = "";
@@ -199,7 +201,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
             type="file"
             accept="audio/*"
             className="hidden"
-            disabled={uploading}
+            disabled={uploading || disabled}
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.currentTarget.value = "";
@@ -210,7 +212,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
         </label>
         <QuickReplyDropdown
           onSelect={handleQuickReplySelect}
-          disabled={uploading}
+          disabled={uploading || disabled}
         />
         <textarea
           ref={textareaRef}
@@ -226,7 +228,7 @@ export function MessageInput({ chatId }: MessageInputProps) {
           placeholder={t("placeholder")}
           rows={1}
           aria-label={t("messageAria")}
-          disabled={uploading}
+          disabled={uploading || disabled}
           className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
@@ -237,6 +239,11 @@ export function MessageInput({ chatId }: MessageInputProps) {
           {mutation.isPending || uploading ? t("sending") : t("send")}
         </button>
       </div>
+      {disabled ? (
+        <p className="text-xs text-amber-700" role="status">
+          {t("pendingClientBlocked")}
+        </p>
+      ) : null}
       {submitError && (
         <p className="text-xs text-destructive" role="alert">
           {submitError}

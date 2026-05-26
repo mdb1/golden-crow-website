@@ -804,7 +804,8 @@
       "messageAria": "Texto del mensaje",
       "sending": "Enviando…",
       "send": "Enviar",
-      "errorFallback": "No se pudo enviar."
+      "errorFallback": "No se pudo enviar.",
+      "pendingClientBlocked": "Este cliente está pendiente de activación. Podés ver el hilo, pero no enviar mensajes todavía."
     },
     "quickReply": {
       "triggerAria": "Insertar respuesta rápida",
@@ -836,6 +837,7 @@
       "addCta": "Agregar respuesta rápida",
       "save": "Guardar",
       "saving": "Guardando…",
+      "savedInline": "Guardado",
       "savedToast": "Respuestas rápidas guardadas.",
       "saveFailedToast": "No se pudo guardar.",
       "maxCharsError": "Máx. {max} caracteres.",
