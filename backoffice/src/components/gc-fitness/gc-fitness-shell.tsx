@@ -38,6 +38,7 @@ import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
 import { LanguagePicker } from "@/components/gc-fitness/language-picker";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const HIDDEN_SHELL_PATHS = new Set([
   "/gc-fitness/login",
@@ -185,6 +186,11 @@ export function GCFitnessShell({
                   {t("headerTitle")}
                 </h1>
               </div>
+              {isAdmin ? (
+                <Button asChild variant="outline" size="sm" className="h-8 px-2 text-xs">
+                  <Link href="/gc-fitness/admin">Admin</Link>
+                </Button>
+              ) : null}
               <LanguagePicker />
             </div>
           </header>
