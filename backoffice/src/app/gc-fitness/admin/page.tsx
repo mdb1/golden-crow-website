@@ -4,14 +4,11 @@ import { redirect } from "next/navigation";
 
 import {
   addCoachEmailToAllowlist,
-  deleteClientCascade,
   deleteCoachCascade,
   listCoachesForAdmin,
   listCoachAllowlist,
   removeCoachEmailFromAllowlist,
-  previewClientCascade,
   previewCoachCascade,
-  getDeletionTargetInfo,
   promoteUserToAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
@@ -40,20 +37,9 @@ export default async function AdminPage({
   const actionMessage = op && ok === "1" ? `Action completed: ${op}.` : null;
   const deleteTarget = typeof sp.deleteTarget === "string" ? sp.deleteTarget : null;
   const targetUid = typeof sp.targetUid === "string" ? sp.targetUid.trim() : "";
-  let clientPreview: Awaited<ReturnType<typeof previewClientCascade>> | null = null;
   let coachPreview: Awaited<ReturnType<typeof previewCoachCascade>> | null = null;
-  let targetInfo: Awaited<ReturnType<typeof getDeletionTargetInfo>> | null = null;
-  if (deleteTarget === "client" && targetUid.length > 0) {
-    try {
-      targetInfo = await getDeletionTargetInfo(targetUid);
-      clientPreview = await previewClientCascade(targetUid);
-    } catch {
-      clientPreview = null;
-    }
-  }
   if (deleteTarget === "coach" && targetUid.length > 0) {
     try {
-      targetInfo = await getDeletionTargetInfo(targetUid);
       coachPreview = await previewCoachCascade(targetUid);
     } catch {
       coachPreview = null;
@@ -85,16 +71,6 @@ export default async function AdminPage({
     await removeCoachEmailFromAllowlist({ email });
     revalidatePath("/gc-fitness/admin");
     redirect("/gc-fitness/admin?op=allowlist_remove&ok=1");
-  }
-
-  async function deleteClientAction(formData: FormData) {
-    "use server";
-    const clientUid = String(formData.get("clientUid") ?? "");
-    const confirmation = String(formData.get("confirmation") ?? "");
-    const mode = String(formData.get("mode") ?? "dry_run");
-    await deleteClientCascade({ clientUid, confirmation, mode });
-    revalidatePath("/gc-fitness/admin");
-    redirect("/gc-fitness/admin?op=delete_client&ok=1");
   }
 
   async function deleteCoachAction(formData: FormData) {
@@ -264,79 +240,7 @@ export default async function AdminPage({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-2">
-        <div className="space-y-2 rounded-xl border p-4">
-          <p className="text-sm font-semibold text-red-700">Delete client (cascade)</p>
-          <p className="text-xs text-muted-foreground">Step 1: preview impact. Step 2: execute.</p>
-          <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-            <li>Direct: client auth account + <code>users/{`{clientUid}`}</code>.</li>
-            <li>Cascade: chat thread, workout logs, assignments, habits, habit logs, goals, notes, progress photos metadata.</li>
-            <li>Client loses relationship with coach because client document is deleted.</li>
-          </ul>
-          <form action="/gc-fitness/admin" method="get" className="space-y-2">
-            <input type="hidden" name="deleteTarget" value="client" />
-            <input
-              name="targetUid"
-              required
-              placeholder="client uid"
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            />
-            <AdminSubmitButton
-              idleLabel="Preview deletion (dry run)"
-              pendingLabel="Previewing..."
-              className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
-            />
-          </form>
-          {clientPreview ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-              <p className="font-semibold">Preview result</p>
-              {targetInfo?.exists ? (
-                <p>
-                  Target detected: {targetInfo.role ?? "unknown"} · {targetInfo.displayName || targetInfo.email || "—"}
-                </p>
-              ) : (
-                <p>Target not found in users collection.</p>
-              )}
-              {targetInfo?.role === "trainer" ? (
-                <p className="font-semibold text-red-700">
-                  Warning: that UID belongs to a trainer, not a client.
-                </p>
-              ) : null}
-              <p>Total docs approx: {clientPreview.totalApprox}</p>
-              <p>chat: {clientPreview.chatDocExists ? "yes" : "no"}</p>
-              <p>workout_logs: {clientPreview.workoutLogs}</p>
-              <p>workout_assignments: {clientPreview.workoutAssignments}</p>
-              <p>habits: {clientPreview.habits}</p>
-              <p>habit_logs: {clientPreview.habitLogs}</p>
-              <p>client_goals: {clientPreview.clientGoals}</p>
-              <p>client_notes: {clientPreview.clientNotes}</p>
-              <p>progress_photos: {clientPreview.progressPhotos}</p>
-            </div>
-          ) : null}
-          <form action={deleteClientAction} className="space-y-2">
-            <input
-              name="clientUid"
-              required
-              defaultValue={deleteTarget === "client" ? targetUid : ""}
-              placeholder="client uid (same as preview)"
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            />
-            <input
-              name="confirmation"
-              required
-              placeholder='Type exactly: DELETE CLIENT'
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            />
-            <AdminSubmitButton
-              idleLabel="Confirm and delete client"
-              pendingLabel="Deleting client..."
-              name="mode"
-              value="execute"
-              className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
-            />
-          </form>
-        </div>
-
+      <section className="grid gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-1">
         <div className="space-y-2 rounded-xl border p-4">
           <p className="text-sm font-semibold text-red-700">Delete coach (cascade)</p>
           <p className="text-xs text-muted-foreground">Step 1: preview impact. Step 2: execute.</p>
@@ -361,18 +265,6 @@ export default async function AdminPage({
           {coachPreview ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
               <p className="font-semibold">Preview result</p>
-              {targetInfo?.exists ? (
-                <p>
-                  Target detected: {targetInfo.role ?? "unknown"} · {targetInfo.displayName || targetInfo.email || "—"}
-                </p>
-              ) : (
-                <p>Target not found in users collection.</p>
-              )}
-              {targetInfo?.role === "client" ? (
-                <p className="font-semibold text-red-700">
-                  Warning: that UID belongs to a client, not a trainer.
-                </p>
-              ) : null}
               <p>Total docs approx: {coachPreview.totalApprox}</p>
               <p>linked clients: {coachPreview.clients}</p>
               <p>workout_templates: {coachPreview.workoutTemplates}</p>
