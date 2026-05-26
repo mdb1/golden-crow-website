@@ -131,6 +131,15 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
   const handleAttachment = useCallback(
     async (file: File, kind: "image" | "voice") => {
       try {
+        if (kind === "voice") {
+          const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+          const isAudioMime = file.type.startsWith("audio/");
+          const knownAudioExt = ["m4a", "mp3", "wav", "aac", "webm", "ogg", "mp4"];
+          if (!isAudioMime && !knownAudioExt.includes(ext)) {
+            setSubmitError(t("voiceUnsupported"));
+            return;
+          }
+        }
         setSubmitError(null);
         setUploading(true);
         const base64Data = await fileToBase64(file);
@@ -180,11 +189,16 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
       className="flex flex-col gap-1 border-t bg-background p-3"
     >
       <div className="flex items-end gap-2">
-        <label className="cursor-pointer rounded-md border border-input px-2 py-2 text-xs">
-          📷
+        <label
+          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input px-2 py-2 text-xs"
+          title={t("photoCta")}
+          aria-label={t("photoCta")}
+        >
+          <span aria-hidden>📷</span>
+          <span className="hidden sm:inline">{t("photoLabel")}</span>
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,.jpg,.jpeg,.png,.webp,.heic"
             className="hidden"
             disabled={uploading || disabled}
             onChange={(e) => {
@@ -195,11 +209,17 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
             }}
           />
         </label>
-        <label className="cursor-pointer rounded-md border border-input px-2 py-2 text-xs">
-          🎤
+        <label
+          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input px-2 py-2 text-xs"
+          title={t("voiceCta")}
+          aria-label={t("voiceCta")}
+        >
+          <span aria-hidden>🎤</span>
+          <span className="hidden sm:inline">{t("voiceLabel")}</span>
           <input
             type="file"
-            accept="audio/*"
+            accept="audio/*,.m4a,.mp3,.wav,.aac,.webm,.ogg,.mp4"
+            capture
             className="hidden"
             disabled={uploading || disabled}
             onChange={(e) => {

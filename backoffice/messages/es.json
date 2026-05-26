@@ -802,9 +802,14 @@
     "composer": {
       "placeholder": "Escribí un mensaje…",
       "messageAria": "Texto del mensaje",
+      "photoCta": "Adjuntar foto",
+      "photoLabel": "Foto",
+      "voiceCta": "Adjuntar audio",
+      "voiceLabel": "Audio",
       "sending": "Enviando…",
       "send": "Enviar",
       "errorFallback": "No se pudo enviar.",
+      "voiceUnsupported": "Formato de audio no compatible. Probá con m4a, mp3, wav o webm.",
       "pendingClientBlocked": "Este cliente está pendiente de activación. Podés ver el hilo, pero no enviar mensajes todavía."
     },
     "quickReply": {

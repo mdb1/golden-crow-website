@@ -2,8 +2,14 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { useEffect, useState } from "react";
+import {
+  GoogleAuthProvider,
+  getRedirectResult,
+  signInWithPopup,
+  signInWithRedirect,
+  type UserCredential,
+} from "firebase/auth";
 import {
   Activity,
   BarChart3,
@@ -45,6 +51,45 @@ export default function GCFitnessLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function completeBackofficeSession(result: UserCredential) {
+    const idToken = await result.user.getIdToken();
+    const res = await fetch("/api/gc-fitness/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      setError(await readError(res));
+      return;
+    }
+    window.location.href = "/gc-fitness/dashboard";
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function resumeRedirectSignIn() {
+      const auth = getGCFitnessAuth();
+      const result = await getRedirectResult(auth);
+      if (!result || cancelled) return;
+      await completeBackofficeSession(result);
+    }
+    resumeRedirectSignIn().catch((err) => {
+      if (cancelled) return;
+      setError(err instanceof Error ? err.message : t("errorFallback"));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  function shouldPreferRedirectFlow() {
+    const ua = navigator.userAgent.toLowerCase();
+    return /iphone|ipad|ipod|android/.test(ua);
+  }
+
   async function readError(res: Response): Promise<string> {
     try {
       const data = (await res.json()) as { error?: string };
@@ -61,24 +106,30 @@ export default function GCFitnessLoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       const auth = getGCFitnessAuth();
-      const result = await signInWithPopup(auth, provider);
-      const idToken = await result.user.getIdToken();
-
-      const res = await fetch("/api/gc-fitness/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!res.ok) {
-        setError(await readError(res));
+      if (shouldPreferRedirectFlow()) {
+        await signInWithRedirect(auth, provider);
         return;
       }
-      window.location.href = "/gc-fitness/dashboard";
+      const result = await signInWithPopup(auth, provider);
+      await completeBackofficeSession(result);
     } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: unknown }).code)
+          : "";
+      if (code === "auth/popup-blocked") {
+        try {
+          const provider = new GoogleAuthProvider();
+          const auth = getGCFitnessAuth();
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr) {
+          setError(
+            redirectErr instanceof Error ? redirectErr.message : t("errorFallback"),
+          );
+          return;
+        }
+      }
       setError(err instanceof Error ? err.message : t("errorFallback"));
     } finally {
       setLoading(false);

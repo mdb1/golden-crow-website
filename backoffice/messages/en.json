@@ -802,9 +802,14 @@
     "composer": {
       "placeholder": "Type a message…",
       "messageAria": "Message text",
+      "photoCta": "Attach photo",
+      "photoLabel": "Photo",
+      "voiceCta": "Attach audio",
+      "voiceLabel": "Audio",
       "sending": "Sending…",
       "send": "Send",
       "errorFallback": "Couldn't send.",
+      "voiceUnsupported": "Unsupported audio format. Try m4a, mp3, wav, or webm.",
       "pendingClientBlocked": "This client is pending activation. You can view the thread, but you cannot send messages yet."
     },
     "quickReply": {
