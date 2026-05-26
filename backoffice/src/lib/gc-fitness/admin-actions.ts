@@ -228,21 +228,45 @@ export async function addCoachEmailToAllowlist(input: unknown): Promise<{ ok: tr
 export async function listCoachAllowlist(): Promise<CoachAllowlistRow[]> {
   await getCurrentAdmin();
   const db = gcFitnessFirestore();
-  const snap = await db
-    .collection(FirestoreCollections.coachAllowlist)
-    .orderBy("email", "asc")
-    .get();
-  return snap.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      email: (data.email as string | undefined) ?? doc.id,
-      enabled: data.enabled !== false,
-      updatedAtISO:
+  const [snap, trainersSnap] = await Promise.all([
+    db.collection(FirestoreCollections.coachAllowlist).orderBy("email", "asc").get(),
+    db
+      .collection(FirestoreCollections.users)
+      .where("role", "==", "trainer")
+      .where("deleted", "==", false)
+      .get(),
+  ]);
+  const trainerEmails = new Set(
+    trainersSnap.docs
+      .map((d) => (d.get("email") as string | undefined)?.toLowerCase())
+      .filter((v): v is string => typeof v === "string" && v.length > 0),
+  );
+
+  return snap.docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        email: (data.email as string | undefined) ?? doc.id,
+        enabled: data.enabled !== false,
+        updatedAtISO:
         data.updatedAt && typeof data.updatedAt.toDate === "function"
           ? data.updatedAt.toDate().toISOString()
           : null,
-    };
-  });
+      };
+    })
+    .filter((row) => !trainerEmails.has(row.email.toLowerCase()));
+}
+
+const removeAllowlistSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+});
+
+export async function removeCoachEmailFromAllowlist(input: unknown): Promise<{ ok: true }> {
+  await getCurrentAdmin();
+  const parsed = removeAllowlistSchema.parse(input);
+  const db = gcFitnessFirestore();
+  await db.collection(FirestoreCollections.coachAllowlist).doc(parsed.email).delete();
+  return { ok: true };
 }
 
 const promoteAdminSchema = z.object({

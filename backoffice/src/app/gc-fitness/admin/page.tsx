@@ -8,6 +8,7 @@ import {
   deleteCoachCascade,
   listCoachesForAdmin,
   listCoachAllowlist,
+  removeCoachEmailFromAllowlist,
   previewClientCascade,
   previewCoachCascade,
   getDeletionTargetInfo,
@@ -69,6 +70,13 @@ export default async function AdminPage({
     "use server";
     const email = String(formData.get("email") ?? "");
     await promoteUserToAdmin({ email, keepTrainer: true });
+    revalidatePath("/gc-fitness/admin");
+  }
+
+  async function removeAllowlistEmailAction(formData: FormData) {
+    "use server";
+    const email = String(formData.get("email") ?? "");
+    await removeCoachEmailFromAllowlist({ email });
     revalidatePath("/gc-fitness/admin");
   }
 
@@ -148,22 +156,23 @@ export default async function AdminPage({
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-semibold">Coach allowlist</h2>
           <p className="text-xs text-muted-foreground">
-            Current emails that can sign up as trainers through auth gating.
+            Pending allowlist emails (already-trainer emails are hidden).
           </p>
         </div>
-        <div className="overflow-x-auto border-b">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[780px] text-sm">
             <thead className="bg-muted/40 text-left">
               <tr>
                 <th className="px-4 py-2 font-medium">Email</th>
                 <th className="px-4 py-2 font-medium">Enabled</th>
                 <th className="px-4 py-2 font-medium">Updated at (UTC)</th>
+                <th className="px-4 py-2 font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
               {allowlistRows.length === 0 ? (
                 <tr className="border-t">
-                  <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={3}>
+                  <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={4}>
                     No allowlist entries yet.
                   </td>
                 </tr>
@@ -173,13 +182,26 @@ export default async function AdminPage({
                     <td className="px-4 py-2">{row.email}</td>
                     <td className="px-4 py-2">{row.enabled ? "yes" : "no"}</td>
                     <td className="px-4 py-2">{row.updatedAtISO ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <form action={removeAllowlistEmailAction}>
+                        <input type="hidden" name="email" value={row.email} />
+                        <button
+                          type="submit"
+                          className="inline-flex h-8 items-center rounded-md border border-red-300 px-3 text-xs font-medium text-red-700 hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+      </section>
 
+      <section className="overflow-hidden rounded-2xl border bg-card">
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-semibold">Coaches</h2>
           <p className="text-xs text-muted-foreground">
