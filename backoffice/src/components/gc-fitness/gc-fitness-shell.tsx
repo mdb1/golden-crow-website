@@ -39,6 +39,7 @@ import { LanguagePicker } from "@/components/gc-fitness/language-picker";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { GCFitnessAppearanceToggle } from "@/components/gc-fitness/gc-fitness-appearance-toggle";
 
 const HIDDEN_SHELL_PATHS = new Set([
   "/gc-fitness/login",
@@ -113,7 +114,7 @@ export function GCFitnessShell({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
+      <div className="gc-shell-bg flex min-h-screen w-full bg-background">
         <Sidebar variant="floating" collapsible="icon" className="border-none bg-transparent p-2">
           <SidebarHeader className="glass-panel gap-3 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
             <div className="px-2 group-data-[collapsible=icon]:px-0">
@@ -191,6 +192,7 @@ export function GCFitnessShell({
                   <Link href="/gc-fitness/admin">Admin</Link>
                 </Button>
               ) : null}
+              <GCFitnessAppearanceToggle />
               <LanguagePicker />
             </div>
           </header>

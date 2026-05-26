@@ -210,6 +210,14 @@
 }
 
 @layer components {
+  .gc-shell-bg {
+    background:
+      radial-gradient(circle at 10% 8%, var(--ambient-glow-top-left), transparent 36%),
+      radial-gradient(circle at 90% 6%, var(--ambient-glow-top-right), transparent 34%),
+      radial-gradient(circle at 48% 100%, var(--ambient-glow-bottom), transparent 44%),
+      linear-gradient(180deg, var(--ambient-fade-top) 0%, var(--ambient-fade-mid) 48%, var(--background) 100%);
+  }
+
   .glass-panel {
     background:
       linear-gradient(180deg, rgba(20, 24, 32, 0.96) 0%, rgba(14, 17, 24, 0.94) 100%);
