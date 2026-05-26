@@ -95,16 +95,17 @@ export default function GCFitnessLoginPage() {
           <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
               <CheckCircle2 className="size-4 text-amber-500" />
-              GC Fitness trainer workspace
+              Operaciones GC Fitness
             </div>
 
             <div className="max-w-[680px] space-y-5">
               <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
-                Coach your clients from one focused operations panel.
+                Gestioná tus atletas desde un único panel de trabajo.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-slate-700">
-                Assign workouts and habits, review compliance, track progression,
-                and respond in chat with live client context in one place.
+                Asigná rutinas y hábitos, revisá adherencia, seguí progreso y
+                respondé mensajes con el contexto completo del cliente en una
+                sola vista.
               </p>
             </div>
 
@@ -112,42 +113,43 @@ export default function GCFitnessLoginPage() {
               <div className="auth-feature-card rounded-2xl p-4">
                 <Dumbbell className="size-5 text-cyan-700" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Program delivery
+                  Planificación precisa
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Build and assign workout templates with precise sets, reps,
-                  rest, and exercise order.
+                  Creá y asigná plantillas de entrenamiento con series,
+                  repeticiones, descanso y orden de ejercicios definidos.
                 </p>
               </div>
               <div className="auth-feature-card rounded-2xl p-4">
                 <BarChart3 className="size-5 text-emerald-700" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Progress visibility
+                  Visibilidad de progreso
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Monitor adherence, PRs, and historical logs to make fast,
-                  data-backed coaching decisions.
+                  Monitoreá adherencia, PRs e historial para tomar decisiones de
+                  coaching rápidas y basadas en datos.
                 </p>
               </div>
               <div className="auth-feature-card rounded-2xl p-4">
                 <MessageSquareText className="size-5 text-amber-600" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Coach communication
+                  Comunicación centralizada
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Keep client feedback, workout updates, and accountability
-                  threads inside a single secure channel.
+                  Mantené feedback, ajustes de rutina y seguimiento de
+                  accountability dentro de un canal seguro.
                 </p>
               </div>
             </div>
 
             <div className="auth-path-card mt-auto rounded-2xl p-5">
               <p className="text-sm font-semibold text-slate-950">
-                Access control
+                Control de acceso
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
-                Only approved trainer accounts can sign in. If your Google email
-                is not enabled yet, contact your GC Fitness administrator.
+                Solo entrenadores aprobados pueden iniciar sesión. Si tu cuenta
+                de Google todavía no está habilitada, contactá al administrador
+                de GC Fitness.
               </p>
             </div>
           </aside>
@@ -193,11 +195,11 @@ export default function GCFitnessLoginPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-slate-950">
-                      Google-only sign-in
+                      Acceso con Google
                     </p>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Use your authorized Google account to access GC Fitness
-                      trainer tools and client operations.
+                      Ingresá con tu cuenta de Google autorizada para acceder a
+                      las herramientas de entrenador y operaciones de clientes.
                     </p>
                   </div>
                 </div>
