@@ -71,6 +71,9 @@ export interface CoachActivityRow {
   clientEmail: string | null;
   occurredAtISO: string | null;
   summary: string;
+  recurrenceLabel: string | null;
+  occurrences: number | null;
+  recurrenceSeriesId: string | null;
 }
 
 export interface DeletionTargetInfo {
@@ -88,6 +91,16 @@ function toIsoMaybe(value: unknown): string | null {
   }
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string") return value;
+  return null;
+}
+
+function recurrenceLabelFromRaw(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const kind = (raw as { kind?: unknown }).kind;
+  if (kind === "daily") return "daily";
+  if (kind === "weekly" || kind === "weekly_days") return "weekly";
+  if (kind === "monthly") return "monthly";
+  if (kind === "every_n_days") return "every_n_days";
   return null;
 }
 
@@ -378,6 +391,9 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned habit${habitName ? `: ${habitName}` : ""}`,
+      recurrenceLabel: null,
+      occurrences: null,
+      recurrenceSeriesId: null,
     });
   }
 
@@ -409,9 +425,13 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: null,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Created workout template${templateName ? `: ${templateName}` : ""}`,
+      recurrenceLabel: null,
+      occurrences: null,
+      recurrenceSeriesId: null,
     });
   }
 
+  const assignmentRows: CoachActivityRow[] = [];
   for (const doc of assignmentsSnap.docs) {
     const data = doc.data() as {
       trainerId?: string;
@@ -419,6 +439,8 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       pendingEmail?: string;
       createdAt?: unknown;
       templateSnapshot?: { name?: unknown };
+      recurrence?: unknown;
+      seriesId?: unknown;
     };
     const coachUid = data.trainerId ?? "";
     const coach = coachByUid.get(coachUid);
@@ -436,7 +458,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       typeof data.pendingEmail === "string" && data.pendingEmail.length > 0
         ? data.pendingEmail
         : null;
-    rows.push({
+    assignmentRows.push({
       id: `assignment:${doc.id}`,
       kind: "workout_assigned",
       coachUid,
@@ -446,7 +468,45 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned workout${templateName ? `: ${templateName}` : ""}`,
+      recurrenceLabel: recurrenceLabelFromRaw(data.recurrence),
+      occurrences: 1,
+      recurrenceSeriesId: typeof data.seriesId === "string" ? data.seriesId : null,
     });
+  }
+
+  const assignmentGroup = new Map<string, CoachActivityRow>();
+  for (const row of assignmentRows) {
+    const sourceDocId = row.id.replace("assignment:", "");
+    const recurrenceKey =
+      row.recurrenceLabel && row.recurrenceSeriesId
+        ? `series:${row.coachUid}:${row.recurrenceSeriesId}`
+        : `single:${sourceDocId}`;
+    const existing = assignmentGroup.get(recurrenceKey);
+    if (!existing) {
+      assignmentGroup.set(recurrenceKey, row);
+      continue;
+    }
+    const nextCount = (existing.occurrences ?? 1) + 1;
+    existing.occurrences = nextCount;
+    const left = existing.occurredAtISO ?? "";
+    const right = row.occurredAtISO ?? "";
+    if (right > left) {
+      existing.occurredAtISO = row.occurredAtISO;
+    }
+  }
+  for (const row of assignmentGroup.values()) {
+    if (row.recurrenceLabel && (row.occurrences ?? 1) > 1) {
+      const readable =
+        row.recurrenceLabel === "daily"
+          ? "daily"
+          : row.recurrenceLabel === "weekly"
+            ? "weekly"
+            : row.recurrenceLabel === "monthly"
+              ? "monthly"
+              : "every n days";
+      row.summary = `${row.summary} (recurring: ${readable})`;
+    }
+    rows.push(row);
   }
 
   for (const doc of mirrorSnap.docs) {
@@ -469,6 +529,9 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: (data.email ?? doc.id) as string,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: "Pre-provisioned pending client",
+      recurrenceLabel: null,
+      occurrences: null,
+      recurrenceSeriesId: null,
     });
   }
 
@@ -495,6 +558,9 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: data.email ?? null,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: "Client completed first login",
+      recurrenceLabel: null,
+      occurrences: null,
+      recurrenceSeriesId: null,
     });
   }
 
