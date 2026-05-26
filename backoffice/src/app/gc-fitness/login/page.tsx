@@ -4,16 +4,19 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { LogIn } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  CheckCircle2,
+  Dumbbell,
+  LogIn,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getGCFitnessAuth } from "@/lib/firebase/gc-fitness-client";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
 import { HelperBanner } from "@/components/helper-banner";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
 
@@ -83,34 +86,134 @@ export default function GCFitnessLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <p className="section-eyebrow">{t("eyebrow")}</p>
-          <CardTitle className="font-heading text-3xl font-semibold">
-            {t("title")}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Button
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full"
-          >
-            <LogIn className="mr-2 h-4 w-4" />
-            {loading ? t("signingIn") : t("googleCta")}
-          </Button>
-          {error && (
-            <HelperBanner title={t("errorTitle")} tone="red">
-              {error}
-            </HelperBanner>
-          )}
-          <p className="text-center text-xs text-muted-foreground">
-            v{BACKOFFICE_VERSION}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <main className="auth-liquid-canvas fixed inset-0 isolate min-h-screen w-full overflow-x-hidden overflow-y-auto text-slate-950">
+      <div className="auth-liquid-flow" aria-hidden />
+      <div className="auth-liquid-sheen" aria-hidden />
+
+      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+        <section className="auth-login-stage relative mx-auto grid w-full max-w-[1240px] gap-5 rounded-[2rem] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.78fr)] lg:p-6">
+          <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+              <CheckCircle2 className="size-4 text-amber-500" />
+              GC Fitness trainer workspace
+            </div>
+
+            <div className="max-w-[680px] space-y-5">
+              <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
+                Coach your clients from one focused operations panel.
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-slate-700">
+                Assign workouts and habits, review compliance, track progression,
+                and respond in chat with live client context in one place.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="auth-feature-card rounded-2xl p-4">
+                <Dumbbell className="size-5 text-cyan-700" />
+                <p className="mt-4 text-sm font-semibold text-slate-950">
+                  Program delivery
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Build and assign workout templates with precise sets, reps,
+                  rest, and exercise order.
+                </p>
+              </div>
+              <div className="auth-feature-card rounded-2xl p-4">
+                <BarChart3 className="size-5 text-emerald-700" />
+                <p className="mt-4 text-sm font-semibold text-slate-950">
+                  Progress visibility
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Monitor adherence, PRs, and historical logs to make fast,
+                  data-backed coaching decisions.
+                </p>
+              </div>
+              <div className="auth-feature-card rounded-2xl p-4">
+                <MessageSquareText className="size-5 text-amber-600" />
+                <p className="mt-4 text-sm font-semibold text-slate-950">
+                  Coach communication
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Keep client feedback, workout updates, and accountability
+                  threads inside a single secure channel.
+                </p>
+              </div>
+            </div>
+
+            <div className="auth-path-card mt-auto rounded-2xl p-5">
+              <p className="text-sm font-semibold text-slate-950">
+                Access control
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
+                Only approved trainer accounts can sign in. If your Google email
+                is not enabled yet, contact your GC Fitness administrator.
+              </p>
+            </div>
+          </aside>
+
+          <section className="auth-login-panel relative flex w-full flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 space-y-2">
+                <p className="section-eyebrow text-slate-500">Secure backoffice</p>
+                <h2 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
+                  {t("title")}
+                </h2>
+                <p className="text-sm leading-6 text-slate-600">{t("subtitle")}</p>
+              </div>
+              <div className="inline-flex items-center rounded-full border border-slate-900/10 bg-white/55 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Backoffice v{BACKOFFICE_VERSION}
+              </div>
+            </div>
+
+            {error ? (
+              <HelperBanner title={t("errorTitle")} tone="red">
+                {error}
+              </HelperBanner>
+            ) : null}
+
+            <div className="space-y-4">
+              <Button
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="h-11 w-full justify-center rounded-xl bg-slate-950 text-white hover:bg-slate-800"
+              >
+                {loading ? (
+                  <Activity className="size-4 animate-spin" />
+                ) : (
+                  <LogIn className="size-4" />
+                )}
+                {loading ? t("signingIn") : t("googleCta")}
+              </Button>
+
+              <div className="auth-login-glass rounded-2xl p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-900/10 bg-white/65 text-emerald-700">
+                    <ShieldCheck className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-950">
+                      Google-only sign-in
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Use your authorized Google account to access GC Fitness
+                      trainer tools and client operations.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-center justify-between text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="size-3.5" />
+                GC Fitness
+              </span>
+              <span>v{BACKOFFICE_VERSION}</span>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
   );
 }
