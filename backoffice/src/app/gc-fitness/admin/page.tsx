@@ -43,7 +43,8 @@ export default async function AdminPage() {
     "use server";
     const clientUid = String(formData.get("clientUid") ?? "");
     const confirmation = String(formData.get("confirmation") ?? "");
-    await deleteClientCascade({ clientUid, confirmation });
+    const mode = String(formData.get("mode") ?? "dry_run");
+    await deleteClientCascade({ clientUid, confirmation, mode });
     revalidatePath("/gc-fitness/admin");
   }
 
@@ -51,7 +52,8 @@ export default async function AdminPage() {
     "use server";
     const coachUid = String(formData.get("coachUid") ?? "");
     const confirmation = String(formData.get("confirmation") ?? "");
-    await deleteCoachCascade({ coachUid, confirmation });
+    const mode = String(formData.get("mode") ?? "dry_run");
+    await deleteCoachCascade({ coachUid, confirmation, mode });
     revalidatePath("/gc-fitness/admin");
   }
 
@@ -168,6 +170,16 @@ export default async function AdminPage() {
           />
           <button
             type="submit"
+            name="mode"
+            value="dry_run"
+            className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
+          >
+            Dry run
+          </button>
+          <button
+            type="submit"
+            name="mode"
+            value="execute"
             className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
           >
             Delete client
@@ -194,6 +206,16 @@ export default async function AdminPage() {
           />
           <button
             type="submit"
+            name="mode"
+            value="dry_run"
+            className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
+          >
+            Dry run
+          </button>
+          <button
+            type="submit"
+            name="mode"
+            value="execute"
             className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
           >
             Delete coach

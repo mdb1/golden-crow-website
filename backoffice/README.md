@@ -257,6 +257,13 @@ Admin console currently exposes destructive operations:
 Both actions run server-side with Firebase Admin SDK and are intended for
 operator-only recovery/cleanup workflows.
 
+Dry-run and audit:
+
+- Each delete form has a `Dry run` button and an `Execute` button.
+- Dry run computes impact counts without deleting data.
+- Both dry-run and execute attempts are logged to `admin_operations` with
+  actor, mode, target uid, status, and summary payload.
+
 ### Add or assign a client
 
 Go to `/gc-fitness/clients`.

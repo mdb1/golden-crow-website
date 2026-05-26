@@ -17,6 +17,8 @@ export interface CoachAdminRow {
   customExercisesCount: number;
 }
 
+type OperationMode = "dry_run" | "execute";
+
 const emailSchema = z.string().trim().toLowerCase().email();
 
 function rolesFromClaims(claims: Record<string, unknown> | undefined): string[] {
@@ -123,6 +125,28 @@ export async function promoteUserToAdmin(input: unknown): Promise<{ ok: true; ui
   return { ok: true, uid: user.uid };
 }
 
+async function writeAdminOperationLog(args: {
+  actorUid: string;
+  kind: "delete_client_cascade" | "delete_coach_cascade";
+  mode: OperationMode;
+  targetUid: string;
+  status: "success" | "failed";
+  summary: Record<string, unknown>;
+  errorMessage?: string;
+}) {
+  const db = gcFitnessFirestore();
+  await db.collection(FirestoreCollections.adminOperations).add({
+    actorUid: args.actorUid,
+    kind: args.kind,
+    mode: args.mode,
+    targetUid: args.targetUid,
+    status: args.status,
+    summary: args.summary,
+    errorMessage: args.errorMessage ?? null,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
 async function deleteDocsByQuery(
   query: FirebaseFirestore.Query,
 ): Promise<number> {
@@ -177,69 +201,238 @@ async function deleteClientCascadeInternal(clientUid: string): Promise<number> {
   return deletedDocs;
 }
 
+async function buildClientCascadePlan(clientUid: string): Promise<{
+  workoutAssignments: number;
+  workoutLogs: number;
+  habits: number;
+  habitLogs: number;
+  progressPhotos: number;
+  clientGoals: number;
+  clientNotes: number;
+  chatDocExists: boolean;
+  userDocExists: boolean;
+  totalApprox: number;
+}> {
+  const db = gcFitnessFirestore();
+  const [
+    workoutAssignments,
+    workoutLogs,
+    habits,
+    habitLogs,
+    progressPhotos,
+    clientGoals,
+    clientNotes,
+    chatDoc,
+    userDoc,
+  ] = await Promise.all([
+    db.collection(FirestoreCollections.workoutAssignments).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.workoutLogs).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.habits).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.habitLogs).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.progressPhotos).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.clientGoals).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.clientNotes).where("clientId", "==", clientUid).count().get(),
+    db.collection(FirestoreCollections.chats).doc(clientUid).get(),
+    db.collection(FirestoreCollections.users).doc(clientUid).get(),
+  ]);
+
+  const counts = {
+    workoutAssignments: workoutAssignments.data().count,
+    workoutLogs: workoutLogs.data().count,
+    habits: habits.data().count,
+    habitLogs: habitLogs.data().count,
+    progressPhotos: progressPhotos.data().count,
+    clientGoals: clientGoals.data().count,
+    clientNotes: clientNotes.data().count,
+    chatDocExists: chatDoc.exists,
+    userDocExists: userDoc.exists,
+  };
+  const totalApprox =
+    counts.workoutAssignments +
+    counts.workoutLogs +
+    counts.habits +
+    counts.habitLogs +
+    counts.progressPhotos +
+    counts.clientGoals +
+    counts.clientNotes +
+    (counts.chatDocExists ? 1 : 0) +
+    (counts.userDocExists ? 1 : 0);
+  return { ...counts, totalApprox };
+}
+
 const deleteClientSchema = z.object({
   clientUid: z.string().trim().min(6).max(128),
   confirmation: z.literal("DELETE CLIENT"),
+  mode: z.enum(["dry_run", "execute"]),
 });
 
 export async function deleteClientCascade(
   input: unknown,
-): Promise<{ ok: true; deletedDocsApprox: number }> {
-  await getCurrentAdmin();
+): Promise<{ ok: true; mode: OperationMode; deletedDocsApprox: number }> {
+  const admin = await getCurrentAdmin();
   const parsed = deleteClientSchema.parse(input);
-  const deletedDocsApprox = await deleteClientCascadeInternal(parsed.clientUid);
-  return { ok: true, deletedDocsApprox };
+  try {
+    const plan = await buildClientCascadePlan(parsed.clientUid);
+    if (parsed.mode === "dry_run") {
+      await writeAdminOperationLog({
+        actorUid: admin.uid,
+        kind: "delete_client_cascade",
+        mode: "dry_run",
+        targetUid: parsed.clientUid,
+        status: "success",
+        summary: plan,
+      });
+      return { ok: true, mode: "dry_run", deletedDocsApprox: plan.totalApprox };
+    }
+
+    const deletedDocsApprox = await deleteClientCascadeInternal(parsed.clientUid);
+    await writeAdminOperationLog({
+      actorUid: admin.uid,
+      kind: "delete_client_cascade",
+      mode: "execute",
+      targetUid: parsed.clientUid,
+      status: "success",
+      summary: { plan, deletedDocsApprox },
+    });
+    return { ok: true, mode: "execute", deletedDocsApprox };
+  } catch (error) {
+    await writeAdminOperationLog({
+      actorUid: admin.uid,
+      kind: "delete_client_cascade",
+      mode: parsed.mode,
+      targetUid: parsed.clientUid,
+      status: "failed",
+      summary: {},
+      errorMessage: error instanceof Error ? error.message : "unknown error",
+    });
+    throw error;
+  }
 }
 
 const deleteCoachSchema = z.object({
   coachUid: z.string().trim().min(6).max(128),
   confirmation: z.literal("DELETE COACH"),
+  mode: z.enum(["dry_run", "execute"]),
 });
+
+async function buildCoachCascadePlan(coachUid: string): Promise<{
+  clients: number;
+  workoutTemplates: number;
+  exercises: number;
+  userMirror: number;
+  chats: number;
+  coachUserDocExists: boolean;
+  totalApprox: number;
+}> {
+  const db = gcFitnessFirestore();
+  const [clients, workoutTemplates, exercises, userMirror, chats, coachDoc] = await Promise.all([
+    db.collection(FirestoreCollections.users).where("coachId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.workoutTemplates).where("trainerId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.exercises).where("trainerId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.userMirror).where("coachId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.chats).where("coachId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.users).doc(coachUid).get(),
+  ]);
+  const counts = {
+    clients: clients.data().count,
+    workoutTemplates: workoutTemplates.data().count,
+    exercises: exercises.data().count,
+    userMirror: userMirror.data().count,
+    chats: chats.data().count,
+    coachUserDocExists: coachDoc.exists,
+  };
+  const totalApprox =
+    counts.clients +
+    counts.workoutTemplates +
+    counts.exercises +
+    counts.userMirror +
+    counts.chats +
+    (counts.coachUserDocExists ? 1 : 0);
+  return { ...counts, totalApprox };
+}
 
 export async function deleteCoachCascade(
   input: unknown,
-): Promise<{ ok: true; deletedClients: number; deletedDocsApprox: number }> {
-  await getCurrentAdmin();
+): Promise<{ ok: true; mode: OperationMode; deletedClients: number; deletedDocsApprox: number }> {
+  const admin = await getCurrentAdmin();
   const parsed = deleteCoachSchema.parse(input);
   const db = gcFitnessFirestore();
-
-  let deletedDocsApprox = 0;
-  const clientsSnap = await db
-    .collection(FirestoreCollections.users)
-    .where("coachId", "==", parsed.coachUid)
-    .get();
-
-  for (const clientDoc of clientsSnap.docs) {
-    deletedDocsApprox += await deleteClientCascadeInternal(clientDoc.id);
-  }
-
-  deletedDocsApprox += await deleteDocsByQuery(
-    db.collection(FirestoreCollections.workoutTemplates).where("trainerId", "==", parsed.coachUid),
-  );
-  deletedDocsApprox += await deleteDocsByQuery(
-    db.collection(FirestoreCollections.exercises).where("trainerId", "==", parsed.coachUid),
-  );
-  deletedDocsApprox += await deleteDocsByQuery(
-    db.collection(FirestoreCollections.userMirror).where("coachId", "==", parsed.coachUid),
-  );
-
-  const coachChatSnap = await db
-    .collection(FirestoreCollections.chats)
-    .where("coachId", "==", parsed.coachUid)
-    .get();
-  for (const doc of coachChatSnap.docs) {
-    await db.recursiveDelete(doc.ref);
-    deletedDocsApprox += 1;
-  }
-
-  const coachRef = db.collection(FirestoreCollections.users).doc(parsed.coachUid);
-  await db.recursiveDelete(coachRef);
-  deletedDocsApprox += 1;
   try {
-    await gcFitnessAuth().deleteUser(parsed.coachUid);
-  } catch {
-    // idempotent delete
-  }
+    const plan = await buildCoachCascadePlan(parsed.coachUid);
+    if (parsed.mode === "dry_run") {
+      await writeAdminOperationLog({
+        actorUid: admin.uid,
+        kind: "delete_coach_cascade",
+        mode: "dry_run",
+        targetUid: parsed.coachUid,
+        status: "success",
+        summary: plan,
+      });
+      return {
+        ok: true,
+        mode: "dry_run",
+        deletedClients: plan.clients,
+        deletedDocsApprox: plan.totalApprox,
+      };
+    }
 
-  return { ok: true, deletedClients: clientsSnap.size, deletedDocsApprox };
+    let deletedDocsApprox = 0;
+    const clientsSnap = await db
+      .collection(FirestoreCollections.users)
+      .where("coachId", "==", parsed.coachUid)
+      .get();
+
+    for (const clientDoc of clientsSnap.docs) {
+      deletedDocsApprox += await deleteClientCascadeInternal(clientDoc.id);
+    }
+
+    deletedDocsApprox += await deleteDocsByQuery(
+      db.collection(FirestoreCollections.workoutTemplates).where("trainerId", "==", parsed.coachUid),
+    );
+    deletedDocsApprox += await deleteDocsByQuery(
+      db.collection(FirestoreCollections.exercises).where("trainerId", "==", parsed.coachUid),
+    );
+    deletedDocsApprox += await deleteDocsByQuery(
+      db.collection(FirestoreCollections.userMirror).where("coachId", "==", parsed.coachUid),
+    );
+
+    const coachChatSnap = await db
+      .collection(FirestoreCollections.chats)
+      .where("coachId", "==", parsed.coachUid)
+      .get();
+    for (const doc of coachChatSnap.docs) {
+      await db.recursiveDelete(doc.ref);
+      deletedDocsApprox += 1;
+    }
+
+    const coachRef = db.collection(FirestoreCollections.users).doc(parsed.coachUid);
+    await db.recursiveDelete(coachRef);
+    deletedDocsApprox += 1;
+    try {
+      await gcFitnessAuth().deleteUser(parsed.coachUid);
+    } catch {
+      // idempotent delete
+    }
+
+    await writeAdminOperationLog({
+      actorUid: admin.uid,
+      kind: "delete_coach_cascade",
+      mode: "execute",
+      targetUid: parsed.coachUid,
+      status: "success",
+      summary: { plan, deletedClients: clientsSnap.size, deletedDocsApprox },
+    });
+    return { ok: true, mode: "execute", deletedClients: clientsSnap.size, deletedDocsApprox };
+  } catch (error) {
+    await writeAdminOperationLog({
+      actorUid: admin.uid,
+      kind: "delete_coach_cascade",
+      mode: parsed.mode,
+      targetUid: parsed.coachUid,
+      status: "failed",
+      summary: {},
+      errorMessage: error instanceof Error ? error.message : "unknown error",
+    });
+    throw error;
+  }
 }

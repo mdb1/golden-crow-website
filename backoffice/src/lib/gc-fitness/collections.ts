@@ -125,6 +125,11 @@ export const FirestoreCollections = {
    * Doc id: normalized lowercase email.
    */
   coachAllowlist: "coach_allowlist",
+
+  /**
+   * Immutable operator audit trail for admin actions (dry-run + execute).
+   */
+  adminOperations: "admin_operations",
 } as const;
 
 /**
