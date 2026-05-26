@@ -26,16 +26,17 @@ export function ClientDailyTimeline({
   clientId,
   availableDates,
   initialDay,
+  todayCivil,
 }: {
   clientId: string;
   availableDates: string[];
   initialDay: ClientDailyTimelineDay;
+  todayCivil: string;
 }) {
   const t = useTranslations("clients.detail.timeline");
   const tCommon = useTranslations("common");
-  const today = new Date().toISOString().slice(0, 10);
   const initialDate =
-    availableDates.find((day) => day === today) ?? availableDates[0] ?? initialDay.date;
+    availableDates.find((day) => day === todayCivil) ?? availableDates[0] ?? initialDay.date;
 
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [daysByDate, setDaysByDate] = useState<Record<string, ClientDailyTimelineDay>>(

@@ -47,6 +47,7 @@ import { buildClientDailyTimelineDates } from "@/lib/gc-fitness/client-daily-tim
 import { ClientDailyTimeline } from "./_components/ClientDailyTimeline";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,7 @@ export default async function ClientDetailPage({
 
   const displayName = client.displayName ?? client.email ?? id;
   const timezone = client.timezone ?? "UTC";
-  const todayCivil = new Date().toISOString().slice(0, 10);
+  const todayCivil = civilDateToday(timezone);
   const [notes, progressPhotos, goals, initialDay] = await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
@@ -175,6 +176,7 @@ export default async function ClientDetailPage({
           clientId={id}
           availableDates={dateWindow}
           initialDay={initialDay}
+          todayCivil={todayCivil}
         />
       </div>
     </div>
