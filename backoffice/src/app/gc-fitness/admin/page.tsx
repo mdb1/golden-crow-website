@@ -7,6 +7,7 @@ import {
   deleteClientCascade,
   deleteCoachCascade,
   listCoachesForAdmin,
+  listCoachAllowlist,
   previewClientCascade,
   previewCoachCascade,
   promoteUserToAdmin,
@@ -51,6 +52,7 @@ export default async function AdminPage({
   }
 
   const coaches = await listCoachesForAdmin();
+  const allowlistRows = await listCoachAllowlist();
 
   async function addAllowlistEmailAction(formData: FormData) {
     "use server";
@@ -139,6 +141,41 @@ export default async function AdminPage({
       </section>
 
       <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Coach allowlist</h2>
+          <p className="text-xs text-muted-foreground">
+            Current emails that can sign up as trainers through auth gating.
+          </p>
+        </div>
+        <div className="overflow-x-auto border-b">
+          <table className="w-full min-w-[780px] text-sm">
+            <thead className="bg-muted/40 text-left">
+              <tr>
+                <th className="px-4 py-2 font-medium">Email</th>
+                <th className="px-4 py-2 font-medium">Enabled</th>
+                <th className="px-4 py-2 font-medium">Updated at (UTC)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allowlistRows.length === 0 ? (
+                <tr className="border-t">
+                  <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={3}>
+                    No allowlist entries yet.
+                  </td>
+                </tr>
+              ) : (
+                allowlistRows.map((row) => (
+                  <tr key={row.email} className="border-t">
+                    <td className="px-4 py-2">{row.email}</td>
+                    <td className="px-4 py-2">{row.enabled ? "yes" : "no"}</td>
+                    <td className="px-4 py-2">{row.updatedAtISO ?? "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-semibold">Coaches</h2>
           <p className="text-xs text-muted-foreground">

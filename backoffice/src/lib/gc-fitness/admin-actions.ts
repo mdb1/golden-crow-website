@@ -44,6 +44,12 @@ export interface CoachAdminDetail {
   recentOperations: AdminOperationRow[];
 }
 
+export interface CoachAllowlistRow {
+  email: string;
+  enabled: boolean;
+  updatedAtISO: string | null;
+}
+
 const emailSchema = z.string().trim().toLowerCase().email();
 
 function rolesFromClaims(claims: Record<string, unknown> | undefined): string[] {
@@ -193,6 +199,26 @@ export async function addCoachEmailToAllowlist(input: unknown): Promise<{ ok: tr
       { merge: true },
     );
   return { ok: true, email };
+}
+
+export async function listCoachAllowlist(): Promise<CoachAllowlistRow[]> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(FirestoreCollections.coachAllowlist)
+    .orderBy("email", "asc")
+    .get();
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      email: (data.email as string | undefined) ?? doc.id,
+      enabled: data.enabled !== false,
+      updatedAtISO:
+        data.updatedAt && typeof data.updatedAt.toDate === "function"
+          ? data.updatedAt.toDate().toISOString()
+          : null,
+    };
+  });
 }
 
 const promoteAdminSchema = z.object({
