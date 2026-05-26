@@ -50,6 +50,13 @@ export interface CoachAllowlistRow {
   updatedAtISO: string | null;
 }
 
+export interface DeletionTargetInfo {
+  exists: boolean;
+  role: string | null;
+  email: string | null;
+  displayName: string | null;
+}
+
 const emailSchema = z.string().trim().toLowerCase().email();
 
 function rolesFromClaims(claims: Record<string, unknown> | undefined): string[] {
@@ -571,4 +578,19 @@ export async function previewCoachCascade(
 ): Promise<Awaited<ReturnType<typeof buildCoachCascadePlan>>> {
   await getCurrentAdmin();
   return buildCoachCascadePlan(coachUid);
+}
+
+export async function getDeletionTargetInfo(uid: string): Promise<DeletionTargetInfo> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const snap = await db.collection(FirestoreCollections.users).doc(uid).get();
+  if (!snap.exists) {
+    return { exists: false, role: null, email: null, displayName: null };
+  }
+  return {
+    exists: true,
+    role: (snap.get("role") as string | undefined) ?? null,
+    email: (snap.get("email") as string | undefined) ?? null,
+    displayName: (snap.get("displayName") as string | undefined) ?? null,
+  };
 }

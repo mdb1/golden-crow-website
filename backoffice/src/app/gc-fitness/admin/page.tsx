@@ -10,6 +10,7 @@ import {
   listCoachAllowlist,
   previewClientCascade,
   previewCoachCascade,
+  getDeletionTargetInfo,
   promoteUserToAdmin,
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
@@ -36,8 +37,10 @@ export default async function AdminPage({
   const targetUid = typeof sp.targetUid === "string" ? sp.targetUid.trim() : "";
   let clientPreview: Awaited<ReturnType<typeof previewClientCascade>> | null = null;
   let coachPreview: Awaited<ReturnType<typeof previewCoachCascade>> | null = null;
+  let targetInfo: Awaited<ReturnType<typeof getDeletionTargetInfo>> | null = null;
   if (deleteTarget === "client" && targetUid.length > 0) {
     try {
+      targetInfo = await getDeletionTargetInfo(targetUid);
       clientPreview = await previewClientCascade(targetUid);
     } catch {
       clientPreview = null;
@@ -45,6 +48,7 @@ export default async function AdminPage({
   }
   if (deleteTarget === "coach" && targetUid.length > 0) {
     try {
+      targetInfo = await getDeletionTargetInfo(targetUid);
       coachPreview = await previewCoachCascade(targetUid);
     } catch {
       coachPreview = null;
@@ -254,6 +258,18 @@ export default async function AdminPage({
           {clientPreview ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
               <p className="font-semibold">Preview result</p>
+              {targetInfo?.exists ? (
+                <p>
+                  Target detected: {targetInfo.role ?? "unknown"} · {targetInfo.displayName || targetInfo.email || "—"}
+                </p>
+              ) : (
+                <p>Target not found in users collection.</p>
+              )}
+              {targetInfo?.role === "trainer" ? (
+                <p className="font-semibold text-red-700">
+                  Warning: that UID belongs to a trainer, not a client.
+                </p>
+              ) : null}
               <p>Total docs approx: {clientPreview.totalApprox}</p>
               <p>chat: {clientPreview.chatDocExists ? "yes" : "no"}</p>
               <p>workout_logs: {clientPreview.workoutLogs}</p>
@@ -276,7 +292,7 @@ export default async function AdminPage({
             <input
               name="confirmation"
               required
-              placeholder="Type: DELETE CLIENT"
+              placeholder='Type exactly: DELETE CLIENT'
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             />
             <button
@@ -285,7 +301,7 @@ export default async function AdminPage({
               value="execute"
               className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
             >
-              Delete client
+              Confirm and delete client
             </button>
           </form>
         </div>
@@ -315,6 +331,18 @@ export default async function AdminPage({
           {coachPreview ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
               <p className="font-semibold">Preview result</p>
+              {targetInfo?.exists ? (
+                <p>
+                  Target detected: {targetInfo.role ?? "unknown"} · {targetInfo.displayName || targetInfo.email || "—"}
+                </p>
+              ) : (
+                <p>Target not found in users collection.</p>
+              )}
+              {targetInfo?.role === "client" ? (
+                <p className="font-semibold text-red-700">
+                  Warning: that UID belongs to a client, not a trainer.
+                </p>
+              ) : null}
               <p>Total docs approx: {coachPreview.totalApprox}</p>
               <p>linked clients: {coachPreview.clients}</p>
               <p>workout_templates: {coachPreview.workoutTemplates}</p>
@@ -334,7 +362,7 @@ export default async function AdminPage({
             <input
               name="confirmation"
               required
-              placeholder="Type: DELETE COACH"
+              placeholder='Type exactly: DELETE COACH'
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             />
             <button
@@ -343,7 +371,7 @@ export default async function AdminPage({
               value="execute"
               className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
             >
-              Delete coach
+              Confirm and delete coach
             </button>
           </form>
         </div>
