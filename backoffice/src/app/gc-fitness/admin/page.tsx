@@ -129,6 +129,7 @@ export default async function AdminPage() {
                 <th className="px-4 py-2 font-medium">Clients</th>
                 <th className="px-4 py-2 font-medium">Custom workouts</th>
                 <th className="px-4 py-2 font-medium">Custom exercises</th>
+                <th className="px-4 py-2 font-medium">Open</th>
               </tr>
             </thead>
             <tbody>
@@ -148,6 +149,14 @@ export default async function AdminPage() {
                   <td className="px-4 py-2">{coach.clientsCount}</td>
                   <td className="px-4 py-2">{coach.customWorkoutsCount}</td>
                   <td className="px-4 py-2">{coach.customExercisesCount}</td>
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/gc-fitness/admin/coaches/${coach.uid}`}
+                      className="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                    >
+                      View
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
