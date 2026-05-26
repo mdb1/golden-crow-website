@@ -149,11 +149,11 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
         <Separator orientation="vertical" className="h-4" />
         <div className="min-w-0 flex-1">
           <p className="section-eyebrow">{translatedMetadata.eyebrow}</p>
-          <div className="flex flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-3">
-            <h1 className="font-heading text-lg font-semibold text-foreground">
+          <div className="flex min-w-0 flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-3">
+            <h1 className="shrink-0 font-heading text-lg font-semibold text-foreground">
               {translatedMetadata.title}
             </h1>
-            <p className="hidden text-sm text-muted-foreground lg:block">
+            <p className="line-clamp-2 hidden min-w-0 flex-1 text-sm leading-5 text-muted-foreground lg:block">
               {translatedMetadata.description}
             </p>
           </div>
