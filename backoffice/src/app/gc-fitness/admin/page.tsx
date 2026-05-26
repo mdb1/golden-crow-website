@@ -45,6 +45,10 @@ export default async function AdminPage({
       coachPreview = null;
     }
   }
+  const canExecuteCoachDelete =
+    deleteTarget === "coach" &&
+    targetUid.length > 0 &&
+    coachPreview !== null;
 
   const coaches = await listCoachesForAdmin();
   const allowlistRows = await listCoachAllowlist();
@@ -307,8 +311,14 @@ export default async function AdminPage({
               pendingLabel="Deleting coach..."
               name="mode"
               value="execute"
+              disabled={!canExecuteCoachDelete}
               className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
             />
+            {!canExecuteCoachDelete ? (
+              <p className="text-xs text-muted-foreground">
+                Run dry run first to enable delete.
+              </p>
+            ) : null}
           </form>
         </div>
       </section>

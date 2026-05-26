@@ -51,6 +51,9 @@ export default async function CoachAdminDetailPage({
       clientPreview = null;
     }
   }
+  const canExecuteClientDelete =
+    previewClientUid.length > 0 &&
+    clientPreview !== null;
 
   async function deactivateClientAction(formData: FormData) {
     "use server";
@@ -234,8 +237,14 @@ export default async function CoachAdminDetailPage({
           <AdminSubmitButton
             idleLabel="Confirm and delete client"
             pendingLabel="Deleting client..."
+            disabled={!canExecuteClientDelete}
             className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
           />
+          {!canExecuteClientDelete ? (
+            <p className="text-xs text-muted-foreground">
+              Run dry run first to enable delete.
+            </p>
+          ) : null}
         </form>
       </section>
 

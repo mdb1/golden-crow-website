@@ -6,12 +6,14 @@ export function AdminSubmitButton({
   idleLabel,
   pendingLabel,
   className,
+  disabled = false,
   name,
   value,
 }: {
   idleLabel: string;
   pendingLabel: string;
   className: string;
+  disabled?: boolean;
   name?: string;
   value?: string;
 }) {
@@ -21,7 +23,7 @@ export function AdminSubmitButton({
       type="submit"
       name={name}
       value={value}
-      disabled={pending}
+      disabled={pending || disabled}
       className={`${className} disabled:cursor-not-allowed disabled:opacity-60`}
     >
       {pending ? pendingLabel : idleLabel}
