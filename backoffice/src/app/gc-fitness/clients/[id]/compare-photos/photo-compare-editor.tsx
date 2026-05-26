@@ -19,6 +19,7 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
   const [beforeId, setBeforeId] = useState(defaultBefore);
   const [afterId, setAfterId] = useState(defaultAfter);
   const [split, setSplit] = useState(50);
+  const [mode, setMode] = useState<"side-by-side" | "slider">("side-by-side");
   const [beforeT, setBeforeT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const [afterT, setAfterT] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const dragging = useRef<null | "before" | "after">(null);
@@ -76,23 +77,44 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
       </div>
       {before?.url && after?.url ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <AdjustCard title="Before" t={beforeT} onScale={(v) => setBeforeT((x) => ({ ...x, scale: v }))} onReset={() => setBeforeT({ scale: 1, x: 0, y: 0 })} />
-            <AdjustCard title="After" t={afterT} onScale={(v) => setAfterT((x) => ({ ...x, scale: v }))} onReset={() => setAfterT({ scale: 1, x: 0, y: 0 })} />
+          <div className="flex gap-2">
+            <button className={`rounded-md border px-3 py-1.5 text-sm ${mode === "side-by-side" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setMode("side-by-side")}>Lado a lado</button>
+            <button className={`rounded-md border px-3 py-1.5 text-sm ${mode === "slider" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setMode("slider")}>Deslizador</button>
           </div>
-          <div className="relative mx-auto h-[calc(100vh-22rem)] min-h-[420px] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
-            <MovableImage url={after.url} alt="after" t={afterT} onDragStart={(e) => onDragStart("after", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
-            <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
-              <MovableImage url={before.url} alt="before" t={beforeT} onDragStart={(e) => onDragStart("before", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
+          {mode === "slider" ? (
+            <>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <AdjustCard title="Before" t={beforeT} onScale={(v) => setBeforeT((x) => ({ ...x, scale: v }))} onReset={() => setBeforeT({ scale: 1, x: 0, y: 0 })} />
+                <AdjustCard title="After" t={afterT} onScale={(v) => setAfterT((x) => ({ ...x, scale: v }))} onReset={() => setAfterT({ scale: 1, x: 0, y: 0 })} />
+              </div>
+              <div className="relative mx-auto h-[calc(100vh-22rem)] min-h-[420px] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
+                <MovableImage url={after.url} alt="after" t={afterT} onDragStart={(e) => onDragStart("after", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
+                <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
+                  <MovableImage url={before.url} alt="before" t={beforeT} onDragStart={(e) => onDragStart("before", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
+                </div>
+                <div className="absolute inset-y-0 w-1 bg-primary" style={{ left: `${split}%` }} />
+              </div>
+              <input type="range" min={1} max={99} value={split} onChange={(e) => setSplit(Number(e.target.value))} className="w-full" />
+            </>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <CompareStaticImage url={before.url} alt="before" />
+              <CompareStaticImage url={after.url} alt="after" />
             </div>
-            <div className="absolute inset-y-0 w-1 bg-primary" style={{ left: `${split}%` }} />
-          </div>
-          <input type="range" min={1} max={99} value={split} onChange={(e) => setSplit(Number(e.target.value))} className="w-full" />
+          )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">Seleccioná fotos para comparar.</p>
       )}
     </section>
+  );
+}
+
+function CompareStaticImage({ url, alt }: { url: string; alt: string }) {
+  return (
+    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md border bg-muted">
+      <Image src={url} alt={alt} fill sizes="(min-width: 1024px) 48vw, 100vw" className="object-contain" />
+    </div>
   );
 }
 
