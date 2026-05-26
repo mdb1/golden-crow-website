@@ -77,9 +77,19 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
       </div>
       {before?.url && after?.url ? (
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <button className={`rounded-md border px-3 py-1.5 text-sm ${mode === "side-by-side" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setMode("side-by-side")}>Lado a lado</button>
-            <button className={`rounded-md border px-3 py-1.5 text-sm ${mode === "slider" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setMode("slider")}>Deslizador</button>
+          <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-lg border p-1">
+            <button
+              className={`rounded-md px-3 py-1.5 text-sm ${mode === "side-by-side" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              onClick={() => setMode("side-by-side")}
+            >
+              Lado a lado
+            </button>
+            <button
+              className={`rounded-md px-3 py-1.5 text-sm ${mode === "slider" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              onClick={() => setMode("slider")}
+            >
+              Deslizador
+            </button>
           </div>
           {mode === "slider" ? (
             <>
