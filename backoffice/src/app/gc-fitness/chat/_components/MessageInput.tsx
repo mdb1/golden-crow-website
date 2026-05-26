@@ -32,7 +32,7 @@
 //     PLAN 08-12 ("tapping a quick-reply INSERTS its text into the
 //     MessageInput textarea — does NOT auto-send").
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
@@ -57,7 +57,22 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [supportsRecording, setSupportsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+  const fallbackAudioInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const canRecord =
+      typeof window !== "undefined" &&
+      typeof navigator !== "undefined" &&
+      Boolean(navigator.mediaDevices?.getUserMedia) &&
+      typeof MediaRecorder !== "undefined";
+    setSupportsRecording(canRecord);
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async (textPayload: string) => {
@@ -180,6 +195,84 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
     [chatId, fileToBase64, getAudioDurationMs, queryClient, t],
   );
 
+  const stopMediaTracks = useCallback(() => {
+    if (mediaStreamRef.current) {
+      for (const track of mediaStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      mediaStreamRef.current = null;
+    }
+  }, []);
+
+  const stopRecordingAndSend = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+    recorder.stop();
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      setSubmitError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+      const mimeType =
+        MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/mp4")
+            ? "audio/mp4"
+            : "";
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        const ext =
+          blob.type.includes("mp4") || blob.type.includes("m4a")
+            ? "m4a"
+            : blob.type.includes("ogg")
+              ? "ogg"
+              : "webm";
+        const file = new File([blob], `recording-${Date.now()}.${ext}`, {
+          type: blob.type || "audio/webm",
+        });
+        void handleAttachment(file, "voice");
+        stopMediaTracks();
+        setIsRecording(false);
+        mediaRecorderRef.current = null;
+        audioChunksRef.current = [];
+      };
+      recorder.onerror = () => {
+        setSubmitError(t("recordingFailed"));
+        stopMediaTracks();
+        setIsRecording(false);
+      };
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      setSubmitError(t("recordingPermissionDenied"));
+      setIsRecording(false);
+      stopMediaTracks();
+    }
+  }, [handleAttachment, stopMediaTracks, t]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      stopMediaTracks();
+    };
+  }, [stopMediaTracks]);
+
   return (
     <form
       onSubmit={(e) => {
@@ -209,17 +302,34 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
             }}
           />
         </label>
-        <label
-          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input px-2 py-2 text-xs"
-          title={t("voiceCta")}
-          aria-label={t("voiceCta")}
-        >
-          <span aria-hidden>🎤</span>
-          <span className="hidden sm:inline">{t("voiceLabel")}</span>
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            title={isRecording ? t("voiceStopCta") : t("voiceRecordCta")}
+            aria-label={isRecording ? t("voiceStopCta") : t("voiceRecordCta")}
+            disabled={uploading || disabled}
+            onClick={() => {
+              if (isRecording) {
+                stopRecordingAndSend();
+                return;
+              }
+              if (!supportsRecording) {
+                fallbackAudioInputRef.current?.click();
+                return;
+              }
+              void startRecording();
+            }}
+          >
+            <span aria-hidden>{isRecording ? "⏹️" : "🎤"}</span>
+            <span className="hidden sm:inline">
+              {isRecording ? t("voiceStopLabel") : t("voiceRecordLabel")}
+            </span>
+          </button>
           <input
+            ref={fallbackAudioInputRef}
             type="file"
             accept="audio/*,.m4a,.mp3,.wav,.aac,.webm,.ogg,.mp4"
-            capture
             className="hidden"
             disabled={uploading || disabled}
             onChange={(e) => {
@@ -229,7 +339,7 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
               void handleAttachment(file, "voice");
             }}
           />
-        </label>
+        </div>
         <QuickReplyDropdown
           onSelect={handleQuickReplySelect}
           disabled={uploading || disabled}

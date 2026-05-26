@@ -806,10 +806,16 @@
       "photoLabel": "Foto",
       "voiceCta": "Adjuntar audio",
       "voiceLabel": "Audio",
+      "voiceRecordCta": "Grabar audio",
+      "voiceRecordLabel": "Grabar",
+      "voiceStopCta": "Detener y enviar audio",
+      "voiceStopLabel": "Detener",
       "sending": "Enviando…",
       "send": "Enviar",
       "errorFallback": "No se pudo enviar.",
       "voiceUnsupported": "Formato de audio no compatible. Probá con m4a, mp3, wav o webm.",
+      "recordingPermissionDenied": "No se pudo acceder al micrófono. Revisá los permisos del navegador.",
+      "recordingFailed": "Falló la grabación de audio.",
       "pendingClientBlocked": "Este cliente está pendiente de activación. Podés ver el hilo, pero no enviar mensajes todavía."
     },
     "quickReply": {

@@ -806,10 +806,16 @@
       "photoLabel": "Photo",
       "voiceCta": "Attach audio",
       "voiceLabel": "Audio",
+      "voiceRecordCta": "Record audio",
+      "voiceRecordLabel": "Record",
+      "voiceStopCta": "Stop and send audio",
+      "voiceStopLabel": "Stop",
       "sending": "Sending…",
       "send": "Send",
       "errorFallback": "Couldn't send.",
       "voiceUnsupported": "Unsupported audio format. Try m4a, mp3, wav, or webm.",
+      "recordingPermissionDenied": "Couldn't access the microphone. Check browser permissions.",
+      "recordingFailed": "Audio recording failed.",
       "pendingClientBlocked": "This client is pending activation. You can view the thread, but you cannot send messages yet."
     },
     "quickReply": {
