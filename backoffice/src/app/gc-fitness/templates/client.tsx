@@ -71,6 +71,7 @@ interface NewTemplateDraft {
   name?: { en?: string; es?: string };
   description?: { en?: string; es?: string };
   tag?: string;
+  tags?: string[];
   exercises?: Array<unknown>;
 }
 
@@ -146,7 +147,12 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
       // Cast: the draft can hold any free-form tag the trainer typed; for list
       // rendering we only need the string. The Badge / filter logic tolerates
       // arbitrary strings already.
-      tag: (newDraft.tag ?? "custom") as WorkoutTemplateRow["tag"],
+      tag: (newDraft.tag ?? newDraft.tags?.[0] ?? "custom") as WorkoutTemplateRow["tag"],
+      tags: Array.isArray(newDraft.tags) && newDraft.tags.length > 0
+        ? newDraft.tags
+        : newDraft.tag
+          ? [newDraft.tag]
+          : [],
       exerciseCount,
       trainerId: trainerUid,
       isStandard: false,
@@ -167,7 +173,16 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
     }
     const needle = tagFilter.trim().toLowerCase();
     if (needle) {
-      list = list.filter((row) => (row.tag ?? "").toLowerCase().includes(needle));
+      // Any-of substring match across the canonical tags[] list. Falls back
+      // to the legacy `tag` field for rows authored before multi-tag landed.
+      list = list.filter((row) => {
+        const all = row.tags && row.tags.length > 0
+          ? row.tags
+          : row.tag
+            ? [row.tag]
+            : [];
+        return all.some((t) => t.toLowerCase().includes(needle));
+      });
     }
     return draftRow ? [draftRow, ...list] : list;
   }, [data, mineOnly, trainerUid, tagFilter, draftRow]);

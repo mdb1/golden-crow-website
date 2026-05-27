@@ -374,6 +374,11 @@
         "fullBody": "Full body",
         "custom": "Custom"
       },
+      "tagsLabel": "Tags",
+      "tagsPlaceholder": "Type a tag and press Enter (e.g. Legs, Back)",
+      "tagsHint": "You can add multiple tags to a template. Use them later to filter the list quickly.",
+      "tagsSuggestionsLabel": "Suggestions",
+      "tagsRemoveAria": "Remove tag {tag}",
       "exercises": "Exercises",
       "exercisesCount": "{count}/30",
       "exercisesEmpty": "No exercises yet. Click <strong>Add exercise</strong> to start.",

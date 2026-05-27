@@ -72,6 +72,8 @@ import {
 
 import { ExercisePickerPopover } from "./exercise-picker-popover";
 import { ExerciseMultiAddDialog } from "./exercise-multi-add-dialog";
+import { TemplateTagsPicker } from "./template-tags-picker";
+import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
 
 export type TemplateFormMode = "create" | "edit";
 
@@ -133,16 +135,10 @@ function clearDraft(key: string) {
   }
 }
 
-// Default suggestions. Trainers can still type any custom tag.
-const TAG_OPTION_KEYS = [
-  { value: "push", labelKey: "push" },
-  { value: "pull", labelKey: "pull" },
-  { value: "legs", labelKey: "legs" },
-  { value: "upper", labelKey: "upper" },
-  { value: "lower", labelKey: "lower" },
-  { value: "full-body", labelKey: "fullBody" },
-  { value: "custom", labelKey: "custom" },
-] as const;
+// Legacy datalist source — superseded by TemplateTagsPicker's
+// DEFAULT_TAG_SUGGESTIONS list (which lives alongside the new picker).
+// Kept as a no-op export anchor so removed-imports don't break old
+// references in tests; remove on next cleanup pass.
 
 // Plan 21-02 — Thin sortable wrapper. Owns the dnd-kit ref / transform /
 // transition / aria attributes for the row, but delegates the drag listeners
@@ -178,13 +174,23 @@ function SortableExerciseRow({
 function buildDefaults(
   passed?: Partial<WorkoutTemplateInput>,
 ): WorkoutTemplateInput {
+  // Migrate from legacy single `tag` to `tags[]` when restoring server data
+  // or a draft authored before multi-tag landed. tags[0] is mirrored back to
+  // the legacy `tag` field on submit so iOS reads keep working.
+  const restoredTags =
+    Array.isArray(passed?.tags) && passed.tags.length > 0
+      ? passed.tags
+      : passed?.tag
+        ? [passed.tag]
+        : [];
   return {
     name: {
       en: passed?.name?.en ?? "",
       es: passed?.name?.es ?? "",
     },
     description: passed?.description ?? { en: "", es: "" },
-    tag: passed?.tag ?? "custom",
+    tag: passed?.tag ?? restoredTags[0] ?? "custom",
+    tags: restoredTags,
     exercises: passed?.exercises ?? [],
   };
 }
@@ -359,8 +365,15 @@ export function TemplateForm({
         try {
           // Recompute `order` to be 1-based contiguous before submit — the
           // Firestore rule layer (P04-02) asserts `order == arrayIndex + 1`.
+          // Mirror tags[0] back onto the legacy `tag` field so the iOS
+          // clients reading the old field stay working until they migrate.
+          const tagsClean = values.tags.length > 0
+            ? values.tags
+            : [values.tag || "custom"];
           const normalized: WorkoutTemplateInput = {
           ...values,
+          tag: tagsClean[0] ?? "custom",
+          tags: tagsClean,
           exercises: values.exercises.map((ex, idx) => ({
             ...ex,
             ...(Array.isArray(ex.repsBySet) && ex.repsBySet.length > 0
@@ -442,6 +455,27 @@ export function TemplateForm({
   // the click through, run Zod, and surface errors via the inline summary
   // below.
   const watchedNameEn = form.watch("name.en");
+
+  // Aggregate every distinct tag across the trainer's existing templates so
+  // the picker below can surface them as one-click suggestions. The hook
+  // is the same one the /templates list uses, so the call is shared cache.
+  const { data: tagSourceTemplates } = useWorkoutTemplates();
+  const existingTagSuggestions = useMemo(() => {
+    if (!tagSourceTemplates) return [];
+    const out = new Set<string>();
+    for (const tpl of tagSourceTemplates) {
+      if (Array.isArray(tpl.tags)) {
+        for (const t of tpl.tags) {
+          const trimmed = (t ?? "").trim();
+          if (trimmed) out.add(trimmed);
+        }
+      }
+      if (tpl.tag && typeof tpl.tag === "string" && tpl.tag.trim()) {
+        out.add(tpl.tag.trim());
+      }
+    }
+    return Array.from(out);
+  }, [tagSourceTemplates]);
   const canSubmit =
     !pending &&
     step === 2 &&
@@ -611,30 +645,26 @@ export function TemplateForm({
           )}
         </div>
 
-        {/* Tag */}
+        {/* Tags (multi). Existing templates power the suggestion strip
+            below the input so the trainer's vocabulary stays consistent
+            across the library. */}
         <FormField
           control={form.control}
-          name="tag"
+          name="tags"
           render={({ field }) => (
-            <FormItem className="max-w-xs">
-              <FormLabel>{t("tag")}</FormLabel>
+            <FormItem className="max-w-2xl">
+              <FormLabel>{t("tagsLabel")}</FormLabel>
               <FormControl>
-                <div className="space-y-2">
-                  <Input
-                    list="gc-fitness-template-tags"
-                    placeholder={t("tagPlaceholder")}
-                    {...field}
-                  />
-                  <datalist id="gc-fitness-template-tags">
-                    {TAG_OPTION_KEYS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {t(`tagOptions.${opt.labelKey}`)}
-                      </option>
-                    ))}
-                  </datalist>
-                </div>
+                <TemplateTagsPicker
+                  value={(field.value as string[] | undefined) ?? []}
+                  onChange={field.onChange}
+                  existingTags={existingTagSuggestions}
+                  placeholder={t("tagsPlaceholder")}
+                  removeAriaLabel={(tag) => t("tagsRemoveAria", { tag })}
+                  suggestionsLabel={t("tagsSuggestionsLabel")}
+                />
               </FormControl>
-              <FormDescription>{t("tagHint")}</FormDescription>
+              <FormDescription>{t("tagsHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}

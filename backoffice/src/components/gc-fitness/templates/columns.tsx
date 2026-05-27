@@ -153,12 +153,32 @@ export function makeTemplateColumns(
     {
       accessorKey: "tag",
       header: t("tag"),
-      cell: ({ row }) => (
-        <Badge variant="secondary" className="capitalize">
-          {(row.original.isStandard ? "Standard · " : "") +
-            (TAG_LABELS[row.original.tag] ?? row.original.tag)}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        // Prefer the canonical `tags[]` list; fall back to the legacy
+        // single `tag` field for rows authored before multi-tag landed.
+        const rowTags =
+          row.original.tags && row.original.tags.length > 0
+            ? row.original.tags
+            : row.original.tag
+              ? [row.original.tag]
+              : [];
+        const standardPrefix = row.original.isStandard ? "Standard" : null;
+        const labelFor = (raw: string) => TAG_LABELS[raw] ?? raw;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {standardPrefix ? (
+              <Badge variant="outline" className="capitalize">
+                {standardPrefix}
+              </Badge>
+            ) : null}
+            {rowTags.map((raw) => (
+              <Badge key={raw} variant="secondary" className="capitalize">
+                {labelFor(raw)}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
       enableSorting: false,
     },
     {

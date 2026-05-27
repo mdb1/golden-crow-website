@@ -374,6 +374,11 @@
         "fullBody": "Cuerpo completo",
         "custom": "Personalizada"
       },
+      "tagsLabel": "Etiquetas",
+      "tagsPlaceholder": "Escribí una etiqueta y presioná Enter (ej. Legs, Back)",
+      "tagsHint": "Podés agregar varias etiquetas a una plantilla. Después se usan para filtrar la lista rápidamente.",
+      "tagsSuggestionsLabel": "Sugerencias",
+      "tagsRemoveAria": "Quitar etiqueta {tag}",
       "exercises": "Ejercicios",
       "exercisesCount": "{count}/30",
       "exercisesEmpty": "Aún no hay ejercicios. Tocá <strong>Agregar ejercicio</strong> para empezar.",
