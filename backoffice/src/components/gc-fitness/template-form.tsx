@@ -401,12 +401,16 @@ export function TemplateForm({
     [fields, form],
   );
   const canContinueToDetails = fields.length > 0 && !hasUnselectedExercises;
+  // `form.watch` (not `form.getValues`) so the parent re-renders when the
+  // gating field changes — otherwise the button's disabled state lags behind
+  // user input and clicks silently no-op. Schema makes description.en
+  // optional, so we don't gate on it here either; only EN name is required.
+  const watchedNameEn = form.watch("name.en");
   const canSubmit =
     !pending &&
     step === 2 &&
     canContinueToDetails &&
-    (form.getValues("name.en") ?? "").trim().length > 0 &&
-    (form.getValues("description.en") ?? "").trim().length > 0;
+    (watchedNameEn ?? "").trim().length > 0;
 
   // Plan 21-01a: batch-add N exercises from the multi-select dialog. Each
   // new row inherits the default sets/reps/rest_seconds; the trainer can
@@ -898,9 +902,9 @@ export function TemplateForm({
                                   {t("setNumber", { count: setIdx + 1 })}
                                 </span>
                                 <Input
-                                  type="number"
-                                  min={1}
-                                  max={50}
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
                                   className="h-10"
                                   value={repsValue}
                                   data-set-input="reps"
@@ -965,10 +969,8 @@ export function TemplateForm({
                                   aria-label={t("setRepsAria", { count: setIdx + 1 })}
                                 />
                                 <Input
-                                  type="number"
-                                  min={0}
-                                  max={500}
-                                  step="0.5"
+                                  type="text"
+                                  inputMode="decimal"
                                   className="h-10"
                                   placeholder={t("setWeightPlaceholder")}
                                   data-set-input="weight"
