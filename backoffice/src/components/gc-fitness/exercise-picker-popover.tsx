@@ -421,7 +421,7 @@ export function ExercisePickerPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0"
+        className="flex max-h-[min(80vh,720px)] w-[--radix-popover-trigger-width] flex-col overflow-y-auto p-0"
         align="start"
       >
         {/* Phase 24-06 Task 3 — filter chip row. Renders ABOVE the
