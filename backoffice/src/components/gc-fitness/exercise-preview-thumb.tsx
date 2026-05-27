@@ -2,9 +2,15 @@
 
 // exercise-preview-thumb.tsx
 //
-// Small image cell used in the exercise pickers. Hovering for 2 seconds
-// opens an inline larger view via a Popover so trainers can verify which
-// exercise a row refers to without leaving the picker.
+// Small image cell used everywhere in gc-fitness backoffice that shows
+// an exercise thumbnail (library list, picker, multi-add dialog,
+// assign-template-modal, etc.). Hovering for 1 second opens an inline
+// larger view via a Popover so trainers can verify which exercise a row
+// refers to without navigating away.
+//
+// 260527-fot — delay tightened from 2s → 1s per operator request. 1s
+// matches common hover-card defaults (e.g. shadcn HoverCard) and feels
+// snappier when scanning a long list of exercises.
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -12,12 +18,12 @@ import { Dumbbell } from "lucide-react";
 
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
-  PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-const HOVER_DELAY_MS = 2000;
+const HOVER_DELAY_MS = 1000;
 
 interface ExercisePreviewThumbProps {
   src: string | null;
@@ -67,10 +73,12 @@ export function ExercisePreviewThumb({
     setOpen(false);
   }
 
-  // The thumbnail is rendered inside PopoverTrigger so a click also opens
-  // the preview (useful for keyboard / touch). We use a `<span>` instead
-  // of a button so it stays inert when nested inside a parent <button>
-  // (e.g. a CommandItem) — opening on hover is the primary affordance.
+  // 260527-fot — the thumb is a `<span>` with hover/focus handlers only.
+  // We deliberately do NOT use PopoverTrigger asChild any more so the
+  // component can be nested inside other interactive surfaces (the
+  // exercise-picker trigger button, table rows that open detail views,
+  // etc.) without intercepting the parent's click. Hover-to-preview is
+  // the primary affordance; click goes through to the parent.
   const thumb = (
     <span
       aria-hidden="true"
@@ -103,7 +111,9 @@ export function ExercisePreviewThumb({
   if (!src) return thumb;
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{thumb}</PopoverTrigger>
+      {/* Anchor without making the thumb a PopoverTrigger — clicks bubble
+          freely to whatever parent surface wrapped the thumb. */}
+      <PopoverAnchor asChild>{thumb}</PopoverAnchor>
       <PopoverContent
         side="right"
         align="start"

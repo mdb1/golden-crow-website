@@ -90,6 +90,10 @@ export interface WorkoutTemplateExerciseDetail {
   notes?: string;
   repsBySet?: number[];
   weightBySetKg?: number[];
+  /** Preview URL — preferred chain gifUrl → imageUrl → thumbnailURL. The
+   *  assign-template-modal renders ExercisePreviewThumb with this so the
+   *  trainer can hover-preview the exercise without leaving the modal. */
+  previewUrl: string | null;
 }
 
 /**
@@ -457,7 +461,23 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
         weightBySetKg: Array.isArray(exercise.weightBySetKg)
           ? (exercise.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
           : [],
+        previewUrl: extractPreviewUrl(source),
       };
     }),
   };
+}
+
+/**
+ * Pick the canonical preview URL for an exercise doc. Mirrors the picker's
+ * `previewSrc` priority (gifUrl → imageUrl → thumbnailURL). Returns `null`
+ * for legacy / quick-create exercises that don't have any media yet, so the
+ * caller can render a fallback (Dumbbell icon in ExercisePreviewThumb).
+ */
+function extractPreviewUrl(
+  source: Record<string, unknown> | undefined,
+): string | null {
+  if (!source) return null;
+  const pick = (raw: unknown): string | null =>
+    typeof raw === "string" && raw.trim().length > 0 ? raw : null;
+  return pick(source.gifUrl) ?? pick(source.imageUrl) ?? pick(source.thumbnailURL);
 }

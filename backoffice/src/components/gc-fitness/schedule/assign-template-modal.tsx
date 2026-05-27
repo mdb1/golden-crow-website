@@ -43,6 +43,7 @@ import {
 } from "@/lib/gc-fitness/workout-assignment-actions";
 import { getWorkoutTemplateForAssignment } from "@/lib/gc-fitness/workout-template-actions";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
+import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
 
 interface AssignTemplateModalProps {
   open: boolean;
@@ -590,7 +591,15 @@ export function AssignTemplateModal({
                   className="rounded-md border border-border/60 bg-background/60 p-3"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{exercise.exerciseName}</p>
+                    <div className="flex items-center gap-2">
+                      <ExercisePreviewThumb
+                        src={exercise.previewUrl}
+                        alt={exercise.exerciseName}
+                        width={32}
+                        height={32}
+                      />
+                      <p className="text-sm font-medium">{exercise.exerciseName}</p>
+                    </div>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-muted-foreground">
                         {t("exerciseOverridesRest")}

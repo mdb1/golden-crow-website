@@ -55,8 +55,7 @@
 // don't render a redundant duplicate line).
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
-import { ChevronsUpDown, Copy, Dumbbell, Search, X } from "lucide-react";
+import { ChevronsUpDown, Copy, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -374,32 +373,18 @@ export function ExercisePickerPopover({
         >
           {selected ? (
             <span className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="flex h-6 w-10 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
-              >
-                {(() => {
-                  const src = previewSrc(selected);
-                  return src ? (
-                    // unoptimized is unconditional: storage.googleapis.com v2
-                    // signed URLs have ?GoogleAccessId=…&Expires=…&Signature=…
-                    // query params that the Next.js image optimizer strips
-                    // when it rewrites src to /_next/image, producing runtime
-                    // 403. All exercise preview URLs come from either signed
-                    // Storage or wger CDN; none benefit from the optimizer.
-                    <Image
-                      src={src}
-                      alt=""
-                      width={40}
-                      height={24}
-                      className="h-full w-full object-cover"
-                      unoptimized={!!src}
-                    />
-                  ) : (
-                    <Dumbbell className="h-3 w-3" />
-                  );
-                })()}
-              </span>
+              {/* 260527-fot — replaced the inline Image with the shared
+                  ExercisePreviewThumb so the trainer gets the same 1s
+                  hover preview affordance as everywhere else in the
+                  backoffice. The preview popover uses PopoverAnchor
+                  (not Trigger) so the parent picker trigger's click
+                  still opens the picker. */}
+              <ExercisePreviewThumb
+                src={previewSrc(selected)}
+                alt={exerciseDisplayName(selected)}
+                width={40}
+                height={24}
+              />
               <span className="flex flex-col">
                 <span className="font-medium">
                   {exerciseDisplayName(selected)}
