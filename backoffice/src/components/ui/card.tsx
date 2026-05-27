@@ -13,9 +13,16 @@ function Card({
       data-size={size}
       className={cn(
         // Stronger ring (10% → 18%) for clearer section separation in light
-        // mode. Subtle shadow gives cards a tactile base layer. Hover lift
-        // kept to signal interactivity on linked cards.
-        "group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-foreground/15 shadow-sm has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5",
+        // mode. Subtle shadow gives cards a tactile base layer.
+        // 260527-fot — dropped the hover lift (translate-y + shadow-lg +
+        // transition-all) per operator request. On dense form surfaces
+        // (template-form per-exercise card, assign-template-modal) the
+        // hover lift interfered with rapid Tab navigation between inputs:
+        // the 300ms transition was still mid-animation while focus jumped,
+        // causing the cursor target to shift under the user's keyboard
+        // input. Linked cards that need a hover affordance should add
+        // their own `hover:` classes per-instance.
+        "group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-foreground/15 shadow-sm has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props}
