@@ -93,7 +93,12 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
 
   return (
     <>
-      <TemplateForm mode="edit" defaultValues={defaults} onSubmit={handleSubmit} />
+      <TemplateForm
+        mode="edit"
+        draftKey={`edit:${id}`}
+        defaultValues={defaults}
+        onSubmit={handleSubmit}
+      />
       <AlertDialog
         open={preview !== null}
         onOpenChange={(open) => {

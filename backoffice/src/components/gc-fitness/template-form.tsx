@@ -25,7 +25,7 @@
 // This keeps the form pure and lets the route handle the post-success
 // redirect / refresh.
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,6 +86,51 @@ export interface TemplateFormProps {
   onSubmit: (
     input: WorkoutTemplateInput,
   ) => Promise<{ id?: string; ok?: true; deferNavigation?: boolean }>;
+  /**
+   * Unique key used to autosave/restore unfinished work in localStorage.
+   * Typically "new" for the create surface and `edit:${templateId}` for
+   * the edit surface. If omitted, draft autosave is disabled.
+   */
+  draftKey?: string;
+}
+
+const DRAFT_STORAGE_PREFIX = "gc-fitness:template-draft:";
+const DRAFT_DEBOUNCE_MS = 500;
+
+function readDraft(key: string): Partial<WorkoutTemplateInput> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${DRAFT_STORAGE_PREFIX}${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return parsed as Partial<WorkoutTemplateInput>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key: string, value: WorkoutTemplateInput) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      `${DRAFT_STORAGE_PREFIX}${key}`,
+      JSON.stringify(value),
+    );
+  } catch {
+    /* quota / private mode — silent */
+  }
+}
+
+function clearDraft(key: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${key}`);
+  } catch {
+    /* ignore */
+  }
 }
 
 // Default suggestions. Trainers can still type any custom tag.
@@ -148,10 +193,12 @@ export function TemplateForm({
   mode,
   defaultValues,
   onSubmit,
+  draftKey,
 }: TemplateFormProps) {
   const t = useTranslations("templates.form");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [draftRestored, setDraftRestored] = useState(false);
   const [setsDraft, setSetsDraft] = useState<Record<string, string>>({});
   const [setRepsDraft, setSetRepsDraft] = useState<Record<string, string>>({});
   const [setWeightDraft, setSetWeightDraft] = useState<Record<string, string>>({});
@@ -178,6 +225,61 @@ export function TemplateForm({
     control: form.control,
     name: "exercises",
   });
+
+  // ---- Draft autosave + restore ------------------------------------------
+  //
+  // When draftKey is provided, hydrate the form from localStorage on mount
+  // (silently, but flag draftRestored so we can show a "draft restored"
+  // banner with a Discard button). On every subsequent change we persist
+  // the current form values back to localStorage, debounced so a fast
+  // typer doesn't write on every keystroke.
+  //
+  // The draft is cleared on successful submit. Navigating away without
+  // saving — back button, Esc, accidental close — leaves the draft on
+  // disk so a future mount restores it.
+  useEffect(() => {
+    if (!draftKey) return;
+    const stored = readDraft(draftKey);
+    if (!stored) return;
+    form.reset({
+      ...buildDefaults(defaultValues),
+      ...stored,
+    });
+    setDraftRestored(true);
+    // Intentionally only runs on mount + when the key changes. Editing the
+    // defaultValues prop later (e.g. server-side data refetch) should not
+    // wipe an in-progress draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  const draftTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!draftKey) return;
+    const subscription = form.watch((value) => {
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+      }
+      draftTimerRef.current = window.setTimeout(() => {
+        writeDraft(draftKey, value as WorkoutTemplateInput);
+        draftTimerRef.current = null;
+      }, DRAFT_DEBOUNCE_MS);
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+    };
+  }, [draftKey, form]);
+
+  function discardDraft() {
+    if (!draftKey) return;
+    clearDraft(draftKey);
+    form.reset(buildDefaults(defaultValues));
+    setDraftRestored(false);
+  }
+  // ------------------------------------------------------------------------
 
   // Plan 21-02 — dnd-kit sensors. PointerSensor with a 5px activation distance
   // so an accidental click doesn't trigger a drag on touch / fine-pointer
@@ -256,6 +358,8 @@ export function TemplateForm({
           })),
         };
         const result = await onSubmit(normalized);
+        // Save succeeded — the in-progress draft is no longer needed.
+        if (draftKey) clearDraft(draftKey);
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
           // 260524 — go back in nav after create (same UX as exercise + habit forms).
@@ -329,6 +433,21 @@ export function TemplateForm({
   return (
     <Form {...form}>
       <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+        {draftRestored ? (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground dark:border-amber-400/40 dark:bg-amber-400/10">
+            <span>
+              Restored your unsaved draft. Pick up where you left off.
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={discardDraft}
+            >
+              Discard draft
+            </Button>
+          </div>
+        ) : null}
         {/* Name EN + ES */}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
