@@ -978,6 +978,180 @@ export async function listAssignmentsForClientWeek(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Template-snapshot propagation — push edits to existing future assignments
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TemplatePropagationClient {
+  uid: string;
+  name: string;
+  sessions: number;
+  nextScheduledFor: string;
+}
+
+export interface TemplatePropagationPreview {
+  templateId: string;
+  assignmentCount: number;
+  clients: TemplatePropagationClient[];
+}
+
+/**
+ * Returns the list of FUTURE, still-scheduled assignments tied to a given
+ * template, grouped by client. Used after a template edit to show the
+ * trainer who would be affected by a snapshot push.
+ *
+ * Definition of "future":
+ *   - `scheduledFor >= todayUTC` — civil-date string comparison. UTC is the
+ *     conservative choice because it never skips a day-ahead session in a
+ *     trainer-tz that's behind UTC (we'd rather offer to update a session
+ *     and have the trainer decline than silently omit one).
+ *   - `status === "scheduled"` — never touch a session the client has
+ *     already started or completed (rule layer also enforces this).
+ */
+export async function listFutureAssignmentsForTemplate(
+  templateId: string,
+): Promise<TemplatePropagationPreview> {
+  const trainer = await getCurrentTrainer();
+
+  const db = gcFitnessFirestore();
+  // Confirm the trainer owns this template before we let them poke around
+  // at the assignments tied to it.
+  const templateSnap = await db.collection(TEMPLATES).doc(templateId).get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = templateSnap.data() as { trainerId?: string };
+  if (template.trainerId !== trainer.uid) {
+    throw new Error("Not your template.");
+  }
+
+  const todayUtc = civilDateFormat(new Date(), "UTC");
+  const snap = await db
+    .collection(ASSIGNMENTS)
+    .where("trainerId", "==", trainer.uid)
+    .where("templateId", "==", templateId)
+    .get();
+  const candidates = snap.docs.filter((doc) => {
+    const data = doc.data() as { scheduledFor?: string; status?: string };
+    if (typeof data.scheduledFor !== "string") return false;
+    if (data.scheduledFor < todayUtc) return false;
+    if (data.status && data.status !== "scheduled") return false;
+    return true;
+  });
+
+  // Group by client + fetch names. Hydrating names from /users is one extra
+  // round trip but the trainer rarely has > 50 distinct clients on a single
+  // template, so the cost is negligible.
+  const perClient = new Map<string, { sessions: number; earliest: string }>();
+  for (const doc of candidates) {
+    const data = doc.data() as { clientId?: string; scheduledFor?: string };
+    const clientId = typeof data.clientId === "string" ? data.clientId : "";
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    if (!clientId) continue;
+    const bucket = perClient.get(clientId) ?? {
+      sessions: 0,
+      earliest: scheduledFor,
+    };
+    bucket.sessions += 1;
+    if (!bucket.earliest || scheduledFor < bucket.earliest) {
+      bucket.earliest = scheduledFor;
+    }
+    perClient.set(clientId, bucket);
+  }
+
+  const clientIds = [...perClient.keys()];
+  const clientDocs = clientIds.length
+    ? await db.getAll(
+        ...clientIds.map((id) => db.collection(FirestoreCollections.users).doc(id)),
+      )
+    : [];
+  const nameByUid = new Map<string, string>();
+  for (const doc of clientDocs) {
+    if (!doc.exists) continue;
+    const data = doc.data() as { displayName?: string; email?: string };
+    nameByUid.set(doc.id, data.displayName ?? data.email ?? doc.id);
+  }
+
+  const clients: TemplatePropagationClient[] = [...perClient.entries()]
+    .map(([uid, info]) => ({
+      uid,
+      name: nameByUid.get(uid) ?? uid,
+      sessions: info.sessions,
+      nextScheduledFor: info.earliest,
+    }))
+    .sort((a, b) => a.nextScheduledFor.localeCompare(b.nextScheduledFor));
+
+  return {
+    templateId,
+    assignmentCount: candidates.length,
+    clients,
+  };
+}
+
+/**
+ * Rewrites the `templateSnapshot` field on every future, still-scheduled
+ * assignment that references `templateId` with a fresh snapshot derived from
+ * the template's current state. Past sessions and started/completed sessions
+ * are left untouched — they remain a frozen record of what the client was
+ * actually asked to do.
+ *
+ * Per-assignment exercise overrides are NOT preserved automatically because
+ * the override list lives only inside the snapshot itself; this function
+ * intentionally drops them so the propagation is a clean "use the new
+ * template as-is". A trainer who wants to keep a one-off tweak should
+ * answer "Keep existing schedules" and edit the affected assignment by hand.
+ *
+ * Returns the number of assignment docs updated.
+ */
+export async function propagateTemplateToFutureAssignments(
+  templateId: string,
+): Promise<{ updatedCount: number }> {
+  const trainer = await getCurrentTrainer();
+
+  const db = gcFitnessFirestore();
+  const templateSnap = await db.collection(TEMPLATES).doc(templateId).get();
+  if (!templateSnap.exists) throw new Error("Template not found.");
+  const template = templateSnap.data() as Record<string, unknown> & {
+    trainerId?: string;
+  };
+  if (template.trainerId !== trainer.uid) {
+    throw new Error("Not your template.");
+  }
+
+  const todayUtc = civilDateFormat(new Date(), "UTC");
+  const snap = await db
+    .collection(ASSIGNMENTS)
+    .where("trainerId", "==", trainer.uid)
+    .where("templateId", "==", templateId)
+    .get();
+  const targets = snap.docs.filter((doc) => {
+    const data = doc.data() as { scheduledFor?: string; status?: string };
+    if (typeof data.scheduledFor !== "string") return false;
+    if (data.scheduledFor < todayUtc) return false;
+    if (data.status && data.status !== "scheduled") return false;
+    return true;
+  });
+  if (targets.length === 0) return { updatedCount: 0 };
+
+  const freshSnapshot = await templateSnapshotForAssignment(template);
+
+  // Firestore caps WriteBatch at 500 ops; one update per assignment fits well
+  // inside that ceiling for any realistic roster size, but we still chunk to
+  // be defensive.
+  const CHUNK = 400;
+  for (let i = 0; i < targets.length; i += CHUNK) {
+    const batch = db.batch();
+    for (const doc of targets.slice(i, i + CHUNK)) {
+      batch.update(doc.ref, {
+        templateSnapshot: freshSnapshot,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  return { updatedCount: targets.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // listAssignmentsForTrainerDay — composite index #4 (trainerId, scheduledFor)
 // ─────────────────────────────────────────────────────────────────────────────
 

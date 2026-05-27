@@ -321,7 +321,7 @@
       "title": "Edit template",
       "subtitlePrefix": "Changes save when you click ",
       "subtitleCta": "Save",
-      "subtitleSuffix": ". Existing assignments preserve their snapshot and are not modified."
+      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions."
     },
     "list": {
       "pageHeading": "Workout Templates",

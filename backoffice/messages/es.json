@@ -321,7 +321,7 @@
       "title": "Editar plantilla",
       "subtitlePrefix": "Los cambios se guardan al tocar ",
       "subtitleCta": "Guardar",
-      "subtitleSuffix": ". Las asignaciones existentes conservan su snapshot y no se modifican."
+      "subtitleSuffix": ". Si la plantilla ya está agendada, te preguntamos si querés aplicar los cambios a esas sesiones."
     },
     "list": {
       "pageHeading": "Plantillas de entrenamiento",

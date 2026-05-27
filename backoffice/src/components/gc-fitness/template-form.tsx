@@ -85,7 +85,7 @@ export interface TemplateFormProps {
    */
   onSubmit: (
     input: WorkoutTemplateInput,
-  ) => Promise<{ id?: string; ok?: true }>;
+  ) => Promise<{ id?: string; ok?: true; deferNavigation?: boolean }>;
 }
 
 // Default suggestions. Trainers can still type any custom tag.
@@ -263,6 +263,10 @@ export function TemplateForm({
           return;
         }
         toast.success(t("savedToast"));
+        // Edit wrappers can defer the back-nav so they can render a follow-up
+        // dialog (e.g. the template-propagation confirmation). The wrapper is
+        // responsible for navigating away once the dialog resolves.
+        if (result?.deferNavigation) return;
         router.back();
       } catch (err) {
         console.error("[template-form] save failed", err);
