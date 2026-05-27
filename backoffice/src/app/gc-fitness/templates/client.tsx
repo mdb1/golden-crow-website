@@ -10,7 +10,7 @@
 //   - "+ New template" CTA → `/gc-fitness/templates/new`
 //   - Delete action → confirm dialog → softDeleteWorkoutTemplate + cache invalidate
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -58,7 +58,33 @@ import {
   duplicateWorkoutTemplate,
 } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
-import { makeTemplateColumns } from "@/components/gc-fitness/templates/columns";
+import {
+  makeTemplateColumns,
+  type TemplateListRow,
+} from "@/components/gc-fitness/templates/columns";
+
+// localStorage prefix used by template-form.tsx for autosaved drafts.
+// We only surface the "new" key here — edit drafts mutate an existing row.
+const DRAFT_STORAGE_KEY_NEW = "gc-fitness:template-draft:new";
+
+interface NewTemplateDraft {
+  name?: { en?: string; es?: string };
+  description?: { en?: string; es?: string };
+  tag?: string;
+  exercises?: Array<unknown>;
+}
+
+function readNewDraft(): NewTemplateDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY_NEW);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as NewTemplateDraft) : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface TemplatesLibraryClientProps {
   trainerUid: string;
@@ -85,8 +111,55 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
   // server-side strict equality only matched on exact "Herfli".
   const { data, isLoading, error } = useWorkoutTemplates();
 
-  const rows = useMemo(() => {
-    let list = data ?? [];
+  // Read the in-progress "new" draft from localStorage so we can surface it as
+  // a virtual row at the top of the list. Re-read on the `storage` event so a
+  // change in another tab is reflected here without a manual refresh.
+  const [newDraft, setNewDraft] = useState<NewTemplateDraft | null>(null);
+  useEffect(() => {
+    setNewDraft(readNewDraft());
+    function onStorage(e: StorageEvent) {
+      if (e.key === DRAFT_STORAGE_KEY_NEW) setNewDraft(readNewDraft());
+    }
+    function onFocus() {
+      setNewDraft(readNewDraft());
+    }
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  const draftRow = useMemo<TemplateListRow | null>(() => {
+    if (!newDraft) return null;
+    const exerciseCount = Array.isArray(newDraft.exercises)
+      ? newDraft.exercises.length
+      : 0;
+    return {
+      id: "__draft:new",
+      name: {
+        en: newDraft.name?.en ?? "",
+        es: newDraft.name?.es ?? "",
+      },
+      description: undefined,
+      // Cast: the draft can hold any free-form tag the trainer typed; for list
+      // rendering we only need the string. The Badge / filter logic tolerates
+      // arbitrary strings already.
+      tag: (newDraft.tag ?? "custom") as WorkoutTemplateRow["tag"],
+      exerciseCount,
+      trainerId: trainerUid,
+      isStandard: false,
+      deleted: false,
+      version: 0,
+      createdAt: null,
+      updatedAt: null,
+      __isDraft: true,
+    };
+  }, [newDraft, trainerUid]);
+
+  const rows = useMemo<TemplateListRow[]>(() => {
+    let list: TemplateListRow[] = data ?? [];
     if (mineOnly) {
       list = list.filter(
         (row) => row.trainerId === trainerUid && !row.isStandard,
@@ -96,14 +169,15 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
     if (needle) {
       list = list.filter((row) => (row.tag ?? "").toLowerCase().includes(needle));
     }
-    return list;
-  }, [data, mineOnly, trainerUid, tagFilter]);
+    return draftRow ? [draftRow, ...list] : list;
+  }, [data, mineOnly, trainerUid, tagFilter, draftRow]);
 
   const handlers = useMemo(
     () => ({
       onEdit: (row: WorkoutTemplateRow) =>
         router.push(`/gc-fitness/templates/${row.id}/edit`),
       onDelete: (row: WorkoutTemplateRow) => setConfirmDelete(row),
+      onResumeDraft: () => router.push("/gc-fitness/templates/new"),
       // P21 — duplicate trainer-owned template. Triggers a Server Action
       // that creates a fork with " (copia)" suffix on the ES + EN name,
       // then invalidates the templates cache so the new row appears at

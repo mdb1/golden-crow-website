@@ -315,7 +315,10 @@
       "actionsAria": "Actions",
       "edit": "Edit",
       "duplicate": "Duplicate",
-      "delete": "Delete"
+      "delete": "Delete",
+      "draftUntitled": "(untitled draft)",
+      "draftBadgeTooltip": "Incomplete draft — cannot be assigned until completed",
+      "draftResumeCta": "Continue draft"
     },
     "editPage": {
       "title": "Edit template",

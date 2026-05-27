@@ -315,7 +315,10 @@
       "actionsAria": "Acciones",
       "edit": "Editar",
       "duplicate": "Duplicar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "draftUntitled": "(borrador sin título)",
+      "draftBadgeTooltip": "Borrador incompleto — no se puede asignar hasta completarse",
+      "draftResumeCta": "Continuar borrador"
     },
     "editPage": {
       "title": "Editar plantilla",

@@ -18,9 +18,11 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  AlertCircle,
   ArrowUpDown,
   MoreHorizontal,
   Edit,
+  Pencil,
   Trash2,
 } from "lucide-react";
 import type { useTranslations } from "next-intl";
@@ -33,13 +35,30 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
+
+// List-only extension of WorkoutTemplateRow: the templates client merges in
+// virtual rows backed by the `gc-fitness:template-draft:new` localStorage
+// entry. Drafts are not assignable / duplicatable / deletable — only "resume"
+// is offered. Real Firestore rows never set `__isDraft`.
+export type TemplateListRow = WorkoutTemplateRow & { __isDraft?: boolean };
+
 export interface TemplateColumnHandlers {
   onEdit: (row: WorkoutTemplateRow) => void;
   onDelete: (row: WorkoutTemplateRow) => void;
   // P21 — duplicate ANY trainer-owned template (not just standard forks).
   onDuplicate: (row: WorkoutTemplateRow) => void;
+  // Draft-only — opens the new-template page so the form restores from
+  // localStorage. No-op when there is no draft (the list won't surface a
+  // resume action for non-draft rows).
+  onResumeDraft: () => void;
 }
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -81,7 +100,7 @@ type TFn = ReturnType<typeof useTranslations>;
 export function makeTemplateColumns(
   handlers: TemplateColumnHandlers,
   t: TFn,
-): ColumnDef<WorkoutTemplateRow>[] {
+): ColumnDef<TemplateListRow>[] {
   return [
     {
       accessorKey: "name",
@@ -100,15 +119,33 @@ export function makeTemplateColumns(
       // Sort by EN name (stable across language); secondary fallback is ES.
       accessorFn: (row) => row.name.en || row.name.es || "",
       cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="font-medium">
-            {row.original.name.en || t("untitled")}
-          </span>
-          {row.original.name.es && (
-            <span className="text-xs text-muted-foreground">
-              {row.original.name.es}
+        <div className="flex items-center gap-2">
+          {row.original.__isDraft ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    aria-label={t("draftBadgeTooltip")}
+                    className="inline-flex shrink-0"
+                  >
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{t("draftBadgeTooltip")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          <div className="flex flex-col">
+            <span className="font-medium">
+              {row.original.name.en
+                || (row.original.__isDraft ? t("draftUntitled") : t("untitled"))}
             </span>
-          )}
+            {row.original.name.es && (
+              <span className="text-xs text-muted-foreground">
+                {row.original.name.es}
+              </span>
+            )}
+          </div>
         </div>
       ),
       enableSorting: true,
@@ -174,25 +211,34 @@ export function makeTemplateColumns(
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
-              <Edit className="mr-2 h-4 w-4" />
-              {row.original.isStandard ? t("duplicate") : t("edit")}
-            </DropdownMenuItem>
-            {!row.original.isStandard ? (
+            {row.original.__isDraft ? (
+              <DropdownMenuItem onClick={() => handlers.onResumeDraft()}>
+                <Pencil className="mr-2 h-4 w-4" />
+                {t("draftResumeCta")}
+              </DropdownMenuItem>
+            ) : (
               <>
-                <DropdownMenuItem onClick={() => handlers.onDuplicate(row.original)}>
+                <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
                   <Edit className="mr-2 h-4 w-4" />
-                  {t("duplicate")}
+                  {row.original.isStandard ? t("duplicate") : t("edit")}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handlers.onDelete(row.original)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {t("delete")}
-                </DropdownMenuItem>
+                {!row.original.isStandard ? (
+                  <>
+                    <DropdownMenuItem onClick={() => handlers.onDuplicate(row.original)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      {t("duplicate")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handlers.onDelete(row.original)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {t("delete")}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </>
-            ) : null}
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
