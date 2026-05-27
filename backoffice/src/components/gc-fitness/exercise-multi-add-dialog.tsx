@@ -108,9 +108,7 @@ export function ExerciseMultiAddDialog({
     const needle = search.trim();
     if (!needle) return exercises;
     return exercises.filter((ex) => {
-      const haystack = (
-        [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" "),
-      );
+      const haystack = [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" ");
       return fuzzyTokenMatch(needle, haystack);
     });
   }, [exercises, search]);

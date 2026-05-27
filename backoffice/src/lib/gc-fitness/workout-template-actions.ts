@@ -55,6 +55,18 @@ export interface WorkoutTemplateRow {
   updatedAt: string | null;
 }
 
+export interface WorkoutTemplateExerciseDetail {
+  index: number;
+  exerciseId: string;
+  exerciseName: string;
+  sets: number;
+  reps: number;
+  rest_seconds: number;
+  notes?: string;
+  repsBySet?: number[];
+  weightBySetKg?: number[];
+}
+
 /**
  * Coerces a Firestore Timestamp (or any value exposing `.toDate()`) to an
  * ISO string. Returns null for missing / unknown shapes.
@@ -333,4 +345,75 @@ export async function listWorkoutTemplates(opts?: {
   });
 
   return { templates };
+}
+
+export async function getWorkoutTemplateForAssignment(templateId: string): Promise<{
+  id: string;
+  name: { en: string; es: string };
+  exercises: WorkoutTemplateExerciseDetail[];
+}> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db.collection(COLLECTION).doc(templateId).get();
+  if (!snap.exists) throw new Error("Template not found.");
+  const data = snap.data() as Record<string, unknown>;
+  const canUseTemplate =
+    data.trainerId === trainer.uid || data.isStandard === true;
+  if (!canUseTemplate) throw new Error("Not your template.");
+
+  const exercises = Array.isArray(data.exercises)
+    ? (data.exercises as Array<Record<string, unknown>>)
+    : [];
+  const exerciseIds = exercises
+    .map((exercise) => exercise.exerciseId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const exerciseDocs =
+    exerciseIds.length > 0
+      ? await db.getAll(
+          ...exerciseIds.map((id) =>
+            db.collection(FirestoreCollections.exercises).doc(id),
+          ),
+        )
+      : [];
+  const exerciseMap = new Map(
+    exerciseDocs.map((doc) => [doc.id, doc.data() as Record<string, unknown>]),
+  );
+
+  return {
+    id: snap.id,
+    name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
+    exercises: exercises.map((exercise, index) => {
+      const exerciseId =
+        typeof exercise.exerciseId === "string" ? exercise.exerciseId : "";
+      const source = exerciseMap.get(exerciseId);
+      const sourceName = source?.name as { en?: string; es?: string } | undefined;
+      const exerciseName =
+        sourceName?.en || sourceName?.es || exerciseId || `Exercise ${index + 1}`;
+      return {
+        index,
+        exerciseId,
+        exerciseName,
+        sets:
+          typeof exercise.sets === "number" && Number.isFinite(exercise.sets)
+            ? exercise.sets
+            : 3,
+        reps:
+          typeof exercise.reps === "number" && Number.isFinite(exercise.reps)
+            ? exercise.reps
+            : 10,
+        rest_seconds:
+          typeof exercise.rest_seconds === "number" &&
+          Number.isFinite(exercise.rest_seconds)
+            ? exercise.rest_seconds
+            : 60,
+        notes: typeof exercise.notes === "string" ? exercise.notes : "",
+        repsBySet: Array.isArray(exercise.repsBySet)
+          ? (exercise.repsBySet as number[]).filter((n) => Number.isFinite(n))
+          : [],
+        weightBySetKg: Array.isArray(exercise.weightBySetKg)
+          ? (exercise.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
+          : [],
+      };
+    }),
+  };
 }

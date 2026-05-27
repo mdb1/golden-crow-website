@@ -179,6 +179,49 @@ function snapToRow(d: {
   };
 }
 
+function applyExerciseOverrides(
+  templateSnapshot: Record<string, unknown>,
+  overrides:
+    | Array<{
+        index: number;
+        sets?: number;
+        reps?: number;
+        rest_seconds?: number;
+        notes?: string;
+        weightBySetKg?: number[];
+        repsBySet?: number[];
+      }>
+    | undefined,
+) {
+  if (!overrides || overrides.length === 0) return templateSnapshot;
+  const exercises = Array.isArray(templateSnapshot.exercises)
+    ? [...(templateSnapshot.exercises as Array<Record<string, unknown>>)]
+    : [];
+  for (const override of overrides) {
+    const current = exercises[override.index];
+    if (!current) continue;
+    exercises[override.index] = {
+      ...current,
+      ...(override.sets !== undefined ? { sets: override.sets } : {}),
+      ...(override.reps !== undefined ? { reps: override.reps } : {}),
+      ...(override.rest_seconds !== undefined
+        ? { rest_seconds: override.rest_seconds }
+        : {}),
+      ...(override.notes !== undefined ? { notes: override.notes } : {}),
+      ...(override.weightBySetKg !== undefined
+        ? { weightBySetKg: override.weightBySetKg }
+        : {}),
+      ...(override.repsBySet !== undefined
+        ? { repsBySet: override.repsBySet }
+        : {}),
+    };
+  }
+  return {
+    ...templateSnapshot,
+    exercises,
+  };
+}
+
 /**
  * Add `n` civil-date days to a "YYYY-MM-DD" string and return the new
  * civil-date string. Pure-arithmetic helper — formats the result via the
@@ -256,10 +299,14 @@ export async function assignTemplate(
   const docId = `asg-${parsed.clientId}-${ymd}-${randomUUID()}`;
   const ref = db.collection(ASSIGNMENTS).doc(docId);
   const templateSnapshot = await templateSnapshotForAssignment(template);
+  const customizedSnapshot = applyExerciseOverrides(
+    templateSnapshot,
+    parsed.exerciseOverrides,
+  );
 
   await ref.set({
     templateId: parsed.templateId,
-    templateSnapshot,
+    templateSnapshot: customizedSnapshot,
     clientId: parsed.clientId,
     trainerId: trainer.uid,
     scheduledFor: parsed.scheduledFor, // STRING — Pitfall 1
@@ -450,7 +497,10 @@ export async function bulkAssignTemplate(
   const batch = db.batch();
   const ids: string[] = [];
   const ymd = parsed.scheduledFor.replace(/-/g, "");
-  const templateSnapshot = await templateSnapshotForAssignment(template);
+  const templateSnapshot = applyExerciseOverrides(
+    await templateSnapshotForAssignment(template),
+    undefined,
+  );
 
   for (const clientId of parsed.clientIds) {
     const docId = `asg-${clientId}-${ymd}-${randomUUID()}`;
@@ -568,7 +618,10 @@ export async function assignTemplateRecurring(
   }
   const windowStart = dates[0];
 
-  const templateSnapshot = await templateSnapshotForAssignment(template);
+  const templateSnapshot = applyExerciseOverrides(
+    await templateSnapshotForAssignment(template),
+    parsed.exerciseOverrides,
+  );
   // 260522-ki7 Task A: every doc in a recurring batch shares ONE seriesId so
   // the cascade-delete query in deleteAssignment(id, {cascadeFromDate}) can
   // identify the series via a single equality predicate.
