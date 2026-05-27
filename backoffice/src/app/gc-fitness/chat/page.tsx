@@ -33,7 +33,6 @@
 //     bubble alignment.
 
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
 
 import {
   getCurrentTrainer,
@@ -64,16 +63,9 @@ export default async function ChatPage() {
     photoURL: c.photoURL,
     pendingProvisioning: c.pendingProvisioning,
   }));
-  const t = await getTranslations("chat");
 
   return (
     <div className="gc-page flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </div>
       <ChatQueryProvider>
         <ChatInboxClient
           trainerUid={trainer.uid}

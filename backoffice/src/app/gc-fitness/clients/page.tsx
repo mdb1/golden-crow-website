@@ -48,19 +48,11 @@ export default async function ClientsPage() {
 
   return (
     <div className="gc-page flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {activeText}
-          {pendingSuffix}
-          {t("subtitleSortNote")}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          At-risk clients highlight low compliance or missed workouts in the last coaching window.
-        </p>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        {activeText}
+        {pendingSuffix}
+        {t("subtitleSortNote")}
+      </p>
       <ProvisionClientForm />
       <RosterQueryProvider>
         <RosterTable rows={rows} trainerUid={trainer.uid} />

@@ -25,7 +25,6 @@ export default async function RecentLogsPage() {
     throw err;
   }
 
-  const t = await getTranslations("recentLogs");
   const tCommon = await getTranslations("common");
 
   // Plan 20-06: catch Server-Action failures (Firestore unavailable, index
@@ -48,12 +47,6 @@ export default async function RecentLogsPage() {
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </div>
       {loadFailed ? (
         <Card>
           <CardHeader>

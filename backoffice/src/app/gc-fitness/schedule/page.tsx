@@ -56,16 +56,11 @@ export default async function SchedulePage({
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <header className="flex items-start justify-between">
-        <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">Workout planning</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{t("title")} · Workouts</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Button variant="outline" asChild>
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" asChild>
           <Link href="/gc-fitness/schedule/bulk">{t("bulkAssignLabel")}</Link>
         </Button>
-      </header>
+      </div>
 
       <ScheduleQueryProvider>
         {clientId ? (
