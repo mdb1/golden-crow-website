@@ -374,29 +374,56 @@ export function TemplateForm({
           ...values,
           tag: tagsClean[0] ?? "custom",
           tags: tagsClean,
-          exercises: values.exercises.map((ex, idx) => ({
-            ...ex,
-            ...(Array.isArray(ex.repsBySet) && ex.repsBySet.length > 0
-              ? {
-                  repsBySet: ex.repsBySet.filter(
-                    (n): n is number => Number.isFinite(n),
-                  ),
-                  sets: ex.repsBySet.filter((n) => Number.isFinite(n)).length,
-                  reps: ex.repsBySet.find((n) => Number.isFinite(n)) ?? ex.reps,
-                }
-              : {}),
-            ...(Array.isArray(ex.weightBySetKg) && ex.weightBySetKg.length > 0
-              ? {
-                  weightBySetKg: ex.weightBySetKg.filter(
-                    (n): n is number => Number.isFinite(n),
-                  ),
-                }
-              : {}),
-            ...(ex.supersetGroup?.trim()
-              ? { supersetGroup: ex.supersetGroup.trim() }
-              : {}),
-            order: idx + 1,
-          })),
+          exercises: values.exercises.map((ex, idx) => {
+            // Align sets, repsBySet, weightBySetKg around a single
+            // canonical length so the saved doc never has the desync that
+            // surfaced as "sets=1 but weightBySetKg=[24,24,23]" in the
+            // operator's PULL template. Prior code derived `sets` from
+            // `repsBySet.length` only, so a stale weightBySetKg with more
+            // entries got silently persisted, which then re-rendered the
+            // assign-template-modal in a confusing way.
+            const cleanedReps = Array.isArray(ex.repsBySet)
+              ? ex.repsBySet.filter((n): n is number => Number.isFinite(n))
+              : [];
+            const cleanedWeights = Array.isArray(ex.weightBySetKg)
+              ? ex.weightBySetKg.filter((n): n is number => Number.isFinite(n))
+              : [];
+            const declaredSets =
+              typeof ex.sets === "number" && Number.isFinite(ex.sets)
+                ? Math.max(1, Math.min(10, Math.round(ex.sets)))
+                : 0;
+            const canonicalLen = Math.min(
+              10,
+              Math.max(
+                declaredSets,
+                cleanedReps.length,
+                cleanedWeights.length,
+                1,
+              ),
+            );
+            const repsFallback = Number.isFinite(ex.reps) && ex.reps > 0
+              ? ex.reps
+              : cleanedReps.find((n) => n > 0) ?? 0;
+            const alignedReps = Array.from({ length: canonicalLen }, (_, i) =>
+              Number.isFinite(cleanedReps[i]) ? cleanedReps[i] : repsFallback,
+            );
+            const alignedWeights = cleanedWeights.length > 0
+              ? Array.from({ length: canonicalLen }, (_, i) =>
+                  Number.isFinite(cleanedWeights[i]) ? cleanedWeights[i] : 0,
+                )
+              : undefined;
+            return {
+              ...ex,
+              sets: canonicalLen,
+              reps: alignedReps[0] ?? repsFallback,
+              ...(alignedReps.length > 0 ? { repsBySet: alignedReps } : {}),
+              ...(alignedWeights ? { weightBySetKg: alignedWeights } : {}),
+              ...(ex.supersetGroup?.trim()
+                ? { supersetGroup: ex.supersetGroup.trim() }
+                : {}),
+              order: idx + 1,
+            };
+          }),
         };
         const result = await onSubmit(normalized);
         // Save succeeded — the in-progress draft is no longer needed.
