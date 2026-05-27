@@ -108,6 +108,7 @@
     "needsAttentionTitle": "Needs attention: {reasons}",
     "missedWorkouts": "Missed workouts",
     "lowCompliance": "Low habit compliance",
+    "inactive3Days": "No activity in 3+ days",
     "table": {
       "name": "Name",
       "lastActivity": "Last activity",

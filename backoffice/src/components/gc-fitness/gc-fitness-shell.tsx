@@ -119,8 +119,14 @@ export function GCFitnessShell({
           <SidebarHeader className="glass-panel gap-3 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
             <div className="px-2 group-data-[collapsible=icon]:px-0">
               <p className="section-eyebrow group-data-[collapsible=icon]:hidden">{t("eyebrow")}</p>
-              <p className="font-heading text-lg font-semibold text-sidebar-foreground group-data-[collapsible=icon]:text-center">
+              <p className="font-heading text-lg font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
                 {t("appName")}
+              </p>
+              <p
+                aria-hidden
+                className="hidden text-center font-heading text-sm font-semibold leading-tight tracking-wide text-sidebar-foreground group-data-[collapsible=icon]:block"
+              >
+                GCF
               </p>
               <p className="mt-1 text-sm text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
                 {t("tagline")}

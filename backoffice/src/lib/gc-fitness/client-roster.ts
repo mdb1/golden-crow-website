@@ -98,8 +98,9 @@ export interface ClientRosterRow {
    */
   missedWorkoutsLast7Days: number;
   /**
-   * Derived flag from `clientNeedsAttention()` predicate (11-06).
-   * True iff `missedWorkoutsLast7Days >= 2` OR `thisWeekComplianceRatio < 0.6`.
+   * Derived flag from `clientNeedsAttention()` predicate.
+   * True iff the client has had zero activity for at least 3 days
+   * (see NEEDS_ATTENTION_INACTIVITY_HOURS in client-attention.ts).
    */
   needsAttention: boolean;
   /** Reasons the predicate fired. Empty when `needsAttention === false`. */
@@ -442,8 +443,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         assignedCount - completedCount,
       );
       const attention = clientNeedsAttention({
-        missedWorkoutsLast7Days,
-        complianceRatioLast7Days: thisWeekComplianceRatio,
+        lastActivityAtMs: lastActivity?.getTime() ?? null,
+        nowMs: Date.now(),
       });
 
       return {

@@ -177,42 +177,52 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     };
   }
 
+  // NOTE: every fan-out query below intentionally avoids COMPOSITE filters
+  // (e.g. clientId + civilDate, trainerId + scheduledFor, trainerId +
+  // orderBy startedAt). Those would require explicit composite indexes that
+  // are not yet provisioned in this Firebase project — the queries throw
+  // FAILED_PRECONDITION, the catch swallows it, and the dashboard renders
+  // an all-zero pulse. Instead we run a single-where query against an
+  // auto-indexed field and slice down to the 7-day window in memory.
+  const logError = (label: string) => (err: unknown) => {
+    console.error(`[coach-pulse] ${label} failed`, err);
+    return null;
+  };
   const habitsPromises = activeClients.map((client) =>
     db
       .collection(FirestoreCollections.habits)
       .where("clientId", "==", client.uid)
       .limit(50)
       .get()
-      .catch(() => null),
+      .catch(logError(`habits clientId=${client.uid}`)),
   );
   const habitLogsPromises = activeClients.map((client) =>
     db
       .collection(FirestoreCollections.habitLogs)
       .where("clientId", "==", client.uid)
-      .where("civilDate", ">=", windowStart)
+      .limit(400)
       .get()
-      .catch(() => null),
+      .catch(logError(`habit_logs clientId=${client.uid}`)),
   );
   const assignmentsPromise = db
     .collection(FirestoreCollections.workoutAssignments)
     .where("trainerId", "==", trainer.uid)
-    .where("scheduledFor", ">=", windowStart)
+    .limit(600)
     .get()
-    .catch(() => null);
+    .catch(logError("workout_assignments"));
   const workoutLogsPromise = db
     .collection(FirestoreCollections.workoutLogs)
     .where("trainerId", "==", trainer.uid)
-    .orderBy("startedAt", "desc")
-    .limit(400)
+    .limit(600)
     .get()
-    .catch(() => null);
+    .catch(logError("workout_logs"));
   const customExercisesPromise = db
     .collection(FirestoreCollections.exercises)
     .where("source", "==", "trainer")
     .where("ownerId", "==", trainer.uid)
     .count()
     .get()
-    .catch(() => null);
+    .catch(logError("custom_exercises_count"));
 
   const [
     habitsSnaps,
@@ -471,6 +481,7 @@ function pickTopPerformer(
   perClientHabit.forEach((stat, uid) => {
     if (stat.den === 0) return;
     const pct = Math.round((stat.num / stat.den) * 100);
+    if (pct <= 0) return;
     if (!best || pct > best.pct) {
       const client = clients.find((c) => c.uid === uid);
       if (!client) return;

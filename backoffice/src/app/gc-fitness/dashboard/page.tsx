@@ -242,11 +242,10 @@ export default async function GCFitnessDashboardPage({
         <div className="grid gap-3 sm:grid-cols-3">
           <PulseChip
             label="Top performer"
-            value={pulse.topPerformer ? pulse.topPerformer.name : "—"}
-            hint={
+            value={
               pulse.topPerformer
-                ? `${pulse.topPerformer.pct}% habit compliance`
-                : "Add a habit to start tracking."
+                ? `${pulse.topPerformer.name} · ${pulse.topPerformer.pct}%`
+                : "—"
             }
             tone={pulse.topPerformer ? "success" : "default"}
           />

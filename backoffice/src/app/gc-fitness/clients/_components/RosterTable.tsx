@@ -66,10 +66,8 @@ export function RosterTable({ rows }: RosterTableProps) {
   // BOTH messages/{locale}.json catalogs.
   function formatReason(reason: AttentionReason): string {
     switch (reason) {
-      case "missed-workouts":
-        return t("missedWorkouts");
-      case "low-compliance":
-        return t("lowCompliance");
+      case "inactive-3-days":
+        return t("inactive3Days");
     }
   }
 

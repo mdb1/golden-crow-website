@@ -108,6 +108,7 @@
     "needsAttentionTitle": "Necesita atención: {reasons}",
     "missedWorkouts": "Entrenamientos perdidos",
     "lowCompliance": "Baja adherencia a hábitos",
+    "inactive3Days": "Sin actividad hace 3+ días",
     "table": {
       "name": "Nombre",
       "lastActivity": "Última actividad",
