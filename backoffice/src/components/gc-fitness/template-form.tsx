@@ -807,6 +807,11 @@ export function TemplateForm({
                                 value={setsDraft[field.id] ?? (numField.value ?? "")}
                                 onChange={(e) =>
                                   {
+                                    // Buffer ONLY — do not commit to RHF or
+                                    // resize the per-set arrays per keystroke.
+                                    // Typing "12" would otherwise transiently
+                                    // resize the Set rows from 1 → 10 and
+                                    // thrash focus + scroll. Commit on blur.
                                     if (e.target.value === "") {
                                       setSetsDraft((prev) => ({ ...prev, [field.id]: "" }));
                                       return;
@@ -814,8 +819,6 @@ export function TemplateForm({
                                     const parsed = Number(e.target.value);
                                     if (!Number.isFinite(parsed)) return;
                                     setSetsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
-                                    numField.onChange(parsed);
-                                    syncSetArrays(index, parsed);
                                   }
                                 }
                                 onBlur={(e) => {
@@ -870,6 +873,10 @@ export function TemplateForm({
                                 pattern="[0-9]*"
                                 value={restSecondsDraft[field.id] ?? (numField.value ?? "")}
                                 onChange={(e) => {
+                                  // Buffer only — RHF commit happens on blur,
+                                  // matching the Sets + per-set patterns and
+                                  // keeping form.watch (autosave) silent
+                                  // until the trainer commits the value.
                                   if (e.target.value === "") {
                                     setRestSecondsDraft((prev) => ({ ...prev, [field.id]: "" }));
                                     return;
@@ -877,7 +884,6 @@ export function TemplateForm({
                                   const parsed = Number(e.target.value);
                                   if (!Number.isFinite(parsed)) return;
                                   setRestSecondsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
-                                  numField.onChange(parsed);
                                 }}
                                 onBlur={() => {
                                   const raw = restSecondsDraft[field.id];
