@@ -34,7 +34,7 @@ export default async function TemplatesPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex flex-col gap-6">
       <TemplatesQueryProvider>
         <TemplatesLibraryClient />
       </TemplatesQueryProvider>

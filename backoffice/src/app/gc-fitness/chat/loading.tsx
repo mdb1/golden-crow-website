@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ChatLoading() {
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-8">
+    <div className="gc-page flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <Skeleton className="h-7 w-40" />
         <Skeleton className="mt-1 h-4 w-72" />

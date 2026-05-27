@@ -47,7 +47,7 @@ export default async function RecentLogsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
           {t("title")}

@@ -90,7 +90,7 @@ export default async function GCFitnessDashboardPage() {
   const tCommon = await getTranslations("common");
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex flex-col gap-6">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-1">
           <p className="section-eyebrow">GC Fitness</p>

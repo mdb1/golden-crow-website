@@ -199,16 +199,17 @@ export function RosterTable({ rows }: RosterTableProps) {
           aria-pressed={needsAttentionOnly}
         >
           <AlertCircle className="size-4" />
-          {t("needsAttention", { count: needsAttentionCount })}
+          At-risk clients ({needsAttentionCount})
         </Button>
         {needsAttentionOnly ? (
-          <button
+          <Button
             type="button"
-            className="text-xs text-muted-foreground hover:text-foreground"
+            variant="ghost"
+            size="sm"
             onClick={() => setNeedsAttentionOnly(false)}
           >
             {tCommon("clearFilter")}
-          </button>
+          </Button>
         ) : null}
       </div>
       <div className="rounded-md border bg-card">

@@ -33,7 +33,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
 import { LanguagePicker } from "@/components/gc-fitness/language-picker";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
@@ -93,6 +92,7 @@ export function GCFitnessShell({
   const tNav = useTranslations("nav");
   const shellHidden = HIDDEN_SHELL_PATHS.has(pathname);
   const chatsQuery = useTrainerChats(!shellHidden && !!trainerUid);
+  const sectionMeta = getSectionMeta(pathname, tNav);
   const unreadChatTotal = (chatsQuery.data ?? []).reduce((sum, chat) => {
     if (!trainerUid) return sum;
     return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
@@ -130,7 +130,12 @@ export function GCFitnessShell({
           <SidebarContent>
             {resolvedSections.map((section) => (
               <SidebarGroup key={section.sectionKey}>
-                <SidebarGroupLabel>{tNav(section.sectionKey)}</SidebarGroupLabel>
+                <SidebarGroupLabel className="mb-1 flex flex-col items-start gap-0.5 px-2">
+                  <span>{tNav(section.sectionKey)}</span>
+                  <span className="hidden text-[11px] font-normal normal-case tracking-normal text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+                    {describeSection(section.sectionKey, tNav)}
+                  </span>
+                </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {section.items.map((item) => {
@@ -180,12 +185,14 @@ export function GCFitnessShell({
                   {unreadChatTotal}
                 </Badge>
               ) : null}
-              <Separator orientation="vertical" className="h-4" />
               <div className="min-w-0 flex-1">
-                <p className="section-eyebrow">{t("headerEyebrow")}</p>
+                <p className="section-eyebrow">{sectionMeta.groupLabel}</p>
                 <h1 className="truncate font-heading text-lg font-semibold text-foreground">
-                  {t("headerTitle")}
+                  {sectionMeta.title}
                 </h1>
+                <p className="hidden text-xs text-muted-foreground md:block">
+                  {sectionMeta.subtitle}
+                </p>
               </div>
               {isAdmin ? (
                 <Button asChild variant="outline" size="sm" className="h-8 px-2 text-xs">
@@ -203,6 +210,62 @@ export function GCFitnessShell({
       </div>
     </SidebarProvider>
   );
+}
+
+function describeSection(
+  key: string,
+  tNav: ReturnType<typeof useTranslations>,
+) {
+  if (key === "overview") return tNav("clientsSectionDescription");
+  if (key === "programming") return tNav("contentSectionDescription");
+  if (key === "communication") return tNav("engagementSectionDescription");
+  if (key === "admin") return tNav("adminSectionDescription");
+  return "";
+}
+
+function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslations>) {
+  const grouped = [
+    {
+      groupKey: "overview",
+      subtitleKey: "clientsDescription",
+      paths: ["/gc-fitness/dashboard", "/gc-fitness/clients", "/gc-fitness/recent-logs"],
+    },
+    {
+      groupKey: "programming",
+      subtitleKey: "workoutsDescription",
+      paths: ["/gc-fitness/schedule", "/gc-fitness/templates", "/gc-fitness/exercises", "/gc-fitness/habits"],
+    },
+    {
+      groupKey: "communication",
+      subtitleKey: "chatDescription",
+      paths: ["/gc-fitness/chat", "/gc-fitness/settings"],
+    },
+    {
+      groupKey: "admin",
+      subtitleKey: "adminDescription",
+      paths: ["/gc-fitness/admin"],
+    },
+  ];
+
+  const match = grouped.find((group) =>
+    group.paths.some((path) => pathname === path || pathname.startsWith(`${path}/`)),
+  );
+
+  const fallback = {
+    groupLabel: tNav("overview"),
+    title: "Trainer Backoffice",
+    subtitle: tNav("clientsDescription"),
+  };
+
+  if (!match) return fallback;
+  const route = sections.flatMap((section) => section.items).find((item) =>
+    pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+  return {
+    groupLabel: tNav(match.groupKey),
+    title: route ? tNav(route.labelKey) : "Trainer Backoffice",
+    subtitle: tNav(match.subtitleKey),
+  };
 }
 
 // SidebarNavLink — lives inside <SidebarProvider> so it can read mobile
