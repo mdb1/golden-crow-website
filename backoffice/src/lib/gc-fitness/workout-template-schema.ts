@@ -120,14 +120,31 @@ export const exerciseRefSchema = z.object({
 
 export type ExerciseRefInput = z.infer<typeof exerciseRefSchema>;
 
+// Multi-tag list. A trainer can tag a workout with several muscle groups
+// or motifs (Legs, Back, "manu", etc.) and the list view filters by any-
+// of substring match. v1 caps at 8 entries to keep the row visualisation
+// sane and to prevent abuse. Each entry inherits the same bounds as the
+// legacy single tag.
+export const workoutTagsSchema = z
+  .array(workoutTagSchema)
+  .max(8, "Maximum 8 tags per workout.")
+  .default([]);
+
 // Top-level template. Server-side fields (trainerId, version, createdAt,
 // updatedAt, deleted, id) are explicitly excluded — they live in the
 // Server Action, never on input. Zod's default behavior on extra keys is
 // to STRIP them silently; tests T10 + T11 verify this lock.
+//
+// `tag` (singular) is kept for backwards compat — iOS clients + already-
+// persisted Firestore docs read it. The Server Action writes both fields
+// on every create / update so the read paths can migrate independently:
+//   - new fields:  tags = [...]
+//   - legacy mirror: tag = tags[0] ?? "custom"
 export const workoutTemplateSchema = z.object({
   name: localizedStringSchema,
   description: localizedDescriptionSchema.optional(),
   tag: workoutTagSchema,
+  tags: workoutTagsSchema,
   exercises: z
     .array(exerciseRefSchema)
     .min(1, "Add at least one exercise to the template.")
@@ -144,6 +161,7 @@ export const workoutTemplateUpdateSchema = z.object({
   name: localizedStringSchema.optional(),
   description: localizedDescriptionSchema.optional(),
   tag: workoutTagSchema.optional(),
+  tags: workoutTagsSchema.optional(),
   exercises: z
     .array(exerciseRefSchema)
     .min(1, "Add at least one exercise to the template.")

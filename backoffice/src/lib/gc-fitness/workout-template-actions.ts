@@ -37,6 +37,24 @@ import { FirestoreCollections } from "./collections";
 const COLLECTION = FirestoreCollections.workoutTemplates;
 
 /**
+ * Read the multi-tag list from a raw Firestore doc, falling back to the
+ * legacy single `tag` field for rows authored before multi-tag landed.
+ * Returns at least one tag — "custom" if the source has nothing usable.
+ */
+function readTagsFromSource(source: Record<string, unknown>): string[] {
+  if (Array.isArray(source.tags)) {
+    const cleaned = (source.tags as unknown[])
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .map((t) => t.trim());
+    if (cleaned.length > 0) return cleaned;
+  }
+  if (typeof source.tag === "string" && source.tag.trim().length > 0) {
+    return [source.tag.trim()];
+  }
+  return ["custom"];
+}
+
+/**
  * Shape returned by `listWorkoutTemplates` — denormalized projection used
  * by the trainer-library list view. Timestamps are converted to ISO strings
  * so React state stays serializable across the Server Action boundary.
@@ -45,7 +63,14 @@ export interface WorkoutTemplateRow {
   id: string;
   name: { en: string; es: string };
   description?: { en: string; es: string };
+  /** Legacy single-tag mirror. Always equal to `tags[0]` (or "custom"
+   *  when tags is empty). Kept so iOS clients reading the old field stay
+   *  working until they migrate. */
   tag: WorkoutTag;
+  /** Multi-tag list (canonical going forward). May be `[]` if the row is
+   *  legacy data from before multi-tag landed — list code should fall
+   *  back to `[tag]` in that case. */
+  tags: WorkoutTag[];
   exerciseCount: number;
   trainerId: string;
   isStandard: boolean;
@@ -105,8 +130,16 @@ export async function createWorkoutTemplate(
   const docId = `tpl-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
 
+  // Multi-tag dual-write: `tags` is the canonical list; `tag` is the
+  // legacy single-tag mirror (= tags[0] ?? "custom") kept so iOS clients
+  // reading the old field stay working until they migrate to tags[].
+  const tagsList = data.tags.length > 0 ? data.tags : [data.tag];
+  const legacyTag = tagsList[0] ?? "custom";
+
   await docRef.set({
     ...data,
+    tag: legacyTag,
+    tags: tagsList,
     id: docId,
     trainerId: trainer.uid, // T-04-14: ALWAYS from session, NEVER from input.
     isStandard: false,
@@ -146,10 +179,12 @@ export async function forkStandardWorkoutTemplate(
 
   const docId = `tpl-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
+  const sourceTags = readTagsFromSource(source);
   await docRef.set({
     name: source.name ?? { en: "", es: "" },
     description: source.description ?? { en: "", es: "" },
-    tag: typeof source.tag === "string" ? source.tag : "custom",
+    tag: sourceTags[0] ?? "custom",
+    tags: sourceTags,
     exercises: Array.isArray(source.exercises) ? source.exercises : [],
     id: docId,
     trainerId: trainer.uid,
@@ -197,10 +232,12 @@ export async function duplicateWorkoutTemplate(
 
   const docId = `tpl-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
+  const sourceTags = readTagsFromSource(source);
   await docRef.set({
     name: suffixedName,
     description: source.description ?? { en: "", es: "" },
-    tag: typeof source.tag === "string" ? source.tag : "custom",
+    tag: sourceTags[0] ?? "custom",
+    tags: sourceTags,
     exercises: Array.isArray(source.exercises) ? source.exercises : [],
     id: docId,
     trainerId: trainer.uid,
@@ -316,11 +353,14 @@ export async function listWorkoutTemplates(opts?: {
   let templates: WorkoutTemplateRow[] = [...dedup.values()].map((d) => {
     const data = d.data() as Record<string, unknown>;
     const exercises = Array.isArray(data.exercises) ? data.exercises : [];
+    const tags = readTagsFromSource(data);
     return {
       id: d.id,
       name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
       description: data.description as { en: string; es: string } | undefined,
-      tag: (data.tag as WorkoutTag) ?? "custom",
+      // Legacy mirror: prefer the explicit `tag` field; fall back to tags[0].
+      tag: (data.tag as WorkoutTag) ?? tags[0] ?? "custom",
+      tags,
       exerciseCount: exercises.length,
       trainerId: (data.trainerId as string) ?? "",
       isStandard: data.isStandard === true,
@@ -335,7 +375,11 @@ export async function listWorkoutTemplates(opts?: {
     templates = templates.filter((t) => !t.deleted);
   }
   if (opts?.tag) {
-    templates = templates.filter((t) => t.tag === opts.tag);
+    // Match any-of: a query-time tag matches if it appears in tags[] OR
+    // equals the legacy `tag` field (covers pre-multi-tag rows).
+    templates = templates.filter((t) =>
+      t.tags.includes(opts.tag as string) || t.tag === opts.tag,
+    );
   }
 
   templates.sort((a, b) => {
