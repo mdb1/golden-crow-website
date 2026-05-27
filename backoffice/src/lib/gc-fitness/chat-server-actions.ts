@@ -349,6 +349,120 @@ export async function sendTrainerMessage(
   return { id: msgRef.id };
 }
 
+// ── deleteTrainerChatMessage (writer — 260527-fwr moderation) ──────────
+//
+// Hard-deletes a message in a chat the calling trainer owns. After delete,
+// if the deleted message was the chat's lastMessage denorm, recompute
+// lastMessage from the new most-recent message in the same thread (or
+// clear it when the thread becomes empty). Storage objects backing
+// image/voice messages are LEFT IN PLACE — Storage cleanup is out of
+// scope for v1; a future GC sweep can prune orphaned blobs.
+//
+// Ownership gate: same as sendTrainerMessage — chats/{chatId}.coachId
+// must equal session.uid. No client-side delete is exposed; this is
+// trainer-only moderation.
+export async function deleteTrainerChatMessage(input: {
+  chatId: string;
+  messageId: string;
+}): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const chatId = String(input.chatId ?? "").trim();
+  const messageId = String(input.messageId ?? "").trim();
+  if (!chatId || !messageId) {
+    throw new Error("chatId + messageId required.");
+  }
+
+  const db = gcFitnessFirestore();
+  const chatRef = db.collection(CHATS).doc(chatId);
+  const chatSnap = await chatRef.get();
+  if (!chatSnap.exists) {
+    throw new Error("Chat not found.");
+  }
+  const chatData = chatSnap.data() as Record<string, unknown>;
+  if (chatData.coachId !== session.uid) {
+    throw new Error("Forbidden");
+  }
+
+  const msgRef = chatRef.collection(MESSAGES).doc(messageId);
+  const msgSnap = await msgRef.get();
+  if (!msgSnap.exists) {
+    // Idempotent — caller may have already deleted via another tab.
+    return { ok: true };
+  }
+  const msgData = msgSnap.data() as Record<string, unknown>;
+  await msgRef.delete();
+
+  // If we just removed the chat's lastMessage denorm, recompute from the
+  // new top doc. Cheaper than waiting for a follow-up CF tick — the
+  // trainer sees the inbox preview update immediately.
+  const lastMessage = chatData.lastMessage as
+    | { senderId?: string; createdAt?: unknown }
+    | undefined;
+  // Compare on the (senderId, createdAt) pair since the lastMessage denorm
+  // doesn't carry the source message's id (Pitfall 22 — CF doesn't write id
+  // into the denorm). The pair is unique-enough for v1.
+  const wasLastMessage =
+    !!lastMessage &&
+    lastMessage.senderId === msgData.senderId &&
+    timestampsEqual(lastMessage.createdAt, msgData.createdAt);
+
+  if (wasLastMessage) {
+    const nextSnap = await chatRef
+      .collection(MESSAGES)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+    if (nextSnap.empty) {
+      await chatRef.update({
+        lastMessage: FieldValue.delete(),
+        lastMessageAt: null,
+        updatedAt: new Date(),
+      });
+    } else {
+      const top = nextSnap.docs[0].data() as Record<string, unknown>;
+      const kind = (top.kind as string) ?? "text";
+      const previewText =
+        kind === "text"
+          ? (top.text as string | undefined) ?? ""
+          : kind === "image"
+            ? ((top.text as string | undefined) || "[Image]")
+            : "[Voice]";
+      await chatRef.update({
+        lastMessage: {
+          text: previewText,
+          senderId: top.senderId,
+          createdAt: top.createdAt,
+          kind,
+        },
+        lastMessageAt: top.createdAt,
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  return { ok: true };
+}
+
+function timestampsEqual(a: unknown, b: unknown): boolean {
+  const toMs = (v: unknown): number | null => {
+    if (v == null) return null;
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === "object" && v !== null && "toMillis" in v) {
+      const fn = (v as { toMillis?: () => number }).toMillis;
+      return typeof fn === "function" ? fn.call(v) : null;
+    }
+    if (typeof v === "object" && v !== null && "seconds" in v) {
+      const s = (v as { seconds?: number; nanoseconds?: number }).seconds ?? 0;
+      const n = (v as { nanoseconds?: number }).nanoseconds ?? 0;
+      return s * 1000 + Math.round(n / 1_000_000);
+    }
+    return null;
+  };
+  const am = toMs(a);
+  const bm = toMs(b);
+  return am !== null && bm !== null && am === bm;
+}
+
 // ── listChatsForTrainer (reader — P08-11 inbox left pane) ──────────────
 //
 // Returns all chats where coachId == session.uid, ordered by

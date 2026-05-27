@@ -794,7 +794,15 @@
       "imagePhoto": "📷 Foto",
       "voiceNote": "🎤 Mensaje de voz",
       "voiceNoteWithDuration": "🎤 Mensaje de voz ({seconds}s)",
-      "unsupportedMessage": "Tipo de mensaje no soportado."
+      "unsupportedMessage": "Tipo de mensaje no soportado.",
+      "deleteMessageAria": "Eliminar mensaje",
+      "deleteMessageTitle": "¿Eliminar este mensaje?",
+      "deleteMessageBody": "Se va a eliminar para ambos lados del chat. Esta acción no se puede deshacer.",
+      "deleteMessageCancel": "Cancelar",
+      "deleteMessageConfirm": "Eliminar",
+      "deleteMessageDeleting": "Eliminando…",
+      "messageDeleted": "Mensaje eliminado.",
+      "messageDeleteFailed": "No se pudo eliminar el mensaje."
     },
     "threadList": {
       "loading": "Cargando…",

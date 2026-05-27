@@ -34,13 +34,29 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { useMutation } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
 import { CHATS_BASE_KEY, useChatMessages } from "@/lib/gc-fitness/chat-listener";
 import {
+  deleteTrainerChatMessage,
   getChatAttachmentUrl,
   markChatReadForTrainer,
   setReadReceiptForTrainer,
 } from "@/lib/gc-fitness/chat-server-actions";
 import type { ChatRow, MessageRow } from "@/lib/gc-fitness/chat-schema";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 import type { ClientRosterEntry } from "../client";
 import { MessageInput } from "./MessageInput";
@@ -281,6 +297,12 @@ export function ChatConversation({
                   message={row.message}
                   isOwn={row.message.senderId === trainerUid}
                   onAttachmentLoaded={handleAttachmentLoaded}
+                  onDeleted={() => {
+                    void queryClient.invalidateQueries({
+                      queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
+                    });
+                    void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+                  }}
                 />
               ),
             )}
@@ -313,6 +335,7 @@ interface MessageBubbleProps {
   message: MessageRow;
   isOwn: boolean;
   onAttachmentLoaded?: () => void;
+  onDeleted?: () => void;
 }
 
 function MessageBubble({
@@ -320,12 +343,27 @@ function MessageBubble({
   message,
   isOwn,
   onAttachmentLoaded,
+  onDeleted,
 }: MessageBubbleProps) {
   const t = useTranslations("chat.conversation");
   const align = isOwn ? "justify-end" : "justify-start";
   const tone = isOwn
     ? "bg-primary text-primary-foreground"
     : "bg-muted text-foreground";
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const deleteMutation = useMutation({
+    mutationFn: async () =>
+      deleteTrainerChatMessage({ chatId, messageId: message.id }),
+    onSuccess: () => {
+      setConfirmOpen(false);
+      toast.success(t("messageDeleted"));
+      onDeleted?.();
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : t("messageDeleteFailed");
+      toast.error(msg);
+    },
+  });
 
   // 260524 — render real photos + voice notes via signed Storage URLs.
   // Previous V1 carry-forward shipped italic placeholders ("📷 Foto"
@@ -369,7 +407,19 @@ function MessageBubble({
   }
 
   return (
-    <div className={`flex ${align}`}>
+    <div className={`group/msg flex items-center gap-1 ${align}`}>
+      {/* Delete affordance — visible on hover, sits OUTSIDE the bubble on
+          the side that doesn't break the bubble's rounded corner. */}
+      {isOwn ? (
+        <button
+          type="button"
+          onClick={() => setConfirmOpen(true)}
+          aria-label={t("deleteMessageAria")}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${tone}`}>
         {body}
         {message.reactions && Object.keys(message.reactions).length > 0 ? (
@@ -377,6 +427,45 @@ function MessageBubble({
         ) : null}
         <TimeStamp iso={message.createdAt} isOwn={isOwn} />
       </div>
+      {!isOwn ? (
+        <button
+          type="button"
+          onClick={() => setConfirmOpen(true)}
+          aria-label={t("deleteMessageAria")}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteMessageTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteMessageBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("deleteMessageCancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                disabled={deleteMutation.isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  deleteMutation.mutate();
+                }}
+              >
+                {deleteMutation.isPending
+                  ? t("deleteMessageDeleting")
+                  : t("deleteMessageConfirm")}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

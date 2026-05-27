@@ -794,7 +794,15 @@
       "imagePhoto": "📷 Photo",
       "voiceNote": "🎤 Voice note",
       "voiceNoteWithDuration": "🎤 Voice note ({seconds}s)",
-      "unsupportedMessage": "Unsupported message type."
+      "unsupportedMessage": "Unsupported message type.",
+      "deleteMessageAria": "Delete message",
+      "deleteMessageTitle": "Delete this message?",
+      "deleteMessageBody": "It will disappear for both sides of the chat. This can't be undone.",
+      "deleteMessageCancel": "Cancel",
+      "deleteMessageConfirm": "Delete",
+      "deleteMessageDeleting": "Deleting…",
+      "messageDeleted": "Message deleted.",
+      "messageDeleteFailed": "Couldn't delete the message."
     },
     "threadList": {
       "loading": "Loading…",
