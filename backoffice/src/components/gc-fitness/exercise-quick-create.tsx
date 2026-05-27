@@ -2,10 +2,16 @@
 
 // exercise-quick-create.tsx
 //
-// Inline "Exercise not found. Quick create" panel shared by the single-add
-// popover and the multi-add dialog. Surfaces under both pickers when the
-// search yields no matches so the trainer can drop a new exercise in
-// without leaving the workout-template flow.
+// Inline "Quick create" panel shared by the single-add popover and the
+// multi-add dialog. Surfaces under both pickers in two situations:
+//   1. Zero search matches — "Exercise not found. Quick create"
+//   2. The trainer clicked "Create similar" on an existing row — the panel
+//      opens populated with that exercise's fields so they can tweak the
+//      name / equipment / etc. and save the variation.
+//
+// Duplicate guard: when a seed is active, the Create button stays disabled
+// until at least one field diverges from the source so trainers don't
+// accidentally create an identical clone.
 
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
@@ -33,11 +39,28 @@ import {
   MUSCLE_GROUPS,
 } from "@/lib/gc-fitness/exercise-vocabulary";
 
+export interface QuickCreateSeed {
+  name: string;
+  description: string;
+  muscleGroup: string;
+  equipment: string;
+  gifUrl: string;
+}
+
 interface QuickCreateExerciseProps {
   /** Current search input — used to pre-fill the Name field. */
   searchTerm: string;
+  /**
+   * Pre-fills the form with an existing exercise's values ("Create
+   * similar"). Identity is the comparison key — pass a new object whenever
+   * the trainer selects a different source row. Pass `null` (or omit) for
+   * the empty / first-time form state.
+   */
+  seed?: QuickCreateSeed | null;
   /** Fired once createExercise resolves with the new doc id + display name. */
   onCreated: (created: { id: string; name: string }) => void;
+  /** Optional — called when the trainer clicks Clear seed on a seeded form. */
+  onSeedCleared?: () => void;
   /** Optional className on the outer card. */
   className?: string;
 }
@@ -49,9 +72,21 @@ function formatLabel(s: string): string {
 const DEFAULT_MUSCLE = "chest";
 const DEFAULT_EQUIPMENT = "bodyweight";
 
+function seedEquals(a: QuickCreateSeed, b: QuickCreateSeed): boolean {
+  return (
+    a.name.trim() === b.name.trim() &&
+    a.description.trim() === b.description.trim() &&
+    a.muscleGroup === b.muscleGroup &&
+    a.equipment === b.equipment &&
+    a.gifUrl.trim() === b.gifUrl.trim()
+  );
+}
+
 export function QuickCreateExercise({
   searchTerm,
+  seed,
   onCreated,
+  onSeedCleared,
   className,
 }: QuickCreateExerciseProps) {
   const locale = useLocale();
@@ -64,15 +99,30 @@ export function QuickCreateExercise({
   const [error, setError] = useState<string | null>(null);
   const [nameDirty, setNameDirty] = useState(false);
 
-  // Pre-fill the Name field with whatever the trainer typed in the search
-  // input — only until they edit the field themselves, then we leave their
-  // input alone (typing in the search shouldn't yank the name from under
-  // their cursor mid-edit).
+  // Whenever a new seed arrives, copy it into the form fields. We use the
+  // seed object identity (referential) so a parent that wants to re-seed
+  // the same row again can do so by passing a fresh object.
   useEffect(() => {
-    if (nameDirty) return;
+    if (!seed) return;
+    setName(seed.name);
+    setDescription(seed.description);
+    setMuscleGroup(seed.muscleGroup);
+    setEquipment(seed.equipment);
+    setGifUrl(seed.gifUrl);
+    setError(null);
+    // The name was set deliberately from a seed — don't let the
+    // search-prefill effect overwrite it on the next keystroke.
+    setNameDirty(true);
+  }, [seed]);
+
+  // Pre-fill the Name field with whatever the trainer typed in the search
+  // input — only until they edit the field themselves (or a seed lands),
+  // then we leave their input alone.
+  useEffect(() => {
+    if (nameDirty || seed) return;
     const trimmed = searchTerm.trim();
     if (trimmed) setName(trimmed);
-  }, [searchTerm, nameDirty]);
+  }, [searchTerm, nameDirty, seed]);
 
   function reset() {
     setName("");
@@ -82,6 +132,11 @@ export function QuickCreateExercise({
     setGifUrl("");
     setError(null);
     setNameDirty(false);
+  }
+
+  function handleClearSeed() {
+    reset();
+    onSeedCleared?.();
   }
 
   async function onCreate() {
@@ -96,7 +151,7 @@ export function QuickCreateExercise({
     try {
       // Bilingual fields are duplicated to satisfy the Zod schema — the
       // trainer can refine the ES translation later from the exercises
-      // editor. Mirrors the prior multi-add dialog behaviour.
+      // editor.
       const localizedName = { en: trimmedName, es: trimmedName };
       const localizedDescription = {
         en: trimmedDescription,
@@ -116,6 +171,7 @@ export function QuickCreateExercise({
       });
       onCreated({ id: result.id, name: trimmedName });
       reset();
+      onSeedCleared?.();
     } catch (err) {
       console.error("[exercise-quick-create] failed", err);
       setError(
@@ -128,11 +184,24 @@ export function QuickCreateExercise({
     }
   }
 
-  const disabled =
-    creating || name.trim().length === 0 || description.trim().length === 0;
+  const currentValues: QuickCreateSeed = {
+    name,
+    description,
+    muscleGroup,
+    equipment,
+    gifUrl,
+  };
+  const isDuplicate = !!seed && seedEquals(seed, currentValues);
+  const requiredMissing =
+    name.trim().length === 0 || description.trim().length === 0;
+  const disabled = creating || requiredMissing || isDuplicate;
   // Keep the locale read so future copy can branch per-locale without
   // adding another import; not used today but cheap.
   void locale;
+
+  const headline = seed
+    ? "Create similar — tweak the fields below"
+    : "Exercise not found. Quick create";
 
   return (
     <div
@@ -141,7 +210,20 @@ export function QuickCreateExercise({
         className,
       )}
     >
-      <p className="text-sm font-medium">Exercise not found. Quick create</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium">{headline}</p>
+        {seed ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleClearSeed}
+            className="h-7 px-2 text-xs"
+          >
+            Clear
+          </Button>
+        ) : null}
+      </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="quick-create-name" className="sr-only">
@@ -217,6 +299,11 @@ export function QuickCreateExercise({
       {error ? (
         <p className="mt-2 text-xs text-destructive">{error}</p>
       ) : null}
+      {isDuplicate ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Identical to the source exercise — change at least one field to enable Create.
+        </p>
+      ) : null}
       <Button
         type="button"
         size="sm"
@@ -224,7 +311,7 @@ export function QuickCreateExercise({
         onClick={onCreate}
         disabled={disabled}
       >
-        {creating ? "Creating…" : "Create quick exercise"}
+        {creating ? "Creating…" : "Create exercise"}
       </Button>
     </div>
   );

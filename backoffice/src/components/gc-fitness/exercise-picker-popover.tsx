@@ -56,7 +56,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Dumbbell, ChevronsUpDown, Search, X } from "lucide-react";
+import { ChevronsUpDown, Copy, Dumbbell, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,11 @@ import {
   type ExerciseFilters,
 } from "@/lib/gc-fitness/exercise-filter-state";
 import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/gc-fitness/exercise-vocabulary";
-import { QuickCreateExercise } from "./exercise-quick-create";
+import {
+  QuickCreateExercise,
+  type QuickCreateSeed,
+} from "./exercise-quick-create";
+import { ExercisePreviewThumb } from "./exercise-preview-thumb";
 
 // Phase 24-06 Task 3 — render-window cap (Codex MEDIUM). Even with
 // lazy GIFs, rendering 250+ rows + 250 inline images strains the popover.
@@ -235,6 +239,7 @@ export function ExercisePickerPopover({
   const effectivePlaceholder = placeholder ?? t("triggerPlaceholder");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
   // Phase 24-06 Task 3 — filter chip state (muscle/equipment/level/mechanic).
@@ -293,11 +298,25 @@ export function ExercisePickerPopover({
     onChange(id);
     setOpen(false);
     setSearch("");
+    setSeed(null);
   }
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) setSearch("");
+    if (!next) {
+      setSearch("");
+      setSeed(null);
+    }
+  }
+
+  function seedFromRow(row: ExerciseRow): QuickCreateSeed {
+    return {
+      name: row.name.en || row.name.es || "",
+      description: row.description.en || row.description.es || "",
+      muscleGroup: row.muscleGroups[0] ?? "chest",
+      equipment: row.equipment[0] ?? "bodyweight",
+      gifUrl: previewSrc(row) ?? "",
+    };
   }
 
   // Phase 24-06 Task 3 — chip toggle helpers (Codex MEDIUM Set mutation
@@ -460,54 +479,39 @@ export function ExercisePickerPopover({
                         className="flex items-center gap-3"
                         data-testid={`exercise-picker-row-${ex.id}`}
                       >
-                        <span
-                          aria-hidden="true"
-                          className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
-                        >
-                          {(() => {
-                            const src = previewSrc(ex);
-                            return src ? (
-                              // Phase 24-06 Pitfall 9 mitigation —
-                              // loading="lazy" defers image fetch until
-                              // the row scrolls near the viewport. With
-                              // ~250 wger/fexd rows + inline GIFs this
-                              // keeps the popover snappy at open.
-                              //
-                              // unoptimized is unconditional — see the
-                              // trigger-selected block above for the
-                              // signed-URL rationale.
-                              <Image
-                                src={src}
-                                alt=""
-                                width={48}
-                                height={28}
-                                className="h-full w-full object-cover"
-                                unoptimized={!!src}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <Dumbbell className="h-3 w-3" />
-                            );
-                          })()}
-                        </span>
-                        <span className="flex flex-col">
-                          <span className="font-medium">
+                        <ExercisePreviewThumb src={previewSrc(ex)} />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate font-medium">
                             {exerciseDisplayName(ex)}
                           </span>
                           {esLine && (
                             <span
-                              className="text-xs italic text-muted-foreground"
+                              className="truncate text-xs italic text-muted-foreground"
                               data-testid={`exercise-picker-es-${ex.id}`}
                             >
                               {esLine}
                             </span>
                           )}
                           {ex.muscleGroups.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="truncate text-xs text-muted-foreground">
                               {ex.muscleGroups.map(formatLabel).join(", ")}
                             </span>
                           )}
                         </span>
+                        <button
+                          type="button"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setSeed(seedFromRow(ex));
+                          }}
+                          title="Create a similar exercise from this one"
+                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/60 bg-background px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Create similar
+                        </button>
                       </CommandItem>
                     );
                   })}
@@ -532,10 +536,12 @@ export function ExercisePickerPopover({
             )}
           </CommandList>
         </Command>
-        {noMatches ? (
+        {noMatches || seed !== null ? (
           <div className="border-t p-2">
             <QuickCreateExercise
               searchTerm={search}
+              seed={seed}
+              onSeedCleared={() => setSeed(null)}
               onCreated={(created) => {
                 // Auto-pick the freshly created exercise and close — the
                 // single picker is single-pick, so this is the natural
