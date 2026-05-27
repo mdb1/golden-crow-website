@@ -718,6 +718,7 @@
       "sourcePlaceholder": "Source",
       "sourcePlaceholderCount": "Source ({count})",
       "sourceAria": "Filter by source",
+      "mineOnlyLabel": "Created by me",
       "clearAria": "Clear filters",
       "clearCta": "Clear filters"
     },

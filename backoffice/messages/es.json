@@ -718,6 +718,7 @@
       "sourcePlaceholder": "Fuente",
       "sourcePlaceholderCount": "Fuente ({count})",
       "sourceAria": "Filtrar por fuente",
+      "mineOnlyLabel": "Creados por mí",
       "clearAria": "Limpiar filtros",
       "clearCta": "Limpiar filtros"
     },
