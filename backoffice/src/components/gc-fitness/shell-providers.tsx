@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { Toaster } from "@/components/ui/sonner";
 
 // Shell-scoped QueryClient for the GC Fitness trainer surface (BADGE-04).
 //
@@ -25,5 +26,10 @@ export function GCFitnessShellProviders({ children }: { children: ReactNode }) {
         },
       }),
   );
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      {children}
+      <Toaster richColors position="top-right" />
+    </QueryClientProvider>
+  );
 }

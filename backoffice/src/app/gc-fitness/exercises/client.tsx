@@ -40,7 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import {
   flexRender,
@@ -335,7 +334,6 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
           </AlertDialogContent>
         </AlertDialog>
 
-        <Toaster richColors closeButton />
       </div>
     </TooltipProvider>
   );

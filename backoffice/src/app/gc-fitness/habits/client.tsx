@@ -63,7 +63,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "@/components/ui/sonner";
 
 import {
   assignHabitTemplate,
@@ -646,7 +645,6 @@ export function HabitsLibraryClient({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Toaster richColors closeButton />
     </div>
   );
 }

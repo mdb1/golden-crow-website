@@ -712,7 +712,7 @@ export function TemplateForm({
                           {Array.from({
                             length: Math.max(
                               1,
-                              Math.min(10, Number(form.watch(`exercises.${index}.sets` as const) ?? 1)),
+                              Math.min(10, Number(form.getValues(`exercises.${index}.sets` as const) ?? 1)),
                             ),
                           }).map((_, setIdx) => {
                             const repsPath = `exercises.${index}.repsBySet` as const;
@@ -752,8 +752,11 @@ export function TemplateForm({
                                   onBlur={() => {
                                     const raw = setRepsDraft[setKey];
                                     if (raw === "") {
-                                      delete setRepsDraft[setKey];
-                                      setSetRepsDraft({ ...setRepsDraft });
+                                      setSetRepsDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[setKey];
+                                        return next;
+                                      });
                                       return;
                                     }
                                     if (raw !== undefined) {
@@ -776,8 +779,11 @@ export function TemplateForm({
                                         }
                                       }
                                     }
-                                    delete setRepsDraft[setKey];
-                                    setSetRepsDraft({ ...setRepsDraft });
+                                    setSetRepsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[setKey];
+                                      return next;
+                                    });
                                   }}
                                   aria-label={t("setRepsAria", { count: setIdx + 1 })}
                                 />
