@@ -370,6 +370,28 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
               handleSubmit();
             }
           }}
+          onPaste={(e) => {
+            // 260527-fwr — Cmd/Ctrl+V with an image in the clipboard
+            // uploads + sends it as an image message, same path as the
+            // file-picker affordance. Text-only paste falls through to
+            // the native behaviour (no preventDefault).
+            const items = e.clipboardData?.items;
+            if (!items || items.length === 0) return;
+            for (const item of items) {
+              if (item.kind !== "file" || !item.type.startsWith("image/")) continue;
+              const file = item.getAsFile();
+              if (!file) continue;
+              e.preventDefault();
+              // Give the pasted blob a sensible name + extension so the
+              // Storage path generator produces a valid object key.
+              const ext = file.type.split("/")[1]?.split("+")[0] ?? "png";
+              const stamped = new File([file], `pasted-${Date.now()}.${ext}`, {
+                type: file.type,
+              });
+              void handleAttachment(stamped, "image");
+              return;
+            }
+          }}
           placeholder={t("placeholder")}
           rows={1}
           aria-label={t("messageAria")}
