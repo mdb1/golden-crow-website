@@ -28,13 +28,16 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
 import { listRecentLogsForTrainer } from "@/lib/gc-fitness/recent-logs-actions";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
+import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "@/lib/gc-fitness/client-attention";
 
-import { DailyBars, PulseChip } from "./_components/coach-pulse";
+import { DailyBars, TopPerformers } from "./_components/coach-pulse";
 
 export const dynamic = "force-dynamic";
 const RECENT_ACTIONS_PAGE_SIZE = 10;
 const ATTENTION_PAGE_SIZE = 10;
-const ATTENTION_INACTIVITY_THRESHOLD_HOURS = 48;
+const ATTENTION_INACTIVITY_THRESHOLD_DAYS = Math.round(
+  NEEDS_ATTENTION_INACTIVITY_HOURS / 24,
+);
 
 interface DashboardPageProps {
   searchParams: Promise<{ recentPage?: string; attentionPage?: string }>;
@@ -108,7 +111,7 @@ export default async function GCFitnessDashboardPage({
     });
 
   const attentionCutoffMs =
-    Date.now() - ATTENTION_INACTIVITY_THRESHOLD_HOURS * 60 * 60 * 1000;
+    Date.now() - NEEDS_ATTENTION_INACTIVITY_HOURS * 60 * 60 * 1000;
   const staleRows = lastActionRows
     .filter((row) => {
       if (!row.lastActivityAt) return true;
@@ -146,7 +149,7 @@ export default async function GCFitnessDashboardPage({
   const activeClientCount = activeClients.length;
   const activeThisWeek = activeClientCount - pulse.atRiskCount;
   const firstName = trainer.email.split("@")[0]?.split(".")[0] ?? "Coach";
-  const volumeKgFormatted = pulse.weeklyVolumeKg.toLocaleString("en-US");
+  const attentionDays = ATTENTION_INACTIVITY_THRESHOLD_DAYS;
 
   return (
     <div className="gc-page flex flex-col gap-8">
@@ -157,7 +160,7 @@ export default async function GCFitnessDashboardPage({
           </h1>
           <p className="text-sm text-muted-foreground">
             {activeClientCount > 0
-              ? `${activeClientCount} client${activeClientCount === 1 ? "" : "s"} on your roster · ${Math.max(0, activeThisWeek)} active in the last 3 days.`
+              ? `${activeClientCount} client${activeClientCount === 1 ? "" : "s"} on your roster · ${Math.max(0, activeThisWeek)} active in the last ${attentionDays} days.`
               : "No clients in your roster yet."}
           </p>
         </div>
@@ -198,7 +201,7 @@ export default async function GCFitnessDashboardPage({
             icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}
             label="At risk"
             value={pulse.atRiskCount}
-            hint="no activity in 3+ days"
+            hint={`no activity in ${attentionDays}+ days`}
             tone={pulse.atRiskCount > 0 ? "warning" : "default"}
           />
         </div>
@@ -221,7 +224,11 @@ export default async function GCFitnessDashboardPage({
               <Badge variant="secondary">{pulse.weekHabitPct}% week</Badge>
             </CardHeader>
             <CardContent>
-              <DailyBars data={pulse.habitDaily} emptyLabel="No habits scheduled this week." />
+              <DailyBars
+                data={pulse.habitDaily}
+                emptyLabel="No habits scheduled this week."
+                unitLabel="habits"
+              />
             </CardContent>
           </Card>
           <Card className="rounded-xl border-border/80 bg-card/95">
@@ -235,31 +242,25 @@ export default async function GCFitnessDashboardPage({
               <Badge variant="secondary">{pulse.weekWorkoutPct}% week</Badge>
             </CardHeader>
             <CardContent>
-              <DailyBars data={pulse.workoutDaily} emptyLabel="No workouts assigned this week." />
+              <DailyBars
+                data={pulse.workoutDaily}
+                emptyLabel="No workouts assigned this week."
+                unitLabel="clients"
+              />
             </CardContent>
           </Card>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <PulseChip
-            label="Top performer"
-            value={
-              pulse.topPerformer
-                ? `${pulse.topPerformer.name} · ${pulse.topPerformer.pct}%`
-                : "—"
-            }
-            tone={pulse.topPerformer ? "success" : "default"}
-          />
-          <PulseChip
-            label="Sets logged"
-            value={pulse.weeklyVolumeSets.toLocaleString("en-US")}
-            hint="across all clients this week"
-          />
-          <PulseChip
-            label="Volume lifted"
-            value={`${volumeKgFormatted} kg`}
-            hint="completed sets only"
-          />
-        </div>
+        <Card className="rounded-xl border-border/80 bg-card/95">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Top performers</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Highest habit compliance over the last 7 days.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <TopPerformers performers={pulse.topPerformers} />
+          </CardContent>
+        </Card>
       </section>
 
       <section className="flex flex-col gap-3">
@@ -310,7 +311,7 @@ export default async function GCFitnessDashboardPage({
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Needs attention</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Hasn’t logged anything in 2+ days. Oldest first.
+                Hasn’t logged anything in {attentionDays}+ days. Oldest first.
               </p>
             </CardHeader>
             <CardContent className="space-y-1.5">

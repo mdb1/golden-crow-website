@@ -264,7 +264,7 @@ export default async function AdminPage({
           {coachPreview ? (
             <div className="rounded-lg border border-amber-400/70 bg-amber-500/10 p-3 text-sm">
               <p className="font-semibold">Preview result</p>
-              <p className="mt-1 text-xs text-muted-foreground">Total docs approx: {coachPreview.estimatedTotalDocs}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Total docs approx: {coachPreview.totalApprox}</p>
             </div>
           ) : null}
 

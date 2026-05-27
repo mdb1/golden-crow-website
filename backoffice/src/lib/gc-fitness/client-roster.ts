@@ -442,18 +442,24 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         0,
         assignedCount - completedCount,
       );
-      const attention = clientNeedsAttention({
-        lastActivityAtMs: lastActivity?.getTime() ?? null,
-        nowMs: Date.now(),
-      });
+      const isPending = c.uid.startsWith("mirror:");
+      // Pending sign-in clients are never flagged at-risk: they have no
+      // logged activity yet by definition, so the inactivity predicate
+      // would always fire — that's noise, not a real signal.
+      const attention = isPending
+        ? { needsAttention: false, reasons: [] as AttentionReason[] }
+        : clientNeedsAttention({
+            lastActivityAtMs: lastActivity?.getTime() ?? null,
+            nowMs: Date.now(),
+          });
 
       return {
         uid: c.uid,
         email: c.email,
         displayName: c.displayName,
         timezone: c.timezone,
-        source: c.uid.startsWith("mirror:") ? "pending" : "active",
-        pendingProvisioning: c.uid.startsWith("mirror:"),
+        source: isPending ? "pending" : "active",
+        pendingProvisioning: isPending,
         lastActivityAt: lastActivity?.toISOString() ?? null,
         thisWeekComplianceRatio,
         unreadChatCount,

@@ -6,6 +6,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients, type ClientRosterEntry } from "./client-roster";
+import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "./client-attention";
 
 export interface DailyMetric {
   civilDate: string;
@@ -15,15 +16,21 @@ export interface DailyMetric {
   percentage: number;
 }
 
+export interface PerformerRow {
+  uid: string;
+  name: string;
+  pct: number;
+  numerator: number;
+  denominator: number;
+}
+
 export interface CoachPulse {
   habitDaily: DailyMetric[];
   workoutDaily: DailyMetric[];
   weekHabitPct: number;
   weekWorkoutPct: number;
   atRiskCount: number;
-  weeklyVolumeKg: number;
-  weeklyVolumeSets: number;
-  topPerformer: { uid: string; name: string; pct: number } | null;
+  topPerformers: PerformerRow[];
   customExerciseCount: number;
 }
 
@@ -170,9 +177,7 @@ export async function getCoachPulse(): Promise<CoachPulse> {
       weekHabitPct: 0,
       weekWorkoutPct: 0,
       atRiskCount: 0,
-      weeklyVolumeKg: 0,
-      weeklyVolumeSets: 0,
-      topPerformer: null,
+      topPerformers: [],
       customExerciseCount: 0,
     };
   }
@@ -392,19 +397,9 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     };
   });
 
-  // ===== Volume across week (completed sets only) =====
-  let weeklyVolumeKg = 0;
-  let weeklyVolumeSets = 0;
-  logsInWindow.forEach((row) => {
-    row.sets.forEach((s) => {
-      if (!s.completed) return;
-      weeklyVolumeSets += 1;
-      if (s.weight > 0 && s.reps > 0) weeklyVolumeKg += s.weight * s.reps;
-    });
-  });
-
-  // ===== At risk: no activity in 3+ days =====
-  const atRiskCutoffMs = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  // ===== At risk: no activity within NEEDS_ATTENTION_INACTIVITY_HOURS =====
+  const atRiskCutoffMs =
+    Date.now() - NEEDS_ATTENTION_INACTIVITY_HOURS * 60 * 60 * 1000;
   const latestActivityByClient = new Map<string, number>();
   logsInWindow.forEach((row) => {
     const ms = row.startedAt.getTime();
@@ -458,7 +453,7 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     });
   });
 
-  const topPerformer = pickTopPerformer(activeClients, perClientHabit);
+  const topPerformers = pickTopPerformers(activeClients, perClientHabit);
 
   return {
     habitDaily,
@@ -466,29 +461,35 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     weekHabitPct: rollup(habitDaily),
     weekWorkoutPct: rollup(workoutDaily),
     atRiskCount,
-    weeklyVolumeKg: Math.round(weeklyVolumeKg),
-    weeklyVolumeSets,
-    topPerformer,
+    topPerformers,
     customExerciseCount,
   };
 }
 
-function pickTopPerformer(
+function pickTopPerformers(
   clients: ClientRosterEntry[],
   perClientHabit: Map<string, { num: number; den: number }>,
-): CoachPulse["topPerformer"] {
-  let best: { uid: string; name: string; pct: number } | null = null;
+): PerformerRow[] {
+  const rows: PerformerRow[] = [];
   perClientHabit.forEach((stat, uid) => {
     if (stat.den === 0) return;
     const pct = Math.round((stat.num / stat.den) * 100);
     if (pct <= 0) return;
-    if (!best || pct > best.pct) {
-      const client = clients.find((c) => c.uid === uid);
-      if (!client) return;
-      best = { uid, name: client.displayName, pct };
-    }
+    const client = clients.find((c) => c.uid === uid);
+    if (!client) return;
+    rows.push({
+      uid,
+      name: client.displayName,
+      pct,
+      numerator: stat.num,
+      denominator: stat.den,
+    });
   });
-  return best;
+  rows.sort((a, b) => {
+    if (b.pct !== a.pct) return b.pct - a.pct;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+  return rows.slice(0, 3);
 }
 
 function emptyMetric(civilDate: string): DailyMetric {

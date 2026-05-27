@@ -47,7 +47,16 @@ const HIDDEN_SHELL_PATHS = new Set([
 
 // Sidebar nav metadata. `labelKey` and `sectionKey` are looked up against the
 // `nav` namespace in the next-intl message catalogs (Plan 13-03).
-const sections = [
+type NavLeaf = {
+  labelKey: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+type NavSection = {
+  sectionKey: string;
+  items: NavLeaf[];
+};
+const sections: NavSection[] = [
   {
     sectionKey: "overview",
     items: [
@@ -76,7 +85,7 @@ const sections = [
       { labelKey: "settings", href: "/gc-fitness/settings", icon: Settings },
     ],
   },
-] as const;
+];
 
 export function GCFitnessShell({
   children,
