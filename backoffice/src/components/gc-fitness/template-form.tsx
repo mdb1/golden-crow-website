@@ -352,12 +352,14 @@ export function TemplateForm({
     form.setValue(weightPath, nextWeight, { shouldDirty: true });
   }
 
-  const submit = form.handleSubmit((values) => {
-    startTransition(async () => {
-      try {
-        // Recompute `order` to be 1-based contiguous before submit — the
-        // Firestore rule layer (P04-02) asserts `order == arrayIndex + 1`.
-        const normalized: WorkoutTemplateInput = {
+  const submit = form.handleSubmit(
+    (values) => {
+      console.log("[template-form] submit: Zod passed, calling onSubmit prop", values);
+      startTransition(async () => {
+        try {
+          // Recompute `order` to be 1-based contiguous before submit — the
+          // Firestore rule layer (P04-02) asserts `order == arrayIndex + 1`.
+          const normalized: WorkoutTemplateInput = {
           ...values,
           exercises: values.exercises.map((ex, idx) => ({
             ...ex,
@@ -405,6 +407,13 @@ export function TemplateForm({
         toast.error(message);
       }
     });
+  },
+  (errors) => {
+    // Explicit onInvalid so Zod rejections surface in the console — the
+    // default behaviour silently focuses the first error field. With this
+    // log + the inline error summary above the action bar, the trainer
+    // always has a visible signal that the submit was attempted but failed.
+    console.warn("[template-form] submit: Zod rejected", errors);
   });
 
   function appendExercise() {
@@ -492,7 +501,14 @@ export function TemplateForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+      <form
+        onSubmit={(e) => {
+          console.log("[template-form] form onSubmit event fired");
+          return submit(e);
+        }}
+        className="flex flex-col gap-6"
+        noValidate
+      >
         {draftRestored ? (
           <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground dark:border-amber-400/40 dark:bg-amber-400/10">
             <span>
