@@ -412,7 +412,9 @@
       "saveCta": "Guardar cambios",
       "createdToast": "Plantilla creada.",
       "savedToast": "Plantilla guardada.",
-      "saveFailed": "No se pudo guardar."
+      "saveFailed": "No se pudo guardar.",
+      "submitErrorsHeadline": "Falta completar antes de guardar:",
+      "submitErrorExercisePrefix": "Ejercicio #{index}"
     }
   },
   "habits": {

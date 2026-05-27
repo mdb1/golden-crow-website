@@ -412,7 +412,9 @@
       "saveCta": "Save changes",
       "createdToast": "Template created.",
       "savedToast": "Template saved.",
-      "saveFailed": "Couldn't save."
+      "saveFailed": "Couldn't save.",
+      "submitErrorsHeadline": "Fix these before saving:",
+      "submitErrorExercisePrefix": "Exercise #{index}"
     }
   },
   "habits": {

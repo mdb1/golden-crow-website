@@ -264,12 +264,38 @@ export function TemplateForm({
         draftTimerRef.current = null;
       }, DRAFT_DEBOUNCE_MS);
     });
+    // If the trainer navigates away within DRAFT_DEBOUNCE_MS of the last
+    // keystroke, the pending timer is cancelled by cleanup and the draft is
+    // lost. FLUSH the latest snapshot synchronously on unmount so the
+    // /templates list can surface the draft on the next visit.
     return () => {
       subscription.unsubscribe();
       if (draftTimerRef.current !== null) {
         window.clearTimeout(draftTimerRef.current);
         draftTimerRef.current = null;
+        writeDraft(draftKey, form.getValues());
       }
+    };
+  }, [draftKey, form]);
+
+  // Also flush on tab close / route change so SPA back-button doesn't lose
+  // the trailing edit either. `pagehide` covers both navigation and tab
+  // close (more reliable than `beforeunload` on iOS Safari).
+  useEffect(() => {
+    if (!draftKey) return;
+    const key = draftKey; // capture for closure (TS narrowing lost in nested fn)
+    function flush() {
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+      writeDraft(key, form.getValues());
+    }
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("visibilitychange", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("visibilitychange", flush);
     };
   }, [draftKey, form]);
 
@@ -401,16 +427,46 @@ export function TemplateForm({
     [fields, form],
   );
   const canContinueToDetails = fields.length > 0 && !hasUnselectedExercises;
-  // `form.watch` (not `form.getValues`) so the parent re-renders when the
-  // gating field changes — otherwise the button's disabled state lags behind
-  // user input and clicks silently no-op. Schema makes description.en
-  // optional, so we don't gate on it here either; only EN name is required.
+  // canSubmit retained as a derived hint (used by Continue button etc.), but
+  // the SUBMIT BUTTON itself is no longer gated by this — gating silently
+  // swallowed clicks and left the trainer wondering what was wrong. We let
+  // the click through, run Zod, and surface errors via the inline summary
+  // below.
   const watchedNameEn = form.watch("name.en");
   const canSubmit =
     !pending &&
     step === 2 &&
     canContinueToDetails &&
     (watchedNameEn ?? "").trim().length > 0;
+
+  // Flatten RHF errors into a human-readable list shown near the submit
+  // button after a failed submit attempt.
+  const submitErrorMessages = useMemo(() => {
+    const out: string[] = [];
+    const errs = form.formState.errors;
+    if (errs.name?.en?.message) out.push(String(errs.name.en.message));
+    if (errs.name?.es?.message) out.push(String(errs.name.es.message));
+    if (errs.description?.en?.message)
+      out.push(String(errs.description.en.message));
+    if (errs.description?.es?.message)
+      out.push(String(errs.description.es.message));
+    if (errs.tag?.message) out.push(String(errs.tag.message));
+    if (errs.exercises && !Array.isArray(errs.exercises)) {
+      const m = (errs.exercises as { message?: string }).message;
+      if (m) out.push(String(m));
+    }
+    if (Array.isArray(errs.exercises)) {
+      errs.exercises.forEach((exErr, exIdx) => {
+        if (!exErr) return;
+        const prefix = t("submitErrorExercisePrefix", { index: exIdx + 1 });
+        Object.entries(exErr).forEach(([field, err]) => {
+          const m = (err as { message?: string } | undefined)?.message;
+          if (m) out.push(`${prefix}: ${field} — ${m}`);
+        });
+      });
+    }
+    return out;
+  }, [form.formState.errors, t]);
 
   // Plan 21-01a: batch-add N exercises from the multi-select dialog. Each
   // new row inherits the default sets/reps/rest_seconds; the trainer can
@@ -1141,8 +1197,31 @@ export function TemplateForm({
             </p>
           )}
 
+        {/* Submit-attempt error summary — shows what needs to be fixed, near
+            the submit button so the trainer doesn't have to scroll up hunting
+            for FormMessage hints. Renders only after a submit attempt failed
+            validation. */}
+        {form.formState.isSubmitted && submitErrorMessages.length > 0 ? (
+          <div
+            className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            role="alert"
+          >
+            <p className="font-medium">{t("submitErrorsHeadline")}</p>
+            <ul className="list-disc space-y-0.5 pl-5">
+              {submitErrorMessages.map((msg, idx) => (
+                <li key={`${msg}-${idx}`}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {/* Action row */}
         <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
+          {pending ? (
+            <span className="text-sm text-muted-foreground" aria-live="polite">
+              {t("saving")}
+            </span>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -1151,7 +1230,7 @@ export function TemplateForm({
           >
             {t("cancel")}
           </Button>
-          <Button type="submit" disabled={!canSubmit}>
+          <Button type="submit" disabled={pending}>
             {pending ? t("saving") : mode === "create" ? t("createCta") : t("saveCta")}
           </Button>
         </div>
