@@ -110,15 +110,18 @@ export function AssignTemplateModal({
   > | null>(null);
   const [templateDetailLoading, setTemplateDetailLoading] = useState(false);
   const [templateDetailError, setTemplateDetailError] = useState<string | null>(null);
+  // Per-exercise edit buffer. `setRows` is one entry per prescribed set —
+  // each carries its own reps + kg buffer, mirroring the authoring form's
+  // per-set table. `sets` is derived from setRows.length on commit; the
+  // trainer adds/removes rows via the +/- buttons rather than retyping a
+  // count input. Notes + rest_seconds stay exercise-level.
   const [overrideDrafts, setOverrideDrafts] = useState<
     Record<
       number,
       {
-        sets: string;
-        reps: string;
         rest_seconds: string;
         notes: string;
-        weightBySetKg: string;
+        setRows: Array<{ reps: string; kg: string }>;
       }
     >
   >({});
@@ -162,20 +165,47 @@ export function AssignTemplateModal({
         setTemplateDetail(detail);
         setOverrideDrafts(
           detail.exercises.reduce<Record<number, {
-            sets: string;
-            reps: string;
             rest_seconds: string;
             notes: string;
-            weightBySetKg: string;
+            setRows: Array<{ reps: string; kg: string }>;
           }>>((acc, exercise) => {
+            // Reconstruct one row per prescribed set. Pull reps from
+            // repsBySet[i] if present, otherwise from the exercise-level
+            // `reps` fallback. Same for kg from weightBySetKg[i]. The
+            // canonical row count is the MAX of (sets, repsBySet.length,
+            // weightBySetKg.length) so a desync at the source — like the
+            // "sets=1 but weightBySetKg=[24,24,23]" template the operator
+            // ran into — surfaces here as all 3 rows instead of silently
+            // collapsing back to 1.
+            const repsBySet = Array.isArray(exercise.repsBySet)
+              ? exercise.repsBySet
+              : [];
+            const weightBySetKg = Array.isArray(exercise.weightBySetKg)
+              ? exercise.weightBySetKg
+              : [];
+            const rowCount = Math.min(
+              10,
+              Math.max(
+                exercise.sets ?? 1,
+                repsBySet.length,
+                weightBySetKg.length,
+                1,
+              ),
+            );
+            const setRows = Array.from({ length: rowCount }, (_, i) => ({
+              reps: String(
+                Number.isFinite(repsBySet[i])
+                  ? repsBySet[i]
+                  : exercise.reps ?? 0,
+              ),
+              kg: Number.isFinite(weightBySetKg[i])
+                ? String(weightBySetKg[i])
+                : "",
+            }));
             acc[exercise.index] = {
-              sets: String(exercise.sets),
-              reps: String(exercise.reps),
               rest_seconds: String(exercise.rest_seconds),
               notes: exercise.notes ?? "",
-              weightBySetKg: Array.isArray(exercise.weightBySetKg)
-                ? exercise.weightBySetKg.join(", ")
-                : "",
+              setRows,
             };
             return acc;
           }, {}),
@@ -203,40 +233,74 @@ export function AssignTemplateModal({
       .map((exercise) => {
         const draft = overrideDrafts[exercise.index];
         if (!draft) return null;
-        const nextSets = Number(draft.sets);
-        const nextReps = Number(draft.reps);
+
+        // setRows → reps[] + kg[] + sets count, cleaning non-finite entries.
+        const repsBySet = draft.setRows
+          .map((row) => Number(row.reps))
+          .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(50, Math.round(n))) : NaN));
+        const weightBySetKg = draft.setRows
+          .map((row) => row.kg.trim())
+          .map((raw) => (raw === "" ? NaN : Number(raw)))
+          .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : NaN));
+
+        const validRepsLen = repsBySet.filter((n) => Number.isFinite(n)).length;
+        const finalSets = Math.max(1, Math.min(10, validRepsLen || draft.setRows.length));
+        const finalRepsBySet = repsBySet
+          .slice(0, finalSets)
+          .map((n) => (Number.isFinite(n) ? n : 0));
+        const finalWeightsRaw = weightBySetKg.slice(0, finalSets);
+        const hasAnyWeight = finalWeightsRaw.some((n) => Number.isFinite(n));
+        const finalWeights = hasAnyWeight
+          ? finalWeightsRaw.map((n) => (Number.isFinite(n) ? n : 0))
+          : null;
+
         const nextRest = Number(draft.rest_seconds);
         const nextNotes = draft.notes.trim();
-        const nextWeights = draft.weightBySetKg
-          .split(",")
-          .map((part) => part.trim())
-          .filter((part) => part.length > 0)
-          .map(Number)
-          .filter((value) => Number.isFinite(value));
-        const changedSets = Number.isFinite(nextSets) && nextSets !== exercise.sets;
-        const changedReps = Number.isFinite(nextReps) && nextReps !== exercise.reps;
+
+        const baseRepsBySet = Array.isArray(exercise.repsBySet) ? exercise.repsBySet : [];
+        const baseWeightBySetKg = Array.isArray(exercise.weightBySetKg)
+          ? exercise.weightBySetKg
+          : [];
+
+        const changedSets = finalSets !== exercise.sets;
+        const changedReps =
+          finalRepsBySet[0] !== undefined && finalRepsBySet[0] !== exercise.reps;
+        const changedRepsBySet =
+          finalRepsBySet.length !== baseRepsBySet.length ||
+          finalRepsBySet.some((v, i) => v !== baseRepsBySet[i]);
+        const changedWeights = finalWeights
+          ? finalWeights.length !== baseWeightBySetKg.length ||
+            finalWeights.some((v, i) => v !== baseWeightBySetKg[i])
+          : baseWeightBySetKg.length > 0;
         const changedRest =
           Number.isFinite(nextRest) && nextRest !== exercise.rest_seconds;
         const changedNotes = nextNotes !== (exercise.notes ?? "").trim();
-        const defaultWeights = Array.isArray(exercise.weightBySetKg)
-          ? exercise.weightBySetKg
-          : [];
-        const changedWeights =
-          nextWeights.length > 0 &&
-          (nextWeights.length !== defaultWeights.length ||
-            nextWeights.some((value, idx) => value !== defaultWeights[idx]));
-        if (!changedSets && !changedReps && !changedRest && !changedNotes && !changedWeights) {
+
+        if (
+          !changedSets &&
+          !changedReps &&
+          !changedRepsBySet &&
+          !changedWeights &&
+          !changedRest &&
+          !changedNotes
+        ) {
           return null;
         }
         return {
           index: exercise.index,
-          ...(changedSets ? { sets: Math.max(1, Math.min(10, Math.round(nextSets))) } : {}),
-          ...(changedReps ? { reps: Math.max(1, Math.min(50, Math.round(nextReps))) } : {}),
+          ...(changedSets ? { sets: finalSets } : {}),
+          ...(changedReps
+            ? { reps: Math.max(0, Math.min(50, Math.round(finalRepsBySet[0] ?? 0))) }
+            : {}),
+          ...(changedRepsBySet ? { repsBySet: finalRepsBySet } : {}),
+          ...(changedWeights && finalWeights
+            ? { weightBySetKg: finalWeights }
+            : {}),
+          ...(changedWeights && !finalWeights ? { weightBySetKg: [] } : {}),
           ...(changedRest
             ? { rest_seconds: Math.max(0, Math.min(600, Math.round(nextRest))) }
             : {}),
           ...(changedNotes ? { notes: nextNotes } : {}),
-          ...(changedWeights ? { weightBySetKg: nextWeights.slice(0, 10) } : {}),
         };
       })
       .filter(
@@ -525,73 +589,136 @@ export function AssignTemplateModal({
                   key={`${exercise.exerciseId}-${exercise.index}`}
                   className="rounded-md border border-border/60 bg-background/60 p-3"
                 >
-                  <p className="text-sm font-medium">{exercise.exerciseName}</p>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={draft.sets}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setOverrideDrafts((prev) => ({
-                          ...prev,
-                          [exercise.index]: { ...prev[exercise.index], sets: value },
-                        }));
-                      }}
-                      placeholder={t("exerciseOverridesSets")}
-                      className="h-9 rounded-md border bg-background px-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={draft.reps}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setOverrideDrafts((prev) => ({
-                          ...prev,
-                          [exercise.index]: { ...prev[exercise.index], reps: value },
-                        }));
-                      }}
-                      placeholder={t("exerciseOverridesReps")}
-                      className="h-9 rounded-md border bg-background px-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      max={600}
-                      value={draft.rest_seconds}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setOverrideDrafts((prev) => ({
-                          ...prev,
-                          [exercise.index]: {
-                            ...prev[exercise.index],
-                            rest_seconds: value,
-                          },
-                        }));
-                      }}
-                      placeholder={t("exerciseOverridesRest")}
-                      className="h-9 rounded-md border bg-background px-2 text-sm"
-                    />
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{exercise.exerciseName}</p>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">
+                        {t("exerciseOverridesRest")}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={draft.rest_seconds}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setOverrideDrafts((prev) => ({
+                            ...prev,
+                            [exercise.index]: {
+                              ...prev[exercise.index],
+                              rest_seconds: value,
+                            },
+                          }));
+                        }}
+                        className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
+                      />
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    value={draft.weightBySetKg}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setOverrideDrafts((prev) => ({
-                        ...prev,
-                        [exercise.index]: {
-                          ...prev[exercise.index],
-                          weightBySetKg: value,
-                        },
-                      }));
-                    }}
-                    placeholder={t("exerciseOverridesWeightPlaceholder")}
-                    className="mt-2 h-9 w-full rounded-md border bg-background px-2 text-sm"
-                  />
+                  {/* Per-set table — one row per prescribed set. Mirrors the
+                      authoring form so the trainer assigns by editing the
+                      exact (reps × kg) prescription set-by-set rather than
+                      typing a comma-joined string. */}
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span>{t("exerciseOverridesSetHeader")}</span>
+                      <span>{t("exerciseOverridesReps")}</span>
+                      <span>{t("exerciseOverridesWeightHeader")}</span>
+                      <span aria-hidden="true" />
+                    </div>
+                    {draft.setRows.map((row, setIdx) => (
+                      <div
+                        key={`${exercise.exerciseId}-set-${setIdx + 1}`}
+                        className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2"
+                      >
+                        <span className="text-xs text-muted-foreground">{setIdx + 1}</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={row.reps}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setOverrideDrafts((prev) => {
+                              const cur = prev[exercise.index];
+                              const next = cur.setRows.map((r, i) =>
+                                i === setIdx ? { ...r, reps: value } : r,
+                              );
+                              return {
+                                ...prev,
+                                [exercise.index]: { ...cur, setRows: next },
+                              };
+                            });
+                          }}
+                          placeholder={t("exerciseOverridesRepsPlaceholder")}
+                          className="h-9 rounded-md border bg-background px-2 text-sm"
+                        />
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={row.kg}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setOverrideDrafts((prev) => {
+                              const cur = prev[exercise.index];
+                              const next = cur.setRows.map((r, i) =>
+                                i === setIdx ? { ...r, kg: value } : r,
+                              );
+                              return {
+                                ...prev,
+                                [exercise.index]: { ...cur, setRows: next },
+                              };
+                            });
+                          }}
+                          placeholder={t("exerciseOverridesKgPlaceholder")}
+                          className="h-9 rounded-md border bg-background px-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOverrideDrafts((prev) => {
+                              const cur = prev[exercise.index];
+                              if (cur.setRows.length <= 1) return prev;
+                              const next = cur.setRows.filter((_, i) => i !== setIdx);
+                              return {
+                                ...prev,
+                                [exercise.index]: { ...cur, setRows: next },
+                              };
+                            });
+                          }}
+                          disabled={draft.setRows.length <= 1}
+                          aria-label={t("exerciseOverridesRemoveSet", { index: setIdx + 1 })}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOverrideDrafts((prev) => {
+                          const cur = prev[exercise.index];
+                          if (cur.setRows.length >= 10) return prev;
+                          // New row carries the previous row's reps as a
+                          // sensible default — common case is +1 set with
+                          // same prescription as the prior set.
+                          const last = cur.setRows[cur.setRows.length - 1];
+                          const next = [
+                            ...cur.setRows,
+                            { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
+                          ];
+                          return {
+                            ...prev,
+                            [exercise.index]: { ...cur, setRows: next },
+                          };
+                        });
+                      }}
+                      disabled={draft.setRows.length >= 10}
+                      className="mt-1 self-start inline-flex h-7 items-center gap-1 rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      + {t("exerciseOverridesAddSet")}
+                    </button>
+                  </div>
                   <textarea
                     value={draft.notes}
                     onChange={(event) => {
