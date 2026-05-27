@@ -745,9 +745,9 @@ export function TemplateForm({
                             <FormLabel>{t("sets")}</FormLabel>
                             <FormControl>
                               <Input
-                                type="number"
-                                min={1}
-                                max={10}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={setsDraft[field.id] ?? (numField.value ?? "")}
                                 onChange={(e) =>
                                   {
@@ -809,9 +809,9 @@ export function TemplateForm({
                             <FormLabel>{t("restSeconds")}</FormLabel>
                             <FormControl>
                               <Input
-                                type="number"
-                                min={0}
-                                max={600}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={restSecondsDraft[field.id] ?? (numField.value ?? "")}
                                 onChange={(e) => {
                                   if (e.target.value === "") {
