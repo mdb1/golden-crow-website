@@ -154,7 +154,9 @@ export function TemplateForm({
   const [pending, startTransition] = useTransition();
   const [setsDraft, setSetsDraft] = useState<Record<string, string>>({});
   const [setRepsDraft, setSetRepsDraft] = useState<Record<string, string>>({});
+  const [setWeightDraft, setSetWeightDraft] = useState<Record<string, string>>({});
   const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
+  const [step, setStep] = useState<1 | 2>(1);
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -409,6 +411,27 @@ export function TemplateForm({
           )}
         />
 
+        <div className="rounded-xl border bg-card/90 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Workout builder
+              </p>
+              <h2 className="font-heading text-base font-semibold">
+                {step === 1 ? "Step 1 · Select exercises" : "Step 2 · Configure sets, reps, kg and notes"}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant={step === 1 ? "default" : "outline"} size="sm" onClick={() => setStep(1)}>
+                1. Exercises
+              </Button>
+              <Button type="button" variant={step === 2 ? "default" : "outline"} size="sm" onClick={() => setStep(2)} disabled={fields.length === 0}>
+                2. Details
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Exercises — wrapped in a section card to match the HabitForm
             schedule/reminder visual hierarchy. */}
         <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
@@ -429,17 +452,42 @@ export function TemplateForm({
             </p>
           )}
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={fields.map((f) => f.id)}
-              strategy={verticalListSortingStrategy}
+          {step === 1 ? (
+            <ul className="flex flex-col gap-2">
+              {fields.map((field, index) => (
+                <li key={field.id} className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Exercise #{index + 1}</p>
+                    <p className="truncate text-sm font-medium">
+                      {form.getValues(`exercises.${index}.exerciseId` as const) || "Select exercise"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <ul className="flex flex-col gap-3">
-                {fields.map((field, index) => (
+              <SortableContext
+                items={fields.map((f) => f.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ul className="flex flex-col gap-3">
+                  {fields.map((field, index) => (
                   // Pitfall 3: React key is `field.id` (RHF-internal CUID), NOT
                   // `index` (would break across reorders) and NOT
                   // `field.exerciseId` (collisions on supersets referencing the
@@ -551,11 +599,14 @@ export function TemplateForm({
                                 onBlur={(e) => {
                                   const raw = setsDraft[field.id];
                                   if (raw === "") {
-                                    delete setsDraft[field.id];
-                                    setSetsDraft({ ...setsDraft });
-                                    numField.onBlur();
-                                    return;
-                                  }
+                                  setSetsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
+                                  numField.onBlur();
+                                  return;
+                                }
                                   if (raw !== undefined) {
                                     const parsed = Number(raw);
                                     if (Number.isFinite(parsed)) {
@@ -563,8 +614,11 @@ export function TemplateForm({
                                       syncSetArrays(index, parsed);
                                     }
                                   }
-                                  delete setsDraft[field.id];
-                                  setSetsDraft({ ...setsDraft });
+                                  setSetsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
                                   numField.onBlur();
                                   e.currentTarget.value = String(form.getValues(`exercises.${index}.sets` as const) ?? "");
                                 }}
@@ -734,24 +788,47 @@ export function TemplateForm({
                                   step="0.5"
                                   className="h-10"
                                   placeholder={t("setWeightPlaceholder")}
-                                  value={weightValue ?? ""}
+                                  value={setWeightDraft[setKey] ?? (weightValue?.toString() ?? "")}
                                   onChange={(e) => {
-                                    const current = toFiniteNumberArray(form.getValues(weightPath));
                                     const nextRaw = e.target.value.trim();
                                     if (nextRaw === "") {
-                                      const trimmed = current.slice(0, Math.max(setIdx, 0));
-                                      form.setValue(weightPath, trimmed, { shouldDirty: true });
+                                      setSetWeightDraft((prev) => ({ ...prev, [setKey]: "" }));
                                       return;
                                     }
                                     const next = Number(nextRaw);
                                     if (!Number.isFinite(next)) return;
-                                    const safeLen = Math.max(setIdx + 1, current.length);
-                                    const filled = Array.from({ length: safeLen }, (_, i) => {
-                                      const v = current[i];
-                                      return Number.isFinite(v) ? v : 0;
+                                    setSetWeightDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
+                                  }}
+                                  onBlur={() => {
+                                    const raw = setWeightDraft[setKey];
+                                    const current = toFiniteNumberArray(form.getValues(weightPath));
+                                    if (raw === "") {
+                                      const trimmed = current.slice(0, Math.max(setIdx, 0));
+                                      form.setValue(weightPath, trimmed, { shouldDirty: true });
+                                      setSetWeightDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[setKey];
+                                        return next;
+                                      });
+                                      return;
+                                    }
+                                    if (raw !== undefined) {
+                                      const next = Number(raw);
+                                      if (Number.isFinite(next)) {
+                                        const safeLen = Math.max(setIdx + 1, current.length);
+                                        const filled = Array.from({ length: safeLen }, (_, i) => {
+                                          const v = current[i];
+                                          return Number.isFinite(v) ? v : 0;
+                                        });
+                                        filled[setIdx] = next;
+                                        form.setValue(weightPath, filled, { shouldDirty: true });
+                                      }
+                                    }
+                                    setSetWeightDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[setKey];
+                                      return next;
                                     });
-                                    filled[setIdx] = next;
-                                    form.setValue(weightPath, filled, { shouldDirty: true });
                                   }}
                                   aria-label={t("setWeightAria", { count: setIdx + 1 })}
                                 />
@@ -804,10 +881,11 @@ export function TemplateForm({
                 </Card>
                     )}
                   </SortableExerciseRow>
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -824,6 +902,11 @@ export function TemplateForm({
               onConfirm={appendExercises}
               disabled={fields.length >= 30}
             />
+            {step === 1 ? (
+              <Button type="button" onClick={() => setStep(2)} disabled={fields.length === 0} className="ml-auto">
+                Continue to details
+              </Button>
+            ) : null}
           </div>
         </div>
 

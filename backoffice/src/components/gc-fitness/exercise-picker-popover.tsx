@@ -164,6 +164,28 @@ export function normalizeSearchText(s: string): string {
     .trim();
 }
 
+export function fuzzyTokenMatch(query: string, haystack: string): boolean {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return true;
+  const tokens = normalizedQuery.split(" ").filter(Boolean);
+  const words = normalizeSearchText(haystack).split(" ").filter(Boolean);
+  if (tokens.length === 0) return true;
+  let wordIndex = 0;
+  for (const token of tokens) {
+    let found = false;
+    while (wordIndex < words.length) {
+      if (words[wordIndex].startsWith(token)) {
+        found = true;
+        wordIndex += 1;
+        break;
+      }
+      wordIndex += 1;
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+
 function previewUrl(url?: string | null): string | null {
   if (typeof url === "string" && /^https?:\/\//.test(url)) {
     return url;
