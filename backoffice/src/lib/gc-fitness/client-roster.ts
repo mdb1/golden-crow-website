@@ -58,6 +58,7 @@ export interface ClientRosterEntry {
   email: string;
   displayName: string;
   timezone: string | null;
+  photoURL: string | null;
   pendingProvisioning: boolean;
 }
 
@@ -143,12 +144,14 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
       email?: string;
       displayName?: string;
       timezone?: string;
+      photoURL?: string;
     };
     return {
       uid: d.id,
       email: data.email ?? "",
       displayName: data.displayName ?? data.email ?? d.id,
       timezone: typeof data.timezone === "string" ? data.timezone : null,
+      photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       pendingProvisioning: false,
     };
   });
@@ -174,6 +177,7 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
             ? data.displayName.trim()
             : email,
         timezone: null,
+        photoURL: null,
         pendingProvisioning: true,
       });
       return rows;
@@ -252,6 +256,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
             ? data.displayName.trim()
             : email,
         timezone: null,
+        photoURL: null,
         pendingProvisioning: true,
       });
       return rows;

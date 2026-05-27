@@ -61,6 +61,7 @@ export default async function ChatPage() {
   const clientRoster = clients.map((c) => ({
     uid: c.uid,
     displayName: c.displayName,
+    photoURL: c.photoURL,
     pendingProvisioning: c.pendingProvisioning,
   }));
   const t = await getTranslations("chat");

@@ -445,9 +445,10 @@ export function HabitsLibraryClient({
           ) : null}
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             disabled={createTemplatePending || newTemplateName.trim() === ""}
             onClick={handleCreateTemplate}
+            className="w-fit"
           >
             {createTemplatePending
               ? t("creating")

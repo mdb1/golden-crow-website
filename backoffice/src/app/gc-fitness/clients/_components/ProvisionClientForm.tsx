@@ -69,6 +69,7 @@ export function ProvisionClientForm() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              placeholder="client@email.com"
               required
             />
           </div>

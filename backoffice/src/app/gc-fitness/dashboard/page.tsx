@@ -25,8 +25,16 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
+import { listRecentLogsForTrainer } from "@/lib/gc-fitness/recent-logs-actions";
 
 export const dynamic = "force-dynamic";
+const RECENT_ACTIONS_PAGE_SIZE = 20;
+const ATTENTION_PAGE_SIZE = 10;
+
+interface DashboardPageProps {
+  searchParams: Promise<{ recentPage?: string; attentionPage?: string }>;
+}
 
 const quickLinkSpecs = [
   { titleKey: "clientsTitle", descriptionKey: "clientsDescription", href: "/gc-fitness/clients", icon: Users },
@@ -71,7 +79,9 @@ async function getDashboardCounts(trainer: CurrentTrainer) {
   };
 }
 
-export default async function GCFitnessDashboardPage() {
+export default async function GCFitnessDashboardPage({
+  searchParams,
+}: DashboardPageProps) {
   let trainer: CurrentTrainer;
   try {
     trainer = await getCurrentTrainer();
@@ -84,10 +94,61 @@ export default async function GCFitnessDashboardPage() {
   }
 
   const counts = await getDashboardCounts(trainer);
+  const roster = await listClientsForRoster();
+  const recentLogs = await listRecentLogsForTrainer();
+  const latestLogByClient = new Map<string, (typeof recentLogs.logs)[number]>();
+  for (const row of recentLogs.logs) {
+    const existing = latestLogByClient.get(row.clientId);
+    if (!existing || Date.parse(row.eventAt) > Date.parse(existing.eventAt)) {
+      latestLogByClient.set(row.clientId, row);
+    }
+  }
+
+  const activeClients = roster.filter((client) => client.source === "active");
+  const lastActionRows = activeClients
+    .map((client) => {
+      const latestLog = latestLogByClient.get(client.uid);
+      return {
+        uid: client.uid,
+        name: client.displayName,
+        lastActivityAt: client.lastActivityAt,
+        lastActionTitle: latestLog?.title ?? "No activity yet",
+        lastActionDetail: latestLog?.detail ?? "No records yet.",
+      };
+    })
+    .sort((a, b) => {
+      const aMs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
+      const bMs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
+      return bMs - aMs;
+    });
+  const staleRows = [...lastActionRows].sort((a, b) => {
+    const aMs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
+    const bMs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
+    return aMs - bMs;
+  });
+  const params = await searchParams;
   const t = await getTranslations("dashboard");
   const tCards = await getTranslations("dashboard.cards");
   const tQuick = await getTranslations("dashboard.quickLinks");
   const tCommon = await getTranslations("common");
+  const recentPage = parsePage(params.recentPage);
+  const attentionPage = parsePage(params.attentionPage);
+  const recentTotalPages = Math.max(
+    1,
+    Math.ceil(lastActionRows.length / RECENT_ACTIONS_PAGE_SIZE),
+  );
+  const attentionTotalPages = Math.max(
+    1,
+    Math.ceil(staleRows.length / ATTENTION_PAGE_SIZE),
+  );
+  const recentPageRows = lastActionRows.slice(
+    (recentPage - 1) * RECENT_ACTIONS_PAGE_SIZE,
+    recentPage * RECENT_ACTIONS_PAGE_SIZE,
+  );
+  const attentionPageRows = staleRows.slice(
+    (attentionPage - 1) * ATTENTION_PAGE_SIZE,
+    attentionPage * ATTENTION_PAGE_SIZE,
+  );
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -206,6 +267,120 @@ export default async function GCFitnessDashboardPage() {
           ))}
         </div>
       </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Last action by client</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Latest action per client. Sorted newest first.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentPageRows.map((row) => (
+              <div key={row.uid} className="rounded-md border bg-background/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Link href={`/gc-fitness/clients/${row.uid}`} className="font-medium hover:underline">
+                    {row.name}
+                  </Link>
+                  <span className="text-xs text-muted-foreground">
+                    {row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm font-medium">{row.lastActionTitle}</p>
+                <p className="text-xs text-muted-foreground">{row.lastActionDetail}</p>
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                Page {recentPage} of {recentTotalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" asChild disabled={recentPage <= 1}>
+                  <Link href={`?recentPage=${Math.max(1, recentPage - 1)}&attentionPage=${attentionPage}`}>
+                    Previous
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  asChild
+                  disabled={recentPage >= recentTotalPages}
+                >
+                  <Link href={`?recentPage=${Math.min(recentTotalPages, recentPage + 1)}&attentionPage=${attentionPage}`}>
+                    Next
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Clients needing attention</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Clients with the oldest inactivity first.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {attentionPageRows.map((row) => (
+              <div key={`attention-${row.uid}`} className="rounded-md border bg-background/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Link href={`/gc-fitness/clients/${row.uid}`} className="font-medium hover:underline">
+                    {row.name}
+                  </Link>
+                  <Badge variant="secondary">
+                    {row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity yet"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Last action: {row.lastActionTitle}
+                </p>
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                Page {attentionPage} of {attentionTotalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" asChild disabled={attentionPage <= 1}>
+                  <Link href={`?recentPage=${recentPage}&attentionPage=${Math.max(1, attentionPage - 1)}`}>
+                    Previous
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  asChild
+                  disabled={attentionPage >= attentionTotalPages}
+                >
+                  <Link href={`?recentPage=${recentPage}&attentionPage=${Math.min(attentionTotalPages, attentionPage + 1)}`}>
+                    Next
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
+}
+
+function formatRelative(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (diffSec < 60) return "just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
+function parsePage(raw?: string): number {
+  if (!raw) return 1;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.floor(parsed);
 }
