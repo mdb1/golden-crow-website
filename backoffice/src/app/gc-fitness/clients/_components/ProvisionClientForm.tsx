@@ -28,7 +28,7 @@ export function ProvisionClientForm() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Card className="rounded-lg">
+    <Card className="rounded-xl border-border/80 bg-card/95">
       <CardHeader>
         <CardTitle>{t("cardTitle")}</CardTitle>
         <CardDescription>{t("cardDescription")}</CardDescription>
@@ -69,6 +69,7 @@ export function ProvisionClientForm() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              placeholder="client@email.com"
               required
             />
           </div>
@@ -81,7 +82,7 @@ export function ProvisionClientForm() {
               placeholder={t("namePlaceholder")}
             />
           </div>
-          <Button type="submit" disabled={isPending} className="self-end gap-2">
+          <Button type="submit" disabled={isPending} className="h-10 self-end gap-2 px-4">
             <UserPlus className="size-4" />
             {isPending ? t("submitting") : t("submitCta")}
           </Button>

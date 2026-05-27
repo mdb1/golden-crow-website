@@ -67,15 +67,19 @@ function formatLocalDateToCivil(date: Date): string {
 
 export function BulkAssignForm({
   clients,
-  trainerTimezone = "UTC",
+  trainerTimezone,
 }: BulkAssignFormProps) {
   const t = useTranslations("schedule.bulkAssign");
   const router = useRouter();
   const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
+  const resolvedTimezone =
+    trainerTimezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone ??
+    "UTC";
 
   const [templateId, setTemplateId] = useState<string>("");
   const [civilDate, setCivilDate] = useState<string>(() =>
-    civilDateToday(trainerTimezone),
+    civilDateToday(resolvedTimezone),
   );
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
@@ -148,7 +152,7 @@ export function BulkAssignForm({
         scheduledFor: civilDate,
         scheduledTime: scheduledTime || undefined,
         meetingNotes: meetingNotes.trim() || undefined,
-        timezone: trainerTimezone,
+        timezone: resolvedTimezone,
       });
       toast.success(
         result.ids.length === 1

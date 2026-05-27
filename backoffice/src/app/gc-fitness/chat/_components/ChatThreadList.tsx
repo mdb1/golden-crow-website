@@ -21,8 +21,9 @@
 // relative-time hint + unread badge. Mirrors Slack / iMessage compact list
 // row layout. Active row is highlighted via `bg-muted`.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import type { ChatRow } from "@/lib/gc-fitness/chat-schema";
@@ -53,6 +54,11 @@ export function ChatThreadList({
   const nameByUid = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of clientRoster) m.set(c.uid, c.displayName);
+    return m;
+  }, [clientRoster]);
+  const photoByUid = useMemo(() => {
+    const m = new Map<string, string | null | undefined>();
+    for (const c of clientRoster) m.set(c.uid, c.photoURL);
     return m;
   }, [clientRoster]);
 
@@ -126,6 +132,7 @@ export function ChatThreadList({
           chat={chat}
           trainerUid={trainerUid}
           displayName={nameByUid.get(chat.clientId) ?? chat.clientId}
+          photoURL={photoByUid.get(chat.clientId) ?? null}
           isActive={chat.id === activeChatId}
           onSelect={onSelect}
         />
@@ -140,6 +147,7 @@ interface ChatThreadRowProps {
   chat: ChatRow;
   trainerUid: string;
   displayName: string;
+  photoURL: string | null;
   isActive: boolean;
   onSelect: (chatId: string) => void;
 }
@@ -148,6 +156,7 @@ function ChatThreadRow({
   chat,
   trainerUid,
   displayName,
+  photoURL,
   isActive,
   onSelect,
 }: ChatThreadRowProps) {
@@ -166,7 +175,7 @@ function ChatThreadRow({
           isActive ? "bg-accent" : ""
         }`}
       >
-        <Avatar name={displayName} />
+        <Avatar name={displayName} photoURL={photoURL} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <div className="truncate font-medium">{displayName}</div>
@@ -186,7 +195,7 @@ function ChatThreadRow({
 
 // ── Inline helpers (kept local; V2 may hoist to a shared module) ───────
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, photoURL }: { name: string; photoURL?: string | null }) {
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -194,12 +203,29 @@ function Avatar({ name }: { name: string }) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  // If photoURL is set but fails to load (404, expired Storage signature,
+  // CORS, etc.), fall back to initials instead of leaving a broken-image
+  // icon. Tracked per render via local state.
+  const [failed, setFailed] = useState(false);
+  const showImage = !!photoURL && !failed;
   return (
     <div
       aria-hidden="true"
       className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary"
     >
-      {initials || "·"}
+      {showImage ? (
+        <Image
+          src={photoURL!}
+          alt=""
+          width={40}
+          height={40}
+          className="h-10 w-10 rounded-full object-cover"
+          unoptimized
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        initials || "·"
+      )}
     </div>
   );
 }

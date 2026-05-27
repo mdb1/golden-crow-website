@@ -61,6 +61,16 @@ const meetingNotesSchema = z
   .max(1000, "meetingNotes is too long.")
   .optional();
 
+const assignmentExerciseOverrideSchema = z.object({
+  index: z.number().int().min(0),
+  sets: z.number().int().min(1).max(10).optional(),
+  reps: z.number().int().min(1).max(50).optional(),
+  rest_seconds: z.number().int().min(0).max(600).optional(),
+  notes: z.string().max(500).optional(),
+  weightBySetKg: z.array(z.number().min(0).max(500)).max(10).optional(),
+  repsBySet: z.array(z.number().int().min(1).max(50)).max(10).optional(),
+});
+
 /**
  * `assignTemplate(input)` — single-client assignment.
  *
@@ -75,6 +85,7 @@ export const assignTemplateSchema = z.object({
   scheduledTime: scheduledTimeSchema,
   meetingNotes: meetingNotesSchema,
   timezone: ianaTimezoneSchema,
+  exerciseOverrides: z.array(assignmentExerciseOverrideSchema).max(50).optional(),
 });
 
 export type AssignTemplateInput = z.infer<typeof assignTemplateSchema>;
@@ -132,6 +143,7 @@ export const assignTemplateRecurringSchema = z
     scheduledTime: scheduledTimeSchema,
     meetingNotes: meetingNotesSchema,
     timezone: ianaTimezoneSchema,
+    exerciseOverrides: z.array(assignmentExerciseOverrideSchema).max(50).optional(),
   })
   .strict()
   .superRefine((data, ctx) => {

@@ -27,6 +27,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -46,7 +48,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "@/components/ui/sonner";
 
 import {
   useWorkoutTemplates,
@@ -59,11 +60,17 @@ import {
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 import { makeTemplateColumns } from "@/components/gc-fitness/templates/columns";
 
-export function TemplatesLibraryClient() {
+export interface TemplatesLibraryClientProps {
+  trainerUid: string;
+}
+
+export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("templates.list");
+  const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
   const [tagFilter, setTagFilter] = useState("");
+  const [mineOnly, setMineOnly] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "updatedAt", desc: true },
   ]);
@@ -71,11 +78,26 @@ export function TemplatesLibraryClient() {
     useState<WorkoutTemplateRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
-  const { data, isLoading, error } = useWorkoutTemplates({
-    tag: tagFilter.trim() ? tagFilter.trim() : undefined,
-  });
+  // Pull the entire roster from the server (the trainer surface tops out at a
+  // few dozen templates, so paging server-side adds latency without saving
+  // reads). Tag filtering runs client-side as a case-insensitive substring so
+  // a partial query like "Her" surfaces tags like "Herfli" — the prior
+  // server-side strict equality only matched on exact "Herfli".
+  const { data, isLoading, error } = useWorkoutTemplates();
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const rows = useMemo(() => {
+    let list = data ?? [];
+    if (mineOnly) {
+      list = list.filter(
+        (row) => row.trainerId === trainerUid && !row.isStandard,
+      );
+    }
+    const needle = tagFilter.trim().toLowerCase();
+    if (needle) {
+      list = list.filter((row) => (row.tag ?? "").toLowerCase().includes(needle));
+    }
+    return list;
+  }, [data, mineOnly, trainerUid, tagFilter]);
 
   const handlers = useMemo(
     () => ({
@@ -145,8 +167,9 @@ export function TemplatesLibraryClient() {
     }
   }, [confirmDelete, queryClient, t]);
 
-  const isUnfilteredEmpty = !isLoading && !tagFilter.trim() && rows.length === 0;
-  const isFilteredEmpty = !isLoading && tagFilter.trim() && rows.length === 0;
+  const hasFilter = tagFilter.trim().length > 0 || mineOnly;
+  const isUnfilteredEmpty = !isLoading && !hasFilter && rows.length === 0;
+  const isFilteredEmpty = !isLoading && hasFilter && rows.length === 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -174,6 +197,19 @@ export function TemplatesLibraryClient() {
           placeholder={t("filterPlaceholder")}
           className="w-56"
         />
+        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-3 py-1.5">
+          <Checkbox
+            id="templates-mine-only"
+            checked={mineOnly}
+            onCheckedChange={(next) => setMineOnly(next === true)}
+          />
+          <Label
+            htmlFor="templates-mine-only"
+            className="cursor-pointer text-sm font-normal text-foreground"
+          >
+            {tFilters("mineOnlyLabel")}
+          </Label>
+        </div>
       </div>
 
       {error && (
@@ -323,7 +359,6 @@ export function TemplatesLibraryClient() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Toaster richColors closeButton />
     </div>
   );
 }

@@ -40,7 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import {
   flexRender,
@@ -65,13 +64,18 @@ const EMPTY_FILTERS: ExerciseFiltersState = {
   muscleGroups: [],
   equipment: [],
   source: [],
+  mineOnly: false,
 };
 
 interface ExerciseLibraryClientProps {
   trainerUid: string;
 }
 
-function matchesFilters(row: ExerciseRow, f: ExerciseFiltersState): boolean {
+function matchesFilters(
+  row: ExerciseRow,
+  f: ExerciseFiltersState,
+  trainerUid: string,
+): boolean {
   // Search — case-insensitive substring match on EN and ES name + EN
   // description. Trainers expect to search by either language; lower-casing
   // both sides handles ES accents reasonably (full normalization deferred
@@ -104,6 +108,14 @@ function matchesFilters(row: ExerciseRow, f: ExerciseFiltersState): boolean {
     if (!want.has(tag)) return false;
   }
 
+  // "Created by me" — show only trainer-authored exercises whose ownerId
+  // matches the calling trainer. Library (wger / free-exercise-db) rows
+  // and exercises owned by other trainers are both filtered out.
+  if (f.mineOnly) {
+    if (row.source !== "trainer") return false;
+    if (row.ownerId !== trainerUid) return false;
+  }
+
   return true;
 }
 
@@ -117,8 +129,8 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
 
   const rows = useMemo(() => {
     const all = (data ?? []).filter((r) => r.deleted !== true);
-    return all.filter((r) => matchesFilters(r, filters));
-  }, [data, filters]);
+    return all.filter((r) => matchesFilters(r, filters, trainerUid));
+  }, [data, filters, trainerUid]);
 
   const handlers = useMemo(
     () => ({
@@ -335,7 +347,6 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
           </AlertDialogContent>
         </AlertDialog>
 
-        <Toaster richColors closeButton />
       </div>
     </TooltipProvider>
   );

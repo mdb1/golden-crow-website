@@ -66,10 +66,8 @@ export function RosterTable({ rows }: RosterTableProps) {
   // BOTH messages/{locale}.json catalogs.
   function formatReason(reason: AttentionReason): string {
     switch (reason) {
-      case "missed-workouts":
-        return t("missedWorkouts");
-      case "low-compliance":
-        return t("lowCompliance");
+      case "inactive-3-days":
+        return t("inactive3Days");
     }
   }
 
@@ -199,19 +197,20 @@ export function RosterTable({ rows }: RosterTableProps) {
           aria-pressed={needsAttentionOnly}
         >
           <AlertCircle className="size-4" />
-          {t("needsAttention", { count: needsAttentionCount })}
+          At-risk clients ({needsAttentionCount})
         </Button>
         {needsAttentionOnly ? (
-          <button
+          <Button
             type="button"
-            className="text-xs text-muted-foreground hover:text-foreground"
+            variant="ghost"
+            size="sm"
             onClick={() => setNeedsAttentionOnly(false)}
           >
             {tCommon("clearFilter")}
-          </button>
+          </Button>
         ) : null}
       </div>
-      <div className="rounded-md border bg-card">
+      <div className="rounded-xl border border-border/80 bg-card/95">
         <Table>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
@@ -224,7 +223,7 @@ export function RosterTable({ rows }: RosterTableProps) {
                   <TableHead
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className="cursor-pointer select-none"
+                    className="cursor-pointer select-none text-xs uppercase tracking-wide text-muted-foreground"
                   >
                     {flexRender(
                       header.column.columnDef.header,

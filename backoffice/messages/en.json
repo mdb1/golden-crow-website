@@ -32,7 +32,7 @@
     "clients": "Clients",
     "schedule": "Schedule",
     "recentLogs": "Recent Logs",
-    "programming": "Programming",
+    "programming": "Workout Planning",
     "workouts": "Workouts",
     "library": "Library",
     "habits": "Habits",
@@ -108,6 +108,7 @@
     "needsAttentionTitle": "Needs attention: {reasons}",
     "missedWorkouts": "Missed workouts",
     "lowCompliance": "Low habit compliance",
+    "inactive3Days": "No activity in 3+ days",
     "table": {
       "name": "Name",
       "lastActivity": "Last activity",
@@ -320,7 +321,7 @@
       "title": "Edit template",
       "subtitlePrefix": "Changes save when you click ",
       "subtitleCta": "Save",
-      "subtitleSuffix": ". Existing assignments preserve their snapshot and are not modified."
+      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions."
     },
     "list": {
       "pageHeading": "Workout Templates",
@@ -717,6 +718,7 @@
       "sourcePlaceholder": "Source",
       "sourcePlaceholderCount": "Source ({count})",
       "sourceAria": "Filter by source",
+      "mineOnlyLabel": "Created by me",
       "clearAria": "Clear filters",
       "clearCta": "Clear filters"
     },
@@ -977,6 +979,16 @@
       "timeHint": "Optional for live or virtual sessions.",
       "meetingNotesLabel": "Meeting notes",
       "meetingNotesPlaceholder": "Zoom / Meet link, instructions, prep notes...",
+      "exerciseOverridesTitle": "Per-client workout overrides",
+      "exerciseOverridesHint": "Optional: customize this assignment only (template stays unchanged).",
+      "exerciseOverridesLoading": "Loading template exercise details…",
+      "exerciseOverridesEmpty": "No exercises in this template.",
+      "exerciseOverridesSets": "Sets",
+      "exerciseOverridesReps": "Reps",
+      "exerciseOverridesRest": "Rest (sec)",
+      "exerciseOverridesWeightPlaceholder": "Weight by set (kg), example: 20, 22.5, 25",
+      "exerciseOverridesNotesPlaceholder": "Client-specific notes for this exercise",
+      "errorTemplateDetailFallback": "Could not load template details.",
       "cancel": "Cancel",
       "assigning": "Assigning…",
       "submit": "Assign",

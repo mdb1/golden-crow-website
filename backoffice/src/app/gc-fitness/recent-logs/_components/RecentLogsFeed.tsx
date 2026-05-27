@@ -62,11 +62,11 @@ export function RecentLogsFeed({ logs, clients }: Props) {
           </CardTitle>
           <CardDescription>{t("filtersDescription")}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
+        <CardContent className="grid max-w-4xl gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <p className="text-sm font-medium">{t("clientLabel")}</p>
             <Select value={clientFilter} onValueChange={setClientFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="min-w-[14rem]">
                 <SelectValue placeholder={t("allClients")} />
               </SelectTrigger>
               <SelectContent>
@@ -82,7 +82,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
           <div className="space-y-1">
             <p className="text-sm font-medium">{t("typeLabel")}</p>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="min-w-[14rem]">
                 <SelectValue placeholder={t("allActivity")} />
               </SelectTrigger>
               <SelectContent>

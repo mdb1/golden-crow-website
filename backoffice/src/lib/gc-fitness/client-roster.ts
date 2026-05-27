@@ -58,6 +58,7 @@ export interface ClientRosterEntry {
   email: string;
   displayName: string;
   timezone: string | null;
+  photoURL: string | null;
   pendingProvisioning: boolean;
 }
 
@@ -97,8 +98,9 @@ export interface ClientRosterRow {
    */
   missedWorkoutsLast7Days: number;
   /**
-   * Derived flag from `clientNeedsAttention()` predicate (11-06).
-   * True iff `missedWorkoutsLast7Days >= 2` OR `thisWeekComplianceRatio < 0.6`.
+   * Derived flag from `clientNeedsAttention()` predicate.
+   * True iff the client has had zero activity for at least 3 days
+   * (see NEEDS_ATTENTION_INACTIVITY_HOURS in client-attention.ts).
    */
   needsAttention: boolean;
   /** Reasons the predicate fired. Empty when `needsAttention === false`. */
@@ -143,12 +145,14 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
       email?: string;
       displayName?: string;
       timezone?: string;
+      photoURL?: string;
     };
     return {
       uid: d.id,
       email: data.email ?? "",
       displayName: data.displayName ?? data.email ?? d.id,
       timezone: typeof data.timezone === "string" ? data.timezone : null,
+      photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       pendingProvisioning: false,
     };
   });
@@ -174,6 +178,7 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
             ? data.displayName.trim()
             : email,
         timezone: null,
+        photoURL: null,
         pendingProvisioning: true,
       });
       return rows;
@@ -252,6 +257,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
             ? data.displayName.trim()
             : email,
         timezone: null,
+        photoURL: null,
         pendingProvisioning: true,
       });
       return rows;
@@ -436,18 +442,24 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         0,
         assignedCount - completedCount,
       );
-      const attention = clientNeedsAttention({
-        missedWorkoutsLast7Days,
-        complianceRatioLast7Days: thisWeekComplianceRatio,
-      });
+      const isPending = c.uid.startsWith("mirror:");
+      // Pending sign-in clients are never flagged at-risk: they have no
+      // logged activity yet by definition, so the inactivity predicate
+      // would always fire — that's noise, not a real signal.
+      const attention = isPending
+        ? { needsAttention: false, reasons: [] as AttentionReason[] }
+        : clientNeedsAttention({
+            lastActivityAtMs: lastActivity?.getTime() ?? null,
+            nowMs: Date.now(),
+          });
 
       return {
         uid: c.uid,
         email: c.email,
         displayName: c.displayName,
         timezone: c.timezone,
-        source: c.uid.startsWith("mirror:") ? "pending" : "active",
-        pendingProvisioning: c.uid.startsWith("mirror:"),
+        source: isPending ? "pending" : "active",
+        pendingProvisioning: isPending,
         lastActivityAt: lastActivity?.toISOString() ?? null,
         thisWeekComplianceRatio,
         unreadChatCount,

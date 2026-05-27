@@ -32,7 +32,7 @@
     "clients": "Clientes",
     "schedule": "Agenda",
     "recentLogs": "Actividad reciente",
-    "programming": "Programación",
+    "programming": "Planificación de workouts",
     "workouts": "Entrenamientos",
     "library": "Biblioteca",
     "habits": "Hábitos",
@@ -108,6 +108,7 @@
     "needsAttentionTitle": "Necesita atención: {reasons}",
     "missedWorkouts": "Entrenamientos perdidos",
     "lowCompliance": "Baja adherencia a hábitos",
+    "inactive3Days": "Sin actividad hace 3+ días",
     "table": {
       "name": "Nombre",
       "lastActivity": "Última actividad",
@@ -320,7 +321,7 @@
       "title": "Editar plantilla",
       "subtitlePrefix": "Los cambios se guardan al tocar ",
       "subtitleCta": "Guardar",
-      "subtitleSuffix": ". Las asignaciones existentes conservan su snapshot y no se modifican."
+      "subtitleSuffix": ". Si la plantilla ya está agendada, te preguntamos si querés aplicar los cambios a esas sesiones."
     },
     "list": {
       "pageHeading": "Plantillas de entrenamiento",
@@ -717,6 +718,7 @@
       "sourcePlaceholder": "Fuente",
       "sourcePlaceholderCount": "Fuente ({count})",
       "sourceAria": "Filtrar por fuente",
+      "mineOnlyLabel": "Creados por mí",
       "clearAria": "Limpiar filtros",
       "clearCta": "Limpiar filtros"
     },
@@ -977,6 +979,16 @@
       "timeHint": "Opcional para sesiones en vivo o virtuales.",
       "meetingNotesLabel": "Notas de la sesión",
       "meetingNotesPlaceholder": "Link de Zoom / Meet, instrucciones, notas de preparación...",
+      "exerciseOverridesTitle": "Ajustes por cliente",
+      "exerciseOverridesHint": "Opcional: personalizá solo esta asignación (la plantilla no se modifica).",
+      "exerciseOverridesLoading": "Cargando detalles de ejercicios de la plantilla…",
+      "exerciseOverridesEmpty": "Esta plantilla no tiene ejercicios.",
+      "exerciseOverridesSets": "Series",
+      "exerciseOverridesReps": "Reps",
+      "exerciseOverridesRest": "Descanso (seg)",
+      "exerciseOverridesWeightPlaceholder": "Peso por serie (kg), ejemplo: 20, 22.5, 25",
+      "exerciseOverridesNotesPlaceholder": "Notas específicas para este cliente en este ejercicio",
+      "errorTemplateDetailFallback": "No se pudieron cargar los detalles de la plantilla.",
       "cancel": "Cancelar",
       "assigning": "Asignando…",
       "submit": "Asignar",

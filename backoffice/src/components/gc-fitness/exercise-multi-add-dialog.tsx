@@ -6,24 +6,13 @@
 // per-row swap affordance ("change this row's exercise"); the dialog handles
 // the batch-add flow ("add 10 exercises at once when building a template").
 //
-// Why a separate component instead of widening the popover:
-//   - The popover's value/onChange contract is single-pick. Widening it to
-//     multi-select would break every existing row binding.
-//   - Multi-add UX needs more vertical space (longer scrollable list +
-//     selection-count footer + confirm button) than a Popover comfortably
-//     provides.
-//
-// Out of scope (deferred):
-//   - Muscle-group filter (21-01b)
-//   - Recently-used row (21-01c)
-//
-// Reuses the same display + search normalization helpers as the popover
-// (bilingual names, diacritic-stripped fuzzy search, gs:// → unoptimized
-// Image, soft-delete filter).
+// Quick-create panel is delegated to <QuickCreateExercise/> so the single
+// picker and the multi-select dialog stay symmetrical. The same panel also
+// serves "Create similar" — clicking the wand on any row seeds the form
+// with that exercise's values for one-tweak duplication.
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
-import { Dumbbell, Search } from "lucide-react";
+import { Copy, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -44,8 +33,13 @@ import {
 
 import {
   displayEs,
-  normalizeSearchText,
+  fuzzyTokenMatch,
 } from "./exercise-picker-popover";
+import {
+  QuickCreateExercise,
+  type QuickCreateSeed,
+} from "./exercise-quick-create";
+import { ExercisePreviewThumb } from "./exercise-preview-thumb";
 
 function exerciseDisplayName(row: ExerciseRow): string {
   return row.name.en || row.name.es || "(untitled)";
@@ -72,9 +66,20 @@ function formatLabel(s: string): string {
   return s.replace(/_/g, " ").replace(/^[a-z]/, (c) => c.toUpperCase());
 }
 
+function seedFromExerciseRow(row: ExerciseRow): QuickCreateSeed {
+  return {
+    name: row.name.en || row.name.es || "",
+    description: row.description.en || row.description.es || "",
+    muscleGroup: row.muscleGroups[0] ?? "chest",
+    equipment: row.equipment[0] ?? "bodyweight",
+    gifUrl: previewSrc(row) ?? "",
+  };
+}
+
 export interface ExerciseMultiAddDialogProps {
   /** Called with the array of picked exerciseIds when the trainer confirms. */
   onConfirm: (exerciseIds: string[]) => void;
+  onQuickCreated?: (exercise: { id: string; name: string }) => void;
   /** Optional className on the trigger button. */
   triggerClassName?: string;
   /** Disable while the parent form is submitting. */
@@ -83,6 +88,7 @@ export interface ExerciseMultiAddDialogProps {
 
 export function ExerciseMultiAddDialog({
   onConfirm,
+  onQuickCreated,
   triggerClassName,
   disabled,
 }: ExerciseMultiAddDialogProps) {
@@ -90,6 +96,7 @@ export function ExerciseMultiAddDialog({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
   const exercises = useMemo(
@@ -98,13 +105,11 @@ export function ExerciseMultiAddDialog({
   );
 
   const filtered = useMemo(() => {
-    const needle = normalizeSearchText(search);
+    const needle = search.trim();
     if (!needle) return exercises;
     return exercises.filter((ex) => {
-      const haystack = normalizeSearchText(
-        [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" "),
-      );
-      return haystack.includes(needle);
+      const haystack = [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" ");
+      return fuzzyTokenMatch(needle, haystack);
     });
   }, [exercises, search]);
 
@@ -125,6 +130,7 @@ export function ExerciseMultiAddDialog({
     if (!nextOpen) {
       setSearch("");
       setPicked(new Set());
+      setSeed(null);
     }
   }
 
@@ -133,6 +139,8 @@ export function ExerciseMultiAddDialog({
     onConfirm(Array.from(picked));
     onCancel(false);
   }
+
+  const showQuickCreate = filtered.length === 0 || seed !== null;
 
   return (
     <Dialog open={open} onOpenChange={onCancel}>
@@ -179,31 +187,18 @@ export function ExerciseMultiAddDialog({
               const esLine = displayEs(ex);
               const src = previewSrc(ex);
               return (
-                <li key={ex.id}>
-                  <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-accent">
+                <li
+                  key={ex.id}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
+                >
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggle(ex.id)}
                       className="h-4 w-4 rounded border"
                     />
-                    <span
-                      aria-hidden="true"
-                      className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
-                    >
-                      {src ? (
-                        <Image
-                          src={src}
-                          alt=""
-                          width={48}
-                          height={28}
-                          className="h-full w-full object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <Dumbbell className="h-3 w-3" />
-                      )}
-                    </span>
+                    <ExercisePreviewThumb src={src} />
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium">
                         {exerciseDisplayName(ex)}
@@ -220,11 +215,51 @@ export function ExerciseMultiAddDialog({
                       ) : null}
                     </span>
                   </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 gap-1 px-2 text-xs"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setSeed(seedFromExerciseRow(ex));
+                    }}
+                    title="Create a similar exercise from this one"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Create similar
+                  </Button>
                 </li>
               );
             })
           )}
         </ul>
+        {showQuickCreate ? (
+          <QuickCreateExercise
+            searchTerm={search}
+            seed={seed}
+            onSeedCleared={() => setSeed(null)}
+            onCreated={(created) => {
+              // Auto-select the freshly created exercise so the trainer can
+              // keep adding more. Crucially: do NOT close the dialog or call
+              // onConfirm() — the multi-add flow is supposed to let the
+              // trainer batch-pick. Onboarding feedback (May 2026) called
+              // out the old behaviour where one quick-create closed the
+              // entire dialog with only the new exercise selected, losing
+              // every other tick.
+              setPicked((prev) => {
+                const next = new Set(prev);
+                next.add(created.id);
+                return next;
+              });
+              // Clear the search so the new exercise is visible in the list
+              // (the list filters on the now-stale needle and would hide it).
+              setSearch("");
+              setSeed(null);
+              onQuickCreated?.(created);
+            }}
+          />
+        ) : null}
         <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {t("multiAddSelectedCount", { count: picked.size })}

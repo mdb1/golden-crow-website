@@ -47,17 +47,12 @@ export default async function ClientsPage() {
     pendingCount > 0 ? t("subtitlePendingSuffix", { count: pendingCount }) : "";
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {activeText}
-          {pendingSuffix}
-          {t("subtitleSortNote")}
-        </p>
-      </div>
+    <div className="gc-page flex flex-col gap-4">
+      <p className="text-xs text-muted-foreground">
+        {activeText}
+        {pendingSuffix}
+        {t("subtitleSortNote")}
+      </p>
       <ProvisionClientForm />
       <RosterQueryProvider>
         <RosterTable rows={rows} trainerUid={trainer.uid} />

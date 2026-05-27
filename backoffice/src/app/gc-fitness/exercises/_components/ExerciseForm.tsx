@@ -142,19 +142,17 @@ export function ExerciseForm({
         if (mode === "create") {
           await createExercise(values);
           toast.success(t("savedToast"));
-          // 260524 — user-explicit: after a successful create, go back
-          // in navigation (NOT push into /[id]/edit). The previous
-          // redirect to /[id]/edit was deliberate so the user could
-          // upload media immediately, but the user reported the UX
-          // felt jarring. Media upload still works — the user reopens
-          // the exercise from the list.
-          router.back();
+          // Push to the library so the trainer lands on the list they
+          // were curating — router.back() used to bounce them to whatever
+          // screen referred them in (sometimes the workout-template
+          // editor), which made it feel like the save didn't take.
+          router.push("/gc-fitness/exercises");
           return;
         }
         if (mode === "edit" && exerciseId) {
           await updateExercise(exerciseId, values);
           toast.success(t("savedToast"));
-          router.back();
+          router.push("/gc-fitness/exercises");
         }
       } catch (err) {
         console.error("[exercise-form] save failed", err);

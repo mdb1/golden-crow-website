@@ -63,7 +63,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Toaster } from "@/components/ui/sonner";
 
 import {
   assignHabitTemplate,
@@ -446,9 +445,10 @@ export function HabitsLibraryClient({
           ) : null}
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             disabled={createTemplatePending || newTemplateName.trim() === ""}
             onClick={handleCreateTemplate}
+            className="w-fit"
           >
             {createTemplatePending
               ? t("creating")
@@ -646,7 +646,6 @@ export function HabitsLibraryClient({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Toaster richColors closeButton />
     </div>
   );
 }

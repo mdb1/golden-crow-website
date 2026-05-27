@@ -14,7 +14,7 @@
 //  - all lowercase [a-z_]+
 //  - no duplicates
 //  - no empty strings
-//  - muscleGroups: 16 items (Pitfall 5 ceiling: ≤24)
+//  - muscleGroups: 17 items (Pitfall 5 ceiling: ≤24)
 //  - equipment: 13 items
 //
 // CONSUMERS:
@@ -33,6 +33,7 @@ export const MUSCLE_GROUPS = [
   "core",
   "flexibility",
   "forearms",
+  "full_body",
   "glutes",
   "hamstrings",
   "legs",
@@ -94,6 +95,7 @@ export function fallbackSymbol(muscleGroup: string): string {
     case "triceps":
     case "forearms":
     case "calves":
+    case "full_body":
       return "figure.strengthtraining.traditional";
     case "cardio":
       return "figure.run";

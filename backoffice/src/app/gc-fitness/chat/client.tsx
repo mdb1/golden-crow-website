@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 export interface ClientRosterEntry {
   uid: string;
   displayName: string;
+  photoURL?: string | null;
   pendingProvisioning: boolean;
 }
 

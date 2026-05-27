@@ -1,95 +1,52 @@
 // __tests__/client-attention.test.ts
 //
-// Pure-function tests for client-attention.ts (Plan 11-06 Task 1 — TDD RED).
-//
-// Scope: lock the predicate semantics + boundary behavior + reason-string
-// contract. The Pattern-B precedent is habit-compliance.test.ts (P06-08).
-//
-// THRESHOLD LOCKING:
-//   T5 (boundary case 0.60 → not needs-attention) + the bonus constants
-//   assertion ensure the strict `<` semantics and the literal 2 / 0.6
-//   thresholds cannot drift silently. CI fails on any unintended change.
-//
-// REASON STABILITY:
-//   T6 sorts the reasons[] array before comparison so we test the SET
-//   (both reasons present) without locking the iteration order; the
-//   implementation guarantees stable order (missed-workouts first, then
-//   low-compliance) but the test allows either ordering to keep the gate
-//   robust to refactors that re-arrange the reason-push order.
+// Pure-function tests for the inactivity-based attention predicate.
+// History: replaces the original P11-06 missed-workouts + compliance suite
+// after coach feedback (May 2026) that the combined predicate over-flagged
+// the roster. New rule is a single 3-day inactivity threshold.
 
 import {
   clientNeedsAttention,
-  NEEDS_ATTENTION_COMPLIANCE_THRESHOLD,
-  NEEDS_ATTENTION_MISSED_WORKOUTS_THRESHOLD,
+  NEEDS_ATTENTION_INACTIVITY_HOURS,
 } from "../client-attention";
 
-describe("clientNeedsAttention (P11-06 — Pattern B pure-function predicate)", () => {
-  it("T1: 0 missed + 100% compliance → not needs-attention", () => {
+const NOW = Date.UTC(2026, 4, 27, 12, 0, 0); // 2026-05-27T12:00:00Z
+const HOUR_MS = 60 * 60 * 1000;
+
+describe("clientNeedsAttention (inactivity ≥ 3 days)", () => {
+  it("null lastActivity → needs-attention", () => {
+    const r = clientNeedsAttention({ lastActivityAtMs: null, nowMs: NOW });
+    expect(r.needsAttention).toBe(true);
+    expect(r.reasons).toEqual(["inactive-3-days"]);
+  });
+
+  it("activity 1 hour ago → not needs-attention", () => {
     const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 0,
-      complianceRatioLast7Days: 1.0,
+      lastActivityAtMs: NOW - 1 * HOUR_MS,
+      nowMs: NOW,
     });
     expect(r.needsAttention).toBe(false);
     expect(r.reasons).toEqual([]);
   });
 
-  it("T2: 1 missed + 100% compliance → not needs-attention (1 < threshold)", () => {
+  it("activity exactly at threshold (just inside) → not needs-attention", () => {
     const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 1,
-      complianceRatioLast7Days: 1.0,
+      lastActivityAtMs: NOW - (NEEDS_ATTENTION_INACTIVITY_HOURS - 1) * HOUR_MS,
+      nowMs: NOW,
     });
     expect(r.needsAttention).toBe(false);
-    expect(r.reasons).toEqual([]);
   });
 
-  it("T3: 2 missed + 100% compliance → needs-attention with reason 'missed-workouts'", () => {
+  it("activity older than threshold → needs-attention", () => {
     const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 2,
-      complianceRatioLast7Days: 1.0,
+      lastActivityAtMs: NOW - (NEEDS_ATTENTION_INACTIVITY_HOURS + 1) * HOUR_MS,
+      nowMs: NOW,
     });
     expect(r.needsAttention).toBe(true);
-    expect(r.reasons).toEqual(["missed-workouts"]);
+    expect(r.reasons).toEqual(["inactive-3-days"]);
   });
 
-  it("T4: 0 missed + 59% compliance → needs-attention with reason 'low-compliance'", () => {
-    const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 0,
-      complianceRatioLast7Days: 0.59,
-    });
-    expect(r.needsAttention).toBe(true);
-    expect(r.reasons).toEqual(["low-compliance"]);
-  });
-
-  it("T5 (boundary): 0 missed + EXACTLY 60% compliance → not needs-attention (strict <)", () => {
-    const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 0,
-      complianceRatioLast7Days: 0.6,
-    });
-    expect(r.needsAttention).toBe(false);
-    expect(r.reasons).toEqual([]);
-  });
-
-  it("T6: 3 missed + 40% compliance → needs-attention with BOTH reasons", () => {
-    const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 3,
-      complianceRatioLast7Days: 0.4,
-    });
-    expect(r.needsAttention).toBe(true);
-    // Test the set (both present) without locking iteration order.
-    expect([...r.reasons].sort()).toEqual(["low-compliance", "missed-workouts"]);
-  });
-
-  it("T7 (vacuous): client with no assigned habits — caller passes 1.0 → not needs-attention", () => {
-    const r = clientNeedsAttention({
-      missedWorkoutsLast7Days: 0,
-      complianceRatioLast7Days: 1.0,
-    });
-    expect(r.needsAttention).toBe(false);
-    expect(r.reasons).toEqual([]);
-  });
-
-  it("T8 (bonus): exported constants match the documented thresholds", () => {
-    expect(NEEDS_ATTENTION_MISSED_WORKOUTS_THRESHOLD).toBe(2);
-    expect(NEEDS_ATTENTION_COMPLIANCE_THRESHOLD).toBe(0.6);
+  it("threshold constant matches documented value", () => {
+    expect(NEEDS_ATTENTION_INACTIVITY_HOURS).toBe(72);
   });
 });

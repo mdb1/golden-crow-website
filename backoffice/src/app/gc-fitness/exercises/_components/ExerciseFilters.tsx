@@ -14,11 +14,14 @@
 // the post-hydration update lands one render later.
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   MUSCLE_GROUPS,
   EQUIPMENT,
@@ -33,6 +36,7 @@ export interface ExerciseFiltersState {
   muscleGroups: string[];
   equipment: string[];
   source: string[]; // subset of ['wger', 'Custom']
+  mineOnly: boolean;
 }
 
 const EMPTY: ExerciseFiltersState = {
@@ -40,6 +44,7 @@ const EMPTY: ExerciseFiltersState = {
   muscleGroups: [],
   equipment: [],
   source: [],
+  mineOnly: false,
 };
 
 function readFromStorage(): ExerciseFiltersState | null {
@@ -60,6 +65,7 @@ function readFromStorage(): ExerciseFiltersState | null {
       source: Array.isArray(parsed.source)
         ? parsed.source.filter((v): v is string => typeof v === "string")
         : [],
+      mineOnly: parsed.mineOnly === true,
     };
   } catch {
     // Corrupted entry — wipe + start clean.
@@ -87,17 +93,24 @@ export interface ExerciseFiltersProps {
 
 export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
   const t = useTranslations("exercises.filters");
+  const searchParams = useSearchParams();
+  const ownerParam = searchParams?.get("owner") ?? null;
   const [state, setState] = useState<ExerciseFiltersState>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
 
-  // 1. Hydrate from localStorage post-mount (SSR safety).
+  // 1. Hydrate from localStorage post-mount (SSR safety). `?owner=mine` in
+  //    the URL always wins over a stale stored preference so the dashboard
+  //    "Custom exercises" tile reliably lands on the filtered view.
   useEffect(() => {
     const stored = readFromStorage();
-    if (stored) {
-      setState(stored);
+    const base = stored ?? EMPTY;
+    if (ownerParam === "mine") {
+      setState({ ...base, mineOnly: true });
+    } else {
+      setState(base);
     }
     setHydrated(true);
-  }, []);
+  }, [ownerParam]);
 
   // 2. Persist + notify parent on every change. Debounce search-text writes
   //    only — array selects fire on user click, so flush immediately.
@@ -119,7 +132,10 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
   };
 
   const activeCount =
-    state.muscleGroups.length + state.equipment.length + state.source.length;
+    state.muscleGroups.length +
+    state.equipment.length +
+    state.source.length +
+    (state.mineOnly ? 1 : 0);
   const showClear = activeCount > 0 || state.search.length > 0;
 
   return (
@@ -194,6 +210,21 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             max={2}
             formatLabel={(s) => s}
           />
+        </div>
+        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-3 py-1.5">
+          <Checkbox
+            id="filter-mine-only"
+            checked={state.mineOnly}
+            onCheckedChange={(next) =>
+              setState((s) => ({ ...s, mineOnly: next === true }))
+            }
+          />
+          <Label
+            htmlFor="filter-mine-only"
+            className="cursor-pointer text-sm font-normal text-foreground"
+          >
+            {t("mineOnlyLabel")}
+          </Label>
         </div>
         {showClear && (
           <Button

@@ -23,8 +23,10 @@ import { TemplatesQueryProvider } from "./providers";
 export const dynamic = "force-dynamic";
 
 export default async function TemplatesPage() {
+  let trainerUid: string;
   try {
-    await getCurrentTrainer();
+    const trainer = await getCurrentTrainer();
+    trainerUid = trainer.uid;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
@@ -34,9 +36,9 @@ export default async function TemplatesPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex flex-col gap-6">
       <TemplatesQueryProvider>
-        <TemplatesLibraryClient />
+        <TemplatesLibraryClient trainerUid={trainerUid} />
       </TemplatesQueryProvider>
     </div>
   );

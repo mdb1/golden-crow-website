@@ -15,6 +15,7 @@ export function NewTemplateClient() {
   return (
     <TemplateForm
       mode="create"
+      draftKey="new"
       onSubmit={async (input: WorkoutTemplateInput) => {
         const result = await createWorkoutTemplate(input);
         return result;

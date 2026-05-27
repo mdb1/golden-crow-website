@@ -25,11 +25,11 @@
 // This keeps the form pure and lets the route handle the post-success
 // redirect / refresh.
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUp, ArrowDown, GripVertical, Trash2, Plus } from "lucide-react";
+import { ArrowUp, ArrowDown, GripVertical, Trash2, Plus, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import {
@@ -85,7 +85,52 @@ export interface TemplateFormProps {
    */
   onSubmit: (
     input: WorkoutTemplateInput,
-  ) => Promise<{ id?: string; ok?: true }>;
+  ) => Promise<{ id?: string; ok?: true; deferNavigation?: boolean }>;
+  /**
+   * Unique key used to autosave/restore unfinished work in localStorage.
+   * Typically "new" for the create surface and `edit:${templateId}` for
+   * the edit surface. If omitted, draft autosave is disabled.
+   */
+  draftKey?: string;
+}
+
+const DRAFT_STORAGE_PREFIX = "gc-fitness:template-draft:";
+const DRAFT_DEBOUNCE_MS = 500;
+
+function readDraft(key: string): Partial<WorkoutTemplateInput> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${DRAFT_STORAGE_PREFIX}${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return parsed as Partial<WorkoutTemplateInput>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key: string, value: WorkoutTemplateInput) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      `${DRAFT_STORAGE_PREFIX}${key}`,
+      JSON.stringify(value),
+    );
+  } catch {
+    /* quota / private mode — silent */
+  }
+}
+
+function clearDraft(key: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${key}`);
+  } catch {
+    /* ignore */
+  }
 }
 
 // Default suggestions. Trainers can still type any custom tag.
@@ -148,13 +193,19 @@ export function TemplateForm({
   mode,
   defaultValues,
   onSubmit,
+  draftKey,
 }: TemplateFormProps) {
   const t = useTranslations("templates.form");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [draftRestored, setDraftRestored] = useState(false);
   const [setsDraft, setSetsDraft] = useState<Record<string, string>>({});
   const [setRepsDraft, setSetRepsDraft] = useState<Record<string, string>>({});
+  const [setWeightDraft, setSetWeightDraft] = useState<Record<string, string>>({});
   const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
+  const [step, setStep] = useState<1 | 2>(1);
+  const [showSpanishFields, setShowSpanishFields] = useState(false);
+  const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -174,6 +225,61 @@ export function TemplateForm({
     control: form.control,
     name: "exercises",
   });
+
+  // ---- Draft autosave + restore ------------------------------------------
+  //
+  // When draftKey is provided, hydrate the form from localStorage on mount
+  // (silently, but flag draftRestored so we can show a "draft restored"
+  // banner with a Discard button). On every subsequent change we persist
+  // the current form values back to localStorage, debounced so a fast
+  // typer doesn't write on every keystroke.
+  //
+  // The draft is cleared on successful submit. Navigating away without
+  // saving — back button, Esc, accidental close — leaves the draft on
+  // disk so a future mount restores it.
+  useEffect(() => {
+    if (!draftKey) return;
+    const stored = readDraft(draftKey);
+    if (!stored) return;
+    form.reset({
+      ...buildDefaults(defaultValues),
+      ...stored,
+    });
+    setDraftRestored(true);
+    // Intentionally only runs on mount + when the key changes. Editing the
+    // defaultValues prop later (e.g. server-side data refetch) should not
+    // wipe an in-progress draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  const draftTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!draftKey) return;
+    const subscription = form.watch((value) => {
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+      }
+      draftTimerRef.current = window.setTimeout(() => {
+        writeDraft(draftKey, value as WorkoutTemplateInput);
+        draftTimerRef.current = null;
+      }, DRAFT_DEBOUNCE_MS);
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+    };
+  }, [draftKey, form]);
+
+  function discardDraft() {
+    if (!draftKey) return;
+    clearDraft(draftKey);
+    form.reset(buildDefaults(defaultValues));
+    setDraftRestored(false);
+  }
+  // ------------------------------------------------------------------------
 
   // Plan 21-02 — dnd-kit sensors. PointerSensor with a 5px activation distance
   // so an accidental click doesn't trigger a drag on touch / fine-pointer
@@ -252,6 +358,8 @@ export function TemplateForm({
           })),
         };
         const result = await onSubmit(normalized);
+        // Save succeeded — the in-progress draft is no longer needed.
+        if (draftKey) clearDraft(draftKey);
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
           // 260524 — go back in nav after create (same UX as exercise + habit forms).
@@ -259,6 +367,10 @@ export function TemplateForm({
           return;
         }
         toast.success(t("savedToast"));
+        // Edit wrappers can defer the back-nav so they can render a follow-up
+        // dialog (e.g. the template-propagation confirmation). The wrapper is
+        // responsible for navigating away once the dialog resolves.
+        if (result?.deferNavigation) return;
         router.back();
       } catch (err) {
         console.error("[template-form] save failed", err);
@@ -279,6 +391,22 @@ export function TemplateForm({
       order: fields.length + 1,
     });
   }
+
+  const hasUnselectedExercises = useMemo(
+    () =>
+      fields.some((_, index) => {
+        const id = form.getValues(`exercises.${index}.exerciseId` as const);
+        return !id;
+      }),
+    [fields, form],
+  );
+  const canContinueToDetails = fields.length > 0 && !hasUnselectedExercises;
+  const canSubmit =
+    !pending &&
+    step === 2 &&
+    canContinueToDetails &&
+    (form.getValues("name.en") ?? "").trim().length > 0 &&
+    (form.getValues("description.en") ?? "").trim().length > 0;
 
   // Plan 21-01a: batch-add N exercises from the multi-select dialog. Each
   // new row inherits the default sets/reps/rest_seconds; the trainer can
@@ -305,6 +433,21 @@ export function TemplateForm({
   return (
     <Form {...form}>
       <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+        {draftRestored ? (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground dark:border-amber-400/40 dark:bg-amber-400/10">
+            <span>
+              Restored your unsaved draft. Pick up where you left off.
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={discardDraft}
+            >
+              Discard draft
+            </Button>
+          </div>
+        ) : null}
         {/* Name EN + ES */}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
@@ -320,24 +463,32 @@ export function TemplateForm({
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="name.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEs")}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={t("namePlaceholderEs")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormDescription>{t("nameEsHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {showSpanishFields ? (
+            <FormField
+              control={form.control}
+              name="name.es"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("nameEs")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t("namePlaceholderEs")}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormDescription>{t("nameEsHint")}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <div className="flex items-end">
+              <Button type="button" variant="outline" onClick={() => setShowSpanishFields(true)}>
+                Add Spanish translation fields
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Description EN + ES */}
@@ -360,24 +511,28 @@ export function TemplateForm({
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="description.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEs")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder={t("descriptionPlaceholderEs")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {showSpanishFields ? (
+            <FormField
+              control={form.control}
+              name="description.es"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("descriptionEs")}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder={t("descriptionPlaceholderEs")}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <div className="hidden sm:block" />
+          )}
         </div>
 
         {/* Tag */}
@@ -409,6 +564,30 @@ export function TemplateForm({
           )}
         />
 
+        <div className="rounded-xl border bg-card/90 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Workout builder
+              </p>
+              <h2 className="font-heading text-base font-semibold">
+                {step === 1 ? "Step 1 · Select exercises" : "Step 2 · Configure sets, reps, kg and notes"}
+              </h2>
+              {step === 1 && fields.length > 0 && hasUnselectedExercises ? (
+                <p className="mt-1 text-xs text-amber-700">Select one exercise in each row before continuing.</p>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant={step === 1 ? "default" : "outline"} size="sm" onClick={() => setStep(1)}>
+                1. Exercises
+              </Button>
+              <Button type="button" variant={step === 2 ? "default" : "outline"} size="sm" onClick={() => setStep(2)} disabled={!canContinueToDetails}>
+                2. Details
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Exercises — wrapped in a section card to match the HabitForm
             schedule/reminder visual hierarchy. */}
         <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
@@ -429,17 +608,48 @@ export function TemplateForm({
             </p>
           )}
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={fields.map((f) => f.id)}
-              strategy={verticalListSortingStrategy}
+          {step === 1 ? (
+            <ul className="flex flex-col gap-2">
+              {fields.map((field, index) => (
+                <li key={field.id} className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Exercise #{index + 1}</p>
+                    <div className="mt-1">
+                      <ExercisePickerPopover
+                        value={form.getValues(`exercises.${index}.exerciseId` as const) ?? ""}
+                        onChange={(value) =>
+                          form.setValue(`exercises.${index}.exerciseId` as const, value, { shouldDirty: true })
+                        }
+                        ariaLabel={t("pickExerciseAria", { index: index + 1 })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <ul className="flex flex-col gap-3">
-                {fields.map((field, index) => (
+              <SortableContext
+                items={fields.map((f) => f.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ul className="flex flex-col gap-3">
+                  {fields.map((field, index) => (
                   // Pitfall 3: React key is `field.id` (RHF-internal CUID), NOT
                   // `index` (would break across reorders) and NOT
                   // `field.exerciseId` (collisions on supersets referencing the
@@ -551,11 +761,14 @@ export function TemplateForm({
                                 onBlur={(e) => {
                                   const raw = setsDraft[field.id];
                                   if (raw === "") {
-                                    delete setsDraft[field.id];
-                                    setSetsDraft({ ...setsDraft });
-                                    numField.onBlur();
-                                    return;
-                                  }
+                                  setSetsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
+                                  numField.onBlur();
+                                  return;
+                                }
                                   if (raw !== undefined) {
                                     const parsed = Number(raw);
                                     if (Number.isFinite(parsed)) {
@@ -563,8 +776,11 @@ export function TemplateForm({
                                       syncSetArrays(index, parsed);
                                     }
                                   }
-                                  delete setsDraft[field.id];
-                                  setSetsDraft({ ...setsDraft });
+                                  setSetsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
                                   numField.onBlur();
                                   e.currentTarget.value = String(form.getValues(`exercises.${index}.sets` as const) ?? "");
                                 }}
@@ -658,7 +874,7 @@ export function TemplateForm({
                           {Array.from({
                             length: Math.max(
                               1,
-                              Math.min(10, Number(form.watch(`exercises.${index}.sets` as const) ?? 1)),
+                              Math.min(10, Number(form.getValues(`exercises.${index}.sets` as const) ?? 1)),
                             ),
                           }).map((_, setIdx) => {
                             const repsPath = `exercises.${index}.repsBySet` as const;
@@ -698,8 +914,11 @@ export function TemplateForm({
                                   onBlur={() => {
                                     const raw = setRepsDraft[setKey];
                                     if (raw === "") {
-                                      delete setRepsDraft[setKey];
-                                      setSetRepsDraft({ ...setRepsDraft });
+                                      setSetRepsDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[setKey];
+                                        return next;
+                                      });
                                       return;
                                     }
                                     if (raw !== undefined) {
@@ -722,8 +941,11 @@ export function TemplateForm({
                                         }
                                       }
                                     }
-                                    delete setRepsDraft[setKey];
-                                    setSetRepsDraft({ ...setRepsDraft });
+                                    setSetRepsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[setKey];
+                                      return next;
+                                    });
                                   }}
                                   aria-label={t("setRepsAria", { count: setIdx + 1 })}
                                 />
@@ -734,24 +956,47 @@ export function TemplateForm({
                                   step="0.5"
                                   className="h-10"
                                   placeholder={t("setWeightPlaceholder")}
-                                  value={weightValue ?? ""}
+                                  value={setWeightDraft[setKey] ?? (weightValue?.toString() ?? "")}
                                   onChange={(e) => {
-                                    const current = toFiniteNumberArray(form.getValues(weightPath));
                                     const nextRaw = e.target.value.trim();
                                     if (nextRaw === "") {
-                                      const trimmed = current.slice(0, Math.max(setIdx, 0));
-                                      form.setValue(weightPath, trimmed, { shouldDirty: true });
+                                      setSetWeightDraft((prev) => ({ ...prev, [setKey]: "" }));
                                       return;
                                     }
                                     const next = Number(nextRaw);
                                     if (!Number.isFinite(next)) return;
-                                    const safeLen = Math.max(setIdx + 1, current.length);
-                                    const filled = Array.from({ length: safeLen }, (_, i) => {
-                                      const v = current[i];
-                                      return Number.isFinite(v) ? v : 0;
+                                    setSetWeightDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
+                                  }}
+                                  onBlur={() => {
+                                    const raw = setWeightDraft[setKey];
+                                    const current = toFiniteNumberArray(form.getValues(weightPath));
+                                    if (raw === "") {
+                                      const trimmed = current.slice(0, Math.max(setIdx, 0));
+                                      form.setValue(weightPath, trimmed, { shouldDirty: true });
+                                      setSetWeightDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[setKey];
+                                        return next;
+                                      });
+                                      return;
+                                    }
+                                    if (raw !== undefined) {
+                                      const next = Number(raw);
+                                      if (Number.isFinite(next)) {
+                                        const safeLen = Math.max(setIdx + 1, current.length);
+                                        const filled = Array.from({ length: safeLen }, (_, i) => {
+                                          const v = current[i];
+                                          return Number.isFinite(v) ? v : 0;
+                                        });
+                                        filled[setIdx] = next;
+                                        form.setValue(weightPath, filled, { shouldDirty: true });
+                                      }
+                                    }
+                                    setSetWeightDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[setKey];
+                                      return next;
                                     });
-                                    filled[setIdx] = next;
-                                    form.setValue(weightPath, filled, { shouldDirty: true });
                                   }}
                                   aria-label={t("setWeightAria", { count: setIdx + 1 })}
                                 />
@@ -804,10 +1049,11 @@ export function TemplateForm({
                 </Card>
                     )}
                   </SortableExerciseRow>
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -822,9 +1068,50 @@ export function TemplateForm({
             </Button>
             <ExerciseMultiAddDialog
               onConfirm={appendExercises}
+              onQuickCreated={(exercise) =>
+                setQuickCreated((prev) => [{ id: exercise.id, name: exercise.name }, ...prev])
+              }
               disabled={fields.length >= 30}
+              triggerClassName="bg-primary text-primary-foreground hover:bg-primary/90"
             />
+            {step === 1 ? (
+              <Button type="button" onClick={() => setStep(2)} disabled={!canContinueToDetails} className="ml-auto">
+                Continue to details
+              </Button>
+            ) : null}
           </div>
+          {quickCreated.length > 0 ? (
+            <div className="mt-2 flex flex-col gap-2">
+              {quickCreated.map((exercise) => (
+                <div key={exercise.id} className="flex items-center justify-between rounded-md border border-emerald-400/50 bg-emerald-50/60 px-3 py-2 text-sm">
+                  <span className="truncate">
+                    Created: <strong>{exercise.name}</strong>
+                  </span>
+                  <div className="ml-2 flex items-center gap-2">
+                    <a
+                      href={`/gc-fitness/exercises/${exercise.id}/edit`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-emerald-900 underline"
+                    >
+                      Edit in new tab
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        setQuickCreated((prev) => prev.filter((row) => row.id !== exercise.id))
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Form-level error from RHF root */}
@@ -845,7 +1132,7 @@ export function TemplateForm({
           >
             {t("cancel")}
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={!canSubmit}>
             {pending ? t("saving") : mode === "create" ? t("createCta") : t("saveCta")}
           </Button>
         </div>

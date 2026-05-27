@@ -52,13 +52,9 @@ interface WeekGridProps {
   clientId: string;
   focusDate?: string | null;
   /**
-   * IANA timezone for the trainer's "today" anchor. Falls back to "UTC"
-   * — works correctly because the trainer surface only needs day-level
-   * resolution, and UTC and the trainer's local zone agree on the civil
-   * day for the vast majority of the day. (Hot-take fix path: populate
-   * from /users/{trainerUid}.timezone on the server side once P04-06's
-   * iOS timezone capture has run for the trainer's account, but the
-   * trainer is typically using Vercel servers — UTC is a fine default.)
+   * IANA timezone for the trainer's "today" anchor. When absent, this
+   * client component resolves the browser timezone and only then falls
+   * back to UTC.
    */
   trainerTimezone?: string;
 }
@@ -120,7 +116,7 @@ function addCivilDays(civilDate: string, days: number): string {
   return civilDateFormat(shifted, "UTC");
 }
 
-export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekGridProps) {
+export function WeekGrid({ clientId, trainerTimezone, focusDate }: WeekGridProps) {
   const t = useTranslations("schedule.weekGrid");
   const dayLabels: readonly string[] = [
     t("daysShort.mon"),
@@ -132,7 +128,11 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
     t("daysShort.sun"),
   ];
   const queryClient = useQueryClient();
-  const todayCivil = civilDateToday(trainerTimezone);
+  const resolvedTimezone =
+    trainerTimezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone ??
+    "UTC";
+  const todayCivil = civilDateToday(resolvedTimezone);
   const initialMonday = mondayOfWeek(focusDate ?? todayCivil);
 
   const [weekStart, setWeekStart] = useState<string>(initialMonday);
@@ -296,7 +296,7 @@ export function WeekGrid({ clientId, trainerTimezone = "UTC", focusDate }: WeekG
           onOpenChange={(open) => !open && setAssignDate(null)}
           clientId={clientId}
           defaultDate={assignDate}
-          trainerTimezone={trainerTimezone}
+          trainerTimezone={resolvedTimezone}
           onAssigned={onAssigned}
         />
       ) : null}

@@ -55,16 +55,12 @@ export default async function SchedulePage({
   const isPendingClient = selectedClient?.pendingProvisioning === true;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
-      <header className="flex items-start justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Button variant="outline" asChild>
+    <div className="gc-page flex flex-col gap-6">
+      <div className="flex items-center justify-end">
+        <Button variant="outline" size="sm" asChild>
           <Link href="/gc-fitness/schedule/bulk">{t("bulkAssignLabel")}</Link>
         </Button>
-      </header>
+      </div>
 
       <ScheduleQueryProvider>
         {clientId ? (

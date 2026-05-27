@@ -56,7 +56,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Dumbbell, ChevronsUpDown, Search, X } from "lucide-react";
+import { ChevronsUpDown, Copy, Dumbbell, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,11 @@ import {
   type ExerciseFilters,
 } from "@/lib/gc-fitness/exercise-filter-state";
 import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/gc-fitness/exercise-vocabulary";
+import {
+  QuickCreateExercise,
+  type QuickCreateSeed,
+} from "./exercise-quick-create";
+import { ExercisePreviewThumb } from "./exercise-preview-thumb";
 
 // Phase 24-06 Task 3 — render-window cap (Codex MEDIUM). Even with
 // lazy GIFs, rendering 250+ rows + 250 inline images strains the popover.
@@ -160,8 +165,35 @@ export function normalizeSearchText(s: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
+    // Hyphens, underscores, slashes all behave as word separators so
+    // "Pull-Ups" matches a "pull ups" query and "wide_grip" matches
+    // "wide grip". This also fixes the case where the trainer types
+    // a hyphenated name and the haystack stores it un-hyphenated.
+    .replace(/[-_/]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function fuzzyTokenMatch(query: string, haystack: string): boolean {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return true;
+  const tokens = normalizedQuery.split(" ").filter(Boolean);
+  const words = normalizeSearchText(haystack).split(" ").filter(Boolean);
+  if (tokens.length === 0) return true;
+  let wordIndex = 0;
+  for (const token of tokens) {
+    let found = false;
+    while (wordIndex < words.length) {
+      if (words[wordIndex].startsWith(token)) {
+        found = true;
+        wordIndex += 1;
+        break;
+      }
+      wordIndex += 1;
+    }
+    if (!found) return false;
+  }
+  return true;
 }
 
 function previewUrl(url?: string | null): string | null {
@@ -206,6 +238,8 @@ export function ExercisePickerPopover({
   const t = useTranslations("picker");
   const effectivePlaceholder = placeholder ?? t("triggerPlaceholder");
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
   // Phase 24-06 Task 3 — filter chip state (muscle/equipment/level/mechanic).
@@ -238,6 +272,23 @@ export function ExercisePickerPopover({
     [data],
   );
 
+  // Whether the trainer's search yields ZERO matches — drives the inline
+  // "Exercise not found. Quick create" panel below. We re-run fuzzy match
+  // ourselves so it stays in sync with what cmdk's internal matcher
+  // produces (both go through normalizeSearchText so a hyphenated needle
+  // like "pull up" matches "Pull-Ups").
+  const noMatches = useMemo(() => {
+    const needle = search.trim();
+    if (!needle) return false;
+    if (visible.length === 0) return true;
+    return !visible.some((ex) =>
+      fuzzyTokenMatch(
+        needle,
+        [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" "),
+      ),
+    );
+  }, [search, visible]);
+
   const selected = useMemo(
     () => (data ?? []).find((r) => r.id === value) ?? null,
     [data, value],
@@ -246,6 +297,26 @@ export function ExercisePickerPopover({
   function handleSelect(id: string) {
     onChange(id);
     setOpen(false);
+    setSearch("");
+    setSeed(null);
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setSearch("");
+      setSeed(null);
+    }
+  }
+
+  function seedFromRow(row: ExerciseRow): QuickCreateSeed {
+    return {
+      name: row.name.en || row.name.es || "",
+      description: row.description.en || row.description.es || "",
+      muscleGroup: row.muscleGroups[0] ?? "chest",
+      equipment: row.equipment[0] ?? "bodyweight",
+      gifUrl: previewSrc(row) ?? "",
+    };
   }
 
   // Phase 24-06 Task 3 — chip toggle helpers (Codex MEDIUM Set mutation
@@ -287,7 +358,7 @@ export function ExercisePickerPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -370,6 +441,8 @@ export function ExercisePickerPopover({
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <CommandInput
+              value={search}
+              onValueChange={setSearch}
               placeholder={t("searchPlaceholder")}
               className="h-10 border-0 focus:ring-0"
             />
@@ -406,54 +479,39 @@ export function ExercisePickerPopover({
                         className="flex items-center gap-3"
                         data-testid={`exercise-picker-row-${ex.id}`}
                       >
-                        <span
-                          aria-hidden="true"
-                          className="flex h-7 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
-                        >
-                          {(() => {
-                            const src = previewSrc(ex);
-                            return src ? (
-                              // Phase 24-06 Pitfall 9 mitigation —
-                              // loading="lazy" defers image fetch until
-                              // the row scrolls near the viewport. With
-                              // ~250 wger/fexd rows + inline GIFs this
-                              // keeps the popover snappy at open.
-                              //
-                              // unoptimized is unconditional — see the
-                              // trigger-selected block above for the
-                              // signed-URL rationale.
-                              <Image
-                                src={src}
-                                alt=""
-                                width={48}
-                                height={28}
-                                className="h-full w-full object-cover"
-                                unoptimized={!!src}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <Dumbbell className="h-3 w-3" />
-                            );
-                          })()}
-                        </span>
-                        <span className="flex flex-col">
-                          <span className="font-medium">
+                        <ExercisePreviewThumb src={previewSrc(ex)} />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate font-medium">
                             {exerciseDisplayName(ex)}
                           </span>
                           {esLine && (
                             <span
-                              className="text-xs italic text-muted-foreground"
+                              className="truncate text-xs italic text-muted-foreground"
                               data-testid={`exercise-picker-es-${ex.id}`}
                             >
                               {esLine}
                             </span>
                           )}
                           {ex.muscleGroups.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="truncate text-xs text-muted-foreground">
                               {ex.muscleGroups.map(formatLabel).join(", ")}
                             </span>
                           )}
                         </span>
+                        <button
+                          type="button"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setSeed(seedFromRow(ex));
+                          }}
+                          title="Create a similar exercise from this one"
+                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/60 bg-background px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Create similar
+                        </button>
                       </CommandItem>
                     );
                   })}
@@ -478,6 +536,21 @@ export function ExercisePickerPopover({
             )}
           </CommandList>
         </Command>
+        {noMatches || seed !== null ? (
+          <div className="border-t p-2">
+            <QuickCreateExercise
+              searchTerm={search}
+              seed={seed}
+              onSeedCleared={() => setSeed(null)}
+              onCreated={(created) => {
+                // Auto-pick the freshly created exercise and close — the
+                // single picker is single-pick, so this is the natural
+                // "I just made this; use it now" path.
+                handleSelect(created.id);
+              }}
+            />
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

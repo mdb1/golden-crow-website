@@ -13,6 +13,17 @@ import {
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { AdminSubmitButton } from "./_components/admin-submit-button";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export const dynamic = "force-dynamic";
 
@@ -88,240 +99,188 @@ export default async function AdminPage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="space-y-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Admin Console
-        </h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Admin Console</h1>
         <p className="text-sm text-muted-foreground">
-          GC Fitness operator tools. Multi-role is enabled: a user can be trainer and admin at the
-          same time.
+          GC Fitness operator tools. Multi-role is enabled: a user can be trainer and admin at the same time.
         </p>
       </div>
+
       {actionMessage ? (
-        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <div className="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200">
           {actionMessage}
         </div>
       ) : null}
 
-      <section className="grid gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-2">
-        <form action={addAllowlistEmailAction} className="space-y-2 rounded-xl border p-4">
-          <p className="text-sm font-semibold">Add coach email to allowlist</p>
-          <p className="text-xs text-muted-foreground">
-            Stores the email in Firestore allowlist for admin-controlled access.
-          </p>
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="coach@email.com"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          />
-          <AdminSubmitButton
-            idleLabel="Add email"
-            pendingLabel="Adding..."
-            className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
-          />
-        </form>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Add coach email to allowlist</CardTitle>
+            <CardDescription>Store pending coach access emails in Firestore allowlist.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={addAllowlistEmailAction} className="space-y-3">
+              <Input name="email" type="email" required placeholder="coach@email.com" />
+              <AdminSubmitButton idleLabel="Add email" pendingLabel="Adding..." className="h-10" />
+            </form>
+          </CardContent>
+        </Card>
 
-        <form action={promoteToAdminAction} className="space-y-2 rounded-xl border p-4">
-          <p className="text-sm font-semibold">Promote existing user to admin</p>
-          <p className="text-xs text-muted-foreground">
-            Keeps trainer role and adds admin role (`trainer` + `admin`) on custom claims.
-          </p>
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="user@email.com"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-          />
-          <AdminSubmitButton
-            idleLabel="Promote user"
-            pendingLabel="Promoting..."
-            className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
-          />
-        </form>
+        <Card>
+          <CardHeader>
+            <CardTitle>Promote existing user to admin</CardTitle>
+            <CardDescription>Keeps trainer role and adds admin role (`trainer` + `admin`) in custom claims.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={promoteToAdminAction} className="space-y-3">
+              <Input name="email" type="email" required placeholder="user@email.com" />
+              <AdminSubmitButton idleLabel="Promote user" pendingLabel="Promoting..." className="h-10" />
+            </form>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border bg-card">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Coach allowlist</h2>
-          <p className="text-xs text-muted-foreground">
-            Pending allowlist emails (already-trainer emails are hidden).
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[780px] text-sm">
-            <thead className="bg-muted/40 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Enabled</th>
-                <th className="px-4 py-2 font-medium">Updated at (UTC)</th>
-                <th className="px-4 py-2 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allowlistRows.length === 0 ? (
-                <tr className="border-t">
-                  <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={4}>
-                    No allowlist entries yet.
-                  </td>
-                </tr>
-              ) : (
-                allowlistRows.map((row) => (
-                  <tr key={row.email} className="border-t">
-                    <td className="px-4 py-2">{row.email}</td>
-                    <td className="px-4 py-2">{row.enabled ? "yes" : "no"}</td>
-                    <td className="px-4 py-2">{row.updatedAtISO ?? "—"}</td>
-                    <td className="px-4 py-2">
-                      <form action={removeAllowlistEmailAction}>
-                        <input type="hidden" name="email" value={row.email} />
-                        <AdminSubmitButton
-                          idleLabel="Remove"
-                          pendingLabel="Removing..."
-                          className="inline-flex h-8 items-center rounded-md border border-red-300 px-3 text-xs font-medium text-red-700 hover:bg-red-50"
-                        />
-                      </form>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Coach allowlist</CardTitle>
+          <CardDescription>Pending allowlist emails (already-trainer emails are hidden).</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Enabled</TableHead>
+                  <TableHead>Updated at (UTC)</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allowlistRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground" colSpan={4}>
+                      No allowlist entries yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  allowlistRows.map((row) => (
+                    <TableRow key={row.email}>
+                      <TableCell className="font-medium">{row.email}</TableCell>
+                      <TableCell>{row.enabled ? "yes" : "no"}</TableCell>
+                      <TableCell>{row.updatedAtISO ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <form action={removeAllowlistEmailAction}>
+                          <input type="hidden" name="email" value={row.email} />
+                          <AdminSubmitButton
+                            idleLabel="Remove"
+                            pendingLabel="Removing..."
+                            className="h-8 border border-destructive/60 bg-transparent px-3 text-xs text-destructive hover:bg-destructive/10"
+                          />
+                        </form>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className="overflow-hidden rounded-2xl border bg-card">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Coaches</h2>
-          <p className="text-xs text-muted-foreground">
-            Email, roles, clients, custom workouts, custom exercises.
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-muted/40 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Coach</th>
-                <th className="px-4 py-2 font-medium">UID</th>
-                <th className="px-4 py-2 font-medium">Roles</th>
-                <th className="px-4 py-2 font-medium">Clients</th>
-                <th className="px-4 py-2 font-medium">Custom workouts</th>
-                <th className="px-4 py-2 font-medium">Custom exercises</th>
-                <th className="px-4 py-2 font-medium">Open</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coaches.map((coach) => (
-                <tr key={coach.uid} className="border-t">
-                  <td className="px-4 py-2">
-                    <Link
-                      href={`/gc-fitness/admin/coaches/${coach.uid}`}
-                      className="font-medium underline underline-offset-2"
-                    >
-                      {coach.displayName || "—"}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">{coach.email}</div>
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs">{coach.uid}</td>
-                  <td className="px-4 py-2">{coach.roles.join(", ") || "trainer"}</td>
-                  <td className="px-4 py-2">{coach.clientsCount}</td>
-                  <td className="px-4 py-2">{coach.customWorkoutsCount}</td>
-                  <td className="px-4 py-2">{coach.customExercisesCount}</td>
-                  <td className="px-4 py-2">
-                    <Link
-                      href={`/gc-fitness/admin/coaches/${coach.uid}`}
-                      className="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
-                    >
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Coaches</CardTitle>
+          <CardDescription>Email, roles, clients, custom workouts, custom exercises.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Coach</TableHead>
+                  <TableHead>UID</TableHead>
+                  <TableHead>Roles</TableHead>
+                  <TableHead>Clients</TableHead>
+                  <TableHead>Custom workouts</TableHead>
+                  <TableHead>Custom exercises</TableHead>
+                  <TableHead className="text-right">Open</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {coaches.map((coach) => (
+                  <TableRow key={coach.uid}>
+                    <TableCell>
+                      <Link href={`/gc-fitness/admin/coaches/${coach.uid}`} className="font-medium underline underline-offset-2">
+                        {coach.displayName || "—"}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">{coach.email}</div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{coach.uid}</TableCell>
+                    <TableCell>{coach.roles.join(", ") || "trainer"}</TableCell>
+                    <TableCell>{coach.clientsCount}</TableCell>
+                    <TableCell>{coach.customWorkoutsCount}</TableCell>
+                    <TableCell>{coach.customExercisesCount}</TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/gc-fitness/admin/coaches/${coach.uid}`}>View</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-2xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Recent coach activity</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Open the dedicated activity view with recurrence grouping and event details.
-        </p>
-        <div className="mt-3">
-          <Link
-            href="/gc-fitness/admin/coach-activity"
-            className="inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium hover:bg-muted"
-          >
-            Open recent coach activity
-          </Link>
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent coach activity</CardTitle>
+          <CardDescription>Open the dedicated activity view with recurrence grouping and event details.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href="/gc-fitness/admin/coach-activity">Open recent coach activity</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
-      <section className="grid gap-4 rounded-2xl border bg-card p-4 sm:grid-cols-1">
-        <div className="space-y-2 rounded-xl border p-4">
-          <p className="text-sm font-semibold text-red-700">Delete coach (cascade)</p>
-          <p className="text-xs text-muted-foreground">Step 1: preview impact. Step 2: execute.</p>
-          <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-            <li>Direct: coach auth account + <code>users/{`{coachUid}`}</code>.</li>
-            <li>Cascade: linked clients (and their own cascade), templates, custom exercises, chats, mirrors.</li>
-          </ul>
-          <form action="/gc-fitness/admin" method="get" className="space-y-2">
+      <Card className="border-destructive/35">
+        <CardHeader>
+          <CardTitle className="text-destructive">Delete coach (cascade)</CardTitle>
+          <CardDescription>
+            Step 1: preview impact. Step 2: execute delete with explicit confirmation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <form action="/gc-fitness/admin" method="get" className="space-y-3">
             <input type="hidden" name="deleteTarget" value="coach" />
-            <input
-              name="targetUid"
-              required
-              placeholder="coach uid"
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            />
-            <AdminSubmitButton
-              idleLabel="Preview deletion (dry run)"
-              pendingLabel="Previewing..."
-              className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
-            />
+            <Input name="targetUid" required placeholder="coach uid" defaultValue={targetUid} />
+            <Button type="submit" variant="outline">Preview deletion (dry run)</Button>
           </form>
+
           {coachPreview ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            <div className="rounded-lg border border-amber-400/70 bg-amber-500/10 p-3 text-sm">
               <p className="font-semibold">Preview result</p>
-              <p>Total docs approx: {coachPreview.totalApprox}</p>
-              <p>linked clients: {coachPreview.clients}</p>
-              <p>workout_templates: {coachPreview.workoutTemplates}</p>
-              <p>exercises: {coachPreview.exercises}</p>
-              <p>user_mirror: {coachPreview.userMirror}</p>
-              <p>chats: {coachPreview.chats}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Total docs approx: {coachPreview.totalApprox}</p>
             </div>
           ) : null}
-          <form action={deleteCoachAction} className="space-y-2">
-            <input
-              name="coachUid"
-              required
-              defaultValue={deleteTarget === "coach" ? targetUid : ""}
-              placeholder="coach uid (same as preview)"
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            />
-            <input
-              name="confirmation"
-              required
-              placeholder='Type exactly: DELETE COACH'
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            />
+
+          <form action={deleteCoachAction} className="space-y-3">
+            <Input name="coachUid" required placeholder="coach uid (same as preview)" defaultValue={targetUid} />
+            <Input name="confirmation" required placeholder="Type exactly: DELETE COACH" />
+            <input type="hidden" name="mode" value="execute" />
             <AdminSubmitButton
               idleLabel="Confirm and delete coach"
-              pendingLabel="Deleting coach..."
-              name="mode"
-              value="execute"
+              pendingLabel="Deleting..."
               disabled={!canExecuteCoachDelete}
-              className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+              className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             />
-            {!canExecuteCoachDelete ? (
-              <p className="text-xs text-muted-foreground">
-                Run dry run first to enable delete.
-              </p>
-            ) : null}
           </form>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </div>
   );
 }
