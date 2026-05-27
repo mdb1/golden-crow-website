@@ -25,11 +25,11 @@
 // This keeps the form pure and lets the route handle the post-success
 // redirect / refresh.
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUp, ArrowDown, GripVertical, Trash2, Plus } from "lucide-react";
+import { ArrowUp, ArrowDown, GripVertical, Trash2, Plus, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import {
@@ -157,6 +157,8 @@ export function TemplateForm({
   const [setWeightDraft, setSetWeightDraft] = useState<Record<string, string>>({});
   const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
   const [step, setStep] = useState<1 | 2>(1);
+  const [showSpanishFields, setShowSpanishFields] = useState(false);
+  const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -282,6 +284,22 @@ export function TemplateForm({
     });
   }
 
+  const hasUnselectedExercises = useMemo(
+    () =>
+      fields.some((_, index) => {
+        const id = form.getValues(`exercises.${index}.exerciseId` as const);
+        return !id;
+      }),
+    [fields, form],
+  );
+  const canContinueToDetails = fields.length > 0 && !hasUnselectedExercises;
+  const canSubmit =
+    !pending &&
+    step === 2 &&
+    canContinueToDetails &&
+    (form.getValues("name.en") ?? "").trim().length > 0 &&
+    (form.getValues("description.en") ?? "").trim().length > 0;
+
   // Plan 21-01a: batch-add N exercises from the multi-select dialog. Each
   // new row inherits the default sets/reps/rest_seconds; the trainer can
   // tweak per-row inputs after the rows land. We respect the 30-row cap
@@ -322,24 +340,32 @@ export function TemplateForm({
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="name.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEs")}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={t("namePlaceholderEs")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormDescription>{t("nameEsHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {showSpanishFields ? (
+            <FormField
+              control={form.control}
+              name="name.es"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("nameEs")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t("namePlaceholderEs")}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormDescription>{t("nameEsHint")}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <div className="flex items-end">
+              <Button type="button" variant="outline" onClick={() => setShowSpanishFields(true)}>
+                Add Spanish translation fields
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Description EN + ES */}
@@ -362,24 +388,28 @@ export function TemplateForm({
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="description.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEs")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder={t("descriptionPlaceholderEs")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {showSpanishFields ? (
+            <FormField
+              control={form.control}
+              name="description.es"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("descriptionEs")}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder={t("descriptionPlaceholderEs")}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <div className="hidden sm:block" />
+          )}
         </div>
 
         {/* Tag */}
@@ -420,12 +450,15 @@ export function TemplateForm({
               <h2 className="font-heading text-base font-semibold">
                 {step === 1 ? "Step 1 · Select exercises" : "Step 2 · Configure sets, reps, kg and notes"}
               </h2>
+              {step === 1 && fields.length > 0 && hasUnselectedExercises ? (
+                <p className="mt-1 text-xs text-amber-700">Select one exercise in each row before continuing.</p>
+              ) : null}
             </div>
             <div className="flex items-center gap-2">
               <Button type="button" variant={step === 1 ? "default" : "outline"} size="sm" onClick={() => setStep(1)}>
                 1. Exercises
               </Button>
-              <Button type="button" variant={step === 2 ? "default" : "outline"} size="sm" onClick={() => setStep(2)} disabled={fields.length === 0}>
+              <Button type="button" variant={step === 2 ? "default" : "outline"} size="sm" onClick={() => setStep(2)} disabled={!canContinueToDetails}>
                 2. Details
               </Button>
             </div>
@@ -458,9 +491,15 @@ export function TemplateForm({
                 <li key={field.id} className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Exercise #{index + 1}</p>
-                    <p className="truncate text-sm font-medium">
-                      {form.getValues(`exercises.${index}.exerciseId` as const) || "Select exercise"}
-                    </p>
+                    <div className="mt-1">
+                      <ExercisePickerPopover
+                        value={form.getValues(`exercises.${index}.exerciseId` as const) ?? ""}
+                        onChange={(value) =>
+                          form.setValue(`exercises.${index}.exerciseId` as const, value, { shouldDirty: true })
+                        }
+                        ariaLabel={t("pickExerciseAria", { index: index + 1 })}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
@@ -906,14 +945,50 @@ export function TemplateForm({
             </Button>
             <ExerciseMultiAddDialog
               onConfirm={appendExercises}
+              onQuickCreated={(exercise) =>
+                setQuickCreated((prev) => [{ id: exercise.id, name: exercise.name }, ...prev])
+              }
               disabled={fields.length >= 30}
+              triggerClassName="bg-primary text-primary-foreground hover:bg-primary/90"
             />
             {step === 1 ? (
-              <Button type="button" onClick={() => setStep(2)} disabled={fields.length === 0} className="ml-auto">
+              <Button type="button" onClick={() => setStep(2)} disabled={!canContinueToDetails} className="ml-auto">
                 Continue to details
               </Button>
             ) : null}
           </div>
+          {quickCreated.length > 0 ? (
+            <div className="mt-2 flex flex-col gap-2">
+              {quickCreated.map((exercise) => (
+                <div key={exercise.id} className="flex items-center justify-between rounded-md border border-emerald-400/50 bg-emerald-50/60 px-3 py-2 text-sm">
+                  <span className="truncate">
+                    Created: <strong>{exercise.name}</strong>
+                  </span>
+                  <div className="ml-2 flex items-center gap-2">
+                    <a
+                      href={`/gc-fitness/exercises/${exercise.id}/edit`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-emerald-900 underline"
+                    >
+                      Edit in new tab
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        setQuickCreated((prev) => prev.filter((row) => row.id !== exercise.id))
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Form-level error from RHF root */}
@@ -934,7 +1009,7 @@ export function TemplateForm({
           >
             {t("cancel")}
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={!canSubmit}>
             {pending ? t("saving") : mode === "create" ? t("createCta") : t("saveCta")}
           </Button>
         </div>

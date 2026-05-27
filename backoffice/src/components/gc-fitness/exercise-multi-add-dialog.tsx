@@ -76,6 +76,7 @@ function formatLabel(s: string): string {
 export interface ExerciseMultiAddDialogProps {
   /** Called with the array of picked exerciseIds when the trainer confirms. */
   onConfirm: (exerciseIds: string[]) => void;
+  onQuickCreated?: (exercise: { id: string; name: string }) => void;
   /** Optional className on the trigger button. */
   triggerClassName?: string;
   /** Disable while the parent form is submitting. */
@@ -84,6 +85,7 @@ export interface ExerciseMultiAddDialogProps {
 
 export function ExerciseMultiAddDialog({
   onConfirm,
+  onQuickCreated,
   triggerClassName,
   disabled,
 }: ExerciseMultiAddDialogProps) {
@@ -95,6 +97,7 @@ export function ExerciseMultiAddDialog({
   const [quickDescription, setQuickDescription] = useState("");
   const [quickMuscleGroup, setQuickMuscleGroup] = useState("upper_chest");
   const [quickEquipment, setQuickEquipment] = useState("bodyweight");
+  const [quickGifUrl, setQuickGifUrl] = useState("");
   const [quickCreating, setQuickCreating] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
@@ -158,9 +161,11 @@ export function ExerciseMultiAddDialog({
         description: localizedDescription,
         muscleGroups: [quickMuscleGroup],
         equipment: [quickEquipment],
+        thumbnailURL: quickGifUrl.trim() || null,
         source: "trainer",
         ownerId: null,
       });
+      onQuickCreated?.({ id: result.id, name });
       setPicked((prev) => {
         const next = new Set(prev);
         next.add(result.id);
@@ -312,6 +317,12 @@ export function ExerciseMultiAddDialog({
                 <option value="machine">Machine</option>
                 <option value="resistance_band">Resistance band</option>
               </select>
+              <input
+                value={quickGifUrl}
+                onChange={(event) => setQuickGifUrl(event.target.value)}
+                placeholder="GIF/preview URL (optional)"
+                className="h-10 rounded-md border bg-background px-3 text-sm sm:col-span-2"
+              />
             </div>
             <Button type="button" className="mt-3" onClick={onQuickCreate} disabled={quickCreating || !quickName.trim() || !quickDescription.trim()}>
               {quickCreating ? "Creating..." : "Create quick exercise"}
