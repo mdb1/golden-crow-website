@@ -147,7 +147,8 @@ export default async function GCFitnessDashboardPage({
   );
 
   const activeClientCount = activeClients.length;
-  const activeThisWeek = activeClientCount - pulse.atRiskCount;
+  const atRiskCount = staleRows.length;
+  const activeThisWeek = Math.max(0, activeClientCount - atRiskCount);
   const firstName = trainer.email.split("@")[0]?.split(".")[0] ?? "Coach";
   const attentionDays = ATTENTION_INACTIVITY_THRESHOLD_DAYS;
 
@@ -160,7 +161,7 @@ export default async function GCFitnessDashboardPage({
           </h1>
           <p className="text-sm text-muted-foreground">
             {activeClientCount > 0
-              ? `${activeClientCount} client${activeClientCount === 1 ? "" : "s"} on your roster · ${Math.max(0, activeThisWeek)} active in the last ${attentionDays} days.`
+              ? `${activeClientCount} client${activeClientCount === 1 ? "" : "s"} on your roster · ${activeThisWeek} active in the last ${attentionDays} days.`
               : "No clients in your roster yet."}
           </p>
         </div>
@@ -200,9 +201,9 @@ export default async function GCFitnessDashboardPage({
             href="/gc-fitness/clients?filter=attention"
             icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}
             label="At risk"
-            value={pulse.atRiskCount}
+            value={atRiskCount}
             hint={`no activity in ${attentionDays}+ days`}
-            tone={pulse.atRiskCount > 0 ? "warning" : "default"}
+            tone={atRiskCount > 0 ? "warning" : "default"}
           />
         </div>
       </section>

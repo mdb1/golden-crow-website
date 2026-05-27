@@ -6,7 +6,6 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients, type ClientRosterEntry } from "./client-roster";
-import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "./client-attention";
 
 export interface DailyMetric {
   civilDate: string;
@@ -29,7 +28,6 @@ export interface CoachPulse {
   workoutDaily: DailyMetric[];
   weekHabitPct: number;
   weekWorkoutPct: number;
-  atRiskCount: number;
   topPerformers: PerformerRow[];
   customExerciseCount: number;
 }
@@ -176,7 +174,6 @@ export async function getCoachPulse(): Promise<CoachPulse> {
       workoutDaily: windowDays.map((d) => emptyMetric(d)),
       weekHabitPct: 0,
       weekWorkoutPct: 0,
-      atRiskCount: 0,
       topPerformers: [],
       customExerciseCount: 0,
     };
@@ -397,35 +394,11 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     };
   });
 
-  // ===== At risk: no activity within NEEDS_ATTENTION_INACTIVITY_HOURS =====
-  const atRiskCutoffMs =
-    Date.now() - NEEDS_ATTENTION_INACTIVITY_HOURS * 60 * 60 * 1000;
-  const latestActivityByClient = new Map<string, number>();
-  logsInWindow.forEach((row) => {
-    const ms = row.startedAt.getTime();
-    const prev = latestActivityByClient.get(row.clientId) ?? 0;
-    if (ms > prev) latestActivityByClient.set(row.clientId, ms);
-  });
-  habitLogsSnaps.forEach((snap, idx) => {
-    if (!snap) return;
-    const client = activeClients[idx]!;
-    snap.docs.forEach((doc) => {
-      const data = doc.data() as Record<string, unknown>;
-      if (data.deleted === true) return;
-      const t =
-        asDate(data.loggedAt) ??
-        asDate(data.updatedAt) ??
-        asDate(data.createdAt);
-      if (!t) return;
-      const ms = t.getTime();
-      const prev = latestActivityByClient.get(client.uid) ?? 0;
-      if (ms > prev) latestActivityByClient.set(client.uid, ms);
-    });
-  });
-  const atRiskCount = activeClients.reduce((acc, client) => {
-    const latest = latestActivityByClient.get(client.uid) ?? 0;
-    return latest < atRiskCutoffMs ? acc + 1 : acc;
-  }, 0);
+  // NOTE: at-risk is derived in the dashboard page from the same staleRows
+  // array that powers the "Needs attention" panel, so the KPI tile and the
+  // panel can never disagree. We deliberately do NOT compute it here from
+  // habit + workout logs because that source omits chat messages and
+  // progress photos (both of which the roster aggregator counts as activity).
 
   // ===== Top performer (highest combined % over the week) =====
   const perClientHabit = new Map<string, { num: number; den: number }>();
@@ -460,7 +433,6 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     workoutDaily,
     weekHabitPct: rollup(habitDaily),
     weekWorkoutPct: rollup(workoutDaily),
-    atRiskCount,
     topPerformers,
     customExerciseCount,
   };
