@@ -85,6 +85,7 @@ import {
   type ExerciseFilters,
 } from "@/lib/gc-fitness/exercise-filter-state";
 import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/gc-fitness/exercise-vocabulary";
+import { QuickCreateExercise } from "./exercise-quick-create";
 
 // Phase 24-06 Task 3 — render-window cap (Codex MEDIUM). Even with
 // lazy GIFs, rendering 250+ rows + 250 inline images strains the popover.
@@ -160,6 +161,11 @@ export function normalizeSearchText(s: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
+    // Hyphens, underscores, slashes all behave as word separators so
+    // "Pull-Ups" matches a "pull ups" query and "wide_grip" matches
+    // "wide grip". This also fixes the case where the trainer types
+    // a hyphenated name and the haystack stores it un-hyphenated.
+    .replace(/[-_/]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -228,6 +234,7 @@ export function ExercisePickerPopover({
   const t = useTranslations("picker");
   const effectivePlaceholder = placeholder ?? t("triggerPlaceholder");
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
   // Phase 24-06 Task 3 — filter chip state (muscle/equipment/level/mechanic).
@@ -260,6 +267,23 @@ export function ExercisePickerPopover({
     [data],
   );
 
+  // Whether the trainer's search yields ZERO matches — drives the inline
+  // "Exercise not found. Quick create" panel below. We re-run fuzzy match
+  // ourselves so it stays in sync with what cmdk's internal matcher
+  // produces (both go through normalizeSearchText so a hyphenated needle
+  // like "pull up" matches "Pull-Ups").
+  const noMatches = useMemo(() => {
+    const needle = search.trim();
+    if (!needle) return false;
+    if (visible.length === 0) return true;
+    return !visible.some((ex) =>
+      fuzzyTokenMatch(
+        needle,
+        [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" "),
+      ),
+    );
+  }, [search, visible]);
+
   const selected = useMemo(
     () => (data ?? []).find((r) => r.id === value) ?? null,
     [data, value],
@@ -268,6 +292,12 @@ export function ExercisePickerPopover({
   function handleSelect(id: string) {
     onChange(id);
     setOpen(false);
+    setSearch("");
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setSearch("");
   }
 
   // Phase 24-06 Task 3 — chip toggle helpers (Codex MEDIUM Set mutation
@@ -309,7 +339,7 @@ export function ExercisePickerPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -392,6 +422,8 @@ export function ExercisePickerPopover({
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <CommandInput
+              value={search}
+              onValueChange={setSearch}
               placeholder={t("searchPlaceholder")}
               className="h-10 border-0 focus:ring-0"
             />
@@ -500,6 +532,19 @@ export function ExercisePickerPopover({
             )}
           </CommandList>
         </Command>
+        {noMatches ? (
+          <div className="border-t p-2">
+            <QuickCreateExercise
+              searchTerm={search}
+              onCreated={(created) => {
+                // Auto-pick the freshly created exercise and close — the
+                // single picker is single-pick, so this is the natural
+                // "I just made this; use it now" path.
+                handleSelect(created.id);
+              }}
+            />
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

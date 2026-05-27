@@ -13,18 +13,14 @@
 //     selection-count footer + confirm button) than a Popover comfortably
 //     provides.
 //
-// Out of scope (deferred):
-//   - Muscle-group filter (21-01b)
-//   - Recently-used row (21-01c)
-//
-// Reuses the same display + search normalization helpers as the popover
-// (bilingual names, diacritic-stripped fuzzy search, gs:// → unoptimized
-// Image, soft-delete filter).
+// Quick-create panel is delegated to <QuickCreateExercise/> so the single
+// picker and the multi-select dialog stay symmetrical (same fields, same
+// validation, same vocabulary).
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Dumbbell, Search } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +42,7 @@ import {
   displayEs,
   fuzzyTokenMatch,
 } from "./exercise-picker-popover";
-import { createExercise } from "@/lib/gc-fitness/exercise-server-actions";
+import { QuickCreateExercise } from "./exercise-quick-create";
 
 function exerciseDisplayName(row: ExerciseRow): string {
   return row.name.en || row.name.es || "(untitled)";
@@ -90,15 +86,8 @@ export function ExerciseMultiAddDialog({
   disabled,
 }: ExerciseMultiAddDialogProps) {
   const t = useTranslations("picker");
-  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [quickName, setQuickName] = useState("");
-  const [quickDescription, setQuickDescription] = useState("");
-  const [quickMuscleGroup, setQuickMuscleGroup] = useState("upper_chest");
-  const [quickEquipment, setQuickEquipment] = useState("bodyweight");
-  const [quickGifUrl, setQuickGifUrl] = useState("");
-  const [quickCreating, setQuickCreating] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
@@ -140,47 +129,6 @@ export function ExerciseMultiAddDialog({
     if (picked.size === 0) return;
     onConfirm(Array.from(picked));
     onCancel(false);
-  }
-
-  async function onQuickCreate() {
-    const name = quickName.trim();
-    const description = quickDescription.trim();
-    if (!name || !description) return;
-    setQuickCreating(true);
-    try {
-      const localizedName =
-        locale.startsWith("es")
-          ? { en: name, es: name }
-          : { en: name, es: name };
-      const localizedDescription =
-        locale.startsWith("es")
-          ? { en: description, es: description }
-          : { en: description, es: description };
-      const result = await createExercise({
-        name: localizedName,
-        description: localizedDescription,
-        muscleGroups: [quickMuscleGroup],
-        equipment: [quickEquipment],
-        thumbnailURL: quickGifUrl.trim() || null,
-        source: "trainer",
-        ownerId: null,
-      });
-      onQuickCreated?.({ id: result.id, name });
-      setPicked((prev) => {
-        const next = new Set(prev);
-        next.add(result.id);
-        return next;
-      });
-      setQuickName("");
-      setQuickDescription("");
-      setSearch(name);
-      onConfirm([result.id]);
-      onCancel(false);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setQuickCreating(false);
-    }
   }
 
   return (
@@ -275,59 +223,27 @@ export function ExerciseMultiAddDialog({
           )}
         </ul>
         {filtered.length === 0 ? (
-          <div className="rounded-md border border-amber-500/35 bg-amber-500/10 p-3">
-            <p className="text-sm font-medium">Exercise not found. Quick create</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <input
-                value={quickName}
-                onChange={(event) => setQuickName(event.target.value)}
-                placeholder="Name"
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-              <input
-                value={quickDescription}
-                onChange={(event) => setQuickDescription(event.target.value)}
-                placeholder="Description"
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-              <select
-                value={quickMuscleGroup}
-                onChange={(event) => setQuickMuscleGroup(event.target.value)}
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="chest">Chest</option>
-                <option value="back">Back</option>
-                <option value="glutes">Glutes</option>
-                <option value="quadriceps">Quadriceps</option>
-                <option value="hamstrings">Hamstrings</option>
-                <option value="shoulders">Shoulders</option>
-                <option value="biceps">Biceps</option>
-                <option value="triceps">Triceps</option>
-                <option value="abs">Abs</option>
-              </select>
-              <select
-                value={quickEquipment}
-                onChange={(event) => setQuickEquipment(event.target.value)}
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="bodyweight">Bodyweight</option>
-                <option value="dumbbell">Dumbbell</option>
-                <option value="barbell">Barbell</option>
-                <option value="cable">Cable</option>
-                <option value="machine">Machine</option>
-                <option value="resistance_band">Resistance band</option>
-              </select>
-              <input
-                value={quickGifUrl}
-                onChange={(event) => setQuickGifUrl(event.target.value)}
-                placeholder="GIF/preview URL (optional)"
-                className="h-10 rounded-md border bg-background px-3 text-sm sm:col-span-2"
-              />
-            </div>
-            <Button type="button" className="mt-3" onClick={onQuickCreate} disabled={quickCreating || !quickName.trim() || !quickDescription.trim()}>
-              {quickCreating ? "Creating..." : "Create quick exercise"}
-            </Button>
-          </div>
+          <QuickCreateExercise
+            searchTerm={search}
+            onCreated={(created) => {
+              // Auto-select the freshly created exercise so the trainer can
+              // keep adding more. Crucially: do NOT close the dialog or call
+              // onConfirm() — the multi-add flow is supposed to let the
+              // trainer batch-pick. Onboarding feedback (May 2026) called
+              // out the old behaviour where one quick-create closed the
+              // entire dialog with only the new exercise selected, losing
+              // every other tick.
+              setPicked((prev) => {
+                const next = new Set(prev);
+                next.add(created.id);
+                return next;
+              });
+              // Clear the search so the new exercise is visible in the list
+              // (the list filters on the now-stale needle and would hide it).
+              setSearch("");
+              onQuickCreated?.(created);
+            }}
+          />
         ) : null}
         <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
           <span className="text-xs text-muted-foreground">
