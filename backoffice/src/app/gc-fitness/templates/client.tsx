@@ -78,17 +78,26 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
     useState<WorkoutTemplateRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
-  const { data, isLoading, error } = useWorkoutTemplates({
-    tag: tagFilter.trim() ? tagFilter.trim() : undefined,
-  });
+  // Pull the entire roster from the server (the trainer surface tops out at a
+  // few dozen templates, so paging server-side adds latency without saving
+  // reads). Tag filtering runs client-side as a case-insensitive substring so
+  // a partial query like "Her" surfaces tags like "Herfli" — the prior
+  // server-side strict equality only matched on exact "Herfli".
+  const { data, isLoading, error } = useWorkoutTemplates();
 
   const rows = useMemo(() => {
-    const list = data ?? [];
-    if (!mineOnly) return list;
-    return list.filter(
-      (row) => row.trainerId === trainerUid && !row.isStandard,
-    );
-  }, [data, mineOnly, trainerUid]);
+    let list = data ?? [];
+    if (mineOnly) {
+      list = list.filter(
+        (row) => row.trainerId === trainerUid && !row.isStandard,
+      );
+    }
+    const needle = tagFilter.trim().toLowerCase();
+    if (needle) {
+      list = list.filter((row) => (row.tag ?? "").toLowerCase().includes(needle));
+    }
+    return list;
+  }, [data, mineOnly, trainerUid, tagFilter]);
 
   const handlers = useMemo(
     () => ({
