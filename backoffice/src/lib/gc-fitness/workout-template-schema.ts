@@ -77,10 +77,15 @@ export const exerciseRefSchema = z.object({
     .int()
     .min(1, "Sets must be at least 1.")
     .max(10, "Sets max is 10."),
+  // reps=0 is a deliberate "no fixed count" prescription — used for warmup
+  // / mobility / preparation work where the client is told to move for a
+  // duration or to feel rather than a target number. Both the backoffice UI
+  // and the iOS workout view should treat 0 as "—" / "open" (display polish
+  // handled at the view layer, not via schema constraint).
   reps: z
     .number()
     .int()
-    .min(1, "Reps must be at least 1.")
+    .min(0, "Reps cannot be negative.")
     .max(50, "Reps max is 50."),
   rest_seconds: z
     .number()
@@ -91,9 +96,11 @@ export const exerciseRefSchema = z.object({
     .string()
     .max(500, "Keep coaching notes under 500 characters.")
     .optional(),
+  // Per-set reps mirror the exercise-level reps: 0 is the deliberate
+  // "open / no fixed count" signal (warmup / mobility set).
   repsBySet: z
     .array(
-      z.number().int().min(1, "Reps per set must be at least 1.").max(50, "Reps per set max is 50."),
+      z.number().int().min(0, "Reps per set cannot be negative.").max(50, "Reps per set max is 50."),
     )
     .max(10, "Maximum 10 rep entries.")
     .optional(),
