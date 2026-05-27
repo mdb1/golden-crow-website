@@ -1110,6 +1110,32 @@ export function TemplateForm({
                                   placeholder={t("setWeightPlaceholder")}
                                   data-set-input="weight"
                                   data-set-key={setKey}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Tab" && !e.shiftKey) {
+                                      // Jump to the next Serie row's reps
+                                      // input. We scope the lookup to all
+                                      // data-set-row siblings of the
+                                      // current row so cross-exercise
+                                      // tabbing keeps natural flow at the
+                                      // last row (let Tab fall through).
+                                      const currentRow = e.currentTarget.closest("[data-set-row]");
+                                      if (!currentRow) return;
+                                      // Search within the same exercise card
+                                      // by walking only sibling data-set-rows.
+                                      let sibling = currentRow.nextElementSibling;
+                                      while (sibling && !sibling.matches("[data-set-row]")) {
+                                        sibling = sibling.nextElementSibling;
+                                      }
+                                      if (sibling) {
+                                        const nextReps = sibling.querySelector<HTMLInputElement>('[data-set-input="reps"]');
+                                        if (nextReps) {
+                                          e.preventDefault();
+                                          nextReps.focus();
+                                          nextReps.select();
+                                        }
+                                      }
+                                    }
+                                  }}
                                   value={setWeightDraft[setKey] ?? (weightValue?.toString() ?? "")}
                                   onChange={(e) => {
                                     const nextRaw = e.target.value.trim();
