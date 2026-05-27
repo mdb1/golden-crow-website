@@ -56,43 +56,43 @@
   --card-foreground: #f8fbff;
   --popover: rgba(15, 18, 26, 0.98);
   --popover-foreground: #f8fbff;
-  --primary: #d4a24f;
-  --primary-foreground: #1b1205;
+  --primary: #7eb5ff;
+  --primary-foreground: #061018;
   --secondary: #171c25;
   --secondary-foreground: #edf3ff;
   --muted: #121720;
   --muted-foreground: #acb6c7;
-  --accent: rgba(212, 162, 79, 0.16);
+  --accent: rgba(126, 181, 255, 0.16);
   --accent-foreground: #f3f8ff;
   --destructive: #ff7084;
   --border: rgba(255, 255, 255, 0.22);
-  --input: rgba(18, 23, 32, 0.96);
-  --ring: rgba(212, 162, 79, 0.74);
+  --input: rgba(255, 255, 255, 0.96);
+  --ring: rgba(126, 181, 255, 0.74);
   --radius: 0.95rem;
-  --chart-1: #d4a24f;
+  --chart-1: #7eb5ff;
   --chart-2: #ea6a8d;
   --chart-3: #44cfa0;
   --chart-4: #f4c15d;
   --chart-5: #c7d5f1;
   --sidebar: rgba(9, 11, 17, 0.96);
   --sidebar-foreground: #eef4ff;
-  --sidebar-primary: #d4a24f;
-  --sidebar-primary-foreground: #1b1205;
-  --sidebar-accent: rgba(212, 162, 79, 0.14);
+  --sidebar-primary: #7eb5ff;
+  --sidebar-primary-foreground: #071018;
+  --sidebar-accent: rgba(126, 181, 255, 0.1);
   --sidebar-accent-foreground: #f6f9ff;
   --sidebar-border: rgba(255, 255, 255, 0.12);
-  --sidebar-ring: rgba(212, 162, 79, 0.72);
+  --sidebar-ring: rgba(126, 181, 255, 0.72);
   --eyebrow: rgba(219, 227, 238, 0.72);
-  --ambient-glow-top-left: rgba(212, 162, 79, 0.18);
-  --ambient-glow-top-right: rgba(126, 181, 255, 0.08);
-  --ambient-glow-bottom: rgba(33, 183, 143, 0.07);
+  --ambient-glow-top-left: rgba(126, 181, 255, 0.16);
+  --ambient-glow-top-right: rgba(236, 99, 150, 0.08);
+  --ambient-glow-bottom: rgba(33, 183, 143, 0.08);
   --ambient-grid-line: rgba(164, 185, 220, 0.06);
   --ambient-fade-top: rgba(9, 12, 18, 1);
   --ambient-fade-mid: rgba(9, 12, 18, 0.7);
   --app-header-height: 4rem;
-  --badge-brand-bg: rgba(212, 162, 79, 0.18);
-  --badge-brand-border: rgba(212, 162, 79, 0.35);
-  --badge-brand-fg: #ffefc9;
+  --badge-brand-bg: rgba(126, 181, 255, 0.18);
+  --badge-brand-border: rgba(126, 181, 255, 0.35);
+  --badge-brand-fg: #eaf3ff;
   --badge-secondary-bg: rgba(23, 28, 37, 0.9);
   --badge-secondary-border: rgba(255, 255, 255, 0.12);
   --badge-secondary-fg: #edf3ff;
@@ -120,41 +120,41 @@
   --card-foreground: #0f1728;
   --popover: rgba(255, 255, 255, 0.98);
   --popover-foreground: #0f1728;
-  --primary: #bb8430;
-  --primary-foreground: #fff9ef;
+  --primary: #007aff;
+  --primary-foreground: #ffffff;
   --secondary: #ececf1;
   --secondary-foreground: #172334;
   --muted: #f2f2f7;
   --muted-foreground: #6a7688;
-  --accent: rgba(187, 132, 48, 0.1);
-  --accent-foreground: #5a3a0f;
+  --accent: rgba(0, 122, 255, 0.1);
+  --accent-foreground: #133258;
   --destructive: #e53935;
   --border: rgba(15, 23, 40, 0.22);
   --input: rgba(255, 255, 255, 0.98);
-  --ring: rgba(187, 132, 48, 0.55);
-  --chart-1: #bb8430;
+  --ring: rgba(0, 122, 255, 0.55);
+  --chart-1: #007aff;
   --chart-2: #e5517d;
   --chart-3: #5fae6a;
   --chart-4: #ff9e2c;
   --chart-5: #4e8fbb;
   --sidebar: rgba(250, 251, 255, 0.94);
   --sidebar-foreground: #132033;
-  --sidebar-primary: #bb8430;
-  --sidebar-primary-foreground: #fff9ef;
-  --sidebar-accent: rgba(187, 132, 48, 0.1);
-  --sidebar-accent-foreground: #5a3a0f;
+  --sidebar-primary: #007aff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(0, 122, 255, 0.08);
+  --sidebar-accent-foreground: #11335a;
   --sidebar-border: rgba(15, 23, 40, 0.2);
-  --sidebar-ring: rgba(187, 132, 48, 0.55);
+  --sidebar-ring: rgba(0, 122, 255, 0.55);
   --eyebrow: rgba(91, 109, 135, 0.78);
-  --ambient-glow-top-left: rgba(187, 132, 48, 0.16);
-  --ambient-glow-top-right: rgba(66, 139, 229, 0.08);
-  --ambient-glow-bottom: rgba(95, 174, 106, 0.07);
+  --ambient-glow-top-left: rgba(0, 122, 255, 0.14);
+  --ambient-glow-top-right: rgba(224, 76, 115, 0.08);
+  --ambient-glow-bottom: rgba(95, 174, 106, 0.08);
   --ambient-grid-line: rgba(133, 148, 171, 0.08);
   --ambient-fade-top: rgba(255, 255, 255, 0.98);
   --ambient-fade-mid: rgba(255, 255, 255, 0.72);
-  --badge-brand-bg: rgba(187, 132, 48, 0.12);
-  --badge-brand-border: rgba(187, 132, 48, 0.22);
-  --badge-brand-fg: #744b13;
+  --badge-brand-bg: rgba(0, 122, 255, 0.12);
+  --badge-brand-border: rgba(0, 122, 255, 0.22);
+  --badge-brand-fg: #0f4da8;
   --badge-secondary-bg: rgba(15, 23, 40, 0.04);
   --badge-secondary-border: rgba(15, 23, 40, 0.1);
   --badge-secondary-fg: #172334;
@@ -210,7 +210,66 @@
 }
 
 @layer components {
-  .gc-shell-bg {
+  .gc-fitness-theme {
+    --background: #090c12;
+    --foreground: #f8fbff;
+    --card: rgba(20, 24, 32, 0.94);
+    --card-foreground: #f8fbff;
+    --popover: rgba(15, 18, 26, 0.98);
+    --popover-foreground: #f8fbff;
+    --primary: #d4a24f;
+    --primary-foreground: #1b1205;
+    --secondary: #171c25;
+    --secondary-foreground: #edf3ff;
+    --muted: #121720;
+    --muted-foreground: #acb6c7;
+    --accent: rgba(212, 162, 79, 0.16);
+    --accent-foreground: #ffefc9;
+    --destructive: #ff7084;
+    --border: rgba(255, 255, 255, 0.22);
+    --input: rgba(18, 23, 32, 0.96);
+    --ring: rgba(212, 162, 79, 0.74);
+    --chart-1: #d4a24f;
+    --sidebar-primary: #d4a24f;
+    --sidebar-primary-foreground: #1b1205;
+    --sidebar-accent: rgba(212, 162, 79, 0.14);
+    --sidebar-ring: rgba(212, 162, 79, 0.72);
+    --ambient-glow-top-left: rgba(212, 162, 79, 0.18);
+    --ambient-glow-top-right: rgba(126, 181, 255, 0.08);
+    --ambient-glow-bottom: rgba(33, 183, 143, 0.07);
+  }
+
+  html[data-theme="light"] .gc-fitness-theme {
+    --background: #ffffff;
+    --foreground: #0f1728;
+    --card: rgba(255, 255, 255, 0.9);
+    --card-foreground: #0f1728;
+    --popover: rgba(255, 255, 255, 0.98);
+    --popover-foreground: #0f1728;
+    --primary: #bb8430;
+    --primary-foreground: #fff9ef;
+    --secondary: #ececf1;
+    --secondary-foreground: #172334;
+    --muted: #f2f2f7;
+    --muted-foreground: #6a7688;
+    --accent: rgba(187, 132, 48, 0.1);
+    --accent-foreground: #5a3a0f;
+    --destructive: #e53935;
+    --border: rgba(15, 23, 40, 0.22);
+    --input: rgba(255, 255, 255, 0.98);
+    --ring: rgba(187, 132, 48, 0.55);
+    --chart-1: #bb8430;
+    --sidebar-primary: #bb8430;
+    --sidebar-primary-foreground: #fff9ef;
+    --sidebar-accent: rgba(187, 132, 48, 0.1);
+    --sidebar-accent-foreground: #5a3a0f;
+    --sidebar-ring: rgba(187, 132, 48, 0.55);
+    --ambient-glow-top-left: rgba(187, 132, 48, 0.16);
+    --ambient-glow-top-right: rgba(66, 139, 229, 0.08);
+    --ambient-glow-bottom: rgba(95, 174, 106, 0.07);
+  }
+
+  .gc-fitness-theme .gc-shell-bg {
     background:
       radial-gradient(circle at 10% 8%, var(--ambient-glow-top-left), transparent 36%),
       radial-gradient(circle at 90% 6%, var(--ambient-glow-top-right), transparent 34%),
@@ -218,7 +277,7 @@
       linear-gradient(180deg, var(--ambient-fade-top) 0%, var(--ambient-fade-mid) 48%, var(--background) 100%);
   }
 
-  .gc-page {
+  .gc-fitness-theme .gc-page {
     margin-inline: auto;
     width: 100%;
     max-width: 1600px;
@@ -227,16 +286,56 @@
   }
 
   @media (min-width: 640px) {
-    .gc-page {
+    .gc-fitness-theme .gc-page {
       padding-inline: 1.5rem;
       padding-block: 1.8rem;
     }
   }
 
   @media (min-width: 1280px) {
-    .gc-page {
+    .gc-fitness-theme .gc-page {
       padding-inline: 2rem;
     }
+  }
+
+  .gc-fitness-theme [data-slot="input"] {
+    border-color: color-mix(in srgb, var(--foreground) 20%, transparent);
+    background: var(--input);
+    color: var(--foreground);
+  }
+
+  .gc-fitness-theme [data-slot="input"]::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .gc-fitness-theme [data-slot="input"]:hover {
+    border-color: color-mix(in srgb, var(--foreground) 35%, transparent);
+  }
+
+  .gc-fitness-theme [data-slot="input"]:focus-visible {
+    border-color: var(--ring);
+  }
+
+  .gc-fitness-theme [data-slot="button"][data-variant="default"] {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  }
+
+  .gc-fitness-theme [data-slot="button"][data-variant="default"]:hover {
+    filter: brightness(0.96);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  }
+
+  .gc-fitness-theme [data-slot="button"][data-variant="outline"] {
+    border-color: color-mix(in srgb, var(--foreground) 20%, transparent);
+  }
+
+  .gc-fitness-theme [data-slot="button"][data-variant="outline"]:hover {
+    border-color: color-mix(in srgb, var(--foreground) 35%, transparent);
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+  }
+
+  .gc-fitness-theme [data-slot="card"] {
+    transition: color, background-color, border-color 160ms;
   }
 
   .glass-panel {

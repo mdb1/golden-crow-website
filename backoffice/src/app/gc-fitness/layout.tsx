@@ -40,11 +40,13 @@ export default async function GCFitnessLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <FirebaseTelemetryInit />
-      <GCFitnessShellProviders>
-        <GCFitnessShell trainerUid={trainerUid} isAdmin={isAdmin}>
-          {children}
-        </GCFitnessShell>
-      </GCFitnessShellProviders>
+      <div className="gc-fitness-theme">
+        <GCFitnessShellProviders>
+          <GCFitnessShell trainerUid={trainerUid} isAdmin={isAdmin}>
+            {children}
+          </GCFitnessShell>
+        </GCFitnessShellProviders>
+      </div>
     </NextIntlClientProvider>
   );
 }
