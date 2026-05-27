@@ -124,8 +124,8 @@ export function GCFitnessShell({
   return (
     <SidebarProvider>
       <div className="gc-shell-bg flex min-h-screen w-full bg-background">
-        <Sidebar variant="floating" collapsible="icon" className="border-none bg-transparent p-2">
-          <SidebarHeader className="glass-panel gap-3 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
+        <Sidebar collapsible="icon">
+          <SidebarHeader className="gap-3 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
             <div className="px-2 group-data-[collapsible=icon]:px-0">
               <p className="section-eyebrow group-data-[collapsible=icon]:hidden">{t("eyebrow")}</p>
               <p className="font-heading text-lg font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">

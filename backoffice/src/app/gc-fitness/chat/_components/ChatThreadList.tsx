@@ -21,7 +21,7 @@
 // relative-time hint + unread badge. Mirrors Slack / iMessage compact list
 // row layout. Active row is highlighted via `bg-muted`.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
@@ -203,19 +203,25 @@ function Avatar({ name, photoURL }: { name: string; photoURL?: string | null }) 
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  // If photoURL is set but fails to load (404, expired Storage signature,
+  // CORS, etc.), fall back to initials instead of leaving a broken-image
+  // icon. Tracked per render via local state.
+  const [failed, setFailed] = useState(false);
+  const showImage = !!photoURL && !failed;
   return (
     <div
       aria-hidden="true"
       className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary"
     >
-      {photoURL ? (
+      {showImage ? (
         <Image
-          src={photoURL}
+          src={photoURL!}
           alt=""
           width={40}
           height={40}
           className="h-10 w-10 rounded-full object-cover"
           unoptimized
+          onError={() => setFailed(true)}
         />
       ) : (
         initials || "·"

@@ -306,11 +306,6 @@ export default async function GCFitnessDashboardPage({
                     href={`/gc-fitness/clients/${row.uid}`}
                     name={row.name}
                     primary={row.lastActionTitle}
-                    secondary={
-                      row.lastActionDetail !== "No records yet."
-                        ? row.lastActionDetail
-                        : null
-                    }
                     timestamp={
                       row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity"
                     }
@@ -433,14 +428,12 @@ function ClientRow({
   href,
   name,
   primary,
-  secondary,
   timestamp,
   timestampTone = "default",
 }: {
   href: string;
   name: string;
   primary: string;
-  secondary?: string | null;
   timestamp: string;
   timestampTone?: "default" | "warning";
 }) {
@@ -463,9 +456,6 @@ function ClientRow({
           </Badge>
         </div>
         <p className="truncate text-xs text-muted-foreground">{primary}</p>
-        {secondary ? (
-          <p className="truncate text-[11px] text-muted-foreground/70">{secondary}</p>
-        ) : null}
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
     </Link>
