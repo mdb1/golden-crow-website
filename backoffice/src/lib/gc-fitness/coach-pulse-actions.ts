@@ -28,7 +28,8 @@ export interface CoachPulse {
   workoutDaily: DailyMetric[];
   weekHabitPct: number;
   weekWorkoutPct: number;
-  topPerformers: PerformerRow[];
+  topPerformersWeek: PerformerRow[];
+  topPerformersToday: PerformerRow[];
   customExerciseCount: number;
 }
 
@@ -174,7 +175,8 @@ export async function getCoachPulse(): Promise<CoachPulse> {
       workoutDaily: windowDays.map((d) => emptyMetric(d)),
       weekHabitPct: 0,
       weekWorkoutPct: 0,
-      topPerformers: [],
+      topPerformersWeek: [],
+      topPerformersToday: [],
       customExerciseCount: 0,
     };
   }
@@ -400,9 +402,11 @@ export async function getCoachPulse(): Promise<CoachPulse> {
   // habit + workout logs because that source omits chat messages and
   // progress photos (both of which the roster aggregator counts as activity).
 
-  // ===== Top performer (highest combined % over the week) =====
-  const perClientHabit = new Map<string, { num: number; den: number }>();
+  // ===== Top performers (week + today) — both ranked by habit compliance =====
+  const perClientWeek = new Map<string, { num: number; den: number }>();
+  const perClientToday = new Map<string, { num: number; den: number }>();
   windowDays.forEach((civilDate) => {
+    const isToday = civilDate === todayCivil;
     activeClients.forEach((client) => {
       const habits = habitsByClient.get(client.uid) ?? [];
       const habitById = new Map(habits.map((h) => [h.id, h]));
@@ -419,21 +423,29 @@ export async function getCoachPulse(): Promise<CoachPulse> {
         const habit = habitById.get(habitId);
         if (habit && habitLogCountsAsCompleted(data, habit)) counted.add(habitId);
       });
-      const bucket = perClientHabit.get(client.uid) ?? { num: 0, den: 0 };
-      bucket.num += counted.size;
-      bucket.den += scheduledIds.size;
-      perClientHabit.set(client.uid, bucket);
+      const weekBucket = perClientWeek.get(client.uid) ?? { num: 0, den: 0 };
+      weekBucket.num += counted.size;
+      weekBucket.den += scheduledIds.size;
+      perClientWeek.set(client.uid, weekBucket);
+      if (isToday) {
+        perClientToday.set(client.uid, {
+          num: counted.size,
+          den: scheduledIds.size,
+        });
+      }
     });
   });
 
-  const topPerformers = pickTopPerformers(activeClients, perClientHabit);
+  const topPerformersWeek = pickTopPerformers(activeClients, perClientWeek);
+  const topPerformersToday = pickTopPerformers(activeClients, perClientToday);
 
   return {
     habitDaily,
     workoutDaily,
     weekHabitPct: rollup(habitDaily),
     weekWorkoutPct: rollup(workoutDaily),
-    topPerformers,
+    topPerformersWeek,
+    topPerformersToday,
     customExerciseCount,
   };
 }

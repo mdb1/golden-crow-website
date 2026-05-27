@@ -251,17 +251,36 @@ export default async function GCFitnessDashboardPage({
             </CardContent>
           </Card>
         </div>
-        <Card className="rounded-xl border-border/80 bg-card/95">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Top performers</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Highest habit compliance over the last 7 days.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <TopPerformers performers={pulse.topPerformers} />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card className="rounded-xl border-border/80 bg-card/95">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Top performers · today</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Habit compliance so far today. Tap a row to open the profile.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <TopPerformers
+                performers={pulse.topPerformersToday}
+                emptyLabel="No habits done today yet."
+              />
+            </CardContent>
+          </Card>
+          <Card className="rounded-xl border-border/80 bg-card/95">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Top performers · 7 days</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Best habit compliance over the last 7 days.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <TopPerformers
+                performers={pulse.topPerformersWeek}
+                emptyLabel="No habit activity to rank yet."
+              />
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
