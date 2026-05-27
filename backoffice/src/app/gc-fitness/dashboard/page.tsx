@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import {
   Activity,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Dumbbell,
   Library,
   ListChecks,
@@ -19,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import {
   getCurrentTrainer,
@@ -131,8 +134,8 @@ export default async function GCFitnessDashboardPage({
   const tCards = await getTranslations("dashboard.cards");
   const tQuick = await getTranslations("dashboard.quickLinks");
   const tCommon = await getTranslations("common");
-  const recentPage = parsePage(params.recentPage);
-  const attentionPage = parsePage(params.attentionPage);
+  const requestedRecentPage = parsePage(params.recentPage);
+  const requestedAttentionPage = parsePage(params.attentionPage);
   const recentTotalPages = Math.max(
     1,
     Math.ceil(lastActionRows.length / RECENT_ACTIONS_PAGE_SIZE),
@@ -141,6 +144,8 @@ export default async function GCFitnessDashboardPage({
     1,
     Math.ceil(staleRows.length / ATTENTION_PAGE_SIZE),
   );
+  const recentPage = Math.min(recentTotalPages, requestedRecentPage);
+  const attentionPage = Math.min(attentionTotalPages, requestedAttentionPage);
   const recentPageRows = lastActionRows.slice(
     (recentPage - 1) * RECENT_ACTIONS_PAGE_SIZE,
     recentPage * RECENT_ACTIONS_PAGE_SIZE,
@@ -168,7 +173,7 @@ export default async function GCFitnessDashboardPage({
       </header>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="bg-gradient-to-b from-card to-card/70">
+        <Card className="rounded-xl border-border/80 bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("clients")}
@@ -178,7 +183,7 @@ export default async function GCFitnessDashboardPage({
             <p className="text-3xl font-semibold">{counts.clients}</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-b from-card to-card/70">
+        <Card className="rounded-xl border-border/80 bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("templates")}
@@ -188,7 +193,7 @@ export default async function GCFitnessDashboardPage({
             <p className="text-3xl font-semibold">{counts.templates}</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-b from-card to-card/70">
+        <Card className="rounded-xl border-border/80 bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("exercises")}
@@ -198,7 +203,7 @@ export default async function GCFitnessDashboardPage({
             <p className="text-3xl font-semibold">{counts.exercises}</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-b from-card to-card/70">
+        <Card className="rounded-xl border-border/80 bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("chats")}
@@ -215,7 +220,7 @@ export default async function GCFitnessDashboardPage({
           <Link
             key={item.href}
             href={item.href}
-            className="rounded-lg border bg-card p-5 text-card-foreground transition hover:border-primary/50 hover:bg-accent/30"
+            className="rounded-xl border border-border/80 bg-card p-5 text-card-foreground transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent/30"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex flex-col gap-2">
@@ -229,13 +234,15 @@ export default async function GCFitnessDashboardPage({
                   {tQuick(item.descriptionKey)}
                 </p>
               </div>
-              <Badge variant="secondary">{tCommon("open")}</Badge>
+              <Badge variant="secondary" className="shrink-0">
+                {tCommon("open")}
+              </Badge>
             </div>
           </Link>
         ))}
       </section>
 
-      <section className="rounded-lg border bg-card/90 p-5">
+      <section className="rounded-xl border bg-card/90 p-5">
         <h2 className="mb-1 font-heading text-base font-semibold">Support tools</h2>
         <p className="mb-4 text-xs text-muted-foreground">
           Library and activity views that help with coaching quality control.
@@ -269,26 +276,35 @@ export default async function GCFitnessDashboardPage({
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
+        <Card className="rounded-xl border-border/80 bg-card/95">
+          <CardHeader className="pb-3">
             <CardTitle>Last action by client</CardTitle>
             <p className="text-xs text-muted-foreground">
               Latest action per client. Sorted newest first.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
+            {recentPageRows.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-background/50 p-8 text-center text-sm text-muted-foreground">
+                No client activity yet.
+              </div>
+            ) : null}
             {recentPageRows.map((row) => (
-              <div key={row.uid} className="rounded-md border bg-background/70 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <Link href={`/gc-fitness/clients/${row.uid}`} className="font-medium hover:underline">
-                    {row.name}
-                  </Link>
-                  <span className="text-xs text-muted-foreground">
+              <div key={row.uid} className="rounded-md border bg-background/70 px-3 py-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <div className="min-w-0">
+                    <Link href={`/gc-fitness/clients/${row.uid}`} className="truncate font-medium hover:underline">
+                      {row.name}
+                    </Link>
+                    <p className="truncate text-xs text-muted-foreground">{row.lastActionTitle}</p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0">
                     {row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity"}
-                  </span>
+                  </Badge>
                 </div>
-                <p className="mt-1 text-sm font-medium">{row.lastActionTitle}</p>
-                <p className="text-xs text-muted-foreground">{row.lastActionDetail}</p>
+                {row.lastActionDetail !== "No records yet." ? (
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{row.lastActionDetail}</p>
+                ) : null}
               </div>
             ))}
             <div className="flex items-center justify-between pt-2">
@@ -296,45 +312,61 @@ export default async function GCFitnessDashboardPage({
                 Page {recentPage} of {recentTotalPages}
               </p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" asChild disabled={recentPage <= 1}>
-                  <Link href={`?recentPage=${Math.max(1, recentPage - 1)}&attentionPage=${attentionPage}`}>
-                    Previous
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  asChild
-                  disabled={recentPage >= recentTotalPages}
+                <Link
+                  aria-disabled={recentPage <= 1}
+                  className={cn(
+                    "inline-flex h-7 items-center rounded-[min(var(--radius-md),12px)] border border-foreground/20 bg-background px-2.5 text-[0.8rem] font-medium transition-colors",
+                    recentPage <= 1
+                      ? "pointer-events-none opacity-50"
+                      : "hover:border-foreground/30 hover:bg-muted",
+                  )}
+                  href={`?recentPage=${Math.max(1, recentPage - 1)}&attentionPage=${attentionPage}`}
                 >
-                  <Link href={`?recentPage=${Math.min(recentTotalPages, recentPage + 1)}&attentionPage=${attentionPage}`}>
-                    Next
-                  </Link>
-                </Button>
+                  <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                  Previous
+                </Link>
+                <Link
+                  aria-disabled={recentPage >= recentTotalPages}
+                  className={cn(
+                    "inline-flex h-7 items-center rounded-[min(var(--radius-md),12px)] border border-foreground/20 bg-background px-2.5 text-[0.8rem] font-medium transition-colors",
+                    recentPage >= recentTotalPages
+                      ? "pointer-events-none opacity-50"
+                      : "hover:border-foreground/30 hover:bg-muted",
+                  )}
+                  href={`?recentPage=${Math.min(recentTotalPages, recentPage + 1)}&attentionPage=${attentionPage}`}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="rounded-xl border-border/80 bg-card/95">
+          <CardHeader className="pb-3">
             <CardTitle>Clients needing attention</CardTitle>
             <p className="text-xs text-muted-foreground">
               Clients with the oldest inactivity first.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
+            {attentionPageRows.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-background/50 p-8 text-center text-sm text-muted-foreground">
+                No clients to review yet.
+              </div>
+            ) : null}
             {attentionPageRows.map((row) => (
-              <div key={`attention-${row.uid}`} className="rounded-md border bg-background/70 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <Link href={`/gc-fitness/clients/${row.uid}`} className="font-medium hover:underline">
+              <div key={`attention-${row.uid}`} className="rounded-md border bg-background/70 px-3 py-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <Link href={`/gc-fitness/clients/${row.uid}`} className="truncate font-medium hover:underline">
                     {row.name}
                   </Link>
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="shrink-0">
                     {row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity yet"}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 truncate text-xs text-muted-foreground">
                   Last action: {row.lastActionTitle}
                 </p>
               </div>
@@ -344,21 +376,32 @@ export default async function GCFitnessDashboardPage({
                 Page {attentionPage} of {attentionTotalPages}
               </p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" asChild disabled={attentionPage <= 1}>
-                  <Link href={`?recentPage=${recentPage}&attentionPage=${Math.max(1, attentionPage - 1)}`}>
-                    Previous
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  asChild
-                  disabled={attentionPage >= attentionTotalPages}
+                <Link
+                  aria-disabled={attentionPage <= 1}
+                  className={cn(
+                    "inline-flex h-7 items-center rounded-[min(var(--radius-md),12px)] border border-foreground/20 bg-background px-2.5 text-[0.8rem] font-medium transition-colors",
+                    attentionPage <= 1
+                      ? "pointer-events-none opacity-50"
+                      : "hover:border-foreground/30 hover:bg-muted",
+                  )}
+                  href={`?recentPage=${recentPage}&attentionPage=${Math.max(1, attentionPage - 1)}`}
                 >
-                  <Link href={`?recentPage=${recentPage}&attentionPage=${Math.min(attentionTotalPages, attentionPage + 1)}`}>
-                    Next
-                  </Link>
-                </Button>
+                  <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                  Previous
+                </Link>
+                <Link
+                  aria-disabled={attentionPage >= attentionTotalPages}
+                  className={cn(
+                    "inline-flex h-7 items-center rounded-[min(var(--radius-md),12px)] border border-foreground/20 bg-background px-2.5 text-[0.8rem] font-medium transition-colors",
+                    attentionPage >= attentionTotalPages
+                      ? "pointer-events-none opacity-50"
+                      : "hover:border-foreground/30 hover:bg-muted",
+                  )}
+                  href={`?recentPage=${recentPage}&attentionPage=${Math.min(attentionTotalPages, attentionPage + 1)}`}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
               </div>
             </div>
           </CardContent>
