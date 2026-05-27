@@ -187,10 +187,14 @@ export function makeTemplateColumns(
       ),
       // Sort by raw ISO string — lexicographic order matches chronological
       // order for ISO 8601, so no Date allocation needed per row compare.
-      accessorFn: (row) => row.updatedAt ?? "",
+      // Drafts have no updatedAt; give them a sentinel that sorts ABOVE all
+      // real templates in DESC order so they surface at the top of the list.
+      accessorFn: (row) => (row.__isDraft ? "￿" : (row.updatedAt ?? "")),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatRelative(row.original.updatedAt)}
+          {row.original.__isDraft
+            ? t("draftPendingLabel")
+            : formatRelative(row.original.updatedAt)}
         </span>
       ),
       enableSorting: true,

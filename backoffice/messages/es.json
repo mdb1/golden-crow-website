@@ -308,7 +308,7 @@
     },
     "columns": {
       "name": "Nombre",
-      "tag": "Etiqueta",
+      "tag": "Etiquetas",
       "exercises": "Ejercicios",
       "updated": "Actualizado",
       "untitled": "(sin título)",
@@ -318,7 +318,8 @@
       "delete": "Eliminar",
       "draftUntitled": "(borrador sin título)",
       "draftBadgeTooltip": "Borrador incompleto — no se puede asignar hasta completarse",
-      "draftResumeCta": "Continuar borrador"
+      "draftResumeCta": "Continuar borrador",
+      "draftPendingLabel": "Borrador"
     },
     "editPage": {
       "title": "Editar plantilla",
@@ -330,7 +331,7 @@
       "pageHeading": "Plantillas de entrenamiento",
       "pageSubtitle": "Diseñá plantillas push / pull / piernas y asignalas desde la vista de agenda.",
       "newTemplateCta": "Nueva plantilla",
-      "filterPlaceholder": "Filtrar por etiqueta",
+      "filterPlaceholder": "Filtrar por etiquetas",
       "loadError": "No se pudieron cargar las plantillas.",
       "loadErrorDescription": "Revisá tu conexión e intentá de nuevo.",
       "loading": "Cargando…",

@@ -308,7 +308,7 @@
     },
     "columns": {
       "name": "Name",
-      "tag": "Tag",
+      "tag": "Tags",
       "exercises": "Exercises",
       "updated": "Updated",
       "untitled": "(untitled)",
@@ -318,7 +318,8 @@
       "delete": "Delete",
       "draftUntitled": "(untitled draft)",
       "draftBadgeTooltip": "Incomplete draft — cannot be assigned until completed",
-      "draftResumeCta": "Continue draft"
+      "draftResumeCta": "Continue draft",
+      "draftPendingLabel": "Draft"
     },
     "editPage": {
       "title": "Edit template",
@@ -330,7 +331,7 @@
       "pageHeading": "Workout Templates",
       "pageSubtitle": "Author push / pull / legs templates and assign them from the schedule view.",
       "newTemplateCta": "New template",
-      "filterPlaceholder": "Filter by tag",
+      "filterPlaceholder": "Filter by tags",
       "loadError": "Couldn't load templates.",
       "loadErrorDescription": "Check your connection and try again.",
       "loading": "Loading…",
