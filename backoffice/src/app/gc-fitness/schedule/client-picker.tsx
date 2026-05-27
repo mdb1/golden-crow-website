@@ -41,11 +41,14 @@ export function ClientPicker({ clients }: ClientPickerProps) {
     <Card>
       <CardHeader>
         <CardTitle>{t("pickTitle")}</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Choose a client to open their weekly workout schedule and assign sessions.
+        </p>
       </CardHeader>
       <CardContent>
         {activeClients.length > 0 ? (
-          <>
-            <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+          <div className="mb-4 rounded-lg border border-border/70 bg-background/40 p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Activos
             </p>
             <ul className="mb-4 flex flex-col gap-1">
@@ -68,12 +71,12 @@ export function ClientPicker({ clients }: ClientPickerProps) {
                 </li>
               ))}
             </ul>
-          </>
+          </div>
         ) : null}
 
         {pendingClients.length > 0 ? (
-          <>
-            <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+          <div className="rounded-lg border border-amber-500/35 bg-amber-500/8 p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Pendientes
             </p>
             <ul className="flex flex-col gap-1">
@@ -99,7 +102,7 @@ export function ClientPicker({ clients }: ClientPickerProps) {
                 </li>
               ))}
             </ul>
-          </>
+          </div>
         ) : null}
       </CardContent>
     </Card>

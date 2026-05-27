@@ -107,7 +107,7 @@ export default async function GCFitnessDashboardPage() {
       </header>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("clients")}
@@ -117,7 +117,7 @@ export default async function GCFitnessDashboardPage() {
             <p className="text-3xl font-semibold">{counts.clients}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("templates")}
@@ -127,7 +127,7 @@ export default async function GCFitnessDashboardPage() {
             <p className="text-3xl font-semibold">{counts.templates}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("exercises")}
@@ -137,7 +137,7 @@ export default async function GCFitnessDashboardPage() {
             <p className="text-3xl font-semibold">{counts.exercises}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-b from-card to-card/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {tCards("chats")}
@@ -174,8 +174,11 @@ export default async function GCFitnessDashboardPage() {
         ))}
       </section>
 
-      <section className="rounded-lg border bg-card p-5">
-        <h2 className="mb-4 font-heading text-base font-semibold">Secondary tools</h2>
+      <section className="rounded-lg border bg-card/90 p-5">
+        <h2 className="mb-1 font-heading text-base font-semibold">Support tools</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Library and activity views that help with coaching quality control.
+        </p>
         <div className="grid gap-4 md:grid-cols-2">
           {secondaryLinkSpecs.map((item) => (
             <Link

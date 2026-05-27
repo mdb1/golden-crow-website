@@ -58,7 +58,8 @@ export default async function SchedulePage({
     <div className="gc-page flex flex-col gap-6">
       <header className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
+          <p className="section-eyebrow">Workout planning</p>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("title")} · Workouts</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button variant="outline" asChild>

@@ -57,6 +57,9 @@ export default async function ClientsPage() {
           {pendingSuffix}
           {t("subtitleSortNote")}
         </p>
+        <p className="text-xs text-muted-foreground">
+          At-risk clients highlight low compliance or missed workouts in the last coaching window.
+        </p>
       </div>
       <ProvisionClientForm />
       <RosterQueryProvider>
