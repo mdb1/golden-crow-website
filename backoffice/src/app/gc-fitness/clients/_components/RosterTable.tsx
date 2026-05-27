@@ -212,7 +212,7 @@ export function RosterTable({ rows }: RosterTableProps) {
           </Button>
         ) : null}
       </div>
-      <div className="rounded-md border bg-card">
+      <div className="rounded-xl border border-border/80 bg-card/95">
         <Table>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
@@ -225,7 +225,7 @@ export function RosterTable({ rows }: RosterTableProps) {
                   <TableHead
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className="cursor-pointer select-none"
+                    className="cursor-pointer select-none text-xs uppercase tracking-wide text-muted-foreground"
                   >
                     {flexRender(
                       header.column.columnDef.header,
