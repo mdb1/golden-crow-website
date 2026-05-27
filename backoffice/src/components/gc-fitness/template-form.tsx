@@ -891,6 +891,7 @@ export function TemplateForm({
                             return (
                               <div
                                 key={`${field.id}-set-${setIdx + 1}`}
+                                data-set-row={setKey}
                                 className="grid grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
                               >
                                 <span className="text-xs text-muted-foreground">
@@ -902,6 +903,20 @@ export function TemplateForm({
                                   max={50}
                                   className="h-10"
                                   value={repsValue}
+                                  data-set-input="reps"
+                                  data-set-key={setKey}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Tab" && !e.shiftKey) {
+                                      const next = e.currentTarget
+                                        .closest("[data-set-row]")
+                                        ?.querySelector<HTMLInputElement>('[data-set-input="weight"]');
+                                      if (next) {
+                                        e.preventDefault();
+                                        next.focus();
+                                        next.select();
+                                      }
+                                    }
+                                  }}
                                   onChange={(e) => {
                                     if (e.target.value.trim() === "") {
                                       setSetRepsDraft((prev) => ({ ...prev, [setKey]: "" }));
@@ -956,6 +971,8 @@ export function TemplateForm({
                                   step="0.5"
                                   className="h-10"
                                   placeholder={t("setWeightPlaceholder")}
+                                  data-set-input="weight"
+                                  data-set-key={setKey}
                                   value={setWeightDraft[setKey] ?? (weightValue?.toString() ?? "")}
                                   onChange={(e) => {
                                     const nextRaw = e.target.value.trim();
