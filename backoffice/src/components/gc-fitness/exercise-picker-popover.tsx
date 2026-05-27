@@ -173,26 +173,77 @@ export function normalizeSearchText(s: string): string {
     .trim();
 }
 
-export function fuzzyTokenMatch(query: string, haystack: string): boolean {
+/**
+ * Score how well a query matches a haystack on a 0..1 scale.
+ *
+ * Token-based and ORDER-INDEPENDENT: each query token is matched against
+ * any haystack word (startsWith preferred, contains as a fallback). The
+ * caller's typed token order is intentionally ignored so "incline bench
+ * dum" surfaces "Incline Dumbbell Press" even though the query mixes a
+ * non-existent middle token ("bench") and a different order than the
+ * exercise name.
+ *
+ * Returns:
+ *   - 0          → no useful match (less than 60% of query tokens land)
+ *   - 0 < s ≤ 1  → matched. Score = matchedTokens / totalTokens, with a
+ *                  small bonus for exact-word startsWith hits over loose
+ *                  contains-only hits.
+ *
+ * Threshold tuning: 60% is permissive enough to forgive one missing
+ * token in a 3-token query (2/3 = 0.66 ≥ 0.6), but still rejects
+ * "incline xyz xyz" (1/3 = 0.33 < 0.6) so unrelated typos don't pollute
+ * the result list. Single-token queries always require a full match
+ * (1/1 = 1.0).
+ */
+export function fuzzyTokenScore(query: string, haystack: string): number {
   const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return true;
+  if (!normalizedQuery) return 1;
   const tokens = normalizedQuery.split(" ").filter(Boolean);
+  if (tokens.length === 0) return 1;
   const words = normalizeSearchText(haystack).split(" ").filter(Boolean);
-  if (tokens.length === 0) return true;
-  let wordIndex = 0;
+  if (words.length === 0) return 0;
+
+  let strongHits = 0;
+  let weakHits = 0;
   for (const token of tokens) {
-    let found = false;
-    while (wordIndex < words.length) {
-      if (words[wordIndex].startsWith(token)) {
-        found = true;
-        wordIndex += 1;
+    let matched: "strong" | "weak" | null = null;
+    for (const word of words) {
+      if (word.startsWith(token)) {
+        matched = "strong";
         break;
       }
-      wordIndex += 1;
     }
-    if (!found) return false;
+    if (!matched) {
+      for (const word of words) {
+        if (word.includes(token)) {
+          matched = "weak";
+          break;
+        }
+      }
+    }
+    if (matched === "strong") strongHits += 1;
+    else if (matched === "weak") weakHits += 1;
   }
-  return true;
+
+  const matchedRatio = (strongHits + weakHits) / tokens.length;
+  // 60% threshold: tolerates one missing token in a 3-token query, but
+  // rejects 1-of-3 noise. Single-token queries require a full hit (1.0).
+  if (matchedRatio < 0.6) return 0;
+  // Strong matches outweigh weak ones — exact-word startsWith ranks above
+  // a mid-word contains match.
+  return Math.min(
+    1,
+    (strongHits + weakHits * 0.6) / tokens.length,
+  );
+}
+
+/**
+ * Backward-compat boolean wrapper used by the multi-add dialog +
+ * picker's "Exercise not found?" check. Returns true when the score is
+ * above zero (i.e., the threshold-passing match in fuzzyTokenScore).
+ */
+export function fuzzyTokenMatch(query: string, haystack: string): boolean {
+  return fuzzyTokenScore(query, haystack) > 0;
 }
 
 function previewUrl(url?: string | null): string | null {
@@ -422,7 +473,15 @@ export function ExercisePickerPopover({
           isEmpty={filtersEmpty}
           onClear={clearFilters}
         />
-        <Command>
+        <Command
+          // 260527-is1 — override cmdk's default character-subsequence
+          // scorer with our token-based, order-independent fuzzy match.
+          // Without this, typing "incline bench dum" failed to surface
+          // "Incline Dumbbell Press" because cmdk requires the typed
+          // characters to appear as an in-order subsequence of the value
+          // and "bench" never appears in that exercise's value at all.
+          filter={(value, search) => fuzzyTokenScore(search, value)}
+        >
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <CommandInput
