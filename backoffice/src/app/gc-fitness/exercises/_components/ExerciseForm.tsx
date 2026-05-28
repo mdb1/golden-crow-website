@@ -344,6 +344,54 @@ export function ExerciseForm({
           </div>
         </div>
 
+        {/* 26-02 — Metric chooser: two-chip selector that tags the exercise
+            as reps-based (current model) or time-based (planks, wall sits,
+            dead hangs). Renders in create + edit; disabled in view. Defaults
+            to "reps" via buildDefaults so legacy exercises pre-select the
+            reps option (PATTERNS.md §19 Pattern C).
+            TODO(26-07): replace inline Spanish strings with
+            t("metricLabel"), t("metricRepsCta"), t("metricTimeCta"). */}
+        <FormField
+          control={form.control}
+          name="metric"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{"Tipo de prescripción"}</FormLabel>
+              <FormControl>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={isView}
+                    onClick={() => field.onChange("reps")}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      field.value === "reps"
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                    }`}
+                    aria-pressed={field.value === "reps"}
+                  >
+                    {"⚖️ Reps × Peso"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isView}
+                    onClick={() => field.onChange("time")}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      field.value === "time"
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                    }`}
+                    aria-pressed={field.value === "time"}
+                  >
+                    {"⏱ Tiempo (seg)"}
+                  </button>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {/* Muscle Groups + Equipment */}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField

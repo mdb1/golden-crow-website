@@ -118,6 +118,18 @@ export interface ExerciseRow {
   category?: string | null;
   /** Phase 24-06 — Force vector ("push" | "pull" | "static" | null). */
   force?: string | null;
+  /**
+   * Phase 26-02 — Per-exercise prescription kind. Mirrors the iOS
+   * `ExerciseMetric` enum (`Exercise.swift`) and the Zod
+   * `metricSchema` (`exercise-schema.ts`). Forgiving fallback to
+   * `"reps"` on absent / unknown wire values keeps every legacy doc
+   * (wger seed, fexd seed, pre-26-01 trainer doc) rendering as
+   * reps-based until a trainer explicitly flips it via the metric
+   * chooser shipped in Plan 26-02. Consumers branch on this to render
+   * the `⏱` list badge + (eventually) the time-based template /
+   * active-workout UIs in 26-03 / 26-04.
+   */
+  metric: "reps" | "time";
 }
 
 export const EXERCISES_QUERY_KEY = ["gc-fitness", "exercises"] as const;
