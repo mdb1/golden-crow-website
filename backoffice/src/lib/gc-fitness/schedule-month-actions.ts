@@ -93,15 +93,6 @@ function jsWeekdayFromCivil(civil: string): number {
   return new Date(y, m - 1, d).getDay();
 }
 
-function asIso(value: unknown): string | null {
-  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "string") return value;
-  return null;
-}
-
 function statusFromAssignment(
   scheduledFor: string,
   rawStatus: unknown,
@@ -380,31 +371,28 @@ export async function listMonthForClients(input: {
       .get(),
   ]);
 
-  // Build a (clientId+civilDate) → log status map for assignment status flip.
-  const logStatusByKey = new Map<string, MonthWorkoutChip["status"]>();
+  // Build an assignmentId → log status map for the assignment status flip.
+  //
+  // We key by assignmentId — the log's FK to the exact assignment it logs —
+  // NOT by (clientId, day). A workout log is the canonical record of "the
+  // client did THIS assignment". Keying by (clientId, day) was a bug: it
+  // flipped EVERY assignment on a given day to completed the moment the client
+  // logged any single workout that day (e.g. "Piernas B" rendered green/done
+  // when it was never completed, just because another workout was logged that
+  // day — 260528). `assignmentId` is a required, immutable field on every log.
+  const logStatusByAssignment = new Map<string, MonthWorkoutChip["status"]>();
   for (const doc of logSnap.docs) {
     const data = doc.data() as {
-      clientId?: string;
       assignmentId?: string;
       status?: string;
-      startedAt?: unknown;
     };
-    const clientId = typeof data.clientId === "string" ? data.clientId : "";
-    if (!clientId) continue;
-    const startedIso = asIso(data.startedAt);
-    if (!startedIso) continue;
-    // We key by (clientId, civilDate(startedAt)) — assignments are bucketed by
-    // scheduledFor and a same-day log is the canonical "did the assigned thing".
-    // The lib treats `civilDateFormat(d, "UTC")` as the day key (matches the
-    // assignment civilDate).
-    const civil = civilDateFormat(new Date(startedIso), "UTC");
-    if (civil < monthStart || civil > monthEnd) continue;
-    const key = `${clientId}:${civil}`;
+    const assignmentId =
+      typeof data.assignmentId === "string" ? data.assignmentId : "";
+    if (!assignmentId) continue;
     const status = data.status === "completed" ? "completed" : "started";
-    // "completed" wins over "started" if a client had both.
-    const existing = logStatusByKey.get(key);
-    if (existing === "completed") continue;
-    logStatusByKey.set(key, status);
+    // "completed" wins over "started" if both exist for the same assignment.
+    if (logStatusByAssignment.get(assignmentId) === "completed") continue;
+    logStatusByAssignment.set(assignmentId, status);
   }
 
   const workoutsByDay: Record<string, MonthWorkoutChip[]> = {};
@@ -432,7 +420,7 @@ export async function listMonthForClients(input: {
       typeof data.templateSnapshot?.tag === "string"
         ? data.templateSnapshot.tag
         : null;
-    const logStatus = logStatusByKey.get(`${clientId}:${civil}`);
+    const logStatus = logStatusByAssignment.get(doc.id);
     const status: MonthWorkoutChip["status"] = logStatus
       ? logStatus
       : statusFromAssignment(civil, data.status, input.todayCivil);
