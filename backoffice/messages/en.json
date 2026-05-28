@@ -232,7 +232,8 @@
         "title": "Habit compliance (last 7 days)",
         "empty": "No habits assigned yet.",
         "unnamed": "(unnamed habit)",
-        "daysCompleted": "days completed"
+        "daysCompleted": "days completed",
+        "streakTooltip": "{count}-occurrence streak on scheduled days"
       },
       "chatHistory": {
         "title": "Recent messages",
@@ -287,10 +288,13 @@
         "weeklyCount": "{count} days/week",
         "monthlyCount": "{count} days/month",
         "everyNDays": "every {everyN} days",
+        "monthlyOnDay": "monthly · day {day}",
         "custom": "custom recurrence",
         "nextDate": "Next",
         "noDate": "No date",
-        "showPastWorkouts": "Show past workouts ({count})"
+        "showPastWorkouts": "Show past workouts ({count})",
+        "workoutStreakLabel": "{count} in a row",
+        "workoutStreakTooltip": "{count} workouts completed in a row, no miss."
       }
     }
   },
@@ -976,9 +980,11 @@
       "modeWeekly": "Weekly recurring",
       "modeDaily": "Daily",
       "modeEveryN": "Every N days",
+      "modeMonthly": "Monthly",
       "repeatOnLabel": "Repeat on",
       "repeatEveryNLabel": "Every (days)",
       "repeatEveryNHint": "Repeats every {n} days from the start date.",
+      "repeatMonthlyHint": "Repeats on day {day} of every month (months without that day use their last day).",
       "weekdays": {
         "sunday": "Sunday",
         "monday": "Monday",
@@ -1013,6 +1019,7 @@
       "exerciseOverridesKgPlaceholder": "Kg",
       "exerciseOverridesAddSet": "Add set",
       "exerciseOverridesRemoveSet": "Remove set {index}",
+      "supersetLabel": "Superset {group}",
       "errorTemplateDetailFallback": "Could not load template details.",
       "cancel": "Cancel",
       "assigning": "Assigning…",
@@ -1109,7 +1116,17 @@
       "columnWeight": "Weight",
       "columnCompletedAt": "Completed At",
       "weightUnit": "kg",
-      "emptyDash": "-"
+      "emptyDash": "-",
+      "rpeTitle": "Effort (RPE)",
+      "rpeValue": "{value} / 10",
+      "rpeNotReported": "Client did not report effort.",
+      "athleteNotesTitle": "Client notes",
+      "noAthleteNotes": "No client notes.",
+      "prBadge": "PR",
+      "prBadgeTitle": "New personal record · estimated 1RM {value} kg",
+      "exerciseSetCount": "{count, plural, one {# set} other {# sets}}",
+      "exerciseTopWeight": "Top: {weight} kg",
+      "exerciseNoWeight": "No weight logged"
     }
   },
   "login": {

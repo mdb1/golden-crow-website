@@ -121,7 +121,7 @@ function DialogFooter({
         // bleed-through when scrolled. Together with the new
         // DialogContent overflow rules, the Save CTA stays in view on
         // mobile web no matter how tall the body is.
-        "-mx-4 -mb-4 mt-auto sticky bottom-0 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 backdrop-blur-sm p-4 sm:flex-row sm:justify-end",
+        "-mx-4 -mb-4 mt-auto sticky bottom-0 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-background p-4 shadow-[0_-8px_24px_-12px_rgba(9,12,18,0.18)] sm:flex-row sm:justify-end",
         className
       )}
       {...props}

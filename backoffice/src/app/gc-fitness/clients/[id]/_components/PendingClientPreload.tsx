@@ -85,14 +85,18 @@ export async function PendingClientPreload({
         meetingNotes: meetingNotes || undefined,
       });
     } else {
+      const [, , dayStr] = scheduledFor.split("-");
+      const dayOfMonth = Number(dayStr) || 1;
       const recurrence =
         mode === "daily"
           ? ({ kind: "daily" } as const)
           : mode === "everyN"
             ? ({ kind: "every_n_days", everyN } as const)
-            : weekdays.length > 1
-              ? ({ kind: "weekly_days", weekdays } as const)
-              : ({ kind: "weekly", weekday: weekdays[0] ?? 1 } as const);
+            : mode === "monthly"
+              ? ({ kind: "monthly", dayOfMonth } as const)
+              : weekdays.length > 1
+                ? ({ kind: "weekly_days", weekdays } as const)
+                : ({ kind: "weekly", weekday: weekdays[0] ?? 1 } as const);
       await assignTemplateRecurringToPending({
         templateId,
         pendingEmail: normalizedEmail,
@@ -253,7 +257,9 @@ export async function PendingClientPreload({
             ? "Semanal"
             : recurrence?.kind === "every_n_days"
               ? `Cada ${recurrence.everyN} días`
-              : "Recurrente";
+              : recurrence?.kind === "monthly"
+                ? `Mensual · día ${recurrence.dayOfMonth}`
+                : "Recurrente";
     const cadenceDetail =
       recurrence?.kind === "weekly"
         ? WEEKDAY_LABELS_WORKOUT[recurrence.weekday] ?? null

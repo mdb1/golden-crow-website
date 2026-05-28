@@ -19,6 +19,8 @@ interface HabitRow {
   pct: number;
   scheduledCount: number;
   completedCount: number;
+  /** Recurrence-aware streak (consecutive scheduled completions up to today). */
+  streak: number;
 }
 
 function buildLastSevenCivilDates(timezone: string): string[] {
@@ -89,6 +91,15 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
 
   const lastSevenDates = buildLastSevenCivilDates(timezone);
   const windowStart = lastSevenDates[0] ?? civilDateFormat(new Date(), timezone);
+  // 90-day streak window — covers any realistic active streak we'd
+  // want to advertise (a daily habit hit for 90 days reads "90+"; a
+  // weekly habit hit once a week for 3 months reads ~12). Mirrors the
+  // iOS TodaysHabitsViewModel's clientLogsStream window.
+  const today = civilDateFormat(new Date(), timezone);
+  const streakWindowStart = civilDateFormat(
+    new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+    timezone,
+  );
 
   const rows: HabitRow[] = await Promise.all(
     habitsSnap.docs.map(async (h) => {
@@ -98,15 +109,21 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
         targetValue?: number;
       } & Record<string, unknown>;
 
+      // Fetch a 90-day window so the streak walk has enough history.
+      // The 7-day compliance pills + the 90-day streak share this one
+      // query.
       const logsSnap = await db
         .collection(FirestoreCollections.habitLogs)
         .where("habitId", "==", h.id)
-        .where("civilDate", ">=", windowStart)
+        .where("civilDate", ">=", streakWindowStart)
         .orderBy("civilDate", "desc")
-        .limit(40)
+        .limit(120)
         .get();
 
       const completedDates = new Set<string>();
+      const targetValue =
+        typeof habit.targetValue === "number" ? habit.targetValue : undefined;
+      const habitType = (habit.type ?? "binary") as HabitType;
       for (const doc of logsSnap.docs) {
         const data = doc.data() as Record<string, unknown>;
         if (data.deleted === true) continue;
@@ -114,8 +131,6 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
         if (!date) continue;
 
         const value = data.value;
-        const targetValue = typeof habit.targetValue === "number" ? habit.targetValue : undefined;
-        const habitType = (habit.type ?? "binary") as HabitType;
 
         let completed = false;
         if (habitType === "binary") {
@@ -136,6 +151,8 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
       const ratio = denominator === 0 ? 1 : numerator / denominator;
       const clamped = Math.max(0, Math.min(1, ratio));
 
+      const streak = computeHabitStreak(habit, completedDates, today);
+
       return {
         id: h.id,
         name: localizedName(habit.name, unnamed),
@@ -143,6 +160,7 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
         pct: Math.round(clamped * 100),
         scheduledCount: denominator,
         completedCount: numerator,
+        streak,
       };
     }),
   );
@@ -159,7 +177,19 @@ export async function HabitComplianceWidget({ clientId, timezone }: HabitComplia
           {rows.map((row) => (
             <li key={row.id} className="rounded-md border bg-muted/35 p-3 text-sm">
               <div className="mb-2 flex items-start justify-between gap-2">
-                <span className="truncate font-medium">{row.name}</span>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate font-medium">{row.name}</span>
+                  {row.streak >= 3 ? (
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 gap-1 px-1.5 py-0 text-[10px]"
+                      title={t("streakTooltip", { count: row.streak })}
+                    >
+                      <span aria-hidden>{row.streak >= 10 ? "🔥🔥" : "🔥"}</span>
+                      {row.streak}
+                    </Badge>
+                  ) : null}
+                </div>
                 <Badge variant="secondary" className="tabular-nums">
                   {row.pct}%
                 </Badge>
@@ -183,4 +213,54 @@ function localizedName(
   if (typeof value === "string" && value.trim().length > 0) return value;
   if (value && typeof value === "object") return value.en?.trim() || value.es?.trim() || fallback;
   return fallback;
+}
+
+/**
+ * Mirrors GCFitnessCore `HabitStreakCalculator.computeScheduledStreak`
+ * (Swift). Walks BACKWARD only over days the habit is scheduled on,
+ * counting consecutive completions. Today is a grace day — if today is
+ * scheduled but not yet completed, we don't break the streak yet
+ * (let yesterday's scheduled occurrence anchor it).
+ *
+ * Capped at 365 days to keep a long-dormant habit's lookback bounded.
+ */
+function computeHabitStreak(
+  habit: Record<string, unknown>,
+  completedDays: Set<string>,
+  today: string,
+): number {
+  let streak = 0;
+  let cursor: string | null = today;
+  let sawScheduledDay = false;
+  for (let i = 0; i < 365; i += 1) {
+    if (cursor === null) break;
+    const isScheduled = isHabitScheduledOnDate(habit, cursor);
+    if (isScheduled) {
+      if (completedDays.has(cursor)) {
+        streak += 1;
+        sawScheduledDay = true;
+      } else if (sawScheduledDay || cursor !== today) {
+        // Past scheduled day with no completion → break.
+        return streak;
+      }
+      // Today's grace day: not yet completed, but we're not breaking.
+    }
+    cursor = previousCivilDay(cursor);
+  }
+  return streak;
+}
+
+function previousCivilDay(civilDate: string): string | null {
+  const parts = civilDate.split("-");
+  if (parts.length !== 3) return null;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  date.setUTCDate(date.getUTCDate() - 1);
+  const yy = String(date.getUTCFullYear()).padStart(4, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }

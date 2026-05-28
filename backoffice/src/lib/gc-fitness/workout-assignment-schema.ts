@@ -215,6 +215,13 @@ export const recurrenceSchema = z.discriminatedUnion("kind", [
     kind: z.literal("every_n_days"),
     everyN: z.number().int().min(2).max(30),
   }),
+  z.object({
+    // Monthly on the same day-of-month as startDate. When a target month
+    // doesn't have that day (e.g., dayOfMonth=31 in February), the matcher
+    // clamps to the last day of that month.
+    kind: z.literal("monthly"),
+    dayOfMonth: z.number().int().min(1).max(31),
+  }),
 ]);
 
 export type RecurrenceRule = z.infer<typeof recurrenceSchema>;

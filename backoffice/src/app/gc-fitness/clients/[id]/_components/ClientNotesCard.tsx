@@ -79,20 +79,23 @@ export function ClientNotesCard({
         </p>
         <Button
           type="button"
-          disabled={isPending}
+          disabled={isPending || notes.trim().length === 0}
           onClick={() => {
             setError(null);
+            const text = notes;
+            const date = noteDate;
+            setNotes("");
             startTransition(async () => {
               try {
-                const result = await updateClientNotes({ clientId, notes, date: noteDate });
+                const result = await updateClientNotes({ clientId, notes: text, date });
                 setUpdatedAt(result.updatedAt);
                 setEntries((current) => [
                   ...current,
-                  { date: noteDate, notes, createdAt: new Date().toISOString() },
+                  { date, notes: text, createdAt: new Date().toISOString() },
                 ]);
-                setNotes("");
               } catch (err) {
                 setError(err instanceof Error ? err.message : t("saveFailed"));
+                setNotes(text);
               }
             });
           }}

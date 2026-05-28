@@ -12,7 +12,7 @@ interface PendingWorkoutAssignFormProps {
   submitAction: (formData: FormData) => Promise<void>;
 }
 
-type AssignMode = "once" | "weekly" | "daily" | "everyN";
+type AssignMode = "once" | "weekly" | "daily" | "everyN" | "monthly";
 
 const WEEKDAYS = [
   { value: 1, label: "Lun" },
@@ -87,6 +87,7 @@ export function PendingWorkoutAssignForm({
             <option value="weekly">Semanal</option>
             <option value="daily">Diario</option>
             <option value="everyN">Cada N días</option>
+            <option value="monthly">Mensual</option>
           </select>
         </label>
 

@@ -232,7 +232,8 @@
         "title": "Adherencia a hábitos (últimos 7 días)",
         "empty": "Aún no hay hábitos asignados.",
         "unnamed": "(hábito sin nombre)",
-        "daysCompleted": "días completados"
+        "daysCompleted": "días completados",
+        "streakTooltip": "Racha de {count} cumplimientos en días programados"
       },
       "chatHistory": {
         "title": "Mensajes recientes",
@@ -287,10 +288,13 @@
         "weeklyCount": "{count} días/semana",
         "monthlyCount": "{count} días/mes",
         "everyNDays": "cada {everyN} días",
+        "monthlyOnDay": "mensual · día {day}",
         "custom": "recurrencia custom",
         "nextDate": "Próxima",
         "noDate": "Sin fecha",
-        "showPastWorkouts": "Ver workouts pasados ({count})"
+        "showPastWorkouts": "Ver workouts pasados ({count})",
+        "workoutStreakLabel": "{count} seguidos",
+        "workoutStreakTooltip": "{count} entrenamientos completados sin faltar."
       }
     }
   },
@@ -976,9 +980,11 @@
       "modeWeekly": "Semanal recurrente",
       "modeDaily": "Diaria",
       "modeEveryN": "Cada N días",
+      "modeMonthly": "Mensual",
       "repeatOnLabel": "Repetir los",
       "repeatEveryNLabel": "Cada (días)",
       "repeatEveryNHint": "Se repite cada {n} días desde la fecha de inicio.",
+      "repeatMonthlyHint": "Se repite el día {day} de cada mes (si el mes no tiene ese día, se usa el último día del mes).",
       "weekdays": {
         "sunday": "Domingo",
         "monday": "Lunes",
@@ -1013,6 +1019,7 @@
       "exerciseOverridesKgPlaceholder": "Kg",
       "exerciseOverridesAddSet": "Agregar serie",
       "exerciseOverridesRemoveSet": "Quitar serie {index}",
+      "supersetLabel": "Superserie {group}",
       "errorTemplateDetailFallback": "No se pudieron cargar los detalles de la plantilla.",
       "cancel": "Cancelar",
       "assigning": "Asignando…",
@@ -1109,7 +1116,17 @@
       "columnWeight": "Peso",
       "columnCompletedAt": "Completada",
       "weightUnit": "kg",
-      "emptyDash": "-"
+      "emptyDash": "-",
+      "rpeTitle": "Esfuerzo (RPE)",
+      "rpeValue": "{value} / 10",
+      "rpeNotReported": "El cliente no reportó esfuerzo.",
+      "athleteNotesTitle": "Notas del cliente",
+      "noAthleteNotes": "Sin notas del cliente.",
+      "prBadge": "PR",
+      "prBadgeTitle": "Nuevo récord personal · 1RM estimado {value} kg",
+      "exerciseSetCount": "{count, plural, one {# serie} other {# series}}",
+      "exerciseTopWeight": "Tope: {weight} kg",
+      "exerciseNoWeight": "Sin peso registrado"
     }
   },
   "login": {

@@ -94,8 +94,8 @@ export function AssignTemplateModal({
   const [civilDate, setCivilDate] = useState<string>(defaultDate);
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
-  // Plan 21-04b: four cadence modes.
-  type Mode = "once" | "weekly" | "daily" | "everyN";
+  // Plan 21-04b: four cadence modes + monthly (added 26-05).
+  type Mode = "once" | "weekly" | "daily" | "everyN" | "monthly";
   const [mode, setMode] = useState<Mode>("once");
   // Plan 21-04: multi-weekday recurrence — Set seeded with the cell's weekday.
   const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(
@@ -349,11 +349,17 @@ export function AssignTemplateModal({
           | { kind: "daily" }
           | { kind: "weekly"; weekday: number }
           | { kind: "weekly_days"; weekdays: number[] }
-          | { kind: "every_n_days"; everyN: number };
+          | { kind: "every_n_days"; everyN: number }
+          | { kind: "monthly"; dayOfMonth: number };
         if (mode === "daily") {
           recurrence = { kind: "daily" };
         } else if (mode === "everyN") {
           recurrence = { kind: "every_n_days", everyN: recurringEveryN };
+        } else if (mode === "monthly") {
+          recurrence = {
+            kind: "monthly",
+            dayOfMonth: parseCivilToLocalDate(civilDate).getDate(),
+          };
         } else {
           const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
           recurrence =
@@ -428,6 +434,7 @@ export function AssignTemplateModal({
                   <SelectItem value="weekly">{t("modeWeekly")}</SelectItem>
                   <SelectItem value="daily">{t("modeDaily")}</SelectItem>
                   <SelectItem value="everyN">{t("modeEveryN")}</SelectItem>
+                  <SelectItem value="monthly">{t("modeMonthly")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -493,6 +500,16 @@ export function AssignTemplateModal({
               />
               <p className="text-xs text-muted-foreground">
                 {t("repeatEveryNHint", { n: recurringEveryN })}
+              </p>
+            </div>
+          ) : null}
+
+          {mode === "monthly" ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-muted-foreground">
+                {t("repeatMonthlyHint", {
+                  day: parseCivilToLocalDate(civilDate).getDate(),
+                })}
               </p>
             </div>
           ) : null}
@@ -582,14 +599,35 @@ export function AssignTemplateModal({
             {templateDetail && templateDetail.exercises.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t("exerciseOverridesEmpty")}</p>
             ) : null}
-            {templateDetail?.exercises.map((exercise) => {
+            {templateDetail?.exercises.map((exercise, idx) => {
               const draft = overrideDrafts[exercise.index];
               if (!draft) return null;
+              const group = exercise.supersetGroup ?? null;
+              const prevGroup =
+                idx > 0
+                  ? templateDetail.exercises[idx - 1].supersetGroup ?? null
+                  : null;
+              const nextGroup =
+                idx < templateDetail.exercises.length - 1
+                  ? templateDetail.exercises[idx + 1].supersetGroup ?? null
+                  : null;
+              const isSupersetStart = group !== null && group !== prevGroup;
+              const isInSuperset =
+                group !== null && (group === prevGroup || group === nextGroup);
               return (
                 <div
                   key={`${exercise.exerciseId}-${exercise.index}`}
-                  className="rounded-md border border-border/60 bg-background/60 p-3"
+                  className={
+                    isInSuperset
+                      ? "rounded-md border border-amber-500/40 bg-amber-50/40 p-3 dark:border-amber-400/40 dark:bg-amber-950/20"
+                      : "rounded-md border border-border/60 bg-background/60 p-3"
+                  }
                 >
+                  {isSupersetStart ? (
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                      {t("supersetLabel", { group })}
+                    </p>
+                  ) : null}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ExercisePreviewThumb
@@ -599,6 +637,11 @@ export function AssignTemplateModal({
                         height={32}
                       />
                       <p className="text-sm font-medium">{exercise.exerciseName}</p>
+                      {group ? (
+                        <span className="inline-flex h-5 items-center rounded-full bg-amber-500/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
+                          {group}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-muted-foreground">

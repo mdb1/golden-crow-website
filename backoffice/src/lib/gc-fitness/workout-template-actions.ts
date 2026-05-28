@@ -94,6 +94,9 @@ export interface WorkoutTemplateExerciseDetail {
    *  assign-template-modal renders ExercisePreviewThumb with this so the
    *  trainer can hover-preview the exercise without leaving the modal. */
   previewUrl: string | null;
+  /** Free-form superset group label (e.g. "A", "B"). Trainer renders
+   *  adjacent exercises sharing the same label as a superset block. */
+  supersetGroup?: string | null;
 }
 
 /**
@@ -462,6 +465,11 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
           ? (exercise.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
           : [],
         previewUrl: extractPreviewUrl(source),
+        supersetGroup:
+          typeof exercise.supersetGroup === "string" &&
+          exercise.supersetGroup.trim().length > 0
+            ? exercise.supersetGroup.trim()
+            : null,
       };
     }),
   };

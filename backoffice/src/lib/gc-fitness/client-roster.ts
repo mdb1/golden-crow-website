@@ -303,7 +303,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
 
       const [
         latestWorkoutLog,
-        latestChatMessage,
+        latestHabitLog,
+        latestProgressPhoto,
         chatDocSnap,
         clientHabits,
         assignedLast7Snap,
@@ -315,13 +316,26 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .orderBy("startedAt", "desc")
           .limit(1)
           .get(),
+        // Habit logs reflect the client's own check-in; the dashboard's
+        // "last action" feed surfaces them, so sorting must too.
         db
-          .collection(FirestoreCollections.chats)
-          .doc(c.uid)
-          .collection(FirestoreCollections.messages)
-          .orderBy("createdAt", "desc")
+          .collection(FirestoreCollections.habitLogs)
+          .where("clientId", "==", c.uid)
+          .orderBy("loggedAt", "desc")
           .limit(1)
           .get(),
+        // Progress photos are a separate client surface — counts here too.
+        db
+          .collection(FirestoreCollections.progressPhotos)
+          .where("clientId", "==", c.uid)
+          .orderBy("createdAt", "desc")
+          .limit(1)
+          .get()
+          .catch(() => null),
+        // Chat messages are intentionally NOT counted as "last action" —
+        // a trainer-sent chat would otherwise bump the client to the top of
+        // every roster (260528 bug). Mirrors the exclusion in
+        // listRecentLogsForTrainer.
         db.collection(FirestoreCollections.chats).doc(c.uid).get(),
         db
           .collection(FirestoreCollections.habits)
@@ -346,8 +360,11 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       ]);
 
       const tsWorkout = latestDate(latestWorkoutLog, "startedAt");
-      const tsChat = latestDate(latestChatMessage, "createdAt");
-      const candidates: Date[] = [tsWorkout, tsChat].filter(
+      const tsHabit = latestDate(latestHabitLog, "loggedAt");
+      const tsPhoto = latestProgressPhoto
+        ? latestDate(latestProgressPhoto, "createdAt")
+        : null;
+      const candidates: Date[] = [tsWorkout, tsHabit, tsPhoto].filter(
         (d): d is Date => d instanceof Date,
       );
       const lastActivity =

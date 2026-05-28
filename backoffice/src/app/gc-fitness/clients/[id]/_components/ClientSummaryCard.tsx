@@ -60,6 +60,12 @@ export async function ClientSummaryCard({
     })
     .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string; isRecurring: boolean } => row !== null)
     .slice(0, 30);
+
+  // Overall workout streak — consecutive completed (no-miss) past
+  // assignments. Mirrors the iOS dashboard chip's `workoutStreak` so
+  // trainer + client see the same number. Uses the SAME 80-doc fetch
+  // above (no extra query).
+  const workoutStreak = computeWorkoutStreak(assignmentsSnap.docs);
   const todayCivil = new Date().toISOString().slice(0, 10);
   const visibleWorkouts = workouts.filter((row) => row.isRecurring || row.scheduledFor >= todayCivil);
   const pastWorkouts = workouts.filter((row) => !row.isRecurring && row.scheduledFor < todayCivil);
@@ -81,9 +87,21 @@ export async function ClientSummaryCard({
 
       <div className="space-y-3.5">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("workouts")}
-          </p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("workouts")}
+            </p>
+            {workoutStreak >= 2 ? (
+              <Badge
+                variant="secondary"
+                className="gap-1 text-xs"
+                title={t("workoutStreakTooltip", { count: workoutStreak })}
+              >
+                <span aria-hidden>{workoutStreak >= 5 ? "🔥🔥" : "🔥"}</span>
+                {t("workoutStreakLabel", { count: workoutStreak })}
+              </Badge>
+            ) : null}
+          </div>
           {workouts.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noWorkouts")}</p>
           ) : (
@@ -199,6 +217,9 @@ function recurrenceLabel(
     return days.length > 0 ? `${t("weeklyDays")} · ${days.join(", ")}` : t("weeklyDays");
   }
   if (recurrence.kind === "every_n_days") return t("everyNDays", { everyN: Number(recurrence.everyN ?? 1) });
+  if (recurrence.kind === "monthly") {
+    return t("monthlyOnDay", { day: Number(recurrence.dayOfMonth ?? 1) });
+  }
   return t("custom");
 }
 
@@ -229,6 +250,50 @@ function habitCadenceLabel(
     return monthDays.length > 0 ? `${t("monthlyCount", { count: monthDays.length })} · ${monthDays.join(", ")}` : t("monthlyCount", { count: 1 });
   }
   return t("daily");
+}
+
+/**
+ * Mirrors GCFitnessCore `DashboardAggregator.workoutStreak` (Swift).
+ * Walks past-or-today assignments in DESC scheduledFor order:
+ *   - `.completed` → streak += 1
+ *   - `.missed`     → break
+ *   - `.scheduled` / `.started` past their `scheduledFor` → treat as
+ *                     missed (rule layer will eventually auto-flip them
+ *                     to `missed` via the user-midnight Cloud Function,
+ *                     but until then they read as past-due).
+ *   - Today's not-yet-finished assignment is the grace window — skipped,
+ *                     neither breaks nor counts.
+ *
+ * Future-scheduled rows are excluded — they don't contribute or break.
+ */
+function computeWorkoutStreak(
+  docs: Array<{ data: () => Record<string, unknown> }>,
+): number {
+  const todayCivil = new Date().toISOString().slice(0, 10);
+  const rows = docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+        status: typeof data.status === "string" ? data.status : "",
+      };
+    })
+    .filter((row) => row.scheduledFor && row.scheduledFor <= todayCivil)
+    .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor));
+
+  let streak = 0;
+  for (const row of rows) {
+    if (row.status === "completed") {
+      streak += 1;
+      continue;
+    }
+    if (row.status === "missed") return streak;
+    // .scheduled / .started past their date — treat as miss unless it's
+    // today (grace window).
+    if (row.scheduledFor === todayCivil) continue;
+    return streak;
+  }
+  return streak;
 }
 
 function groupWorkouts(

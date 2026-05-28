@@ -31,12 +31,23 @@ export interface WorkoutLogDetail {
   setCount: number;
   completedSetCount: number;
   exerciseCount: number;
+  /** Athlete self-reported RPE (1-10), captured on the iOS post-workout
+   *  summary. Optional; null when the user dismissed the slider. */
+  rpe: number | null;
+  /** Athlete self-reported free-form notes from the post-workout summary. */
+  athleteNotes: string | null;
   sets: Array<{
     index: number;
+    setLogId: string;
+    exerciseId: string;
     exerciseName: string;
     reps: number | null;
     weight: number | null;
     completedAt: string | null;
+    /** True when this set matches a PR row in the parent workout log's prs[]. */
+    isPR: boolean;
+    /** Stored Epley estimated 1RM (kg) when isPR === true. */
+    prEstimatedOneRM: number | null;
   }>;
 }
 
@@ -678,22 +689,56 @@ export async function getWorkoutLogDetail(
     if (exId) templateExerciseById.set(exId, exercise);
   }
 
+  // Map set_log_id → PR record so we can flag PR sets in the UI without a
+  // second query. Per PRRecord schema, every PR carries `set_log_id`.
+  const rawPrs = Array.isArray(data.prs)
+    ? (data.prs as Array<Record<string, unknown>>)
+    : [];
+  const prBySetLogId = new Map<string, { estimatedOneRM: number | null }>();
+  for (const pr of rawPrs) {
+    const setLogId =
+      typeof pr.set_log_id === "string"
+        ? pr.set_log_id
+        : typeof pr.setLogId === "string"
+          ? pr.setLogId
+          : "";
+    if (!setLogId) continue;
+    const e1rm = numeric(pr.estimated_one_rm ?? pr.estimatedOneRM);
+    prBySetLogId.set(setLogId, { estimatedOneRM: e1rm });
+  }
+
   const sets = rawSets.map((set, index) => {
     const exerciseId = typeof set.exerciseId === "string" ? set.exerciseId : "";
     const templateExercise = exerciseId
       ? templateExerciseById.get(exerciseId)
       : undefined;
     const exerciseName = localizedText(templateExercise?.name, `Exercise ${index + 1}`);
+    const setLogId = typeof set.id === "string" ? set.id : "";
+    const pr = setLogId ? prBySetLogId.get(setLogId) : undefined;
     return {
       index: index + 1,
+      setLogId,
+      exerciseId,
       exerciseName,
       reps: numeric(set.reps),
       // Wire field is `weight_kg` (iOS); keep `weight` as a legacy fallback.
       weight: numeric(set.weight_kg ?? set.weight),
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
+      isPR: Boolean(pr),
+      prEstimatedOneRM: pr?.estimatedOneRM ?? null,
     };
   });
+
+  const rpeRaw = numeric(data.rpe);
+  const rpe =
+    rpeRaw !== null && Number.isInteger(rpeRaw) && rpeRaw >= 1 && rpeRaw <= 10
+      ? rpeRaw
+      : null;
+  const athleteNotes =
+    typeof data.notes === "string" && data.notes.trim().length > 0
+      ? data.notes.trim()
+      : null;
 
   return {
     id: logSnap.id,
@@ -706,6 +751,8 @@ export async function getWorkoutLogDetail(
     setCount: sets.length,
     completedSetCount: sets.filter((s) => Boolean(s.completedAt)).length,
     exerciseCount: templateExercises.length,
+    rpe,
+    athleteNotes,
     sets,
   };
 }

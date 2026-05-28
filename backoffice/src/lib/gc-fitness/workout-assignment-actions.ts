@@ -400,6 +400,7 @@ export async function listPendingAssignments(pendingEmail: string): Promise<Arra
     | { kind: "weekly"; weekday: number }
     | { kind: "weekly_days"; weekdays: number[] }
     | { kind: "every_n_days"; everyN: number }
+    | { kind: "monthly"; dayOfMonth: number }
     | null;
 }>> {
   const trainer = await getCurrentTrainer();
@@ -427,7 +428,8 @@ export async function listPendingAssignments(pendingEmail: string): Promise<Arra
               | { kind: "daily" }
               | { kind: "weekly"; weekday: number }
               | { kind: "weekly_days"; weekdays: number[] }
-              | { kind: "every_n_days"; everyN: number })
+              | { kind: "every_n_days"; everyN: number }
+              | { kind: "monthly"; dayOfMonth: number })
           : null,
     };
   });
@@ -559,7 +561,8 @@ export async function assignTemplateRecurring(
     | { kind: "daily" }
     | { kind: "weekly"; weekday: number }
     | { kind: "weekly_days"; weekdays: number[] }
-    | { kind: "every_n_days"; everyN: number };
+    | { kind: "every_n_days"; everyN: number }
+    | { kind: "monthly"; dayOfMonth: number };
 
   let recurrence: RecurrenceRule;
   if (parsed.recurrence !== undefined) {
@@ -598,6 +601,13 @@ export async function assignTemplateRecurring(
         const diff =
           (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
         return diff >= 0 && diff % recurrence.everyN === 0;
+      }
+      case "monthly": {
+        const [y, m, d] = date.split("-").map(Number);
+        const target = recurrence.dayOfMonth;
+        const lastDayOfMonth = new Date(y, m, 0).getDate();
+        const clamped = Math.min(target, lastDayOfMonth);
+        return d === clamped;
       }
     }
   }
@@ -668,7 +678,8 @@ export async function assignTemplateRecurringToPending(input: {
     | { kind: "daily" }
     | { kind: "weekly"; weekday: number }
     | { kind: "weekly_days"; weekdays: number[] }
-    | { kind: "every_n_days"; everyN: number };
+    | { kind: "every_n_days"; everyN: number }
+    | { kind: "monthly"; dayOfMonth: number };
   endDate?: string;
   scheduledTime?: string | null;
   meetingNotes?: string | null;
@@ -718,7 +729,8 @@ export async function assignTemplateRecurringToPending(input: {
     | { kind: "daily" }
     | { kind: "weekly"; weekday: number }
     | { kind: "weekly_days"; weekdays: number[] }
-    | { kind: "every_n_days"; everyN: number };
+    | { kind: "every_n_days"; everyN: number }
+    | { kind: "monthly"; dayOfMonth: number };
 
   let recurrence: RecurrenceRule;
   if (parsed.recurrence !== undefined) {
@@ -752,6 +764,13 @@ export async function assignTemplateRecurringToPending(input: {
         const diff =
           (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
         return diff >= 0 && diff % recurrence.everyN === 0;
+      }
+      case "monthly": {
+        const [y, m, d] = date.split("-").map(Number);
+        const target = recurrence.dayOfMonth;
+        const lastDayOfMonth = new Date(y, m, 0).getDate();
+        const clamped = Math.min(target, lastDayOfMonth);
+        return d === clamped;
       }
     }
   }
