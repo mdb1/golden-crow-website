@@ -195,37 +195,26 @@ function ChatThreadRow({
 
 // ── Inline helpers (kept local; V2 may hoist to a shared module) ───────
 
+/** Universal placeholder when a client has no (loadable) photo. */
+const AVATAR_FALLBACK_SRC = "/1-amber-he.png";
+
 function Avatar({ name, photoURL }: { name: string; photoURL?: string | null }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
   // If photoURL is set but fails to load (404, expired Storage signature,
-  // CORS, etc.), fall back to initials instead of leaving a broken-image
-  // icon. Tracked per render via local state.
+  // CORS, etc.) fall back to the 1-amber-he placeholder rather than a broken
+  // image or initials — every row shows an image so the list reads uniform.
   const [failed, setFailed] = useState(false);
-  const showImage = !!photoURL && !failed;
+  const src = photoURL && !failed ? photoURL : AVATAR_FALLBACK_SRC;
   return (
-    <div
-      aria-hidden="true"
-      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary"
-    >
-      {showImage ? (
-        <Image
-          src={photoURL!}
-          alt=""
-          width={40}
-          height={40}
-          className="h-10 w-10 rounded-full object-cover"
-          unoptimized
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        initials || "·"
-      )}
+    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+      <Image
+        src={src}
+        alt={name}
+        width={40}
+        height={40}
+        className="h-10 w-10 rounded-full object-cover"
+        unoptimized
+        onError={() => setFailed(true)}
+      />
     </div>
   );
 }
