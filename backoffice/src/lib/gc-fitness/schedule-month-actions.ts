@@ -37,6 +37,13 @@ export interface MonthWorkoutChip {
   id: string;
   clientId: string;
   scheduledFor: string; // YYYY-MM-DD
+  /**
+   * Trainer's ORIGINAL civil-date when the client moved the workout
+   * to a different day from the iOS app. Null when the workout still
+   * sits where the trainer placed it. Drives the "originalmente X,
+   * el cliente lo movió a Y" disclaimer in the chip tooltip.
+   */
+  originallyScheduledFor: string | null;
   templateName: string;
   templateTag: string | null;
   status: "scheduled" | "started" | "completed" | "missed";
@@ -204,9 +211,12 @@ export async function listMonthForClients(input: {
       .where("scheduledFor", ">=", monthStart)
       .where("scheduledFor", "<=", monthEnd)
       .get(),
+    // Same reasoning as the assignments query above: clientIds are roster-
+    // scoped on the caller and rules enforce ownership, so the redundant
+    // trainerId equality (which would require a new composite index) is
+    // dropped. Index used: (clientId, startedAt DESC).
     db
       .collection(LOGS)
-      .where("trainerId", "==", trainer.uid)
       .where("clientId", "in", clientIds)
       .orderBy("startedAt", "desc")
       .limit(500)
@@ -250,6 +260,7 @@ export async function listMonthForClients(input: {
     const data = doc.data() as {
       clientId?: string;
       scheduledFor?: string;
+      originallyScheduledFor?: string;
       templateSnapshot?: { name?: unknown; tag?: unknown };
       seriesId?: string | null;
       recurrence?: { kind?: string };
@@ -273,10 +284,17 @@ export async function listMonthForClients(input: {
     const status: MonthWorkoutChip["status"] = logStatus
       ? logStatus
       : statusFromAssignment(civil, data.status, input.todayCivil);
+    const originalCivil =
+      typeof data.originallyScheduledFor === "string" &&
+      data.originallyScheduledFor.length > 0 &&
+      data.originallyScheduledFor !== civil
+        ? data.originallyScheduledFor
+        : null;
     const chip: MonthWorkoutChip = {
       id: doc.id,
       clientId,
       scheduledFor: civil,
+      originallyScheduledFor: originalCivil,
       templateName,
       templateTag: tag,
       status,

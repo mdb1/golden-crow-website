@@ -61,6 +61,14 @@ export interface WorkoutAssignmentRow {
   clientId: string;
   trainerId: string;
   scheduledFor: string;
+  /**
+   * Civil-date of the trainer's ORIGINAL slot when the athlete moved
+   * the workout to a different day of the current week from the iOS
+   * app (e.g. ran Monday's workout on Tuesday). Null when the workout
+   * still sits where the trainer placed it. The trainer surface
+   * surfaces this as "Originally <day>, the client moved it to <day>".
+   */
+  originallyScheduledFor?: string | null;
   scheduledTime?: string | null;
   meetingNotes?: string | null;
   timezone?: string | null;
@@ -160,6 +168,10 @@ function snapToRow(d: {
     clientId: String(data.clientId ?? ""),
     trainerId: String(data.trainerId ?? ""),
     scheduledFor: String(data.scheduledFor ?? ""),
+    originallyScheduledFor:
+      typeof data.originallyScheduledFor === "string"
+        ? data.originallyScheduledFor
+        : null,
     scheduledTime:
       typeof data.scheduledTime === "string" ? data.scheduledTime : null,
     meetingNotes:

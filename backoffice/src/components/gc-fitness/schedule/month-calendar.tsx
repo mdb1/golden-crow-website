@@ -27,6 +27,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  ArrowRightLeft,
   CalendarCheck,
   CheckCircle2,
   ChevronLeftIcon,
@@ -639,6 +640,12 @@ function DayCell({
         {workouts.map((w) => {
           const palette = paletteFor(clients, w.clientId);
           const client = clients.find((c) => c.uid === w.clientId);
+          const movedFromLabel = w.originallyScheduledFor
+            ? formatMovedFromLabel(
+                w.originallyScheduledFor,
+                w.scheduledFor,
+              )
+            : null;
           return (
             <button
               key={w.id}
@@ -655,7 +662,11 @@ function DayCell({
                 palette.chip,
                 "hover:brightness-95",
               )}
-              title={`${client?.displayName ?? ""} · ${w.templateName}`}
+              title={
+                movedFromLabel
+                  ? `${client?.displayName ?? ""} · ${w.templateName} — ${movedFromLabel}`
+                  : `${client?.displayName ?? ""} · ${w.templateName}`
+              }
             >
               <StatusGlyph status={w.status} />
               <span className="truncate">
@@ -664,6 +675,12 @@ function DayCell({
                 </span>{" "}
                 {w.templateName}
               </span>
+              {movedFromLabel ? (
+                <ArrowRightLeft
+                  className="size-3 shrink-0 opacity-70"
+                  aria-label={movedFromLabel}
+                />
+              ) : null}
             </button>
           );
         })}
@@ -691,6 +708,36 @@ function DayCell({
       </div>
     </div>
   );
+}
+
+/**
+ * Build the "originalmente <día>, el cliente lo movió a <día>" hint
+ * surfaced in the chip's tooltip + the `ArrowRightLeft` icon's aria
+ * label. Both civil dates are parsed in UTC so the trainer's locale
+ * doesn't shift the rendered weekday.
+ */
+function formatMovedFromLabel(
+  originallyScheduledFor: string,
+  scheduledFor: string,
+): string | null {
+  const original = parseCivilDateInUtc(originallyScheduledFor);
+  const moved = parseCivilDateInUtc(scheduledFor);
+  if (!original || !moved) return null;
+  const fmt = new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+  return `Originalmente ${fmt.format(original)}, el cliente lo movió a ${fmt.format(moved)}`;
+}
+
+function parseCivilDateInUtc(civilDate: string): Date | null {
+  const parts = civilDate.split("-");
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
