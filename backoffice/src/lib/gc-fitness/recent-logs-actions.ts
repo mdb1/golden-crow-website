@@ -397,16 +397,50 @@ export async function listRecentLogsForTrainer(): Promise<{
   // today" + 🎯 on a perfect day; past rows show 🎯 only when the day
   // was perfect (no partial counts on history — too noisy). Computed
   // from data already in memory: no extra Firestore queries.
-  // Performance: bucket habit_logs by (clientId, civilDate) first so the
-  // per-pair inner walk is O(logs-on-that-day) instead of O(all-logs).
+  //
+  // 260528 — dedupe by (habitId, civilDate) FIRST. Legacy and re-toggle
+  // flows can leave several docs targeting the same pair (older auto-id
+  // doc + new composite-id doc, or two writes that raced under a flaky
+  // connection). Without this dedupe, an old `value: true, deleted: false`
+  // would still be counted toward `done` even after the client tapped
+  // un-mark — because the un-mark only flipped one of the docs. Picking
+  // the latest write (`updatedAt` if present, else `createdAt`) is the
+  // canonical "what the user last said about this habit on this day".
   const todayCivil = civilDateToday(
     Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
+
+  function logTimestampMs(doc: FirebaseFirestore.QueryDocumentSnapshot): number {
+    const iso =
+      asIso(doc.get("updatedAt")) ??
+      asIso(doc.get("createdAt")) ??
+      asIso(doc.get("loggedAt"));
+    if (!iso) return 0;
+    const ms = new Date(iso).getTime();
+    return Number.isNaN(ms) ? 0 : ms;
+  }
+
+  const latestLogByHabitDay = new Map<
+    string,
+    FirebaseFirestore.QueryDocumentSnapshot
+  >();
+  habitLogs.forEach((doc) => {
+    const data = doc.data();
+    const hid = typeof data.habitId === "string" ? data.habitId : "";
+    const civ = typeof data.civilDate === "string" ? data.civilDate : "";
+    if (!hid || !civ) return;
+    const pairKey = `${hid}:${civ}`;
+    const existing = latestLogByHabitDay.get(pairKey);
+    if (!existing || logTimestampMs(doc) > logTimestampMs(existing)) {
+      latestLogByHabitDay.set(pairKey, doc);
+    }
+  });
+
   const logsByClientDay = new Map<
     string,
     FirebaseFirestore.QueryDocumentSnapshot[]
   >();
-  habitLogs.forEach((doc) => {
+  latestLogByHabitDay.forEach((doc) => {
     const data = doc.data();
     if (data.deleted === true) return;
     const cid = typeof data.clientId === "string" ? data.clientId : "";
@@ -421,7 +455,27 @@ export async function listRecentLogsForTrainer(): Promise<{
     string,
     { done: number; total: number }
   >();
-  logsByClientDay.forEach((dayLogs, key) => {
+  // Walk by (clientId, civilDate) — including days where the bucket is
+  // empty because every habit got toggled off. Without the empty-day
+  // pass, a day where the user un-marked every habit would silently fall
+  // back to `progress=undefined`, and the calling row code would skip
+  // any "0/Y" suffix or render stale state from the last refresh.
+  const dayKeysWithScheduledHabits = new Set<string>();
+  habitsByClientId.forEach((habits, clientId) => {
+    if (habits.length === 0) return;
+    // We only emit progress for civil dates we actually observed logs on
+    // OR for `today` — the recent-logs feed never renders a row for a
+    // day that had no habit activity at all.
+    const observedKeys = Array.from(logsByClientDay.keys()).filter((k) =>
+      k.startsWith(`${clientId}:`),
+    );
+    observedKeys.forEach((k) => dayKeysWithScheduledHabits.add(k));
+    // Always evaluate today so the row generated for any older log that
+    // happens to be from today renders an accurate "0/Y today" suffix.
+    dayKeysWithScheduledHabits.add(`${clientId}:${todayCivil}`);
+    void habits;
+  });
+  dayKeysWithScheduledHabits.forEach((key) => {
     const sep = key.indexOf(":");
     if (sep < 0) return;
     const clientId = key.slice(0, sep);
@@ -437,6 +491,7 @@ export async function listRecentLogsForTrainer(): Promise<{
       if (id && habitScheduledOn(h, civilDate)) scheduledIds.add(id);
     });
     if (scheduledIds.size === 0) return;
+    const dayLogs = logsByClientDay.get(key) ?? [];
     let done = 0;
     for (const doc of dayLogs) {
       const data = doc.data();
@@ -543,7 +598,14 @@ export async function listRecentLogsForTrainer(): Promise<{
     });
   });
 
-  habitLogs.forEach((doc) => {
+  // 260528 — iterate the LATEST log per (habitId, civilDate) instead of
+  // every raw habit_log doc. Duplicates from legacy auto-id writes were
+  // emitting multiple rows for the same pair (the user saw two
+  // "completed: 1 Fruit" entries on the feed) AND the older duplicate
+  // could still count toward `done` because it carried `value: true`
+  // even after the user un-marked the newer one. See the dedupe note
+  // upstream of the bucket builder.
+  latestLogByHabitDay.forEach((doc) => {
     const data = doc.data();
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId || !nameByClientId.has(clientId)) return;
