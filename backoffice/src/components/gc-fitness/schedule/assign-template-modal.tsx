@@ -392,13 +392,17 @@ export function AssignTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* `overflow-hidden` overrides the default DialogContent `overflow-y-auto`
+          so the WHOLE modal no longer scrolls. The inner body div below owns
+          the scroll, which keeps the DialogFooter anchored at the bottom of
+          the dialog box (no sticky/overlap weirdness 260528). */}
+      <DialogContent className="sm:max-w-md overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{t("templateLabel")}</label>
             <Select value={templateId} onValueChange={setTemplateId}>
