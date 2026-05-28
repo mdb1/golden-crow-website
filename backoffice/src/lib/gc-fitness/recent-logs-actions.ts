@@ -24,6 +24,16 @@ export interface RecentLogRow {
   title: string;
   detail: string;
   workoutLogId: string | null;
+  /** Present only on workout rows — drives the sets / RPE / notes chips. */
+  workout?: {
+    completedSets: number;
+    /** Sum of the snapshot's planned sets; null when the snapshot is absent. */
+    plannedSets: number | null;
+    /** Athlete self-reported effort 1–10, or null. */
+    rpe: number | null;
+    /** True when the athlete left post-workout notes. */
+    hasNotes: boolean;
+  };
 }
 
 export interface WorkoutLogDetail {
@@ -549,6 +559,26 @@ export async function listRecentLogsForTrainer(): Promise<{
       "Workout",
     );
     const sets = Array.isArray(data.sets) ? data.sets.length : 0;
+    const snapshotExercises = (
+      data.templateSnapshot as { exercises?: unknown } | undefined
+    )?.exercises;
+    const plannedSets = Array.isArray(snapshotExercises)
+      ? (snapshotExercises as Array<{ sets?: unknown }>).reduce(
+          (sum, ex) => sum + (typeof ex.sets === "number" ? ex.sets : 0),
+          0,
+        )
+      : 0;
+    const rpe =
+      typeof data.rpe === "number" &&
+      Number.isFinite(data.rpe) &&
+      data.rpe >= 1 &&
+      data.rpe <= 10
+        ? Math.round(data.rpe)
+        : null;
+    const hasNotes =
+      typeof data.notes === "string" && data.notes.trim().length > 0;
+    const setsLabel =
+      plannedSets > 0 ? `${sets}/${plannedSets} sets` : `${sets} sets`;
 
     rows.push({
       id: `workout:${doc.id}`,
@@ -560,8 +590,14 @@ export async function listRecentLogsForTrainer(): Promise<{
         status === "completed"
           ? `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`
           : `${nameByClientId.get(clientId) ?? clientId} - Workout started: ${templateName}`,
-      detail: `${templateName} · ${sets} sets`,
+      detail: `${templateName} · ${setsLabel}`,
       workoutLogId: doc.id,
+      workout: {
+        completedSets: sets,
+        plannedSets: plannedSets > 0 ? plannedSets : null,
+        rpe,
+        hasNotes,
+      },
     });
   });
 

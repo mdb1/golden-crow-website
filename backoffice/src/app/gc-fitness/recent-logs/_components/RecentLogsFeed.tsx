@@ -7,14 +7,17 @@ import {
   MessageCircle,
   Filter,
   Dumbbell,
+  Gauge,
   ListChecks,
   Eye,
   Camera,
   Scale,
+  StickyNote,
   User,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +33,15 @@ import type { RecentLogRow } from "@/lib/gc-fitness/recent-logs-actions";
 interface Props {
   logs: RecentLogRow[];
   clients: Array<{ id: string; name: string }>;
+}
+
+// RPE 1–10 → green (easy) through amber to red (maximal).
+function rpeColorClass(rpe: number): string {
+  if (rpe <= 4)
+    return "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+  if (rpe <= 7)
+    return "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300";
+  return "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300";
 }
 
 export function RecentLogsFeed({ logs, clients }: Props) {
@@ -155,6 +167,32 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 </div>
                 <p className="line-clamp-1 text-sm font-semibold">{row.title}</p>
                 <p className="line-clamp-1 text-xs text-muted-foreground">{row.detail}</p>
+                {row.workout &&
+                (row.workout.rpe !== null || row.workout.hasNotes) ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {row.workout.rpe !== null ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
+                          rpeColorClass(row.workout.rpe),
+                        )}
+                        title="Esfuerzo reportado por el cliente"
+                      >
+                        <Gauge className="h-3 w-3" />
+                        RPE {row.workout.rpe}/10
+                      </span>
+                    ) : null}
+                    {row.workout.hasNotes ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                        title="El cliente dejó notas"
+                      >
+                        <StickyNote className="h-3 w-3" />
+                        Notas
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
