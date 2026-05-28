@@ -800,6 +800,7 @@ export function TemplateForm({
                           aria-label={t("dragHandle")}
                           className="cursor-grab touch-none active:cursor-grabbing"
                           {...dragListeners}
+                          tabIndex={-1}
                         >
                           <GripVertical className="h-4 w-4" />
                         </Button>
@@ -814,6 +815,7 @@ export function TemplateForm({
                           size="icon"
                           onClick={() => move(index, index - 1)}
                           disabled={index === 0}
+                          tabIndex={-1}
                           aria-label={t("moveUp")}
                         >
                           <ArrowUp className="h-4 w-4" />
@@ -824,6 +826,7 @@ export function TemplateForm({
                           size="icon"
                           onClick={() => move(index, index + 1)}
                           disabled={index === fields.length - 1}
+                          tabIndex={-1}
                           aria-label={t("moveDown")}
                         >
                           <ArrowDown className="h-4 w-4" />
@@ -833,6 +836,7 @@ export function TemplateForm({
                           variant="ghost"
                           size="icon"
                           onClick={() => remove(index)}
+                          tabIndex={-1}
                           aria-label={t("removeExercise")}
                           className="text-destructive hover:text-destructive"
                         >
@@ -1199,6 +1203,7 @@ export function TemplateForm({
                                 {setIdx === 0 ? (
                                   <button
                                     type="button"
+                                    tabIndex={-1}
                                     aria-label={t("setCopyToAllAria") ?? "Copiar a todas las series"}
                                     title={t("setCopyToAllTitle") ?? "Copiar reps y peso a todas las series"}
                                     className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
