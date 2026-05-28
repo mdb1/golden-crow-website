@@ -583,30 +583,54 @@ export function MonthCalendar({
             <p className="mb-3 text-xs text-muted-foreground">
               ¿Para qué cliente?
             </p>
-            <div className="flex flex-wrap gap-2">
-              {clients
-                .filter((c) => selectedIds.has(c.uid))
-                .map((c) => (
-                  <Button
-                    key={c.uid}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (pickClientForDate.kind === "workout") {
-                        setAssignContext({
-                          date: pickClientForDate.date,
-                          clientId: c.uid,
-                        });
-                      } else {
-                        openNewHabit(pickClientForDate.date, c.uid);
-                      }
-                      setPickClientForDate(null);
-                    }}
-                  >
-                    {c.displayName}
-                  </Button>
-                ))}
-            </div>
+            {(() => {
+              const renderClientButton = (c: (typeof clients)[number]) => (
+                <Button
+                  key={c.uid}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (pickClientForDate.kind === "workout") {
+                      setAssignContext({
+                        date: pickClientForDate.date,
+                        clientId: c.uid,
+                      });
+                    } else {
+                      openNewHabit(pickClientForDate.date, c.uid);
+                    }
+                    setPickClientForDate(null);
+                  }}
+                >
+                  {c.displayName}
+                </Button>
+              );
+              const selected = clients.filter((c) => selectedIds.has(c.uid));
+              const others = clients.filter((c) => !selectedIds.has(c.uid));
+              return (
+                <div className="flex flex-col gap-3">
+                  {selected.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        En la agenda
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {selected.map(renderClientButton)}
+                      </div>
+                    </div>
+                  ) : null}
+                  {others.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Otros clientes
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {others.map(renderClientButton)}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
           </div>
         </div>
       ) : null}

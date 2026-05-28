@@ -396,7 +396,7 @@ export function AssignTemplateModal({
           so the WHOLE modal no longer scrolls. The inner body div below owns
           the scroll, which keeps the DialogFooter anchored at the bottom of
           the dialog box (no sticky/overlap weirdness 260528). */}
-      <DialogContent className="sm:max-w-md overflow-hidden">
+      <DialogContent className="sm:max-w-3xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
