@@ -19,7 +19,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, ListChecks, MessagesSquare } from "lucide-react";
+import { Calendar, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -85,15 +85,9 @@ export function ClientHeader({
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/gc-fitness/schedule?clientId=${clientId}`}>
+          <Link href={`/gc-fitness/schedule?clientIds=${clientId}`}>
             <Calendar className="size-4" />
-            {t("assignWorkout")}
-          </Link>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/gc-fitness/habits?clientId=${clientId}`}>
-            <ListChecks className="size-4" />
-            {t("assignHabit")}
+            Abrir en calendario
           </Link>
         </Button>
       </div>

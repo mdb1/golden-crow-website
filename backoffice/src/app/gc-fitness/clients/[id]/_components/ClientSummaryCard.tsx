@@ -80,101 +80,141 @@ export async function ClientSummaryCard({
     };
   });
 
-  return (
-    <section className="rounded-md border bg-card p-3.5 sm:p-4">
-      <h2 className="mb-1 font-medium">{t("title")}</h2>
-      <p className="mb-3 text-sm text-muted-foreground">{t("subtitle")}</p>
+  // Tally goals by horizon for the compact summary chip row.
+  const goalsByHorizon = goals.reduce(
+    (acc, g) => {
+      if (g.status !== "active") return acc;
+      if (g.horizon === "short") acc.short += 1;
+      else if (g.horizon === "medium") acc.medium += 1;
+      else if (g.horizon === "long") acc.long += 1;
+      return acc;
+    },
+    { short: 0, medium: 0, long: 0 },
+  );
 
-      <div className="space-y-3.5">
+  return (
+    <section className="rounded-xl border bg-card p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="font-medium">{t("title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+        {workoutStreak >= 2 ? (
+          <Badge
+            variant="secondary"
+            className="gap-1 self-start text-xs"
+            title={t("workoutStreakTooltip", { count: workoutStreak })}
+          >
+            <span aria-hidden>{workoutStreak >= 5 ? "🔥🔥" : "🔥"}</span>
+            {t("workoutStreakLabel", { count: workoutStreak })}
+          </Badge>
+        ) : null}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Workouts */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t("workouts")}
             </p>
-            {workoutStreak >= 2 ? (
-              <Badge
-                variant="secondary"
-                className="gap-1 text-xs"
-                title={t("workoutStreakTooltip", { count: workoutStreak })}
-              >
-                <span aria-hidden>{workoutStreak >= 5 ? "🔥🔥" : "🔥"}</span>
-                {t("workoutStreakLabel", { count: workoutStreak })}
-              </Badge>
-            ) : null}
+            <span className="text-xs text-muted-foreground">{workouts.length}</span>
           </div>
           {workouts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noWorkouts")}</p>
+            <p className="text-xs text-muted-foreground">{t("noWorkouts")}</p>
           ) : (
-            <div className="space-y-2">
-              <ul className="space-y-1.5">
-                {workoutsGrouped.map((row) => (
-                  <li key={row.key} className="rounded-md bg-muted px-3 py-1.5 text-sm">
-                    <div className="mb-0.5 flex items-center gap-2">
-                      <p className="font-medium">{row.name}</p>
-                      <Badge variant="secondary">{row.recurrence}</Badge>
-                      {row.count > 1 ? <Badge variant="outline">x{row.count}</Badge> : null}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {row.nextDate ? `${t("nextDate")} ${row.nextDate}` : t("noDate")}
+            <ul className="flex flex-col gap-1">
+              {workoutsGrouped.slice(0, 6).map((row) => (
+                <li
+                  key={row.key}
+                  className="flex items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5 text-xs"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{row.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {row.recurrence}
+                      {row.nextDate ? ` · ${row.nextDate}` : ""}
+                    </p>
+                  </div>
+                  {row.count > 1 ? (
+                    <Badge variant="outline" className="text-[10px]">
+                      x{row.count}
+                    </Badge>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {pastWorkouts.length > 0 ? (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                {t("showPastWorkouts", { count: pastWorkouts.length })}
+              </summary>
+              <ul className="mt-2 flex flex-col gap-1">
+                {groupWorkouts(pastWorkouts).map((row) => (
+                  <li
+                    key={row.key}
+                    className="rounded-md border bg-muted/60 px-2 py-1.5"
+                  >
+                    <p className="font-medium">{row.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {row.recurrence} · {row.nextDate}
                     </p>
                   </li>
                 ))}
               </ul>
-
-              {pastWorkouts.length > 0 ? (
-                <details className="group rounded-md border border-dashed px-3 py-2">
-                  <summary className="cursor-pointer list-none text-sm font-medium text-muted-foreground hover:text-foreground">
-                    {t("showPastWorkouts", { count: pastWorkouts.length })}
-                  </summary>
-                  <ul className="mt-3 space-y-1.5">
-                    {groupWorkouts(pastWorkouts).map((row) => (
-                      <li key={row.key} className="rounded-md bg-muted/70 px-3 py-1.5 text-sm">
-                        <div className="mb-0.5 flex items-center gap-2">
-                          <p className="font-medium">{row.name}</p>
-                          <Badge variant="secondary">{row.recurrence}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {t("nextDate")} {row.nextDate}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-            </div>
-          )}
+            </details>
+          ) : null}
         </div>
 
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("habits")}
-          </p>
+        {/* Habits */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("habits")}
+            </p>
+            <span className="text-xs text-muted-foreground">{habits.length}</span>
+          </div>
           {habits.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noHabits")}</p>
+            <p className="text-xs text-muted-foreground">{t("noHabits")}</p>
           ) : (
-            <ul className="space-y-1.5">
-              {habits.map((row) => (
-                <li key={row.id} className="rounded-md bg-muted px-3 py-1.5 text-sm">
-                  <p className="font-medium">{row.name}</p>
-                  <p className="text-xs text-muted-foreground">{row.cadence}</p>
+            <ul className="flex flex-col gap-1">
+              {habits.slice(0, 8).map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5 text-xs"
+                >
+                  <span className="truncate font-medium">{row.name}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {row.cadence}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {/* Goals — compact chip view */}
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t("goals")}
           </p>
+          <div className="flex flex-wrap gap-1.5">
+            <GoalChip label="Corto" count={goalsByHorizon.short} tone="emerald" />
+            <GoalChip label="Medio" count={goalsByHorizon.medium} tone="amber" />
+            <GoalChip label="Largo" count={goalsByHorizon.long} tone="sky" />
+          </div>
           {goals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noGoals")}</p>
+            <p className="text-xs text-muted-foreground">{t("noGoals")}</p>
           ) : (
-            <ul className="space-y-1.5">
-              {goals.slice(0, 8).map((goal) => (
-                <li key={goal.id} className="rounded-md bg-muted px-3 py-1.5 text-sm">
-                  <p className="font-medium">{goal.title}</p>
-                  <p className="text-xs text-muted-foreground">
+            <ul className="flex flex-col gap-1">
+              {goals.slice(0, 4).map((goal) => (
+                <li
+                  key={goal.id}
+                  className="rounded-md border bg-background px-2 py-1.5 text-xs"
+                >
+                  <p className="truncate font-medium">{goal.title}</p>
+                  <p className="text-[10px] text-muted-foreground">
                     {goal.horizon} · {goal.status}
                     {goal.targetDate ? ` · ${goal.targetDate}` : ""}
                   </p>
@@ -185,6 +225,33 @@ export async function ClientSummaryCard({
         </div>
       </div>
     </section>
+  );
+}
+
+function GoalChip({
+  label,
+  count,
+  tone,
+}: {
+  label: string;
+  count: number;
+  tone: "emerald" | "amber" | "sky";
+}) {
+  const palette =
+    count === 0
+      ? "border-border bg-muted/40 text-muted-foreground"
+      : tone === "emerald"
+        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+        : tone === "amber"
+          ? "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300"
+          : "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-300";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${palette}`}
+    >
+      {label}
+      <span className="tabular-nums">{count}</span>
+    </span>
   );
 }
 

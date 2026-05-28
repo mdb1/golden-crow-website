@@ -42,12 +42,8 @@ import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
-import { getClientDailyTimelineDay } from "@/lib/gc-fitness/client-daily-timeline-actions";
-import { buildClientDailyTimelineDates } from "@/lib/gc-fitness/client-daily-timeline-utils";
-import { ClientDailyTimeline } from "./_components/ClientDailyTimeline";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
-import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 
 export const dynamic = "force-dynamic";
 
@@ -124,14 +120,11 @@ export default async function ClientDetailPage({
 
   const displayName = client.displayName ?? client.email ?? id;
   const timezone = client.timezone ?? "UTC";
-  const todayCivil = civilDateToday(timezone);
-  const [notes, progressPhotos, goals, initialDay] = await Promise.all([
+  const [notes, progressPhotos, goals] = await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
     listClientGoals(id),
-    getClientDailyTimelineDay(id, todayCivil),
   ]);
-  const dateWindow = buildClientDailyTimelineDates();
   const tSkeleton = await getTranslations("clients.detail.skeleton");
 
   return (
@@ -171,13 +164,6 @@ export default async function ClientDetailPage({
         />
 
         <ProgressPhotosWidget photos={progressPhotos} clientId={id} />
-
-        <ClientDailyTimeline
-          clientId={id}
-          availableDates={dateWindow}
-          initialDay={initialDay}
-          todayCivil={todayCivil}
-        />
       </div>
     </div>
   );
