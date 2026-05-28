@@ -150,7 +150,19 @@ export function makeColumns(
       header: t("name"),
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-medium">{row.original.name.en || t("untitled")}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{row.original.name.en || t("untitled")}</span>
+            {/* TODO(26-07): replace title="Ejercicio por tiempo" with t("metricTimeBadgeTitle") */}
+            {row.original.metric === "time" ? (
+              <Badge
+                variant="outline"
+                className="px-1.5 py-0 text-[10px]"
+                title="Ejercicio por tiempo"
+              >
+                {"⏱"}
+              </Badge>
+            ) : null}
+          </div>
           {row.original.name.es && (
             <span className="text-xs text-muted-foreground">
               {row.original.name.es}
