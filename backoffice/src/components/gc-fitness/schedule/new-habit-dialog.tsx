@@ -4,21 +4,20 @@
 //
 // Opened from a month-calendar cell. Two modes via a segmented toggle:
 //
-//   • "Crear nuevo"     → embeds the existing HabitForm (clientId + startsOn
-//                         pre-filled with the cell + selected client).
-//   • "Asignar existente" → a searchable picker over the trainer's saved habit
-//                         templates (global + own), mirroring the exercise
-//                         picker used when building a workout. Picking one and
-//                         confirming assigns a copy to this client, starting on
-//                         the cell's day.
+//   • "Asignar existente" (default, left) → a searchable picker over the
+//     trainer's saved habit templates (global + own), mirroring the workout
+//     template picker. Picking one pre-fills the create form with that habit's
+//     values — INCLUDING the full schedule/recurrence editor — so the trainer
+//     can tweak the cadence before assigning.
+//   • "Crear nuevo" (right) → the same form, blank.
 //
-// Both paths land a habit on the same client + day; "existente" just skips the
-// re-typing when the trainer already has the habit defined.
+// Both paths submit through `createHabit`, so the assigned/created habit lands
+// on the same client + day; "existente" just skips the re-typing when the
+// trainer already has the habit defined.
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ChevronLeft, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import {
   Dialog,
@@ -31,7 +30,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HabitForm } from "@/app/gc-fitness/habits/_components/HabitForm";
 import {
-  assignHabitTemplate,
   createHabit,
   listHabitTemplates,
   type HabitTemplateRow,
@@ -55,7 +53,42 @@ const HABIT_TYPE_LABEL: Record<string, string> = {
   "multi-choice": "Opción múltiple",
 };
 
-type Tab = "new" | "existing";
+type Tab = "existing" | "new";
+
+/**
+ * Maps a saved habit template onto the create-form's value shape. The cell's
+ * day overrides the template's own startsOn; everything else (type, name,
+ * description, reminder + full schedule/recurrence) carries over so the form
+ * opens pre-filled and editable.
+ */
+function templateToDefaults(
+  tpl: HabitTemplateRow,
+  clientId: string,
+  startsOn: string,
+): Partial<HabitCreateInput> {
+  return {
+    clientId,
+    type: tpl.type,
+    name: { en: tpl.name.en, es: tpl.name.es },
+    description: tpl.description,
+    options: tpl.options,
+    targetValue: tpl.targetValue,
+    unit: tpl.unit,
+    reminderTime: tpl.reminderTime,
+    reminderEnabled: tpl.reminderEnabled,
+    reminderCadence: tpl.reminderCadence,
+    reminderWeekdays: tpl.reminderWeekdays,
+    reminderDayOfMonth: tpl.reminderDayOfMonth,
+    reminderMonthDays: tpl.reminderMonthDays,
+    scheduleType: tpl.scheduleType,
+    startsOn,
+    endsOn: tpl.endsOn,
+    scheduleCadence: tpl.scheduleCadence,
+    scheduleWeekdays: tpl.scheduleWeekdays,
+    scheduleDayOfMonth: tpl.scheduleDayOfMonth,
+    scheduleMonthDays: tpl.scheduleMonthDays,
+  };
+}
 
 export function NewHabitDialog({
   open,
@@ -65,14 +98,21 @@ export function NewHabitDialog({
   startsOn,
   onCreated,
 }: NewHabitDialogProps) {
-  const [tab, setTab] = useState<Tab>("new");
+  const [tab, setTab] = useState<Tab>("existing");
+  const [selected, setSelected] = useState<HabitTemplateRow | null>(null);
+
+  const clientOptions = [{ uid: clientId, displayName: clientName }];
+  const afterSubmit = () => {
+    onCreated();
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>
-            {tab === "new" ? "Nuevo hábito" : "Asignar hábito existente"}
+            {tab === "existing" ? "Asignar hábito existente" : "Nuevo hábito"}
           </DialogTitle>
           <DialogDescription>
             Cliente: <span className="font-medium">{clientName}</span> · Empieza
@@ -80,18 +120,21 @@ export function NewHabitDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Segmented toggle: create-new vs assign-existing. */}
+        {/* Segmented toggle: assign-existing (left, default) vs create-new. */}
         <div className="inline-flex w-full rounded-lg border p-0.5 text-sm">
           {(
             [
-              ["new", "Crear nuevo"],
               ["existing", "Asignar existente"],
+              ["new", "Crear nuevo"],
             ] as const
           ).map(([value, label]) => (
             <button
               key={value}
               type="button"
-              onClick={() => setTab(value)}
+              onClick={() => {
+                setTab(value);
+                setSelected(null);
+              }}
               className={cn(
                 "flex-1 rounded-md px-3 py-1.5 font-medium transition",
                 tab === value
@@ -108,29 +151,35 @@ export function NewHabitDialog({
           {tab === "new" ? (
             <HabitForm
               mode="create"
-              clientOptions={[{ uid: clientId, displayName: clientName }]}
-              defaultValues={
-                {
-                  clientId,
-                  startsOn,
-                } as Partial<HabitCreateInput>
-              }
+              clientOptions={clientOptions}
+              defaultValues={{ clientId, startsOn } as Partial<HabitCreateInput>}
               hideCancelButton
-              onAfterSubmit={() => {
-                onCreated();
-                onOpenChange(false);
-              }}
+              onAfterSubmit={afterSubmit}
               onSubmit={async (input) => createHabit(input)}
             />
+          ) : selected ? (
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Elegir otro hábito
+              </button>
+              {/* key forces a remount so the form re-seeds from the new pick. */}
+              <HabitForm
+                key={selected.id}
+                mode="create"
+                clientOptions={clientOptions}
+                defaultValues={templateToDefaults(selected, clientId, startsOn)}
+                hideCancelButton
+                onAfterSubmit={afterSubmit}
+                onSubmit={async (input) => createHabit(input)}
+              />
+            </div>
           ) : (
-            <ExistingHabitPicker
-              clientId={clientId}
-              startsOn={startsOn}
-              onAssigned={() => {
-                onCreated();
-                onOpenChange(false);
-              }}
-            />
+            <ExistingHabitPicker onPick={setSelected} />
           )}
         </div>
       </DialogContent>
@@ -139,17 +188,11 @@ export function NewHabitDialog({
 }
 
 function ExistingHabitPicker({
-  clientId,
-  startsOn,
-  onAssigned,
+  onPick,
 }: {
-  clientId: string;
-  startsOn: string;
-  onAssigned: () => void;
+  onPick: (tpl: HabitTemplateRow) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [assigning, setAssigning] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["habit-templates", "calendar-picker"],
@@ -164,26 +207,6 @@ function ExistingHabitPicker({
       `${t.name.en} ${t.name.es}`.toLowerCase().includes(needle),
     );
   }, [templates, search]);
-
-  async function assign() {
-    if (!selectedId) return;
-    setAssigning(true);
-    try {
-      await assignHabitTemplate({
-        templateId: selectedId,
-        clientIds: [clientId],
-        startsOn,
-      });
-      toast.success("Hábito asignado");
-      onAssigned();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo asignar el hábito",
-      );
-    } finally {
-      setAssigning(false);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -209,20 +232,14 @@ function ExistingHabitPicker({
           </li>
         ) : (
           filtered.map((tpl) => {
-            const selected = selectedId === tpl.id;
             const esName =
               tpl.name.es && tpl.name.es !== tpl.name.en ? tpl.name.es : null;
             return (
               <li key={tpl.id}>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(tpl.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition",
-                    selected
-                      ? "bg-primary/10 ring-1 ring-primary"
-                      : "hover:bg-accent",
-                  )}
+                  onClick={() => onPick(tpl)}
+                  className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition hover:bg-accent"
                 >
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">
@@ -243,15 +260,6 @@ function ExistingHabitPicker({
           })
         )}
       </ul>
-      <div className="flex items-center justify-end">
-        <Button
-          type="button"
-          onClick={assign}
-          disabled={!selectedId || assigning}
-        >
-          {assigning ? "Asignando…" : "Asignar hábito"}
-        </Button>
-      </div>
     </div>
   );
 }
