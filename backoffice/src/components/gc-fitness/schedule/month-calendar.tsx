@@ -87,14 +87,14 @@ const WEEKDAY_HEADERS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 // Distinct chip colors per client — stable mod-N pick using the index in
 // the visible roster. Brand-amber stays for the most-selected client.
 const CLIENT_PALETTE = [
-  { chip: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40", dot: "bg-amber-500" },
-  { chip: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/40", dot: "bg-sky-500" },
-  { chip: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40", dot: "bg-emerald-500" },
-  { chip: "bg-violet-500/15 text-violet-800 dark:text-violet-300 border-violet-500/40", dot: "bg-violet-500" },
-  { chip: "bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/40", dot: "bg-rose-500" },
-  { chip: "bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/40", dot: "bg-orange-500" },
-  { chip: "bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border-cyan-500/40", dot: "bg-cyan-500" },
-  { chip: "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/40", dot: "bg-indigo-500" },
+  { chip: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-300" },
+  { chip: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/40", dot: "bg-sky-500", text: "text-sky-700 dark:text-sky-300" },
+  { chip: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40", dot: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-300" },
+  { chip: "bg-violet-500/15 text-violet-800 dark:text-violet-300 border-violet-500/40", dot: "bg-violet-500", text: "text-violet-700 dark:text-violet-300" },
+  { chip: "bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/40", dot: "bg-rose-500", text: "text-rose-700 dark:text-rose-300" },
+  { chip: "bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/40", dot: "bg-orange-500", text: "text-orange-700 dark:text-orange-300" },
+  { chip: "bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border-cyan-500/40", dot: "bg-cyan-500", text: "text-cyan-700 dark:text-cyan-300" },
+  { chip: "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/40", dot: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-300" },
 ];
 
 function paletteFor(clients: ClientLite[], clientId: string) {
@@ -978,16 +978,22 @@ function DayCell({
             ),
           ];
 
-          return orderedIds.map((clientId) => {
+          return orderedIds.map((clientId, gi) => {
             const group = groups.get(clientId)!;
             const palette = paletteFor(clients, clientId);
             const client = clients.find((c) => c.uid === clientId);
             return (
-              <div key={clientId} className="flex flex-col gap-1">
+              <div
+                key={clientId}
+                className={cn(
+                  "flex flex-col gap-1",
+                  gi > 0 && "border-t border-border/70 pt-2",
+                )}
+              >
                 <span
                   className={cn(
-                    "inline-flex max-w-full items-center self-start truncate rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                    palette.chip,
+                    "max-w-full truncate text-[11px] font-semibold uppercase tracking-wide",
+                    palette.text,
                   )}
                 >
                   {client?.displayName ?? clientId}
