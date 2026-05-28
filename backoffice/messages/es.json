@@ -115,6 +115,12 @@
       "thisWeek": "Esta semana",
       "unread": "Sin leer",
       "status": "Estado",
+      "habits": "Hábitos (sem)",
+      "workouts": "Workouts (mes)",
+      "goals": "Goals",
+      "goalsShort": "C",
+      "goalsMedium": "M",
+      "goalsLong": "L",
       "noClientsRow": "Aún no tenés clientes en el plantel."
     },
     "empty": {

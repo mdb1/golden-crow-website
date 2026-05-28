@@ -50,6 +50,22 @@ export interface RosterTableProps {
   trainerUid: string;
 }
 
+function GoalPill({ label, count }: { label: string; count: number }) {
+  const muted = count === 0;
+  return (
+    <span
+      className={
+        muted
+          ? "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-muted-foreground"
+          : "inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-800 dark:text-amber-300"
+      }
+    >
+      <span className="font-semibold uppercase tracking-wide">{label}</span>
+      <span className="tabular-nums">{count}</span>
+    </span>
+  );
+}
+
 export function RosterTable({ rows }: RosterTableProps) {
   const router = useRouter();
   const t = useTranslations("clients");
@@ -112,16 +128,6 @@ export function RosterTable({ rows }: RosterTableProps) {
         },
       },
       {
-        accessorKey: "source",
-        header: tTable("status"),
-        cell: ({ row }) =>
-          row.original.pendingProvisioning ? (
-            <Badge variant="secondary">{tCommon("pendingSignIn")}</Badge>
-          ) : (
-            <Badge variant="default">{tCommon("active")}</Badge>
-          ),
-      },
-      {
         accessorKey: "lastActivityAt",
         header: tTable("lastActivity"),
         cell: ({ row }) => <RelativeTime iso={row.original.lastActivityAt} />,
@@ -136,30 +142,71 @@ export function RosterTable({ rows }: RosterTableProps) {
         },
       },
       {
-        accessorKey: "thisWeekComplianceRatio",
-        header: tTable("thisWeek"),
+        id: "habits",
+        header: tTable("habits"),
+        accessorFn: (row) =>
+          row.habitsScheduledThisWeek > 0
+            ? row.habitsCompletedThisWeek / row.habitsScheduledThisWeek
+            : 0,
         cell: ({ row }) => {
-          const pct = Math.round(
-            Math.max(0, Math.min(1, row.original.thisWeekComplianceRatio)) *
-              100,
-          );
+          const done = row.original.habitsCompletedThisWeek;
+          const scheduled = row.original.habitsScheduledThisWeek;
+          if (scheduled === 0) {
+            return <span className="text-muted-foreground">–</span>;
+          }
+          const pct = Math.round(Math.min(1, done / scheduled) * 100);
           return (
             <div className="flex items-center gap-2">
-              <Progress value={pct} className="h-2 w-20" />
-              <span className="tabular-nums text-sm">{pct}%</span>
+              <Progress value={pct} className="h-2 w-16" />
+              <span className="tabular-nums text-sm">
+                {done}/{scheduled}
+              </span>
             </div>
           );
         },
       },
       {
-        accessorKey: "unreadChatCount",
-        header: tTable("unread"),
-        cell: ({ row }) =>
-          row.original.unreadChatCount > 0 ? (
-            <Badge variant="default">{row.original.unreadChatCount}</Badge>
-          ) : (
-            <span className="text-muted-foreground">–</span>
-          ),
+        id: "workouts",
+        header: tTable("workouts"),
+        accessorFn: (row) =>
+          row.workoutsScheduledThisMonth > 0
+            ? row.workoutsCompletedThisMonth / row.workoutsScheduledThisMonth
+            : 0,
+        cell: ({ row }) => {
+          const done = row.original.workoutsCompletedThisMonth;
+          const scheduled = row.original.workoutsScheduledThisMonth;
+          if (scheduled === 0) {
+            return <span className="text-muted-foreground">–</span>;
+          }
+          const pct = Math.round(Math.min(1, done / scheduled) * 100);
+          return (
+            <div className="flex items-center gap-2">
+              <Progress value={pct} className="h-2 w-16" />
+              <span className="tabular-nums text-sm">
+                {done}/{scheduled}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "goals",
+        header: tTable("goals"),
+        accessorFn: (row) =>
+          row.goalsCount.short + row.goalsCount.medium + row.goalsCount.long,
+        cell: ({ row }) => {
+          const { short, medium, long } = row.original.goalsCount;
+          if (short + medium + long === 0) {
+            return <span className="text-muted-foreground">–</span>;
+          }
+          return (
+            <div className="flex items-center gap-1 text-xs">
+              <GoalPill label={tTable("goalsShort")} count={short} />
+              <GoalPill label={tTable("goalsMedium")} count={medium} />
+              <GoalPill label={tTable("goalsLong")} count={long} />
+            </div>
+          );
+        },
       },
     ],
     // formatReason closes over `t`; tTable/tCommon are used directly in cells.

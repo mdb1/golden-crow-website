@@ -115,6 +115,12 @@
       "thisWeek": "This week",
       "unread": "Unread",
       "status": "Status",
+      "habits": "Habits (wk)",
+      "workouts": "Workouts (mo)",
+      "goals": "Goals",
+      "goalsShort": "S",
+      "goalsMedium": "M",
+      "goalsLong": "L",
       "noClientsRow": "No clients in your roster yet."
     },
     "empty": {

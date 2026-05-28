@@ -45,6 +45,7 @@ import { FirestoreCollections } from "./collections";
 import { civilDateToday } from "./civil-date";
 import {
   computeCompliance,
+  logCountsAsCompleted,
   type HabitLogRow,
 } from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
@@ -105,6 +106,19 @@ export interface ClientRosterRow {
   needsAttention: boolean;
   /** Reasons the predicate fired. Empty when `needsAttention === false`. */
   needsAttentionReasons: AttentionReason[];
+  /** Habit completions in the last 7 calendar days (done / scheduled).
+   *  "done" = non-deleted habit_logs whose civilDate falls in the window and
+   *  whose value passes `boolCompleted`. "scheduled" = sum over the client's
+   *  active habits of how many days the habit's cadence picked in the window. */
+  habitsCompletedThisWeek: number;
+  habitsScheduledThisWeek: number;
+  /** Workouts in the calendar month containing today (client tz when known).
+   *  "completed" = workout_logs with status==="completed" started in-month.
+   *  "scheduled" = workout_assignments with scheduledFor in-month. */
+  workoutsCompletedThisMonth: number;
+  workoutsScheduledThisMonth: number;
+  /** Goal counts on `/client_goals` bucketed by horizon. */
+  goalsCount: { short: number; medium: number; long: number };
 }
 
 /**
@@ -265,6 +279,36 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
 
   const clients = [...activeClients, ...pendingClients];
 
+  // One-shot query: every goal in the trainer's roster, bucketed per client.
+  // Cheaper than fanning out per-client (51+ clients = 1 query vs 51).
+  const goalsByClient = new Map<
+    string,
+    { short: number; medium: number; long: number }
+  >();
+  try {
+    const goalsSnap = await db
+      .collection(FirestoreCollections.clientGoals)
+      .where("coachId", "==", trainer.uid)
+      .get();
+    for (const doc of goalsSnap.docs) {
+      const data = doc.data() as { clientId?: string; horizon?: string };
+      const clientId = typeof data.clientId === "string" ? data.clientId : "";
+      const horizon = data.horizon;
+      if (!clientId) continue;
+      const bucket = goalsByClient.get(clientId) ?? {
+        short: 0,
+        medium: 0,
+        long: 0,
+      };
+      if (horizon === "short") bucket.short += 1;
+      else if (horizon === "medium") bucket.medium += 1;
+      else if (horizon === "long") bucket.long += 1;
+      goalsByClient.set(clientId, bucket);
+    }
+  } catch {
+    // Goals collection might be empty / missing rules — fail soft, render 0/0/0.
+  }
+
   // Helper: pull the latest Date-valued field off a 1-doc snapshot.
   const latestDate = (
     snap: FirebaseFirestore.QuerySnapshot,
@@ -301,6 +345,14 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       const sevenDaysAgoDate = new Date(sevenDaysAgoMs);
       const windowStartCivil = civilDateToday(tzForToday, sevenDaysAgoDate);
 
+      // Month window — civil-date strings clamped to the first/last day of
+      // the calendar month containing `today`. `today` is "YYYY-MM-DD" so
+      // slicing gives a "YYYY-MM" prefix; `<= prefix + "-31"` works because
+      // civil-date strings compare lexicographically — May 31 sorts after
+      // every May day and before any June day.
+      const monthStartCivil = `${today.slice(0, 7)}-01`;
+      const monthEndCivil = `${today.slice(0, 7)}-31`;
+
       const [
         latestWorkoutLog,
         recentHabitLogs,
@@ -309,6 +361,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         clientHabits,
         assignedLast7Snap,
         completedLast7Snap,
+        assignedThisMonthSnap,
+        completedThisMonthSnap,
       ] = await Promise.all([
         db
           .collection(FirestoreCollections.workoutLogs)
@@ -365,6 +419,22 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .where("clientId", "==", c.uid)
           .orderBy("startedAt", "desc")
           .limit(50)
+          .get(),
+        // 260528: assignments scheduled IN this calendar month (string range).
+        db
+          .collection(FirestoreCollections.workoutAssignments)
+          .where("clientId", "==", c.uid)
+          .where("scheduledFor", ">=", monthStartCivil)
+          .where("scheduledFor", "<=", monthEndCivil)
+          .get(),
+        // 260528: completed workout logs in this calendar month. We filter on
+        // status to avoid counting `started`-only sessions; index is just
+        // (clientId, startedAt) so we filter status in memory.
+        db
+          .collection(FirestoreCollections.workoutLogs)
+          .where("clientId", "==", c.uid)
+          .orderBy("startedAt", "desc")
+          .limit(100)
           .get(),
       ]);
 
@@ -493,6 +563,125 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         0,
         assignedCount - completedCount,
       );
+
+      // 260528 — month-window workout counts. Assigned: every
+      // `workout_assignments` doc whose `scheduledFor` falls in this calendar
+      // month. Completed: every workout_log started in-month AND with
+      // `status === "completed"` (a started-but-abandoned log doesn't count).
+      const workoutsScheduledThisMonth = assignedThisMonthSnap.size;
+      const workoutsCompletedThisMonth = completedThisMonthSnap.docs.filter(
+        (doc) => {
+          const raw = doc.get("startedAt");
+          const startedAt =
+            raw && typeof (raw as { toDate?: () => Date }).toDate === "function"
+              ? (raw as { toDate: () => Date }).toDate()
+              : raw instanceof Date
+                ? raw
+                : null;
+          if (!startedAt) return false;
+          const civil = civilDateToday(tzForToday, startedAt);
+          if (civil < monthStartCivil || civil > monthEndCivil) return false;
+          const status = doc.get("status");
+          return status === "completed";
+        },
+      ).length;
+
+      // 260528 — habit counts for the trailing 7 days. "Scheduled" sums each
+      // habit's cadence (daily=7; weekly with weekdays selected = how many of
+      // those weekdays fall in the 7-day window; monthly=at most 1). Logs
+      // already loaded in the per-habit compliance loop above provide the
+      // "completed" count via `boolCompleted` over the same window.
+      let habitsCompletedThisWeek = 0;
+      let habitsScheduledThisWeek = 0;
+      const windowDays: string[] = [];
+      for (let i = 0; i < 7; i += 1) {
+        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        windowDays.push(civilDateToday(tzForToday, d));
+      }
+      const windowSet = new Set(windowDays);
+      for (const hdoc of habitDocs) {
+        const habit = hdoc.data() as {
+          scheduleType?: string;
+          scheduleCadence?: string;
+          scheduleWeekdays?: number[];
+          scheduleDayOfMonth?: number;
+          scheduleMonthDays?: number[];
+        };
+        // scheduleType === "one-time" habits don't appear on per-day
+        // checklists in the trailing-7 sense; skip them here.
+        if (habit.scheduleType === "one-time") continue;
+        const cadence = habit.scheduleCadence ?? "daily";
+        if (cadence === "daily") {
+          habitsScheduledThisWeek += 7;
+        } else if (cadence === "weekly") {
+          const weekdays = Array.isArray(habit.scheduleWeekdays)
+            ? habit.scheduleWeekdays
+            : [];
+          // iOS uses 1=Mon..7=Sun; JS Date.getDay() uses 0=Sun..6=Sat.
+          // Map iOS 7 → JS 0 (Sun), otherwise iOS N → JS N.
+          const normalized = new Set(
+            weekdays.map((d) => (d === 7 ? 0 : d)),
+          );
+          for (const civil of windowDays) {
+            const [y, m, d] = civil.split("-").map(Number);
+            const jsDay = new Date(y, m - 1, d).getDay();
+            if (normalized.has(jsDay)) habitsScheduledThisWeek += 1;
+          }
+        } else if (cadence === "monthly") {
+          const dayOfMonth = habit.scheduleDayOfMonth;
+          const monthDays = Array.isArray(habit.scheduleMonthDays)
+            ? habit.scheduleMonthDays
+            : dayOfMonth
+              ? [dayOfMonth]
+              : [];
+          for (const civil of windowDays) {
+            const day = Number(civil.slice(8, 10));
+            if (monthDays.includes(day)) habitsScheduledThisWeek += 1;
+          }
+        }
+      }
+      // Count completed habit logs in the 7-day window from the SAME logs
+      // already loaded by the per-habit compliance loop above — re-querying
+      // would double the read budget. The compliance loop runs first, so by
+      // the time we're here `complianceCount`/`complianceSum` are populated
+      // but we don't have direct access to the raw logs. Re-fetch the same
+      // habit_logs by habit, but ONLY when there are habits to count — the
+      // limit(50) per habit + clientHabits cap means this fan-out stays
+      // bounded for v1 trainer rosters.
+      for (const hdoc of habitDocs) {
+        const habit = hdoc.data() as { type?: HabitType; targetValue?: number };
+        const habitType: HabitType = (habit.type ?? "binary") as HabitType;
+        const targetValue =
+          typeof habit.targetValue === "number" ? habit.targetValue : undefined;
+        const logsSnap = await db
+          .collection(FirestoreCollections.habitLogs)
+          .where("habitId", "==", hdoc.id)
+          .orderBy("loggedAt", "desc")
+          .limit(50)
+          .get();
+        for (const ldoc of logsSnap.docs) {
+          const data = ldoc.data() as Record<string, unknown>;
+          const civil = typeof data.civilDate === "string" ? data.civilDate : "";
+          if (!windowSet.has(civil)) continue;
+          const row: HabitLogRow = {
+            habitId: (data.habitId as string) ?? "",
+            clientId: (data.clientId as string) ?? "",
+            civilDate: civil,
+            value: data.value as boolean | string | number,
+            unit: typeof data.unit === "string" ? data.unit : undefined,
+            deleted: data.deleted === true,
+          };
+          if (!logCountsAsCompleted(row, habitType, targetValue)) continue;
+          habitsCompletedThisWeek += 1;
+        }
+      }
+
+      const goalsCount = goalsByClient.get(c.uid) ?? {
+        short: 0,
+        medium: 0,
+        long: 0,
+      };
+
       const isPending = c.uid.startsWith("mirror:");
       // Pending sign-in clients are never flagged at-risk: they have no
       // logged activity yet by definition, so the inactivity predicate
@@ -517,6 +706,11 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         missedWorkoutsLast7Days,
         needsAttention: attention.needsAttention,
         needsAttentionReasons: attention.reasons,
+        habitsCompletedThisWeek,
+        habitsScheduledThisWeek,
+        workoutsCompletedThisMonth,
+        workoutsScheduledThisMonth,
+        goalsCount,
       };
     }),
   );
