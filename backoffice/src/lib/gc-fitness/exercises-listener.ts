@@ -225,6 +225,8 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     level: typeof data.level === "string" ? data.level : null,
     category: typeof data.category === "string" ? data.category : null,
     force: typeof data.force === "string" ? data.force : null,
+    // Phase 26-02 — forgiving fallback to "reps" on absent/unknown wire value.
+    metric: data.metric === "time" ? "time" : "reps",
   };
 }
 
