@@ -177,6 +177,137 @@ function habitScheduledDays(
   return out;
 }
 
+export interface AssignmentExercise {
+  index: number;
+  exerciseId: string;
+  exerciseName: string;
+  previewUrl: string | null;
+  sets: number;
+  reps: number;
+  rest_seconds: number;
+  notes: string;
+  repsBySet: number[];
+  weightBySetKg: number[];
+  supersetGroup: string | null;
+}
+
+export interface AssignmentDetail {
+  id: string;
+  clientId: string;
+  clientName: string;
+  scheduledFor: string;
+  scheduledTime: string | null;
+  status: "scheduled" | "started" | "completed" | "missed";
+  templateName: string;
+  templateTag: string | null;
+  meetingNotes: string | null;
+  seriesId: string | null;
+  recurrence: Record<string, unknown> | null;
+  exercises: AssignmentExercise[];
+}
+
+export async function getAssignmentDetail(id: string): Promise<AssignmentDetail> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const ref = db.collection(ASSIGNMENTS).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Not found");
+  const data = snap.data() as Record<string, unknown>;
+  if (data.trainerId !== trainer.uid) throw new Error("Not your assignment.");
+
+  const clientId = typeof data.clientId === "string" ? data.clientId : "";
+  let clientName = clientId;
+  if (clientId) {
+    const userSnap = await db
+      .collection(FirestoreCollections.users)
+      .doc(clientId)
+      .get();
+    const userData = userSnap.data() as {
+      displayName?: string;
+      email?: string;
+    } | undefined;
+    clientName = userData?.displayName ?? userData?.email ?? clientId;
+  }
+
+  const snapshot = (data.templateSnapshot ?? {}) as {
+    name?: unknown;
+    tag?: unknown;
+    exercises?: Array<Record<string, unknown>>;
+  };
+  const rawName = snapshot.name;
+  const templateName =
+    typeof rawName === "string"
+      ? rawName
+      : (rawName as { en?: string; es?: string } | undefined)?.en ??
+        (rawName as { en?: string; es?: string } | undefined)?.es ??
+        "Workout";
+  const templateTag =
+    typeof snapshot.tag === "string" ? snapshot.tag : null;
+  const exercises = Array.isArray(snapshot.exercises) ? snapshot.exercises : [];
+
+  return {
+    id: snap.id,
+    clientId,
+    clientName,
+    scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+    scheduledTime:
+      typeof data.scheduledTime === "string" ? data.scheduledTime : null,
+    status:
+      ((data.status as AssignmentDetail["status"]) ?? "scheduled"),
+    templateName,
+    templateTag,
+    meetingNotes:
+      typeof data.meetingNotes === "string" ? data.meetingNotes : null,
+    seriesId:
+      typeof data.seriesId === "string" ? data.seriesId : null,
+    recurrence:
+      data.recurrence && typeof data.recurrence === "object"
+        ? (data.recurrence as Record<string, unknown>)
+        : null,
+    exercises: exercises.map((ex, idx) => {
+      const exId = typeof ex.exerciseId === "string" ? ex.exerciseId : "";
+      const nameField = ex.name as { en?: string; es?: string } | string | undefined;
+      const exerciseName =
+        typeof nameField === "string"
+          ? nameField
+          : nameField?.en ?? nameField?.es ?? exId ?? `Exercise ${idx + 1}`;
+      return {
+        index: idx,
+        exerciseId: exId,
+        exerciseName,
+        previewUrl:
+          typeof ex.gifUrl === "string"
+            ? ex.gifUrl
+            : typeof ex.imageUrl === "string"
+              ? (ex.imageUrl as string)
+              : typeof ex.thumbnailURL === "string"
+                ? (ex.thumbnailURL as string)
+                : null,
+        sets:
+          typeof ex.sets === "number" && Number.isFinite(ex.sets) ? ex.sets : 3,
+        reps:
+          typeof ex.reps === "number" && Number.isFinite(ex.reps) ? ex.reps : 0,
+        rest_seconds:
+          typeof ex.rest_seconds === "number" && Number.isFinite(ex.rest_seconds)
+            ? ex.rest_seconds
+            : 60,
+        notes: typeof ex.notes === "string" ? ex.notes : "",
+        repsBySet: Array.isArray(ex.repsBySet)
+          ? (ex.repsBySet as number[]).filter((n) => Number.isFinite(n))
+          : [],
+        weightBySetKg: Array.isArray(ex.weightBySetKg)
+          ? (ex.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
+          : [],
+        supersetGroup:
+          typeof ex.supersetGroup === "string" &&
+          ex.supersetGroup.trim().length > 0
+            ? ex.supersetGroup.trim()
+            : null,
+      };
+    }),
+  };
+}
+
 export async function listMonthForClients(input: {
   monthFirstCivil: string; // YYYY-MM-01
   clientIds: string[];

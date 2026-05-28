@@ -29,6 +29,7 @@ import {
 import {
   ArrowRightLeft,
   CalendarCheck,
+  Check as CheckIcon,
   CheckCircle2,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -51,8 +52,8 @@ import {
 } from "@/lib/gc-fitness/schedule-month-actions";
 
 import { AssignTemplateModal } from "./assign-template-modal";
-import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
+import { WorkoutDetailDialog } from "./workout-detail-dialog";
 
 interface ClientLite {
   uid: string;
@@ -245,12 +246,12 @@ export function MonthCalendar({
     | null
   >(null);
 
-  // Click-to-detail / delete (re-uses the existing delete dialog as the
-  // detail+remove surface for v1 — workout detail is one click away).
-  const [deleteTarget, setDeleteTarget] = useState<
-    | { id: string; scheduledFor: string; templateName: string; seriesId: string | null }
-    | null
-  >(null);
+  // Click-a-chip → opens the read-only workout detail dialog. Removal
+  // is reachable from inside that dialog (which then opens the
+  // recurrence-aware delete confirmer).
+  const [detailAssignmentId, setDetailAssignmentId] = useState<string | null>(
+    null,
+  );
 
   // Per-cell "+" assignment opener. We capture (date, suggestedClientId).
   const [assignContext, setAssignContext] = useState<
@@ -320,19 +321,29 @@ export function MonthCalendar({
     <div className="flex flex-col gap-5">
       {/* ── Client filter bar ─────────────────────────────────────────── */}
       <section className="rounded-xl border bg-card/95 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Clientes en pantalla ({selectedIds.size}/{clients.length})
-          </p>
-          <div className="flex items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium">
+              Clientes en pantalla{" "}
+              <span className="text-muted-foreground">
+                ({selectedIds.size}/{clients.length})
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Marcá uno o varios. El calendario va a mostrar sus workouts y hábitos juntos.
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
             <Button
               type="button"
-              variant="ghost"
+              variant={
+                selectedIds.size === clients.length ? "ghost" : "outline"
+              }
               size="sm"
               onClick={selectAll}
               disabled={selectedIds.size === clients.length}
             >
-              Todos
+              Marcar todos
             </Button>
             <Button
               type="button"
@@ -341,11 +352,11 @@ export function MonthCalendar({
               onClick={clearAll}
               disabled={selectedIds.size === 0}
             >
-              Ninguno
+              Limpiar
             </Button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {clients.map((c) => {
             const active = selectedIds.has(c.uid);
             const palette = paletteFor(clients, c.uid);
@@ -356,18 +367,17 @@ export function MonthCalendar({
                 onClick={() => toggleClient(c.uid)}
                 aria-pressed={active}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-opacity",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all",
                   active
-                    ? palette.chip
-                    : "border-border bg-muted/40 text-muted-foreground opacity-60 hover:opacity-100",
+                    ? `${palette.chip} ring-1 ring-current/30`
+                    : "border-dashed border-foreground/30 bg-background text-foreground/70 hover:border-foreground/60 hover:bg-muted/40",
                 )}
               >
-                <span
-                  className={cn(
-                    "inline-block size-2 rounded-full",
-                    active ? palette.dot : "bg-muted-foreground/40",
-                  )}
-                />
+                {active ? (
+                  <CheckIcon className="size-3.5" strokeWidth={3} />
+                ) : (
+                  <PlusIcon className="size-3.5 opacity-70" strokeWidth={2.5} />
+                )}
                 {c.displayName}
               </button>
             );
@@ -456,14 +466,7 @@ export function MonthCalendar({
                 onCellDrop(civil);
               }}
               onDragStartChip={(chip) => setDragChip(chip)}
-              onClickChip={(chip) =>
-                setDeleteTarget({
-                  id: chip.id,
-                  scheduledFor: chip.scheduledFor,
-                  templateName: chip.templateName,
-                  seriesId: chip.seriesId,
-                })
-              }
+              onClickChip={(chip) => setDetailAssignmentId(chip.id)}
               onClickAdd={() => onCellAddClicked(civil)}
             />
           );
@@ -523,20 +526,17 @@ export function MonthCalendar({
         />
       ) : null}
 
-      {/* ── Workout detail / delete dialog (reused) ────────────────────── */}
-      {deleteTarget ? (
-        <WorkoutAssignmentDeleteDialog
+      {/* ── Workout detail dialog (with delete CTA inside) ─────────────── */}
+      {detailAssignmentId ? (
+        <WorkoutDetailDialog
           open
-          onOpenChange={(open) => !open && setDeleteTarget(null)}
-          assignmentId={deleteTarget.id}
-          scheduledFor={deleteTarget.scheduledFor}
-          templateName={deleteTarget.templateName}
-          seriesId={deleteTarget.seriesId}
+          onOpenChange={(open) => !open && setDetailAssignmentId(null)}
+          assignmentId={detailAssignmentId}
           onDeleted={() => {
             queryClient.invalidateQueries({
               queryKey: ["schedule-month", monthFirst, sortedKey],
             });
-            setDeleteTarget(null);
+            setDetailAssignmentId(null);
           }}
         />
       ) : null}
