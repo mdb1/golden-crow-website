@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Trash2, User } from "lucide-react";
+import { CalendarDays, Pencil, Trash2, User } from "lucide-react";
 
 import {
   Dialog,
@@ -33,14 +33,15 @@ import {
 } from "@/lib/gc-fitness/schedule-month-actions";
 
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
+import { WorkoutAssignmentEditDialog } from "./workout-assignment-edit-dialog";
 
 interface WorkoutDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   assignmentId: string;
   /**
-   * Fired after the user confirms a delete and the underlying mutation
-   * resolves. Parent invalidates the calendar query in response.
+   * Fired after the user confirms a delete OR saves an edit and the underlying
+   * mutation resolves. Parent invalidates the calendar query in response.
    */
   onDeleted: () => void;
 }
@@ -84,6 +85,7 @@ export function WorkoutDetailDialog({
   onDeleted,
 }: WorkoutDetailDialogProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["assignment-detail", assignmentId],
@@ -92,15 +94,18 @@ export function WorkoutDetailDialog({
     staleTime: 30_000,
   });
 
-  // Clear the nested delete dialog when the user closes the parent.
+  // Clear the nested dialogs when the user closes the parent.
   useEffect(() => {
-    if (!open) setDeleteOpen(false);
+    if (!open) {
+      setDeleteOpen(false);
+      setEditOpen(false);
+    }
   }, [open]);
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg overflow-hidden">
+        <DialogContent className="sm:max-w-3xl overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-3">
               <span className="truncate">
@@ -146,6 +151,15 @@ export function WorkoutDetailDialog({
               Cerrar
             </Button>
             <Button
+              variant="outline"
+              disabled={!data || isLoading}
+              onClick={() => setEditOpen(true)}
+              className="gap-1"
+            >
+              <Pencil className="size-4" />
+              Editar
+            </Button>
+            <Button
               variant="destructive"
               disabled={!data || isLoading}
               onClick={() => setDeleteOpen(true)}
@@ -157,6 +171,19 @@ export function WorkoutDetailDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {data && editOpen ? (
+        <WorkoutAssignmentEditDialog
+          open={editOpen}
+          onOpenChange={(o) => setEditOpen(o)}
+          assignmentId={data.id}
+          onSaved={() => {
+            setEditOpen(false);
+            onOpenChange(false);
+            onDeleted();
+          }}
+        />
+      ) : null}
 
       {data && deleteOpen ? (
         <WorkoutAssignmentDeleteDialog

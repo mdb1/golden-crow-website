@@ -28,6 +28,7 @@
 
 import { randomUUID } from "node:crypto";
 
+import { z } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
@@ -1238,6 +1239,126 @@ export async function propagateTemplateToFutureAssignments(
   }
 
   return { updatedCount: targets.length };
+}
+
+/**
+ * Edits the per-exercise prescription (reps/kg per set, rest, notes) baked into
+ * an assignment's frozen snapshot. Scope:
+ *   - "one"    → just this assignment
+ *   - "series" → this + every future, still-scheduled assignment in the same
+ *                series (a series is one client's recurring workout, so the
+ *                edit applies uniformly). Past / started / completed docs are
+ *                never touched.
+ *
+ * The edits are keyed by exercise index against each target's own snapshot,
+ * which is safe within a series (same template lineage → same exercise list).
+ */
+const editAssignmentExercisesSchema = z.object({
+  scope: z.enum(["one", "series"]),
+  exercises: z
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        repsBySet: z.array(z.number().int().min(0).max(50)).min(1).max(10),
+        weightBySetKg: z.array(z.number().min(0).max(500)).max(10),
+        rest_seconds: z.number().int().min(0).max(600),
+        notes: z.string().max(500),
+      }),
+    )
+    .max(50),
+});
+
+export async function editAssignmentExercises(
+  id: string,
+  inputRaw: unknown,
+): Promise<{ ok: true; updatedCount: number }> {
+  const trainer = await getCurrentTrainer();
+  const input = editAssignmentExercisesSchema.parse(inputRaw);
+
+  const db = gcFitnessFirestore();
+  const ref = db.collection(ASSIGNMENTS).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Not found");
+  const data = snap.data() as {
+    trainerId?: string;
+    seriesId?: string | null;
+  };
+  if (data.trainerId !== trainer.uid) throw new Error("Not your assignment.");
+
+  const applyEdits = (snapshot: unknown): Record<string, unknown> => {
+    const base =
+      snapshot && typeof snapshot === "object"
+        ? (snapshot as Record<string, unknown>)
+        : {};
+    const exercises = Array.isArray(base.exercises)
+      ? [...(base.exercises as Array<Record<string, unknown>>)]
+      : [];
+    for (const edit of input.exercises) {
+      const cur = exercises[edit.index];
+      if (!cur) continue;
+      exercises[edit.index] = {
+        ...cur,
+        sets: edit.repsBySet.length,
+        reps: edit.repsBySet[0] ?? 0,
+        repsBySet: edit.repsBySet,
+        weightBySetKg: edit.weightBySetKg, // [] = bodyweight / no load
+        rest_seconds: edit.rest_seconds,
+        notes: edit.notes,
+      };
+    }
+    return { ...base, exercises };
+  };
+
+  const targets: Array<{
+    ref: FirebaseFirestore.DocumentReference;
+    snapshot: unknown;
+  }> = [];
+  if (input.scope === "series" && typeof data.seriesId === "string" && data.seriesId) {
+    const today = civilDateFormat(new Date(), "UTC");
+    const seriesSnap = await db
+      .collection(ASSIGNMENTS)
+      .where("trainerId", "==", trainer.uid)
+      .where("seriesId", "==", data.seriesId)
+      .get();
+    for (const d of seriesSnap.docs) {
+      const dd = d.data() as {
+        scheduledFor?: string;
+        status?: string;
+        templateSnapshot?: unknown;
+      };
+      if (
+        typeof dd.scheduledFor === "string" &&
+        dd.scheduledFor >= today &&
+        (!dd.status || dd.status === "scheduled")
+      ) {
+        targets.push({ ref: d.ref, snapshot: dd.templateSnapshot });
+      }
+    }
+    if (targets.length === 0) {
+      targets.push({
+        ref,
+        snapshot: (snap.data() as { templateSnapshot?: unknown })
+          .templateSnapshot,
+      });
+    }
+  } else {
+    targets.push({
+      ref,
+      snapshot: (snap.data() as { templateSnapshot?: unknown })
+        .templateSnapshot,
+    });
+  }
+
+  const batch = db.batch();
+  for (const tgt of targets) {
+    batch.update(tgt.ref, {
+      templateSnapshot: applyEdits(tgt.snapshot),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
+
+  return { ok: true, updatedCount: targets.length };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
