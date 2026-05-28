@@ -121,19 +121,18 @@ const STATUS_PALETTE: Record<
   scheduled: "",
 };
 
-function chipPaletteFor(
-  status: MonthWorkoutChip["status"],
-  clientPaletteClass: string,
-): string {
-  if (status === "scheduled") return clientPaletteClass;
+// Cards are now grouped under a per-client colored header, so the chip itself
+// encodes STATUS ONLY (no client tint) — this removes the old ambiguity where
+// a green client tint looked identical to the green "completed" status.
+// Scheduled → neutral card surface; terminal states keep their status color.
+function workoutChipClass(status: MonthWorkoutChip["status"]): string {
+  if (status === "scheduled") return "border-border bg-card text-foreground";
   return STATUS_PALETTE[status];
 }
 
-function habitChipPaletteFor(
-  status: MonthHabitChip["status"],
-  clientPaletteClass: string,
-): string {
-  if (status === "scheduled") return clientPaletteClass;
+function habitChipClass(status: MonthHabitChip["status"]): string {
+  if (status === "scheduled")
+    return "border-border bg-card text-muted-foreground";
   return STATUS_PALETTE[status];
 }
 
@@ -850,80 +849,112 @@ function DayCell({
         />
       </div>
 
-      <div className="flex flex-1 flex-col gap-1">
-        {workouts.map((w) => {
-          const palette = paletteFor(clients, w.clientId);
-          const client = clients.find((c) => c.uid === w.clientId);
-          const movedFromLabel = w.originallyScheduledFor
-            ? formatMovedFromLabel(
-                w.originallyScheduledFor,
-                w.scheduledFor,
-              )
-            : null;
-          return (
-            <button
-              key={w.id}
-              type="button"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", w.id);
-                onDragStartChip(w);
-              }}
-              onClick={() => onClickChip(w)}
-              className={cn(
-                "group/chip relative flex w-full items-start gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight",
-                chipPaletteFor(w.status, palette.chip),
-                "hover:brightness-95",
-              )}
-              title={
-                movedFromLabel
-                  ? `${client?.displayName ?? ""} · ${w.templateName} — ${movedFromLabel}`
-                  : `${client?.displayName ?? ""} · ${w.templateName}`
-              }
-            >
-              <Dumbbell className="mt-0.5 size-3 shrink-0 opacity-80" />
-              <span className="min-w-0 flex-1 truncate">
-                <span className="block truncate font-semibold">
-                  {client?.displayName ?? ""}
-                </span>
-                <span className="block truncate opacity-90">
-                  {w.templateName}
-                </span>
-              </span>
-              {movedFromLabel ? (
-                <ArrowRightLeft
-                  className="mt-0.5 size-3 shrink-0 opacity-70"
-                  aria-label={movedFromLabel}
-                />
-              ) : null}
-              <StatusDogear status={w.status} />
-            </button>
-          );
-        })}
+      <div className="flex flex-1 flex-col gap-2">
+        {(() => {
+          // Group everything by client so each day reads as
+          // "‹client header› → their workouts + habits". The header carries
+          // the client color; the cards no longer repeat the name.
+          const groups = new Map<
+            string,
+            { workouts: MonthWorkoutChip[]; habits: MonthHabitChip[] }
+          >();
+          const ensure = (id: string) => {
+            let g = groups.get(id);
+            if (!g) {
+              g = { workouts: [], habits: [] };
+              groups.set(id, g);
+            }
+            return g;
+          };
+          for (const w of workouts) ensure(w.clientId).workouts.push(w);
+          for (const h of habits) ensure(h.clientId).habits.push(h);
+          const orderedIds = [
+            ...clients.map((c) => c.uid).filter((id) => groups.has(id)),
+            ...Array.from(groups.keys()).filter(
+              (id) => !clients.some((c) => c.uid === id),
+            ),
+          ];
 
-        {habits.length > 0 ? (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {habits.map((h) => {
-              const palette = paletteFor(clients, h.clientId);
-              return (
-                <button
-                  key={h.id}
-                  type="button"
-                  onClick={() => onClickHabit(h)}
+          return orderedIds.map((clientId) => {
+            const group = groups.get(clientId)!;
+            const palette = paletteFor(clients, clientId);
+            const client = clients.find((c) => c.uid === clientId);
+            return (
+              <div key={clientId} className="flex flex-col gap-1">
+                <span
                   className={cn(
-                    "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
-                    habitChipPaletteFor(h.status, palette.chip),
+                    "inline-flex max-w-full items-center self-start truncate rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                    palette.chip,
                   )}
-                  title={`${h.habitName} · ${h.status}`}
                 >
-                  <HabitStatusGlyph status={h.status} />
-                  <span className="max-w-[80px] truncate">{h.habitName}</span>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+                  {client?.displayName ?? clientId}
+                </span>
+
+                {group.workouts.map((w) => {
+                  const movedFromLabel = w.originallyScheduledFor
+                    ? formatMovedFromLabel(w.originallyScheduledFor, w.scheduledFor)
+                    : null;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", w.id);
+                        onDragStartChip(w);
+                      }}
+                      onClick={() => onClickChip(w)}
+                      className={cn(
+                        "group/chip relative flex w-full items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
+                        workoutChipClass(w.status),
+                      )}
+                      title={
+                        movedFromLabel
+                          ? `${w.templateName} — ${movedFromLabel}`
+                          : w.templateName
+                      }
+                    >
+                      <Dumbbell className="size-3 shrink-0 opacity-80" />
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {w.templateName}
+                      </span>
+                      {movedFromLabel ? (
+                        <ArrowRightLeft
+                          className="size-3 shrink-0 opacity-70"
+                          aria-label={movedFromLabel}
+                        />
+                      ) : null}
+                      <StatusDogear status={w.status} />
+                    </button>
+                  );
+                })}
+
+                {group.habits.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {group.habits.map((h) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => onClickHabit(h)}
+                        className={cn(
+                          "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
+                          habitChipClass(h.status),
+                        )}
+                        title={`${h.habitName} · ${h.status}`}
+                      >
+                        <HabitStatusGlyph status={h.status} />
+                        <span className="max-w-[80px] truncate">
+                          {h.habitName}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          });
+        })()}
       </div>
     </div>
   );
