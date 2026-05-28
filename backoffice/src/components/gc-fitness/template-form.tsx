@@ -64,6 +64,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 import {
   workoutTemplateSchema,
@@ -74,6 +75,12 @@ import { ExercisePickerPopover } from "./exercise-picker-popover";
 import { ExerciseMultiAddDialog } from "./exercise-multi-add-dialog";
 import { TemplateTagsPicker } from "./template-tags-picker";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
+// 26-03 — needed to resolve effectiveMetric for each per-exercise row.
+// The cascade is templateExercise.metric ?? exercise.metric ?? "reps"
+// (PATTERNS.md §16 Shared 1). The exercises listener already powers the
+// ExercisePickerPopover above, so this is a shared-cache hook call (no
+// extra Firestore reads).
+import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
 
 export type TemplateFormMode = "create" | "edit";
 
@@ -208,6 +215,14 @@ export function TemplateForm({
   const [setsDraft, setSetsDraft] = useState<Record<string, string>>({});
   const [setRepsDraft, setSetRepsDraft] = useState<Record<string, string>>({});
   const [setWeightDraft, setSetWeightDraft] = useState<Record<string, string>>({});
+  // 26-03 — Per-set duration draft buffer mirroring setRepsDraft. Keyed by
+  // `${field.id}-${setIdx}` so the controlled Input doesn't thrash RHF state
+  // on every keystroke. Commit happens on blur (matches Reps + Weight UX).
+  const [setDurationDraft, setSetDurationDraft] = useState<Record<string, string>>({});
+  // 26-03 — Exercise-level fallback duration (seconds) draft. Buffered the
+  // same way as Sets / Rest above; commit-on-blur into
+  // `exercises.${index}.durationSeconds`.
+  const [durationSecondsDraft, setDurationSecondsDraft] = useState<Record<string, string>>({});
   const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
   const [step, setStep] = useState<1 | 2>(1);
   const [showSpanishFields, setShowSpanishFields] = useState(false);
@@ -231,6 +246,22 @@ export function TemplateForm({
     control: form.control,
     name: "exercises",
   });
+
+  // 26-03 — Source-exercise lookup map for the effective-metric cascade.
+  // The per-exercise card resolves
+  //   effectiveMetric = templateExercise.metric ?? exercise.metric ?? "reps"
+  // (PATTERNS.md §16 Shared 1). `useExercisesQuery` is the same Firestore
+  // listener that powers ExercisePickerPopover above so this is a shared-
+  // cache call (no extra reads). Map is rebuilt on every snapshot delivery
+  // — cheap; the listener already debounces.
+  const { data: exerciseLibrary } = useExercisesQuery();
+  const exerciseMetricById = useMemo(() => {
+    const m = new Map<string, "reps" | "time">();
+    for (const ex of exerciseLibrary ?? []) {
+      m.set(ex.id, ex.metric);
+    }
+    return m;
+  }, [exerciseLibrary]);
 
   // ---- Draft autosave + restore ------------------------------------------
   //
@@ -344,18 +375,40 @@ export function TemplateForm({
     const safeSets = Math.max(1, Math.min(10, nextSets));
     const repsPath = `exercises.${index}.repsBySet` as const;
     const weightPath = `exercises.${index}.weightBySetKg` as const;
+    // 26-03 — PATTERNS.md §16 Pattern C parallel branch for time-based
+    // sets. We always pad/truncate the duration array alongside reps +
+    // weight so a metric flip later doesn't leave a desynced array
+    // behind.
+    const durationPath = `exercises.${index}.durationBySetSeconds` as const;
     const repsFallback = Number(form.getValues(`exercises.${index}.reps` as const) ?? 10);
+    const durationFallback = Number(
+      form.getValues(`exercises.${index}.durationSeconds` as const) ?? 60,
+    );
     const currentReps = toFiniteNumberArray(form.getValues(repsPath));
     const currentWeight = toFiniteNumberArray(form.getValues(weightPath));
+    const currentDurations = toFiniteNumberArray(form.getValues(durationPath));
 
     const nextReps = Array.from({ length: safeSets }, (_, i) => {
       const v = currentReps[i];
       return Number.isFinite(v) ? v : repsFallback;
     });
     const nextWeight = currentWeight.slice(0, safeSets);
+    // Only persist the duration array when at least one entry is present
+    // — keeps reps-based exercises clean (no stray `durationBySetSeconds:
+    // []` on Firestore docs).
+    const nextDurations =
+      currentDurations.length > 0
+        ? Array.from({ length: safeSets }, (_, i) => {
+            const v = currentDurations[i];
+            return Number.isFinite(v) ? v : durationFallback;
+          })
+        : undefined;
 
     form.setValue(repsPath, nextReps, { shouldDirty: true });
     form.setValue(weightPath, nextWeight, { shouldDirty: true });
+    if (nextDurations !== undefined) {
+      form.setValue(durationPath, nextDurations, { shouldDirty: true });
+    }
   }
 
   const submit = form.handleSubmit(
@@ -388,6 +441,15 @@ export function TemplateForm({
             const cleanedWeights = Array.isArray(ex.weightBySetKg)
               ? ex.weightBySetKg.filter((n): n is number => Number.isFinite(n))
               : [];
+            // 26-03 — Parallel `cleanedDurations` branch per PATTERNS.md
+            // §16 Pattern D. Pad/truncate to canonicalLen the same way
+            // reps + weight are handled so the duration array can never
+            // be out-of-sync with the declared `sets` count.
+            const cleanedDurations = Array.isArray(ex.durationBySetSeconds)
+              ? ex.durationBySetSeconds.filter(
+                  (n): n is number => Number.isFinite(n),
+                )
+              : [];
             const declaredSets =
               typeof ex.sets === "number" && Number.isFinite(ex.sets)
                 ? Math.max(1, Math.min(10, Math.round(ex.sets)))
@@ -398,6 +460,7 @@ export function TemplateForm({
                 declaredSets,
                 cleanedReps.length,
                 cleanedWeights.length,
+                cleanedDurations.length,
                 1,
               ),
             );
@@ -412,12 +475,30 @@ export function TemplateForm({
                   Number.isFinite(cleanedWeights[i]) ? cleanedWeights[i] : 0,
                 )
               : undefined;
+            // 26-03 — Align durations to canonicalLen ONLY when the
+            // trainer authored at least one duration value (or set an
+            // exercise-level fallback). Otherwise we omit the field
+            // entirely so reps-based exercises stay clean on Firestore.
+            const durationFallbackForAlign = Number.isFinite(ex.durationSeconds)
+              ? (ex.durationSeconds as number)
+              : cleanedDurations.find((n) => n > 0);
+            const alignedDurations =
+              cleanedDurations.length > 0
+                ? Array.from({ length: canonicalLen }, (_, i) =>
+                    Number.isFinite(cleanedDurations[i])
+                      ? cleanedDurations[i]
+                      : durationFallbackForAlign ?? 60,
+                  )
+                : undefined;
             return {
               ...ex,
               sets: canonicalLen,
               reps: alignedReps[0] ?? repsFallback,
               ...(alignedReps.length > 0 ? { repsBySet: alignedReps } : {}),
               ...(alignedWeights ? { weightBySetKg: alignedWeights } : {}),
+              ...(alignedDurations
+                ? { durationBySetSeconds: alignedDurations }
+                : {}),
               ...(ex.supersetGroup?.trim()
                 ? { supersetGroup: ex.supersetGroup.trim() }
                 : {}),
@@ -782,7 +863,29 @@ export function TemplateForm({
                 strategy={verticalListSortingStrategy}
               >
                 <ul className="flex flex-col gap-3">
-                  {fields.map((field, index) => (
+                  {fields.map((field, index) => {
+                  // 26-03 — effective-metric cascade per PATTERNS.md §16
+                  // Shared 1: templateExercise.metric ?? exercise.metric
+                  // ?? "reps". `form.watch` here makes the card re-render
+                  // when the trainer flips the chip toggle (or picks a
+                  // different exercise above).
+                  const templateMetric = form.watch(
+                    `exercises.${index}.metric` as const,
+                  );
+                  const selectedExerciseId = form.watch(
+                    `exercises.${index}.exerciseId` as const,
+                  );
+                  const sourceMetric = selectedExerciseId
+                    ? exerciseMetricById.get(selectedExerciseId)
+                    : undefined;
+                  const effectiveMetric: "reps" | "time" =
+                    templateMetric ?? sourceMetric ?? "reps";
+                  // True when the trainer hasn't explicitly chosen a
+                  // per-template override — we show a small "Heredado"
+                  // hint next to the chips so they know the value is
+                  // coming from the source exercise.
+                  const metricInherited = templateMetric === undefined;
+                  return (
                   // Pitfall 3: React key is `field.id` (RHF-internal CUID), NOT
                   // `index` (would break across reorders) and NOT
                   // `field.exerciseId` (collisions on supersets referencing the
@@ -864,6 +967,70 @@ export function TemplateForm({
                         </FormItem>
                       )}
                     />
+
+                    {/* 26-03 — Per-template metric override chips. Two
+                        buttons that read/write `exercises.${index}.metric`:
+                          - "Por reps"   → metric: "reps"
+                          - "Por tiempo" → metric: "time"
+                        When neither is explicitly set the form value is
+                        undefined and the effective metric falls through to
+                        the source exercise's `metric` (PATTERNS.md §16
+                        Shared 1). The "Heredado" hint surfaces that the
+                        current state is inherited (no per-template override).
+                        TODO(26-07): i18n — strings hardcoded in Spanish per
+                        plan; 26-07 lifts them into messages/{es,en}.json. */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {/* TODO(26-07): t("metricLabel") */}
+                        Tipo de prescripción
+                      </span>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() =>
+                          form.setValue(
+                            `exercises.${index}.metric` as const,
+                            "reps",
+                            { shouldDirty: true },
+                          )
+                        }
+                        className={cn(
+                          "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium",
+                          effectiveMetric === "reps"
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border/70 bg-background text-foreground hover:border-foreground/30",
+                        )}
+                      >
+                        {/* TODO(26-07): t("metricRepsCta") */}
+                        Por reps
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() =>
+                          form.setValue(
+                            `exercises.${index}.metric` as const,
+                            "time",
+                            { shouldDirty: true },
+                          )
+                        }
+                        className={cn(
+                          "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium",
+                          effectiveMetric === "time"
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border/70 bg-background text-foreground hover:border-foreground/30",
+                        )}
+                      >
+                        {/* TODO(26-07): t("metricTimeCta") */}
+                        Por tiempo
+                      </button>
+                      {metricInherited ? (
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {/* TODO(26-07): t("metricInherited") */}
+                          Heredado
+                        </span>
+                      ) : null}
+                    </div>
 
                     {/* Sets / Rest. Reps is defined per-set below to avoid double source of truth. */}
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1000,6 +1167,87 @@ export function TemplateForm({
                       />
                     </div>
 
+                    {/* 26-03 — Exercise-level duration fallback. Visible only
+                        when the effective metric is "time"; serves as the
+                        baseline propagated to every set that doesn't have
+                        an explicit durationBySetSeconds[i] entry. Mirrors
+                        the structural role of the per-exercise `reps` field
+                        in reps-based mode (which we hide via this branch).
+                        Buffered on `durationSecondsDraft` and committed on
+                        blur, same pattern as Sets / Rest above. */}
+                    {effectiveMetric === "time" ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Controller
+                          control={form.control}
+                          name={`exercises.${index}.durationSeconds` as const}
+                          render={({ field: numField, fieldState }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {/* TODO(26-07): t("durationSecondsLabel") */}
+                                Duración (seg)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  placeholder="60"
+                                  value={durationSecondsDraft[field.id] ?? (numField.value ?? "")}
+                                  onChange={(e) => {
+                                    if (e.target.value === "") {
+                                      setDurationSecondsDraft((prev) => ({
+                                        ...prev,
+                                        [field.id]: "",
+                                      }));
+                                      return;
+                                    }
+                                    const parsed = Number(e.target.value);
+                                    if (!Number.isFinite(parsed)) return;
+                                    setDurationSecondsDraft((prev) => ({
+                                      ...prev,
+                                      [field.id]: e.target.value,
+                                    }));
+                                  }}
+                                  onBlur={() => {
+                                    const raw = durationSecondsDraft[field.id];
+                                    if (raw === "") {
+                                      setDurationSecondsDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[field.id];
+                                        return next;
+                                      });
+                                      numField.onChange(undefined);
+                                      numField.onBlur();
+                                      return;
+                                    }
+                                    if (raw !== undefined) {
+                                      const parsed = Number(raw);
+                                      if (Number.isFinite(parsed)) {
+                                        const clamped = Math.max(
+                                          5,
+                                          Math.min(1800, Math.round(parsed)),
+                                        );
+                                        numField.onChange(clamped);
+                                      }
+                                    }
+                                    setDurationSecondsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[field.id];
+                                      return next;
+                                    });
+                                    numField.onBlur();
+                                  }}
+                                />
+                              </FormControl>
+                              {fieldState.error && (
+                                <FormMessage>{fieldState.error.message}</FormMessage>
+                              )}
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    ) : null}
+
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="sm:col-span-2">
                         <FormLabel>{t("setRowsTitle")}</FormLabel>
@@ -1009,7 +1257,8 @@ export function TemplateForm({
                               {t("setHeader")}
                             </span>
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {t("reps")}
+                              {/* TODO(26-07): t("secondsHeader") for the time branch */}
+                              {effectiveMetric === "time" ? "Segundos" : t("reps")}
                             </span>
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {t("weightKgShort")}
@@ -1023,14 +1272,26 @@ export function TemplateForm({
                           }).map((_, setIdx) => {
                             const repsPath = `exercises.${index}.repsBySet` as const;
                             const weightPath = `exercises.${index}.weightBySetKg` as const;
+                            // 26-03 — Parallel duration path for time-based sets.
+                            const durationPath = `exercises.${index}.durationBySetSeconds` as const;
                             const repsArray = toFiniteNumberArray(form.getValues(repsPath));
                             const weightArray = toFiniteNumberArray(form.getValues(weightPath));
+                            const durationArray = toFiniteNumberArray(form.getValues(durationPath));
                             const repsFallback = Number(
                               form.getValues(`exercises.${index}.reps` as const) ?? 10,
+                            );
+                            // 26-03 — fallback for time-based sets: prefer
+                            // the exercise-level durationSeconds; if absent,
+                            // default to 60 (matches plank prescription
+                            // baseline used elsewhere in the engine).
+                            const durationFallback = Number(
+                              form.getValues(`exercises.${index}.durationSeconds` as const) ?? 60,
                             );
                             const setKey = `${field.id}-${setIdx}`;
                             const repsValue = setRepsDraft[setKey] ?? (repsArray[setIdx] ?? repsFallback);
                             const weightValue = weightArray[setIdx];
+                            const durationValue =
+                              setDurationDraft[setKey] ?? (durationArray[setIdx] ?? durationFallback);
 
                             return (
                               <div
@@ -1042,73 +1303,175 @@ export function TemplateForm({
                                 <span className="text-xs text-muted-foreground">
                                   {t("setNumber", { count: setIdx + 1 })}
                                 </span>
-                                <Input
-                                  type="text"
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  className="h-10"
-                                  value={repsValue}
-                                  data-set-input="reps"
-                                  data-set-key={setKey}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Tab" && !e.shiftKey) {
-                                      const next = e.currentTarget
-                                        .closest("[data-set-row]")
-                                        ?.querySelector<HTMLInputElement>('[data-set-input="weight"]');
-                                      if (next) {
-                                        e.preventDefault();
-                                        next.focus();
-                                        next.select();
+                                {/* 26-03 — Per-set primary input. When the
+                                    effective metric is "time", the field
+                                    binds to durationBySetSeconds with bounds
+                                    5..1800; otherwise it binds to repsBySet
+                                    with the existing 0..50 bounds. Tab order
+                                    stays row-local: duration/reps → weight
+                                    → next-row's duration/reps (the
+                                    `data-set-input` value swaps to "duration"
+                                    in the time branch; the same
+                                    `[data-set-input="weight"]` query below
+                                    advances regardless of metric). */}
+                                {effectiveMetric === "time" ? (
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="h-10"
+                                    value={durationValue}
+                                    data-set-input="duration"
+                                    data-set-key={setKey}
+                                    placeholder="60"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Tab" && !e.shiftKey) {
+                                        const next = e.currentTarget
+                                          .closest("[data-set-row]")
+                                          ?.querySelector<HTMLInputElement>('[data-set-input="weight"]');
+                                        if (next) {
+                                          e.preventDefault();
+                                          next.focus();
+                                          next.select();
+                                        }
                                       }
-                                    }
-                                  }}
-                                  onChange={(e) => {
-                                    if (e.target.value.trim() === "") {
-                                      setSetRepsDraft((prev) => ({ ...prev, [setKey]: "" }));
-                                      return;
-                                    }
-                                    const next = Number(e.target.value);
-                                    if (!Number.isFinite(next)) return;
-                                    setSetRepsDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
-                                  }}
-                                  onBlur={() => {
-                                    const raw = setRepsDraft[setKey];
-                                    if (raw === "") {
+                                    }}
+                                    onChange={(e) => {
+                                      if (e.target.value.trim() === "") {
+                                        setSetDurationDraft((prev) => ({ ...prev, [setKey]: "" }));
+                                        return;
+                                      }
+                                      const next = Number(e.target.value);
+                                      if (!Number.isFinite(next)) return;
+                                      setSetDurationDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
+                                    }}
+                                    onBlur={() => {
+                                      const raw = setDurationDraft[setKey];
+                                      if (raw === "") {
+                                        setSetDurationDraft((prev) => {
+                                          const next = { ...prev };
+                                          delete next[setKey];
+                                          return next;
+                                        });
+                                        return;
+                                      }
+                                      if (raw !== undefined) {
+                                        const parsed = Number(raw);
+                                        if (Number.isFinite(parsed)) {
+                                          // Clamp to schema bounds (5..1800).
+                                          const clamped = Math.max(
+                                            5,
+                                            Math.min(1800, Math.round(parsed)),
+                                          );
+                                          const current = toFiniteNumberArray(
+                                            form.getValues(durationPath),
+                                          );
+                                          const safeLen = Math.max(
+                                            setIdx + 1,
+                                            current.length,
+                                          );
+                                          const filled = Array.from(
+                                            { length: safeLen },
+                                            (_, i) => {
+                                              const v = current[i];
+                                              return Number.isFinite(v) ? v : durationFallback;
+                                            },
+                                          );
+                                          filled[setIdx] = clamped;
+                                          form.setValue(durationPath, filled, {
+                                            shouldDirty: true,
+                                          });
+                                          // Mirror the exercise-level
+                                          // durationSeconds fallback to the
+                                          // FIRST row (parallels the reps
+                                          // branch above writing
+                                          // `exercises.${index}.reps`).
+                                          if (setIdx === 0) {
+                                            form.setValue(
+                                              `exercises.${index}.durationSeconds` as const,
+                                              clamped,
+                                              { shouldDirty: true },
+                                            );
+                                          }
+                                        }
+                                      }
+                                      setSetDurationDraft((prev) => {
+                                        const next = { ...prev };
+                                        delete next[setKey];
+                                        return next;
+                                      });
+                                    }}
+                                    aria-label={`Duración serie ${setIdx + 1} en segundos`}
+                                  />
+                                ) : (
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="h-10"
+                                    value={repsValue}
+                                    data-set-input="reps"
+                                    data-set-key={setKey}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Tab" && !e.shiftKey) {
+                                        const next = e.currentTarget
+                                          .closest("[data-set-row]")
+                                          ?.querySelector<HTMLInputElement>('[data-set-input="weight"]');
+                                        if (next) {
+                                          e.preventDefault();
+                                          next.focus();
+                                          next.select();
+                                        }
+                                      }
+                                    }}
+                                    onChange={(e) => {
+                                      if (e.target.value.trim() === "") {
+                                        setSetRepsDraft((prev) => ({ ...prev, [setKey]: "" }));
+                                        return;
+                                      }
+                                      const next = Number(e.target.value);
+                                      if (!Number.isFinite(next)) return;
+                                      setSetRepsDraft((prev) => ({ ...prev, [setKey]: e.target.value }));
+                                    }}
+                                    onBlur={() => {
+                                      const raw = setRepsDraft[setKey];
+                                      if (raw === "") {
+                                        setSetRepsDraft((prev) => {
+                                          const next = { ...prev };
+                                          delete next[setKey];
+                                          return next;
+                                        });
+                                        return;
+                                      }
+                                      if (raw !== undefined) {
+                                        const next = Number(raw);
+                                        if (Number.isFinite(next)) {
+                                          const current = toFiniteNumberArray(form.getValues(repsPath));
+                                          const safeLen = Math.max(setIdx + 1, current.length);
+                                          const filled = Array.from({ length: safeLen }, (_, i) => {
+                                            const v = current[i];
+                                            return Number.isFinite(v) ? v : repsFallback;
+                                          });
+                                          filled[setIdx] = next;
+                                          form.setValue(repsPath, filled, { shouldDirty: true });
+                                          if (setIdx === 0) {
+                                            form.setValue(
+                                              `exercises.${index}.reps` as const,
+                                              next,
+                                              { shouldDirty: true },
+                                            );
+                                          }
+                                        }
+                                      }
                                       setSetRepsDraft((prev) => {
                                         const next = { ...prev };
                                         delete next[setKey];
                                         return next;
                                       });
-                                      return;
-                                    }
-                                    if (raw !== undefined) {
-                                      const next = Number(raw);
-                                      if (Number.isFinite(next)) {
-                                        const current = toFiniteNumberArray(form.getValues(repsPath));
-                                        const safeLen = Math.max(setIdx + 1, current.length);
-                                        const filled = Array.from({ length: safeLen }, (_, i) => {
-                                          const v = current[i];
-                                          return Number.isFinite(v) ? v : repsFallback;
-                                        });
-                                        filled[setIdx] = next;
-                                        form.setValue(repsPath, filled, { shouldDirty: true });
-                                        if (setIdx === 0) {
-                                          form.setValue(
-                                            `exercises.${index}.reps` as const,
-                                            next,
-                                            { shouldDirty: true },
-                                          );
-                                        }
-                                      }
-                                    }
-                                    setSetRepsDraft((prev) => {
-                                      const next = { ...prev };
-                                      delete next[setKey];
-                                      return next;
-                                    });
-                                  }}
-                                  aria-label={t("setRepsAria", { count: setIdx + 1 })}
-                                />
+                                    }}
+                                    aria-label={t("setRepsAria", { count: setIdx + 1 })}
+                                  />
+                                )}
                                 <Input
                                   type="text"
                                   inputMode="decimal"
@@ -1131,7 +1494,15 @@ export function TemplateForm({
                                         sibling = sibling.nextElementSibling;
                                       }
                                       if (sibling) {
-                                        const nextReps = sibling.querySelector<HTMLInputElement>('[data-set-input="reps"]');
+                                        // 26-03 — Land on whichever primary
+                                        // input the next row exposes: reps
+                                        // (reps-based exercises) OR duration
+                                        // (time-based). The two selectors
+                                        // are mutually exclusive per row.
+                                        const nextReps =
+                                          sibling.querySelector<HTMLInputElement>(
+                                            '[data-set-input="reps"], [data-set-input="duration"]',
+                                          );
                                         if (nextReps) {
                                           e.preventDefault();
                                           nextReps.focus();
@@ -1198,14 +1569,28 @@ export function TemplateForm({
                                   aria-label={t("setWeightAria", { count: setIdx + 1 })}
                                 />
                                 {/* Copy-to-all affordance on Serie 1 — propagates
-                                    its current reps + kg drafts to every
-                                    subsequent set, then commits via setValue. */}
+                                    its current primary value (reps OR duration)
+                                    + kg drafts to every subsequent set, then
+                                    commits via setValue. 26-03 branches on
+                                    effectiveMetric so a plank prescription
+                                    propagates `durationSeconds` instead of
+                                    `reps`. */}
                                 {setIdx === 0 ? (
                                   <button
                                     type="button"
                                     tabIndex={-1}
-                                    aria-label={t("setCopyToAllAria") ?? "Copiar a todas las series"}
-                                    title={t("setCopyToAllTitle") ?? "Copiar reps y peso a todas las series"}
+                                    aria-label={
+                                      effectiveMetric === "time"
+                                        ? // TODO(26-07): t("setCopyToAllDurationAria")
+                                          "Copiar segundos y peso a todas las series"
+                                        : (t("setCopyToAllAria") ?? "Copiar a todas las series")
+                                    }
+                                    title={
+                                      effectiveMetric === "time"
+                                        ? // TODO(26-07): t("setCopyToAllDurationTitle")
+                                          "Copiar segundos y peso a todas las series"
+                                        : (t("setCopyToAllTitle") ?? "Copiar reps y peso a todas las series")
+                                    }
                                     className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
                                     onClick={() => {
                                       const totalSets = Math.max(
@@ -1217,37 +1602,79 @@ export function TemplateForm({
                                           ),
                                         ),
                                       );
-                                      // Source = the just-typed drafts if
+                                      // Source kg = the just-typed draft if
                                       // present, else the committed value.
-                                      const draftReps = setRepsDraft[setKey];
                                       const draftKg = setWeightDraft[setKey];
-                                      const repsFromForm = toFiniteNumberArray(
-                                        form.getValues(repsPath),
-                                      );
                                       const kgFromForm = toFiniteNumberArray(
                                         form.getValues(weightPath),
                                       );
-                                      const repsSource =
-                                        draftReps !== undefined && draftReps !== ""
-                                          ? Number(draftReps)
-                                          : Number.isFinite(repsFromForm[0])
-                                            ? repsFromForm[0]
-                                            : Number(
-                                                form.getValues(
-                                                  `exercises.${index}.reps` as const,
-                                                ) ?? 0,
-                                              );
                                       const kgSource =
                                         draftKg !== undefined && draftKg !== ""
                                           ? Number(draftKg)
                                           : Number.isFinite(kgFromForm[0])
                                             ? kgFromForm[0]
                                             : NaN;
-                                      const nextReps = Array.from(
-                                        { length: totalSets },
-                                        () => (Number.isFinite(repsSource) ? repsSource : 0),
-                                      );
-                                      form.setValue(repsPath, nextReps, { shouldDirty: true });
+
+                                      if (effectiveMetric === "time") {
+                                        // 26-03 — Time branch: propagate
+                                        // durationSeconds (5..1800 clamp) to
+                                        // every set; kg stays optional for
+                                        // loaded planks.
+                                        const draftDuration = setDurationDraft[setKey];
+                                        const durationsFromForm = toFiniteNumberArray(
+                                          form.getValues(durationPath),
+                                        );
+                                        const durationSourceRaw =
+                                          draftDuration !== undefined && draftDuration !== ""
+                                            ? Number(draftDuration)
+                                            : Number.isFinite(durationsFromForm[0])
+                                              ? durationsFromForm[0]
+                                              : Number(
+                                                  form.getValues(
+                                                    `exercises.${index}.durationSeconds` as const,
+                                                  ) ?? 60,
+                                                );
+                                        const durationSource = Number.isFinite(durationSourceRaw)
+                                          ? Math.max(
+                                              5,
+                                              Math.min(1800, Math.round(durationSourceRaw)),
+                                            )
+                                          : 60;
+                                        const nextDurations = Array.from(
+                                          { length: totalSets },
+                                          () => durationSource,
+                                        );
+                                        form.setValue(durationPath, nextDurations, {
+                                          shouldDirty: true,
+                                        });
+                                        form.setValue(
+                                          `exercises.${index}.durationSeconds` as const,
+                                          durationSource,
+                                          { shouldDirty: true },
+                                        );
+                                      } else {
+                                        // Reps branch — unchanged behavior.
+                                        const draftReps = setRepsDraft[setKey];
+                                        const repsFromForm = toFiniteNumberArray(
+                                          form.getValues(repsPath),
+                                        );
+                                        const repsSource =
+                                          draftReps !== undefined && draftReps !== ""
+                                            ? Number(draftReps)
+                                            : Number.isFinite(repsFromForm[0])
+                                              ? repsFromForm[0]
+                                              : Number(
+                                                  form.getValues(
+                                                    `exercises.${index}.reps` as const,
+                                                  ) ?? 0,
+                                                );
+                                        const nextReps = Array.from(
+                                          { length: totalSets },
+                                          () => (Number.isFinite(repsSource) ? repsSource : 0),
+                                        );
+                                        form.setValue(repsPath, nextReps, { shouldDirty: true });
+                                      }
+
                                       if (Number.isFinite(kgSource)) {
                                         const nextKg = Array.from(
                                           { length: totalSets },
@@ -1260,6 +1687,7 @@ export function TemplateForm({
                                       // state immediately.
                                       setSetRepsDraft({});
                                       setSetWeightDraft({});
+                                      setSetDurationDraft({});
                                     }}
                                   >
                                     ⇊
@@ -1341,7 +1769,8 @@ export function TemplateForm({
                 </Card>
                     )}
                   </SortableExerciseRow>
-                  ))}
+                  );
+                  })}
                 </ul>
               </SortableContext>
             </DndContext>

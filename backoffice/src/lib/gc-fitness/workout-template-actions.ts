@@ -97,6 +97,27 @@ export interface WorkoutTemplateExerciseDetail {
   /** Free-form superset group label (e.g. "A", "B"). Trainer renders
    *  adjacent exercises sharing the same label as a superset block. */
   supersetGroup?: string | null;
+  /**
+   * 26-03 — Per-template metric override carried on the template doc.
+   * `undefined` means "inherit from the source exercise". Consumers
+   * (assign-template-modal) cascade as
+   *   effectiveMetric = override.metric ?? templateMetric ?? exerciseMetric ?? "reps"
+   * (PATTERNS.md §17 + Shared 1).
+   */
+  metric?: "reps" | "time";
+  /**
+   * 26-03 — Source-exercise metric (Exercise.metric, defaulted to
+   * "reps"). Pre-resolved server-side via the same exerciseMap getAll()
+   * batch that resolves `exerciseName` and `previewUrl`, so the modal
+   * doesn't need its own Firestore listener to compute the cascade.
+   */
+  sourceMetric: "reps" | "time";
+  /** 26-03 — Per-set duration prescription (seconds) for time-based
+   *  exercises. Same shape as `repsBySet`. */
+  durationBySetSeconds?: number[];
+  /** 26-03 — Exercise-level duration fallback (seconds). Same shape
+   *  as `reps` for the time branch. */
+  durationSeconds?: number;
 }
 
 /**
@@ -440,6 +461,30 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
       const sourceName = source?.name as { en?: string; es?: string } | undefined;
       const exerciseName =
         sourceName?.en || sourceName?.es || exerciseId || `Exercise ${index + 1}`;
+      // 26-03 — Surface metric + duration fields so the modal can
+      // resolve `effectiveMetric = override ?? template ?? source ??
+      // "reps"` without spawning its own Firestore listener. The
+      // `source` lookup above already runs via getAll() so this is a
+      // zero-cost addition.
+      const rawTemplateMetric = exercise.metric;
+      const templateMetric: "reps" | "time" | undefined =
+        rawTemplateMetric === "reps" || rawTemplateMetric === "time"
+          ? rawTemplateMetric
+          : undefined;
+      const rawSourceMetric = source?.metric;
+      const sourceMetric: "reps" | "time" =
+        rawSourceMetric === "time" ? "time" : "reps";
+      const durationBySetSeconds = Array.isArray(exercise.durationBySetSeconds)
+        ? (exercise.durationBySetSeconds as number[]).filter((n) =>
+            Number.isFinite(n),
+          )
+        : [];
+      const durationSecondsRaw = exercise.durationSeconds;
+      const durationSeconds =
+        typeof durationSecondsRaw === "number" &&
+        Number.isFinite(durationSecondsRaw)
+          ? durationSecondsRaw
+          : undefined;
       return {
         index,
         exerciseId,
@@ -470,6 +515,12 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
           exercise.supersetGroup.trim().length > 0
             ? exercise.supersetGroup.trim()
             : null,
+        ...(templateMetric !== undefined ? { metric: templateMetric } : {}),
+        sourceMetric,
+        ...(durationBySetSeconds.length > 0
+          ? { durationBySetSeconds }
+          : {}),
+        ...(durationSeconds !== undefined ? { durationSeconds } : {}),
       };
     }),
   };

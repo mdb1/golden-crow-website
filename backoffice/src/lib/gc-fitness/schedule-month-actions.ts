@@ -208,6 +208,19 @@ export interface AssignmentExercise {
   repsBySet: number[];
   weightBySetKg: number[];
   supersetGroup: string | null;
+  /**
+   * 26-03 — Effective metric snapshotted on the assignment doc. Reads
+   * from the per-exercise `metric` field on the templateSnapshot.
+   * Missing field decodes to "reps" so legacy assignment docs render
+   * the existing Reps column unchanged.
+   */
+  metric: "reps" | "time";
+  /** 26-03 — Per-set duration prescription (seconds) for time-based
+   *  exercises. Empty array for reps-based or legacy docs. */
+  durationBySetSeconds: number[];
+  /** 26-03 — Exercise-level duration fallback (seconds). Null when not
+   *  prescribed (reps-based) or unset on a time exercise. */
+  durationSeconds: number | null;
 }
 
 export interface AssignmentDetail {
@@ -321,6 +334,20 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
           typeof ex.supersetGroup === "string" &&
           ex.supersetGroup.trim().length > 0
             ? ex.supersetGroup.trim()
+            : null,
+        // 26-03 — Forgiving metric decode (PATTERNS.md §18 + Shared 5).
+        // Unknown / absent values fall back to "reps" so every legacy
+        // assignment doc renders the existing Reps column unchanged.
+        metric: ex.metric === "time" ? "time" : "reps",
+        durationBySetSeconds: Array.isArray(ex.durationBySetSeconds)
+          ? (ex.durationBySetSeconds as number[]).filter((n) =>
+              Number.isFinite(n),
+            )
+          : [],
+        durationSeconds:
+          typeof ex.durationSeconds === "number" &&
+          Number.isFinite(ex.durationSeconds)
+            ? ex.durationSeconds
             : null,
       };
     }),

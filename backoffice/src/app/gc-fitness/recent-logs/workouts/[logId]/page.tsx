@@ -243,7 +243,18 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
                                     ) : null}
                                   </div>
                                 </td>
-                                <td className="py-2 pr-3">{set.reps ?? t("emptyDash")}</td>
+                                <td className="py-2 pr-3">
+                                  {/* 26-03 — Time-set rendering. When the
+                                      log carries a duration_seconds for
+                                      this set, surface it as `{N}s`;
+                                      otherwise fall back to reps (or em-
+                                      dash). Hardcoded `s` suffix mirrors
+                                      the workout-detail-dialog file
+                                      convention until 26-07 i18n pass. */}
+                                  {set.durationSeconds !== null
+                                    ? `${set.durationSeconds}s`
+                                    : (set.reps ?? t("emptyDash"))}
+                                </td>
                                 <td className="py-2 pr-3">
                                   {set.weight !== null
                                     ? `${set.weight} ${t("weightUnit")}`

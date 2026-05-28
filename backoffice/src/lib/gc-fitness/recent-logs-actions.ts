@@ -49,6 +49,14 @@ export interface WorkoutLogDetail {
     exerciseName: string;
     reps: number | null;
     weight: number | null;
+    /**
+     * 26-03 — Per-set elapsed duration (seconds) for time-based
+     * exercises. Snake-case wire field `duration_seconds` (iOS); legacy
+     * `durationSeconds` camel fallback mirrors the existing
+     * weight_kg ?? weight pattern. Null when the set was a reps-based
+     * exercise (or a legacy log written before 26-04 ships).
+     */
+    durationSeconds: number | null;
     completedAt: string | null;
     /** True when this set matches a PR row in the parent workout log's prs[]. */
     isPR: boolean;
@@ -861,6 +869,12 @@ export async function getWorkoutLogDetail(
       reps: numeric(set.reps),
       // Wire field is `weight_kg` (iOS); keep `weight` as a legacy fallback.
       weight: numeric(set.weight_kg ?? set.weight),
+      // 26-03 — Wire field is `duration_seconds` (iOS, snake_case per
+      // PATTERNS.md §15 + Shared 3); keep `durationSeconds` as a
+      // legacy/camel fallback mirroring the weight_kg ?? weight pattern
+      // above. Null when the set was reps-based or pre-26-04 (no field
+      // on the doc).
+      durationSeconds: numeric(set.duration_seconds ?? set.durationSeconds),
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
       isPR: Boolean(pr),

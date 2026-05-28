@@ -125,13 +125,18 @@ export function AssignTemplateModal({
   // per-set table. `sets` is derived from setRows.length on commit; the
   // trainer adds/removes rows via the +/- buttons rather than retyping a
   // count input. Notes + rest_seconds stay exercise-level.
+  //
+  // 26-03 — `duration` is additive (optional) on each row. Populated only
+  // when the effective metric for that exercise is "time"; otherwise it
+  // remains undefined and the submit-time transform omits
+  // `durationBySetSeconds` from the override.
   const [overrideDrafts, setOverrideDrafts] = useState<
     Record<
       number,
       {
         rest_seconds: string;
         notes: string;
-        setRows: Array<{ reps: string; kg: string }>;
+        setRows: Array<{ reps: string; kg: string; duration?: string }>;
       }
     >
   >({});
@@ -177,7 +182,7 @@ export function AssignTemplateModal({
           detail.exercises.reduce<Record<number, {
             rest_seconds: string;
             notes: string;
-            setRows: Array<{ reps: string; kg: string }>;
+            setRows: Array<{ reps: string; kg: string; duration?: string }>;
           }>>((acc, exercise) => {
             // Reconstruct one row per prescribed set. Pull reps from
             // repsBySet[i] if present, otherwise from the exercise-level
@@ -193,15 +198,26 @@ export function AssignTemplateModal({
             const weightBySetKg = Array.isArray(exercise.weightBySetKg)
               ? exercise.weightBySetKg
               : [];
+            // 26-03 — Per-set duration source (time exercises only).
+            const durationBySetSeconds = Array.isArray(
+              exercise.durationBySetSeconds,
+            )
+              ? exercise.durationBySetSeconds
+              : [];
             const rowCount = Math.min(
               10,
               Math.max(
                 exercise.sets ?? 1,
                 repsBySet.length,
                 weightBySetKg.length,
+                durationBySetSeconds.length,
                 1,
               ),
             );
+            // 26-03 — effective metric per PATTERNS.md §17 + Shared 1.
+            // Cascade: template metric ?? source exercise metric ?? "reps".
+            const exerciseEffectiveMetric: "reps" | "time" =
+              exercise.metric ?? exercise.sourceMetric ?? "reps";
             const setRows = Array.from({ length: rowCount }, (_, i) => ({
               reps: String(
                 Number.isFinite(repsBySet[i])
@@ -211,6 +227,15 @@ export function AssignTemplateModal({
               kg: Number.isFinite(weightBySetKg[i])
                 ? String(weightBySetKg[i])
                 : "",
+              ...(exerciseEffectiveMetric === "time"
+                ? {
+                    duration: String(
+                      Number.isFinite(durationBySetSeconds[i])
+                        ? durationBySetSeconds[i]
+                        : exercise.durationSeconds ?? 60,
+                    ),
+                  }
+                : {}),
             }));
             acc[exercise.index] = {
               rest_seconds: String(exercise.rest_seconds),
@@ -244,6 +269,10 @@ export function AssignTemplateModal({
         const draft = overrideDrafts[exercise.index];
         if (!draft) return null;
 
+        // 26-03 — effective metric per PATTERNS.md §17 + Shared 1.
+        const effectiveMetric: "reps" | "time" =
+          exercise.metric ?? exercise.sourceMetric ?? "reps";
+
         // setRows → reps[] + kg[] + sets count, cleaning non-finite entries.
         const repsBySet = draft.setRows
           .map((row) => Number(row.reps))
@@ -252,9 +281,30 @@ export function AssignTemplateModal({
           .map((row) => row.kg.trim())
           .map((raw) => (raw === "" ? NaN : Number(raw)))
           .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : NaN));
+        // 26-03 — Parallel duration cleanup (5..1800 clamp). Only used
+        // when the effective metric is "time"; we still compute it
+        // unconditionally so a metric flip mid-draft doesn't drop the
+        // values the trainer just typed.
+        const durationBySetSeconds = draft.setRows
+          .map((row) => (row.duration ?? "").trim())
+          .map((raw) => (raw === "" ? NaN : Number(raw)))
+          .map((n) =>
+            Number.isFinite(n) ? Math.max(5, Math.min(1800, Math.round(n))) : NaN,
+          );
 
         const validRepsLen = repsBySet.filter((n) => Number.isFinite(n)).length;
-        const finalSets = Math.max(1, Math.min(10, validRepsLen || draft.setRows.length));
+        const validDurationLen = durationBySetSeconds.filter((n) =>
+          Number.isFinite(n),
+        ).length;
+        // Set-count basis follows the primary metric: count the populated
+        // duration entries on time exercises, populated reps entries on
+        // reps exercises.
+        const primaryValidLen =
+          effectiveMetric === "time" ? validDurationLen : validRepsLen;
+        const finalSets = Math.max(
+          1,
+          Math.min(10, primaryValidLen || draft.setRows.length),
+        );
         const finalRepsBySet = repsBySet
           .slice(0, finalSets)
           .map((n) => (Number.isFinite(n) ? n : 0));
@@ -263,6 +313,10 @@ export function AssignTemplateModal({
         const finalWeights = hasAnyWeight
           ? finalWeightsRaw.map((n) => (Number.isFinite(n) ? n : 0))
           : null;
+        // 26-03 — Final duration array for time exercises.
+        const finalDurationBySetSeconds = durationBySetSeconds
+          .slice(0, finalSets)
+          .map((n) => (Number.isFinite(n) ? n : 60));
 
         const nextRest = Number(draft.rest_seconds);
         const nextNotes = draft.notes.trim();
@@ -270,6 +324,11 @@ export function AssignTemplateModal({
         const baseRepsBySet = Array.isArray(exercise.repsBySet) ? exercise.repsBySet : [];
         const baseWeightBySetKg = Array.isArray(exercise.weightBySetKg)
           ? exercise.weightBySetKg
+          : [];
+        const baseDurationBySetSeconds = Array.isArray(
+          exercise.durationBySetSeconds,
+        )
+          ? exercise.durationBySetSeconds
           : [];
 
         const changedSets = finalSets !== exercise.sets;
@@ -285,6 +344,13 @@ export function AssignTemplateModal({
         const changedRest =
           Number.isFinite(nextRest) && nextRest !== exercise.rest_seconds;
         const changedNotes = nextNotes !== (exercise.notes ?? "").trim();
+        // 26-03 — Duration change detection (only relevant when time).
+        const changedDurations =
+          effectiveMetric === "time" &&
+          (finalDurationBySetSeconds.length !== baseDurationBySetSeconds.length ||
+            finalDurationBySetSeconds.some(
+              (v, i) => v !== baseDurationBySetSeconds[i],
+            ));
 
         if (
           !changedSets &&
@@ -292,17 +358,24 @@ export function AssignTemplateModal({
           !changedRepsBySet &&
           !changedWeights &&
           !changedRest &&
-          !changedNotes
+          !changedNotes &&
+          !changedDurations
         ) {
           return null;
         }
         return {
           index: exercise.index,
           ...(changedSets ? { sets: finalSets } : {}),
-          ...(changedReps
+          // 26-03 — For reps exercises keep writing `reps` + `repsBySet`
+          // as today. For time exercises we do NOT write reps at all —
+          // PATTERNS.md §17: "do NOT write both arrays for the same
+          // exercise."
+          ...(effectiveMetric === "reps" && changedReps
             ? { reps: Math.max(0, Math.min(50, Math.round(finalRepsBySet[0] ?? 0))) }
             : {}),
-          ...(changedRepsBySet ? { repsBySet: finalRepsBySet } : {}),
+          ...(effectiveMetric === "reps" && changedRepsBySet
+            ? { repsBySet: finalRepsBySet }
+            : {}),
           ...(changedWeights && finalWeights
             ? { weightBySetKg: finalWeights }
             : {}),
@@ -311,6 +384,10 @@ export function AssignTemplateModal({
             ? { rest_seconds: Math.max(0, Math.min(600, Math.round(nextRest))) }
             : {}),
           ...(changedNotes ? { notes: nextNotes } : {}),
+          // 26-03 — Duration override write (time exercises only).
+          ...(effectiveMetric === "time" && changedDurations
+            ? { durationBySetSeconds: finalDurationBySetSeconds }
+            : {}),
         };
       })
       .filter(
@@ -714,6 +791,11 @@ export function AssignTemplateModal({
             {templateDetail?.exercises.map((exercise, idx) => {
               const draft = overrideDrafts[exercise.index];
               if (!draft) return null;
+              // 26-03 — effective metric cascade per PATTERNS.md §17.
+              // Drives the SEGUNDOS↔REPS header swap + per-row input
+              // field bind below.
+              const effectiveMetric: "reps" | "time" =
+                exercise.metric ?? exercise.sourceMetric ?? "reps";
               const group = exercise.supersetGroup ?? null;
               const prevGroup =
                 idx > 0
@@ -785,7 +867,12 @@ export function AssignTemplateModal({
                   <div className="mt-2 flex flex-col gap-1.5">
                     <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       <span>{t("exerciseOverridesSetHeader")}</span>
-                      <span>{t("exerciseOverridesReps")}</span>
+                      <span>
+                        {/* TODO(26-07): t("exerciseOverridesSeconds") for the time branch */}
+                        {effectiveMetric === "time"
+                          ? "Segundos"
+                          : t("exerciseOverridesReps")}
+                      </span>
                       <span>{t("exerciseOverridesWeightHeader")}</span>
                       <span aria-hidden="true" />
                     </div>
@@ -795,27 +882,55 @@ export function AssignTemplateModal({
                         className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2"
                       >
                         <span className="text-xs text-muted-foreground">{setIdx + 1}</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={row.reps}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setOverrideDrafts((prev) => {
-                              const cur = prev[exercise.index];
-                              const next = cur.setRows.map((r, i) =>
-                                i === setIdx ? { ...r, reps: value } : r,
-                              );
-                              return {
-                                ...prev,
-                                [exercise.index]: { ...cur, setRows: next },
-                              };
-                            });
-                          }}
-                          placeholder={t("exerciseOverridesRepsPlaceholder")}
-                          className="h-9 rounded-md border bg-background px-2 text-sm"
-                        />
+                        {/* 26-03 — Primary input branches on effectiveMetric.
+                            Time exercises bind to row.duration (5..1800
+                            placeholder 60); reps stays as today. */}
+                        {effectiveMetric === "time" ? (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={row.duration ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setOverrideDrafts((prev) => {
+                                const cur = prev[exercise.index];
+                                const next = cur.setRows.map((r, i) =>
+                                  i === setIdx ? { ...r, duration: value } : r,
+                                );
+                                return {
+                                  ...prev,
+                                  [exercise.index]: { ...cur, setRows: next },
+                                };
+                              });
+                            }}
+                            placeholder="60"
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                            aria-label={`Duración serie ${setIdx + 1} en segundos`}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={row.reps}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setOverrideDrafts((prev) => {
+                                const cur = prev[exercise.index];
+                                const next = cur.setRows.map((r, i) =>
+                                  i === setIdx ? { ...r, reps: value } : r,
+                                );
+                                return {
+                                  ...prev,
+                                  [exercise.index]: { ...cur, setRows: next },
+                                };
+                              });
+                            }}
+                            placeholder={t("exerciseOverridesRepsPlaceholder")}
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                          />
+                        )}
                         <input
                           type="text"
                           inputMode="decimal"
@@ -864,14 +979,26 @@ export function AssignTemplateModal({
                         setOverrideDrafts((prev) => {
                           const cur = prev[exercise.index];
                           if (cur.setRows.length >= 10) return prev;
-                          // New row carries the previous row's reps as a
+                          // New row carries the previous row's values as a
                           // sensible default — common case is +1 set with
-                          // same prescription as the prior set.
+                          // same prescription as the prior set. 26-03
+                          // additionally seeds `duration` when the
+                          // effective metric is "time" so the new row
+                          // surfaces a usable number instead of an empty
+                          // string.
                           const last = cur.setRows[cur.setRows.length - 1];
-                          const next = [
-                            ...cur.setRows,
-                            { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
-                          ];
+                          const newRow: {
+                            reps: string;
+                            kg: string;
+                            duration?: string;
+                          } = {
+                            reps: last?.reps ?? "0",
+                            kg: last?.kg ?? "",
+                          };
+                          if (effectiveMetric === "time") {
+                            newRow.duration = last?.duration ?? "60";
+                          }
+                          const next = [...cur.setRows, newRow];
                           return {
                             ...prev,
                             [exercise.index]: { ...cur, setRows: next },
