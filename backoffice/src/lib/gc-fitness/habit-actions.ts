@@ -852,6 +852,10 @@ export async function assignHabitTemplate(input: unknown): Promise<{
     .object({
       templateId: z.string().trim().min(1),
       clientIds: z.array(z.string().trim().min(1)).min(1).max(50),
+      // Optional start-date override. When the trainer assigns from a calendar
+      // cell, the habit should begin on that cell's day rather than inheriting
+      // the template's own startsOn.
+      startsOn: z.string().trim().min(1).optional(),
     })
     .parse(input);
 
@@ -906,7 +910,7 @@ export async function assignHabitTemplate(input: unknown): Promise<{
         ? { reminderMonthDays: template.reminderMonthDays }
         : {}),
       scheduleType: template.scheduleType ?? "recurring",
-      startsOn: template.startsOn ?? todayCivilDateUTC(),
+      startsOn: parsed.startsOn ?? template.startsOn ?? todayCivilDateUTC(),
       ...(template.endsOn ? { endsOn: template.endsOn } : {}),
       ...(template.scheduleCadence
         ? { scheduleCadence: template.scheduleCadence }
