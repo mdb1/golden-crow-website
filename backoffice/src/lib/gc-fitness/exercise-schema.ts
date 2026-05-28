@@ -107,6 +107,22 @@ const tipsSchema = z
   .nullable()
   .optional();
 
+// 26-01 — Per-exercise prescription kind. Defaults to "reps" so every
+// existing wger/fexd seed + legacy trainer-authored doc deserializes
+// unchanged. iOS forgiving decoder maps unknown values → .reps
+// (Exercise.swift ExerciseMetric init(from:)). Mirror enum identifier
+// raw values MUST stay in sync with the Swift `ExerciseMetric` cases
+// across the Pitfall-7 contract surfaces (gc-fitness
+// Packages/GCFitnessCore/Sources/GCFitnessCore/Schema/Exercise.swift).
+//
+// ASYMMETRY: the FORGIVING fallback (unknown → "reps") lives only on
+// the iOS read path. On THIS write path Zod's default enum strictness
+// is correct: an unknown metric string at trainer-authoring time is
+// either a coding bug or a typo — we want the Server Action to surface
+// a clear ZodError, not silently coerce the value to "reps" and ship a
+// wrong-shape doc into Firestore.
+const metricSchema = z.enum(["reps", "time"]).default("reps");
+
 // Phase 24-06 — widened to 3-way to match the ExerciseRow union
 // (exercises-listener.ts:80) + the iOS Source enum (Exercise.swift).
 // Trainer-form ingress for a fexd-* doc with `source: "free-exercise-db"`
@@ -179,6 +195,7 @@ export const exerciseSchema = z.object({
   source: sourceSchema,
   ownerId: z.string().nullable(),
   version: z.number().int().min(1).default(1),
+  metric: metricSchema,
 });
 
 // Partial — used by `updateExercise` which patches subsets of the shape.

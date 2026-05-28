@@ -109,6 +109,11 @@ function buildDefaults(
     source: passed?.source ?? (mode === "view" ? "wger" : "trainer"),
     ownerId: passed?.ownerId ?? null,
     version: passed?.version ?? 1,
+    // 26-01 — Per-exercise prescription kind. Defaults to "reps" so every
+    // existing exercise (and every new exercise created before the 26-02
+    // metric-chooser UI lands) round-trips through the form unchanged.
+    // The metric chooser radio chips ship in Plan 26-02.
+    metric: passed?.metric ?? "reps",
   };
 }
 

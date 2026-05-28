@@ -69,6 +69,17 @@ const assignmentExerciseOverrideSchema = z.object({
   notes: z.string().max(500).optional(),
   weightBySetKg: z.array(z.number().min(0).max(500)).max(10).optional(),
   repsBySet: z.array(z.number().int().min(1).max(50)).max(10).optional(),
+  // 26-01 — Per-client override mirrors of the template-side metric +
+  // duration fields. Optional and permissive: a trainer assigning a
+  // plank to a single client may tweak ONLY the per-set duration array
+  // without restating the metric, so we do not impose the template-side
+  // "metric: time requires duration" superRefine here. PATTERNS.md §14.
+  metric: z.enum(["reps", "time"]).optional(),
+  durationBySetSeconds: z
+    .array(z.number().int().min(5).max(1800))
+    .max(10)
+    .optional(),
+  durationSeconds: z.number().int().min(5).max(1800).optional(),
 });
 
 /**
