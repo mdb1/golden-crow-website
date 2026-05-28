@@ -7,7 +7,13 @@ import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients } from "./client-roster";
 
-export type RecentLogCategory = "habit" | "workout" | "photo" | "weight" | "signup";
+export type RecentLogCategory =
+  | "habit"
+  | "workout"
+  | "reschedule"
+  | "photo"
+  | "weight"
+  | "signup";
 
 export interface RecentLogRow {
   id: string;
@@ -135,6 +141,24 @@ function isoOrEpoch(iso: string | null): number {
 }
 
 /**
+ * Format a `"YYYY-MM-DD"` civil-date as a Spanish weekday + day label
+ * ("lunes 26 may"). UTC-anchored parse keeps the labelled weekday
+ * stable across server / client timezones.
+ */
+function formatCivilDateEsAr(civilDate: string): string {
+  const parts = civilDate.split("-");
+  if (parts.length !== 3) return civilDate;
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return civilDate;
+  return new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+/**
  * Whether a habit doc is scheduled on a given civil date. Mirrors the
  * `isHabitActiveOnDate` helper in client-daily-timeline-actions.ts —
  * inlined here to avoid widening the timeline module's export surface.
@@ -235,6 +259,15 @@ export async function listRecentLogsForTrainer(): Promise<{
     .where("trainerId", "==", trainer.uid)
     .limit(600)
     .get();
+  // Trainer-scoped assignments — used to surface the "client moved
+  // workout from X to Y" reschedule activity. No orderBy keeps this on
+  // the existing single-field trainerId index; we filter in memory to
+  // the docs that carry originallyScheduledFor (always a small subset).
+  const trainerAssignmentsPromise = db
+    .collection(FirestoreCollections.workoutAssignments)
+    .where("trainerId", "==", trainer.uid)
+    .limit(600)
+    .get();
   const usersSnapPromise = db
     .collection(FirestoreCollections.users)
     .where("coachId", "==", trainer.uid)
@@ -296,6 +329,7 @@ export async function listRecentLogsForTrainer(): Promise<{
     photoSnaps,
     weightSnaps,
     habitsSnaps,
+    trainerAssignmentsSnap,
   ] = await Promise.all([
     workoutLogsPromise,
     usersSnapPromise,
@@ -303,6 +337,7 @@ export async function listRecentLogsForTrainer(): Promise<{
     Promise.all(photoPromises),
     Promise.all(weightPromises),
     Promise.all(habitsPromises),
+    trainerAssignmentsPromise,
   ]);
 
   // Rewrap as a flat array so the rest of the function (which expects
@@ -464,6 +499,47 @@ export async function listRecentLogsForTrainer(): Promise<{
           : `${nameByClientId.get(clientId) ?? clientId} - Workout started: ${templateName}`,
       detail: `${templateName} · ${sets} sets`,
       workoutLogId: doc.id,
+    });
+  });
+
+  // Reschedule activity — any trainer-owned assignment carrying a
+  // non-empty `originallyScheduledFor` that differs from `scheduledFor`
+  // means the athlete shifted the workout from the iOS surface (either
+  // via the calendar long-press or the "start and move to today" flow).
+  // We surface this as its own feed entry so the trainer sees the
+  // change without having to compare days manually.
+  trainerAssignmentsSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const clientId = typeof data.clientId === "string" ? data.clientId : "";
+    if (!clientId || !nameByClientId.has(clientId)) return;
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    const originallyScheduledFor =
+      typeof data.originallyScheduledFor === "string"
+        ? data.originallyScheduledFor
+        : "";
+    if (!scheduledFor || !originallyScheduledFor) return;
+    if (scheduledFor === originallyScheduledFor) return;
+    // updatedAt is bumped by every assignment write, so it tracks the
+    // moment the move (or the most recent reschedule + lifecycle flip)
+    // landed. Fall back to createdAt for ancient docs lacking the field.
+    const eventAt = asIso(data.updatedAt) ?? asIso(data.createdAt);
+    if (!eventAt) return;
+    const templateName = localizedText(
+      (data.templateSnapshot as { name?: unknown } | undefined)?.name,
+      "Workout",
+    );
+    const fromLabel = formatCivilDateEsAr(originallyScheduledFor);
+    const toLabel = formatCivilDateEsAr(scheduledFor);
+    rows.push({
+      id: `reschedule:${doc.id}`,
+      category: "reschedule",
+      eventAt,
+      clientId,
+      clientName: nameByClientId.get(clientId) ?? clientId,
+      title: `${nameByClientId.get(clientId) ?? clientId} moved ${templateName} from ${fromLabel} to ${toLabel}`,
+      detail: `Originally ${fromLabel} → ${toLabel}`,
+      workoutLogId: null,
     });
   });
 

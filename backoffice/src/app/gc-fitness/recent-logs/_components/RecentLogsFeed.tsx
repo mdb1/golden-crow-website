@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  ArrowRightLeft,
   MessageCircle,
   Filter,
   Dumbbell,
@@ -89,6 +90,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 <SelectItem value="all">{t("allActivity")}</SelectItem>
                 <SelectItem value="habit">{t("habitsOption")}</SelectItem>
                 <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
+                <SelectItem value="reschedule">{t("reschedulesOption")}</SelectItem>
                 {/* Chat removed: Phase 15 unread badges cover the "client said
                     something" surface natively. */}
                 <SelectItem value="photo">{t("photosOption")}</SelectItem>
@@ -122,6 +124,11 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                     <Badge className="gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-50">
                       <Dumbbell className="h-3.5 w-3.5" />
                       {t("badgeWorkout")}
+                    </Badge>
+                  ) : row.category === "reschedule" ? (
+                    <Badge className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      {t("badgeReschedule")}
                     </Badge>
                   ) : row.category === "photo" ? (
                     <Badge className="gap-1 border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-50">
