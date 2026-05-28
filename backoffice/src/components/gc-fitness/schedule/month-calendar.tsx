@@ -176,6 +176,26 @@ function monthLabel(monthFirst: string): string {
   return `${MONTH_LABELS_ES[m - 1]} ${y}`;
 }
 
+type CalendarView = "month" | "week" | "3day";
+
+/** Monday-first index: 0=Mon … 6=Sun. */
+function mondayIndex(civil: string): number {
+  const [y, m, d] = civil.split("-").map(Number);
+  const gd = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=Sun..6=Sat
+  return gd === 0 ? 6 : gd - 1;
+}
+
+/** Monday that starts the week containing `civil`. */
+function startOfWeekMon(civil: string): string {
+  return addCivilDays(civil, -mondayIndex(civil));
+}
+
+/** "28 May" style short label for range headers. */
+function shortDateLabel(civil: string): string {
+  const [, m, d] = civil.split("-").map(Number);
+  return `${d} ${MONTH_LABELS_ES[m - 1].slice(0, 3)}`;
+}
+
 function clientInitials(name: string): string {
   return name
     .split(/\s+/)
@@ -199,6 +219,8 @@ export function MonthCalendar({
   const [, startUrlTransition] = useTransition();
 
   const [monthFirst, setMonthFirst] = useState(initialMonthFirst);
+  const [view, setView] = useState<CalendarView>("month");
+  const [anchor, setAnchor] = useState(todayCivil);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(initialClientIds),
   );
@@ -208,19 +230,42 @@ export function MonthCalendar({
     [selectedIds],
   );
 
+  // Active window for week / 3-day views (null in month view, where the whole
+  // month is fetched from monthFirst instead).
+  const range = useMemo(() => {
+    if (view === "week") {
+      const start = startOfWeekMon(anchor);
+      return { start, end: addCivilDays(start, 6) };
+    }
+    if (view === "3day") return { start: anchor, end: addCivilDays(anchor, 2) };
+    return null;
+  }, [view, anchor]);
+
   const { data, isFetching } = useQuery({
-    queryKey: ["schedule-month", monthFirst, sortedKey],
+    queryKey: [
+      "schedule",
+      view,
+      range ? `${range.start}_${range.end}` : monthFirst,
+      sortedKey,
+    ],
     queryFn: () =>
-      listMonthForClients({
-        monthFirstCivil: monthFirst,
-        clientIds: Array.from(selectedIds),
-        todayCivil,
-      }),
+      range
+        ? listMonthForClients({
+            startCivil: range.start,
+            endCivil: range.end,
+            clientIds: Array.from(selectedIds),
+            todayCivil,
+          })
+        : listMonthForClients({
+            monthFirstCivil: monthFirst,
+            clientIds: Array.from(selectedIds),
+            todayCivil,
+          }),
     placeholderData: (prev) => prev,
     initialData:
+      view === "month" &&
       monthFirst === initialMonthFirst &&
-      sortedKey ===
-        Array.from(new Set(initialClientIds)).sort().join(",")
+      sortedKey === Array.from(new Set(initialClientIds)).sort().join(",")
         ? initialPayload
         : undefined,
   });
@@ -331,7 +376,7 @@ export function MonthCalendar({
           : `${movedCount} workouts movidos`,
       );
       queryClient.invalidateQueries({
-        queryKey: ["schedule-month", monthFirst, sortedKey],
+        queryKey: ["schedule"],
       });
     },
     onError: (err) => {
@@ -356,7 +401,32 @@ export function MonthCalendar({
     });
   }
 
-  const { cells } = buildGrid(monthFirst);
+  const cells: { civil: string; inMonth: boolean }[] = range
+    ? Array.from({ length: view === "week" ? 7 : 3 }, (_, i) => ({
+        civil: addCivilDays(range.start, i),
+        inMonth: true,
+      }))
+    : buildGrid(monthFirst).cells;
+  const gridColsClass = view === "3day" ? "grid-cols-3" : "grid-cols-7";
+  // Week / 3-day cells are roomier (fewer rows on screen).
+  const cellMinHClass = view === "month" ? "min-h-[120px]" : "min-h-[420px]";
+
+  // Prev / next + "Hoy" behave per view (shift month vs shift the anchor).
+  function goPrev() {
+    if (view === "month") setMonthAndSync(shiftMonth(monthFirst, -1));
+    else setAnchor(addCivilDays(anchor, view === "week" ? -7 : -3));
+  }
+  function goNext() {
+    if (view === "month") setMonthAndSync(shiftMonth(monthFirst, 1));
+    else setAnchor(addCivilDays(anchor, view === "week" ? 7 : 3));
+  }
+  function goToday() {
+    setAnchor(todayCivil);
+    if (view === "month") setMonthAndSync(`${todayCivil.slice(0, 7)}-01`);
+  }
+  const rangeTitle = range
+    ? `${shortDateLabel(range.start)} – ${shortDateLabel(range.end)}`
+    : monthLabel(monthFirst);
 
   function openNewHabit(date: string, clientId: string) {
     const c = clients.find((x) => x.uid === clientId);
@@ -477,36 +547,54 @@ export function MonthCalendar({
         </div>
       </section>
 
-      {/* ── Month nav ─────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between gap-3">
+      {/* ── Calendar nav + view switcher ──────────────────────────────── */}
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMonthAndSync(shiftMonth(monthFirst, -1))}
-            aria-label="Mes anterior"
+            onClick={goPrev}
+            aria-label="Anterior"
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </Button>
-          <h2 className="min-w-[14ch] text-center text-2xl font-semibold tracking-tight">
-            {monthLabel(monthFirst)}
+          <h2 className="min-w-[12ch] text-center text-2xl font-semibold tracking-tight">
+            {rangeTitle}
           </h2>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMonthAndSync(shiftMonth(monthFirst, 1))}
-            aria-label="Mes próximo"
+            onClick={goNext}
+            aria-label="Siguiente"
           >
             <ChevronRightIcon className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setMonthAndSync(`${todayCivil.slice(0, 7)}-01`)}
-          >
+          <div className="inline-flex rounded-lg border p-0.5">
+            {(
+              [
+                ["month", "Mes"],
+                ["week", "Semana"],
+                ["3day", "3 días"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setView(value)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium transition",
+                  view === value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={goToday}>
             Hoy
           </Button>
           {isFetching ? (
@@ -516,16 +604,27 @@ export function MonthCalendar({
       </header>
 
       {/* ── Weekday header row ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-7 gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {WEEKDAY_HEADERS.map((d) => (
-          <div key={d} className="text-center">
-            {d}
-          </div>
-        ))}
+      <div
+        className={cn(
+          "grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+          gridColsClass,
+        )}
+      >
+        {view === "month"
+          ? WEEKDAY_HEADERS.map((d) => (
+              <div key={d} className="text-center">
+                {d}
+              </div>
+            ))
+          : cells.map(({ civil }) => (
+              <div key={civil} className="text-center">
+                {WEEKDAY_HEADERS[mondayIndex(civil)]} {shortDateLabel(civil)}
+              </div>
+            ))}
       </div>
 
-      {/* ── Month grid ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-7 gap-2">
+      {/* ── Calendar grid ──────────────────────────────────────────────── */}
+      <div className={cn("grid gap-2", gridColsClass)}>
         {cells.map(({ civil, inMonth }) => {
           const workouts = showWorkouts
             ? (payload.workoutsByDay[civil] ?? []).filter((w) =>
@@ -551,6 +650,7 @@ export function MonthCalendar({
               clients={clients}
               showWorkouts={showWorkouts}
               showHabits={showHabits}
+              cellMinHClass={cellMinHClass}
               isDragOver={dragOverDay === civil}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -694,7 +794,7 @@ export function MonthCalendar({
           defaultDate={assignContext.date}
           onAssigned={() => {
             queryClient.invalidateQueries({
-              queryKey: ["schedule-month", monthFirst, sortedKey],
+              queryKey: ["schedule"],
             });
             setAssignContext(null);
           }}
@@ -709,7 +809,7 @@ export function MonthCalendar({
           assignmentId={detailAssignmentId}
           onDeleted={() => {
             queryClient.invalidateQueries({
-              queryKey: ["schedule-month", monthFirst, sortedKey],
+              queryKey: ["schedule"],
             });
             setDetailAssignmentId(null);
           }}
@@ -726,7 +826,7 @@ export function MonthCalendar({
           clientName={detailHabit.clientName}
           onChanged={() => {
             queryClient.invalidateQueries({
-              queryKey: ["schedule-month", monthFirst, sortedKey],
+              queryKey: ["schedule"],
             });
             setDetailHabit(null);
           }}
@@ -743,7 +843,7 @@ export function MonthCalendar({
           startsOn={newHabitContext.date}
           onCreated={() => {
             queryClient.invalidateQueries({
-              queryKey: ["schedule-month", monthFirst, sortedKey],
+              queryKey: ["schedule"],
             });
             setNewHabitContext(null);
           }}
@@ -791,6 +891,7 @@ interface DayCellProps {
   clients: ClientLite[];
   showWorkouts: boolean;
   showHabits: boolean;
+  cellMinHClass: string;
   isDragOver: boolean;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
@@ -811,6 +912,7 @@ function DayCell({
   clients,
   showWorkouts,
   showHabits,
+  cellMinHClass,
   isDragOver,
   onDragOver,
   onDragLeave,
@@ -826,7 +928,8 @@ function DayCell({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "group relative flex min-h-[120px] flex-col rounded-lg border bg-card p-2 transition-colors",
+        "group relative flex flex-col rounded-lg border bg-card p-2 transition-colors",
+        cellMinHClass,
         !inMonth && "bg-muted/20 opacity-60",
         isToday && "ring-2 ring-amber-500",
         isDragOver && "border-amber-500 bg-amber-50/50 dark:bg-amber-900/10",

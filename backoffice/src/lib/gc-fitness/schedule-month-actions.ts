@@ -328,15 +328,26 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
 }
 
 export async function listMonthForClients(input: {
-  monthFirstCivil: string; // YYYY-MM-01
+  /** Month mode: any day in the target month (YYYY-MM-01 typical). */
+  monthFirstCivil?: string;
+  /** Range mode (week / 3-day views): explicit inclusive civil-date bounds. */
+  startCivil?: string;
+  endCivil?: string;
   clientIds: string[];
   todayCivil: string;
 }): Promise<MonthCalendarPayload> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
-  const monthStart = `${input.monthFirstCivil.slice(0, 7)}-01`;
-  const monthEnd = lastDayOfMonth(monthStart);
+  // Either an explicit [startCivil, endCivil] range (week / 3-day views) or a
+  // whole month derived from monthFirstCivil (default month view). The rest of
+  // this function only ever reads monthStart / monthEnd, so both modes share
+  // the exact same query + habit-expansion path.
+  const monthStart =
+    input.startCivil ??
+    `${(input.monthFirstCivil ?? input.todayCivil).slice(0, 7)}-01`;
+  const monthEnd =
+    input.endCivil ?? lastDayOfMonth(`${monthStart.slice(0, 7)}-01`);
 
   if (input.clientIds.length === 0) {
     return { monthStart, monthEnd, workoutsByDay: {}, habitsByDay: {} };
