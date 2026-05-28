@@ -409,6 +409,8 @@
       "weightBySetKgHint": "Optional preload weights used as defaults per set.",
       "setRowsTitle": "Per-set detail",
       "setRowsHint": "Fill reps and weight for each set using separate rows.",
+      "setCopyToAllAria": "Copy reps and weight to all sets",
+      "setCopyToAllTitle": "Copy reps and weight to all sets",
       "setHeader": "Set",
       "weightKgShort": "Kg",
       "setNumber": "Set {count}",

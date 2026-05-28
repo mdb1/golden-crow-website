@@ -409,6 +409,8 @@
       "weightBySetKgHint": "Opcional. Pre-carga de pesos por serie.",
       "setRowsTitle": "Detalle por serie",
       "setRowsHint": "Cargá reps y peso por cada serie en filas separadas.",
+      "setCopyToAllAria": "Copiar reps y peso a todas las series",
+      "setCopyToAllTitle": "Copiar reps y peso a todas las series",
       "setHeader": "Serie",
       "weightKgShort": "Kg",
       "setNumber": "Serie {count}",

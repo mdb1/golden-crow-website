@@ -877,6 +877,7 @@ export function TemplateForm({
                                 type="text"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
+                                data-field-sets={index}
                                 value={setsDraft[field.id] ?? (numField.value ?? "")}
                                 onChange={(e) =>
                                   {
@@ -1031,7 +1032,8 @@ export function TemplateForm({
                               <div
                                 key={`${field.id}-set-${setIdx + 1}`}
                                 data-set-row={setKey}
-                                className="grid grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
+                                data-set-idx={setIdx}
+                                className="grid grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
                               >
                                 <span className="text-xs text-muted-foreground">
                                   {t("setNumber", { count: setIdx + 1 })}
@@ -1112,16 +1114,14 @@ export function TemplateForm({
                                   data-set-key={setKey}
                                   onKeyDown={(e) => {
                                     if (e.key === "Tab" && !e.shiftKey) {
-                                      // Jump to the next Serie row's reps
-                                      // input. We scope the lookup to all
-                                      // data-set-row siblings of the
-                                      // current row so cross-exercise
-                                      // tabbing keeps natural flow at the
-                                      // last row (let Tab fall through).
+                                      // Same-card next-row reps OR fall
+                                      // through to the card's Notes textarea
+                                      // when this is the last set row. We
+                                      // never let Tab land on the Copy
+                                      // button or on the row container
+                                      // itself.
                                       const currentRow = e.currentTarget.closest("[data-set-row]");
                                       if (!currentRow) return;
-                                      // Search within the same exercise card
-                                      // by walking only sibling data-set-rows.
                                       let sibling = currentRow.nextElementSibling;
                                       while (sibling && !sibling.matches("[data-set-row]")) {
                                         sibling = sibling.nextElementSibling;
@@ -1132,7 +1132,20 @@ export function TemplateForm({
                                           e.preventDefault();
                                           nextReps.focus();
                                           nextReps.select();
+                                          return;
                                         }
+                                      }
+                                      // Last row → jump to this exercise's
+                                      // Notes textarea (data-field-notes is
+                                      // unique per card).
+                                      const card = currentRow.closest("li") ??
+                                        currentRow.closest("[data-exercise-card]")?.parentElement;
+                                      const notes = card?.querySelector<HTMLTextAreaElement>(
+                                        "[data-field-notes]",
+                                      );
+                                      if (notes) {
+                                        e.preventDefault();
+                                        notes.focus();
                                       }
                                     }
                                   }}
@@ -1180,48 +1193,142 @@ export function TemplateForm({
                                   }}
                                   aria-label={t("setWeightAria", { count: setIdx + 1 })}
                                 />
+                                {/* Copy-to-all affordance on Serie 1 — propagates
+                                    its current reps + kg drafts to every
+                                    subsequent set, then commits via setValue. */}
+                                {setIdx === 0 ? (
+                                  <button
+                                    type="button"
+                                    aria-label={t("setCopyToAllAria") ?? "Copiar a todas las series"}
+                                    title={t("setCopyToAllTitle") ?? "Copiar reps y peso a todas las series"}
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                                    onClick={() => {
+                                      const totalSets = Math.max(
+                                        1,
+                                        Math.min(
+                                          10,
+                                          Number(
+                                            form.getValues(`exercises.${index}.sets` as const) ?? 1,
+                                          ),
+                                        ),
+                                      );
+                                      // Source = the just-typed drafts if
+                                      // present, else the committed value.
+                                      const draftReps = setRepsDraft[setKey];
+                                      const draftKg = setWeightDraft[setKey];
+                                      const repsFromForm = toFiniteNumberArray(
+                                        form.getValues(repsPath),
+                                      );
+                                      const kgFromForm = toFiniteNumberArray(
+                                        form.getValues(weightPath),
+                                      );
+                                      const repsSource =
+                                        draftReps !== undefined && draftReps !== ""
+                                          ? Number(draftReps)
+                                          : Number.isFinite(repsFromForm[0])
+                                            ? repsFromForm[0]
+                                            : Number(
+                                                form.getValues(
+                                                  `exercises.${index}.reps` as const,
+                                                ) ?? 0,
+                                              );
+                                      const kgSource =
+                                        draftKg !== undefined && draftKg !== ""
+                                          ? Number(draftKg)
+                                          : Number.isFinite(kgFromForm[0])
+                                            ? kgFromForm[0]
+                                            : NaN;
+                                      const nextReps = Array.from(
+                                        { length: totalSets },
+                                        () => (Number.isFinite(repsSource) ? repsSource : 0),
+                                      );
+                                      form.setValue(repsPath, nextReps, { shouldDirty: true });
+                                      if (Number.isFinite(kgSource)) {
+                                        const nextKg = Array.from(
+                                          { length: totalSets },
+                                          () => kgSource,
+                                        );
+                                        form.setValue(weightPath, nextKg, { shouldDirty: true });
+                                      }
+                                      // Clear any per-row drafts so the
+                                      // controlled inputs re-read from form
+                                      // state immediately.
+                                      setSetRepsDraft({});
+                                      setSetWeightDraft({});
+                                    }}
+                                  >
+                                    ⇊
+                                  </button>
+                                ) : (
+                                  <span aria-hidden="true" />
+                                )}
                               </div>
                             );
                           })}
                         </div>
                         <FormDescription>{t("setRowsHint")}</FormDescription>
                       </div>
+                      {/* Notes — 260528 reordered before Superset so the Tab
+                          flow ends "last Kg → Notas → Grupo superserie →
+                          siguiente ejercicio". */}
                       <FormField
                         control={form.control}
-                        name={`exercises.${index}.supersetGroup` as const}
-                        render={({ field: supersetField }) => (
+                        name={`exercises.${index}.notes` as const}
+                        render={({ field: noteField }) => (
                           <FormItem>
-                            <FormLabel>{t("supersetGroup")}</FormLabel>
+                            <FormLabel>{t("coachingNotes")}</FormLabel>
                             <FormControl>
-                              <Input
-                                placeholder={t("supersetGroupPlaceholder")}
-                                {...supersetField}
-                                value={supersetField.value ?? ""}
+                              <Textarea
+                                rows={2}
+                                maxLength={500}
+                                placeholder={t("coachingNotesPlaceholder")}
+                                data-field-notes
+                                {...noteField}
+                                value={noteField.value ?? ""}
                               />
                             </FormControl>
-                            <FormDescription>{t("supersetGroupHint")}</FormDescription>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
-                    {/* Notes */}
+                    {/* Superset group — last input of the card; on Tab the
+                        focus jumps to the next exercise card's Sets input. */}
                     <FormField
                       control={form.control}
-                      name={`exercises.${index}.notes` as const}
-                      render={({ field: noteField }) => (
+                      name={`exercises.${index}.supersetGroup` as const}
+                      render={({ field: supersetField }) => (
                         <FormItem>
-                          <FormLabel>{t("coachingNotes")}</FormLabel>
+                          <FormLabel>{t("supersetGroup")}</FormLabel>
                           <FormControl>
-                            <Textarea
-                              rows={2}
-                              maxLength={500}
-                              placeholder={t("coachingNotesPlaceholder")}
-                              {...noteField}
-                              value={noteField.value ?? ""}
+                            <Input
+                              placeholder={t("supersetGroupPlaceholder")}
+                              data-field-superset
+                              data-exercise-card={index}
+                              onKeyDown={(e) => {
+                                if (e.key === "Tab" && !e.shiftKey) {
+                                  // Skip exercise-name inputs / drag handles /
+                                  // helper buttons and land directly on the
+                                  // NEXT exercise card's Sets field.
+                                  const root = (e.currentTarget.closest(
+                                    "form",
+                                  ) ?? document) as ParentNode;
+                                  const target = root.querySelector<HTMLInputElement>(
+                                    `[data-field-sets="${index + 1}"]`,
+                                  );
+                                  if (target) {
+                                    e.preventDefault();
+                                    target.focus();
+                                    target.select();
+                                  }
+                                }
+                              }}
+                              {...supersetField}
+                              value={supersetField.value ?? ""}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormDescription>{t("supersetGroupHint")}</FormDescription>
                         </FormItem>
                       )}
                     />
