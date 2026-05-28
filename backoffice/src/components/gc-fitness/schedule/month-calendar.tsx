@@ -928,7 +928,7 @@ function DayCell({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "group relative flex flex-col rounded-lg border bg-card p-2 transition-colors",
+        "group relative flex flex-col rounded-lg border bg-card p-2.5 transition-colors",
         cellMinHClass,
         !inMonth && "bg-muted/20 opacity-60",
         isToday && "ring-2 ring-amber-500",
@@ -952,7 +952,7 @@ function DayCell({
         />
       </div>
 
-      <div className="flex flex-1 flex-col gap-2">
+      <div className="flex flex-1 flex-col gap-3.5">
         {(() => {
           // Group everything by client so each day reads as
           // "‹client header› → their workouts + habits". The header carries
@@ -986,13 +986,13 @@ function DayCell({
               <div
                 key={clientId}
                 className={cn(
-                  "flex flex-col gap-1",
-                  gi > 0 && "border-t border-border/70 pt-2",
+                  "flex flex-col gap-1.5",
+                  gi > 0 && "border-t border-border/60 pt-3.5",
                 )}
               >
                 <span
                   className={cn(
-                    "max-w-full truncate text-[11px] font-semibold uppercase tracking-wide",
+                    "mb-0.5 max-w-full truncate text-[11px] font-bold uppercase tracking-wider",
                     palette.text,
                   )}
                 >
