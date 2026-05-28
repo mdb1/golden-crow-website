@@ -15,6 +15,13 @@ export interface ClientDailyTimelineDay {
     name: string;
     status: string;
     scheduledFor: string;
+    /**
+     * Trainer's ORIGINAL civil-date when the client moved the workout
+     * to a different day from the iOS app. Null when the workout is
+     * still on its original slot. Drives the "Originalmente X, el
+     * cliente lo movió a Y" disclaimer in the daily timeline cell.
+     */
+    originallyScheduledFor: string | null;
     scheduledTime: string | null;
     meetingNotes: string | null;
     // 260522-ki7 Task F: shared uuid across docs in a recurring series.
@@ -306,6 +313,12 @@ export async function getClientDailyTimeline(
       name: localizedText((data.templateSnapshot as { name?: unknown } | undefined)?.name, "Workout"),
       status: String(data.status ?? "scheduled"),
       scheduledFor: day,
+      originallyScheduledFor:
+        typeof data.originallyScheduledFor === "string" &&
+        data.originallyScheduledFor.length > 0 &&
+        data.originallyScheduledFor !== day
+          ? data.originallyScheduledFor
+          : null,
       scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
       meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
       seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
@@ -537,6 +550,12 @@ export async function getClientDailyTimelineDay(
       name: localizedText((data.templateSnapshot as { name?: unknown } | undefined)?.name, "Workout"),
       status: String(data.status ?? "scheduled"),
       scheduledFor: civilDate,
+      originallyScheduledFor:
+        typeof data.originallyScheduledFor === "string" &&
+        data.originallyScheduledFor.length > 0 &&
+        data.originallyScheduledFor !== civilDate
+          ? data.originallyScheduledFor
+          : null,
       scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
       meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
       seriesId: typeof data.seriesId === "string" ? data.seriesId : null,

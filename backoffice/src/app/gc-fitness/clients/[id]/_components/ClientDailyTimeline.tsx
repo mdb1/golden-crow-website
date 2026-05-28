@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
+  ArrowRightLeft,
   CalendarDays,
   Camera,
   CheckCircle2,
@@ -271,6 +272,14 @@ export function ClientDailyTimeline({
                         </Button>
                       ) : null}
                     </div>
+                    {workout.originallyScheduledFor ? (
+                      <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                        <ArrowRightLeft className="size-3" aria-hidden="true" />
+                        <span>
+                          {`Originalmente ${formatTimelineCivilDate(workout.originallyScheduledFor)}, el cliente lo movió a ${formatTimelineCivilDate(selected.date)}.`}
+                        </span>
+                      </p>
+                    ) : null}
                     {workout.meetingNotes ? (
                       <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
                         {workout.meetingNotes}
@@ -434,6 +443,27 @@ export function ClientDailyTimeline({
       ) : null}
     </section>
   );
+}
+
+/**
+ * Render a `"YYYY-MM-DD"` civil-date as "miércoles 28 may" (Spanish
+ * weekday + day + abbreviated month) without letting the trainer's
+ * browser timezone shift the weekday. UTC-anchored parse keeps the
+ * label stable across regions; the trainer reads it as a civil-date
+ * label, not a moment in time.
+ */
+function formatTimelineCivilDate(civilDate: string): string {
+  const parts = civilDate.split("-");
+  if (parts.length !== 3) return civilDate;
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return civilDate;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(date);
 }
 
 function hasActivity(day: ClientDailyTimelineDay): boolean {
