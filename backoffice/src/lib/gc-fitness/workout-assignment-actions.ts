@@ -1124,14 +1124,29 @@ export async function listFutureAssignmentsForTemplate(
  * are left untouched — they remain a frozen record of what the client was
  * actually asked to do.
  *
- * Per-assignment exercise overrides are NOT preserved automatically because
- * the override list lives only inside the snapshot itself; this function
- * intentionally drops them so the propagation is a clean "use the new
- * template as-is". A trainer who wants to keep a one-off tweak should
- * answer "Keep existing schedules" and edit the affected assignment by hand.
+ * Per-assignment prescription overrides (reps/kg/sets/rest) are intentionally
+ * replaced with the new template values — that's the whole point of "update
+ * all occurrences". The ONE thing we preserve is the per-client per-exercise
+ * NOTE the trainer wrote for that student: that note is personal annotation,
+ * not template content, and silently wiping it on a template edit was a bug.
+ * Merge rule (per exercise, matched by exerciseId then index):
+ *   - client note only           → keep it
+ *   - new template note only      → use it
+ *   - both                        → "<client note> * <template note>"
  *
  * Returns the number of assignment docs updated.
  */
+function mergeExerciseNote(
+  clientNote: unknown,
+  templateNote: unknown,
+): string | undefined {
+  const client = typeof clientNote === "string" ? clientNote.trim() : "";
+  const template = typeof templateNote === "string" ? templateNote.trim() : "";
+  if (client && template) {
+    return client === template ? client : `${client} * ${template}`;
+  }
+  return client || template || undefined;
+}
 export async function propagateTemplateToFutureAssignments(
   templateId: string,
 ): Promise<{ updatedCount: number }> {
@@ -1163,6 +1178,47 @@ export async function propagateTemplateToFutureAssignments(
   if (targets.length === 0) return { updatedCount: 0 };
 
   const freshSnapshot = await templateSnapshotForAssignment(template);
+  const freshExercises = Array.isArray(freshSnapshot.exercises)
+    ? (freshSnapshot.exercises as Array<Record<string, unknown>>)
+    : [];
+
+  // Builds a per-assignment snapshot: the fresh template content, but with each
+  // exercise's note merged with the per-client note already on that assignment.
+  function snapshotForAssignment(
+    existingSnapshot: unknown,
+  ): Record<string, unknown> {
+    const existingExercises =
+      existingSnapshot &&
+      typeof existingSnapshot === "object" &&
+      Array.isArray((existingSnapshot as Record<string, unknown>).exercises)
+        ? ((existingSnapshot as Record<string, unknown>)
+            .exercises as Array<Record<string, unknown>>)
+        : [];
+    // exerciseId → first existing note, for reordered/added template exercises.
+    const noteById = new Map<string, unknown>();
+    for (const ex of existingExercises) {
+      const id = typeof ex.exerciseId === "string" ? ex.exerciseId : "";
+      if (id && !noteById.has(id)) noteById.set(id, ex.notes);
+    }
+    const exercises = freshExercises.map((fresh, i) => {
+      const byIndex = existingExercises[i];
+      const clientNote =
+        byIndex && byIndex.exerciseId === fresh.exerciseId
+          ? byIndex.notes
+          : noteById.get(
+              typeof fresh.exerciseId === "string" ? fresh.exerciseId : "",
+            );
+      const merged = mergeExerciseNote(clientNote, fresh.notes);
+      const next = { ...fresh };
+      if (merged !== undefined) {
+        next.notes = merged;
+      } else {
+        delete next.notes;
+      }
+      return next;
+    });
+    return { ...freshSnapshot, exercises };
+  }
 
   // Firestore caps WriteBatch at 500 ops; one update per assignment fits well
   // inside that ceiling for any realistic roster size, but we still chunk to
@@ -1171,8 +1227,10 @@ export async function propagateTemplateToFutureAssignments(
   for (let i = 0; i < targets.length; i += CHUNK) {
     const batch = db.batch();
     for (const doc of targets.slice(i, i + CHUNK)) {
+      const existing = (doc.data() as { templateSnapshot?: unknown })
+        .templateSnapshot;
       batch.update(doc.ref, {
-        templateSnapshot: freshSnapshot,
+        templateSnapshot: snapshotForAssignment(existing),
         updatedAt: FieldValue.serverTimestamp(),
       });
     }
