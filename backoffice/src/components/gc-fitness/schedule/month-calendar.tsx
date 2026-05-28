@@ -51,6 +51,12 @@ import {
   type MonthWorkoutChip,
 } from "@/lib/gc-fitness/schedule-month-actions";
 
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 import { AssignTemplateModal } from "./assign-template-modal";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
@@ -259,10 +265,12 @@ export function MonthCalendar({
     | null
   >(null);
   // Day-cell "+" was clicked but multiple clients are selected — show a
-  // micro-picker first.
-  const [pickClientForDate, setPickClientForDate] = useState<string | null>(
-    null,
-  );
+  // micro-picker first. `kind` carries through so we know which surface
+  // to open after the client is chosen.
+  const [pickClientForDate, setPickClientForDate] = useState<
+    | { date: string; kind: "workout" | "habit" }
+    | null
+  >(null);
 
   const moveMutation = useMutation({
     mutationFn: (input: {
@@ -304,17 +312,26 @@ export function MonthCalendar({
 
   const { cells } = buildGrid(monthFirst);
 
-  function onCellAddClicked(civil: string) {
+  function navigateToNewHabit(date: string, clientId: string) {
+    const params = new URLSearchParams({ clientId, startsOn: date });
+    router.push(`/gc-fitness/habits/new?${params.toString()}`);
+  }
+
+  function onCellAddClicked(civil: string, kind: "workout" | "habit") {
     if (selectedIds.size === 0) {
       toast.error("Elegí al menos un cliente primero");
       return;
     }
     if (selectedIds.size === 1) {
       const onlyId = Array.from(selectedIds)[0];
-      setAssignContext({ date: civil, clientId: onlyId });
+      if (kind === "workout") {
+        setAssignContext({ date: civil, clientId: onlyId });
+      } else {
+        navigateToNewHabit(civil, onlyId);
+      }
       return;
     }
-    setPickClientForDate(civil);
+    setPickClientForDate({ date: civil, kind });
   }
 
   return (
@@ -467,13 +484,13 @@ export function MonthCalendar({
               }}
               onDragStartChip={(chip) => setDragChip(chip)}
               onClickChip={(chip) => setDetailAssignmentId(chip.id)}
-              onClickAdd={() => onCellAddClicked(civil)}
+              onClickAdd={(kind) => onCellAddClicked(civil, kind)}
             />
           );
         })}
       </div>
 
-      {/* ── Pick-client picker (when assigning from a cell w/ multi-select) ── */}
+      {/* ── Pick-client picker (when adding from a cell w/ multi-select) ── */}
       {pickClientForDate ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
@@ -484,7 +501,13 @@ export function MonthCalendar({
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-2 text-sm font-medium">
-              ¿Para qué cliente? · {pickClientForDate}
+              {pickClientForDate.kind === "workout"
+                ? "Asignar workout"
+                : "Asignar hábito"}{" "}
+              · {pickClientForDate.date}
+            </p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              ¿Para qué cliente?
             </p>
             <div className="flex flex-wrap gap-2">
               {clients
@@ -495,10 +518,14 @@ export function MonthCalendar({
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setAssignContext({
-                        date: pickClientForDate,
-                        clientId: c.uid,
-                      });
+                      if (pickClientForDate.kind === "workout") {
+                        setAssignContext({
+                          date: pickClientForDate.date,
+                          clientId: c.uid,
+                        });
+                      } else {
+                        navigateToNewHabit(pickClientForDate.date, c.uid);
+                      }
                       setPickClientForDate(null);
                     }}
                   >
@@ -586,7 +613,7 @@ interface DayCellProps {
   onDrop: (e: React.DragEvent) => void;
   onDragStartChip: (chip: MonthWorkoutChip) => void;
   onClickChip: (chip: MonthWorkoutChip) => void;
-  onClickAdd: () => void;
+  onClickAdd: (kind: "workout" | "habit") => void;
 }
 
 function DayCell({
@@ -626,14 +653,7 @@ function DayCell({
         >
           {dayNumber}
         </span>
-        <button
-          type="button"
-          onClick={onClickAdd}
-          className="rounded-full p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100"
-          aria-label={`Asignar el ${civil}`}
-        >
-          <PlusIcon className="size-3.5" />
-        </button>
+        <AddPopover civil={civil} onPick={onClickAdd} />
       </div>
 
       <div className="flex flex-1 flex-col gap-1">
@@ -658,7 +678,7 @@ function DayCell({
               }}
               onClick={() => onClickChip(w)}
               className={cn(
-                "flex items-center gap-1.5 rounded border px-1.5 py-1 text-left text-[11px] leading-tight",
+                "group/chip relative flex w-full items-start gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight",
                 palette.chip,
                 "hover:brightness-95",
               )}
@@ -668,19 +688,22 @@ function DayCell({
                   : `${client?.displayName ?? ""} · ${w.templateName}`
               }
             >
-              <StatusGlyph status={w.status} />
-              <span className="truncate">
-                <span className="font-semibold">
-                  {client ? clientInitials(client.displayName) : ""}
-                </span>{" "}
-                {w.templateName}
+              <Dumbbell className="mt-0.5 size-3 shrink-0 opacity-80" />
+              <span className="min-w-0 flex-1 truncate">
+                <span className="block truncate font-semibold">
+                  {client?.displayName ?? ""}
+                </span>
+                <span className="block truncate opacity-90">
+                  {w.templateName}
+                </span>
               </span>
               {movedFromLabel ? (
                 <ArrowRightLeft
-                  className="size-3 shrink-0 opacity-70"
+                  className="mt-0.5 size-3 shrink-0 opacity-70"
                   aria-label={movedFromLabel}
                 />
               ) : null}
+              <StatusDogear status={w.status} />
             </button>
           );
         })}
@@ -751,6 +774,108 @@ function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
     return <CalendarCheck className="size-3 text-sky-600 dark:text-sky-400" />;
   }
   return <Dumbbell className="size-3 opacity-70" />;
+}
+
+/**
+ * Status indicator rendered as a "dogear" — a 12×12 folded-corner flag
+ * pinned to the top-right of the chip. The triangle is a clip-path so
+ * the colored fill matches the status tone while the chip's background
+ * stays readable underneath.
+ *
+ * Visual reads at a glance:
+ *   - emerald = completed
+ *   - sky     = started
+ *   - rose    = missed
+ *   - amber   = scheduled (still pending)
+ */
+function StatusDogear({ status }: { status: MonthWorkoutChip["status"] }) {
+  const tone =
+    status === "completed"
+      ? "bg-emerald-500"
+      : status === "started"
+        ? "bg-sky-500"
+        : status === "missed"
+          ? "bg-rose-500"
+          : "bg-amber-500";
+  const titleLabel =
+    status === "completed"
+      ? "Completado"
+      : status === "started"
+        ? "Iniciado"
+        : status === "missed"
+          ? "No realizado"
+          : "Programado";
+  return (
+    <span
+      aria-label={titleLabel}
+      title={titleLabel}
+      className={cn(
+        "pointer-events-none absolute right-0 top-0 size-3",
+        tone,
+      )}
+      style={{ clipPath: "polygon(100% 0, 100% 100%, 0 0)" }}
+    />
+  );
+}
+
+/**
+ * Per-cell "+" popover. Click reveals two options (Workout / Habit) so
+ * the trainer can add either kind of session from a single affordance.
+ * Closes on selection — the parent fires the correct flow.
+ */
+function AddPopover({
+  civil,
+  onPick,
+}: {
+  civil: string;
+  onPick: (kind: "workout" | "habit") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
+            open ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+          aria-label={`Asignar el ${civil}`}
+        >
+          <PlusIcon className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        side="bottom"
+        sideOffset={4}
+        className="w-44 p-1"
+      >
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+          onClick={() => {
+            onPick("workout");
+            setOpen(false);
+          }}
+        >
+          <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
+          Workout
+        </button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+          onClick={() => {
+            onPick("habit");
+            setOpen(false);
+          }}
+        >
+          <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
+          Hábito
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
