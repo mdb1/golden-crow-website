@@ -16,7 +16,7 @@
 // trainer already has the habit defined.
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, Search } from "lucide-react";
+import { ChevronLeft, Plus, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -100,12 +100,21 @@ export function NewHabitDialog({
 }: NewHabitDialogProps) {
   const [tab, setTab] = useState<Tab>("existing");
   const [selected, setSelected] = useState<HabitTemplateRow | null>(null);
+  // Seeded by the "create it" shortcut in the existing-tab empty state so the
+  // create form opens pre-filled with the searched name.
+  const [prefillName, setPrefillName] = useState("");
 
   const clientOptions = [{ uid: clientId, displayName: clientName }];
   const afterSubmit = () => {
     onCreated();
     onOpenChange(false);
   };
+
+  function startCreateNew(name: string) {
+    setPrefillName(name);
+    setSelected(null);
+    setTab("new");
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,6 +143,7 @@ export function NewHabitDialog({
               onClick={() => {
                 setTab(value);
                 setSelected(null);
+                setPrefillName("");
               }}
               className={cn(
                 "flex-1 rounded-md px-3 py-1.5 font-medium transition",
@@ -150,9 +160,19 @@ export function NewHabitDialog({
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
           {tab === "new" ? (
             <HabitForm
+              // Remount when the prefilled name changes so defaults re-seed.
+              key={prefillName || "blank"}
               mode="create"
               clientOptions={clientOptions}
-              defaultValues={{ clientId, startsOn } as Partial<HabitCreateInput>}
+              defaultValues={
+                {
+                  clientId,
+                  startsOn,
+                  ...(prefillName
+                    ? { name: { en: prefillName, es: prefillName } }
+                    : {}),
+                } as Partial<HabitCreateInput>
+              }
               hideCancelButton
               onAfterSubmit={afterSubmit}
               onSubmit={async (input) => createHabit(input)}
@@ -179,7 +199,10 @@ export function NewHabitDialog({
               />
             </div>
           ) : (
-            <ExistingHabitPicker onPick={setSelected} />
+            <ExistingHabitPicker
+              onPick={setSelected}
+              onCreateNew={startCreateNew}
+            />
           )}
         </div>
       </DialogContent>
@@ -189,8 +212,11 @@ export function NewHabitDialog({
 
 function ExistingHabitPicker({
   onPick,
+  onCreateNew,
 }: {
   onPick: (tpl: HabitTemplateRow) => void;
+  /** Jump to the create tab pre-filled with the searched name. */
+  onCreateNew: (name: string) => void;
 }) {
   const [search, setSearch] = useState("");
 
@@ -225,10 +251,24 @@ function ExistingHabitPicker({
             Cargando hábitos…
           </li>
         ) : filtered.length === 0 ? (
-          <li className="py-4 text-center text-sm text-muted-foreground">
-            {search.trim()
-              ? "No hay coincidencias."
-              : "Todavía no tenés hábitos guardados."}
+          <li className="flex flex-col items-center gap-3 py-4 text-center text-sm text-muted-foreground">
+            {search.trim() ? (
+              <>
+                <span>No hay coincidencias.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => onCreateNew(search.trim())}
+                >
+                  <Plus className="h-4 w-4" />
+                  Crear “{search.trim()}”
+                </Button>
+              </>
+            ) : (
+              <span>Todavía no tenés hábitos guardados.</span>
+            )}
           </li>
         ) : (
           filtered.map((tpl) => {
