@@ -148,8 +148,15 @@ function habitScheduledDays(
     }
   }
 
+  // Civil dates the trainer removed from this habit's recurrence ("quitar de
+  // este día"). Filtered out of every generated occurrence below.
+  const skipped = Array.isArray(habit.skippedDates)
+    ? new Set((habit.skippedDates as unknown[]).filter((d) => typeof d === "string") as string[])
+    : null;
+
   if (scheduleType === "one-time") {
     const date = startsOn ?? "";
+    if (skipped?.has(date)) return [];
     return date && date >= monthStart && date <= monthEnd ? [date] : [];
   }
 
@@ -186,7 +193,7 @@ function habitScheduledDays(
       if (set.has(day)) out.push(d);
     }
   }
-  return out;
+  return skipped ? out.filter((d) => !skipped.has(d)) : out;
 }
 
 export interface AssignmentExercise {

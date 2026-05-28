@@ -61,6 +61,12 @@ function habitScheduledOn(
   civilDate: string,
 ): boolean {
   if (habit.deleted === true) return false;
+  if (
+    Array.isArray(habit.skippedDates) &&
+    (habit.skippedDates as unknown[]).includes(civilDate)
+  ) {
+    return false;
+  }
   const startsOn =
     typeof habit.startsOn === "string" && habit.startsOn.length > 0
       ? habit.startsOn

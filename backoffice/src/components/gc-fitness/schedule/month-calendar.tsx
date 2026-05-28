@@ -61,6 +61,7 @@ import { AssignTemplateModal } from "./assign-template-modal";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
+import { HabitDetailDialog } from "./habit-detail-dialog";
 
 interface ClientLite {
   uid: string;
@@ -293,6 +294,9 @@ export function MonthCalendar({
   const [detailAssignmentId, setDetailAssignmentId] = useState<string | null>(
     null,
   );
+  const [detailHabit, setDetailHabit] = useState<
+    { habitId: string; civilDate: string; clientName: string } | null
+  >(null);
 
   // Per-cell "+" assignment opener. We capture (date, suggestedClientId).
   const [assignContext, setAssignContext] = useState<
@@ -527,6 +531,18 @@ export function MonthCalendar({
               }}
               onDragStartChip={(chip) => setDragChip(chip)}
               onClickChip={(chip) => setDetailAssignmentId(chip.id)}
+              onClickHabit={(h) => {
+                const habitId = h.id.slice(
+                  0,
+                  h.id.length - h.civilDate.length - 1,
+                );
+                const c = clients.find((x) => x.uid === h.clientId);
+                setDetailHabit({
+                  habitId,
+                  civilDate: h.civilDate,
+                  clientName: c?.displayName ?? h.clientId,
+                });
+              }}
               onClickAdd={(kind) => onCellAddClicked(civil, kind)}
             />
           );
@@ -666,6 +682,23 @@ export function MonthCalendar({
         />
       ) : null}
 
+      {/* ── Habit detail dialog (recurrence + skip-day / delete CTAs) ───── */}
+      {detailHabit ? (
+        <HabitDetailDialog
+          open
+          onOpenChange={(open) => !open && setDetailHabit(null)}
+          habitId={detailHabit.habitId}
+          civilDate={detailHabit.civilDate}
+          clientName={detailHabit.clientName}
+          onChanged={() => {
+            queryClient.invalidateQueries({
+              queryKey: ["schedule-month", monthFirst, sortedKey],
+            });
+            setDetailHabit(null);
+          }}
+        />
+      ) : null}
+
       {/* ── New habit dialog (calendar-embedded HabitForm) ─────────────── */}
       {newHabitContext ? (
         <NewHabitDialog
@@ -728,6 +761,7 @@ interface DayCellProps {
   onDrop: (e: React.DragEvent) => void;
   onDragStartChip: (chip: MonthWorkoutChip) => void;
   onClickChip: (chip: MonthWorkoutChip) => void;
+  onClickHabit: (habit: MonthHabitChip) => void;
   onClickAdd: (kind: "workout" | "habit") => void;
 }
 
@@ -745,6 +779,7 @@ function DayCell({
   onDrop,
   onDragStartChip,
   onClickChip,
+  onClickHabit,
   onClickAdd,
 }: DayCellProps) {
   return (
@@ -828,17 +863,19 @@ function DayCell({
             {habits.map((h) => {
               const palette = paletteFor(clients, h.clientId);
               return (
-                <span
+                <button
                   key={h.id}
+                  type="button"
+                  onClick={() => onClickHabit(h)}
                   className={cn(
-                    "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                    "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
                     habitChipPaletteFor(h.status, palette.chip),
                   )}
                   title={`${h.habitName} · ${h.status}`}
                 >
                   <HabitStatusGlyph status={h.status} />
                   <span className="max-w-[80px] truncate">{h.habitName}</span>
-                </span>
+                </button>
               );
             })}
           </div>

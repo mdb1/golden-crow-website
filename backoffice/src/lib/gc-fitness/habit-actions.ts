@@ -165,6 +165,12 @@ export interface HabitRow {
   scheduleWeekdays?: number[];
   scheduleDayOfMonth?: number;
   scheduleMonthDays?: number[];
+  /**
+   * Civil dates (YYYY-MM-DD) the trainer removed from this habit's recurrence
+   * via the calendar's "quitar de este día" action. The trainer surfaces
+   * (month calendar, coach pulse) skip these days.
+   */
+  skippedDates?: string[];
   seedSource?: string;
   deleted: boolean;
   createdAt: string | null;
@@ -326,6 +332,11 @@ function projectHabitRow(
       : typeof data.scheduleDayOfMonth === "number"
         ? [data.scheduleDayOfMonth]
         : undefined,
+    skippedDates: Array.isArray(data.skippedDates)
+      ? (data.skippedDates as unknown[]).filter(
+          (d): d is string => typeof d === "string",
+        )
+      : undefined,
     seedSource:
       typeof data.seedSource === "string" ? data.seedSource : undefined,
     deleted: data.deleted === true,
@@ -753,6 +764,55 @@ export async function softDeleteHabit(
 
   await docRef.update({
     deleted: true,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Reads a single habit by id (ownership-checked). Backs the calendar's
+ * habit-detail dialog, which needs the full recurrence to render + the
+ * delete affordances.
+ */
+export async function getHabit(id: string): Promise<HabitRow> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db.collection(COLLECTION).doc(id).get();
+  if (!snap.exists) throw new Error("Not found");
+  const data = snap.data() as Record<string, unknown>;
+  if (data.trainerId !== trainer.uid) throw new Error("Not your habit.");
+  return projectHabitRow(snap.id, data);
+}
+
+/**
+ * Removes a SINGLE occurrence of a habit by adding the civil date to the
+ * habit's `skippedDates` array (idempotent via arrayUnion). The habit doc +
+ * its recurrence are untouched — only that one day stops generating on the
+ * trainer surfaces.
+ *
+ * NOTE: the iOS client must also learn to honor `skippedDates` for the day to
+ * disappear from the *client's* habit list; until then this is trainer-side
+ * only. Adding the optional field is backward-compatible with the existing
+ * Firestore Codable decode (unknown→ignored).
+ */
+export async function skipHabitOccurrence(input: {
+  habitId: string;
+  civilDate: string;
+}): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.civilDate)) {
+    throw new Error("Invalid civil date.");
+  }
+  const db = gcFitnessFirestore();
+  const docRef = db.collection(COLLECTION).doc(input.habitId);
+  const snap = await docRef.get();
+  if (!snap.exists) throw new Error("Not found");
+  const existing = snap.data() as { trainerId?: string };
+  if (existing.trainerId !== trainer.uid) throw new Error("Not your habit.");
+
+  await docRef.update({
+    skippedDates: FieldValue.arrayUnion(input.civilDate),
     updatedAt: FieldValue.serverTimestamp(),
   });
 
