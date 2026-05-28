@@ -21,7 +21,12 @@ export function ClientNotesCard({
 }) {
   const t = useTranslations("clients.detail.notes");
   const tCommon = useTranslations("common");
-  const [notes, setNotes] = useState(initialNotes);
+  // The textarea is always a blank composer for a NEW note — the last
+  // saved note already lives in `entries[]` (rendered below). Pre-filling
+  // from `initialNotes` re-surfaced the just-saved text after a reload
+  // and tricked the trainer into double-submitting (260528 bug).
+  void initialNotes;
+  const [notes, setNotes] = useState("");
   const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
   const [noteDate, setNoteDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState<string | null>(null);

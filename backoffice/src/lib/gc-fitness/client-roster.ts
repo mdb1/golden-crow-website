@@ -303,7 +303,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
 
       const [
         latestWorkoutLog,
-        latestHabitLog,
+        recentHabitLogs,
         latestProgressPhoto,
         chatDocSnap,
         clientHabits,
@@ -318,11 +318,20 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .get(),
         // Habit logs reflect the client's own check-in; the dashboard's
         // "last action" feed surfaces them, so sorting must too.
+        //
+        // NO orderBy: some legacy/iOS-written habit logs are missing
+        // `loggedAt` entirely (the canonical iOS writer populates it, but
+        // older writes only have updatedAt/createdAt). An orderBy(loggedAt)
+        // query silently EXCLUDES those docs — which is the bug that made
+        // Nico Rey show "no activity" and Nico Carba show stale 19h-ago
+        // despite habit_logs written today. We mirror the recent-logs
+        // pattern: broad-fetch, compute max(updatedAt, createdAt, loggedAt)
+        // per doc in memory. `limit(50)` is safely above any single client's
+        // recent-window log count.
         db
           .collection(FirestoreCollections.habitLogs)
           .where("clientId", "==", c.uid)
-          .orderBy("loggedAt", "desc")
-          .limit(1)
+          .limit(50)
           .get(),
         // Progress photos are a separate client surface — counts here too.
         db
@@ -360,7 +369,32 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       ]);
 
       const tsWorkout = latestDate(latestWorkoutLog, "startedAt");
-      const tsHabit = latestDate(latestHabitLog, "loggedAt");
+      // Walk every habit-log doc and take the max event-time across the
+      // three timestamp fields. Some docs only have updatedAt; others only
+      // loggedAt — picking ANY non-null field is what makes the bug go
+      // away (260528 bug). Reads the raw Timestamp via doc.get() so we
+      // handle Firestore Timestamp + Date + ISO string identically.
+      let tsHabit: Date | null = null;
+      const habitTimestampFields = ["updatedAt", "createdAt", "loggedAt"] as const;
+      for (const doc of recentHabitLogs.docs) {
+        // Skip soft-deleted rows — recent-logs surface filters them too.
+        if (doc.get("deleted") === true) continue;
+        for (const field of habitTimestampFields) {
+          const raw = doc.get(field);
+          let candidate: Date | null = null;
+          if (raw && typeof (raw as { toDate?: () => Date }).toDate === "function") {
+            candidate = (raw as { toDate: () => Date }).toDate();
+          } else if (raw instanceof Date) {
+            candidate = raw;
+          } else if (typeof raw === "string") {
+            const parsed = new Date(raw);
+            if (!Number.isNaN(parsed.getTime())) candidate = parsed;
+          }
+          if (candidate && (!tsHabit || candidate > tsHabit)) {
+            tsHabit = candidate;
+          }
+        }
+      }
       const tsPhoto = latestProgressPhoto
         ? latestDate(latestProgressPhoto, "createdAt")
         : null;
