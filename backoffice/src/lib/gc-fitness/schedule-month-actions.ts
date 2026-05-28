@@ -130,21 +130,42 @@ function habitScheduledDays(
 ): string[] {
   const scheduleType =
     typeof habit.scheduleType === "string" ? habit.scheduleType : "recurring";
+  // Honor the habit's `startsOn` even for one-time habits — that's the
+  // single civil date the habit lives on.
+  const startsOn =
+    typeof habit.startsOn === "string" && habit.startsOn.length > 0
+      ? habit.startsOn
+      : null;
+  const endsOn =
+    typeof habit.endsOn === "string" && habit.endsOn.length > 0
+      ? habit.endsOn
+      : null;
+  // No startsOn → derive an implicit start from `createdAt` (Firestore
+  // Timestamp). That stops the calendar from rendering a habit as
+  // "missed" on every day before it was even created — the bug the
+  // operator saw with brand-new "Latita" / "120g prote" habits showing
+  // red ⊗ rows on May 1-17 even though they were created on May 28.
+  let implicitStart: string | null = null;
+  const createdAt = habit.createdAt;
+  if (
+    createdAt &&
+    typeof (createdAt as { toDate?: () => Date }).toDate === "function"
+  ) {
+    const d = (createdAt as { toDate: () => Date }).toDate();
+    if (!Number.isNaN(d.getTime())) {
+      implicitStart = civilDateFormat(d, "UTC");
+    }
+  }
+
   if (scheduleType === "one-time") {
-    const date = typeof habit.scheduleDate === "string" ? habit.scheduleDate : "";
+    const date = startsOn ?? "";
     return date && date >= monthStart && date <= monthEnd ? [date] : [];
   }
 
   const cadence =
     typeof habit.scheduleCadence === "string" ? habit.scheduleCadence : "daily";
-  const startDate =
-    typeof habit.scheduleStartDate === "string"
-      ? habit.scheduleStartDate
-      : monthStart;
-  const endDate =
-    typeof habit.scheduleEndDate === "string"
-      ? habit.scheduleEndDate
-      : monthEnd;
+  const startDate = startsOn ?? implicitStart ?? monthStart;
+  const endDate = endsOn ?? monthEnd;
 
   const lo = startDate > monthStart ? startDate : monthStart;
   const hi = endDate < monthEnd ? endDate : monthEnd;

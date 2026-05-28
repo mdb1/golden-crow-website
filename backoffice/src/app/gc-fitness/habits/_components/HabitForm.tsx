@@ -81,6 +81,18 @@ export interface HabitFormProps {
   onSubmit: (
     input: HabitCreateInput,
   ) => Promise<{ id?: string; ok?: true }>;
+  /**
+   * Optional hook fired after a successful submit. When omitted the form
+   * navigates back via `router.back()` (default standalone-page UX).
+   * When provided (typical for a modal embed) the form delegates the
+   * follow-up — usually "close the dialog and invalidate parent data".
+   */
+  onAfterSubmit?: (result: { id?: string; ok?: true }) => void;
+  /**
+   * Hides the Cancel button when the host already owns dismissal
+   * (e.g. a dialog with its own close affordance).
+   */
+  hideCancelButton?: boolean;
 }
 
 // Translation keys for the four habit-type strings — resolved at render via
@@ -157,6 +169,8 @@ export function HabitForm({
   clientOptions,
   defaultValues,
   onSubmit,
+  onAfterSubmit,
+  hideCancelButton,
 }: HabitFormProps) {
   const router = useRouter();
   const t = useTranslations("habits.form");
@@ -345,13 +359,21 @@ export function HabitForm({
         const result = await onSubmit(cleaned);
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
-          // 260524 — go back in nav after create (was push to /habits).
-          // Same UX request as the exercise + template flows.
-          router.back();
+          if (onAfterSubmit) {
+            onAfterSubmit(result);
+          } else {
+            // 260524 — go back in nav after create (was push to /habits).
+            // Same UX request as the exercise + template flows.
+            router.back();
+          }
           return;
         }
         toast.success(t("savedToast"));
-        router.back();
+        if (onAfterSubmit) {
+          onAfterSubmit(result);
+        } else {
+          router.back();
+        }
       } catch (err) {
         console.error("[habit-form] save failed", err);
         const message =
@@ -1024,14 +1046,16 @@ export function HabitForm({
             </div>
           ) : null}
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => router.back()}
-              disabled={pending}
-            >
-              {t("cancel")}
-            </Button>
+            {hideCancelButton ? null : (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => router.back()}
+                disabled={pending}
+              >
+                {t("cancel")}
+              </Button>
+            )}
             <Button type="submit" disabled={pending}>
               {pending
                 ? t("saving")

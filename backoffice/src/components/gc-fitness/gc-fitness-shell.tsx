@@ -74,6 +74,7 @@ const sections: NavSection[] = [
     sectionKey: "programming",
     items: [
       { labelKey: "workouts", href: "/gc-fitness/templates", icon: Dumbbell },
+      { labelKey: "habits", href: "/gc-fitness/habits", icon: ListChecks },
       { labelKey: "library", href: "/gc-fitness/exercises", icon: Library },
     ],
   },

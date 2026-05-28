@@ -59,6 +59,7 @@ import {
 
 import { AssignTemplateModal } from "./assign-template-modal";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
+import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
 
 interface ClientLite {
@@ -99,6 +100,40 @@ function paletteFor(clients: ClientLite[], clientId: string) {
   const idx = clients.findIndex((c) => c.uid === clientId);
   if (idx < 0) return CLIENT_PALETTE[0];
   return CLIENT_PALETTE[idx % CLIENT_PALETTE.length];
+}
+
+// Status-first palette that overrides the per-client tint for terminal
+// states so trainers can scan the calendar for "what's still pending"
+// vs "what already happened". Client color is preserved only on
+// scheduled / started chips, where ownership ambiguity actually matters.
+const STATUS_PALETTE: Record<
+  MonthWorkoutChip["status"] | MonthHabitChip["status"],
+  string
+> = {
+  completed:
+    "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200",
+  done: "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200",
+  started:
+    "border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200",
+  missed:
+    "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200",
+  scheduled: "",
+};
+
+function chipPaletteFor(
+  status: MonthWorkoutChip["status"],
+  clientPaletteClass: string,
+): string {
+  if (status === "scheduled") return clientPaletteClass;
+  return STATUS_PALETTE[status];
+}
+
+function habitChipPaletteFor(
+  status: MonthHabitChip["status"],
+  clientPaletteClass: string,
+): string {
+  if (status === "scheduled") return clientPaletteClass;
+  return STATUS_PALETTE[status];
 }
 
 function addCivilDays(civil: string, days: number): string {
@@ -264,6 +299,10 @@ export function MonthCalendar({
     | { date: string; clientId: string }
     | null
   >(null);
+  const [newHabitContext, setNewHabitContext] = useState<
+    | { date: string; clientId: string; clientName: string }
+    | null
+  >(null);
   // Day-cell "+" was clicked but multiple clients are selected — show a
   // micro-picker first. `kind` carries through so we know which surface
   // to open after the client is chosen.
@@ -312,9 +351,13 @@ export function MonthCalendar({
 
   const { cells } = buildGrid(monthFirst);
 
-  function navigateToNewHabit(date: string, clientId: string) {
-    const params = new URLSearchParams({ clientId, startsOn: date });
-    router.push(`/gc-fitness/habits/new?${params.toString()}`);
+  function openNewHabit(date: string, clientId: string) {
+    const c = clients.find((x) => x.uid === clientId);
+    setNewHabitContext({
+      date,
+      clientId,
+      clientName: c?.displayName ?? clientId,
+    });
   }
 
   function onCellAddClicked(civil: string, kind: "workout" | "habit") {
@@ -327,7 +370,7 @@ export function MonthCalendar({
       if (kind === "workout") {
         setAssignContext({ date: civil, clientId: onlyId });
       } else {
-        navigateToNewHabit(civil, onlyId);
+        openNewHabit(civil, onlyId);
       }
       return;
     }
@@ -490,6 +533,37 @@ export function MonthCalendar({
         })}
       </div>
 
+      {/* ── Glossary footer (status colors at a glance) ───────────────── */}
+      <section className="rounded-xl border bg-card/95 p-3 text-xs">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Referencia de colores
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <LegendItem
+            label="Programado"
+            sample="cliente"
+            note="usa el color del cliente"
+          />
+          <LegendItem
+            label="Iniciado"
+            tone="border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200"
+          />
+          <LegendItem
+            label="Completado"
+            tone="border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200"
+          />
+          <LegendItem
+            label="No realizado"
+            tone="border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200"
+          />
+          <LegendItem
+            label="Hoy"
+            sample="día"
+            note="borde ámbar"
+          />
+        </div>
+      </section>
+
       {/* ── Pick-client picker (when adding from a cell w/ multi-select) ── */}
       {pickClientForDate ? (
         <div
@@ -524,7 +598,7 @@ export function MonthCalendar({
                           clientId: c.uid,
                         });
                       } else {
-                        navigateToNewHabit(pickClientForDate.date, c.uid);
+                        openNewHabit(pickClientForDate.date, c.uid);
                       }
                       setPickClientForDate(null);
                     }}
@@ -564,6 +638,23 @@ export function MonthCalendar({
               queryKey: ["schedule-month", monthFirst, sortedKey],
             });
             setDetailAssignmentId(null);
+          }}
+        />
+      ) : null}
+
+      {/* ── New habit dialog (calendar-embedded HabitForm) ─────────────── */}
+      {newHabitContext ? (
+        <NewHabitDialog
+          open
+          onOpenChange={(open) => !open && setNewHabitContext(null)}
+          clientId={newHabitContext.clientId}
+          clientName={newHabitContext.clientName}
+          startsOn={newHabitContext.date}
+          onCreated={() => {
+            queryClient.invalidateQueries({
+              queryKey: ["schedule-month", monthFirst, sortedKey],
+            });
+            setNewHabitContext(null);
           }}
         />
       ) : null}
@@ -679,7 +770,7 @@ function DayCell({
               onClick={() => onClickChip(w)}
               className={cn(
                 "group/chip relative flex w-full items-start gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight",
-                palette.chip,
+                chipPaletteFor(w.status, palette.chip),
                 "hover:brightness-95",
               )}
               title={
@@ -717,7 +808,7 @@ function DayCell({
                   key={h.id}
                   className={cn(
                     "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
-                    palette.chip,
+                    habitChipPaletteFor(h.status, palette.chip),
                   )}
                   title={`${h.habitName} · ${h.status}`}
                 >
@@ -875,6 +966,36 @@ function AddPopover({
         </button>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function LegendItem({
+  label,
+  tone,
+  sample,
+  note,
+}: {
+  label: string;
+  tone?: string;
+  sample?: string;
+  note?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex h-4 w-7 items-center justify-center rounded border text-[9px] font-semibold",
+          tone ??
+            "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-400 dark:bg-amber-950/40 dark:text-amber-200",
+        )}
+      >
+        {sample ?? ""}
+      </span>
+      <span className="text-foreground/80">{label}</span>
+      {note ? (
+        <span className="text-muted-foreground">· {note}</span>
+      ) : null}
+    </span>
   );
 }
 
