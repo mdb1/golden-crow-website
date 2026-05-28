@@ -297,6 +297,10 @@ export function MonthCalendar({
   const [detailHabit, setDetailHabit] = useState<
     { habitId: string; civilDate: string; clientName: string } | null
   >(null);
+  // Type filters — both on by default. Also drive the "+" menu: with a single
+  // type enabled the menu is skipped and the add flow fires directly.
+  const [showWorkouts, setShowWorkouts] = useState(true);
+  const [showHabits, setShowHabits] = useState(true);
 
   // Per-cell "+" assignment opener. We capture (date, suggestedClientId).
   const [assignContext, setAssignContext] = useState<
@@ -447,6 +451,31 @@ export function MonthCalendar({
             );
           })}
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-4 border-t pt-3">
+          <span className="text-xs font-medium text-muted-foreground">
+            Mostrar
+          </span>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showWorkouts}
+              onChange={(e) => setShowWorkouts(e.target.checked)}
+              className="size-4 rounded border"
+            />
+            <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
+            Workouts
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showHabits}
+              onChange={(e) => setShowHabits(e.target.checked)}
+              className="size-4 rounded border"
+            />
+            <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
+            Hábitos
+          </label>
+        </div>
       </section>
 
       {/* ── Month nav ─────────────────────────────────────────────────── */}
@@ -499,12 +528,16 @@ export function MonthCalendar({
       {/* ── Month grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-7 gap-2">
         {cells.map(({ civil, inMonth }) => {
-          const workouts = (payload.workoutsByDay[civil] ?? []).filter((w) =>
-            selectedIds.has(w.clientId),
-          );
-          const habits = (payload.habitsByDay[civil] ?? []).filter((h) =>
-            selectedIds.has(h.clientId),
-          );
+          const workouts = showWorkouts
+            ? (payload.workoutsByDay[civil] ?? []).filter((w) =>
+                selectedIds.has(w.clientId),
+              )
+            : [];
+          const habits = showHabits
+            ? (payload.habitsByDay[civil] ?? []).filter((h) =>
+                selectedIds.has(h.clientId),
+              )
+            : [];
           const isToday = civil === todayCivil;
           const dayNumber = Number(civil.slice(8, 10));
           return (
@@ -517,6 +550,8 @@ export function MonthCalendar({
               workouts={workouts}
               habits={habits}
               clients={clients}
+              showWorkouts={showWorkouts}
+              showHabits={showHabits}
               isDragOver={dragOverDay === civil}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -755,6 +790,8 @@ interface DayCellProps {
   workouts: MonthWorkoutChip[];
   habits: MonthHabitChip[];
   clients: ClientLite[];
+  showWorkouts: boolean;
+  showHabits: boolean;
   isDragOver: boolean;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
@@ -773,6 +810,8 @@ function DayCell({
   workouts,
   habits,
   clients,
+  showWorkouts,
+  showHabits,
   isDragOver,
   onDragOver,
   onDragLeave,
@@ -803,7 +842,12 @@ function DayCell({
         >
           {dayNumber}
         </span>
-        <AddPopover civil={civil} onPick={onClickAdd} />
+        <AddPopover
+          civil={civil}
+          onPick={onClickAdd}
+          showWorkouts={showWorkouts}
+          showHabits={showHabits}
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-1">
@@ -978,11 +1022,41 @@ function StatusDogear({ status }: { status: MonthWorkoutChip["status"] }) {
 function AddPopover({
   civil,
   onPick,
+  showWorkouts,
+  showHabits,
 }: {
   civil: string;
   onPick: (kind: "workout" | "habit") => void;
+  showWorkouts: boolean;
+  showHabits: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const enabled: Array<"workout" | "habit"> = [
+    ...(showWorkouts ? (["workout"] as const) : []),
+    ...(showHabits ? (["habit"] as const) : []),
+  ];
+
+  // Neither type shown → nothing to add.
+  if (enabled.length === 0) return null;
+
+  // Exactly one type shown → skip the menu, fire the add flow directly.
+  if (enabled.length === 1) {
+    const only = enabled[0];
+    return (
+      <button
+        type="button"
+        className={cn(
+          "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
+          "opacity-0 group-hover:opacity-100",
+        )}
+        aria-label={`Asignar ${only === "workout" ? "workout" : "hábito"} el ${civil}`}
+        onClick={() => onPick(only)}
+      >
+        <PlusIcon className="size-3.5" />
+      </button>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
