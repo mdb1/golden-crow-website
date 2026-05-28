@@ -28,6 +28,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -91,6 +98,8 @@ export function AssignTemplateModal({
   const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
 
   const [templateId, setTemplateId] = useState<string>("");
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
   const [civilDate, setCivilDate] = useState<string>(defaultDate);
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
@@ -405,22 +414,121 @@ export function AssignTemplateModal({
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{t("templateLabel")}</label>
-            <Select value={templateId} onValueChange={setTemplateId}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    templatesLoading ? t("templateLoading") : t("templatePlaceholder")
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {(templates ?? []).map((tpl) => (
-                  <SelectItem key={tpl.id} value={tpl.id}>
-                    {tpl.name.en} · {tpl.tag}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover
+              open={templatePickerOpen}
+              onOpenChange={(o) => {
+                setTemplatePickerOpen(o);
+                if (!o) setTemplateSearch("");
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  role="combobox"
+                  aria-expanded={templatePickerOpen}
+                  className="flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm"
+                >
+                  <span
+                    className={cn(
+                      "truncate",
+                      !templateId && "text-muted-foreground",
+                    )}
+                  >
+                    {(() => {
+                      const sel = (templates ?? []).find(
+                        (x) => x.id === templateId,
+                      );
+                      if (sel)
+                        return `${sel.name.en}${sel.tag ? ` · ${sel.tag}` : ""}`;
+                      return templatesLoading
+                        ? t("templateLoading")
+                        : t("templatePlaceholder");
+                    })()}
+                  </span>
+                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+              >
+                <div className="flex items-center gap-2 border-b px-3">
+                  <Search className="size-4 shrink-0 opacity-50" />
+                  <input
+                    autoFocus
+                    value={templateSearch}
+                    onChange={(e) => setTemplateSearch(e.target.value)}
+                    placeholder="Buscar por nombre o tag…"
+                    className="h-9 flex-1 bg-transparent text-sm outline-none"
+                  />
+                </div>
+                <ul className="max-h-64 overflow-y-auto p-1">
+                  {(() => {
+                    const list = templates ?? [];
+                    const needle = templateSearch.trim().toLowerCase();
+                    const filtered = needle
+                      ? list.filter((tpl) => {
+                          const tags = Array.isArray(tpl.tags)
+                            ? tpl.tags
+                            : tpl.tag
+                              ? [tpl.tag]
+                              : [];
+                          return `${tpl.name.en} ${tpl.name.es} ${tags.join(" ")}`
+                            .toLowerCase()
+                            .includes(needle);
+                        })
+                      : list;
+                    if (filtered.length === 0) {
+                      return (
+                        <li className="px-2 py-4 text-center text-sm text-muted-foreground">
+                          {templatesLoading ? t("templateLoading") : "Sin resultados."}
+                        </li>
+                      );
+                    }
+                    return filtered.map((tpl) => {
+                      const tags =
+                        Array.isArray(tpl.tags) && tpl.tags.length
+                          ? tpl.tags
+                          : tpl.tag
+                            ? [tpl.tag]
+                            : [];
+                      const selected = tpl.id === templateId;
+                      return (
+                        <li key={tpl.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTemplateId(tpl.id);
+                              setTemplatePickerOpen(false);
+                              setTemplateSearch("");
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent",
+                              selected && "bg-accent",
+                            )}
+                          >
+                            <Check
+                              className={cn(
+                                "size-4 shrink-0",
+                                selected ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <span className="min-w-0 flex-1 truncate">
+                              {tpl.name.en}
+                            </span>
+                            {tags.length ? (
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {tags.join(" · ")}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    });
+                  })()}
+                </ul>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -742,6 +850,7 @@ export function AssignTemplateModal({
                             });
                           }}
                           disabled={draft.setRows.length <= 1}
+                          tabIndex={-1}
                           aria-label={t("exerciseOverridesRemoveSet", { index: setIdx + 1 })}
                           className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
                         >
@@ -770,6 +879,7 @@ export function AssignTemplateModal({
                         });
                       }}
                       disabled={draft.setRows.length >= 10}
+                      tabIndex={-1}
                       className="mt-1 self-start inline-flex h-7 items-center gap-1 rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       + {t("exerciseOverridesAddSet")}
@@ -796,6 +906,7 @@ export function AssignTemplateModal({
         <DialogFooter>
           <Button
             variant="ghost"
+            tabIndex={-1}
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
