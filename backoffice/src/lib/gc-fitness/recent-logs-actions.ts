@@ -72,6 +72,8 @@ export interface WorkoutLogDetail {
     isPR: boolean;
     /** Stored Epley estimated 1RM (kg) when isPR === true. */
     prEstimatedOneRM: number | null;
+    /** Snapshot superset label (e.g. "A"); null for standalone exercises. */
+    supersetGroup: string | null;
   }>;
 }
 
@@ -915,6 +917,11 @@ export async function getWorkoutLogDetail(
       completedAt: asIso(set.completed_at ?? set.completedAt),
       isPR: Boolean(pr),
       prEstimatedOneRM: pr?.estimatedOneRM ?? null,
+      supersetGroup:
+        typeof templateExercise?.supersetGroup === "string" &&
+        (templateExercise.supersetGroup as string).trim().length > 0
+          ? (templateExercise.supersetGroup as string).trim()
+          : null,
     };
   });
 

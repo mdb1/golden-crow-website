@@ -43,6 +43,7 @@ interface ExerciseGroup {
   sets: WorkoutLogDetail["sets"];
   topWeight: number | null;
   hasPR: boolean;
+  supersetGroup: string | null;
 }
 
 function groupSetsByExercise(sets: WorkoutLogDetail["sets"]): ExerciseGroup[] {
@@ -60,6 +61,7 @@ function groupSetsByExercise(sets: WorkoutLogDetail["sets"]): ExerciseGroup[] {
         sets: [],
         topWeight: null,
         hasPR: false,
+        supersetGroup: set.supersetGroup,
       };
       buckets.set(key, bucket);
       order.push(key);
@@ -81,6 +83,8 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
   try {
     const detail = await getWorkoutLogDetail(logId);
     const groups = groupSetsByExercise(detail.sets);
+    const restMap = restBySetLogId(detail.sets);
+    const sessionDate = formatDateOnly(detail.completedAt ?? detail.startedAt);
 
     return (
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
@@ -160,6 +164,11 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
         <Card>
           <CardHeader>
             <CardTitle>{t("setDetailTitle")}</CardTitle>
+            {sessionDate ? (
+              <p className="text-sm capitalize text-muted-foreground">
+                {sessionDate}
+              </p>
+            ) : null}
           </CardHeader>
           <CardContent>
             {groups.length === 0 ? (
@@ -181,6 +190,14 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
                             {gIdx + 1}
                           </span>
                           <h3 className="text-sm font-semibold">{group.exerciseName}</h3>
+                          {group.supersetGroup ? (
+                            <span
+                              className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300"
+                              title="Superserie"
+                            >
+                              Superserie {group.supersetGroup}
+                            </span>
+                          ) : null}
                           {group.hasPR ? (
                             <span
                               className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
@@ -210,6 +227,7 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
                               <th className="py-1.5 pr-3">{t("columnReps")}</th>
                               <th className="py-1.5 pr-3">{t("columnWeight")}</th>
                               <th className="py-1.5 pr-3">{t("columnCompletedAt")}</th>
+                              <th className="py-1.5 pr-3">Descanso</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -261,7 +279,12 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
                                     : t("emptyDash")}
                                 </td>
                                 <td className="py-2 pr-3 text-muted-foreground">
-                                  {formatDateTime(set.completedAt)}
+                                  {formatTimeOnly(set.completedAt)}
+                                </td>
+                                <td className="py-2 pr-3 text-muted-foreground">
+                                  {restMap.has(set.setLogId)
+                                    ? formatRest(restMap.get(set.setLogId)!)
+                                    : t("emptyDash")}
                                 </td>
                               </tr>
                             ))}
@@ -333,4 +356,60 @@ function formatDateTime(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// Per-row timestamps only need the time — the date is shown once in the
+// section header (it's the same day for the whole workout).
+function formatTimeOnly(iso: string | null): string {
+  if (!iso) return "-";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDateOnly(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+// Human rest gap between two consecutive set timestamps.
+function formatRest(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s === 0 ? `${m}m` : `${m}m ${s}s`;
+}
+
+/**
+ * Rest (seconds) BEFORE each set — the gap from the previous set's
+ * completion. Keyed by setLogId. Computed across the flat, completion-ordered
+ * set list so it reflects true inter-set rest even across supersets. First
+ * set (and any non-positive/again-stamped gaps) → omitted.
+ */
+function restBySetLogId(
+  sets: WorkoutLogDetail["sets"],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (let i = 1; i < sets.length; i += 1) {
+    const prev = sets[i - 1].completedAt;
+    const cur = sets[i].completedAt;
+    if (!prev || !cur || !sets[i].setLogId) continue;
+    const delta = Math.round(
+      (new Date(cur).getTime() - new Date(prev).getTime()) / 1000,
+    );
+    if (Number.isFinite(delta) && delta > 0) {
+      map.set(sets[i].setLogId, delta);
+    }
+  }
+  return map;
 }
