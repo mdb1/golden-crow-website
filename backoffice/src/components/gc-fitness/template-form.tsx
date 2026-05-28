@@ -977,12 +977,10 @@ export function TemplateForm({
                         the source exercise's `metric` (PATTERNS.md §16
                         Shared 1). The "Heredado" hint surfaces that the
                         current state is inherited (no per-template override).
-                        TODO(26-07): i18n — strings hardcoded in Spanish per
-                        plan; 26-07 lifts them into messages/{es,en}.json. */}
+                        i18n migrated in 26-07. */}
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium text-muted-foreground">
-                        {/* TODO(26-07): t("metricLabel") */}
-                        Tipo de prescripción
+                        {t("metricLabel")}
                       </span>
                       <button
                         type="button"
@@ -1001,8 +999,7 @@ export function TemplateForm({
                             : "border-border/70 bg-background text-foreground hover:border-foreground/30",
                         )}
                       >
-                        {/* TODO(26-07): t("metricRepsCta") */}
-                        Por reps
+                        {t("templateMetricToggleReps")}
                       </button>
                       <button
                         type="button"
@@ -1021,13 +1018,11 @@ export function TemplateForm({
                             : "border-border/70 bg-background text-foreground hover:border-foreground/30",
                         )}
                       >
-                        {/* TODO(26-07): t("metricTimeCta") */}
-                        Por tiempo
+                        {t("templateMetricToggleTime")}
                       </button>
                       {metricInherited ? (
                         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {/* TODO(26-07): t("metricInherited") */}
-                          Heredado
+                          {t("templateMetricToggleInherited")}
                         </span>
                       ) : null}
                     </div>
@@ -1183,15 +1178,14 @@ export function TemplateForm({
                           render={({ field: numField, fieldState }) => (
                             <FormItem>
                               <FormLabel>
-                                {/* TODO(26-07): t("durationSecondsLabel") */}
-                                Duración (seg)
+                                {t("durationSecondsLabel")}
                               </FormLabel>
                               <FormControl>
                                 <Input
                                   type="text"
                                   inputMode="numeric"
                                   pattern="[0-9]*"
-                                  placeholder="60"
+                                  placeholder={t("durationSecondsPlaceholder")}
                                   value={durationSecondsDraft[field.id] ?? (numField.value ?? "")}
                                   onChange={(e) => {
                                     if (e.target.value === "") {
@@ -1257,8 +1251,7 @@ export function TemplateForm({
                               {t("setHeader")}
                             </span>
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {/* TODO(26-07): t("secondsHeader") for the time branch */}
-                              {effectiveMetric === "time" ? "Segundos" : t("reps")}
+                              {effectiveMetric === "time" ? t("secondsHeader") : t("reps")}
                             </span>
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {t("weightKgShort")}
@@ -1581,14 +1574,12 @@ export function TemplateForm({
                                     tabIndex={-1}
                                     aria-label={
                                       effectiveMetric === "time"
-                                        ? // TODO(26-07): t("setCopyToAllDurationAria")
-                                          "Copiar segundos y peso a todas las series"
+                                        ? t("setCopyToAllDurationAria")
                                         : (t("setCopyToAllAria") ?? "Copiar a todas las series")
                                     }
                                     title={
                                       effectiveMetric === "time"
-                                        ? // TODO(26-07): t("setCopyToAllDurationTitle")
-                                          "Copiar segundos y peso a todas las series"
+                                        ? t("setCopyToAllDurationTitle")
                                         : (t("setCopyToAllTitle") ?? "Copiar reps y peso a todas las series")
                                     }
                                     className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground"

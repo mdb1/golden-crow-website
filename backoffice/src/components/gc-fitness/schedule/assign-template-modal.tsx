@@ -868,9 +868,8 @@ export function AssignTemplateModal({
                     <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       <span>{t("exerciseOverridesSetHeader")}</span>
                       <span>
-                        {/* TODO(26-07): t("exerciseOverridesSeconds") for the time branch */}
                         {effectiveMetric === "time"
-                          ? "Segundos"
+                          ? t("exerciseOverridesSeconds")
                           : t("exerciseOverridesReps")}
                       </span>
                       <span>{t("exerciseOverridesWeightHeader")}</span>

@@ -348,15 +348,13 @@ export function ExerciseForm({
             as reps-based (current model) or time-based (planks, wall sits,
             dead hangs). Renders in create + edit; disabled in view. Defaults
             to "reps" via buildDefaults so legacy exercises pre-select the
-            reps option (PATTERNS.md §19 Pattern C).
-            TODO(26-07): replace inline Spanish strings with
-            t("metricLabel"), t("metricRepsCta"), t("metricTimeCta"). */}
+            reps option (PATTERNS.md §19 Pattern C). i18n migrated in 26-07. */}
         <FormField
           control={form.control}
           name="metric"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{"Tipo de prescripción"}</FormLabel>
+              <FormLabel>{t("metricLabel")}</FormLabel>
               <FormControl>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -370,7 +368,7 @@ export function ExerciseForm({
                     }`}
                     aria-pressed={field.value === "reps"}
                   >
-                    {"⚖️ Reps × Peso"}
+                    {t("metricRepsCta")}
                   </button>
                   <button
                     type="button"
@@ -383,7 +381,7 @@ export function ExerciseForm({
                     }`}
                     aria-pressed={field.value === "time"}
                   >
-                    {"⏱ Tiempo (seg)"}
+                    {t("metricTimeCta")}
                   </button>
                 </div>
               </FormControl>

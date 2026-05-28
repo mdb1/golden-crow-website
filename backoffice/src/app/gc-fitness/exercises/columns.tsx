@@ -152,12 +152,11 @@ export function makeColumns(
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span className="font-medium">{row.original.name.en || t("untitled")}</span>
-            {/* TODO(26-07): replace title="Ejercicio por tiempo" with t("metricTimeBadgeTitle") */}
             {row.original.metric === "time" ? (
               <Badge
                 variant="outline"
                 className="px-1.5 py-0 text-[10px]"
-                title="Ejercicio por tiempo"
+                title={t("metricTimeBadgeTitle")}
               >
                 {"⏱"}
               </Badge>
