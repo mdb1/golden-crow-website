@@ -9,7 +9,10 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Dumbbell } from "lucide-react";
 
-import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import {
+  getCurrentTrainer,
+  type CurrentTrainer,
+} from "@/lib/gc-fitness/auth-helpers";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ExerciseForm } from "../../_components/ExerciseForm";
 import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
@@ -40,8 +43,9 @@ function previewSrc(row: {
 }
 
 export default async function ViewExercisePage({ params }: PageParams) {
+  let trainer: CurrentTrainer;
   try {
-    await getCurrentTrainer();
+    trainer = await getCurrentTrainer();
   } catch (err) {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
@@ -57,6 +61,15 @@ export default async function ViewExercisePage({ params }: PageParams) {
     redirect("/gc-fitness/exercises");
   }
   const data = snap.data() as Record<string, unknown>;
+
+  // The /view page is the READ-ONLY treatment for library (wger /
+  // free-exercise-db) exercises. If the trainer OWNS this exercise it is
+  // editable — send them to the edit form instead of the read-only "comes
+  // from wger.de" banner (the "I created it, why can't I edit it?" bug).
+  // Symmetric with the edit page, which redirects library sources here.
+  if (data.source === "trainer" && data.ownerId === trainer.uid) {
+    redirect(`/gc-fitness/exercises/${id}/edit`);
+  }
 
   // 14-02 — Coerce the bilingual tips block from the raw Firestore
   // payload. Older documents have no `tips` key; pass through as a

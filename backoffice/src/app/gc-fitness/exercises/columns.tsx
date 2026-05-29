@@ -256,18 +256,26 @@ export function makeColumns(
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handlers.onView(row.original)}>
-                <Eye className="mr-2 h-4 w-4" />
-                {t("view")}
-              </DropdownMenuItem>
               {isLibrary ? (
-                <DropdownMenuItem
-                  onClick={() => handlers.onDuplicate(row.original)}
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  {t("duplicate")}
-                </DropdownMenuItem>
+                // Library exercises are read-only: View (read-only detail) +
+                // Duplicate-to-customize.
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handlers.onView(row.original)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    {t("view")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handlers.onDuplicate(row.original)}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {t("duplicate")}
+                  </DropdownMenuItem>
+                </>
               ) : (
+                // Trainer-owned: there's no separate read-only "view" — opening
+                // your own exercise IS the editable form. Edit + Delete.
                 <>
                   <DropdownMenuItem
                     onClick={() => handlers.onEdit(row.original)}

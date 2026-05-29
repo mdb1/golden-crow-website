@@ -268,7 +268,14 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    onClick={() => handlers.onView(row.original)}
+                    onClick={() =>
+                      // Owned exercises open the editable form (there's no
+                      // separate read-only view for your own); library
+                      // exercises open the read-only detail.
+                      row.original.source === "trainer"
+                        ? handlers.onEdit(row.original)
+                        : handlers.onView(row.original)
+                    }
                     className="cursor-pointer"
                   >
                     {row.getVisibleCells().map((cell) => (
