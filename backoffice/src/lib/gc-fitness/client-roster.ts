@@ -43,6 +43,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateToday } from "./civil-date";
+import { getTrainerTimezone } from "./trainer-timezone";
 import {
   computeCompliance,
   logCountsAsCompleted,
@@ -328,13 +329,17 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
     return null;
   };
 
+  // Resolve the trainer's own timezone ONCE so we never fall back to the
+  // accidental server UTC zone for a client that has no stored timezone.
+  const trainerTz = await getTrainerTimezone();
+
   const rows: ClientRosterRow[] = await Promise.all(
     clients.map(async (c): Promise<ClientRosterRow> => {
       // Compute "today" in the client's timezone so the 7-day compliance
       // window aligns with the client's civil-date semantics (matches
-      // habit-compliance-actions.ts which uses "UTC" — we pass the client's
-      // tz here when available for tighter alignment).
-      const tzForToday = c.timezone ?? "UTC";
+      // habit-compliance-actions.ts). When the client has no stored tz we
+      // fall back to the trainer's own cookie tz rather than literal "UTC".
+      const tzForToday = c.timezone ?? trainerTz;
       const today = civilDateToday(tzForToday);
 
       // 7-day window bounds. The assignments collection uses `scheduledFor`
