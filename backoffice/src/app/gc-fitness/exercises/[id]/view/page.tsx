@@ -85,7 +85,6 @@ export default async function ViewExercisePage({ params }: PageParams) {
     thumbnailURL:
       typeof data.thumbnailURL === "string" ? data.thumbnailURL : null,
     youtubeURL: typeof data.youtubeURL === "string" ? data.youtubeURL : null,
-    videoUrl: typeof data.videoUrl === "string" ? data.videoUrl : null,
     tips: tipsDefault,
     source: (data.source as ExerciseInput["source"]) ?? "wger",
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
@@ -113,15 +112,8 @@ export default async function ViewExercisePage({ params }: PageParams) {
       )
     : [];
 
-  // 14-02 — Pull the demonstration video URL + EN tips text for the
-  // read-only header sections below. The trainer surface is EN-only per
-  // 260522-orr; ES is iOS-only for v1.
-  const demoVideoUrl =
-    typeof data.videoUrl === "string" && data.videoUrl.trim().length > 0
-      ? data.videoUrl
-      : null;
-  const demoVideoIsDistinct =
-    demoVideoUrl !== null && demoVideoUrl !== (defaults.mediaURL ?? null);
+  // 14-02 — Pull the EN tips text for the read-only header section below.
+  // The trainer surface is EN-only per 260522-orr; ES is iOS-only for v1.
   const tipsEn = tipsDefault.en.trim();
 
   return (
@@ -171,24 +163,6 @@ export default async function ViewExercisePage({ params }: PageParams) {
           <p className="text-sm text-muted-foreground">
             No instructions available.
           </p>
-        )}
-
-        {/* 14-02 — Demonstration video (renders only when present AND
-            distinct from the mediaURL hero clip; rendering both would
-            be redundant). EN-only per the 260522-orr backoffice
-            convention. */}
-        {demoVideoUrl && demoVideoIsDistinct && (
-          <div className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold text-foreground">
-              Demonstration video
-            </h2>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video
-              src={demoVideoUrl}
-              controls
-              className="w-full max-w-2xl rounded-md border border-border"
-            />
-          </div>
         )}
 
         {/* 14-02 — Coaching tips (EN only on the trainer surface). */}

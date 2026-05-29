@@ -79,21 +79,6 @@ const youtubeUrlSchema = z.preprocess(
     .optional(),
 );
 
-// 14-02 — Generic demonstration video URL. Distinct from `mediaURL`
-// (the 16:9 hero clip, stored as `gs://`) AND from `youtubeURL` (the
-// existing YouTube reference link). Accepts ANY https URL — v1 trainers
-// may paste an MP4/Vimeo link from a host they already control, so we
-// do NOT restrict to `gs://` here.
-const videoUrlSchema = z.preprocess(
-  (value) => (value === "" ? null : value),
-  z
-    .string()
-    .trim()
-    .url("Enter a valid video URL.")
-    .nullable()
-    .optional(),
-);
-
 // 14-02 — Bilingual coaching tips. Free-text coaching cues separate from
 // the numbered `instructions` step list. 2,000-char ceiling per language
 // (half the description ceiling — tips should be tight cues, not full
@@ -190,7 +175,6 @@ export const exerciseSchema = z.object({
   mediaURL: gsUrlSchema,
   thumbnailURL: thumbnailUrlSchema,
   youtubeURL: youtubeUrlSchema,
-  videoUrl: videoUrlSchema,
   tips: tipsSchema,
   source: sourceSchema,
   ownerId: z.string().nullable(),

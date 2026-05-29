@@ -105,7 +105,6 @@ function buildDefaults(
     // 14-02 — optional demo video + bilingual tips. Defaulting `tips` to
     // a populated `{ en: '', es: '' }` (rather than null) keeps RHF's
     // controlled inputs happy from the first render onward.
-    videoUrl: passed?.videoUrl ?? null,
     tips: passed?.tips ?? { en: "", es: "" },
     // In create mode the server force-sets source/ownerId regardless of what
     // we send, but Zod requires the fields to be present in the shape — seed
@@ -537,34 +536,6 @@ export function ExerciseForm({
             )}
           />
         </div>
-
-        {/* 14-02 — Standalone demonstration video URL. Distinct from the
-            hero clip uploaded via the dropzone and from the YouTube
-            reference link above. Renders on the iOS detail view as a
-            dedicated 'Watch demo' card. */}
-        <FormField
-          control={form.control}
-          name="videoUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("videoUrlLabel")}</FormLabel>
-              <FormControl>
-                <Input
-                  type="url"
-                  placeholder={t("videoUrlPlaceholder")}
-                  disabled={isView}
-                  name={field.name}
-                  ref={field.ref}
-                  onBlur={field.onBlur}
-                  value={field.value ?? ""}
-                  onChange={field.onChange}
-                />
-              </FormControl>
-              <FormDescription>{t("videoUrlHint")}</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         {/* Action row */}
         {!isView && (
