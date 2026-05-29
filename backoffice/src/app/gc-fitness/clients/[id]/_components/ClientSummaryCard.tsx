@@ -4,6 +4,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
+import { ClientSummaryLists } from "./ClientSummaryLists";
 const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
   0: "Dom",
   1: "Lun",
@@ -16,9 +17,11 @@ const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
 
 export async function ClientSummaryCard({
   clientId,
+  clientName,
   goals,
 }: {
   clientId: string;
+  clientName: string;
   goals: ClientGoalRow[];
 }) {
   const t = await getTranslations("clients.detail.summary");
@@ -112,87 +115,50 @@ export async function ClientSummaryCard({
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Workouts */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("workouts")}
-            </p>
-            <span className="text-xs text-muted-foreground">{workouts.length}</span>
-          </div>
-          {workouts.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("noWorkouts")}</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {workoutsGrouped.slice(0, 6).map((row) => (
-                <li
-                  key={row.key}
-                  className="flex items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5 text-xs"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{row.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {row.recurrence}
-                      {row.nextDate ? ` · ${row.nextDate}` : ""}
-                    </p>
-                  </div>
-                  {row.count > 1 ? (
-                    <Badge variant="outline" className="text-[10px]">
-                      x{row.count}
-                    </Badge>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-          {pastWorkouts.length > 0 ? (
-            <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                {t("showPastWorkouts", { count: pastWorkouts.length })}
-              </summary>
-              <ul className="mt-2 flex flex-col gap-1">
-                {groupWorkouts(pastWorkouts).map((row) => (
-                  <li
-                    key={row.key}
-                    className="rounded-md border bg-muted/60 px-2 py-1.5"
-                  >
-                    <p className="font-medium">{row.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {row.recurrence} · {row.nextDate}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-        </div>
-
-        {/* Habits */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("habits")}
-            </p>
-            <span className="text-xs text-muted-foreground">{habits.length}</span>
-          </div>
-          {habits.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("noHabits")}</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {habits.slice(0, 8).map((row) => (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between gap-2 rounded-md border bg-background px-2 py-1.5 text-xs"
-                >
-                  <span className="truncate font-medium">{row.name}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {row.cadence}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {/* Workouts + Habits — interactive (tap a row to open its detail /
+            edit dialog, mirroring the agenda). Rendered by a client island so
+            the row taps can open the agenda's `useQuery`-backed dialogs while
+            this card stays a Server Component data source. */}
+        <ClientSummaryLists
+          clientName={clientName}
+          todayCivil={todayCivil}
+          workouts={workoutsGrouped.map((row) => ({
+            id: row.id,
+            name: row.name,
+            recurrence: row.recurrence,
+            count: row.count,
+            nextDate: row.nextDate,
+          }))}
+          habits={habits}
+          labels={{
+            workouts: t("workouts"),
+            noWorkouts: t("noWorkouts"),
+            habits: t("habits"),
+            noHabits: t("noHabits"),
+          }}
+          pastWorkoutsSlot={
+            pastWorkouts.length > 0 ? (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                  {t("showPastWorkouts", { count: pastWorkouts.length })}
+                </summary>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {groupWorkouts(pastWorkouts).map((row) => (
+                    <li
+                      key={row.key}
+                      className="rounded-md border bg-muted/60 px-2 py-1.5"
+                    >
+                      <p className="font-medium">{row.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {row.recurrence} · {row.nextDate}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : undefined
+          }
+        />
 
         {/* Goals — compact chip view */}
         <div className="flex flex-col gap-2">
@@ -365,18 +331,33 @@ function computeWorkoutStreak(
 
 function groupWorkouts(
   rows: Array<{ id: string; name: string; recurrence: string; scheduledFor: string }>,
-): Array<{ key: string; name: string; recurrence: string; count: number; nextDate: string }> {
-  const map = new Map<string, { key: string; name: string; recurrence: string; count: number; nextDate: string }>();
+): Array<{ key: string; id: string; name: string; recurrence: string; count: number; nextDate: string }> {
+  const map = new Map<
+    string,
+    { key: string; id: string; name: string; recurrence: string; count: number; nextDate: string }
+  >();
   for (const row of rows) {
     const key = `${row.name}__${row.recurrence}`;
     const existing = map.get(key);
     if (!existing) {
-      map.set(key, { key, name: row.name, recurrence: row.recurrence, count: 1, nextDate: row.scheduledFor });
+      // `id` is the representative assignment for the group — the one whose
+      // `scheduledFor` we surface as `nextDate`. Tapping the row opens THIS
+      // assignment's detail dialog. Recurrence edits/deletes cascade across
+      // the series via the dialog's recurrence-aware flow.
+      map.set(key, {
+        key,
+        id: row.id,
+        name: row.name,
+        recurrence: row.recurrence,
+        count: 1,
+        nextDate: row.scheduledFor,
+      });
       continue;
     }
     existing.count += 1;
     if (!existing.nextDate || (row.scheduledFor && row.scheduledFor < existing.nextDate)) {
       existing.nextDate = row.scheduledFor;
+      existing.id = row.id;
     }
   }
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));

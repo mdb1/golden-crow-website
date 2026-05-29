@@ -137,7 +137,7 @@ export default async function ClientDetailPage({
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={typeof client.bodyWeightKg === "number" ? client.bodyWeightKg : null}
       />
-      <ClientSummaryCard clientId={id} goals={goals} />
+      <ClientSummaryCard clientId={id} clientName={displayName} goals={goals} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
