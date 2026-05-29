@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Share2, Download, AlertCircle } from "lucide-react";
+import { Download, AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -282,8 +282,14 @@ function buildSuccessModel(
     { value: `${exerciseCount}`, label: t("shareStatExercises") },
   ];
 
-  // Duración — only when we can compute it from completedAt − startedAt.
-  const durationSeconds = workoutDurationSeconds(detail);
+  // Duración — prefer the STORED duration_seconds (authoritative, iOS parity),
+  // falling back to completedAt − startedAt only when the stored value is
+  // null/0. The completedAt − startedAt math is unreliable (clock skew, paused
+  // sessions), so it is the last resort, not the primary source.
+  const durationSeconds =
+    detail.durationSeconds && detail.durationSeconds > 0
+      ? detail.durationSeconds
+      : workoutDurationSeconds(detail);
   if (durationSeconds > 0) {
     stats.push({
       value: formatDurationSeconds(durationSeconds),
@@ -513,6 +519,17 @@ function ShareCardRenderer({
     (async () => {
       try {
         const { toPng } = await import("html-to-image");
+        // Ensure the ~600KB data-URI logo is fully decoded before capture —
+        // html-to-image otherwise snapshots a not-yet-decoded <img> (the v2.2
+        // broken-logo regression; v1 awaited decode() before toPng).
+        const logoImg = node.querySelector("img");
+        if (logoImg) {
+          try {
+            await logoImg.decode();
+          } catch {
+            /* decode unsupported / already decoded — proceed */
+          }
+        }
         await toPng(node, { pixelRatio: 1, width: CANVAS_WIDTH });
       } catch {
         // Warm-up is best-effort; ignore failures (the real click retries).
@@ -529,6 +546,17 @@ function ShareCardRenderer({
     setError(false);
     try {
       const { toPng } = await import("html-to-image");
+      // Ensure the ~600KB data-URI logo is fully decoded before capture —
+      // html-to-image otherwise snapshots a not-yet-decoded <img> (the v2.2
+      // broken-logo regression; v1 awaited decode() before toPng).
+      const logoImg = node.querySelector("img");
+      if (logoImg) {
+        try {
+          await logoImg.decode();
+        } catch {
+          /* decode unsupported / already decoded — proceed */
+        }
+      }
       // Measure the laid-out node so tall routines aren't clipped — height is
       // the node's scrollHeight (dynamic), width fixed at 1080.
       const height = Math.max(CANVAS_MIN_HEIGHT, Math.ceil(node.scrollHeight));
@@ -538,25 +566,10 @@ function ShareCardRenderer({
         height,
       });
 
-      // Native share sheet with a file where supported (mobile).
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `workout-${model.fileDate}.png`, {
-        type: "image/png",
-      });
-      const navAny = navigator as Navigator & {
-        canShare?: (data?: { files?: File[] }) => boolean;
-        share?: (data: { files?: File[]; title?: string }) => Promise<void>;
-      };
-      if (navAny.canShare?.({ files: [file] }) && navAny.share) {
-        try {
-          await navAny.share({ files: [file], title: model.shareTitle });
-          return;
-        } catch {
-          // User cancelled or share failed — fall through to download.
-        }
-      }
-
-      // Desktop / unsupported → download.
+      // Always DOWNLOAD the PNG to disk. The backoffice is a desktop surface and
+      // macOS browsers report navigator.canShare({files}) === true, which would
+      // open a share sheet instead of saving the file — so the share-sheet
+      // branch is intentionally removed.
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `workout-${model.fileDate}.png`;
@@ -582,9 +595,9 @@ function ShareCardRenderer({
         {busy ? (
           <Download className="h-4 w-4 animate-pulse" />
         ) : (
-          <Share2 className="h-4 w-4" />
+          <Download className="h-4 w-4" />
         )}
-        {!logoReady ? t("shareLoading") : t("shareButton")}
+        {!logoReady ? t("shareLoading") : t("shareDownloadButton")}
       </Button>
       {error ? (
         <p className="flex items-center gap-1 text-xs text-destructive">
