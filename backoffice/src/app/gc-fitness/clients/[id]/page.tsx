@@ -33,8 +33,8 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { ClientHeader } from "./_components/ClientHeader";
-import { RecentWorkoutsWidget } from "./_components/RecentWorkoutsWidget";
-import { HabitComplianceWidget } from "./_components/HabitComplianceWidget";
+import { WorkoutTrendsWidget } from "./_components/WorkoutTrendsWidget";
+import { HabitTrendsWidget } from "./_components/HabitTrendsWidget";
 import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
 import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
 import { ClientNotesCard } from "./_components/ClientNotesCard";
@@ -140,12 +140,12 @@ export default async function ClientDetailPage({
       <ClientSummaryCard clientId={id} goals={goals} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentWorkouts")} />}>
-          <RecentWorkoutsWidget clientId={id} />
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
+          <WorkoutTrendsWidget clientId={id} timezone={timezone} />
         </Suspense>
 
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("habitCompliance")} />}>
-          <HabitComplianceWidget clientId={id} timezone={timezone} />
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("habitTrends")} />}>
+          <HabitTrendsWidget clientId={id} timezone={timezone} />
         </Suspense>
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>

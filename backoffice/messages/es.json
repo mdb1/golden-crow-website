@@ -150,8 +150,8 @@
       "assignWorkout": "Asignar entrenamiento",
       "assignHabit": "Asignar hábito",
       "skeleton": {
-        "recentWorkouts": "Entrenamientos recientes",
-        "habitCompliance": "Adherencia a hábitos (últimos 7 días)",
+        "workoutTrends": "Workouts",
+        "habitTrends": "Hábitos",
         "recentMessages": "Mensajes recientes",
         "bodyWeight": "Peso corporal (30 días)"
       },
@@ -225,21 +225,29 @@
         "previousNotes": "Notas previas",
         "noPreviousNotes": "Sin notas previas."
       },
-      "recentWorkouts": {
-        "title": "Entrenamientos recientes",
+      "workoutTrends": {
+        "title": "Workouts",
         "empty": "Aún no hay entrenamientos registrados.",
-        "untitled": "(sin nombre)",
-        "setSingular": "{count} serie",
-        "setPlural": "{count} series",
-        "viewWorkout": "Ver workout",
-        "viewLog": "Ver log"
+        "statWorkouts": "workouts",
+        "statSets": "series",
+        "statVolume": "volumen",
+        "volumeUnit": "kg",
+        "barLabel": "workouts",
+        "rangeAll": "Todo",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d"
       },
-      "habitCompliance": {
-        "title": "Adherencia a hábitos (últimos 7 días)",
+      "habitTrends": {
+        "title": "Hábitos",
         "empty": "Aún no hay hábitos asignados.",
         "unnamed": "(hábito sin nombre)",
         "daysCompleted": "días completados",
-        "streakTooltip": "Racha de {count} cumplimientos en días programados"
+        "streakTooltip": "Racha de {count} cumplimientos en días programados",
+        "rangeAll": "Todo",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d"
       },
       "chatHistory": {
         "title": "Mensajes recientes",

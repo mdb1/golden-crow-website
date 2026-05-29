@@ -150,8 +150,8 @@
       "assignWorkout": "Assign workout",
       "assignHabit": "Assign habit",
       "skeleton": {
-        "recentWorkouts": "Recent workouts",
-        "habitCompliance": "Habit compliance (last 7 days)",
+        "workoutTrends": "Workouts",
+        "habitTrends": "Habits",
         "recentMessages": "Recent messages",
         "bodyWeight": "Body weight (30 days)"
       },
@@ -225,21 +225,29 @@
         "previousNotes": "Previous notes",
         "noPreviousNotes": "No previous notes."
       },
-      "recentWorkouts": {
-        "title": "Recent workouts",
+      "workoutTrends": {
+        "title": "Workouts",
         "empty": "No workouts logged yet.",
-        "untitled": "(unnamed)",
-        "setSingular": "{count} set",
-        "setPlural": "{count} sets",
-        "viewWorkout": "View workout",
-        "viewLog": "View log"
+        "statWorkouts": "workouts",
+        "statSets": "sets",
+        "statVolume": "volume",
+        "volumeUnit": "kg",
+        "barLabel": "workouts",
+        "rangeAll": "All",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d"
       },
-      "habitCompliance": {
-        "title": "Habit compliance (last 7 days)",
+      "habitTrends": {
+        "title": "Habits",
         "empty": "No habits assigned yet.",
         "unnamed": "(unnamed habit)",
         "daysCompleted": "days completed",
-        "streakTooltip": "{count}-occurrence streak on scheduled days"
+        "streakTooltip": "{count}-occurrence streak on scheduled days",
+        "rangeAll": "All",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d"
       },
       "chatHistory": {
         "title": "Recent messages",
