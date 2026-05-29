@@ -79,6 +79,15 @@ export interface WorkoutLogDetail {
      */
     durationSeconds: number | null;
     completedAt: string | null;
+    /**
+     * 260529-mrp — True when this set is a warmup (excluded from the share
+     * card's Volumen / Series / top-set / 1RM math, mirroring iOS, which
+     * skips warmups for those stats). Wire field `is_warmup` (iOS,
+     * snake_case); `isWarmup` camel fallback mirrors the existing
+     * weight_kg ?? weight / duration_seconds ?? durationSeconds pattern.
+     * Defaults to false when absent (pre-warmup-flag logs).
+     */
+    isWarmup: boolean;
     /** True when this set matches a PR row in the parent workout log's prs[]. */
     isPR: boolean;
     /** Stored Epley estimated 1RM (kg) when isPR === true. */
@@ -976,6 +985,11 @@ export async function getWorkoutLogDetail(
       durationSeconds: numeric(set.duration_seconds ?? set.durationSeconds),
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
+      // 260529-mrp — Wire field is `is_warmup` (iOS, snake_case); keep
+      // `isWarmup` as a camel fallback mirroring the weight_kg ?? weight
+      // pattern. The share card excludes warmups from Volumen / Series /
+      // top-set / 1RM, matching the iOS twin.
+      isWarmup: Boolean(set.is_warmup ?? set.isWarmup),
       isPR: Boolean(pr),
       prEstimatedOneRM: pr?.estimatedOneRM ?? null,
       supersetGroup:
