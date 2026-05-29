@@ -49,6 +49,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import type { HabitType } from "./habit-schema";
 import { civilDateToday, civilDateFormat } from "./civil-date";
+import { getTrainerTimezone } from "./trainer-timezone";
 
 /**
  * Serializable shape returned by `fetchHabitCompliance` — consumed by the
@@ -108,6 +109,7 @@ export async function fetchHabitCompliance(
   }
   const habit = habitSnap.data() as {
     trainerId?: string;
+    clientId?: string;
     type?: HabitType;
     targetValue?: number;
   };
@@ -121,15 +123,27 @@ export async function fetchHabitCompliance(
 
   // 2) Compute the 30-day civil-date window.
   //
-  // v1 uses server-side UTC for the "today" anchor. A future refinement
-  // (after we collect client.timezone consistently on /users/) would flow
-  // the client's IANA tz here so the trainer's compliance view aligns
-  // with the client's civil-date semantics. For now the iOS HabitDetailView
-  // also computes in client.timezone, so a small mis-alignment is possible
-  // at the day boundary in the client's evening hours — acceptable for v1
-  // per CONTEXT.md.
-  const today = civilDateToday("UTC");
-  const startDate = computeStartCivilDate(29);
+  // We anchor "today" and the window start in the CLIENT's IANA timezone so
+  // the trainer's compliance view aligns with the civil-date semantics the
+  // client sees on iOS (HabitDetailView computes in client.timezone). The tz
+  // is resolved from the client's /users doc, falling back to the trainer's
+  // own cookie tz (and ultimately "UTC" via getTrainerTimezone's own
+  // fallback) when the client has no stored timezone.
+  const clientId = typeof habit.clientId === "string" ? habit.clientId : "";
+  let clientTz = await getTrainerTimezone();
+  if (clientId) {
+    const clientSnap = await db
+      .collection(FirestoreCollections.users)
+      .doc(clientId)
+      .get();
+    const storedTz = clientSnap.get("timezone");
+    if (typeof storedTz === "string" && storedTz) {
+      clientTz = storedTz;
+    }
+  }
+
+  const today = civilDateToday(clientTz);
+  const startDate = computeStartCivilDate(29, clientTz);
 
   // 3) Window-bounded query using the habitId+civilDate composite index
   //    (#3 from P06-01). Returns ≤30 docs per habit by construction
@@ -158,8 +172,8 @@ export async function fetchHabitCompliance(
 
   // 4) Pure-function rollup — single source of truth for "did this log
   //    count?" lives in habit-compliance.ts.
-  const seven = computeCompliance(habitType, logs, 7, today, "UTC", targetValue);
-  const thirty = computeCompliance(habitType, logs, 30, today, "UTC", targetValue);
+  const seven = computeCompliance(habitType, logs, 7, today, clientTz, targetValue);
+  const thirty = computeCompliance(habitType, logs, 30, today, clientTz, targetValue);
 
   return {
     sevenDayRatio: seven.ratio,
@@ -169,16 +183,19 @@ export async function fetchHabitCompliance(
 }
 
 /**
- * Returns the civil-date string `daysBack` days earlier than today (UTC).
+ * Returns the civil-date string `daysBack` days earlier than today in the
+ * supplied IANA timezone.
  *
  * Used to compute the 30-day query lower bound: we want today + the 29
- * preceding civil days, so the window length is 30. Anchored at noon UTC
- * for the same reasons as `parseISOCivilDateToUTC` in habit-compliance.ts —
- * UTC is DST-free so day-step arithmetic with setUTCDate is exact.
+ * preceding civil days, so the window length is 30. The instant is anchored
+ * at noon UTC before stepping back `daysBack` days — UTC is DST-free so the
+ * setUTCDate stepping is exact, and anchoring at noon keeps the resulting
+ * civil day stable when projected into the client's timezone offset. Only
+ * the FINAL format zone is the client tz.
  */
-function computeStartCivilDate(daysBack: number): string {
+function computeStartCivilDate(daysBack: number, timezone: string): string {
   const t = new Date();
   t.setUTCHours(12, 0, 0, 0);
   t.setUTCDate(t.getUTCDate() - daysBack);
-  return civilDateFormat(t, "UTC");
+  return civilDateFormat(t, timezone);
 }
