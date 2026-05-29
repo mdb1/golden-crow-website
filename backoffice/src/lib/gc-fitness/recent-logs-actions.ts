@@ -305,10 +305,25 @@ export async function listRecentLogsForTrainer(): Promise<{
   // Some historical habit logs are missing/incorrect `coachId`.
   // Query per roster client instead of filtering by coachId so we include
   // those legacy rows.
+  //
+  // 260529 COST — window the per-client habit-log fan-out to a recent
+  // civil-date horizon instead of an arbitrary `limit(200)`. This feed is
+  // RECENT activity and the consumer below ALREADY skips any log lacking
+  // `civilDate` (see latestLogByHabitDay), so a `civilDate` range drops no
+  // doc the feed would have rendered — and it's MORE correct than the old
+  // unordered limit(200) (which returned 200 arbitrary docs by id, not the
+  // most recent, for a heavy logger). Served by the live
+  // `habit_logs (clientId, civilDate)` index. `limit(200)` stays as a
+  // backstop so behaviour never exceeds the prior worst case.
+  const recentHabitWindowStartCivil = civilDateToday(
+    await getTrainerTimezone(),
+    new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+  );
   const habitLogPromises = clients.map((client) =>
     db
       .collection(FirestoreCollections.habitLogs)
       .where("clientId", "==", client.uid)
+      .where("civilDate", ">=", recentHabitWindowStartCivil)
       .limit(200)
       .get(),
   );
