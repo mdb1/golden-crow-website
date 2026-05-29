@@ -58,6 +58,12 @@ export interface WorkoutLogDetail {
   setCount: number;
   completedSetCount: number;
   exerciseCount: number;
+  /** Stored workout duration (seconds), read from the log doc. iOS writes the
+   *  authoritative elapsed time as `duration_seconds`; legacy `durationSeconds`
+   *  camel fallback mirrors the existing weight_kg ?? weight pattern. The share
+   *  card prefers this over completedAt − startedAt (which is unreliable).
+   *  Null when the field is absent (e.g. an in-progress / legacy log). */
+  durationSeconds: number | null;
   /** Athlete self-reported RPE (1-10), captured on the iOS post-workout
    *  summary. Optional; null when the user dismissed the slider. */
   rpe: number | null;
@@ -1097,6 +1103,10 @@ async function buildWorkoutLogDetail(
     setCount: sets.length,
     completedSetCount: sets.filter((s) => Boolean(s.completedAt)).length,
     exerciseCount: templateExercises.length,
+    // Wire field is `duration_seconds` (iOS, snake_case); keep `durationSeconds`
+    // as a legacy/camel fallback mirroring the weight_kg ?? weight pattern. This
+    // is the authoritative stored elapsed time the share card prefers.
+    durationSeconds: numeric(data.duration_seconds ?? data.durationSeconds),
     rpe,
     athleteNotes,
     sets,
