@@ -178,12 +178,24 @@ describe("workoutTemplateSchema — exercise constraints", () => {
     expect(result.success).toBe(false);
   });
 
-  // T15: reps = 0 rejected
-  it("rejects reps=0", () => {
+  // T15: reps = 0 is ACCEPTED — it's the deliberate "no fixed count" / open
+  // prescription for warmup / mobility / duration-based work (schema uses
+  // min(0); see workout-template-schema.ts reps field comment). The lower
+  // bound is now negative-reps, which is still rejected.
+  it("accepts reps=0 (open / no-fixed-count prescription)", () => {
+    const parsed = workoutTemplateSchema.parse({
+      ...VALID_TEMPLATE,
+      exercises: [{ ...VALID_EXERCISE, reps: 0 }],
+    });
+    expect(parsed.exercises[0].reps).toBe(0);
+  });
+
+  // T15b: negative reps is still rejected (min lower bound).
+  it("rejects reps=-1 (negative)", () => {
     expect(
       firstError({
         ...VALID_TEMPLATE,
-        exercises: [{ ...VALID_EXERCISE, reps: 0 }],
+        exercises: [{ ...VALID_EXERCISE, reps: -1 }],
       }),
     ).toMatch(/reps/i);
   });

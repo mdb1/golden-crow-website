@@ -28,6 +28,7 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
 import { listRecentLogsForTrainer } from "@/lib/gc-fitness/recent-logs-actions";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
+import { safe } from "@/lib/gc-fitness/safe-load";
 import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "@/lib/gc-fitness/client-attention";
 
 import { DailyBars, TopPerformers } from "./_components/coach-pulse";
@@ -79,10 +80,29 @@ export default async function GCFitnessDashboardPage({
     throw err;
   }
 
-  const counts = await getDashboardCounts(trainer);
-  const roster = await listClientsForRoster();
-  const recentLogs = await listRecentLogsForTrainer();
-  const pulse = await getCoachPulse();
+  // 260529 RESILIENCE: each section loads behind `safe()` so a single failing
+  // query (e.g. a composite index still BUILDING) degrades only that card
+  // instead of 500ing the whole dashboard. See safe-load.ts for the why.
+  const counts =
+    (await safe("dashboard counts", () => getDashboardCounts(trainer))) ?? {
+      clients: 0,
+      templates: 0,
+    };
+  const roster = (await safe("client roster", () => listClientsForRoster())) ?? [];
+  const recentLogs = (await safe("recent logs", () =>
+    listRecentLogsForTrainer(),
+  )) ?? { logs: [], clients: [] };
+  // Full zeroed fallback so a failed pulse load degrades to empty cards
+  // (never null-derefs in the JSX below).
+  const pulse = (await safe("coach pulse", () => getCoachPulse())) ?? {
+    habitDaily: [],
+    workoutDaily: [],
+    weekHabitPct: 0,
+    weekWorkoutPct: 0,
+    topPerformersWeek: [],
+    topPerformersToday: [],
+    customExerciseCount: 0,
+  };
 
   const latestLogByClient = new Map<string, (typeof recentLogs.logs)[number]>();
   for (const row of recentLogs.logs) {
@@ -194,7 +214,7 @@ export default async function GCFitnessDashboardPage({
             href="/gc-fitness/exercises?owner=mine"
             icon={<Sparkles className="h-4 w-4 text-primary" />}
             label="Custom exercises"
-            value={pulse.customExerciseCount}
+            value={pulse?.customExerciseCount ?? 0}
             hint="created by you"
           />
           <KpiTile
@@ -222,11 +242,11 @@ export default async function GCFitnessDashboardPage({
                   % of scheduled habits completed each day.
                 </p>
               </div>
-              <Badge variant="secondary">{pulse.weekHabitPct}% week</Badge>
+              <Badge variant="secondary">{pulse?.weekHabitPct ?? 0}% week</Badge>
             </CardHeader>
             <CardContent>
               <DailyBars
-                data={pulse.habitDaily}
+                data={pulse?.habitDaily ?? []}
                 emptyLabel="No habits scheduled this week."
                 unitLabel="habits"
               />
@@ -240,11 +260,11 @@ export default async function GCFitnessDashboardPage({
                   Assigned vs. logged workouts each day.
                 </p>
               </div>
-              <Badge variant="secondary">{pulse.weekWorkoutPct}% week</Badge>
+              <Badge variant="secondary">{pulse?.weekWorkoutPct ?? 0}% week</Badge>
             </CardHeader>
             <CardContent>
               <DailyBars
-                data={pulse.workoutDaily}
+                data={pulse?.workoutDaily ?? []}
                 emptyLabel="No workouts assigned this week."
                 unitLabel="clients"
               />

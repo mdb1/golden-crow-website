@@ -31,13 +31,35 @@ const mockUpdate = jest.fn();
 const mockDelete = jest.fn();
 const mockGet = jest.fn();
 
-const mockDoc = jest.fn(() => ({
+// Each doc ref carries the id it was requested with so `getAll` (and the
+// templateSnapshot exercise-name enrichment that calls it) can key the
+// returned snapshots by exercise id.
+const mockDoc = jest.fn((id?: string) => ({
   set: mockSet,
   update: mockUpdate,
   delete: mockDelete,
   get: mockGet,
-  id: "MOCK_DOC_ID",
+  id: id ?? "MOCK_DOC_ID",
 }));
+
+// `db.getAll(...refs)` batch-reads the exercise docs that
+// templateSnapshotForAssignment uses to enrich each exercise's localized name.
+// Resolve every ref to an exists=false snapshot so the enrichment takes its
+// `{ en: exerciseId, es: "" }` fallback and adds NO license (the original
+// exercise's license survives via spread). VALID_TEMPLATE's exercise(s) carry
+// the matching fallback name so the denormalized snapshot equals VALID_TEMPLATE.
+const mockGetAll = jest.fn((...refs: Array<{ id?: string }>) =>
+  Promise.resolve(
+    refs.map((ref) => {
+      const id = ref?.id ?? "ex-1";
+      return {
+        id,
+        exists: false,
+        data: () => ({ name: { en: id, es: "" } }),
+      };
+    }),
+  ),
+);
 
 const mockWhere = jest.fn();
 const mockOrderBy = jest.fn();
@@ -77,6 +99,7 @@ jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: jest.fn(() => ({
     collection: mockCollection,
     batch: mockBatch,
+    getAll: mockGetAll,
   })),
 }));
 
@@ -135,6 +158,12 @@ const VALID_TEMPLATE = {
       notes: null,
       order: 0,
       license: { spdx: "CC-BY-SA-3.0", author: "wger", sourceUrl: null },
+      // templateSnapshotForAssignment enriches each exercise with a localized
+      // name from the exercise doc (or this `{ en: exerciseId, es: "" }`
+      // fallback when the doc is missing — see the mockGetAll above). The
+      // denormalized snapshot therefore carries this field; declaring it here
+      // keeps the `toEqual(VALID_TEMPLATE)` snapshot assertions exact.
+      name: { en: "ex-1", es: "" },
     },
   ],
   version: 1,

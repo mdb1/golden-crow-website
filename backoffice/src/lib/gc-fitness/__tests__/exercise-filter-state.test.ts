@@ -57,6 +57,7 @@ function row(over: Partial<ExerciseRow> = {}): ExerciseRow {
     level: null,
     category: null,
     force: null,
+    metric: "reps",
     ...over,
   };
 }

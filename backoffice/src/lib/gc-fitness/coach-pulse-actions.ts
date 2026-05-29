@@ -213,6 +213,16 @@ export async function getCoachPulse(): Promise<CoachPulse> {
       .get()
       .catch(logError(`habits clientId=${client.uid}`)),
   );
+  // 260529 RESILIENCE — see also recent-logs-actions.ts. The windowed query
+  // needs the `habit_logs (clientId, civilDate)` composite index. While that
+  // index is BUILDING (the original 260529 outage) the query throws
+  // FAILED_PRECONDITION. The PREVIOUS handler `.catch → null` turned that into
+  // a SILENT all-zero pulse (0% week, empty bars, empty top performers) — wrong
+  // numbers that look real, which is worse than a visible error. Instead, fall
+  // back to the pre-windowing query (single-field `clientId`, always indexed)
+  // and let the in-memory `civ < windowStart || civ > windowEnd` filter below
+  // (see logsByClientDay) trim to the window — semantically identical output,
+  // just more reads. Only `.catch → null` if even the fallback fails.
   const habitLogsPromises = activeClients.map((client) =>
     db
       .collection(FirestoreCollections.habitLogs)
@@ -221,8 +231,19 @@ export async function getCoachPulse(): Promise<CoachPulse> {
       .where("civilDate", "<=", windowEnd)
       .limit(400)
       .get()
-      .catch(logError(`habit_logs clientId=${client.uid}`)),
+      .catch(() =>
+        db
+          .collection(FirestoreCollections.habitLogs)
+          .where("clientId", "==", client.uid)
+          .limit(400)
+          .get()
+          .catch(logError(`habit_logs clientId=${client.uid}`)),
+      ),
   );
+  // Same pattern: windowed assignments need `workout_assignments
+  // (trainerId, scheduledFor)`. Fall back to the trainerId-only query (the
+  // in-memory `scheduledFor < windowStart || > windowEnd` filter below already
+  // trims it) so an index build can't silently zero the workout bars.
   const assignmentsPromise = db
     .collection(FirestoreCollections.workoutAssignments)
     .where("trainerId", "==", trainer.uid)
@@ -230,7 +251,14 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     .where("scheduledFor", "<=", windowEnd)
     .limit(600)
     .get()
-    .catch(logError("workout_assignments"));
+    .catch(() =>
+      db
+        .collection(FirestoreCollections.workoutAssignments)
+        .where("trainerId", "==", trainer.uid)
+        .limit(600)
+        .get()
+        .catch(logError("workout_assignments")),
+    );
   const workoutLogsPromise = db
     .collection(FirestoreCollections.workoutLogs)
     .where("trainerId", "==", trainer.uid)

@@ -160,15 +160,19 @@ describe("createExercise", () => {
     expect(mockSet).not.toHaveBeenCalled();
   });
 
-  // T2: token present but email not in allowlist → Forbidden
-  it("throws Forbidden when email is not in GC_FITNESS_TEAM_ALLOWLIST", async () => {
+  // T2: gate is role-only now (the email allowlist was removed — see
+  // auth-helpers.ts header). Any email succeeds as long as the trainer role
+  // custom claim is present.
+  it("allows any email when the role custom claim is 'trainer'", async () => {
     mockedGetTokens.mockResolvedValue(
       fakeTokens({ email: "outsider@example.com", role: "trainer" }),
     );
-    await expect(createExercise(VALID_EXERCISE_INPUT)).rejects.toThrow(
-      /forbidden/i,
-    );
-    expect(mockSet).not.toHaveBeenCalled();
+    mockSet.mockResolvedValue(undefined);
+
+    const result = await createExercise(VALID_EXERCISE_INPUT);
+
+    expect(result.id).toMatch(new RegExp(`^custom-${ALLOWED_UID}-`));
+    expect(mockSet).toHaveBeenCalledTimes(1);
   });
 
   // T3: token + email OK but role != trainer → Forbidden
@@ -348,11 +352,10 @@ describe("mintExerciseMediaUploadUrl", () => {
     expect(mockGetSignedUrl).not.toHaveBeenCalled();
   });
 
-  // T13: non-allowlisted user
-  it("throws Forbidden when caller email is not in the allowlist", async () => {
-    mockedGetTokens.mockResolvedValue(
-      fakeTokens({ email: "outsider@example.com", role: "trainer" }),
-    );
+  // T13: gate is role-only now (the email allowlist was removed). A caller
+  // WITHOUT the trainer role is Forbidden; the email itself is no longer checked.
+  it("throws Forbidden when the caller's role is not 'trainer'", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "client" }));
     await expect(
       mintExerciseMediaUploadUrl({
         exerciseId: `custom-${ALLOWED_UID}-abc`,

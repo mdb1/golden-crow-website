@@ -28,11 +28,31 @@ jest.mock("next-firebase-auth-edge", () => ({
 const mockSet = jest.fn();
 const mockUpdate = jest.fn();
 const mockGet = jest.fn();
-const mockDoc = jest.fn(() => ({
+// Each doc ref carries the id it was requested with so `getAll` can key the
+// returned exercise snapshots by id (used by enrichExercises).
+const mockDoc = jest.fn((id?: string) => ({
   set: mockSet,
   update: mockUpdate,
   get: mockGet,
+  id: id ?? "MOCK_DOC_ID",
 }));
+// `db.getAll(...refs)` batch-reads exercise docs so enrichExercises can attach
+// each exercise's localized name. Resolve every ref to an exists=false snapshot
+// so enrichExercises takes its `{ en: exerciseId, es: "" }` fallback. The
+// create/update tests only assert exercises length + the server-set fields, so
+// the exact enriched name is not load-bearing here.
+const mockGetAll = jest.fn((...refs: Array<{ id?: string }>) =>
+  Promise.resolve(
+    refs.map((ref) => {
+      const id = ref?.id ?? "ex-1";
+      return {
+        id,
+        exists: false,
+        data: () => ({ name: { en: id, es: "" } }),
+      };
+    }),
+  ),
+);
 const mockOrderBy = jest.fn();
 const mockWhere = jest.fn();
 const mockQueryGet = jest.fn();
@@ -58,6 +78,7 @@ const mockCollection = jest.fn(() => ({
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: jest.fn(() => ({
     collection: mockCollection,
+    getAll: mockGetAll,
   })),
 }));
 
@@ -187,17 +208,17 @@ describe("createWorkoutTemplate", () => {
     expect(mockSet).not.toHaveBeenCalled();
   });
 
-  // T2: any authenticated role is accepted by getCurrentTrainer helper
-  it("allows authenticated users even when role is not 'trainer'", async () => {
+  // T2: role is now REQUIRED — getCurrentTrainer rejects any non-trainer role.
+  // (The old allowlist/role-optional gate was removed; getCurrentTrainer is
+  // role-only and demands the `trainer` custom claim.)
+  it("rejects authenticated users whose role is not 'trainer'", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "client" }));
     mockSet.mockResolvedValue(undefined);
 
-    await expect(
-      createWorkoutTemplate(VALID_TEMPLATE_INPUT),
-    ).resolves.toMatchObject({
-      id: expect.stringMatching(new RegExp(`^tpl-${ALLOWED_UID}-`)),
-    });
-    expect(mockSet).toHaveBeenCalledTimes(1);
+    await expect(createWorkoutTemplate(VALID_TEMPLATE_INPUT)).rejects.toThrow(
+      /forbidden/i,
+    );
+    expect(mockSet).not.toHaveBeenCalled();
   });
 
   // T3 — happy path: trainerId set from SESSION, version=1
