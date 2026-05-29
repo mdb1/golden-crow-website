@@ -464,14 +464,26 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .collection(FirestoreCollections.habits)
           .where("clientId", "==", c.uid)
           .where("deleted", "==", false)
+          // 260529 cost backstop: a roster row never needs more than a
+          // sane ceiling of habits; the compliance math below tolerates the
+          // cap (no real client carries >100 active habits). Bounds the
+          // worst-case read on the (clientId, deleted, updatedAt) index.
+          .limit(100)
           .get(),
         // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
-        // is a "YYYY-MM-DD" string — lexicographic >= comparison is correct
+        // is a "YYYY-MM-DD" string — lexicographic comparison is correct
         // because civil-date strings sort identically to civil-date order.
+        // 260529: upper-bound the range at `today`. Without it the query
+        // returned EVERY future assignment too (recurring schedules run
+        // months ahead), which (a) inflated `assignedCount` → wrong
+        // `missedWorkoutsLast7Days`, and (b) read a unbounded slice per
+        // client. The (clientId, scheduledFor) index serves the two-sided
+        // range; it is confirmed deployed in production.
         db
           .collection(FirestoreCollections.workoutAssignments)
           .where("clientId", "==", c.uid)
           .where("scheduledFor", ">=", windowStartCivil)
+          .where("scheduledFor", "<=", today)
           .get(),
         // 11-06: logs started in the last 7 days (Timestamp comparison).
         db
