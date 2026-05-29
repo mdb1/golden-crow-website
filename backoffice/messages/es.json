@@ -1158,8 +1158,17 @@
       "exerciseTopWeight": "Tope: {weight} kg",
       "exerciseNoWeight": "Sin peso registrado",
       "shareButton": "Compartir imagen",
-      "shareCoachPrefix": "Coach {name}",
-      "shareMore": "+{count} más"
+      "shareCoachPrefix": "Coach: {name}",
+      "shareMore": "+{count} más",
+      "shareEyebrow": "RUTINA COMPLETADA",
+      "shareCompletedA11y": "Entrenamiento completado",
+      "shareStatVolume": "VOLUMEN",
+      "shareStatSeries": "SERIES",
+      "shareStatExercises": "EJERCICIOS",
+      "shareStatDuration": "DURACIÓN",
+      "shareStatCalories": "CALORÍAS",
+      "shareError": "No se pudo generar la imagen. Reintentá.",
+      "shareLoading": "Preparando…"
     }
   },
   "login": {

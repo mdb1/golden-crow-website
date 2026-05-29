@@ -1158,8 +1158,17 @@
       "exerciseTopWeight": "Top: {weight} kg",
       "exerciseNoWeight": "No weight logged",
       "shareButton": "Share image",
-      "shareCoachPrefix": "Coach {name}",
-      "shareMore": "+{count} more"
+      "shareCoachPrefix": "Coach: {name}",
+      "shareMore": "+{count} more",
+      "shareEyebrow": "WORKOUT COMPLETED",
+      "shareCompletedA11y": "Workout completed",
+      "shareStatVolume": "VOLUME",
+      "shareStatSeries": "SETS",
+      "shareStatExercises": "EXERCISES",
+      "shareStatDuration": "DURATION",
+      "shareStatCalories": "CALORIES",
+      "shareError": "Couldn't generate the image. Try again.",
+      "shareLoading": "Preparing…"
     }
   },
   "login": {
