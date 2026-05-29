@@ -6,26 +6,31 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
+import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 
-// 260529-mrp — cross-surface "share workout image", v2.2.
+// 260529-mrp / 260529-ltm — cross-surface "share workout image", v2.2.
 //
 // Mirrors the iOS `ShareCardView` (gc-fitness/.../WorkoutSummaryView.swift,
 // now on main) as closely as HTML/CSS allows — SHARE-CARD-SPEC.md v2.2 is the
-// canonical contract. The web only renders the SUCCESS variant (the
-// log-detail surface).
+// canonical contract. On iOS, the assignment/DETAIL screen shares the
+// PRESCRIBED card; a COMPLETED workout shares the LOGGED actuals card. The web
+// now mirrors BOTH variants:
+//   - `ShareWorkoutCard`   — SUCCESS variant (logged actuals, recent-logs).
+//   - `ShareAssignmentCard` — PRESCRIBED variant (calendar assignment detail).
 //
-// Renders a HIDDEN, off-screen 1080px-wide card (DYNAMIC height — no exercise
-// cap; the canvas grows to fit the COMPLETE routine), then rasterizes it to a
-// PNG with `html-to-image` on click. The logo is preloaded to a base64
-// data-URI so html-to-image never network-fetches during rasterization (the
-// v1 download bug). `navigator.share(file)` on mobile, download fallback on
-// desktop.
+// Both build ONE normalized internal `ShareCardModel`, which the single
+// `ShareCardRenderer` rasterizes. The renderer draws a HIDDEN, off-screen
+// 1080px-wide card (DYNAMIC height — no exercise cap; the canvas grows to fit
+// the COMPLETE routine), then rasterizes it to a PNG with `html-to-image` on
+// click. The logo is preloaded to a base64 data-URI so html-to-image never
+// network-fetches during rasterization (the v1 download bug).
+// `navigator.share(file)` on mobile, download fallback on desktop.
 //
-// PARITY GAP vs iOS (accepted, see SHARE-CARD-SPEC §7): no BPM pill (the web
-// WorkoutLogDetail has no HealthKit heart-rate samples). Everything else —
-// palette, spacing, eyebrow, completion check, stats strip, exercise cards,
-// per-set chips, top-set highlight, PR trophy, per-exercise 1RM, footer —
-// mirrors the iOS card.
+// PARITY GAP vs iOS (accepted, see SHARE-CARD-SPEC §7): no BPM pill (neither the
+// web WorkoutLogDetail nor the AssignmentDetail carries HealthKit HR samples).
+// Everything else — palette, spacing, eyebrow, completion check, stats strip,
+// exercise cards, per-set chips, top-set highlight, PR trophy (success only),
+// per-exercise 1RM, footer — mirrors the iOS card.
 
 // SHARE-CARD-SPEC §2 palette — hardcoded hex, never inherit page theme.
 const BG = "#000000";
@@ -66,6 +71,31 @@ interface ExerciseRow {
 interface ShareStat {
   value: string;
   label: string;
+}
+
+/**
+ * The single normalized model that drives `ShareCardRenderer`. Both public
+ * components (`ShareWorkoutCard`, `ShareAssignmentCard`) build one of these so
+ * there is exactly ONE renderer + capture path.
+ */
+export interface ShareCardModel {
+  /** Eyebrow text above the title ("RUTINA COMPLETADA" / "RUTINA"). */
+  eyebrow: string;
+  /** Accessible label for the green completion check, when shown. */
+  completionA11y: string;
+  /** Show the green ✓ next to the eyebrow (success variant only). */
+  showCompletionCheck: boolean;
+  title: string;
+  /** Pre-built sub-line ("Coach: X · Y" / "Y"); null = no sub-line. */
+  subLine: string | null;
+  stats: ShareStat[];
+  exercises: ExerciseRow[];
+  /** Full-month date line ("29 de Mayo de 2026"); null = no footer date. */
+  dateLine: string | null;
+  /** Date slug for the downloaded filename ("2026-05-29" or "workout"). */
+  fileDate: string;
+  /** Title passed to navigator.share (the workout/template name). */
+  shareTitle: string;
 }
 
 /** Up-to-1-decimal, trailing-zero-trimmed kg string ("50", "72.5"). */
@@ -142,10 +172,41 @@ function estimatedCalories(durationSeconds: number): number {
   return Math.round(met * bodyKg * hours);
 }
 
-interface BuiltCard {
-  rows: ExerciseRow[];
-  stats: ShareStat[];
+/** completedAt − startedAt in seconds; 0 when either is missing/invalid. */
+function workoutDurationSeconds(detail: WorkoutLogDetail): number {
+  if (!detail.startedAt || !detail.completedAt) return 0;
+  const start = new Date(detail.startedAt).getTime();
+  const end = new Date(detail.completedAt).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
+  return Math.round((end - start) / 1000);
 }
+
+/**
+ * Sub-line "Coach: {coach} · {client}" with the v2.2 dedup rule: when coach
+ * and client are the same person (trimmed, case-insensitive) show only
+ * "Coach: {coach}". Graceful degrade: client-only when no coach; never a UID.
+ */
+function buildSubLine(
+  coachName: string | null | undefined,
+  clientName: string | null | undefined,
+  t: ReturnType<typeof useTranslations>,
+): string | null {
+  const coach = coachName?.trim();
+  const client = clientName?.trim();
+  if (coach && client) {
+    const prefix = t("shareCoachPrefix", { name: coach });
+    return coach.toLocaleLowerCase() === client.toLocaleLowerCase()
+      ? prefix
+      : `${prefix} · ${client}`;
+  }
+  if (coach) return t("shareCoachPrefix", { name: coach });
+  if (client) return client;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// SUCCESS model builder — logged actuals (recent-logs surface)
+// ---------------------------------------------------------------------------
 
 /**
  * Build the SUCCESS card model from the logged sets — mirrors the iOS
@@ -153,10 +214,10 @@ interface BuiltCard {
  * top-set / 1RM (the v2.2 parity fix); the distinct-exercise count drives
  * "Ejercicios".
  */
-function buildCard(
+function buildSuccessModel(
   detail: WorkoutLogDetail,
   t: ReturnType<typeof useTranslations>,
-): BuiltCard {
+): ShareCardModel {
   const order: string[] = [];
   const byExercise = new Map<
     string,
@@ -173,7 +234,7 @@ function buildCard(
     bucket.sets.push(set);
   }
 
-  const rows: ExerciseRow[] = order.map((key) => {
+  const exercises: ExerciseRow[] = order.map((key) => {
     const bucket = byExercise.get(key)!;
     // Working sets only (warmups excluded), sorted by index.
     const working = bucket.sets
@@ -238,20 +299,175 @@ function buildCard(
 
   // NO BPM pill on web — accepted parity gap (no HealthKit HR samples).
 
-  return { rows, stats };
+  const dateLine = formatFullMonthDate(
+    detail.completedAt ?? detail.startedAt,
+    detail.clientTimezone,
+  );
+  const fileDate =
+    (detail.completedAt ?? detail.startedAt ?? "").slice(0, 10) || "workout";
+
+  return {
+    eyebrow: t("shareEyebrow"),
+    completionA11y: t("shareCompletedA11y"),
+    showCompletionCheck: true,
+    title: detail.workoutName,
+    subLine: buildSubLine(detail.coachName, detail.clientName, t),
+    stats,
+    exercises,
+    dateLine,
+    fileDate,
+    shareTitle: detail.workoutName,
+  };
 }
 
-/** completedAt − startedAt in seconds; 0 when either is missing/invalid. */
-function workoutDurationSeconds(detail: WorkoutLogDetail): number {
-  if (!detail.startedAt || !detail.completedAt) return 0;
-  const start = new Date(detail.startedAt).getTime();
-  const end = new Date(detail.completedAt).getTime();
-  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
-  return Math.round((end - start) / 1000);
+// ---------------------------------------------------------------------------
+// PRESCRIBED model builder — assignment detail (calendar surface)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the PRESCRIBED card model from an `AssignmentDetail`. Mirrors the iOS
+ * assignment-detail share: eyebrow "RUTINA" (no completion check), per-set
+ * chips from the PRESCRIPTION (not logged actuals), heaviest-prescribed-set
+ * highlight only when weights differ, per-exercise Epley 1RM from prescribed
+ * weighted sets, and stats = Ejercicios · Series (Σ prescribed sets) ·
+ * Volumen objetivo (Σ weight×reps, omitted when no weights). NO PRs, NO
+ * Calorías/Duración/BPM. Date = scheduledFor.
+ */
+function buildAssignmentModel(
+  assignment: AssignmentDetail,
+  t: ReturnType<typeof useTranslations>,
+): ShareCardModel {
+  let totalPrescribedSets = 0;
+  let totalTargetVolume = 0;
+  let anyWeightPresent = false;
+
+  const exercises: ExerciseRow[] = assignment.exercises.map((ex) => {
+    const setCount =
+      Number.isFinite(ex.sets) && ex.sets > 0 ? Math.floor(ex.sets) : 0;
+    totalPrescribedSets += setCount;
+
+    // Per-set normalized rows from the prescription. reps_i = repsBySet[i] ?? reps.
+    const perSet = Array.from({ length: setCount }, (_, i) => {
+      const weight =
+        i < ex.weightBySetKg.length && ex.weightBySetKg[i] > 0
+          ? ex.weightBySetKg[i]
+          : null;
+      const reps =
+        i < ex.repsBySet.length ? ex.repsBySet[i] : ex.reps;
+      const durationSeconds =
+        ex.metric === "time"
+          ? i < ex.durationBySetSeconds.length
+            ? ex.durationBySetSeconds[i]
+            : ex.durationSeconds
+          : null;
+      return { weight, reps, durationSeconds };
+    });
+
+    // Heaviest prescribed weighted set — highlight ONLY when weights differ.
+    const weightsPresent = perSet
+      .map((s) => s.weight)
+      .filter((w): w is number => w !== null && w > 0);
+    if (weightsPresent.length > 0) anyWeightPresent = true;
+    const distinctWeights = new Set(weightsPresent);
+    const shouldHighlight = distinctWeights.size > 1;
+    let topIdx = -1;
+    if (shouldHighlight) {
+      let topWeight = -Infinity;
+      perSet.forEach((s, i) => {
+        if (s.weight !== null && s.weight > topWeight) {
+          topWeight = s.weight;
+          topIdx = i;
+        }
+      });
+    }
+
+    const chips: Chip[] = perSet.map((s, i) => ({
+      value: setChipText(s.weight, s.reps ?? null, s.durationSeconds),
+      isTopSet: i === topIdx,
+      isPR: false, // PRESCRIBED card never shows PRs.
+    }));
+
+    // Target volume contribution (only weighted sets count).
+    for (const s of perSet) {
+      if (s.weight !== null && s.weight > 0) {
+        totalTargetVolume += s.weight * (s.reps ?? 0);
+      }
+    }
+
+    const oneRMLabel = bestEstimatedOneRM(
+      perSet
+        .filter((s) => s.weight !== null && s.weight > 0)
+        .map((s) => ({ weight: s.weight as number, reps: s.reps ?? 0 })),
+    );
+
+    return { name: ex.exerciseName, chips, oneRMLabel };
+  });
+
+  const stats: ShareStat[] = [
+    { value: `${assignment.exercises.length}`, label: t("shareStatExercises") },
+    { value: `${totalPrescribedSets}`, label: t("shareStatSeries") },
+  ];
+  // Volumen objetivo — only when ANY exercise prescribes a weight.
+  if (anyWeightPresent) {
+    stats.push({
+      value: volumeLabel(totalTargetVolume),
+      label: t("shareStatTargetVolume"),
+    });
+  }
+
+  // scheduledFor is a "YYYY-MM-DD" civil date — render UTC-anchored so the
+  // labelled day is stable across server/client zones (mirrors the calendar).
+  const dateLine = formatCivilFullMonthDate(assignment.scheduledFor);
+  const fileDate =
+    /^\d{4}-\d{2}-\d{2}/.test(assignment.scheduledFor)
+      ? assignment.scheduledFor.slice(0, 10)
+      : "workout";
+
+  return {
+    eyebrow: t("shareEyebrowPrescribed"),
+    completionA11y: t("shareCompletedA11y"),
+    showCompletionCheck: false,
+    title: assignment.templateName,
+    subLine: buildSubLine(assignment.coachName, assignment.clientName, t),
+    stats,
+    exercises,
+    dateLine,
+    fileDate,
+    shareTitle: assignment.templateName,
+  };
 }
 
+// ---------------------------------------------------------------------------
+// Public components
+// ---------------------------------------------------------------------------
+
+/** SUCCESS variant — logged actuals (recent-logs surface). */
 export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
   const t = useTranslations("recentLogs.workoutDetail");
+  return <ShareCardRenderer model={buildSuccessModel(detail, t)} t={t} />;
+}
+
+/** PRESCRIBED variant — assignment detail (calendar surface). */
+export function ShareAssignmentCard({
+  assignment,
+}: {
+  assignment: AssignmentDetail;
+}) {
+  const t = useTranslations("recentLogs.workoutDetail");
+  return <ShareCardRenderer model={buildAssignmentModel(assignment, t)} t={t} />;
+}
+
+// ---------------------------------------------------------------------------
+// Renderer — ONE hidden 1080-wide node + capture path for both variants
+// ---------------------------------------------------------------------------
+
+function ShareCardRenderer({
+  model,
+  t,
+}: {
+  model: ShareCardModel;
+  t: ReturnType<typeof useTranslations>;
+}) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -304,34 +520,6 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
     })();
   }, [logoDataUri]);
 
-  const { rows, stats } = buildCard(detail, t);
-
-  // Sub-line "Coach: {coach} · {client}" with the v2.2 dedup rule: when coach
-  // and client are the same person (trimmed, case-insensitive) show only
-  // "Coach: {coach}". Graceful degrade: client-only when no coach; never a UID.
-  const coach = detail.coachName?.trim();
-  const client = detail.clientName?.trim();
-  let subLine: string | null = null;
-  if (coach && client) {
-    const prefix = t("shareCoachPrefix", { name: coach });
-    subLine =
-      coach.toLocaleLowerCase() === client.toLocaleLowerCase()
-        ? prefix
-        : `${prefix} · ${client}`;
-  } else if (coach) {
-    subLine = t("shareCoachPrefix", { name: coach });
-  } else if (client) {
-    subLine = client;
-  }
-
-  const dateLine = formatFullMonthDate(
-    detail.completedAt ?? detail.startedAt,
-    detail.clientTimezone,
-  );
-
-  const fileDate =
-    (detail.completedAt ?? detail.startedAt ?? "").slice(0, 10) || "workout";
-
   const logoReady = logoDataUri !== null && logoDataUri !== "";
 
   async function handleShare() {
@@ -352,7 +540,7 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
 
       // Native share sheet with a file where supported (mobile).
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `workout-${fileDate}.png`, {
+      const file = new File([blob], `workout-${model.fileDate}.png`, {
         type: "image/png",
       });
       const navAny = navigator as Navigator & {
@@ -361,7 +549,7 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
       };
       if (navAny.canShare?.({ files: [file] }) && navAny.share) {
         try {
-          await navAny.share({ files: [file], title: detail.workoutName });
+          await navAny.share({ files: [file], title: model.shareTitle });
           return;
         } catch {
           // User cancelled or share failed — fall through to download.
@@ -371,7 +559,7 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
       // Desktop / unsupported → download.
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `workout-${fileDate}.png`;
+      a.download = `workout-${model.fileDate}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -464,7 +652,7 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
                 minWidth: 0,
               }}
             >
-              {/* Eyebrow + green completion check */}
+              {/* Eyebrow + green completion check (success only) */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span
                   style={{
@@ -475,28 +663,30 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
                     color: ACCENT,
                   }}
                 >
-                  {t("shareEyebrow")}
+                  {model.eyebrow}
                 </span>
                 {/* Green check (success) — drawn inline so it rasterizes. */}
-                <span
-                  role="img"
-                  aria-label={t("shareCompletedA11y")}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 30,
-                    height: 30,
-                    borderRadius: 15,
-                    backgroundColor: SUCCESS_GREEN,
-                    color: "#FFFFFF",
-                    fontSize: 20,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                  }}
-                >
-                  ✓
-                </span>
+                {model.showCompletionCheck ? (
+                  <span
+                    role="img"
+                    aria-label={model.completionA11y}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
+                      backgroundColor: SUCCESS_GREEN,
+                      color: "#FFFFFF",
+                      fontSize: 20,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✓
+                  </span>
+                ) : null}
               </div>
               <div
                 style={{
@@ -506,18 +696,18 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
                   color: TEXT_PRIMARY,
                 }}
               >
-                {detail.workoutName}
+                {model.title}
               </div>
-              {subLine ? (
+              {model.subLine ? (
                 <div style={{ fontSize: 26, color: TEXT_SECONDARY }}>
-                  {subLine}
+                  {model.subLine}
                 </div>
               ) : null}
             </div>
           </div>
 
           {/* Stats strip — wraps to 2 rows if needed */}
-          {stats.length > 0 ? (
+          {model.stats.length > 0 ? (
             <div
               style={{
                 display: "flex",
@@ -526,7 +716,7 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
                 marginTop: 36,
               }}
             >
-              {stats.map((stat, i) => (
+              {model.stats.map((stat, i) => (
                 <div
                   key={i}
                   style={{
@@ -586,7 +776,7 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
               flex: 1,
             }}
           >
-            {rows.map((row, i) => (
+            {model.exercises.map((row, i) => (
               <div
                 key={i}
                 style={{
@@ -709,9 +899,9 @@ export function ShareWorkoutCard({ detail }: { detail: WorkoutLogDetail }) {
             >
               GC FITNESS
             </div>
-            {dateLine ? (
+            {model.dateLine ? (
               <div style={{ fontSize: 22, color: TEXT_SECONDARY }}>
-                {dateLine}
+                {model.dateLine}
               </div>
             ) : null}
           </div>
@@ -736,6 +926,30 @@ function formatFullMonthDate(
   const day = date.toLocaleDateString("es", { day: "numeric", timeZone });
   const year = date.toLocaleDateString("es", { year: "numeric", timeZone });
   let month = date.toLocaleDateString("es", { month: "long", timeZone });
+  month = month.charAt(0).toLocaleUpperCase("es") + month.slice(1);
+  return `${day} de ${month} de ${year}`;
+}
+
+/**
+ * Full-month es-locale date for a "YYYY-MM-DD" civil date — UTC-anchored so
+ * the labelled day matches the calendar's day regardless of server/client tz
+ * (the assignment scheduledFor is a civil date, not an instant).
+ */
+function formatCivilFullMonthDate(civilDate: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(civilDate)) return null;
+  const [y, m, d] = civilDate.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (Number.isNaN(date.getTime())) return null;
+  const day = date.toLocaleDateString("es", { day: "numeric", timeZone: "UTC" });
+  const year = date.toLocaleDateString("es", {
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  let month = date.toLocaleDateString("es", {
+    month: "long",
+    timeZone: "UTC",
+  });
   month = month.charAt(0).toLocaleUpperCase("es") + month.slice(1);
   return `${day} de ${month} de ${year}`;
 }
