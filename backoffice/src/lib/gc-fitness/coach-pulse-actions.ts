@@ -168,16 +168,6 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     .filter((c) => !c.pendingProvisioning)
     .slice(0, 50);
   const trainerTz = await getTrainerTimezone();
-  // 0z9 / COST-RD1-C (C1): floor the trainer-assignment scan to the trailing
-  // ~30 civil days. `scheduledFor` is a "YYYY-MM-DD" civil-date STRING stored
-  // lexicographically, so a `>=` string range sorts identically to civil-date
-  // order. The pulse only reads a 7-day window downstream, so a 30-day floor
-  // is safely wider than needed and leaves margin for tz edges. Served by the
-  // EXISTING (trainerId ASC, scheduledFor ASC) composite index — no new index.
-  const thirtyDaysAgoCivil = civilDateFormat(
-    new Date(Date.now() - 30 * 864e5),
-    trainerTz,
-  );
   const windowDays = buildWindowDays(trainerTz);
   const windowStart = windowDays[0]!;
   const windowEnd = windowDays[windowDays.length - 1]!;
@@ -227,8 +217,7 @@ export async function getCoachPulse(): Promise<CoachPulse> {
   const assignmentsPromise = db
     .collection(FirestoreCollections.workoutAssignments)
     .where("trainerId", "==", trainer.uid)
-    .where("scheduledFor", ">=", thirtyDaysAgoCivil)
-    .limit(400)
+    .limit(600)
     .get()
     .catch(logError("workout_assignments"));
   const workoutLogsPromise = db

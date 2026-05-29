@@ -287,25 +287,13 @@ export async function listRecentLogsForTrainer(): Promise<{
     .limit(600)
     .get();
   // Trainer-scoped assignments — used to surface the "client moved
-  // workout from X to Y" reschedule activity.
-  //
-  // 0z9 / COST-RD1-C (C2): window by `updatedAt >= 30-days-ago`, NOT by
-  // `scheduledFor`. The reschedule feed row's recency (`eventAt`) is the MOVE'S
-  // timestamp (`updatedAt ?? createdAt`, line ~632), so a workout rescheduled
-  // TODAY from a date 90 days ago still belongs at the TOP of the recent feed.
-  // Windowing by scheduledFor would WRONGLY DROP that just-moved-but-far-dated
-  // item; updatedAt captures every reschedule whose move happened in the last
-  // 30 days regardless of the target date. Anything moved >30 days ago
-  // legitimately ages out of a "recent activity" feed. `updatedAt` is a
-  // Firestore Timestamp on every assignment write (FieldValue.serverTimestamp),
-  // so the Admin SDK coerces this JS Date to a Timestamp for the range.
-  // Served by the NEW (trainerId ASC, updatedAt DESC) composite index.
-  const thirtyDaysAgoDate = new Date(Date.now() - 30 * 864e5);
+  // workout from X to Y" reschedule activity. No orderBy keeps this on
+  // the existing single-field trainerId index; we filter in memory to
+  // the docs that carry originallyScheduledFor (always a small subset).
   const trainerAssignmentsPromise = db
     .collection(FirestoreCollections.workoutAssignments)
     .where("trainerId", "==", trainer.uid)
-    .where("updatedAt", ">=", thirtyDaysAgoDate)
-    .limit(400)
+    .limit(600)
     .get();
   const usersSnapPromise = db
     .collection(FirestoreCollections.users)
