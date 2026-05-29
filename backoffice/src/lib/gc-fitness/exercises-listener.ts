@@ -1,19 +1,13 @@
 // exercises-listener.ts
 //
-// React-Query + Firestore onSnapshot bridge for the trainer Exercise list view.
+// React-Query one-shot feed for the trainer Exercise list view + pickers.
 //
-// Why a custom hook instead of `useQuery` against a one-shot fetch:
-//   - Trainers expect the table to update live when another collaborator
-//     edits a doc (matches the iOS Firestore listener UX).
-//   - React-Query gives us:
-//       * shared cache across the route ({ list, count, fetched-at })
-//       * `isLoading` / `error` boundaries the page handles uniformly
-//       * `queryKey` invalidation when a Server Action mutates a doc
-//         (call `queryClient.invalidateQueries({ queryKey: KEY })` from the
-//         form on save).
-//   - Firestore's `onSnapshot` callback delivers the live updates; we use
-//     `setQueryData` to push every snapshot into the React-Query cache, so
-//     subscribers re-render via the standard `useQuery` selector.
+// 260529 — was a Firestore `onSnapshot` bridge; converted to a one-shot
+// `getDocs` to kill cross-trainer full-collection re-read amplification on
+// the SHARED `exercises` collection. See the `useExercisesQuery` doc-comment
+// below for the cost rationale + the invalidation-based refresh contract.
+// The filename keeps the `-listener` suffix only to avoid churning the ~6
+// import sites; it is no longer a live listener.
 //
 // Filtering (debug session picker-empty-deletedat, 2026-05-22): the prior
 // server-side `where("deletedAt", "==", null)` filter (commit f10302d) was
@@ -46,15 +40,13 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   getFirestore,
   collection,
-  onSnapshot,
+  getDocs,
   query,
   orderBy,
-  type QuerySnapshot,
   type QueryDocumentSnapshot,
   type DocumentData,
 } from "firebase/firestore";
@@ -132,7 +124,10 @@ export interface ExerciseRow {
   metric: "reps" | "time";
 }
 
-export const EXERCISES_QUERY_KEY = ["gc-fitness", "exercises"] as const;
+// Re-exported from a firebase-free module so non-listener call sites (e.g.
+// ExerciseForm) can import the key without pulling the firebase client SDK.
+export { EXERCISES_QUERY_KEY } from "./exercises-query-key";
+import { EXERCISES_QUERY_KEY } from "./exercises-query-key";
 const EXERCISES_SCOPE_ALL = "all";
 
 function canTrainerAccessExercise(
@@ -231,79 +226,58 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
 }
 
 /**
- * Live-updating exercises feed for the trainer list view.
+ * Exercises feed for the trainer list view + the exercise pickers.
  *
- * The query subscribes once on mount and unsubscribes on unmount. React-Query
- * caches the most-recent snapshot under `EXERCISES_QUERY_KEY` so other
- * components (e.g. a future sidebar exercise count) can read from the same
- * cache without spinning up a duplicate listener.
+ * 260529 COST — converted from a full-collection `onSnapshot` listener to a
+ * ONE-SHOT `getDocs` wrapped in React-Query. The old listener held a LIVE
+ * subscription on the SHARED `exercises` collection, so ANY trainer editing
+ * ANY exercise re-charged a full-collection re-read on EVERY other trainer's
+ * open listener (cross-trainer read amplification) — and every picker mount
+ * opened another live subscription. A one-shot read pays the full-collection
+ * cost once per cache window (`staleTime` 5 min, no window-focus refetch).
+ *
+ * REFRESH CONTRACT (replaces the listener's automatic live updates):
+ *   - Own edits refresh INSTANTLY: every exercise mutation site calls
+ *     `queryClient.invalidateQueries({ queryKey: EXERCISES_QUERY_KEY })`
+ *     (ExerciseForm create/update/duplicate, exercises/client.tsx
+ *     soft-delete, exercise-quick-create). Invalidation marks every scoped
+ *     cache stale and refetches active observers immediately.
+ *   - OTHER trainers' edits surface on the next mount once the 5-min cache
+ *     goes stale. Acceptable for a near-static shared library.
  *
  * Curation-soft-deleted docs (`deletedAt != null`) are filtered CLIENT-SIDE
  * here — see the file header for why the server-side filter was removed.
+ *
+ * `hasSnapshot` is retained for call-site compatibility (the pickers gate
+ * their loading copy on it) and now maps to React-Query's `isFetched`.
  */
 export function useExercisesQuery(trainerUidProp?: string | null) {
-  const queryClient = useQueryClient();
-  const [hasSnapshot, setHasSnapshot] = useState(false);
   const auth = getGCFitnessAuth();
   const trainerUid = trainerUidProp ?? auth.currentUser?.uid ?? null;
   const scopeKey = trainerUid ?? EXERCISES_SCOPE_ALL;
   const queryKey = [...EXERCISES_QUERY_KEY, scopeKey] as const;
 
-  // Mount the Firestore listener exactly once per component instance. The
-  // initial-load `Promise` is resolved by the first snapshot via
-  // `queryClient.setQueryData`; subsequent snapshots also push through
-  // `setQueryData` so the cache + UI stay in sync.
-  useEffect(() => {
-    const db = getFirestore(auth.app);
-    // Fetch ALL exercises ordered by recency; client-side filter drops the
-    // curation-soft-deleted ones. See file header for rationale.
-    const q = query(
-      collection(db, "exercises"),
-      orderBy("updatedAt", "desc"),
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snap: QuerySnapshot<DocumentData>) => {
-        setHasSnapshot(true);
-        const rows = snap.docs
-          .map(snapToRow)
-          // `deletedAt` is a normalized ISO string here (or null). Drop any
-          // doc with a non-null `deletedAt` — that catches curation-pass
-          // Timestamps. Survivors (field absent on Firestore) decode to
-          // `null` via `toIso` and pass through. The downstream
-          // `deleted !== true` filter in the consumers (client.tsx,
-          // exercise-picker-popover.tsx) drops the legacy trainer-authored
-          // Bool sentinel.
-          .filter((r) => !r.deletedAt)
-          .filter((r) => canTrainerAccessExercise(r, trainerUid));
-        queryClient.setQueryData([...EXERCISES_QUERY_KEY, scopeKey], rows);
-      },
-      (err: unknown) => {
-        setHasSnapshot(true);
-        // Push the error into the cache so `useQuery` surfaces it.
-        queryClient.setQueryData([...EXERCISES_QUERY_KEY, scopeKey], () => {
-          throw err;
-        });
-      },
-    );
-
-    return () => unsubscribe();
-  }, [queryClient, auth.app, trainerUid, scopeKey]);
-
   const exercisesQuery = useQuery<ExerciseRow[]>({
     queryKey,
-    // The Firestore listener pushes via `setQueryData`. This `queryFn` only
-    // runs if the cache is empty AND the listener hasn't yielded yet — it
-    // resolves to an empty list so `isLoading` flips to false quickly. The
-    // listener will overwrite the cache with the real rows shortly after.
-    queryFn: () => Promise.resolve<ExerciseRow[]>([]),
-    staleTime: Infinity,
+    queryFn: async () => {
+      const db = getFirestore(auth.app);
+      // Fetch ALL exercises ordered by recency; client-side filters drop the
+      // curation-soft-deleted docs (`deletedAt` non-null) + apply per-trainer
+      // access scoping. Mirrors the old listener's projection exactly.
+      const snap = await getDocs(
+        query(collection(db, "exercises"), orderBy("updatedAt", "desc")),
+      );
+      return snap.docs
+        .map(snapToRow)
+        .filter((r) => !r.deletedAt)
+        .filter((r) => canTrainerAccessExercise(r, trainerUid));
+    },
+    staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
 
   return {
     ...exercisesQuery,
-    hasSnapshot,
+    hasSnapshot: exercisesQuery.isFetched,
   };
 }

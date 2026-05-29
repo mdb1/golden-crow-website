@@ -48,8 +48,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useExercisesQuery,
+  EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
 import { softDeleteExercise } from "@/lib/gc-fitness/exercise-server-actions";
@@ -123,6 +125,7 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
   const router = useRouter();
   const t = useTranslations("exercises.list");
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery(trainerUid);
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<ExerciseFiltersState>(EMPTY_FILTERS);
   const [confirmDelete, setConfirmDelete] = useState<ExerciseRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -166,6 +169,9 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
     setDeletePending(true);
     try {
       await softDeleteExercise(confirmDelete.id);
+      // 260529 — one-shot feed: invalidate so the deleted row leaves the
+      // table immediately (the live listener used to do this automatically).
+      await queryClient.invalidateQueries({ queryKey: EXERCISES_QUERY_KEY });
       toast.success(t("deletedToast"));
       setConfirmDelete(null);
     } catch (err) {
@@ -174,7 +180,7 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
     } finally {
       setDeletePending(false);
     }
-  }, [confirmDelete, t]);
+  }, [confirmDelete, t, queryClient]);
 
   return (
     <TooltipProvider>

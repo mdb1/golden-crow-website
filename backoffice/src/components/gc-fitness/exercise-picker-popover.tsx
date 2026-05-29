@@ -74,8 +74,10 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useExercisesQuery,
+  EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
 import {
@@ -290,6 +292,7 @@ export function ExercisePickerPopover({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
+  const queryClient = useQueryClient();
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
   // Phase 24-06 Task 3 — filter chip state (muscle/equipment/level/mechanic).
@@ -587,9 +590,13 @@ export function ExercisePickerPopover({
               seed={seed}
               onSeedCleared={() => setSeed(null)}
               onCreated={(created) => {
-                // Auto-pick the freshly created exercise and close — the
-                // single picker is single-pick, so this is the natural
-                // "I just made this; use it now" path.
+                // 260529 — one-shot feed: invalidate so the new exercise is
+                // refetched into the picker list (the live listener used to
+                // surface it automatically). Auto-pick + close right away —
+                // the trigger label resolves once the refetch lands.
+                void queryClient.invalidateQueries({
+                  queryKey: EXERCISES_QUERY_KEY,
+                });
                 handleSelect(created.id);
               }}
             />

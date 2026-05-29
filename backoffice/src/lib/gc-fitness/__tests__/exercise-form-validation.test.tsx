@@ -59,6 +59,14 @@ jest.mock("@/lib/gc-fitness/exercise-server-actions", () => ({
   }) => mockMintUploadUrl(input),
 }));
 
+// 260529 — ExerciseForm now calls useQueryClient() to invalidate the
+// one-shot exercises feed after each mutation (create/update/duplicate/
+// delete). Stub it so these render tests don't need a QueryClientProvider;
+// invalidateQueries resolves to undefined which the `await` tolerates.
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+}));
+
 // --- Mock sonner toasts (sonner needs a DOM container that's harder to wire
 // in jsdom; the form imports the helper directly so we observe call args). ---
 const mockToastError = jest.fn();

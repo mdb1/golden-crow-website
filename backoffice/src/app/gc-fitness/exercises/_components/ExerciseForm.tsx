@@ -63,6 +63,10 @@ import {
   softDeleteExercise,
   duplicateExercise,
 } from "@/lib/gc-fitness/exercise-server-actions";
+import { useQueryClient } from "@tanstack/react-query";
+// Import the key from its firebase-FREE module (not exercises-listener) so
+// this form doesn't pull the firebase client SDK into its bundle/test graph.
+import { EXERCISES_QUERY_KEY } from "@/lib/gc-fitness/exercises-query-key";
 
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
 import { MediaUploadDropzone } from "./MediaUploadDropzone";
@@ -123,8 +127,15 @@ export function ExerciseForm({
   defaultValues,
 }: ExerciseFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const t = useTranslations("exercises.form");
   const [pending, startTransition] = useTransition();
+
+  // 260529 — useExercisesQuery is now a one-shot read (no live listener), so
+  // every exercise mutation must invalidate the feed for own-edits to show.
+  // Invalidating the BASE key matches every per-trainer scoped sub-key.
+  const invalidateExercises = () =>
+    queryClient.invalidateQueries({ queryKey: EXERCISES_QUERY_KEY });
   const [duplicating, setDuplicating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const isView = mode === "view";
@@ -146,6 +157,7 @@ export function ExerciseForm({
       try {
         if (mode === "create") {
           await createExercise(values);
+          await invalidateExercises();
           toast.success(t("savedToast"));
           // Push to the library so the trainer lands on the list they
           // were curating — router.back() used to bounce them to whatever
@@ -156,6 +168,7 @@ export function ExerciseForm({
         }
         if (mode === "edit" && exerciseId) {
           await updateExercise(exerciseId, values);
+          await invalidateExercises();
           toast.success(t("savedToast"));
           router.push("/gc-fitness/exercises");
         }
@@ -171,6 +184,7 @@ export function ExerciseForm({
     setDuplicating(true);
     try {
       const { id } = await duplicateExercise(exerciseId);
+      await invalidateExercises();
       toast.success(t("duplicateToast"));
       router.push(`/gc-fitness/exercises/${id}/edit`);
     } catch (err) {
@@ -186,6 +200,7 @@ export function ExerciseForm({
     setDeleting(true);
     try {
       await softDeleteExercise(exerciseId);
+      await invalidateExercises();
       toast.success(t("deletedToast"));
       router.push("/gc-fitness/exercises");
     } catch (err) {

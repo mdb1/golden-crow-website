@@ -26,6 +26,15 @@ import React from "react";
 const mockUseExercisesQuery = jest.fn();
 jest.mock("@/lib/gc-fitness/exercises-listener", () => ({
   useExercisesQuery: () => mockUseExercisesQuery(),
+  // 260529 — the picker imports EXERCISES_QUERY_KEY to invalidate the
+  // one-shot feed after quick-create.
+  EXERCISES_QUERY_KEY: ["gc-fitness", "exercises"],
+}));
+
+// 260529 — the picker now calls useQueryClient(); stub it so these render
+// tests don't need a real QueryClientProvider.
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
 // next/image expects a Next.js context — stub it as a plain <img>.
@@ -71,6 +80,9 @@ function makeRow(overrides: Partial<ExerciseRow> = {}): ExerciseRow {
     gifUrl: null,
     instructions: null,
     deletedReason: null,
+    // `metric` became a required ExerciseRow field (Phase 26-02); the fixture
+    // predated it. Default to "reps"; `...overrides` can still flip it.
+    metric: "reps",
     ...overrides,
   };
 }

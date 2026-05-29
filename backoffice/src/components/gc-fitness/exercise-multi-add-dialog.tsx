@@ -26,8 +26,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useExercisesQuery,
+  EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
 
@@ -98,6 +100,7 @@ export function ExerciseMultiAddDialog({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
+  const queryClient = useQueryClient();
 
   const exercises = useMemo(
     () => (data ?? []).filter((r) => r.deleted !== true),
@@ -251,6 +254,13 @@ export function ExerciseMultiAddDialog({
                 const next = new Set(prev);
                 next.add(created.id);
                 return next;
+              });
+              // 260529 — one-shot feed: invalidate so the new exercise is
+              // refetched into the list (the live listener used to surface it
+              // automatically). Without this the row would stay hidden until
+              // the cache went stale.
+              void queryClient.invalidateQueries({
+                queryKey: EXERCISES_QUERY_KEY,
               });
               // Clear the search so the new exercise is visible in the list
               // (the list filters on the now-stale needle and would hide it).

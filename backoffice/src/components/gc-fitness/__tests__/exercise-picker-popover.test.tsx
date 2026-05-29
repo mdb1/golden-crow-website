@@ -28,10 +28,19 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 
 // Mock useExercisesQuery so the component renders synchronously with our
-// fixture rows.
+// fixture rows. EXERCISES_QUERY_KEY is also exported now (260529 — the
+// picker imports it to invalidate the one-shot feed after quick-create).
 const mockUseExercisesQuery = jest.fn();
 jest.mock("@/lib/gc-fitness/exercises-listener", () => ({
   useExercisesQuery: () => mockUseExercisesQuery(),
+  EXERCISES_QUERY_KEY: ["gc-fitness", "exercises"],
+}));
+
+// 260529 — the picker now calls useQueryClient() (to invalidate the
+// one-shot exercises feed after quick-create). Stub it so the smoke tests
+// don't need a real QueryClientProvider wrapper.
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
 // next/image expects a Next.js context — stub as plain <img> so we can
@@ -80,6 +89,9 @@ function makeRow(overrides: Partial<ExerciseRow> = {}): ExerciseRow {
     level: "intermediate",
     category: "strength",
     force: "push",
+    // `metric` became a required ExerciseRow field (Phase 26-02); the fixture
+    // predated it. Default to "reps"; `...overrides` can still flip it.
+    metric: "reps",
     ...overrides,
   };
 }
