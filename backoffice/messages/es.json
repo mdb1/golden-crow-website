@@ -1158,6 +1158,7 @@
       "exerciseTopWeight": "Tope: {weight} kg",
       "exerciseNoWeight": "Sin peso registrado",
       "shareButton": "Compartir imagen",
+      "shareDownloadButton": "Descargar imagen",
       "shareCoachPrefix": "Coach: {name}",
       "shareMore": "+{count} más",
       "shareEyebrow": "RUTINA COMPLETADA",

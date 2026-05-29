@@ -1158,6 +1158,7 @@
       "exerciseTopWeight": "Top: {weight} kg",
       "exerciseNoWeight": "No weight logged",
       "shareButton": "Share image",
+      "shareDownloadButton": "Download image",
       "shareCoachPrefix": "Coach: {name}",
       "shareMore": "+{count} more",
       "shareEyebrow": "WORKOUT COMPLETED",
