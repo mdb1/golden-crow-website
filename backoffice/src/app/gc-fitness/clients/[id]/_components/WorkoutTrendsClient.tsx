@@ -185,7 +185,7 @@ export function WorkoutTrendsClient({
                     border: "1px solid hsl(var(--border))",
                     background: "hsl(var(--background))",
                   }}
-                  formatter={(value: number) => [String(value), labels.barLabel]}
+                  formatter={(value) => [String(value), labels.barLabel]}
                 />
                 <Bar
                   dataKey="count"

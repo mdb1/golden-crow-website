@@ -59,9 +59,9 @@ export function BodyWeightTrendChartClient({
               border: "1px solid hsl(var(--border))",
               background: "hsl(var(--background))",
             }}
-            formatter={(value: number) => [`${Number(value).toFixed(1)} ${unitLabel}`, "Peso"]}
-            labelFormatter={(label: string) => {
-              const d = new Date(`${label}T00:00:00`);
+            formatter={(value) => [`${Number(value).toFixed(1)} ${unitLabel}`, "Peso"]}
+            labelFormatter={(label) => {
+              const d = new Date(`${String(label)}T00:00:00`);
               return d.toLocaleDateString();
             }}
           />
