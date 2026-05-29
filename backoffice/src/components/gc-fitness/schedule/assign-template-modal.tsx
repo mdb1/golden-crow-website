@@ -28,12 +28,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -527,62 +534,63 @@ export function AssignTemplateModal({
               </PopoverTrigger>
               <PopoverContent
                 align="start"
-                className="w-[var(--radix-popover-trigger-width)] p-0"
+                className="flex max-h-[min(80vh,480px)] w-[var(--radix-popover-trigger-width)] flex-col p-0"
               >
-                <div className="flex items-center gap-2 border-b px-3">
-                  <Search className="size-4 shrink-0 opacity-50" />
-                  <input
-                    autoFocus
+                {/* cmdk Command/CommandList — mirrors exercise-picker-popover.tsx
+                    so the list scrolls INSIDE the parent Dialog. The Dialog's
+                    react-remove-scroll lock eats wheel/touch on a portaled raw
+                    <ul>; cmdk's CommandList is the dialog-scroll-safe scroll
+                    container (it owns overflow-y-auto + max-height). `shouldFilter`
+                    is false because we keep the existing manual EN+ES+tags
+                    substring filter below — cmdk's built-in fuzzy matcher is NOT
+                    used here. */}
+                <Command shouldFilter={false}>
+                  <CommandInput
                     value={templateSearch}
-                    onChange={(e) => setTemplateSearch(e.target.value)}
+                    onValueChange={setTemplateSearch}
                     placeholder="Buscar por nombre o tag…"
-                    className="h-9 flex-1 bg-transparent text-sm outline-none"
                   />
-                </div>
-                <ul className="max-h-64 overflow-y-auto p-1">
-                  {(() => {
-                    const list = templates ?? [];
-                    const needle = templateSearch.trim().toLowerCase();
-                    const filtered = needle
-                      ? list.filter((tpl) => {
-                          const tags = Array.isArray(tpl.tags)
+                  <CommandList>
+                    {(() => {
+                      const list = templates ?? [];
+                      const needle = templateSearch.trim().toLowerCase();
+                      const filtered = needle
+                        ? list.filter((tpl) => {
+                            const tags = Array.isArray(tpl.tags)
+                              ? tpl.tags
+                              : tpl.tag
+                                ? [tpl.tag]
+                                : [];
+                            return `${tpl.name.en} ${tpl.name.es} ${tags.join(" ")}`
+                              .toLowerCase()
+                              .includes(needle);
+                          })
+                        : list;
+                      if (filtered.length === 0) {
+                        return (
+                          <CommandEmpty>
+                            {templatesLoading ? t("templateLoading") : "Sin resultados."}
+                          </CommandEmpty>
+                        );
+                      }
+                      return filtered.map((tpl) => {
+                        const tags =
+                          Array.isArray(tpl.tags) && tpl.tags.length
                             ? tpl.tags
                             : tpl.tag
                               ? [tpl.tag]
                               : [];
-                          return `${tpl.name.en} ${tpl.name.es} ${tags.join(" ")}`
-                            .toLowerCase()
-                            .includes(needle);
-                        })
-                      : list;
-                    if (filtered.length === 0) {
-                      return (
-                        <li className="px-2 py-4 text-center text-sm text-muted-foreground">
-                          {templatesLoading ? t("templateLoading") : "Sin resultados."}
-                        </li>
-                      );
-                    }
-                    return filtered.map((tpl) => {
-                      const tags =
-                        Array.isArray(tpl.tags) && tpl.tags.length
-                          ? tpl.tags
-                          : tpl.tag
-                            ? [tpl.tag]
-                            : [];
-                      const selected = tpl.id === templateId;
-                      return (
-                        <li key={tpl.id}>
-                          <button
-                            type="button"
-                            onClick={() => {
+                        const selected = tpl.id === templateId;
+                        return (
+                          <CommandItem
+                            key={tpl.id}
+                            value={tpl.id}
+                            onSelect={() => {
                               setTemplateId(tpl.id);
                               setTemplatePickerOpen(false);
                               setTemplateSearch("");
                             }}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent",
-                              selected && "bg-accent",
-                            )}
+                            className="flex items-center gap-2"
                           >
                             <Check
                               className={cn(
@@ -598,12 +606,12 @@ export function AssignTemplateModal({
                                 {tags.join(" · ")}
                               </span>
                             ) : null}
-                          </button>
-                        </li>
-                      );
-                    });
-                  })()}
-                </ul>
+                          </CommandItem>
+                        );
+                      });
+                    })()}
+                  </CommandList>
+                </Command>
               </PopoverContent>
             </Popover>
           </div>
