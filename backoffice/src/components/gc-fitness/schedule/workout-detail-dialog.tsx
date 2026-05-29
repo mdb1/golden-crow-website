@@ -13,7 +13,8 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Pencil, Trash2, User } from "lucide-react";
+import { CalendarDays, Download, Pencil, Trash2, User } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Dialog,
@@ -31,7 +32,15 @@ import {
   getAssignmentDetail,
   type AssignmentDetail,
 } from "@/lib/gc-fitness/schedule-month-actions";
+import {
+  getWorkoutLogDetailByAssignment,
+  type WorkoutLogDetail,
+} from "@/lib/gc-fitness/recent-logs-actions";
 
+import {
+  ShareAssignmentCard,
+  ShareWorkoutCard,
+} from "@/components/gc-fitness/share-workout-card";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 import { WorkoutAssignmentEditDialog } from "./workout-assignment-edit-dialog";
 
@@ -94,6 +103,18 @@ export function WorkoutDetailDialog({
     staleTime: 30_000,
   });
 
+  // When the assignment is completed we share the LOGGED actuals (mirroring
+  // iOS), so fetch the workout log by its assignmentId FK. Only runs while the
+  // dialog is open AND the assignment is completed; otherwise the prescribed
+  // card is shared straight from the already-loaded AssignmentDetail.
+  const isCompleted = data?.status === "completed";
+  const { data: logDetail, isLoading: isLogLoading } = useQuery({
+    queryKey: ["assignment-log-detail", assignmentId],
+    queryFn: () => getWorkoutLogDetailByAssignment(assignmentId),
+    enabled: open && isCompleted,
+    staleTime: 30_000,
+  });
+
   // Clear the nested dialogs when the user closes the parent.
   useEffect(() => {
     if (!open) {
@@ -111,13 +132,23 @@ export function WorkoutDetailDialog({
               <span className="truncate">
                 {data ? data.templateName : "Detalle del entrenamiento"}
               </span>
-              {data ? (
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_TONE[data.status]}`}
-                >
-                  {STATUS_LABEL[data.status]}
-                </span>
-              ) : null}
+              <div className="flex shrink-0 items-center gap-2">
+                {data ? (
+                  <ShareCardSlot
+                    data={data}
+                    isCompleted={isCompleted}
+                    isLogLoading={isLogLoading}
+                    logDetail={logDetail ?? null}
+                  />
+                ) : null}
+                {data ? (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_TONE[data.status]}`}
+                  >
+                    {STATUS_LABEL[data.status]}
+                  </span>
+                ) : null}
+              </div>
             </DialogTitle>
             <DialogDescription>
               Vista de solo lectura del entrenamiento asignado.
@@ -202,6 +233,48 @@ export function WorkoutDetailDialog({
       ) : null}
     </>
   );
+}
+
+/**
+ * Renders the "Compartir imagen" share card in the dialog header, choosing the
+ * variant the way iOS does:
+ *   - completed assignment → share the LOGGED actuals (ShareWorkoutCard) once
+ *     the log query resolves; show a disabled spinner button while it loads.
+ *     If the log fetch returns null (completed flag but no log doc — an edge
+ *     case), fall back to the prescribed card.
+ *   - otherwise (scheduled/started/missed) → share the PRESCRIBED card built
+ *     from the already-loaded AssignmentDetail.
+ */
+function ShareCardSlot({
+  data,
+  isCompleted,
+  isLogLoading,
+  logDetail,
+}: {
+  data: AssignmentDetail;
+  isCompleted: boolean;
+  isLogLoading: boolean;
+  logDetail: WorkoutLogDetail | null;
+}) {
+  const t = useTranslations("recentLogs.workoutDetail");
+
+  // Completed: keep a disabled spinner button while the actuals log loads.
+  if (isCompleted && isLogLoading) {
+    return (
+      <Button variant="outline" size="sm" className="gap-1" disabled>
+        <Download className="h-4 w-4 animate-pulse" />
+        {t("shareLoading")}
+      </Button>
+    );
+  }
+
+  // Completed with a resolved log → share the logged actuals.
+  if (isCompleted && logDetail) {
+    return <ShareWorkoutCard detail={logDetail} />;
+  }
+
+  // Not completed, OR completed-but-no-log (edge fallback) → prescribed card.
+  return <ShareAssignmentCard assignment={data} />;
 }
 
 function DetailBody({ data }: { data: AssignmentDetail }) {
