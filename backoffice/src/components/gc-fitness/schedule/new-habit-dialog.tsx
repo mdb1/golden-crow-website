@@ -39,11 +39,29 @@ import type { HabitCreateInput } from "@/lib/gc-fitness/habit-schema";
 interface NewHabitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clientId: string;
-  clientName: string;
-  startsOn: string; // YYYY-MM-DD
+  /**
+   * FIXED mode (calendar cell): a specific client + day. The form's client
+   * field is pre-set; the cell's date seeds `startsOn`.
+   */
+  clientId?: string;
+  clientName?: string;
+  startsOn?: string; // YYYY-MM-DD
+  /**
+   * ROSTER mode (habits page): omit clientId/clientName and pass the full
+   * roster instead. The shared HabitForm renders its own client dropdown from
+   * these options, so the trainer picks the client + start date in the form.
+   */
+  clients?: Array<{ uid: string; displayName: string }>;
   /** Fires after a successful create/assign so the parent can invalidate caches. */
   onCreated: () => void;
+}
+
+function todayCivilDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 const HABIT_TYPE_LABEL: Record<string, string> = {
@@ -96,6 +114,7 @@ export function NewHabitDialog({
   clientId,
   clientName,
   startsOn,
+  clients,
   onCreated,
 }: NewHabitDialogProps) {
   const [tab, setTab] = useState<Tab>("existing");
@@ -104,7 +123,15 @@ export function NewHabitDialog({
   // create form opens pre-filled with the searched name.
   const [prefillName, setPrefillName] = useState("");
 
-  const clientOptions = [{ uid: clientId, displayName: clientName }];
+  // ROSTER mode = no fixed client → the form's own client dropdown (fed the
+  // whole roster) is the picker, and `startsOn` defaults to today (editable in
+  // the form's date field). FIXED mode keeps the single-client behavior.
+  const rosterMode = !clientId;
+  const clientOptions = rosterMode
+    ? (clients ?? []).map((c) => ({ uid: c.uid, displayName: c.displayName }))
+    : [{ uid: clientId ?? "", displayName: clientName ?? "" }];
+  const effStartsOn = startsOn ?? todayCivilDate();
+  const effClientId = clientId ?? "";
   const afterSubmit = () => {
     onCreated();
     onOpenChange(false);
@@ -124,8 +151,14 @@ export function NewHabitDialog({
             {tab === "existing" ? "Asignar hábito existente" : "Nuevo hábito"}
           </DialogTitle>
           <DialogDescription>
-            Cliente: <span className="font-medium">{clientName}</span> · Empieza
-            el <span className="font-medium">{startsOn}</span>.
+            {rosterMode ? (
+              "Elegí el cliente y la fecha de inicio en el formulario."
+            ) : (
+              <>
+                Cliente: <span className="font-medium">{clientName}</span> ·
+                Empieza el <span className="font-medium">{startsOn}</span>.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -166,8 +199,8 @@ export function NewHabitDialog({
               clientOptions={clientOptions}
               defaultValues={
                 {
-                  clientId,
-                  startsOn,
+                  clientId: effClientId,
+                  startsOn: effStartsOn,
                   ...(prefillName
                     ? { name: { en: prefillName, es: prefillName } }
                     : {}),
@@ -192,7 +225,11 @@ export function NewHabitDialog({
                 key={selected.id}
                 mode="create"
                 clientOptions={clientOptions}
-                defaultValues={templateToDefaults(selected, clientId, startsOn)}
+                defaultValues={templateToDefaults(
+                  selected,
+                  effClientId,
+                  effStartsOn,
+                )}
                 hideCancelButton
                 onAfterSubmit={afterSubmit}
                 onSubmit={async (input) => createHabit(input)}

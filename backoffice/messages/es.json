@@ -465,6 +465,11 @@
       "pageHeading": "Hábitos",
       "pageSubtitle": "Vista general de los hábitos de tus clientes. Creá y asigná hábitos desde la Agenda.",
       "newHabitCta": "Nuevo hábito",
+      "createHabitCta": "Crear hábito",
+      "tabAssignments": "Asignaciones",
+      "tabLibrary": "Biblioteca",
+      "libraryEmpty": "Aún no tenés hábitos en tu biblioteca.",
+      "habitCreatedToast": "Hábito creado.",
       "librarySectionTitle": "Biblioteca de hábitos reutilizables",
       "librarySectionSubtitle": "Elegí una plantilla global o personalizada y asignala a uno o más clientes. La asignación crea docs de hábito por cliente.",
       "templatePickerPlaceholder": "Elegí una plantilla de hábito",
@@ -542,7 +547,10 @@
         "5": "Vie",
         "6": "Sáb",
         "7": "Dom"
-      }
+      },
+      "scope": "Alcance",
+      "scopeGlobal": "Global",
+      "scopeMine": "Mía"
     },
     "detail": {
       "untitled": "(sin título)",

@@ -2,23 +2,21 @@
 
 // habits/client.tsx
 //
-// Client orchestrator for `/gc-fitness/habits` — a read/manage OVERVIEW of
-// every habit assigned across the trainer's clients. Composes:
+// Client orchestrator for `/gc-fitness/habits`. Two views via a segmented
+// toggle:
 //
-//   - `useHabitsForTrainerQuery` — Server-Action-backed React-Query feed
-//   - Search + Type filter + Client filter (all client-side, memoized)
-//   - TanStack Table with sorting + pagination (colored type/recurrence pills)
-//   - Row click / per-row menu → view, edit, delete
+//   - "Asignaciones" — the per-client habit assignments table (default).
+//   - "Biblioteca"   — the reusable habit templates (global + own), WITHOUT
+//                      any per-client assignment.
 //
-// Creating and assigning habits lives in the AGENDA (schedule) surface now, so
-// this page intentionally has no template-library / assign / create controls.
-//
-// Filtering is client-side because the habit count is bounded
-// (listHabitsForTrainer returns ≤ 200 rows on composite index #2).
+// A "Crear hábito" button opens the SAME create flow used on the calendar
+// (NewHabitDialog), in roster mode so the trainer picks the client + start
+// date inside the form.
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   flexRender,
@@ -30,6 +28,7 @@ import {
 } from "@tanstack/react-table";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -59,13 +58,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { NewHabitDialog } from "@/components/gc-fitness/schedule/new-habit-dialog";
 import {
   listHabitsForTrainer,
+  listHabitTemplates,
   softDeleteHabit,
   type HabitRow,
+  type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
 import { HABIT_TYPES, type HabitType } from "@/lib/gc-fitness/habit-schema";
 import { makeHabitColumns } from "./columns";
+import { HabitLibraryTable } from "./_components/HabitLibraryTable";
 
 export const HABITS_BASE_KEY = ["gc-fitness", "habits"] as const;
 
@@ -78,11 +81,14 @@ export interface ClientNameEntry {
 
 export interface HabitsLibraryClientProps {
   /**
-   * Trainer's client roster from `listClients()` (P04-05). Used to resolve
-   * clientId → displayName for the columns and to populate the client filter.
+   * Trainer's client roster from `listClients()` (P04-05). Resolves
+   * clientId → displayName, populates the client filter, and feeds the
+   * create dialog's client picker.
    */
   clientRoster: ClientNameEntry[];
 }
+
+type HabitsView = "assignments" | "library";
 
 // Maps HabitType → message-catalog key (resolved via
 // `t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[type]}`)`).
@@ -99,6 +105,8 @@ export function HabitsLibraryClient({
   const router = useRouter();
   const t = useTranslations("habits.list");
   const queryClient = useQueryClient();
+  const [view, setView] = useState<HabitsView>("assignments");
+  const [createOpen, setCreateOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<HabitType | "all">("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
@@ -111,6 +119,13 @@ export function HabitsLibraryClient({
   const { data, isLoading, error } = useQuery({
     queryKey: HABITS_BASE_KEY,
     queryFn: () => listHabitsForTrainer(),
+  });
+  // Templates power the "Biblioteca" view. Fetched lazily the first time the
+  // library tab is opened; cached thereafter.
+  const { data: templates = [], isLoading: templatesLoading } = useQuery({
+    queryKey: [...HABITS_BASE_KEY, "templates"],
+    queryFn: () => listHabitTemplates(),
+    enabled: view === "library",
   });
 
   const clientNameMap = useMemo(() => {
@@ -138,12 +153,24 @@ export function HabitsLibraryClient({
     });
   }, [data, typeFilter, clientFilter, search, clientNameMap]);
 
+  const filteredTemplates = useMemo(() => {
+    const all = templates as HabitTemplateRow[];
+    const needle = search.trim().toLowerCase();
+    return all.filter((tpl) => {
+      if (typeFilter !== "all" && tpl.type !== typeFilter) return false;
+      if (needle.length > 0) {
+        const hay = `${tpl.name.en} ${tpl.name.es}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [templates, typeFilter, search]);
+
   const handlers = useMemo(
     () => ({
       onEdit: (row: HabitRow) =>
         router.push(`/gc-fitness/habits/${row.id}/edit`),
-      onView: (row: HabitRow) =>
-        router.push(`/gc-fitness/habits/${row.id}`),
+      onView: (row: HabitRow) => router.push(`/gc-fitness/habits/${row.id}`),
       onDelete: (row: HabitRow) => setConfirmDelete(row),
     }),
     [router],
@@ -171,9 +198,7 @@ export function HabitsLibraryClient({
     setDeletePending(true);
     try {
       await softDeleteHabit(confirmDelete.id);
-      await queryClient.invalidateQueries({
-        queryKey: HABITS_BASE_KEY,
-      });
+      await queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY });
       toast.success(t("deletedToast"));
       setConfirmDelete(null);
     } catch (err) {
@@ -186,6 +211,13 @@ export function HabitsLibraryClient({
     }
   }, [confirmDelete, queryClient, t]);
 
+  // Create flow shared with the calendar invalidates both the assignments
+  // feed AND the templates cache (prefix match on HABITS_BASE_KEY).
+  const handleHabitCreated = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY });
+    toast.success(t("habitCreatedToast"));
+  }, [queryClient, t]);
+
   const totalFromServer = (data ?? []).length;
   const isUnfilteredEmpty = !isLoading && totalFromServer === 0;
   const isFilteredEmpty =
@@ -193,14 +225,49 @@ export function HabitsLibraryClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("pageHeading")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            {t("pageHeading")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          {t("createHabitCta")}
+        </Button>
       </div>
 
-      {/* Filters */}
+      {/* View toggle: per-client assignments vs reusable template library. */}
+      <div className="inline-flex w-fit rounded-lg border p-0.5 text-sm">
+        {(
+          [
+            ["assignments", t("tabAssignments")],
+            ["library", t("tabLibrary")],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setView(value as HabitsView)}
+            className={cn(
+              "rounded-md px-4 py-1.5 font-medium transition",
+              view === value
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filters (search + type apply to both views; client filter only makes
+          sense for assignments). */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder={t("searchPlaceholder")}
@@ -224,19 +291,21 @@ export function HabitsLibraryClient({
             ))}
           </SelectContent>
         </Select>
-        <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder={t("filterByClientPlaceholder")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("allClients")}</SelectItem>
-            {activeClientRoster.map((c) => (
-              <SelectItem key={c.uid} value={c.uid}>
-                {c.displayName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {view === "assignments" ? (
+          <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder={t("filterByClientPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("allClients")}</SelectItem>
+              {activeClientRoster.map((c) => (
+                <SelectItem key={c.uid} value={c.uid}>
+                  {c.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
 
       {error && (
@@ -246,115 +315,139 @@ export function HabitsLibraryClient({
         </Alert>
       )}
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
+      {view === "library" ? (
+        <HabitLibraryTable
+          templates={filteredTemplates}
+          isLoading={templatesLoading}
+          t={columnsT}
+          emptyText={t("libraryEmpty")}
+          loadingText={t("loading")}
+        />
+      ) : (
+        <>
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  {t("loading")}
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows.length > 0 ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  onClick={() => handlers.onView(row.original)}
-                  className="cursor-pointer"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {t("loading")}
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : isUnfilteredEmpty ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-32 text-center"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">{t("emptyHeadline")}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("emptySubtitle")}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : isFilteredEmpty ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-32 text-center"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">{t("filteredEmptyHeadline")}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("filteredEmptySubtitle")}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
-      </div>
-
-      {rows.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {t("pagination", {
-              current: table.getState().pagination.pageIndex + 1,
-              total: Math.max(1, table.getPageCount()),
-            })}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              {t("previous")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              {t("next")}
-            </Button>
+                  </TableRow>
+                ) : table.getRowModel().rows.length > 0 ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      onClick={() => handlers.onView(row.original)}
+                      className="cursor-pointer"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : isUnfilteredEmpty ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-32 text-center"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="font-medium">{t("emptyHeadline")}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("emptySubtitle")}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : isFilteredEmpty ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-32 text-center"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="font-medium">
+                          {t("filteredEmptyHeadline")}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("filteredEmptySubtitle")}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+
+          {rows.length > 0 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {t("pagination", {
+                  current: table.getState().pagination.pageIndex + 1,
+                  total: Math.max(1, table.getPageCount()),
+                })}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  {t("previous")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  {t("next")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      <NewHabitDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        clients={activeClientRoster.map((c) => ({
+          uid: c.uid,
+          displayName: c.displayName,
+        }))}
+        onCreated={handleHabitCreated}
+      />
 
       <AlertDialog
         open={confirmDelete !== null}
