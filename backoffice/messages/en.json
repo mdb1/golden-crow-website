@@ -656,8 +656,9 @@
       "actionsAria": "Actions",
       "edit": "Edit",
       "view": "View",
+      "duplicate": "Duplicate",
       "delete": "Delete",
-      "wgerReadOnlyTooltip": "wger exercises are read-only. Duplicate to customize.",
+      "wgerReadOnlyTooltip": "Library exercises are read-only. Duplicate to customize.",
       "metricTimeBadgeTitle": "Time-based exercise"
     },
     "editPage": {
@@ -688,7 +689,9 @@
       "deleting": "Deleting…",
       "deleteDialogConfirm": "Delete",
       "deletedToast": "Exercise deleted.",
-      "deleteFailedToast": "Couldn't delete. Please try again."
+      "deleteFailedToast": "Couldn't delete. Please try again.",
+      "duplicatedToast": "Exercise duplicated. Edit your copy now.",
+      "duplicateFailedToast": "Couldn't duplicate. Please try again."
     },
     "viewExercise": "View exercise",
     "empty": {

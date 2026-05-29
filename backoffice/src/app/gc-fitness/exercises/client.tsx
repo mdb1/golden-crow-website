@@ -54,7 +54,10 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
-import { softDeleteExercise } from "@/lib/gc-fitness/exercise-server-actions";
+import {
+  softDeleteExercise,
+  duplicateExercise,
+} from "@/lib/gc-fitness/exercise-server-actions";
 import {
   ExerciseFilters,
   type ExerciseFiltersState,
@@ -135,15 +138,33 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
     return all.filter((r) => matchesFilters(r, filters, trainerUid));
   }, [data, filters, trainerUid]);
 
+  const handleDuplicate = useCallback(
+    async (row: ExerciseRow) => {
+      try {
+        const { id } = await duplicateExercise(row.id);
+        await queryClient.invalidateQueries({ queryKey: EXERCISES_QUERY_KEY });
+        toast.success(t("duplicatedToast"));
+        // Land the trainer on their new editable copy, mirroring the
+        // Duplicate-to-customize flow in the view-form CTA.
+        router.push(`/gc-fitness/exercises/${id}/edit`);
+      } catch (err) {
+        console.error("[exercises] duplicate failed", err);
+        toast.error(t("duplicateFailedToast"));
+      }
+    },
+    [router, queryClient, t],
+  );
+
   const handlers = useMemo(
     () => ({
       onEdit: (row: ExerciseRow) =>
         router.push(`/gc-fitness/exercises/${row.id}/edit`),
       onView: (row: ExerciseRow) =>
         router.push(`/gc-fitness/exercises/${row.id}/view`),
+      onDuplicate: (row: ExerciseRow) => handleDuplicate(row),
       onDelete: (row: ExerciseRow) => setConfirmDelete(row),
     }),
-    [router],
+    [router, handleDuplicate],
   );
 
   const columnsT = useTranslations("exercises.columns");
@@ -245,7 +266,11 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
                 </TableRow>
               ) : table.getRowModel().rows.length > 0 ? (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow
+                    key={row.id}
+                    onClick={() => handlers.onView(row.original)}
+                    className="cursor-pointer"
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(

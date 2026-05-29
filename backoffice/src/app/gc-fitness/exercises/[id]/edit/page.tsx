@@ -73,7 +73,11 @@ export default async function EditExercisePage({ params }: PageParams) {
     ownerId?: string | null;
   };
 
-  if (data.source === "wger") {
+  // Library sources (wger + free-exercise-db) are read-only — there is no
+  // editable owner, so send them to the read-only /view page instead of
+  // /forbidden. (free-exercise-db rows used to fall through to the ownerId
+  // check below and 404 into /forbidden — the reported bug.)
+  if (data.source === "wger" || data.source === "free-exercise-db") {
     redirect(`/gc-fitness/exercises/${id}/view`);
   }
   if (data.ownerId !== trainer.uid) {

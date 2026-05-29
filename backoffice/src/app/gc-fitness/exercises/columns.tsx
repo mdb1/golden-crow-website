@@ -16,9 +16,8 @@
 // Actions are passed in via props from `client.tsx` so the column-def file
 // stays free of router / state imports.
 
-import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Dumbbell, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Eye, Copy, Edit, Trash2 } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +33,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
 import type { ExerciseRow } from "@/lib/gc-fitness/exercises-listener";
 
 // Preview-source helpers — local duplicate of the picker pattern
@@ -69,6 +69,7 @@ void isGifUrl;
 export interface ExerciseColumnHandlers {
   onEdit: (row: ExerciseRow) => void;
   onView: (row: ExerciseRow) => void;
+  onDuplicate: (row: ExerciseRow) => void;
   onDelete: (row: ExerciseRow) => void;
 }
 
@@ -111,35 +112,20 @@ export function makeColumns(
       cell: ({ row }) => {
         // 260522-orr — render a real preview thumbnail when the Free-
         // Exercise-DB seed pipeline has provided gifUrl/imageUrl, falling
-        // back to thumbnailURL, then to the lucide Dumbbell icon. The
-        // 48×27 box is locked from UI-SPEC.
+        // back to thumbnailURL, then to a Dumbbell icon. The 48×27 box is
+        // locked from UI-SPEC.
         //
-        // `unoptimized={!!src}` is INTENTIONAL and load-bearing:
-        // storage.googleapis.com v2 signed URLs have
-        // `?GoogleAccessId=…&Expires=…&Signature=…` query params that the
-        // Next.js image optimizer strips when it rewrites src to
-        // /_next/image, producing runtime 403. All exercise preview URLs
-        // come from either signed Storage or wger CDN; none benefit from
-        // the optimizer.
-        const src = previewSrc(row.original);
+        // Uses the shared `ExercisePreviewThumb` (same as the picker) so a
+        // 1s hover opens the enlarged preview popover, and clicks bubble
+        // through to the row's view-on-click handler. `unoptimized` is
+        // handled inside the component (signed-Storage URLs 403 through the
+        // Next.js optimizer).
         return (
-          <div
-            aria-hidden="true"
-            className="flex h-[27px] w-[48px] items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40 text-muted-foreground"
-          >
-            {src ? (
-              <Image
-                src={src}
-                alt=""
-                width={48}
-                height={27}
-                unoptimized={!!src}
-                className="h-[27px] w-[48px] rounded-sm object-cover"
-              />
-            ) : (
-              <Dumbbell className="h-4 w-4" />
-            )}
-          </div>
+          <ExercisePreviewThumb
+            src={previewSrc(row.original)}
+            width={48}
+            height={27}
+          />
         );
       },
       enableSorting: false,
@@ -248,7 +234,14 @@ export function makeColumns(
       id: "actions",
       header: "",
       cell: ({ row }) => {
-        const isWger = row.original.source === "wger";
+        // Library exercises (wger + free-exercise-db) are read-only — they
+        // canNOT be edited or deleted (the edit page redirects them to /view
+        // and the Server Actions reject the write). They get View +
+        // Duplicate-to-customize. Trainer-owned exercises get View + Edit +
+        // Delete. NOTE: gating on `!== "trainer"` (not just `=== "wger"`) is
+        // the fix for the free-exercise-db rows that used to show Edit and
+        // 404'd on click.
+        const isLibrary = row.original.source !== "trainer";
 
         const menu = (
           <DropdownMenu>
@@ -263,44 +256,53 @@ export function makeColumns(
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isWger ? (
-                <DropdownMenuItem onClick={() => handlers.onView(row.original)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  {t("view")}
+              <DropdownMenuItem onClick={() => handlers.onView(row.original)}>
+                <Eye className="mr-2 h-4 w-4" />
+                {t("view")}
+              </DropdownMenuItem>
+              {isLibrary ? (
+                <DropdownMenuItem
+                  onClick={() => handlers.onDuplicate(row.original)}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  {t("duplicate")}
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => handlers.onEdit(row.original)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  {t("edit")}
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handlers.onEdit(row.original)}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    {t("edit")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handlers.onDelete(row.original)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {t("delete")}
+                  </DropdownMenuItem>
+                </>
               )}
-              <DropdownMenuItem
-                disabled={isWger}
-                onClick={() => handlers.onDelete(row.original)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t("delete")}
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
 
-        if (isWger) {
-          // UI-SPEC: disabled Delete affordance + tooltip explaining the
-          // Duplicate-to-customize path.
+        // Stop row-level click (view-on-click) from firing when the trainer
+        // interacts with the actions menu.
+        if (isLibrary) {
+          // Tooltip explaining the Duplicate-to-customize path on the
+          // read-only library rows.
           return (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div>{menu}</div>
+                <div onClick={(e) => e.stopPropagation()}>{menu}</div>
               </TooltipTrigger>
-              <TooltipContent>
-                {t("wgerReadOnlyTooltip")}
-              </TooltipContent>
+              <TooltipContent>{t("wgerReadOnlyTooltip")}</TooltipContent>
             </Tooltip>
           );
         }
-        return menu;
+        return <div onClick={(e) => e.stopPropagation()}>{menu}</div>;
       },
       enableSorting: false,
       size: 56,

@@ -661,8 +661,9 @@
       "actionsAria": "Acciones",
       "edit": "Editar",
       "view": "Ver",
+      "duplicate": "Duplicar",
       "delete": "Eliminar",
-      "wgerReadOnlyTooltip": "Los ejercicios de wger son de solo lectura. Duplicalos para personalizarlos.",
+      "wgerReadOnlyTooltip": "Los ejercicios de la biblioteca son de solo lectura. Duplicalos para personalizarlos.",
       "metricTimeBadgeTitle": "Ejercicio por tiempo"
     },
     "editPage": {
@@ -693,7 +694,9 @@
       "deleting": "Eliminando…",
       "deleteDialogConfirm": "Eliminar",
       "deletedToast": "Ejercicio eliminado.",
-      "deleteFailedToast": "No se pudo eliminar. Probá de nuevo."
+      "deleteFailedToast": "No se pudo eliminar. Probá de nuevo.",
+      "duplicatedToast": "Ejercicio duplicado. Editá tu copia ahora.",
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
     },
     "form": {
       "viewBannerTitle": "Detalles del ejercicio",
