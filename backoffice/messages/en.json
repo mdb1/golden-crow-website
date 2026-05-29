@@ -463,7 +463,7 @@
     },
     "list": {
       "pageHeading": "Habits",
-      "pageSubtitle": "Author and assign daily habits. Each habit belongs to one client.",
+      "pageSubtitle": "Overview of your clients' habits. Create and assign habits from the Agenda.",
       "newHabitCta": "New habit",
       "librarySectionTitle": "Reusable habit library",
       "librarySectionSubtitle": "Pick a global or coach template and assign it to one or more clients. The assignment creates client-specific habit docs.",
@@ -490,7 +490,7 @@
       "loadErrorDescription": "Check your connection and try again.",
       "loading": "Loading…",
       "emptyHeadline": "No habits yet.",
-      "emptySubtitle": "Assign a habit to a client to get started.",
+      "emptySubtitle": "Create and assign habits from the Agenda to get started.",
       "filteredEmptyHeadline": "No matches.",
       "filteredEmptySubtitle": "Try a different filter or clear your search.",
       "pagination": "Page {current} of {total}",
@@ -529,7 +529,20 @@
       "shortTypeBinary": "Yes/No",
       "shortTypeMultiChoice": "Choice",
       "shortTypeNumeric": "Numeric",
-      "shortTypeWeight": "Weight"
+      "shortTypeWeight": "Weight",
+      "recDaily": "Daily",
+      "recMonthly": "Monthly",
+      "recOneTime": "One-time",
+      "recGoal": "Goal",
+      "weekdayShort": {
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat",
+        "7": "Sun"
+      }
     },
     "detail": {
       "untitled": "(untitled)",

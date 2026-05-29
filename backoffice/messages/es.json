@@ -463,7 +463,7 @@
     },
     "list": {
       "pageHeading": "Hábitos",
-      "pageSubtitle": "Autorizá y asigná hábitos diarios. Cada hábito pertenece a un cliente.",
+      "pageSubtitle": "Vista general de los hábitos de tus clientes. Creá y asigná hábitos desde la Agenda.",
       "newHabitCta": "Nuevo hábito",
       "librarySectionTitle": "Biblioteca de hábitos reutilizables",
       "librarySectionSubtitle": "Elegí una plantilla global o personalizada y asignala a uno o más clientes. La asignación crea docs de hábito por cliente.",
@@ -490,7 +490,7 @@
       "loadErrorDescription": "Revisá tu conexión e intentá de nuevo.",
       "loading": "Cargando…",
       "emptyHeadline": "Aún no hay hábitos.",
-      "emptySubtitle": "Asigná un hábito a un cliente para empezar.",
+      "emptySubtitle": "Creá y asigná hábitos desde la Agenda para empezar.",
       "filteredEmptyHeadline": "Sin coincidencias.",
       "filteredEmptySubtitle": "Probá con otro filtro o limpiá la búsqueda.",
       "pagination": "Página {current} de {total}",
@@ -529,7 +529,20 @@
       "shortTypeBinary": "Sí/No",
       "shortTypeMultiChoice": "Opción",
       "shortTypeNumeric": "Numérico",
-      "shortTypeWeight": "Peso"
+      "shortTypeWeight": "Peso",
+      "recDaily": "Diario",
+      "recMonthly": "Mensual",
+      "recOneTime": "Una vez",
+      "recGoal": "Meta",
+      "weekdayShort": {
+        "1": "Lun",
+        "2": "Mar",
+        "3": "Mié",
+        "4": "Jue",
+        "5": "Vie",
+        "6": "Sáb",
+        "7": "Dom"
+      }
     },
     "detail": {
       "untitled": "(sin título)",
