@@ -48,6 +48,7 @@ import { getTrainerTimezone } from "./trainer-timezone";
 
 const TEMPLATES = FirestoreCollections.workoutTemplates;
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
+const LOGS = FirestoreCollections.workoutLogs;
 const MAX_RECURRING_OCCURRENCES = 104; // ~2 years weekly cap
 const NO_END_HORIZON_DAYS = 365; // "no end" operational horizon (rolling)
 
@@ -936,6 +937,13 @@ export async function deleteAssignment(
   // Non-cascade OR non-recurring: fall through to single-doc delete.
   if (!options?.cascadeFromDate || !existing.seriesId) {
     await ref.delete();
+    // Cascade the delete to the workout log(s) this assignment produced, so a
+    // completed/started workout the coach removes ALSO disappears from Recent
+    // Logs and stops driving a calendar chip (it would otherwise orphan — the
+    // "I keep seeing deleted workouts" bug). Only the single-doc path needs
+    // this: the recurrence cascade below only deletes `scheduled` future docs,
+    // which never have logs.
+    await deleteWorkoutLogsForAssignment(db, trainer.uid, id);
     return { ok: true, deletedCount: 1 };
   }
 
@@ -969,6 +977,38 @@ export async function deleteAssignment(
   await batch.commit();
 
   return { ok: true, deletedCount: querySnap.size };
+}
+
+/**
+ * Deletes every workout_log produced by a given assignment. Called from the
+ * single-doc delete path so removing a workout also removes its logged
+ * actuals (cascade). The log FK is `assignment_id` (snake-case) on the iOS
+ * wire; `assignmentId` (camel) is a legacy fallback — we query BOTH and dedupe
+ * so no log is missed regardless of which field it carries. Trainer-ownership
+ * is re-checked per doc (defense-in-depth; the rule layer enforces it too).
+ * No-op when the assignment produced no logs (the common scheduled case).
+ */
+async function deleteWorkoutLogsForAssignment(
+  db: FirebaseFirestore.Firestore,
+  trainerUid: string,
+  assignmentId: string,
+): Promise<void> {
+  if (!assignmentId) return;
+  const [snakeSnap, camelSnap] = await Promise.all([
+    db.collection(LOGS).where("assignment_id", "==", assignmentId).get(),
+    db.collection(LOGS).where("assignmentId", "==", assignmentId).get(),
+  ]);
+  const refById = new Map<string, FirebaseFirestore.DocumentReference>();
+  for (const doc of [...snakeSnap.docs, ...camelSnap.docs]) {
+    if ((doc.data() as { trainerId?: string }).trainerId !== trainerUid) {
+      continue;
+    }
+    refById.set(doc.id, doc.ref);
+  }
+  if (refById.size === 0) return;
+  const batch = db.batch();
+  for (const ref of refById.values()) batch.delete(ref);
+  await batch.commit();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

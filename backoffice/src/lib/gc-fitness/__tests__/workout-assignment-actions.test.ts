@@ -576,10 +576,46 @@ describe("deleteAssignment", () => {
       fakeAssignmentSnap({ exists: true, trainerId: ALLOWED_UID }),
     );
     mockDelete.mockResolvedValue(undefined);
+    // Single-delete now ALSO queries workout_logs to cascade-delete the
+    // assignment's logs — no logs here, so the queries resolve empty.
+    mockQueryGet.mockResolvedValue({ docs: [] });
 
     const result = await deleteAssignment("asg-abc");
 
     expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, deletedCount: 1 });
+  });
+
+  it("cascades the delete to the assignment's workout log(s)", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({ exists: true, trainerId: ALLOWED_UID }),
+    );
+    mockDelete.mockResolvedValue(undefined);
+    const batchDelete = jest.fn();
+    mockBatch.mockImplementation(() => ({
+      set: mockBatchSet,
+      delete: batchDelete,
+      commit: mockBatchCommit,
+    }));
+    mockBatchCommit.mockResolvedValue(undefined);
+    // Both the snake (`assignment_id`) and camel (`assignmentId`) FK queries
+    // return the SAME owned log doc; dedupe by id → exactly one batch delete.
+    mockQueryGet.mockResolvedValue({
+      docs: [
+        {
+          id: "log-1",
+          ref: { id: "log-1" },
+          data: () => ({ trainerId: ALLOWED_UID }),
+        },
+      ],
+    });
+
+    const result = await deleteAssignment("asg-abc");
+
+    expect(mockDelete).toHaveBeenCalledTimes(1); // the assignment doc
+    expect(batchDelete).toHaveBeenCalledTimes(1); // the deduped log
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ ok: true, deletedCount: 1 });
   });
 
@@ -609,12 +645,14 @@ describe("deleteAssignment", () => {
       }),
     );
     mockDelete.mockResolvedValue(undefined);
+    // Single-delete path cascades to logs (none here → empty).
+    mockQueryGet.mockResolvedValue({ docs: [] });
 
     const result = await deleteAssignment("asg-x", {
       cascadeFromDate: "2026-06-01",
     });
 
-    // Falls back to single-doc delete; no batch.commit.
+    // Falls back to single-doc delete; no batch.commit (no logs to cascade).
     expect(mockDelete).toHaveBeenCalledTimes(1);
     expect(mockBatchCommit).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: true, deletedCount: 1 });

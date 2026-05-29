@@ -11,9 +11,17 @@
 // WorkoutAssignmentDeleteDialog so the recurrence-aware cascade prompt
 // is preserved.
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Download, Pencil, Trash2, User } from "lucide-react";
+import {
+  CalendarDays,
+  Download,
+  MessageCircle,
+  Pencil,
+  Trash2,
+  User,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -41,6 +49,7 @@ import {
   ShareAssignmentCard,
   ShareWorkoutCard,
 } from "@/components/gc-fitness/share-workout-card";
+import { WorkoutLogDetailView } from "@/components/gc-fitness/workout-log-detail-view";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 import { WorkoutAssignmentEditDialog } from "./workout-assignment-edit-dialog";
 
@@ -126,7 +135,7 @@ export function WorkoutDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-3xl overflow-hidden">
+        <DialogContent className="sm:max-w-4xl overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-3">
               <span className="truncate">
@@ -142,6 +151,19 @@ export function WorkoutDetailDialog({
                   />
                 ) : null}
                 {data ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    <Link href={`/gc-fitness/chat?chatId=${data.clientId}`}>
+                      <MessageCircle className="h-4 w-4" />
+                      Abrir chat
+                    </Link>
+                  </Button>
+                ) : null}
+                {data ? (
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_TONE[data.status]}`}
                   >
@@ -151,12 +173,14 @@ export function WorkoutDetailDialog({
               </div>
             </DialogTitle>
             <DialogDescription>
-              Vista de solo lectura del entrenamiento asignado.
+              {isCompleted
+                ? "Detalle del entrenamiento realizado."
+                : "Vista de solo lectura del entrenamiento asignado."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
-            {isLoading ? (
+            {isLoading || (isCompleted && isLogLoading) ? (
               <div className="flex flex-col gap-3">
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-32 w-full" />
@@ -168,6 +192,12 @@ export function WorkoutDetailDialog({
                   ? error.message
                   : "No se pudo cargar el detalle."}
               </p>
+            ) : isCompleted && logDetail ? (
+              // Completed → THE single canonical "real workout" detail (logged
+              // actuals), mirroring the Recent Logs page. Falls back to the
+              // prescribed body only when the log fetch returns null (completed
+              // flag but no log doc — an edge case).
+              <WorkoutLogDetailView detail={logDetail} />
             ) : data ? (
               <DetailBody data={data} />
             ) : null}

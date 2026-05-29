@@ -580,6 +580,20 @@ export async function listRecentLogsForTrainer(): Promise<{
 
   const rows: RecentLogRow[] = [];
 
+  // Orphan-log cleanup: when a coach deletes a workout, deleteAssignment now
+  // cascades the workout_logs too (workout-assignment-actions.ts), so new
+  // deletes vanish here automatically. But logs orphaned BEFORE that cascade
+  // shipped still exist with an assignment_id pointing at a now-deleted
+  // assignment — the "I keep seeing workouts the coach deleted" bug. We hide
+  // any workout row whose assignment FK no longer resolves to an existing
+  // assignment. `existingAssignmentIds` seeds from the already-loaded trainer
+  // assignments (free); FKs not in that set are confirmed via a single getAll
+  // below so a truncated assignment page never falsely hides a valid log.
+  const existingAssignmentIds = new Set<string>(
+    trainerAssignmentsSnap.docs.map((d) => d.id),
+  );
+  const workoutFkByRowId = new Map<string, string>();
+
   usersSnap.docs.forEach((doc) => {
     const data = doc.data();
     const clientId = doc.id;
@@ -602,6 +616,23 @@ export async function listRecentLogsForTrainer(): Promise<{
     const data = doc.data();
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId || !nameByClientId.has(clientId)) return;
+
+    // Defensive: skip any log explicitly soft-deleted (mirrors the habit-log
+    // skip below). Logs don't carry this today, but it's the cheapest guard.
+    if (data.deleted === true) return;
+
+    // Capture the assignment FK (snake-case `assignment_id` is the iOS wire
+    // field; `assignmentId` is the legacy camel fallback) so the orphan filter
+    // below can drop rows whose assignment was deleted.
+    const assignmentFk =
+      typeof data.assignment_id === "string"
+        ? data.assignment_id
+        : typeof data.assignmentId === "string"
+          ? data.assignmentId
+          : "";
+    if (assignmentFk) {
+      workoutFkByRowId.set(`workout:${doc.id}`, assignmentFk);
+    }
 
     const startedAt =
       asIso(data.startedAt) ??
@@ -870,10 +901,33 @@ export async function listRecentLogsForTrainer(): Promise<{
     });
   });
 
-  rows.sort((a, b) => isoOrEpoch(b.eventAt) - isoOrEpoch(a.eventAt));
+  // Confirm any workout FK not already known to exist (e.g. an assignment
+  // beyond the loaded page) via a single batched getAll, so we only treat a
+  // log as orphaned when its assignment REALLY no longer exists.
+  const unknownFks = Array.from(new Set(workoutFkByRowId.values())).filter(
+    (fk) => !existingAssignmentIds.has(fk),
+  );
+  if (unknownFks.length > 0) {
+    const refs = unknownFks.map((fk) =>
+      db.collection(FirestoreCollections.workoutAssignments).doc(fk),
+    );
+    const docs = await db.getAll(...refs);
+    docs.forEach((d) => {
+      if (d.exists) existingAssignmentIds.add(d.id);
+    });
+  }
+
+  const visibleRows = rows.filter((row) => {
+    const fk = workoutFkByRowId.get(row.id);
+    // Non-workout rows, and workout rows with no FK, are always kept.
+    if (!fk) return true;
+    return existingAssignmentIds.has(fk);
+  });
+
+  visibleRows.sort((a, b) => isoOrEpoch(b.eventAt) - isoOrEpoch(a.eventAt));
 
   return {
-    logs: rows,
+    logs: visibleRows,
     clients: clientList,
   };
 }
@@ -925,14 +979,29 @@ export async function getWorkoutLogDetailByAssignment(
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
-  const snap = await db
-    .collection(FirestoreCollections.workoutLogs)
-    .where("assignmentId", "==", assignmentId)
-    .get();
-  if (snap.empty) return null;
+  // FK field name: iOS writes the log's assignment FK as snake_case
+  // `assignment_id` (WorkoutLogRepository.swift). Older backoffice code keyed
+  // off camel `assignmentId`. Query BOTH and merge so the lookup works
+  // regardless of which field a given doc carries — without this, the snake-
+  // case docs returned nothing and the calendar dialog silently fell back to
+  // the prescribed card instead of the logged actuals (the reported bug).
+  const [snakeSnap, camelSnap] = await Promise.all([
+    db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("assignment_id", "==", assignmentId)
+      .get(),
+    db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("assignmentId", "==", assignmentId)
+      .get(),
+  ]);
+  const docById = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+  for (const d of [...snakeSnap.docs, ...camelSnap.docs]) docById.set(d.id, d);
+  if (docById.size === 0) return null;
+  const allDocs = Array.from(docById.values());
 
   // Trainer-ownership + completed filter in memory (see index note above).
-  const completed = snap.docs.filter((d) => {
+  const completed = allDocs.filter((d) => {
     const data = d.data() as Record<string, unknown>;
     if (data.trainerId !== trainer.uid) return false;
     // A log is "completed" when it carries a completedAt (status mirrors it).
