@@ -69,7 +69,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { EXERCISES_QUERY_KEY } from "@/lib/gc-fitness/exercises-query-key";
 
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
-import { MediaUploadDropzone } from "./MediaUploadDropzone";
 import { ThumbnailUploadDropzone } from "./ThumbnailUploadDropzone";
 
 export type ExerciseFormMode = "create" | "edit" | "view";
@@ -451,36 +450,6 @@ export function ExerciseForm({
             )}
           />
         </div>
-
-        {/* Media dropzone */}
-        <FormField
-          control={form.control}
-          name="mediaURL"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel htmlFor="media-dropzone-region">
-                {t("mediaLabel")}
-              </FormLabel>
-              <FormControl>
-                <div id="media-dropzone-region">
-                  <MediaUploadDropzone
-                    exerciseId={exerciseId}
-                    value={field.value ?? null}
-                    onUploaded={(gsPath) => field.onChange(gsPath)}
-                    onRemoved={() => field.onChange(null)}
-                    disabled={isView || (mode === "create" && !exerciseId)}
-                    disabledHint={
-                      mode === "create" && !exerciseId
-                        ? t("mediaCreateDeferHint")
-                        : undefined
-                    }
-                  />
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField

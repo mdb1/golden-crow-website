@@ -16,7 +16,7 @@
 
 import "@testing-library/jest-dom";
 
-import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
@@ -100,16 +100,6 @@ import {
 const UI_SPEC_FFMPEG_ONELINER =
   "ffmpeg -i input.gif -vcodec libx264 -pix_fmt yuv420p -crf 23 -preset slow -movflags +faststart -vf \"scale='min(480,iw)':-2\" output.mp4";
 
-// --- Test fixtures ---
-function makeMp4File(sizeBytes: number, name = "demo.mp4"): File {
-  const blob = new Uint8Array(sizeBytes);
-  return new File([blob], name, { type: "video/mp4" });
-}
-
-function makeGifFile(): File {
-  return new File([new Uint8Array(1024)], "demo.gif", { type: "image/gif" });
-}
-
 // jsdom doesn't include a global fetch — wire one we can spy on.
 const mockFetch = jest.fn(
   async () => ({ ok: true, status: 200 }) as unknown as Response,
@@ -129,7 +119,7 @@ beforeEach(() => {
 });
 
 describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
-  it("T1: renders all 6 fields + Save + Cancel in create mode", () => {
+  it("T1: renders the core fields + Save + Cancel in create mode", () => {
     render(<ExerciseForm mode="create" />);
 
     expect(screen.getByLabelText(/name \(english\)/i)).toBeInTheDocument();
@@ -142,14 +132,6 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: /equipment/i }),
-    ).toBeInTheDocument();
-    // Media dropzone — assert via its inner aria-label on the file
-    // input. After 14-02 added a sibling "Demonstration video URL"
-    // input, the unanchored `/demonstration video/i` regex was matching
-    // both labels; the file-input aria-label is verbatim
-    // "Demonstration video file" which uniquely identifies the dropzone.
-    expect(
-      screen.getByLabelText(/demonstration video file/i),
     ).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
@@ -214,61 +196,7 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
   });
 });
 
-// Shared defaults for edit-mode renders (T4/T6/T7) — the dropzone is
-// active only when an exerciseId is present (see ExerciseForm "save
-// first, then upload" UX decision).
-const EDIT_MODE_DEFAULTS = {
-  name: { en: "Test", es: "" },
-  description: { en: "Test description.", es: "" },
-  muscleGroups: ["chest"],
-  equipment: ["barbell"],
-  mediaURL: null,
-  thumbnailURL: null,
-  source: "trainer" as const,
-  ownerId: "test-trainer",
-  version: 1,
-};
-
-describe("MediaUploadDropzone — three-layer validation", () => {
-  it("T4: rejects a .gif with UI-SPEC toast + opens conversion affordance", async () => {
-    render(
-      <ExerciseForm
-        mode="edit"
-        exerciseId="custom-test-trainer-1"
-        defaultValues={EDIT_MODE_DEFAULTS}
-      />,
-    );
-
-    // Find the file input inside the dropzone. We bypass dnd-kit clicking
-    // since jsdom doesn't simulate file drops naturally; uploading via the
-    // input is functionally identical for validation.
-    const fileInput = screen.getByTestId(
-      "media-upload-input",
-    ) as HTMLInputElement;
-
-    // userEvent.upload enforces the input's `accept="video/mp4"` attr and
-    // silently drops a `.gif` before the change event fires — fine in real
-    // browsers, but our three-layer dropzone validation is supposed to
-    // reject GIFs at the *handler* layer too (defense in depth: an OS
-    // file dialog may let the user pick anything; a drag-and-drop bypass
-    // the accept attribute entirely; etc.). To exercise the rejection
-    // path we set `files` directly and fire a change event.
-    Object.defineProperty(fileInput, "files", {
-      value: [makeGifFile()],
-      configurable: true,
-    });
-    fireEvent.change(fileInput);
-
-    expect(mockToastError).toHaveBeenCalledWith(
-      "GIFs aren't supported. Please convert to MP4 first.",
-    );
-    // The "How to convert" affordance should be visible in the UI now.
-    expect(
-      screen.getByRole("button", { name: /how to convert/i }),
-    ).toBeInTheDocument();
-    expect(mockMintUploadUrl).not.toHaveBeenCalled();
-  });
-
+describe("GifConversionModal — ffmpeg drift guard", () => {
   it("T5 [DRIFT-GUARD]: GifConversionModal exports the locked verbatim ffmpeg one-liner", () => {
     // Byte-equal assertion — any tweak to the ffmpeg recipe in the source
     // file or in the literal here fails the build.
@@ -277,68 +205,6 @@ describe("MediaUploadDropzone — three-layer validation", () => {
     // Rendering check — the literal is also visible in the modal body.
     render(<GifConversionModal open={true} onOpenChange={() => undefined} />);
     expect(screen.getByText(FFMPEG_ONELINER)).toBeInTheDocument();
-  });
-
-  it("T6: rejects a 30 MB MP4 with UI-SPEC size copy", async () => {
-    const user = userEvent.setup();
-    render(
-      <ExerciseForm
-        mode="edit"
-        exerciseId="custom-test-trainer-1"
-        defaultValues={EDIT_MODE_DEFAULTS}
-      />,
-    );
-
-    const fileInput = screen.getByTestId(
-      "media-upload-input",
-    ) as HTMLInputElement;
-
-    const tooBig = makeMp4File(30 * 1024 * 1024);
-    await user.upload(fileInput, tooBig);
-
-    expect(mockToastError).toHaveBeenCalledWith("File too large. Max 25 MB.");
-    expect(mockMintUploadUrl).not.toHaveBeenCalled();
-  });
-
-  it("T7: a valid 5 MB MP4 triggers mintUploadUrl + fetch(PUT video/mp4)", async () => {
-    const user = userEvent.setup();
-    render(
-      <ExerciseForm
-        mode="edit"
-        exerciseId="custom-test-trainer-1"
-        defaultValues={EDIT_MODE_DEFAULTS}
-      />,
-    );
-
-    const fileInput = screen.getByTestId(
-      "media-upload-input",
-    ) as HTMLInputElement;
-
-    const validMp4 = makeMp4File(5 * 1024 * 1024);
-    await act(async () => {
-      await user.upload(fileInput, validMp4);
-    });
-
-    await waitFor(() => {
-      expect(mockMintUploadUrl).toHaveBeenCalledTimes(1);
-    });
-    expect(mockMintUploadUrl).toHaveBeenCalledWith({
-      exerciseId: "custom-test-trainer-1",
-      contentLength: 5 * 1024 * 1024,
-    });
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-    });
-    const [url, init] = mockFetch.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ];
-    expect(url).toBe("https://storage.example.test/signed?token=abc");
-    expect(init.method).toBe("PUT");
-    expect(
-      (init.headers as Record<string, string>)["Content-Type"],
-    ).toBe("video/mp4");
-    expect(init.body).toBe(validMp4);
   });
 });
 
