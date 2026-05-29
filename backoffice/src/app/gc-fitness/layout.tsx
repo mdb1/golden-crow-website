@@ -6,6 +6,7 @@ import { BodyThemeScope } from "@/components/gc-fitness/body-theme-scope";
 import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
+import { TimezoneSync } from "@/components/gc-fitness/timezone-sync";
 import { getCurrentGCFitnessUser } from "@/lib/gc-fitness/auth-helpers";
 
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default async function GCFitnessLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <FirebaseTelemetryInit />
+      <TimezoneSync />
       <BodyThemeScope />
       <div className="gc-fitness-theme">
         <GCFitnessShellProviders>
