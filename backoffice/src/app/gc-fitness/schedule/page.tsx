@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { listMonthForClients } from "@/lib/gc-fitness/schedule-month-actions";
 
 import { ScheduleQueryProvider } from "./providers";
@@ -49,7 +50,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
 
   const { month, clientIds } = await searchParams;
   const clients = (await listClients()).filter((c) => !c.pendingProvisioning);
-  const todayCivil = civilDateToday("UTC");
+  const todayCivil = civilDateToday(await getTrainerTimezone());
   const monthFirstCivil = monthFirstFromQuery(month, todayCivil);
 
   // Default: every active client checked. Trainer can toggle off; the URL

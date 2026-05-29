@@ -44,6 +44,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 import { civilDateFormat } from "./civil-date";
+import { getTrainerTimezone } from "./trainer-timezone";
 
 const TEMPLATES = FirestoreCollections.workoutTemplates;
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
@@ -1054,7 +1055,7 @@ export async function listFutureAssignmentsForTemplate(
     throw new Error("Not your template.");
   }
 
-  const todayUtc = civilDateFormat(new Date(), "UTC");
+  const todayUtc = civilDateFormat(new Date(), await getTrainerTimezone());
   const snap = await db
     .collection(ASSIGNMENTS)
     .where("trainerId", "==", trainer.uid)
@@ -1163,7 +1164,7 @@ export async function propagateTemplateToFutureAssignments(
     throw new Error("Not your template.");
   }
 
-  const todayUtc = civilDateFormat(new Date(), "UTC");
+  const todayUtc = civilDateFormat(new Date(), await getTrainerTimezone());
   const snap = await db
     .collection(ASSIGNMENTS)
     .where("trainerId", "==", trainer.uid)
@@ -1314,7 +1315,7 @@ export async function editAssignmentExercises(
     snapshot: unknown;
   }> = [];
   if (input.scope === "series" && typeof data.seriesId === "string" && data.seriesId) {
-    const today = civilDateFormat(new Date(), "UTC");
+    const today = civilDateFormat(new Date(), await getTrainerTimezone());
     const seriesSnap = await db
       .collection(ASSIGNMENTS)
       .where("trainerId", "==", trainer.uid)
