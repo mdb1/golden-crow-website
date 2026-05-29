@@ -12,6 +12,7 @@ import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShareWorkoutCard } from "@/components/gc-fitness/share-workout-card";
 import {
   getWorkoutLogDetail,
   type WorkoutLogDetail,
@@ -98,12 +99,15 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
               {t("backToLogs")}
             </Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="gap-1">
-            <Link href={`/gc-fitness/chat?chatId=${detail.clientId}`}>
-              <MessageCircle className="h-4 w-4" />
-              {t("openChat")}
-            </Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            <ShareWorkoutCard detail={detail} />
+            <Button asChild variant="outline" size="sm" className="gap-1">
+              <Link href={`/gc-fitness/chat?chatId=${detail.clientId}`}>
+                <MessageCircle className="h-4 w-4" />
+                {t("openChat")}
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <Card>

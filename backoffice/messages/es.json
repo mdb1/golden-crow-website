@@ -1156,7 +1156,10 @@
       "prBadgeTitle": "Nuevo récord personal · 1RM estimado {value} kg",
       "exerciseSetCount": "{count, plural, one {# serie} other {# series}}",
       "exerciseTopWeight": "Tope: {weight} kg",
-      "exerciseNoWeight": "Sin peso registrado"
+      "exerciseNoWeight": "Sin peso registrado",
+      "shareButton": "Compartir imagen",
+      "shareCoachPrefix": "Coach {name}",
+      "shareMore": "+{count} más"
     }
   },
   "login": {
