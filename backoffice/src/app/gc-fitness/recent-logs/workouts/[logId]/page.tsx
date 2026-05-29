@@ -84,7 +84,10 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
     const detail = await getWorkoutLogDetail(logId);
     const groups = groupSetsByExercise(detail.sets);
     const restMap = restBySetLogId(detail.sets);
-    const sessionDate = formatDateOnly(detail.completedAt ?? detail.startedAt);
+    const sessionDate = formatDateOnly(
+      detail.completedAt ?? detail.startedAt,
+      detail.clientTimezone,
+    );
 
     return (
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
@@ -119,8 +122,8 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
                   : t("statusStarted")
               }
             />
-            <Metric label={t("metricStarted")} value={formatDateTime(detail.startedAt)} />
-            <Metric label={t("metricCompleted")} value={formatDateTime(detail.completedAt)} />
+            <Metric label={t("metricStarted")} value={formatDateTime(detail.startedAt, detail.clientTimezone)} />
+            <Metric label={t("metricCompleted")} value={formatDateTime(detail.completedAt, detail.clientTimezone)} />
             <Metric label={t("metricExercises")} value={String(detail.exerciseCount)} />
             <Metric label={t("metricSetsLogged")} value={`${detail.completedSetCount}/${detail.setCount}`} />
             <Metric label={t("metricLogId")} value={detail.id} mono />
@@ -279,7 +282,7 @@ export default async function WorkoutLogDetailPage({ params }: PageProps) {
                                     : t("emptyDash")}
                                 </td>
                                 <td className="py-2 pr-3 text-muted-foreground">
-                                  {formatTimeOnly(set.completedAt)}
+                                  {formatTimeOnly(set.completedAt, detail.clientTimezone)}
                                 </td>
                                 <td className="py-2 pr-3 text-muted-foreground">
                                   {restMap.has(set.setLogId)
@@ -345,7 +348,10 @@ function RpeMeter({ value, label }: { value: number; label: string }) {
   );
 }
 
-function formatDateTime(iso: string | null): string {
+// `timeZone` is the CLIENT's IANA zone — REQUIRED. This is a server
+// component, so omitting it formats in the Vercel host tz (UTC), which is
+// the bug this threads through to fix.
+function formatDateTime(iso: string | null, timeZone: string): string {
   if (!iso) return "-";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "-";
@@ -355,22 +361,24 @@ function formatDateTime(iso: string | null): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone,
   });
 }
 
 // Per-row timestamps only need the time — the date is shown once in the
 // section header (it's the same day for the whole workout).
-function formatTimeOnly(iso: string | null): string {
+function formatTimeOnly(iso: string | null, timeZone: string): string {
   if (!iso) return "-";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone,
   });
 }
 
-function formatDateOnly(iso: string | null): string | null {
+function formatDateOnly(iso: string | null, timeZone: string): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
@@ -379,6 +387,7 @@ function formatDateOnly(iso: string | null): string | null {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone,
   });
 }
 

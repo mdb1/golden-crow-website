@@ -41,6 +41,12 @@ export interface WorkoutLogDetail {
   id: string;
   clientId: string;
   clientName: string;
+  /** IANA timezone of the CLIENT who performed the workout (e.g.
+   *  "America/Argentina/Buenos_Aires"). Read from `/users/{clientId}.timezone`,
+   *  falling back to the trainer's tz. All log timestamps must be rendered in
+   *  this zone — the page is a server component, so a missing timeZone renders
+   *  in the Vercel host tz (UTC). */
+  clientTimezone: string;
   workoutName: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -849,6 +855,14 @@ export async function getWorkoutLogDetail(
   const clientSnap = await db.collection(FirestoreCollections.users).doc(clientId).get();
   const clientData = clientSnap.data() as { displayName?: string } | undefined;
   const clientName = clientData?.displayName ?? clientId;
+  // Render all log timestamps in the CLIENT's timezone (mirrors the
+  // assertOwnsClient pattern in client-daily-timeline-actions.ts): prefer the
+  // client's stored IANA tz, else fall back to the trainer's. Without this the
+  // server component formats in UTC and the date/times are wrong (#tz).
+  const storedClientTz = clientSnap.get("timezone");
+  const clientTimezone =
+    (typeof storedClientTz === "string" && storedClientTz) ||
+    (await getTrainerTimezone());
 
   const workoutName = localizedText(
     (data.templateSnapshot as { name?: unknown } | undefined)?.name,
@@ -938,6 +952,7 @@ export async function getWorkoutLogDetail(
     id: logSnap.id,
     clientId,
     clientName,
+    clientTimezone,
     workoutName,
     startedAt,
     completedAt,
