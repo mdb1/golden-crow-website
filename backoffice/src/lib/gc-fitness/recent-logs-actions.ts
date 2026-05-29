@@ -325,7 +325,23 @@ export async function listRecentLogsForTrainer(): Promise<{
       .where("clientId", "==", client.uid)
       .where("civilDate", ">=", recentHabitWindowStartCivil)
       .limit(200)
-      .get(),
+      .get()
+      // 260529 RESILIENCE: the windowed query needs the
+      // `habit_logs (clientId, civilDate)` composite index. While that index
+      // is still BUILDING (or if it is ever dropped) the query throws
+      // FAILED_PRECONDITION — and this fan-out has no other guard, so an
+      // uncaught throw 500s BOTH the dashboard and recent-logs (both call
+      // listRecentLogsForTrainer). Degrade to the pre-260529 unwindowed
+      // query, always served by the single-field `clientId` index, so the
+      // feed renders instead of crashing. Once the index is READY the
+      // primary (cheaper) query succeeds and the fallback never runs.
+      .catch(() =>
+        db
+          .collection(FirestoreCollections.habitLogs)
+          .where("clientId", "==", client.uid)
+          .limit(200)
+          .get(),
+      ),
   );
 
   // Per-client fan-out for progress-photo uploads + body-weight logs.
