@@ -187,13 +187,20 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     };
   }
 
-  // NOTE: every fan-out query below intentionally avoids COMPOSITE filters
-  // (e.g. clientId + civilDate, trainerId + scheduledFor, trainerId +
-  // orderBy startedAt). Those would require explicit composite indexes that
-  // are not yet provisioned in this Firebase project — the queries throw
-  // FAILED_PRECONDITION, the catch swallows it, and the dashboard renders
-  // an all-zero pulse. Instead we run a single-where query against an
-  // auto-indexed field and slice down to the 7-day window in memory.
+  // COST (260529): the pulse only ever consumes data INSIDE the
+  // [windowStart, windowEnd] civil-date window (habitDaily/workoutDaily
+  // below). Previously every fan-out fetched a broad slice (habit_logs
+  // limit 400/client, assignments limit 600) and discarded the rest in
+  // memory — ~20k habit_log reads per dashboard load for a 50-client book.
+  // We now push the window into the query using composite indexes that are
+  // CONFIRMED DEPLOYED in production (`firebase firestore:indexes`):
+  //   - habit_logs        (clientId ASC, civilDate DESC)   ✓ live
+  //   - workout_assignments (trainerId ASC, scheduledFor ASC) ✓ live
+  // `scheduledFor` + `civilDate` are "YYYY-MM-DD" strings, so the
+  // lexicographic range matches civil-date order exactly. The trailing
+  // `.limit(...)` stays as a safety backstop; the window keeps it cold.
+  // workout_logs has NO (trainerId, startedAt) index, so it keeps the
+  // single-where + in-memory window slice (see logsInWindow below).
   const logError = (label: string) => (err: unknown) => {
     console.error(`[coach-pulse] ${label} failed`, err);
     return null;
@@ -210,6 +217,8 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     db
       .collection(FirestoreCollections.habitLogs)
       .where("clientId", "==", client.uid)
+      .where("civilDate", ">=", windowStart)
+      .where("civilDate", "<=", windowEnd)
       .limit(400)
       .get()
       .catch(logError(`habit_logs clientId=${client.uid}`)),
@@ -217,6 +226,8 @@ export async function getCoachPulse(): Promise<CoachPulse> {
   const assignmentsPromise = db
     .collection(FirestoreCollections.workoutAssignments)
     .where("trainerId", "==", trainer.uid)
+    .where("scheduledFor", ">=", windowStart)
+    .where("scheduledFor", "<=", windowEnd)
     .limit(600)
     .get()
     .catch(logError("workout_assignments"));
