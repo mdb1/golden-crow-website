@@ -5,6 +5,7 @@ import { Download, AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
 import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 
@@ -22,8 +23,10 @@ import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 // `ShareCardRenderer` rasterizes. The renderer draws a HIDDEN, off-screen
 // 1080px-wide card (DYNAMIC height — no exercise cap; the canvas grows to fit
 // the COMPLETE routine), then rasterizes it to a PNG with `html-to-image` on
-// click. The logo is preloaded to a base64 data-URI so html-to-image never
-// network-fetches during rasterization (the v1 download bug).
+// click. The logo is an INLINE base64 data-URI constant
+// (`GOLDENCROW_LOGO_DATA_URI`, a 256px downscale) so html-to-image never
+// network-fetches during rasterization (the v1 download bug) — no runtime
+// fetch, no loading gate, always present and decodable.
 // `navigator.share(file)` on mobile, download fallback on desktop.
 //
 // PARITY GAP vs iOS (accepted, see SHARE-CARD-SPEC §7): no BPM pill (neither the
@@ -477,49 +480,20 @@ function ShareCardRenderer({
   const cardRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  // Logo preloaded to a base64 data-URI so html-to-image never network-fetches
-  // during rasterization (the v1 download throw). Share is disabled until ready.
-  const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   // One-time off-screen warm-up render improves font reliability on the first
   // real capture (fonts/glyphs get measured + cached before the user clicks).
   const warmedUp = useRef(false);
 
+  // One-time silent warm-up render once the node is mounted.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/goldencrow-logo.png");
-        if (!res.ok) throw new Error(`logo fetch ${res.status}`);
-        const blob = await res.blob();
-        const dataUri = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(blob);
-        });
-        if (!cancelled) setLogoDataUri(dataUri);
-      } catch {
-        // Logo failed to load — leave logoDataUri null; the card still renders
-        // (logo slot just stays empty) and the button stays disabled to avoid
-        // a broken-image capture. A retry happens on remount.
-        if (!cancelled) setLogoDataUri("");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // One-time silent warm-up render once the logo is ready + node mounted.
-  useEffect(() => {
-    if (!logoDataUri || warmedUp.current) return;
+    if (warmedUp.current) return;
     const node = cardRef.current;
     if (!node) return;
     warmedUp.current = true;
     (async () => {
       try {
         const { toPng } = await import("html-to-image");
-        // Ensure the ~600KB data-URI logo is fully decoded before capture —
+        // Ensure the inline data-URI logo is fully decoded before capture —
         // html-to-image otherwise snapshots a not-yet-decoded <img> (the v2.2
         // broken-logo regression; v1 awaited decode() before toPng).
         const logoImg = node.querySelector("img");
@@ -535,18 +509,16 @@ function ShareCardRenderer({
         // Warm-up is best-effort; ignore failures (the real click retries).
       }
     })();
-  }, [logoDataUri]);
-
-  const logoReady = logoDataUri !== null && logoDataUri !== "";
+  }, []);
 
   async function handleShare() {
     const node = cardRef.current;
-    if (!node || busy || !logoReady) return;
+    if (!node || busy) return;
     setBusy(true);
     setError(false);
     try {
       const { toPng } = await import("html-to-image");
-      // Ensure the ~600KB data-URI logo is fully decoded before capture —
+      // Ensure the inline data-URI logo is fully decoded before capture —
       // html-to-image otherwise snapshots a not-yet-decoded <img> (the v2.2
       // broken-logo regression; v1 awaited decode() before toPng).
       const logoImg = node.querySelector("img");
@@ -587,7 +559,7 @@ function ShareCardRenderer({
     <div className="flex flex-col items-end gap-1">
       <Button
         onClick={handleShare}
-        disabled={busy || !logoReady}
+        disabled={busy}
         variant="outline"
         size="sm"
         className="gap-1"
@@ -597,7 +569,7 @@ function ShareCardRenderer({
         ) : (
           <Download className="h-4 w-4" />
         )}
-        {!logoReady ? t("shareLoading") : t("shareDownloadButton")}
+        {busy ? t("shareLoading") : t("shareDownloadButton")}
       </Button>
       {error ? (
         <p className="flex items-center gap-1 text-xs text-destructive">
@@ -640,23 +612,19 @@ function ShareCardRenderer({
         >
           {/* Header band */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 28 }}>
-            {logoReady ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoDataUri as string}
-                alt=""
-                width={150}
-                height={150}
-                style={{
-                  width: 150,
-                  height: 150,
-                  objectFit: "contain",
-                  flexShrink: 0,
-                }}
-              />
-            ) : (
-              <div style={{ width: 150, height: 150, flexShrink: 0 }} />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={GOLDENCROW_LOGO_DATA_URI}
+              alt=""
+              width={150}
+              height={150}
+              style={{
+                width: 150,
+                height: 150,
+                objectFit: "contain",
+                flexShrink: 0,
+              }}
+            />
             <div
               style={{
                 display: "flex",
