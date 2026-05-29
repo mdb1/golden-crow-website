@@ -891,6 +891,80 @@ export async function getWorkoutLogDetail(
     throw new Error("Forbidden");
   }
 
+  return buildWorkoutLogDetail(db, trainer.uid, logSnap.id, data);
+}
+
+/**
+ * 260529-ltm — fetch the COMPLETED workout-log's detail BY assignmentId,
+ * powering the calendar share card's "completed → share actuals" branch.
+ *
+ * The calendar dialog only knows the assignmentId (not the logId), so we look
+ * up the log via the log's `assignmentId` FK — the SAME FK the month view keys
+ * its logStatusByAssignment map on. Returns the most-recently-started
+ * completed log when several exist; null when none.
+ *
+ * NO new composite index: we query the EXISTING single-field `assignmentId`
+ * equality index (Firestore auto-indexes every single field), then filter to
+ * `status === "completed"` and pick the newest by startedAt IN MEMORY. Adding
+ * `.where("status","==","completed").orderBy("startedAt","desc")` would have
+ * required a new (assignmentId, status, startedAt) composite — which we must
+ * NOT add (it lives in the gc-fitness repo's firestore.indexes.json, off-limits
+ * here). The per-assignment log count is tiny (1–2 docs), so the in-memory
+ * filter is free.
+ */
+export async function getWorkoutLogDetailByAssignment(
+  assignmentId: string,
+): Promise<WorkoutLogDetail | null> {
+  if (!assignmentId) return null;
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  const snap = await db
+    .collection(FirestoreCollections.workoutLogs)
+    .where("assignmentId", "==", assignmentId)
+    .get();
+  if (snap.empty) return null;
+
+  // Trainer-ownership + completed filter in memory (see index note above).
+  const completed = snap.docs.filter((d) => {
+    const data = d.data() as Record<string, unknown>;
+    if (data.trainerId !== trainer.uid) return false;
+    // A log is "completed" when it carries a completedAt (status mirrors it).
+    return data.status === "completed" || asIso(data.completedAt) !== null;
+  });
+  if (completed.length === 0) return null;
+
+  // Most recent by startedAt (fall back to completedAt), so re-logged
+  // assignments share the latest actuals.
+  completed.sort((a, b) => {
+    const aData = a.data() as Record<string, unknown>;
+    const bData = b.data() as Record<string, unknown>;
+    const aMs = isoOrEpoch(asIso(aData.startedAt) ?? asIso(aData.completedAt));
+    const bMs = isoOrEpoch(asIso(bData.startedAt) ?? asIso(bData.completedAt));
+    return bMs - aMs;
+  });
+
+  const chosen = completed[0];
+  return buildWorkoutLogDetail(
+    db,
+    trainer.uid,
+    chosen.id,
+    chosen.data() as Record<string, unknown>,
+  );
+}
+
+/**
+ * Single builder for `WorkoutLogDetail` — shared by `getWorkoutLogDetail` (by
+ * logId) and `getWorkoutLogDetailByAssignment` (by assignmentId FK). Callers
+ * are responsible for the existence + trainer-ownership checks BEFORE calling
+ * this (both paths verify `trainerId === trainerUid`).
+ */
+async function buildWorkoutLogDetail(
+  db: FirebaseFirestore.Firestore,
+  trainerUid: string,
+  logId: string,
+  data: Record<string, unknown>,
+): Promise<WorkoutLogDetail> {
   const clientId = typeof data.clientId === "string" ? data.clientId : "";
   if (!clientId) {
     throw new Error("Workout log missing client.");
@@ -913,7 +987,7 @@ export async function getWorkoutLogDetail(
   // UID) when the doc/field is missing — the card omits the coach segment.
   const trainerSnap = await db
     .collection(FirestoreCollections.users)
-    .doc(trainer.uid)
+    .doc(trainerUid)
     .get();
   const rawCoachName = trainerSnap.get("displayName");
   const coachName =
@@ -1011,7 +1085,7 @@ export async function getWorkoutLogDetail(
       : null;
 
   return {
-    id: logSnap.id,
+    id: logId,
     clientId,
     clientName,
     clientTimezone,

@@ -227,6 +227,11 @@ export interface AssignmentDetail {
   id: string;
   clientId: string;
   clientName: string;
+  /** Coach (logged-in trainer) display name for the share card sub-line.
+   *  Resolved from `/users/{trainerId}.displayName`. Null when unavailable
+   *  — never a raw UID (the share card omits the coach segment gracefully).
+   *  Mirrors `WorkoutLogDetail.coachName` (recent-logs-actions). */
+  coachName: string | null;
   scheduledFor: string;
   scheduledTime: string | null;
   status: "scheduled" | "started" | "completed" | "missed";
@@ -261,6 +266,20 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     clientName = userData?.displayName ?? userData?.email ?? clientId;
   }
 
+  // 260529-ltm — the logged-in trainer IS the coach. Resolve their
+  // displayName for the share card sub-line. Degrade to null (never a raw
+  // UID) when the doc/field is missing — the card omits the coach segment.
+  // Mirrors getWorkoutLogDetail's coachName resolution exactly.
+  const trainerSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(trainer.uid)
+    .get();
+  const rawCoachName = trainerSnap.get("displayName");
+  const coachName =
+    typeof rawCoachName === "string" && rawCoachName.trim().length > 0
+      ? rawCoachName.trim()
+      : null;
+
   const snapshot = (data.templateSnapshot ?? {}) as {
     name?: unknown;
     tag?: unknown;
@@ -281,6 +300,7 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     id: snap.id,
     clientId,
     clientName,
+    coachName,
     scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
     scheduledTime:
       typeof data.scheduledTime === "string" ? data.scheduledTime : null,
