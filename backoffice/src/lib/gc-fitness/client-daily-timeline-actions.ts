@@ -5,6 +5,7 @@ import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
+import { getTrainerTimezone } from "./trainer-timezone";
 import { buildClientDailyTimelineDates } from "./client-daily-timeline-utils";
 import type { ProgressPhotoRow } from "./progress-photo-actions";
 
@@ -206,7 +207,14 @@ function createEmptyDay(date: string): ClientDailyTimelineDay {
   };
 }
 
-async function assertOwnsClient(coachId: string, clientId: string): Promise<void> {
+/**
+ * Verifies the coach owns the client AND returns the client's IANA timezone
+ * for civil-day bucketing. Resolves to the client's stored
+ * `/users/{clientId}.timezone` when present, otherwise the trainer's own
+ * cookie tz (which itself falls back to "UTC"). Returning the tz here avoids
+ * a second /users read per request.
+ */
+async function assertOwnsClient(coachId: string, clientId: string): Promise<string> {
   const snap = await gcFitnessFirestore()
     .collection(FirestoreCollections.users)
     .doc(clientId)
@@ -214,16 +222,18 @@ async function assertOwnsClient(coachId: string, clientId: string): Promise<void
   if (!snap.exists || snap.get("coachId") !== coachId) {
     throw new Error("Forbidden");
   }
+  const storedTz = snap.get("timezone");
+  return (typeof storedTz === "string" && storedTz) || (await getTrainerTimezone());
 }
 
 export async function getClientDailyTimeline(
   clientId: string,
 ): Promise<ClientDailyTimeline> {
   const trainer = await getCurrentTrainer();
-  await assertOwnsClient(trainer.uid, clientId);
+  const clientTz = await assertOwnsClient(trainer.uid, clientId);
 
   const db = gcFitnessFirestore();
-  const dates = buildClientDailyTimelineDates();
+  const dates = buildClientDailyTimelineDates(clientTz);
   const start = dates[0];
   const end = dates[dates.length - 1];
   const days = new Map<string, ClientDailyTimelineDay>(
@@ -329,7 +339,7 @@ export async function getClientDailyTimeline(
     const data = doc.data();
     const startedAt = toDate(data.startedAt);
     if (!startedAt) return;
-    const day = civilDateFormat(startedAt, "UTC");
+    const day = civilDateFormat(startedAt, clientTz);
     const row = days.get(day);
     if (!row) return;
     row.workoutLogs.push({
@@ -344,7 +354,7 @@ export async function getClientDailyTimeline(
     const data = doc.data();
     const checkInDate = typeof data.checkInDate === "string" ? data.checkInDate : null;
     const createdAt = toDate(data.createdAt);
-    const day = checkInDate ?? (createdAt ? civilDateFormat(createdAt, "UTC") : "");
+    const day = checkInDate ?? (createdAt ? civilDateFormat(createdAt, clientTz) : "");
     const row = days.get(day);
     if (!row) return;
     row.photos.push({
@@ -366,7 +376,7 @@ export async function getClientDailyTimeline(
     const data = doc.data();
     const createdAt = toDate(data.createdAt);
     if (!createdAt) return;
-    const day = civilDateFormat(createdAt, "UTC");
+    const day = civilDateFormat(createdAt, clientTz);
     const row = days.get(day);
     if (!row) return;
     const kind = String(data.kind ?? "text");
@@ -409,7 +419,7 @@ export async function getClientDailyTimeline(
     });
   });
 
-  const todayCivil = civilDateFormat(new Date(), "UTC");
+  const todayCivil = civilDateFormat(new Date(), clientTz);
   for (const [day, row] of days.entries()) {
     for (const [habitId, habit] of habitsById.entries()) {
       // Mirror the iOS HabitSchedule.isActive filter so a monthly habit
@@ -469,13 +479,19 @@ export async function getClientDailyTimelineDay(
   civilDate: string,
 ): Promise<ClientDailyTimelineDay> {
   const trainer = await getCurrentTrainer();
-  await assertOwnsClient(trainer.uid, clientId);
+  const clientTz = await assertOwnsClient(trainer.uid, clientId);
 
   const db = gcFitnessFirestore();
   const day = createEmptyDay(civilDate);
-  const todayCivil = civilDateFormat(new Date(), "UTC");
-  const dayStart = new Date(`${civilDate}T00:00:00.000Z`);
-  const dayEnd = new Date(`${civilDate}T23:59:59.999Z`);
+  const todayCivil = civilDateFormat(new Date(), clientTz);
+  // The civilDate arg is a client-tz civil day, but the workoutLogs +
+  // messages queries below use UTC instant bounds. A client-tz day can map
+  // to a UTC instant window shifted by up to ±1 day, so we widen the query
+  // bounds ±24h to fetch all candidate events, then filter in memory below
+  // by the client-tz civil day. Without widening, boundary events near
+  // local midnight would be dropped.
+  const dayStart = new Date(Date.parse(`${civilDate}T00:00:00.000Z`) - 86400000);
+  const dayEnd = new Date(Date.parse(`${civilDate}T23:59:59.999Z`) + 86400000);
 
   const [
     assignmentsSnap,
@@ -566,6 +582,7 @@ export async function getClientDailyTimelineDay(
     const data = doc.data();
     const startedAt = toDate(data.startedAt);
     if (!startedAt) return;
+    if (civilDateFormat(startedAt, clientTz) !== civilDate) return;
     day.workoutLogs.push({
       id: doc.id,
       name: localizedText((data.templateSnapshot as { name?: unknown } | undefined)?.name, "Workout"),
@@ -580,7 +597,7 @@ export async function getClientDailyTimelineDay(
     const dayKey = typeof data.checkInDate === "string"
       ? data.checkInDate
       : createdAt
-        ? civilDateFormat(createdAt, "UTC")
+        ? civilDateFormat(createdAt, clientTz)
         : "";
     if (dayKey !== civilDate) return;
     day.photos.push({
@@ -602,6 +619,7 @@ export async function getClientDailyTimelineDay(
     const data = doc.data();
     const createdAt = toDate(data.createdAt);
     if (!createdAt) return;
+    if (civilDateFormat(createdAt, clientTz) !== civilDate) return;
     day.messages.push({
       id: doc.id,
       body:
