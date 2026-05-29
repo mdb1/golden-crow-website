@@ -33,7 +33,10 @@
 // the inbox sort order after a send.
 //
 // REFETCH CADENCE (V1 fallback for live updates):
-//   - Inbox: 30s background poll (from the ChatQueryProvider default).
+//   - Inbox: 120s background poll + refetch on window focus (0z9 / COST-RD1-B
+//     — slowed from 30s to cut inbox Server-Action read volume 4×; the
+//     window-focus refetch keeps the unread badge feeling instant whenever the
+//     trainer actually looks at the tab).
 //   - Active conversation: 10s background poll (override below) — keeps the
 //     trainer's right pane tight while they're actively typing.
 //
@@ -71,8 +74,14 @@ export function useTrainerChats(enabled: boolean = true) {
     // Pin the refetch cadence on the hook itself so the shell badge (BADGE-04)
     // stays fresh on every gc-fitness route, not just the ones whose
     // route-group QueryClient happens to set the same defaults.
+    //
+    // 0z9 / COST-RD1-B: 120s background poll (was 30s) to cut inbox read
+    // volume 4×, paired with refetchOnWindowFocus so the badge refreshes
+    // immediately whenever the trainer returns to the tab. staleTime kept at
+    // 10s so a focus refetch within the window is still deduped.
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
+    refetchOnWindowFocus: true,
   });
 }
 

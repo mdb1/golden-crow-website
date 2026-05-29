@@ -39,6 +39,9 @@
 
 "use server";
 
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
+
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
@@ -123,35 +126,28 @@ export interface ClientRosterRow {
 }
 
 /**
- * Lists every client whose `coachId` matches the calling trainer's UID.
+ * Internal Firestore-fanning body for `listClients()`. Takes the trainer uid
+ * as an EXPLICIT parameter — it must NOT call `getCurrentTrainer()` (which
+ * reads the session cookie) because this runs inside `unstable_cache`, where
+ * request cookies are unavailable.
  *
- * Returns a stable, sorted-by-displayName list — the UI can render it
- * directly into a Select or TanStack-Table without re-sorting.
- *
- * Errors:
- *   - Forbidden → no session / wrong role / not in allowlist
- *
- * v1 caveats:
- *   - No pagination. Cordero's roster is ~5k; a single query returns all
- *     docs, which is fine for trainer-side admin views. v2 may add cursor
- *     pagination if a single trainer's roster exceeds 1k.
- *   - No soft-delete filter at the query layer — clients deleted via the
- *     P02 onUserDeleted flow have their /users doc hard-removed, so there
- *     is no `deleted: true` filter to apply here.
+ * The trainer uid is passed as the function ARGUMENT so `unstable_cache` keys
+ * each trainer's roster to a distinct cache entry (T-0z9-01 mitigation — no
+ * cross-trainer roster leak).
  */
-export async function listClients(): Promise<ClientRosterEntry[]> {
-  const trainer = await getCurrentTrainer();
-
+async function _fetchClientsForTrainer(
+  trainerUid: string,
+): Promise<ClientRosterEntry[]> {
   const db = gcFitnessFirestore();
   const [activeSnap, mirrorSnap] = await Promise.all([
     db
       .collection("users")
-      .where("coachId", "==", trainer.uid)
+      .where("coachId", "==", trainerUid)
       .where("role", "==", "client")
       .get(),
     db
       .collection(FirestoreCollections.userMirror)
-      .where("coachId", "==", trainer.uid)
+      .where("coachId", "==", trainerUid)
       .get(),
   ]);
 
@@ -209,6 +205,65 @@ export async function listClients(): Promise<ClientRosterEntry[]> {
 
   return rows;
 }
+
+/**
+ * Cross-navigation TTL cache for the roster fan-out (FIX A, 0z9 / COST-RD1-A).
+ *
+ * `unstable_cache` is a DATA cache (not the full-route cache), so it survives
+ * across the 6 force-dynamic gc-fitness pages and across separate requests
+ * within the `revalidate` window — this is what actually collapses the
+ * per-page `listClients()` reads. React `cache()` alone would only dedupe
+ * within a single render pass.
+ *
+ * Cache key: `unstable_cache` keys on the static `keyParts` array PLUS the
+ * serialized function arguments. We pass `trainerUid` as the argument so each
+ * trainer gets a DISTINCT cache entry — per-trainer isolation, no cross-trainer
+ * roster leak (T-0z9-01). The uid is resolved from the session cookie OUTSIDE
+ * this cached fn (see `listClients` below).
+ *
+ * revalidate: 60 → a newly-added client appears within ≤60s while navigations
+ * within the window reuse one fetch (2 Firestore reads) per trainer.
+ */
+const cachedFetchClients = unstable_cache(
+  _fetchClientsForTrainer,
+  ["gc-fitness-roster"],
+  { revalidate: 60 },
+);
+
+/**
+ * Lists every client whose `coachId` matches the calling trainer's UID.
+ *
+ * Returns a stable, sorted-by-displayName list — the UI can render it
+ * directly into a Select or TanStack-Table without re-sorting.
+ *
+ * Caching (FIX A, 0z9):
+ *   - The trainer uid is resolved here (cookie read via getCurrentTrainer())
+ *     OUTSIDE the data cache, then passed to `cachedFetchClients(uid)` whose
+ *     `unstable_cache` gives a 60s cross-navigation TTL keyed per trainer.
+ *   - This public entry is wrapped in React `cache()` for free per-request
+ *     dedupe (e.g. when both listClientsForRoster → listClients and a
+ *     layout/page call it within ONE request).
+ *
+ * Exported signature is unchanged — all call sites compile + behave
+ * identically except for the dedup/TTL.
+ *
+ * Errors:
+ *   - Forbidden → no session / wrong role / not in allowlist
+ *
+ * v1 caveats:
+ *   - No pagination. Cordero's roster is ~5k; a single query returns all
+ *     docs, which is fine for trainer-side admin views. v2 may add cursor
+ *     pagination if a single trainer's roster exceeds 1k.
+ *   - No soft-delete filter at the query layer — clients deleted via the
+ *     P02 onUserDeleted flow have their /users doc hard-removed, so there
+ *     is no `deleted: true` filter to apply here.
+ */
+export const listClients = cache(
+  async (): Promise<ClientRosterEntry[]> => {
+    const trainer = await getCurrentTrainer();
+    return cachedFetchClients(trainer.uid);
+  },
+);
 
 /**
  * Trainer roster aggregator for `/gc-fitness/clients` (P11-05). Closes BO-07.
