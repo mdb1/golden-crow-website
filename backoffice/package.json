@@ -26,6 +26,7 @@
     "date-fns": "^4.3.0",
     "firebase": "^12.14.0",
     "firebase-admin": "^13.10.0",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.17.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",

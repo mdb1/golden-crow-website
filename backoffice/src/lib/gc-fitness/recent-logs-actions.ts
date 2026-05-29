@@ -47,6 +47,10 @@ export interface WorkoutLogDetail {
    *  this zone — the page is a server component, so a missing timeZone renders
    *  in the Vercel host tz (UTC). */
   clientTimezone: string;
+  /** Coach (logged-in trainer) display name for the share card sub-line.
+   *  Resolved from `/users/{trainerId}.displayName`. Null when unavailable
+   *  — never a raw UID (the share card omits the coach segment gracefully). */
+  coachName: string | null;
   workoutName: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -895,6 +899,19 @@ export async function getWorkoutLogDetail(
     (typeof storedClientTz === "string" && storedClientTz) ||
     (await getTrainerTimezone());
 
+  // 260529-ltm — the logged-in trainer IS the coach. Resolve their
+  // displayName for the share card sub-line. Degrade to null (never a raw
+  // UID) when the doc/field is missing — the card omits the coach segment.
+  const trainerSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(trainer.uid)
+    .get();
+  const rawCoachName = trainerSnap.get("displayName");
+  const coachName =
+    typeof rawCoachName === "string" && rawCoachName.trim().length > 0
+      ? rawCoachName.trim()
+      : null;
+
   const workoutName = localizedText(
     (data.templateSnapshot as { name?: unknown } | undefined)?.name,
     "Workout",
@@ -984,6 +1001,7 @@ export async function getWorkoutLogDetail(
     clientId,
     clientName,
     clientTimezone,
+    coachName,
     workoutName,
     startedAt,
     completedAt,
