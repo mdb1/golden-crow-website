@@ -30,11 +30,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Command,
   CommandEmpty,
   CommandInput,
@@ -498,59 +493,50 @@ export function AssignTemplateModal({
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{t("templateLabel")}</label>
-            <Popover
-              open={templatePickerOpen}
-              onOpenChange={(o) => {
-                setTemplatePickerOpen(o);
-                if (!o) setTemplateSearch("");
-              }}
+            {/* 260529 scroll fix — the template/routine picker now renders
+                INLINE in the dialog body instead of a portaled Popover.
+                Radix Popover portals its content to document.body, which
+                sits OUTSIDE the Dialog's react-remove-scroll shard, so the
+                wheel/touch scroll on the cmdk list was swallowed and long
+                routine lists couldn't be scrolled. An in-flow disclosure
+                panel lives inside DialogContent's allowed scroll region, so
+                CommandList's own overflow scrolls normally. The routines
+                already load — this was purely the scroll lock. */}
+            <button
+              type="button"
+              role="combobox"
+              aria-expanded={templatePickerOpen}
+              onClick={() => setTemplatePickerOpen((prev) => !prev)}
+              className="flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm"
             >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  role="combobox"
-                  aria-expanded={templatePickerOpen}
-                  className="flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm"
-                >
-                  <span
-                    className={cn(
-                      "truncate",
-                      !templateId && "text-muted-foreground",
-                    )}
-                  >
-                    {(() => {
-                      const sel = (templates ?? []).find(
-                        (x) => x.id === templateId,
-                      );
-                      if (sel)
-                        return `${sel.name.en}${sel.tag ? ` · ${sel.tag}` : ""}`;
-                      return templatesLoading
-                        ? t("templateLoading")
-                        : t("templatePlaceholder");
-                    })()}
-                  </span>
-                  <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="flex max-h-[min(80vh,480px)] w-[var(--radix-popover-trigger-width)] flex-col p-0"
+              <span
+                className={cn(
+                  "truncate",
+                  !templateId && "text-muted-foreground",
+                )}
               >
-                {/* cmdk Command/CommandList — mirrors exercise-picker-popover.tsx
-                    so the list scrolls INSIDE the parent Dialog. The Dialog's
-                    react-remove-scroll lock eats wheel/touch on a portaled raw
-                    <ul>; cmdk's CommandList is the dialog-scroll-safe scroll
-                    container (it owns overflow-y-auto + max-height). `shouldFilter`
-                    is false because we keep the existing manual EN+ES+tags
-                    substring filter below — cmdk's built-in fuzzy matcher is NOT
-                    used here. */}
+                {(() => {
+                  const sel = (templates ?? []).find(
+                    (x) => x.id === templateId,
+                  );
+                  if (sel)
+                    return `${sel.name.en}${sel.tag ? ` · ${sel.tag}` : ""}`;
+                  return templatesLoading
+                    ? t("templateLoading")
+                    : t("templatePlaceholder");
+                })()}
+              </span>
+              <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+            </button>
+            {templatePickerOpen ? (
+              <div className="rounded-md border bg-popover text-popover-foreground shadow-sm">
                 <Command shouldFilter={false}>
                   <CommandInput
                     value={templateSearch}
                     onValueChange={setTemplateSearch}
                     placeholder="Buscar por nombre o tag…"
                   />
-                  <CommandList>
+                  <CommandList className="max-h-[min(45vh,320px)]">
                     {(() => {
                       const list = templates ?? [];
                       const needle = templateSearch.trim().toLowerCase();
@@ -612,8 +598,8 @@ export function AssignTemplateModal({
                     })()}
                   </CommandList>
                 </Command>
-              </PopoverContent>
-            </Popover>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
