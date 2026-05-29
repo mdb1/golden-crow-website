@@ -6,6 +6,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients, type ClientRosterEntry } from "./client-roster";
+import { getTrainerTimezone } from "./trainer-timezone";
 
 export interface DailyMetric {
   civilDate: string;
@@ -166,8 +167,7 @@ export async function getCoachPulse(): Promise<CoachPulse> {
   const activeClients = clients
     .filter((c) => !c.pendingProvisioning)
     .slice(0, 50);
-  const trainerTz =
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const trainerTz = await getTrainerTimezone();
   const windowDays = buildWindowDays(trainerTz);
   const windowStart = windowDays[0]!;
   const windowEnd = windowDays[windowDays.length - 1]!;

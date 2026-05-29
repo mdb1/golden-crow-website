@@ -6,6 +6,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients } from "./client-roster";
+import { getTrainerTimezone } from "./trainer-timezone";
 
 export type RecentLogCategory =
   | "habit"
@@ -426,9 +427,7 @@ export async function listRecentLogsForTrainer(): Promise<{
   // un-mark — because the un-mark only flipped one of the docs. Picking
   // the latest write (`updatedAt` if present, else `createdAt`) is the
   // canonical "what the user last said about this habit on this day".
-  const todayCivil = civilDateToday(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-  );
+  const todayCivil = civilDateToday(await getTrainerTimezone());
 
   function logTimestampMs(doc: FirebaseFirestore.QueryDocumentSnapshot): number {
     const iso =
@@ -728,6 +727,9 @@ export async function listRecentLogsForTrainer(): Promise<{
     docIds: string[];
   };
   const photoBuckets = new Map<string, PhotoBucket>();
+  // Resolved once before the (sync) forEach — getTrainerTimezone() is async
+  // and cannot be awaited inside the callback.
+  const photoTrainerTz = await getTrainerTimezone();
   photoSnaps.forEach((snap, idx) => {
     if (!snap) return;
     const client = clients[idx];
@@ -739,10 +741,7 @@ export async function listRecentLogsForTrainer(): Promise<{
       const checkInCivil =
         typeof data.checkInDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(data.checkInDate)
           ? data.checkInDate.slice(0, 10)
-          : civilDateFormat(
-              new Date(createdIso),
-              Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-            );
+          : civilDateFormat(new Date(createdIso), photoTrainerTz);
       const key = `${client.uid}:${checkInCivil}`;
       let bucket = photoBuckets.get(key);
       if (!bucket) {
