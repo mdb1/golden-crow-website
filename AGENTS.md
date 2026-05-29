@@ -46,3 +46,19 @@
 - After deployment of an auth fix, verify production behavior with:
   - `curl -i https://golden-crow-sdk.vercel.app/health` should return JSON, normally `200 {"status":"ok","firebase":"connected"}` in production.
   - `curl -i -X POST https://golden-crow-backoffice.vercel.app/api/sdk/auth/login -H 'content-type: application/json' --data '{"idToken":"fake"}'` should return JSON `401 {"error":"Invalid ID token"}`, not Vercel `FUNCTION_INVOCATION_FAILED`.
+
+## Test gate before push — ALL suites green (MANDATORY)
+
+- You MAY commit work-in-progress without running tests between commits, but
+  **before `git push` and before treating a task/PR as done, the full test
+  suite must be GREEN.** `main` auto-deploys on push, so a red push ships
+  broken code to production.
+- Backoffice: run `npx jest` (cwd `backoffice/`) — must be fully green.
+- GC Fitness changes are cross-repo: `firestore.rules` and the `civil-date` /
+  habit-compliance algorithm twins are shared with the iOS app
+  (`../gc-fitness`). When a change could affect those, also run the iOS gates
+  in `../gc-fitness` per its `CLAUDE.md` "Test gate before push" section
+  (`swift test` in `Packages/GCFitnessCore`, the GCFitness simulator build, and
+  the Firestore-rules emulator suite). If in doubt, run all four suites.
+- A pre-existing red suite must be called out explicitly and must not mask a
+  regression your change introduced.
