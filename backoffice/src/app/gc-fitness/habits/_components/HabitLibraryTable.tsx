@@ -22,7 +22,6 @@ import {
   GoalPill,
   HabitTypePill,
   PILL_BASE,
-  RecurrencePill,
   ReminderCell,
   TONE,
 } from "./habit-pills";
@@ -35,12 +34,14 @@ export function HabitLibraryTable({
   t,
   emptyText,
   loadingText,
+  onRowClick,
 }: {
   templates: HabitTemplateRow[];
   isLoading: boolean;
   t: TFn;
   emptyText: string;
   loadingText: string;
+  onRowClick: (template: HabitTemplateRow) => void;
 }) {
   return (
     <div className="rounded-md border bg-card">
@@ -79,21 +80,25 @@ export function HabitLibraryTable({
                 tpl.name.es && tpl.name.es !== tpl.name.en ? tpl.name.es : null;
               const isGlobal = tpl.scope === "global";
               return (
-                <TableRow key={tpl.id}>
+                <TableRow
+                  key={tpl.id}
+                  onClick={() => onRowClick(tpl)}
+                  className="cursor-pointer"
+                >
                   <TableCell>
                     <div className="flex flex-col gap-1.5">
                       <span className="font-medium">
                         {tpl.name.en || tpl.name.es || t("untitled")}
                       </span>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <RecurrencePill rec={tpl} t={t} />
-                        <GoalPill
-                          type={tpl.type}
-                          targetValue={tpl.targetValue}
-                          unit={tpl.unit}
-                          t={t}
-                        />
-                      </div>
+                      {/* Recurrence is intentionally NOT shown here: it's a
+                          per-assignment property, not a library/template one.
+                          Only the goal (numeric) is intrinsic to the template. */}
+                      <GoalPill
+                        type={tpl.type}
+                        targetValue={tpl.targetValue}
+                        unit={tpl.unit}
+                        t={t}
+                      />
                       {showEs ? (
                         <span className="text-xs text-muted-foreground">
                           {showEs}

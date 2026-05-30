@@ -904,6 +904,40 @@ export async function createHabitTemplate(
   return { id: docId };
 }
 
+/**
+ * Soft-deletes a trainer-owned (scope === "trainer") habit template. GLOBAL
+ * templates are NOT deletable. Mirrors `softDeleteHabit`: the Firestore rules
+ * forbid hard delete (`allow delete: if false`) but permit flipping `deleted`
+ * via update for own trainer-scoped templates, so we set `deleted: true`.
+ * `listHabitTemplates` filters `!deleted`, so the row disappears.
+ */
+export async function softDeleteHabitTemplate(
+  id: string,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+
+  const db = gcFitnessFirestore();
+  const docRef = db.collection(TEMPLATE_COLLECTION).doc(id);
+  const snap = await docRef.get();
+  if (!snap.exists) {
+    throw new Error("Not found");
+  }
+  const existing = snap.data() as { scope?: string; trainerId?: string };
+  if (existing.scope === "global") {
+    throw new Error("Global templates can't be deleted.");
+  }
+  if (existing.trainerId !== trainer.uid) {
+    throw new Error("Not your template.");
+  }
+
+  await docRef.update({
+    deleted: true,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { ok: true };
+}
+
 export async function assignHabitTemplate(input: unknown): Promise<{
   created: number;
 }> {

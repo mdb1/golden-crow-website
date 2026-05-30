@@ -69,6 +69,7 @@ import {
 import { HABIT_TYPES, type HabitType } from "@/lib/gc-fitness/habit-schema";
 import { makeHabitColumns } from "./columns";
 import { HabitLibraryTable } from "./_components/HabitLibraryTable";
+import { HabitTemplateDetailDialog } from "./_components/HabitTemplateDetailDialog";
 
 export const HABITS_BASE_KEY = ["gc-fitness", "habits"] as const;
 
@@ -115,6 +116,8 @@ export function HabitsLibraryClient({
   ]);
   const [confirmDelete, setConfirmDelete] = useState<HabitRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<HabitTemplateRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: HABITS_BASE_KEY,
@@ -322,6 +325,7 @@ export function HabitsLibraryClient({
           t={columnsT}
           emptyText={t("libraryEmpty")}
           loadingText={t("loading")}
+          onRowClick={setSelectedTemplate}
         />
       ) : (
         <>
@@ -447,6 +451,17 @@ export function HabitsLibraryClient({
           displayName: c.displayName,
         }))}
         onCreated={handleHabitCreated}
+      />
+
+      <HabitTemplateDetailDialog
+        open={selectedTemplate !== null}
+        onOpenChange={(o) => {
+          if (!o) setSelectedTemplate(null);
+        }}
+        template={selectedTemplate}
+        onDeleted={() =>
+          queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY })
+        }
       />
 
       <AlertDialog
