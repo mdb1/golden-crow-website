@@ -41,6 +41,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import {
   habitCreateSchema,
   habitTemplateCreateSchema,
+  habitTemplateUpdateSchema,
   habitUpdateSchemaForType,
   type HabitType,
   type HabitScheduleType,
@@ -934,6 +935,50 @@ export async function softDeleteHabitTemplate(
     deleted: true,
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  return { ok: true };
+}
+
+/**
+ * Updates the trainer-editable fields of an own (scope === "trainer") habit
+ * template. GLOBAL templates are read-only. Only the intrinsic fields shown in
+ * the library detail are editable (name, description, numeric goal, reminder);
+ * `type` / `scope` / `trainerId` / recurrence are left untouched. The affected
+ * keys stay within the Firestore-rules update whitelist.
+ */
+export async function updateHabitTemplate(
+  id: string,
+  input: unknown,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+  const parsed = habitTemplateUpdateSchema.parse(input);
+
+  const db = gcFitnessFirestore();
+  const docRef = db.collection(TEMPLATE_COLLECTION).doc(id);
+  const snap = await docRef.get();
+  if (!snap.exists) {
+    throw new Error("Not found");
+  }
+  const existing = snap.data() as { scope?: string; trainerId?: string };
+  if (existing.scope === "global") {
+    throw new Error("Global templates can't be edited.");
+  }
+  if (existing.trainerId !== trainer.uid) {
+    throw new Error("Not your template.");
+  }
+
+  await docRef.update(
+    withoutUndefined({
+      name: parsed.name,
+      description: parsed.description,
+      targetValue: parsed.targetValue,
+      unit: parsed.unit,
+      reminderEnabled: parsed.reminderEnabled,
+      // Only persist a time when the reminder is on.
+      reminderTime: parsed.reminderEnabled ? parsed.reminderTime : undefined,
+      updatedAt: FieldValue.serverTimestamp(),
+    }),
+  );
 
   return { ok: true };
 }

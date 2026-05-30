@@ -459,7 +459,7 @@ export function HabitsLibraryClient({
           if (!o) setSelectedTemplate(null);
         }}
         template={selectedTemplate}
-        onDeleted={() =>
+        onChanged={() =>
           queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY })
         }
       />

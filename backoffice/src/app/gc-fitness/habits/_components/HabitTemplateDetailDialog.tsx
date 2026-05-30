@@ -2,14 +2,14 @@
 
 // HabitTemplateDetailDialog.tsx
 //
-// Read-only detail view for a single habit LIBRARY template, opened by tapping
-// a row in the Biblioteca view. Shows the template's intrinsic fields (type,
-// goal, reminder, scope, bilingual name + description) — NOT recurrence, which
-// is a per-assignment property. Trainer-owned (scope === "trainer") templates
-// can be soft-deleted from here; global templates cannot.
+// Detail view for a single habit LIBRARY template, opened by tapping a row in
+// the Biblioteca view. Read-only by default; trainer-owned (scope === "trainer")
+// templates can be EDITED inline (name / description / numeric goal / reminder)
+// or soft-deleted. Global templates are read-only. Recurrence is intentionally
+// absent — it's a per-assignment concern, not a template one.
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -23,6 +23,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   softDeleteHabitTemplate,
+  updateHabitTemplate,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
 import {
@@ -49,28 +54,92 @@ export function HabitTemplateDetailDialog({
   open,
   onOpenChange,
   template,
-  onDeleted,
+  onChanged,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template: HabitTemplateRow | null;
-  /** Fires after a successful soft-delete so the parent can invalidate caches. */
-  onDeleted: () => void;
+  /** Fires after a successful edit or delete so the parent can invalidate caches. */
+  onChanged: () => void;
 }) {
   const t = useTranslations("habits.list");
   const tc = useTranslations("habits.columns");
+  const tf = useTranslations("habits.form");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  // Edit-form drafts (seeded from the template when entering edit mode).
+  const [nameEn, setNameEn] = useState("");
+  const [nameEs, setNameEs] = useState("");
+  const [descEn, setDescEn] = useState("");
+  const [descEs, setDescEs] = useState("");
+  const [targetValue, setTargetValue] = useState("");
+  const [unit, setUnit] = useState("");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState("");
 
   if (!template) return null;
 
   const isCustom = template.scope === "trainer";
+  const isNumeric = template.type === "numeric";
   const esName =
     template.name.es && template.name.es !== template.name.en
       ? template.name.es
       : null;
-  const descEn = template.description?.en?.trim();
-  const descEs = template.description?.es?.trim();
+  const descEnText = template.description?.en?.trim();
+  const descEsText = template.description?.es?.trim();
+
+  function startEdit() {
+    if (!template) return;
+    setNameEn(template.name.en ?? "");
+    setNameEs(template.name.es ?? "");
+    setDescEn(template.description?.en ?? "");
+    setDescEs(template.description?.es ?? "");
+    setTargetValue(
+      typeof template.targetValue === "number"
+        ? String(template.targetValue)
+        : "",
+    );
+    setUnit(template.unit ?? "");
+    setReminderEnabled(template.reminderEnabled);
+    setReminderTime(template.reminderTime ?? "");
+    setEditing(true);
+  }
+
+  function closeDialog() {
+    setEditing(false);
+    onOpenChange(false);
+  }
+
+  async function handleSave() {
+    if (!template) return;
+    setPending(true);
+    try {
+      const hasDesc = descEn.trim().length > 0 || descEs.trim().length > 0;
+      await updateHabitTemplate(template.id, {
+        name: { en: nameEn.trim(), es: nameEs.trim() },
+        description: hasDesc
+          ? { en: descEn.trim(), es: descEs.trim() }
+          : undefined,
+        targetValue:
+          isNumeric && targetValue.trim().length > 0
+            ? Number(targetValue)
+            : undefined,
+        unit: isNumeric && unit.trim().length > 0 ? unit.trim() : undefined,
+        reminderEnabled,
+        reminderTime: reminderEnabled ? reminderTime || undefined : undefined,
+      });
+      toast.success(tf("savedToast"));
+      onChanged();
+      closeDialog();
+    } catch (err) {
+      console.error("[habits] update template failed", err);
+      toast.error(err instanceof Error ? err.message : tf("saveFailed"));
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function handleDelete() {
     if (!template) return;
@@ -79,8 +148,8 @@ export function HabitTemplateDetailDialog({
       await softDeleteHabitTemplate(template.id);
       toast.success(t("deletedToast"));
       setConfirmOpen(false);
-      onDeleted();
-      onOpenChange(false);
+      onChanged();
+      closeDialog();
     } catch (err) {
       console.error("[habits] delete template failed", err);
       toast.error(err instanceof Error ? err.message : t("deleteFailedToast"));
@@ -89,82 +158,204 @@ export function HabitTemplateDetailDialog({
     }
   }
 
+  const canSave = nameEn.trim().length > 0 && nameEs.trim().length > 0;
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          if (!o) setEditing(false);
+          onOpenChange(o);
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{template.name.en || template.name.es}</DialogTitle>
             <DialogDescription>
-              {esName ?? t("detailTitle")}
+              {editing ? t("editTitle") : esName ?? t("detailTitle")}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <HabitTypePill type={template.type} t={tc} />
-              <GoalPill
-                type={template.type}
-                targetValue={template.targetValue}
-                unit={template.unit}
-                t={tc}
-              />
-              <span
-                className={cn(
-                  PILL_BASE,
-                  isCustom ? TONE.violet : TONE.sky,
-                )}
-              >
-                {isCustom ? tc("scopeMine") : tc("scopeGlobal")}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                {tc("reminder")}
-              </span>
-              <ReminderCell
-                reminderEnabled={template.reminderEnabled}
-                reminderTime={template.reminderTime}
-              />
-            </div>
-
-            {descEn || descEs ? (
-              <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-3 text-sm">
-                {descEn ? (
-                  <p className="whitespace-pre-wrap">{descEn}</p>
-                ) : null}
-                {descEs && descEs !== descEn ? (
-                  <p className="whitespace-pre-wrap italic text-muted-foreground">
-                    {descEs}
-                  </p>
+          {editing ? (
+            <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto px-1">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tpl-name-en">{tf("nameEn")}</Label>
+                <Input
+                  id="tpl-name-en"
+                  value={nameEn}
+                  onChange={(e) => setNameEn(e.target.value)}
+                  placeholder={tf("namePlaceholderEn")}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tpl-name-es">{tf("nameEs")}</Label>
+                <Input
+                  id="tpl-name-es"
+                  value={nameEs}
+                  onChange={(e) => setNameEs(e.target.value)}
+                  placeholder={tf("namePlaceholderEs")}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tpl-desc-en">{tf("descriptionEn")}</Label>
+                <Textarea
+                  id="tpl-desc-en"
+                  value={descEn}
+                  onChange={(e) => setDescEn(e.target.value)}
+                  placeholder={tf("descriptionPlaceholderEn")}
+                  rows={2}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tpl-desc-es">{tf("descriptionEs")}</Label>
+                <Textarea
+                  id="tpl-desc-es"
+                  value={descEs}
+                  onChange={(e) => setDescEs(e.target.value)}
+                  placeholder={tf("descriptionPlaceholderEs")}
+                  rows={2}
+                />
+              </div>
+              {isNumeric ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="tpl-target">{tf("dailyTargetLabel")}</Label>
+                    <Input
+                      id="tpl-target"
+                      value={targetValue}
+                      onChange={(e) => setTargetValue(e.target.value)}
+                      inputMode="decimal"
+                      placeholder={tf("dailyTargetPlaceholder")}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="tpl-unit">{tf("unitLabel")}</Label>
+                    <Input
+                      id="tpl-unit"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      placeholder={tf("unitPlaceholderGlasses")}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-2 rounded-md border p-3">
+                <Label className="flex items-center gap-2 font-normal">
+                  <Checkbox
+                    checked={reminderEnabled}
+                    onCheckedChange={(c) => setReminderEnabled(c === true)}
+                  />
+                  {tf("reminderToggleLabel")}
+                </Label>
+                {reminderEnabled ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="tpl-reminder">
+                      {tf("reminderTimeLabel")}
+                    </Label>
+                    <Input
+                      id="tpl-reminder"
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      className="w-40"
+                    />
+                  </div>
                 ) : null}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t("noDescription")}
-              </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <HabitTypePill type={template.type} t={tc} />
+                <GoalPill
+                  type={template.type}
+                  targetValue={template.targetValue}
+                  unit={template.unit}
+                  t={tc}
+                />
+                <span
+                  className={cn(PILL_BASE, isCustom ? TONE.violet : TONE.sky)}
+                >
+                  {isCustom ? tc("scopeMine") : tc("scopeGlobal")}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {tc("reminder")}
+                </span>
+                <ReminderCell
+                  reminderEnabled={template.reminderEnabled}
+                  reminderTime={template.reminderTime}
+                />
+              </div>
+
+              {descEnText || descEsText ? (
+                <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-3 text-sm">
+                  {descEnText ? (
+                    <p className="whitespace-pre-wrap">{descEnText}</p>
+                  ) : null}
+                  {descEsText && descEsText !== descEnText ? (
+                    <p className="whitespace-pre-wrap italic text-muted-foreground">
+                      {descEsText}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t("noDescription")}
+                </p>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              className="sm:mr-auto"
-            >
-              {t("closeCta")}
-            </Button>
-            {isCustom ? (
-              <Button
-                variant="destructive"
-                onClick={() => setConfirmOpen(true)}
-                className="gap-1"
-              >
-                <Trash2 className="size-4" />
-                {tc("delete")}
-              </Button>
-            ) : null}
+            {editing ? (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => setEditing(false)}
+                  disabled={pending}
+                  className="sm:mr-auto"
+                >
+                  {tf("cancel")}
+                </Button>
+                <Button onClick={() => void handleSave()} disabled={pending || !canSave}>
+                  {pending ? tf("saving") : tf("saveCta")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                  className="sm:mr-auto"
+                >
+                  {t("closeCta")}
+                </Button>
+                {isCustom ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={startEdit}
+                      className="gap-1"
+                    >
+                      <Pencil className="size-4" />
+                      {tc("edit")}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setConfirmOpen(true)}
+                      className="gap-1"
+                    >
+                      <Trash2 className="size-4" />
+                      {tc("delete")}
+                    </Button>
+                  </>
+                ) : null}
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

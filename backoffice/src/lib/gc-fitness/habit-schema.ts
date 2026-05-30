@@ -386,3 +386,20 @@ export function habitUpdateSchemaForType(existingType: HabitType) {
 export type HabitUpdateInput = z.input<
   ReturnType<typeof habitUpdateSchemaForType>
 >;
+
+// Template update — the trainer-editable subset of a reusable habit template
+// (library). `type` and `scope`/`trainerId` are immutable; recurrence is a
+// per-assignment concern (not shown in the library), so it's excluded too.
+// Only the intrinsic fields surfaced in the library detail are editable.
+export const habitTemplateUpdateSchema = habitBaseShape.pick({
+  name: true,
+  description: true,
+  targetValue: true,
+  unit: true,
+  reminderEnabled: true,
+  reminderTime: true,
+});
+
+export type HabitTemplateUpdateInput = z.input<
+  typeof habitTemplateUpdateSchema
+>;

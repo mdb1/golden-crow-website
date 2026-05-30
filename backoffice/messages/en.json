@@ -471,6 +471,7 @@
       "libraryEmpty": "No habits in your library yet.",
       "habitCreatedToast": "Habit created.",
       "detailTitle": "Habit details",
+      "editTitle": "Edit habit",
       "noDescription": "No description.",
       "closeCta": "Close",
       "librarySectionTitle": "Reusable habit library",
