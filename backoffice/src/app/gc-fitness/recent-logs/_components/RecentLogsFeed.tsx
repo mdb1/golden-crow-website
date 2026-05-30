@@ -64,6 +64,24 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   signup: "badgeSignup",
 };
 
+// Subtle per-category tint for the type pill — colorful enough to scan at a
+// glance, restrained enough to fit the backoffice. Only the type pill is
+// colored; everything else stays neutral.
+const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
+  workout:
+    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
+  habit:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
+  reschedule:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+  photo:
+    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
+  weight:
+    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
+  signup:
+    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+};
+
 export function RecentLogsFeed({ logs, clients }: Props) {
   const t = useTranslations("recentLogs.feed");
   const router = useRouter();
@@ -164,8 +182,8 @@ export function RecentLogsFeed({ logs, clients }: Props) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
-                    variant="secondary"
-                    className="gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 [&>svg]:opacity-70"
+                    variant="outline"
+                    className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
                   >
                     {CatIcon ? <CatIcon /> : null}
                     {t(CATEGORY_LABEL_KEY[row.category])}
@@ -217,16 +235,15 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 {row.workoutLogId ? (
                   <Button
                     asChild
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground"
-                    title={t("viewWorkout")}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 px-2.5"
                   >
                     <Link
                       href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}
                     >
                       <Eye className="h-4 w-4" />
-                      <span className="sr-only">{t("viewWorkout")}</span>
+                      {t("viewWorkout")}
                     </Link>
                   </Button>
                 ) : null}
