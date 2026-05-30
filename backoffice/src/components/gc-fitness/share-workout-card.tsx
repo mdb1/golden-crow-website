@@ -69,11 +69,18 @@ interface ExerciseRow {
   chips: Chip[];
   /** Pre-formatted best estimated 1RM ("1RM 92 kg"); null = no weighted sets. */
   oneRMLabel: string | null;
+  /** Normalized superset label (e.g. "A") when this exercise belongs to a
+   *  superset, else null. Consecutive rows sharing a label render inside one
+   *  accent-bordered "card-of-cards" container. */
+  supersetGroup: string | null;
 }
 
 interface ShareStat {
   value: string;
   label: string;
+  /** When true, the value must stay on ONE line — the font shrinks to fit so
+   *  the stat tile keeps the same size as the others (used for "5810 kg"). */
+  fit?: boolean;
 }
 
 /**
@@ -148,6 +155,212 @@ function bestEstimatedOneRM(
 /** Compact integer-kg volume number, e.g. "5240 kg". */
 function volumeLabel(kg: number): string {
   return `${Math.round(kg)} kg`;
+}
+
+/**
+ * Font size for a "fit" stat value (e.g. Volumen "5810 kg") so it stays on a
+ * single line inside the ~153px-wide stat tile while keeping the tile the same
+ * size as its neighbors. Steps down by rendered length; 40px is the baseline
+ * used by every non-fit stat.
+ */
+function fitStatFontSize(value: string): number {
+  const len = value.length;
+  if (len <= 5) return 40;
+  if (len <= 7) return 34;
+  if (len <= 9) return 28;
+  return 24;
+}
+
+interface ShareRenderBlock {
+  /** Non-null only for real (2+-member) supersets. */
+  groupLabel: string | null;
+  rows: Array<{ index: number; row: ExerciseRow }>;
+}
+
+/**
+ * Group CONSECUTIVE exercises sharing the same superset label (adjacency-aware,
+ * mirroring iOS `SupersetBlock.build`). Standalone exercises become single-row
+ * blocks. Card index (1…N) is preserved across grouping so badge numbers stay
+ * continuous inside superset containers.
+ */
+function groupShareExercises(exercises: ExerciseRow[]): ShareRenderBlock[] {
+  const blocks: ShareRenderBlock[] = [];
+  let current: Array<{ index: number; row: ExerciseRow }> = [];
+  let currentLabel: string | null = null;
+  exercises.forEach((row, i) => {
+    const label = row.supersetGroup;
+    const indexed = { index: i + 1, row };
+    if (label && label === currentLabel && current.length > 0) {
+      current.push(indexed);
+    } else {
+      if (current.length > 0) {
+        blocks.push({ groupLabel: currentLabel, rows: current });
+      }
+      current = [indexed];
+      currentLabel = label;
+    }
+  });
+  if (current.length > 0) {
+    blocks.push({ groupLabel: currentLabel, rows: current });
+  }
+  return blocks;
+}
+
+/** One exercise card. `showBorder` is false inside a superset container (the
+ *  joint accent outline replaces the per-card hairline). */
+function ShareExerciseCard({
+  index,
+  row,
+  showBorder = true,
+}: {
+  index: number;
+  row: ExerciseRow;
+  showBorder?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 16,
+        padding: 16,
+        borderRadius: 20,
+        backgroundColor: SURFACE,
+        border: `1px solid ${showBorder ? CARD_BORDER : "transparent"}`,
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Amber circular index badge */}
+      <div
+        style={{
+          flexShrink: 0,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: ACCENT,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#000000",
+          fontSize: 22,
+          fontWeight: 600,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {index}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          minWidth: 0,
+          flex: 1,
+          // Reserve bottom space so the absolute 1RM never overlaps the last
+          // chip row.
+          paddingBottom: row.oneRMLabel ? 8 : 0,
+        }}
+      >
+        <div style={{ fontSize: 34, fontWeight: 600, color: TEXT_PRIMARY }}>
+          {row.name}
+        </div>
+        {row.chips.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {row.chips.map((chip, ci) => (
+              <span
+                key={ci}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  fontSize: 24,
+                  fontWeight: chip.isTopSet ? 600 : 500,
+                  fontVariantNumeric: "tabular-nums",
+                  backgroundColor: chip.isTopSet ? ACCENT : CHIP_BG,
+                  color: chip.isTopSet ? "#000000" : TEXT_PRIMARY,
+                }}
+              >
+                {chip.isPR ? `🏆 ${chip.value}` : chip.value}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {/* Per-exercise best estimated 1RM — gray, bottom-right. */}
+      {row.oneRMLabel ? (
+        <span
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: 14,
+            fontSize: 24,
+            fontWeight: 500,
+            color: TEXT_SECONDARY,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {row.oneRMLabel}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Accent-bordered "card-of-cards" wrapping the exercises of one superset —
+ *  mirrors the iOS share card + the in-app SupersetBlockView. */
+function SupersetGroupBlock({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: Array<{ index: number; row: ExerciseRow }>;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        padding: 16,
+        borderRadius: 24,
+        backgroundColor: "rgba(217,164,65,0.06)",
+        border: "2px solid rgba(217,164,65,0.45)",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          paddingLeft: 4,
+        }}
+      >
+        <span style={{ fontSize: 24 }}>🔗</span>
+        <span
+          style={{
+            fontSize: 22,
+            fontWeight: 600,
+            letterSpacing: 2,
+            textTransform: "uppercase",
+            color: ACCENT,
+          }}
+        >
+          {`Superserie ${label}`}
+        </span>
+      </div>
+      {rows.map(({ index, row }) => (
+        <ShareExerciseCard
+          key={index}
+          index={index}
+          row={row}
+          showBorder={false}
+        />
+      ))}
+    </div>
+  );
 }
 
 /** "M:SS" or "H:MM:SS" — mirrors the iOS duration format. */
@@ -269,7 +482,8 @@ function buildSuccessModel(
         .map((s) => ({ weight: s.weight as number, reps: s.reps ?? 0 })),
     );
 
-    return { name: bucket.name, chips, oneRMLabel };
+    const supersetGroup = bucket.sets[0]?.supersetGroup ?? null;
+    return { name: bucket.name, chips, oneRMLabel, supersetGroup };
   });
 
   // Volumen total = Σ(weight × reps) over working (non-warmup) sets.
@@ -280,7 +494,7 @@ function buildSuccessModel(
   const exerciseCount = detail.exerciseCount || order.length;
 
   const stats: ShareStat[] = [
-    { value: volumeLabel(totalVolume), label: t("shareStatVolume") },
+    { value: volumeLabel(totalVolume), label: t("shareStatVolume"), fit: true },
     { value: `${seriesCount}`, label: t("shareStatSeries") },
     { value: `${exerciseCount}`, label: t("shareStatExercises") },
   ];
@@ -409,7 +623,11 @@ function buildAssignmentModel(
         .map((s) => ({ weight: s.weight as number, reps: s.reps ?? 0 })),
     );
 
-    return { name: ex.exerciseName, chips, oneRMLabel };
+    const supersetGroup =
+      typeof ex.supersetGroup === "string" && ex.supersetGroup.trim().length > 0
+        ? ex.supersetGroup.trim()
+        : null;
+    return { name: ex.exerciseName, chips, oneRMLabel, supersetGroup };
   });
 
   const stats: ShareStat[] = [
@@ -421,6 +639,7 @@ function buildAssignmentModel(
     stats.push({
       value: volumeLabel(totalTargetVolume),
       label: t("shareStatTargetVolume"),
+      fit: true,
     });
   }
 
@@ -716,12 +935,16 @@ function ShareCardRenderer({
                 >
                   <span
                     style={{
-                      fontSize: 40,
+                      // `fit` stats (Volumen "5810 kg") MUST stay on one line so
+                      // every tile keeps the same height — shrink the font to
+                      // fit instead of wrapping. Non-fit stats keep 40px.
+                      fontSize: stat.fit ? fitStatFontSize(stat.value) : 40,
                       fontWeight: 600,
                       color: STAT_NUMBER,
                       fontVariantNumeric: "tabular-nums",
                       lineHeight: 1.1,
                       textAlign: "center",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {stat.value}
@@ -757,108 +980,19 @@ function ShareCardRenderer({
               flex: 1,
             }}
           >
-            {model.exercises.map((row, i) => (
-              <div
-                key={i}
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 16,
-                  padding: 16,
-                  borderRadius: 20,
-                  backgroundColor: SURFACE,
-                  border: `1px solid ${CARD_BORDER}`,
-                  boxSizing: "border-box",
-                }}
-              >
-                {/* Amber circular index badge */}
-                <div
-                  style={{
-                    flexShrink: 0,
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: ACCENT,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#000000",
-                    fontSize: 22,
-                    fontWeight: 600,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {i + 1}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                    minWidth: 0,
-                    flex: 1,
-                    // Reserve bottom space so the absolute 1RM never overlaps
-                    // the last chip row.
-                    paddingBottom: row.oneRMLabel ? 8 : 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 34,
-                      fontWeight: 600,
-                      color: TEXT_PRIMARY,
-                    }}
-                  >
-                    {row.name}
-                  </div>
-                  {row.chips.length > 0 ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 10,
-                      }}
-                    >
-                      {row.chips.map((chip, ci) => (
-                        <span
-                          key={ci}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "8px 14px",
-                            borderRadius: 999,
-                            fontSize: 24,
-                            fontWeight: chip.isTopSet ? 600 : 500,
-                            fontVariantNumeric: "tabular-nums",
-                            backgroundColor: chip.isTopSet ? ACCENT : CHIP_BG,
-                            color: chip.isTopSet ? "#000000" : TEXT_PRIMARY,
-                          }}
-                        >
-                          {chip.isPR ? `🏆 ${chip.value}` : chip.value}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                {/* Per-exercise best estimated 1RM — gray, bottom-right. */}
-                {row.oneRMLabel ? (
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: 20,
-                      bottom: 14,
-                      fontSize: 24,
-                      fontWeight: 500,
-                      color: TEXT_SECONDARY,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {row.oneRMLabel}
-                  </span>
-                ) : null}
-              </div>
-            ))}
+            {groupShareExercises(model.exercises).map((block, bi) =>
+              block.groupLabel && block.rows.length > 1 ? (
+                <SupersetGroupBlock
+                  key={`ss-${bi}`}
+                  label={block.groupLabel}
+                  rows={block.rows}
+                />
+              ) : (
+                block.rows.map(({ index, row }) => (
+                  <ShareExerciseCard key={index} index={index} row={row} />
+                ))
+              ),
+            )}
           </div>
 
           {/* Footer band */}
