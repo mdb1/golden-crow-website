@@ -25,6 +25,13 @@ export interface RecentLogRow {
   title: string;
   detail: string;
   workoutLogId: string | null;
+  /** Habit rows only — the habit's TARGET civil date ("YYYY-MM-DD"), set ONLY
+   *  when the completion was BACKDATED (marked on a different civil day than the
+   *  habit belongs to). The iOS app lets clients tick past-day habits, so a
+   *  May-29 habit marked May 30 would otherwise read as a May-30 activity. The
+   *  feed renders this as a "For <date>" badge so the trainer sees which day the
+   *  habit is actually for. Absent on on-time completions and non-habit rows. */
+  forCivilDate?: string;
   /** Present only on workout rows — drives the sets / RPE / notes chips. */
   workout?: {
     completedSets: number;
@@ -483,7 +490,8 @@ export async function listRecentLogsForTrainer(): Promise<{
   // un-mark — because the un-mark only flipped one of the docs. Picking
   // the latest write (`updatedAt` if present, else `createdAt`) is the
   // canonical "what the user last said about this habit on this day".
-  const todayCivil = civilDateToday(await getTrainerTimezone());
+  const trainerTz = await getTrainerTimezone();
+  const todayCivil = civilDateToday(trainerTz);
 
   function logTimestampMs(doc: FirebaseFirestore.QueryDocumentSnapshot): number {
     const iso =
@@ -785,6 +793,20 @@ export async function listRecentLogsForTrainer(): Promise<{
       titleSuffix = `. All ${progress!.total} habits done that day`;
     }
 
+    // BACKDATED detection — the iOS app lets clients tick PAST-day habits, so a
+    // habit whose civilDate is May 29 can be marked on May 30. `eventAt` is the
+    // mark instant; its civil date in the trainer's tz is the day the client
+    // actually logged. When that differs from the habit's own civilDate the row
+    // is backdated, and we surface the target day so it doesn't masquerade as
+    // today's activity. On-time completions leave `forCivilDate` undefined.
+    const markedCivil = habitCivilDate
+      ? civilDateFormat(new Date(eventAt), trainerTz)
+      : "";
+    const forCivilDate =
+      habitCivilDate && habitCivilDate !== markedCivil
+        ? habitCivilDate
+        : undefined;
+
     rows.push({
       id: `habit:${doc.id}`,
       category: "habit",
@@ -796,6 +818,7 @@ export async function listRecentLogsForTrainer(): Promise<{
         : `${nameByClientId.get(clientId) ?? clientId} updated: ${habitName}${titleSuffix}`,
       detail: completed ? "Completed" : "Pending update",
       workoutLogId: null,
+      forCivilDate,
     });
   });
 

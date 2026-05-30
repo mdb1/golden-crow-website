@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
+  CalendarClock,
   MessageCircle,
   Filter,
   Dumbbell,
@@ -191,6 +192,15 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                   <span className="truncate text-sm font-medium">
                     {row.title}
                   </span>
+                  {row.forCivilDate ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                    >
+                      <CalendarClock />
+                      {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
+                    </Badge>
+                  ) : null}
                   {row.workout?.rpe != null ? (
                     <Badge
                       variant="outline"
@@ -264,5 +274,20 @@ function formatDateTime(iso: string): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+// Render a "YYYY-MM-DD" civil date as a short day label ("May 29" / "29 may").
+// Construct from parts (NOT `new Date(iso)`) so the local-time constructor is
+// used instead of UTC-midnight parsing — otherwise a negative-offset host
+// shifts the day back by one.
+function formatCivilDate(civil: string): string {
+  const [y, m, d] = civil.split("-").map((n) => Number.parseInt(n, 10));
+  if (!y || !m || !d) return civil;
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return civil;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
   });
 }

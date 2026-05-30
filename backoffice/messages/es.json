@@ -1154,7 +1154,8 @@
       "openChat": "Abrir chat",
       "openProfile": "Perfil",
       "viewWorkout": "Ver entrenamiento",
-      "notesBadge": "Notas"
+      "notesBadge": "Notas",
+      "forDay": "Del {date}"
     },
     "workoutDetail": {
       "backToLogs": "Volver a la actividad",
