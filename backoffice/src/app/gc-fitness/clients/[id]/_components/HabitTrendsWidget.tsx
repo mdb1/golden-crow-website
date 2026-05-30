@@ -21,6 +21,7 @@ import { getTranslations } from "next-intl/server";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
+import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
 import type { HabitType } from "@/lib/gc-fitness/habit-schema";
 import { TREND_RANGES, type TrendRangeKey, addCivilDays } from "./trend-range";
 import { HabitTrendsClient, type HabitTrendRow } from "./HabitTrendsClient";
@@ -36,49 +37,9 @@ function isHabitScheduledOnDate(
   habit: Record<string, unknown>,
   civilDate: string,
 ): boolean {
-  const startsOn =
-    typeof habit.startsOn === "string" && habit.startsOn.length > 0
-      ? habit.startsOn
-      : null;
-  const endsOn =
-    typeof habit.endsOn === "string" && habit.endsOn.length > 0
-      ? habit.endsOn
-      : null;
-
-  if (startsOn && civilDate < startsOn) return false;
-  if (endsOn && civilDate > endsOn) return false;
-
-  const scheduleType = habit.scheduleType === "one-time" ? "one-time" : "recurring";
-  if (scheduleType === "one-time") {
-    return startsOn ? civilDate === startsOn : true;
-  }
-
-  const cadence =
-    habit.scheduleCadence === "weekly" || habit.scheduleCadence === "monthly"
-      ? habit.scheduleCadence
-      : "daily";
-
-  if (cadence === "daily") return true;
-
-  const date = new Date(`${civilDate}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return false;
-
-  if (cadence === "weekly") {
-    const weekdays = Array.isArray(habit.scheduleWeekdays)
-      ? (habit.scheduleWeekdays as number[])
-      : [];
-    const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
-    const legacyWeekday = weekday === 7 ? 1 : weekday + 1;
-    return weekdays.includes(weekday) || weekdays.includes(legacyWeekday);
-  }
-
-  const monthDays = Array.isArray(habit.scheduleMonthDays)
-    ? (habit.scheduleMonthDays as number[])
-    : typeof habit.scheduleDayOfMonth === "number"
-      ? [habit.scheduleDayOfMonth]
-      : [1];
-
-  return monthDays.includes(date.getUTCDate());
+  // Delegates to the shared iOS-parity predicate (incl. skippedDates +
+  // disambiguated legacy weekday). See lib/gc-fitness/habit-schedule.ts.
+  return isHabitScheduledOn(habit, civilDate);
 }
 
 export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidgetProps) {

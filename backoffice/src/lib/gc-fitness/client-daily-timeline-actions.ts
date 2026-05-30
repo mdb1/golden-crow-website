@@ -5,6 +5,7 @@ import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
+import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 import { buildClientDailyTimelineDates } from "./client-daily-timeline-utils";
 import type { ProgressPhotoRow } from "./progress-photo-actions";
@@ -142,56 +143,10 @@ function isHabitActiveOnDate(
   habit: Record<string, unknown>,
   civilDate: string,
 ): boolean {
-  const startsOn =
-    typeof habit.startsOn === "string" && habit.startsOn.length > 0
-      ? habit.startsOn
-      : null;
-  const endsOn =
-    typeof habit.endsOn === "string" && habit.endsOn.length > 0
-      ? habit.endsOn
-      : null;
-
-  if (startsOn && civilDate < startsOn) {
-    return false;
-  }
-  if (endsOn && civilDate > endsOn) {
-    return false;
-  }
-
-  const scheduleType =
-    habit.scheduleType === "one-time" ? "one-time" : "recurring";
-  if (scheduleType === "one-time") {
-    return startsOn ? civilDate === startsOn : true;
-  }
-
-  const cadence =
-    habit.scheduleCadence === "weekly" ||
-    habit.scheduleCadence === "monthly"
-      ? habit.scheduleCadence
-      : "daily";
-  if (cadence === "daily") {
-    return true;
-  }
-  const date = new Date(`${civilDate}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return false;
-  if (cadence === "weekly") {
-    const weekdays = Array.isArray(habit.scheduleWeekdays)
-      ? (habit.scheduleWeekdays as number[])
-      : [];
-    const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
-    // Backward compatibility: older backoffice builds stored weekdays as
-    // Sun=1..Sat=7. Current canonical mapping is Mon=1..Sun=7.
-    // Accept both so pre-fix habits render on the correct days without
-    // forcing an immediate data migration.
-    const legacyWeekday = weekday === 7 ? 1 : weekday + 1;
-    return weekdays.includes(weekday) || weekdays.includes(legacyWeekday);
-  }
-  const monthDays = Array.isArray(habit.scheduleMonthDays)
-    ? (habit.scheduleMonthDays as number[])
-    : typeof habit.scheduleDayOfMonth === "number"
-      ? [habit.scheduleDayOfMonth]
-      : [1];
-  return monthDays.includes(date.getUTCDate());
+  // Soft-delete is handled by the `deleted == false` query filter in this
+  // module's habit loads, so this predicate (like iOS `isActive`) only answers
+  // "scheduled on this day?".
+  return isHabitScheduledOn(habit, civilDate);
 }
 
 function createEmptyDay(date: string): ClientDailyTimelineDay {
