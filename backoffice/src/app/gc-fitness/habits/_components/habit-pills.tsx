@@ -2,15 +2,16 @@
 
 // habit-pills.tsx
 //
-// Shared visual primitives for the habits surfaces — the per-client
-// assignments table (columns.tsx) AND the reusable-template library table
-// (HabitLibraryTable.tsx) render identical type / recurrence / goal / reminder
-// pills and client avatars from here, so the two views read consistently.
+// Shared, NEUTRAL visual primitives for the habits surfaces — the per-client
+// assignments table (columns.tsx), the template library table, and the
+// template detail dialog all render the same restrained badges so the
+// backoffice reads as one app. No per-item rainbow colors: a single muted
+// `secondary` badge for the type, quiet `outline` badges for metadata.
 
 import { CalendarDays, Clock, Repeat, Target } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type {
   HabitScheduleType,
   HabitType,
@@ -18,44 +19,12 @@ import type {
 
 type TFn = ReturnType<typeof useTranslations>;
 
-export const PILL_BASE =
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium";
-
-export const TONE = {
-  sky: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
-  violet:
-    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  amber:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
-  emerald:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  slate:
-    "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300",
-} as const;
-
 // HabitType → short label catalog key (resolved via `t(`shortType${...}`)`).
 export const HABIT_SHORT_LABEL_KEYS: Record<HabitType, string> = {
   binary: "Binary",
   "multi-choice": "MultiChoice",
   numeric: "Numeric",
   weight: "Weight",
-};
-
-const TYPE_TONE: Record<HabitType, keyof typeof TONE> = {
-  binary: "sky",
-  "multi-choice": "violet",
-  numeric: "amber",
-  weight: "emerald",
-};
-
-const CADENCE_TONE: Record<
-  "one-time" | "daily" | "weekly" | "monthly",
-  keyof typeof TONE
-> = {
-  "one-time": "slate",
-  daily: "sky",
-  weekly: "violet",
-  monthly: "amber",
 };
 
 // Structural recurrence shape — shared by HabitRow and HabitTemplateRow.
@@ -103,39 +72,14 @@ export function recurrenceLabel(
   return { label: t("recDaily"), cadence: "daily" };
 }
 
-// Stable per-client avatar tint from a seed (clientId).
-const AVATAR_TONES = [
-  "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300",
-  "bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300",
-  "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
-  "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
-  "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300",
-];
-
-export function HabitAvatar({ seed, name }: { seed: string; name: string }) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  const tone = AVATAR_TONES[Math.abs(h) % AVATAR_TONES.length];
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-        tone,
-      )}
-    >
-      {initial}
-    </span>
-  );
-}
+const META_BADGE =
+  "gap-1 px-1.5 py-0 text-[11px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70";
 
 export function HabitTypePill({ type, t }: { type: HabitType; t: TFn }) {
   return (
-    <span className={cn(PILL_BASE, TONE[TYPE_TONE[type]])}>
+    <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-normal">
       {t(`shortType${HABIT_SHORT_LABEL_KEYS[type]}`)}
-    </span>
+    </Badge>
   );
 }
 
@@ -143,10 +87,10 @@ export function RecurrencePill({ rec, t }: { rec: HabitRecurrence; t: TFn }) {
   const { label, cadence } = recurrenceLabel(rec, t);
   const Icon = cadence === "daily" ? Repeat : CalendarDays;
   return (
-    <span className={cn(PILL_BASE, TONE[CADENCE_TONE[cadence]])}>
-      <Icon className="h-3 w-3" />
+    <Badge variant="outline" className={META_BADGE}>
+      <Icon />
       {label}
-    </span>
+    </Badge>
   );
 }
 
@@ -163,10 +107,10 @@ export function GoalPill({
 }) {
   if (type !== "numeric" || typeof targetValue !== "number") return null;
   return (
-    <span className={cn(PILL_BASE, TONE.emerald)}>
-      <Target className="h-3 w-3" />
+    <Badge variant="outline" className={META_BADGE}>
+      <Target />
       {`${t("recGoal")}: ${targetValue}${unit ? ` ${unit}` : ""}`}
-    </span>
+    </Badge>
   );
 }
 
@@ -179,11 +123,19 @@ export function ReminderCell({
 }) {
   if (reminderEnabled && reminderTime) {
     return (
-      <span className={cn(PILL_BASE, TONE.amber)}>
-        <Clock className="h-3 w-3" />
+      <Badge variant="outline" className={META_BADGE}>
+        <Clock />
         {reminderTime}
-      </span>
+      </Badge>
     );
   }
   return <span className="text-muted-foreground">—</span>;
+}
+
+export function ScopePill({ isGlobal, t }: { isGlobal: boolean; t: TFn }) {
+  return (
+    <Badge variant="outline" className="px-1.5 py-0 text-[11px] font-normal">
+      {isGlobal ? t("scopeGlobal") : t("scopeMine")}
+    </Badge>
+  );
 }

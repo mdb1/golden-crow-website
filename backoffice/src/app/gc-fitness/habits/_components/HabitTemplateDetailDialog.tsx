@@ -13,7 +13,6 @@ import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -45,9 +44,8 @@ import {
 import {
   GoalPill,
   HabitTypePill,
-  PILL_BASE,
   ReminderCell,
-  TONE,
+  ScopePill,
 } from "./habit-pills";
 
 export function HabitTemplateDetailDialog({
@@ -274,11 +272,7 @@ export function HabitTemplateDetailDialog({
                   unit={template.unit}
                   t={tc}
                 />
-                <span
-                  className={cn(PILL_BASE, isCustom ? TONE.violet : TONE.sky)}
-                >
-                  {isCustom ? tc("scopeMine") : tc("scopeGlobal")}
-                </span>
+                <ScopePill isGlobal={!isCustom} t={tc} />
               </div>
 
               <div className="flex items-center gap-2 text-sm">

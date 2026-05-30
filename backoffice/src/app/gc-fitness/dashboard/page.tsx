@@ -373,7 +373,6 @@ export default async function GCFitnessDashboardPage({
                     iso={row.lastActivityAt}
                     category={row.category}
                     rpe={row.rpe}
-                    timestampTone="warning"
                   />
                 ))
               )}
@@ -453,84 +452,19 @@ function KpiTile({
   );
 }
 
-// Pill palette — mirrors the recent-logs feed badges so the dashboard reads
-// consistently with the activity surface.
-const ROW_PILL =
-  "inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold";
-
+// Category → label + icon. NEUTRAL: a single muted `secondary` badge per the
+// backoffice style — no per-category rainbow.
 const CATEGORY_META: Record<
   RecentLogCategory,
-  { label: string; icon: React.ComponentType<{ className?: string }>; tone: string }
+  { label: string; icon: React.ComponentType<{ className?: string }> }
 > = {
-  workout: {
-    label: "Workout",
-    icon: Dumbbell,
-    tone: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  },
-  habit: {
-    label: "Habit",
-    icon: ListChecks,
-    tone: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  },
-  photo: {
-    label: "Photo",
-    icon: Camera,
-    tone: "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
-  },
-  weight: {
-    label: "Weight",
-    icon: Scale,
-    tone: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
-  },
-  reschedule: {
-    label: "Reschedule",
-    icon: ArrowRightLeft,
-    tone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
-  },
-  signup: {
-    label: "Sign-up",
-    icon: User,
-    tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
-  },
+  workout: { label: "Workout", icon: Dumbbell },
+  habit: { label: "Habit", icon: ListChecks },
+  photo: { label: "Photo", icon: Camera },
+  weight: { label: "Weight", icon: Scale },
+  reschedule: { label: "Reschedule", icon: ArrowRightLeft },
+  signup: { label: "Sign-up", icon: User },
 };
-
-const ROW_AVATAR_TONES = [
-  "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300",
-  "bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300",
-  "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
-  "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
-  "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300",
-];
-
-function rowAvatarTone(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return ROW_AVATAR_TONES[Math.abs(h) % ROW_AVATAR_TONES.length];
-}
-
-function rpeTone(rpe: number): string {
-  if (rpe <= 4)
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300";
-  if (rpe <= 7)
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300";
-  return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300";
-}
-
-// Recency → timestamp badge tone. Fresh activity reads green, fading to
-// neutral; the "needs attention" list forces amber regardless of age.
-function recencyTone(iso: string | null, warning: boolean): string {
-  if (warning)
-    return "border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
-  if (!iso)
-    return "border-border bg-muted text-muted-foreground";
-  const ageMs = Date.now() - new Date(iso).getTime();
-  if (ageMs < 60 * 60 * 1000)
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300";
-  if (ageMs < 24 * 60 * 60 * 1000)
-    return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300";
-  return "border-border bg-muted text-muted-foreground";
-}
 
 function ClientRow({
   href,
@@ -539,7 +473,6 @@ function ClientRow({
   iso,
   category,
   rpe,
-  timestampTone = "default",
 }: {
   href: string;
   name: string;
@@ -547,9 +480,7 @@ function ClientRow({
   iso: string | null;
   category: RecentLogCategory | null;
   rpe: number | null;
-  timestampTone?: "default" | "warning";
 }) {
-  const warning = timestampTone === "warning";
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   const cat = category ? CATEGORY_META[category] : null;
   const CatIcon = cat?.icon;
@@ -561,34 +492,35 @@ function ClientRow({
     >
       <span
         aria-hidden
-        className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-          rowAvatarTone(href),
-        )}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
       >
         {initial}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate font-medium text-sm">{name}</p>
-          <span
-            className={cn(ROW_PILL, "ml-auto", recencyTone(iso, warning))}
-          >
+          <p className="truncate text-sm font-medium">{name}</p>
+          <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
             {timestampLabel}
           </span>
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           {cat ? (
-            <span className={cn(ROW_PILL, cat.tone)}>
-              {CatIcon ? <CatIcon className="h-3 w-3" /> : null}
+            <Badge
+              variant="secondary"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal [&>svg]:size-3 [&>svg]:opacity-70"
+            >
+              {CatIcon ? <CatIcon /> : null}
               {cat.label}
-            </span>
+            </Badge>
           ) : null}
           {category === "workout" && rpe !== null ? (
-            <span className={cn(ROW_PILL, rpeTone(rpe))}>
-              <Gauge className="h-3 w-3" />
+            <Badge
+              variant="outline"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+            >
+              <Gauge />
               RPE {rpe}
-            </span>
+            </Badge>
           ) : null}
           <p className="truncate text-xs text-muted-foreground">{primary}</p>
         </div>

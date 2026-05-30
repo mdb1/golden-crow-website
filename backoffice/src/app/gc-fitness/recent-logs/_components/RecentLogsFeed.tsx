@@ -1,6 +1,8 @@
 "use client";
 
+import type { ComponentType } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
@@ -17,9 +19,14 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -35,17 +42,31 @@ interface Props {
   clients: Array<{ id: string; name: string }>;
 }
 
-// RPE 1–10 → green (easy) through amber to red (maximal).
-function rpeColorClass(rpe: number): string {
-  if (rpe <= 4)
-    return "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (rpe <= 7)
-    return "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300";
-  return "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300";
-}
+// Category → icon + label key. NEUTRAL: one muted `secondary` badge per the
+// backoffice style — no per-category colors.
+const CATEGORY_ICON: Record<
+  RecentLogRow["category"],
+  ComponentType<{ className?: string }>
+> = {
+  habit: ListChecks,
+  workout: Dumbbell,
+  reschedule: ArrowRightLeft,
+  photo: Camera,
+  weight: Scale,
+  signup: User,
+};
+const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
+  habit: "badgeHabit",
+  workout: "badgeWorkout",
+  reschedule: "badgeReschedule",
+  photo: "badgePhoto",
+  weight: "badgeWeight",
+  signup: "badgeSignup",
+};
 
 export function RecentLogsFeed({ logs, clients }: Props) {
   const t = useTranslations("recentLogs.feed");
+  const router = useRouter();
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -102,9 +123,9 @@ export function RecentLogsFeed({ logs, clients }: Props) {
                 <SelectItem value="all">{t("allActivity")}</SelectItem>
                 <SelectItem value="habit">{t("habitsOption")}</SelectItem>
                 <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
-                <SelectItem value="reschedule">{t("reschedulesOption")}</SelectItem>
-                {/* Chat removed: Phase 15 unread badges cover the "client said
-                    something" surface natively. */}
+                <SelectItem value="reschedule">
+                  {t("reschedulesOption")}
+                </SelectItem>
                 <SelectItem value="photo">{t("photosOption")}</SelectItem>
                 <SelectItem value="weight">{t("weightOption")}</SelectItem>
                 <SelectItem value="signup">{t("signupOption")}</SelectItem>
@@ -114,7 +135,7 @@ export function RecentLogsFeed({ logs, clients }: Props) {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-2">
         {filtered.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -122,103 +143,97 @@ export function RecentLogsFeed({ logs, clients }: Props) {
             </CardContent>
           </Card>
         ) : null}
-        {filtered.map((row) => (
-          <Card key={row.id}>
-            <CardContent className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
-              <div className="min-w-0 space-y-1">
+        {filtered.map((row) => {
+          const CatIcon = CATEGORY_ICON[row.category];
+          const openProfile = () =>
+            router.push(`/gc-fitness/clients/${row.clientId}`);
+          return (
+            <div
+              key={row.id}
+              role="button"
+              tabIndex={0}
+              onClick={openProfile}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openProfile();
+                }
+              }}
+              className="group flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40"
+            >
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  {row.category === "habit" ? (
-                    <Badge className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                      <ListChecks className="h-3.5 w-3.5" />
-                      {t("badgeHabit")}
-                    </Badge>
-                  ) : row.category === "workout" ? (
-                    <Badge className="gap-1 border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-50">
-                      <Dumbbell className="h-3.5 w-3.5" />
-                      {t("badgeWorkout")}
-                    </Badge>
-                  ) : row.category === "reschedule" ? (
-                    <Badge className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
-                      <ArrowRightLeft className="h-3.5 w-3.5" />
-                      {t("badgeReschedule")}
-                    </Badge>
-                  ) : row.category === "photo" ? (
-                    <Badge className="gap-1 border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-50">
-                      <Camera className="h-3.5 w-3.5" />
-                      {t("badgePhoto")}
-                    </Badge>
-                  ) : row.category === "signup" ? (
-                    <Badge className="gap-1 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50">
-                      <User className="h-3.5 w-3.5" />
-                      {t("badgeSignup")}
-                    </Badge>
-                  ) : (
-                    <Badge className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
-                      <Scale className="h-3.5 w-3.5" />
-                      {t("badgeWeight")}
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {row.clientName}
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 [&>svg]:opacity-70"
+                  >
+                    {CatIcon ? <CatIcon /> : null}
+                    {t(CATEGORY_LABEL_KEY[row.category])}
+                  </Badge>
+                  <span className="truncate text-sm font-medium">
+                    {row.title}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    • {formatDateTime(row.eventAt)}
-                  </span>
+                  {row.workout?.rpe != null ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+                    >
+                      <Gauge />
+                      RPE {row.workout.rpe}
+                    </Badge>
+                  ) : null}
+                  {row.workout?.hasNotes ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+                    >
+                      <StickyNote />
+                      {t("notesBadge")}
+                    </Badge>
+                  ) : null}
                 </div>
-                <p className="line-clamp-1 text-sm font-semibold">{row.title}</p>
-                <p className="line-clamp-1 text-xs text-muted-foreground">{row.detail}</p>
-                {row.workout &&
-                (row.workout.rpe !== null || row.workout.hasNotes) ? (
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    {row.workout.rpe !== null ? (
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
-                          rpeColorClass(row.workout.rpe),
-                        )}
-                        title="Esfuerzo reportado por el cliente"
-                      >
-                        <Gauge className="h-3 w-3" />
-                        RPE {row.workout.rpe}/10
-                      </span>
-                    ) : null}
-                    {row.workout.hasNotes ? (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-                        title="El cliente dejó notas"
-                      >
-                        <StickyNote className="h-3 w-3" />
-                        Notas
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {row.clientName} · {formatDateTime(row.eventAt)}
+                  {row.detail ? ` · ${row.detail}` : ""}
+                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
-                  <Link href={`/gc-fitness/clients/${row.clientId}`}>
-                    <User className="h-4 w-4" />
-                    {t("openProfile")}
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
+              {/* Actions — small icon buttons; stop card-click propagation. */}
+              <div
+                className="flex shrink-0 items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground"
+                  title={t("openChat")}
+                >
                   <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
                     <MessageCircle className="h-4 w-4" />
-                    {t("openChat")}
+                    <span className="sr-only">{t("openChat")}</span>
                   </Link>
                 </Button>
                 {row.workoutLogId ? (
-                  <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5">
-                    <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground"
+                    title={t("viewWorkout")}
+                  >
+                    <Link
+                      href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}
+                    >
                       <Eye className="h-4 w-4" />
-                      {t("viewWorkout")}
+                      <span className="sr-only">{t("viewWorkout")}</span>
                     </Link>
                   </Button>
                 ) : null}
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

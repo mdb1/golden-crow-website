@@ -1153,7 +1153,8 @@
       "badgeSignup": "Primer ingreso",
       "openChat": "Abrir chat",
       "openProfile": "Perfil",
-      "viewWorkout": "Ver entrenamiento"
+      "viewWorkout": "Ver entrenamiento",
+      "notesBadge": "Notas"
     },
     "workoutDetail": {
       "backToLogs": "Volver a la actividad",

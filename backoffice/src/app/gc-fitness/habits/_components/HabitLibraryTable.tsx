@@ -8,7 +8,6 @@
 
 import type { useTranslations } from "next-intl";
 
-import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -21,9 +20,8 @@ import type { HabitTemplateRow } from "@/lib/gc-fitness/habit-actions";
 import {
   GoalPill,
   HabitTypePill,
-  PILL_BASE,
   ReminderCell,
-  TONE,
+  ScopePill,
 } from "./habit-pills";
 
 type TFn = ReturnType<typeof useTranslations>;
@@ -116,14 +114,7 @@ export function HabitLibraryTable({
                     />
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={cn(
-                        PILL_BASE,
-                        isGlobal ? TONE.sky : TONE.violet,
-                      )}
-                    >
-                      {isGlobal ? t("scopeGlobal") : t("scopeMine")}
-                    </span>
+                    <ScopePill isGlobal={isGlobal} t={t} />
                   </TableCell>
                 </TableRow>
               );

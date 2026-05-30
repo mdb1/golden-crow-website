@@ -28,7 +28,6 @@ import {
 import type { HabitRow } from "@/lib/gc-fitness/habit-actions";
 import {
   GoalPill,
-  HabitAvatar,
   HabitTypePill,
   RecurrencePill,
   ReminderCell,
@@ -74,16 +73,11 @@ export function makeHabitColumns(
     {
       accessorKey: "clientId",
       header: t("client"),
-      cell: ({ row }) => {
-        const name =
-          clientNameMap.get(row.original.clientId) ?? row.original.clientId;
-        return (
-          <div className="flex items-center gap-2">
-            <HabitAvatar seed={row.original.clientId} name={name} />
-            <span className="font-medium">{name}</span>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {clientNameMap.get(row.original.clientId) ?? row.original.clientId}
+        </span>
+      ),
     },
     {
       accessorKey: "type",
