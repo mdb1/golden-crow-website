@@ -12,7 +12,7 @@
 // with that exercise's values for one-tweak duplication.
 
 import { useMemo, useState } from "react";
-import { Copy, Search } from "lucide-react";
+import { Copy, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,7 @@ export function ExerciseMultiAddDialog({
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
+  const [forceQuickCreate, setForceQuickCreate] = useState(false);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
   const queryClient = useQueryClient();
 
@@ -134,6 +135,7 @@ export function ExerciseMultiAddDialog({
       setSearch("");
       setPicked(new Set());
       setSeed(null);
+      setForceQuickCreate(false);
     }
   }
 
@@ -143,7 +145,8 @@ export function ExerciseMultiAddDialog({
     onCancel(false);
   }
 
-  const showQuickCreate = filtered.length === 0 || seed !== null;
+  const showQuickCreate =
+    filtered.length === 0 || seed !== null || forceQuickCreate;
 
   return (
     <Dialog open={open} onOpenChange={onCancel}>
@@ -237,6 +240,18 @@ export function ExerciseMultiAddDialog({
             })
           )}
         </ul>
+        {search.trim() !== "" && filtered.length > 0 && !showQuickCreate ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 shrink-0 justify-start gap-1 self-start px-2 text-xs"
+            onClick={() => setForceQuickCreate(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t("multiAddCreateNew", { term: search.trim() })}
+          </Button>
+        ) : null}
         {showQuickCreate ? (
           <QuickCreateExercise
             searchTerm={search}
@@ -266,6 +281,7 @@ export function ExerciseMultiAddDialog({
               // (the list filters on the now-stale needle and would hide it).
               setSearch("");
               setSeed(null);
+              setForceQuickCreate(false);
               onQuickCreated?.(created);
             }}
           />

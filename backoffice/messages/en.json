@@ -1098,6 +1098,7 @@
     "multiAddDescription": "Pick everything you want to add — each comes in with default sets/reps you can tweak after.",
     "multiAddSelectedCount": "{count} selected",
     "multiAddConfirm": "Add {count}",
+    "multiAddCreateNew": "Create «{term}»",
     "filterMuscles": "Muscle",
     "filterEquipment": "Equipment",
     "filterLevel": "Level",

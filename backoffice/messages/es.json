@@ -1098,6 +1098,7 @@
     "multiAddDescription": "Elegí todo lo que quieras sumar — cada uno entra con sets/reps por defecto que podés ajustar después.",
     "multiAddSelectedCount": "{count} elegidos",
     "multiAddConfirm": "Agregar {count}",
+    "multiAddCreateNew": "Crear «{term}»",
     "filterMuscles": "Músculo",
     "filterEquipment": "Equipo",
     "filterLevel": "Nivel",
