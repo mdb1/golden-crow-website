@@ -2,10 +2,10 @@
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
-import { getCurrentTrainer } from "./auth-helpers";
+import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
-import { listClients } from "./client-roster";
+import { listClients, type ClientRosterEntry } from "./client-roster";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 
@@ -261,20 +261,37 @@ function habitLogCountsAsCompleted(
   }
 }
 
-export async function listRecentLogsForTrainer(): Promise<{
+/**
+ * Shared core for the recent-activity feed. Builds the row set for a given
+ * trainer id and an EXPLICIT client roster subset — both passed in (not
+ * resolved from the session) so the same logic serves three callers:
+ *   - listRecentLogsForTrainer()       → full roster, trainer session
+ *   - listRecentLogsForClient(id)      → single client, trainer session
+ *   - listRecentLogsForClientAsAdmin() → single client, admin god-mode
+ *
+ * Scoping to a single client needs NO query change: every row builder below
+ * filters by `nameByClientId.has(clientId)`, and the per-client fan-outs
+ * iterate `params.clients` — so a one-element roster yields exactly that
+ * client's activity. `trainerId` scopes the trainer-wide workout-log /
+ * assignment / signup queries (for god-mode it is the coach's uid).
+ */
+async function buildRecentLogs(params: {
+  trainerId: string;
+  clients: ClientRosterEntry[];
+  timezone: string;
+}): Promise<{
   logs: RecentLogRow[];
   clients: Array<{ id: string; name: string }>;
 }> {
-  const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
-  const clients = await listClients();
+  const clients = params.clients;
   const nameByClientId = new Map(clients.map((c) => [c.uid, c.displayName]));
   const clientList = clients.map((c) => ({ id: c.uid, name: c.displayName }));
 
   const workoutLogsPromise = db
     .collection(FirestoreCollections.workoutLogs)
-    .where("trainerId", "==", trainer.uid)
+    .where("trainerId", "==", params.trainerId)
     .limit(600)
     .get();
   // Trainer-scoped assignments — used to surface the "client moved
@@ -283,12 +300,12 @@ export async function listRecentLogsForTrainer(): Promise<{
   // the docs that carry originallyScheduledFor (always a small subset).
   const trainerAssignmentsPromise = db
     .collection(FirestoreCollections.workoutAssignments)
-    .where("trainerId", "==", trainer.uid)
+    .where("trainerId", "==", params.trainerId)
     .limit(600)
     .get();
   const usersSnapPromise = db
     .collection(FirestoreCollections.users)
-    .where("coachId", "==", trainer.uid)
+    .where("coachId", "==", params.trainerId)
     .where("role", "==", "client")
     .limit(400)
     .get();
@@ -307,7 +324,7 @@ export async function listRecentLogsForTrainer(): Promise<{
   // `habit_logs (clientId, civilDate)` index. `limit(200)` stays as a
   // backstop so behaviour never exceeds the prior worst case.
   const recentHabitWindowStartCivil = civilDateToday(
-    await getTrainerTimezone(),
+    params.timezone,
     new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
   );
   const habitLogPromises = clients.map((client) =>
@@ -455,7 +472,7 @@ export async function listRecentLogsForTrainer(): Promise<{
   // un-mark — because the un-mark only flipped one of the docs. Picking
   // the latest write (`updatedAt` if present, else `createdAt`) is the
   // canonical "what the user last said about this habit on this day".
-  const trainerTz = await getTrainerTimezone();
+  const trainerTz = params.timezone;
   const todayCivil = civilDateToday(trainerTz);
 
   function logTimestampMs(doc: FirebaseFirestore.QueryDocumentSnapshot): number {
@@ -804,7 +821,7 @@ export async function listRecentLogsForTrainer(): Promise<{
   const photoBuckets = new Map<string, PhotoBucket>();
   // Resolved once before the (sync) forEach — getTrainerTimezone() is async
   // and cannot be awaited inside the callback.
-  const photoTrainerTz = await getTrainerTimezone();
+  const photoTrainerTz = params.timezone;
   photoSnaps.forEach((snap, idx) => {
     if (!snap) return;
     const client = clients[idx];
@@ -918,6 +935,95 @@ export async function listRecentLogsForTrainer(): Promise<{
     logs: visibleRows,
     clients: clientList,
   };
+}
+
+/**
+ * Build a single-client roster entry from the canonical /users doc. Returns
+ * null when the doc is missing. `coachId` is returned alongside so callers can
+ * authorize (trainer ownership / admin coach-match) without a second read.
+ */
+async function loadClientRosterEntry(
+  clientId: string,
+): Promise<{ entry: ClientRosterEntry; coachId: string | null } | null> {
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  if (!snap.exists) return null;
+  const data = snap.data() ?? {};
+  const coachId = typeof data.coachId === "string" ? data.coachId : null;
+  const email = typeof data.email === "string" ? data.email : "";
+  const displayName =
+    typeof data.displayName === "string" && data.displayName.trim().length > 0
+      ? data.displayName
+      : email || clientId;
+  return {
+    entry: {
+      uid: clientId,
+      email,
+      displayName,
+      timezone: typeof data.timezone === "string" ? data.timezone : null,
+      photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
+      pendingProvisioning: false,
+    },
+    coachId,
+  };
+}
+
+/** Full-roster recent activity feed for the calling trainer (dashboard + feed). */
+export async function listRecentLogsForTrainer(): Promise<{
+  logs: RecentLogRow[];
+  clients: Array<{ id: string; name: string }>;
+}> {
+  const trainer = await getCurrentTrainer();
+  const [clients, timezone] = await Promise.all([
+    listClients(),
+    getTrainerTimezone(),
+  ]);
+  return buildRecentLogs({ trainerId: trainer.uid, clients, timezone });
+}
+
+/** Recent activity for ONE client, scoped to the calling trainer (ownership-gated). */
+export async function listRecentLogsForClient(clientId: string): Promise<{
+  logs: RecentLogRow[];
+  clients: Array<{ id: string; name: string }>;
+}> {
+  const trainer = await getCurrentTrainer();
+  const loaded = await loadClientRosterEntry(clientId);
+  if (!loaded || loaded.coachId !== trainer.uid) {
+    throw new Error("Forbidden");
+  }
+  const timezone = await getTrainerTimezone();
+  return buildRecentLogs({
+    trainerId: trainer.uid,
+    clients: [loaded.entry],
+    timezone,
+  });
+}
+
+/**
+ * Admin god-mode (read-only): recent activity for ONE client of a SPECIFIC
+ * coach. Verifies the client really belongs to `coachId` so the URL can't be
+ * edited to read a client outside the coach being inspected.
+ */
+export async function listRecentLogsForClientAsAdmin(
+  coachId: string,
+  clientId: string,
+): Promise<{
+  logs: RecentLogRow[];
+  clients: Array<{ id: string; name: string }>;
+}> {
+  await getCurrentAdmin();
+  const loaded = await loadClientRosterEntry(clientId);
+  if (!loaded || loaded.coachId !== coachId) {
+    throw new Error("Not found");
+  }
+  const timezone = await getTrainerTimezone();
+  return buildRecentLogs({
+    trainerId: coachId,
+    clients: [loaded.entry],
+    timezone,
+  });
 }
 
 export async function getWorkoutLogDetail(

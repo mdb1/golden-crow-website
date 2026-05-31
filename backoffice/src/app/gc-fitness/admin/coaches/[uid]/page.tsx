@@ -148,7 +148,14 @@ export default async function CoachAdminDetailPage({
                   detail.linkedClients.map((client) => (
                     <TableRow key={client.uid}>
                       <TableCell>
-                        <div className="font-medium">{client.displayName || "—"}</div>
+                        <div className="font-medium">
+                          <Link
+                            href={`/gc-fitness/admin/coaches/${detail.coach.uid}/clients/${client.uid}`}
+                            className="text-primary hover:underline"
+                          >
+                            {client.displayName || "—"}
+                          </Link>
+                        </div>
                         <div className="text-xs text-muted-foreground">{client.email}</div>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{client.uid}</TableCell>

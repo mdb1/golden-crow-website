@@ -153,7 +153,8 @@
         "workoutTrends": "Workouts",
         "habitTrends": "Habits",
         "recentMessages": "Recent messages",
-        "bodyWeight": "Body weight (30 days)"
+        "bodyWeight": "Body weight (30 days)",
+        "recentLogs": "Recent activity"
       },
       "timeline": {
         "title": "Daily client view",
@@ -309,6 +310,13 @@
         "showPastWorkouts": "Show past workouts ({count})",
         "workoutStreakLabel": "{count} in a row",
         "workoutStreakTooltip": "{count} workouts completed in a row, no miss."
+      },
+      "recentLogs": {
+        "title": "Recent activity",
+        "empty": "No recent activity.",
+        "pageOf": "Page {current} of {total}",
+        "previous": "Previous",
+        "next": "Next"
       }
     }
   },

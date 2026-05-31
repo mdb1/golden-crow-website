@@ -2,7 +2,7 @@
 
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
-import { getCurrentTrainer } from "./auth-helpers";
+import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 
 export interface ProgressPhotoRow {
@@ -92,7 +92,30 @@ export async function listProgressPhotosForClient(
 ): Promise<ProgressPhotoRow[]> {
   const trainer = await getCurrentTrainer();
   await assertOwnsClient(trainer.uid, clientId);
+  return loadProgressPhotos(clientId);
+}
 
+/**
+ * Admin god-mode (read-only): a client's progress photos, verifying the client
+ * belongs to `coachId` (reusing `assertOwnsClient`, which checks
+ * `client.coachId === coachId`) so the route can't read across coaches.
+ */
+export async function listProgressPhotosForClientAsAdmin(
+  coachId: string,
+  clientId: string,
+): Promise<ProgressPhotoRow[]> {
+  await getCurrentAdmin();
+  await assertOwnsClient(coachId, clientId);
+  return loadProgressPhotos(clientId);
+}
+
+/**
+ * Core photo loader — query + signed-URL map + check-in-date sort, WITHOUT any
+ * authorization. Callers MUST gate first (trainer ownership or admin).
+ */
+async function loadProgressPhotos(
+  clientId: string,
+): Promise<ProgressPhotoRow[]> {
   // Sort dimension lives client-side, not server-side: we want photos
   // ordered by the client-picked check-in date, not by upload time. A
   // server-side `orderBy("checkInDate")` would silently drop legacy docs
