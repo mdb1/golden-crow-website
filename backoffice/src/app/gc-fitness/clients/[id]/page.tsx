@@ -39,6 +39,7 @@ import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
 import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
 import { ClientNotesCard } from "./_components/ClientNotesCard";
 import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
+import { ClientRecentLogsWidget } from "./_components/ClientRecentLogsWidget";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
@@ -164,6 +165,10 @@ export default async function ClientDetailPage({
         />
 
         <ProgressPhotosWidget photos={progressPhotos} clientId={id} />
+
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>
+          <ClientRecentLogsWidget clientId={id} />
+        </Suspense>
       </div>
     </div>
   );
