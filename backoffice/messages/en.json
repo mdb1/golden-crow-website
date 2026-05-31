@@ -220,6 +220,13 @@
         "placeholder": "Write a note for this day...",
         "characterCount": "{count}/10000",
         "addCta": "Add note",
+        "dateLabel": "Date",
+        "addNote": "Add note",
+        "saving": "Saving...",
+        "entriesForDate": "Notes for {date}",
+        "noEntries": "No notes for this day.",
+        "recentTitle": "Previous notes",
+        "noRecent": "No previous notes.",
         "saveFailed": "Save failed",
         "notesForDate": "Notes for {date}",
         "noNotesForDay": "No notes for this day.",
@@ -321,6 +328,8 @@
         "title": "Recent activity",
         "empty": "No recent activity.",
         "pageOf": "Page {current} of {total}",
+        "pageCurrent": "Page {current}",
+        "loading": "Loading…",
         "previous": "Previous",
         "next": "Next"
       }
@@ -1170,7 +1179,9 @@
       "openProfile": "Profile",
       "viewWorkout": "View workout",
       "notesBadge": "Notes",
-      "forDay": "For {date}"
+      "forDay": "For {date}",
+      "loadMore": "Load more",
+      "loading": "Loading…"
     },
     "workoutDetail": {
       "backToLogs": "Back to logs",

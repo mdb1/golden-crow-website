@@ -21,9 +21,16 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { RecentLogRow } from "@/lib/gc-fitness/recent-logs-actions";
+import {
+  listRecentLogsForClient,
+  listRecentLogsForClientAsAdmin,
+  type RecentLogRow,
+} from "@/lib/gc-fitness/recent-logs-actions";
 
-const PAGE_SIZE = 10;
+// Must match the server page size (listRecentLogsForClient default). The feed
+// pages through already-loaded rows in memory; only when the user crosses the
+// loaded edge AND more rows may exist does it fetch the next window on demand.
+const PAGE_SIZE = 20;
 
 const CATEGORY_ICON: Record<
   RecentLogRow["category"],
@@ -63,6 +70,12 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
 
 interface Props {
   logs: RecentLogRow[];
+  /** The single client this feed belongs to — used for "load more" fetches. */
+  clientId: string;
+  /** Cursor for the next page (from the server). Null/absent ⇒ no more to load. */
+  initialCursor?: string | null;
+  /** Whether another page may exist beyond the initially-loaded rows. */
+  initialHasMore?: boolean;
   /**
    * When true, render the per-row chat + view-workout action buttons. The admin
    * god-mode surface is read-only and those targets are trainer-scoped (would
@@ -81,12 +94,18 @@ interface Props {
 }
 
 /**
- * Paginated (10 per page) recent-activity list for a SINGLE client. Shared by
- * the trainer client-profile section and the admin god-mode client view. The
- * incoming `logs` are already sorted newest-first by the server action.
+ * Recent-activity list for a SINGLE client, paginated 20 per page. Shared by the
+ * trainer client-profile section and the admin god-mode client view. The initial
+ * `logs` are page 1 (newest-first); "Anterior"/"Siguiente" page through loaded
+ * rows in memory, and "Siguiente" fetches the next time-cursor window on demand
+ * when the user reaches the loaded edge (260531-fwc). No exact total page count —
+ * the feed loads only what's requested.
  */
 export function ClientRecentLogsFeed({
   logs,
+  clientId,
+  initialCursor = null,
+  initialHasMore = false,
   showActions = true,
   linkMode = "trainer",
   coachUid,
@@ -94,6 +113,10 @@ export function ClientRecentLogsFeed({
   const t = useTranslations("clients.detail.recentLogs");
   const tf = useTranslations("recentLogs.feed");
   const [page, setPage] = useState(0);
+  const [rows, setRows] = useState<RecentLogRow[]>(logs);
+  const [cursor, setCursor] = useState<string | null>(initialCursor);
+  const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
+  const [loading, setLoading] = useState(false);
 
   // Detail destination for a row, or null when the category has no detail
   // surface. Workout + photo are wired in both contexts (trainer routes and the
@@ -122,14 +145,47 @@ export function ClientRecentLogsFeed({
     }
   }
 
-  const pageCount = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = useMemo(
-    () => logs.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
-    [logs, safePage],
+    () => rows.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [rows, safePage],
   );
+  // "Siguiente" can advance while there's another loaded page OR more to fetch.
+  const canForward = safePage < pageCount - 1 || hasMore;
 
-  if (logs.length === 0) {
+  async function handleNext() {
+    // Cheap path: another page is already loaded in memory.
+    if (safePage < pageCount - 1) {
+      setPage(safePage + 1);
+      return;
+    }
+    // Edge of loaded rows — fetch the next window on demand.
+    if (!hasMore || loading) return;
+    setLoading(true);
+    try {
+      const res =
+        linkMode === "admin" && coachUid
+          ? await listRecentLogsForClientAsAdmin(coachUid, clientId, cursor)
+          : await listRecentLogsForClient(clientId, cursor);
+      // Dedupe by row id — an inclusive `<=` cursor can re-return the boundary
+      // row, and a few skewed rows (see action docs) can repeat across windows.
+      setRows((prev) => {
+        const seen = new Set(prev.map((r) => r.id));
+        const fresh = res.logs.filter((r) => !seen.has(r.id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
+      // An empty window (nextCursor === null) means there's nothing older —
+      // keep the old cursor and stop offering "Siguiente".
+      setCursor(res.nextCursor ?? cursor);
+      setHasMore(res.nextCursor ? res.hasMore : false);
+      setPage(safePage + 1);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (rows.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
         {t("empty")}
@@ -228,27 +284,27 @@ export function ClientRecentLogsFeed({
         })}
       </div>
 
-      {pageCount > 1 ? (
+      {pageCount > 1 || hasMore ? (
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {t("pageOf", { current: safePage + 1, total: pageCount })}
+            {t("pageCurrent", { current: safePage + 1 })}
           </p>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={safePage === 0}
+              disabled={safePage === 0 || loading}
             >
               {t("previous")}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-              disabled={safePage >= pageCount - 1}
+              onClick={handleNext}
+              disabled={!canForward || loading}
             >
-              {t("next")}
+              {loading ? t("loading") : t("next")}
             </Button>
           </div>
         </div>

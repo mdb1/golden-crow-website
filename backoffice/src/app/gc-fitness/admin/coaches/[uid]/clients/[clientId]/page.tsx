@@ -90,6 +90,9 @@ export default async function AdminCoachClientPage({
               the admin-gated nested detail routes. */}
           <ClientRecentLogsFeed
             logs={logs.logs}
+            clientId={clientId}
+            initialCursor={logs.nextCursor}
+            initialHasMore={logs.hasMore}
             showActions={false}
             linkMode="admin"
             coachUid={uid}

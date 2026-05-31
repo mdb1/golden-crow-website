@@ -53,8 +53,11 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
   const todayCivil = civilDateToday(await getTrainerTimezone());
   const monthFirstCivil = monthFirstFromQuery(month, todayCivil);
 
-  // Default: every active client checked. Trainer can toggle off; the URL
-  // preserves the selection. Empty string → no clients selected.
+  // 260531-fwc — default to NO clients selected. Entering the calendar must NOT
+  // fan out a month query for the ENTIRE roster (that re-reads everyone's
+  // assignments + habits + habit_logs every visit). The trainer picks who to
+  // load on demand; the URL (?clientIds=a,b,c) preserves the selection, and an
+  // empty/absent param both mean "nobody selected".
   let selectedClientIds: string[];
   if (typeof clientIds === "string") {
     selectedClientIds =
@@ -65,7 +68,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             .map((s) => s.trim())
             .filter((id) => clients.some((c) => c.uid === id));
   } else {
-    selectedClientIds = clients.map((c) => c.uid);
+    selectedClientIds = [];
   }
 
   const initialPayload = await listMonthForClients({
