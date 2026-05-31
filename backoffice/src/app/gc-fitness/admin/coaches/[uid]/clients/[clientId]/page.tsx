@@ -85,8 +85,15 @@ export default async function AdminCoachClientPage({
         </CardHeader>
         <CardContent>
           {/* showActions=false — admin is read-only and the chat / workout-detail
-              targets are trainer-scoped (would 403 for an admin). */}
-          <ClientRecentLogsFeed logs={logs.logs} showActions={false} />
+              BUTTON targets are trainer-scoped (would 403 for an admin). Rows are
+              still clickable via linkMode="admin", which routes workout + photo to
+              the admin-gated nested detail routes. */}
+          <ClientRecentLogsFeed
+            logs={logs.logs}
+            showActions={false}
+            linkMode="admin"
+            coachUid={uid}
+          />
         </CardContent>
       </Card>
 

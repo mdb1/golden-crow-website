@@ -1049,6 +1049,34 @@ export async function getWorkoutLogDetail(
 }
 
 /**
+ * Admin god-mode (read-only): workout-log detail for a specific COACH's log.
+ * Mirrors getWorkoutLogDetail but gates on admin and verifies the log belongs
+ * to `coachId` so the URL can't be edited to read another coach's logs.
+ */
+export async function getWorkoutLogDetailAsAdmin(
+  coachId: string,
+  workoutLogId: string,
+): Promise<WorkoutLogDetail> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+
+  const logSnap = await db
+    .collection(FirestoreCollections.workoutLogs)
+    .doc(workoutLogId)
+    .get();
+  if (!logSnap.exists) {
+    throw new Error("Workout log not found.");
+  }
+
+  const data = logSnap.data() as Record<string, unknown>;
+  if (data.trainerId !== coachId) {
+    throw new Error("Workout log not found.");
+  }
+
+  return buildWorkoutLogDetail(db, coachId, logSnap.id, data);
+}
+
+/**
  * 260529-ltm — fetch the COMPLETED workout-log's detail BY assignmentId,
  * powering the calendar share card's "completed → share actuals" branch.
  *
