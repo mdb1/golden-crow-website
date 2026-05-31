@@ -224,7 +224,13 @@
         "notesForDate": "Notes for {date}",
         "noNotesForDay": "No notes for this day.",
         "previousNotes": "Previous notes",
-        "noPreviousNotes": "No previous notes."
+        "noPreviousNotes": "No previous notes.",
+        "edit": "Edit",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "deleting": "Deleting...",
+        "deleteConfirm": "Delete this note?"
       },
       "workoutTrends": {
         "title": "Workouts",
