@@ -22,14 +22,20 @@ export async function ClientRecentLogsWidget({
   clientId: string;
 }) {
   const t = await getTranslations("clients.detail.recentLogs");
-  const { logs } = await listRecentLogsForClient(clientId);
+  const { logs, nextCursor, hasMore } = await listRecentLogsForClient(clientId);
   return (
     <Card className="xl:col-span-2">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">{t("title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ClientRecentLogsFeed logs={logs} showActions />
+        <ClientRecentLogsFeed
+          logs={logs}
+          clientId={clientId}
+          initialCursor={nextCursor}
+          initialHasMore={hasMore}
+          showActions
+        />
       </CardContent>
     </Card>
   );

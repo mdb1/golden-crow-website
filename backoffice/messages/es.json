@@ -321,6 +321,8 @@
         "title": "Actividad reciente",
         "empty": "Sin actividad reciente.",
         "pageOf": "Página {current} de {total}",
+        "pageCurrent": "Página {current}",
+        "loading": "Cargando…",
         "previous": "Anterior",
         "next": "Siguiente"
       }
