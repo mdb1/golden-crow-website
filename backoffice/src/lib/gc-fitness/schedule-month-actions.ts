@@ -545,24 +545,44 @@ export async function listMonthForClients(input: {
     });
   }
 
-  // Per-habit log fetch (limit 200 per habit) — bound is generous for any
-  // single calendar month.
-  const habitDocIds = Array.from(habitMetaById.keys());
-  const logsByHabit = new Map<string, FirebaseFirestore.QuerySnapshot>();
-  await Promise.all(
-    habitDocIds.map(async (habitId) => {
-      try {
-        const snap = await db
-          .collection(HABIT_LOGS)
-          .where("habitId", "==", habitId)
-          .limit(200)
-          .get();
-        logsByHabit.set(habitId, snap);
-      } catch {
-        // missing index / rule error — fall through to "all scheduled"
+  // 260531-fwc COST: ONE batched habit_logs query for ALL clients' logs in the
+  // month (served by the (clientId, civilDate) index) replaces the old per-habit
+  // fan-out — one `where(habitId==).limit(200)` query PER habit. `clientId in`
+  // mirrors the assignments/habits queries above; civilDate is range-bounded to
+  // the month so we read only the days this view renders. Grouped by habitId →
+  // (civilDate → latest log) below. Fallback to "all scheduled" on index/rule
+  // error (same degrade as the old per-habit try/catch).
+  const logByCivilByHabit = new Map<string, Map<string, HabitLogRow>>();
+  try {
+    const monthHabitLogsSnap = await db
+      .collection(HABIT_LOGS)
+      .where("clientId", "in", clientIds)
+      .where("civilDate", ">=", monthStart)
+      .where("civilDate", "<=", monthEnd)
+      .get();
+    for (const ldoc of monthHabitLogsSnap.docs) {
+      const data = ldoc.data() as Record<string, unknown>;
+      const habitId = typeof data.habitId === "string" ? data.habitId : "";
+      const civil = typeof data.civilDate === "string" ? data.civilDate : "";
+      if (!habitId || !civil) continue;
+      const row: HabitLogRow = {
+        habitId,
+        clientId: (data.clientId as string) ?? "",
+        civilDate: civil,
+        value: data.value as boolean | string | number,
+        unit: typeof data.unit === "string" ? data.unit : undefined,
+        deleted: data.deleted === true,
+      };
+      let byCivil = logByCivilByHabit.get(habitId);
+      if (!byCivil) {
+        byCivil = new Map<string, HabitLogRow>();
+        logByCivilByHabit.set(habitId, byCivil);
       }
-    }),
-  );
+      byCivil.set(civil, row);
+    }
+  } catch {
+    // missing index / rule error — fall through to "all scheduled"
+  }
 
   const habitsByDay: Record<string, MonthHabitChip[]> = {};
   for (const [clientId, habits] of habitsByClient.entries()) {
@@ -571,24 +591,10 @@ export async function listMonthForClients(input: {
       const meta = habitMetaById.get(habitId);
       if (!meta) continue;
       const days = habitScheduledDays(habit, monthStart, monthEnd);
-      const logs = logsByHabit.get(habitId);
-      const logByCivil = new Map<string, HabitLogRow>();
-      if (logs) {
-        for (const ldoc of logs.docs) {
-          const data = ldoc.data() as Record<string, unknown>;
-          const civil =
-            typeof data.civilDate === "string" ? data.civilDate : "";
-          if (!civil || civil < monthStart || civil > monthEnd) continue;
-          logByCivil.set(civil, {
-            habitId: (data.habitId as string) ?? "",
-            clientId: (data.clientId as string) ?? "",
-            civilDate: civil,
-            value: data.value as boolean | string | number,
-            unit: typeof data.unit === "string" ? data.unit : undefined,
-            deleted: data.deleted === true,
-          });
-        }
-      }
+      // 260531-fwc: logs precomputed from the single batched month query above
+      // (already range-bounded to monthStart..monthEnd).
+      const logByCivil =
+        logByCivilByHabit.get(habitId) ?? new Map<string, HabitLogRow>();
       for (const civil of days) {
         const log = logByCivil.get(civil);
         const status: MonthHabitChip["status"] = log
