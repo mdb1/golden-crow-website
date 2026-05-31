@@ -117,8 +117,11 @@ export interface ClientRosterRow {
   habitsCompletedThisWeek: number;
   habitsScheduledThisWeek: number;
   /** Workouts in the calendar month containing today (client tz when known).
-   *  "completed" = workout_logs with status==="completed" started in-month.
-   *  "scheduled" = workout_assignments with scheduledFor in-month. */
+   *  BOTH derive from `workout_assignments` with `scheduledFor` in-month, so
+   *  completed ≤ scheduled always:
+   *  "scheduled" = assignment docs scheduled in-month;
+   *  "completed" = those whose `status === "completed"` (the field iOS flips on
+   *  workout finish — the same source of truth the client's calendar shows). */
   workoutsCompletedThisMonth: number;
   workoutsScheduledThisMonth: number;
   /** Goal counts on `/client_goals` bucketed by horizon. */
@@ -422,7 +425,6 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         assignedLast7Snap,
         completedLast7Snap,
         assignedThisMonthSnap,
-        completedThisMonthSnap,
       ] = await Promise.all([
         db
           .collection(FirestoreCollections.workoutLogs)
@@ -493,20 +495,16 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .limit(50)
           .get(),
         // 260528: assignments scheduled IN this calendar month (string range).
+        // BOTH month-workout numbers derive from THIS single snapshot — see
+        // the count computation below. `status` on the assignment is the
+        // source of truth iOS maintains (WorkoutAssignmentRepository
+        // .transitionToCompleted flips it to "completed" on workout finish),
+        // and it's what the client's own calendar renders.
         db
           .collection(FirestoreCollections.workoutAssignments)
           .where("clientId", "==", c.uid)
           .where("scheduledFor", ">=", monthStartCivil)
           .where("scheduledFor", "<=", monthEndCivil)
-          .get(),
-        // 260528: completed workout logs in this calendar month. We filter on
-        // status to avoid counting `started`-only sessions; index is just
-        // (clientId, startedAt) so we filter status in memory.
-        db
-          .collection(FirestoreCollections.workoutLogs)
-          .where("clientId", "==", c.uid)
-          .orderBy("startedAt", "desc")
-          .limit(100)
           .get(),
       ]);
 
@@ -636,26 +634,22 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         assignedCount - completedCount,
       );
 
-      // 260528 — month-window workout counts. Assigned: every
-      // `workout_assignments` doc whose `scheduledFor` falls in this calendar
-      // month. Completed: every workout_log started in-month AND with
-      // `status === "completed"` (a started-but-abandoned log doesn't count).
+      // Month-window workout counts. BOTH numbers come from the SAME
+      // `workout_assignments` snapshot (scheduledFor in-month), so completed
+      // can never exceed scheduled:
+      //   - scheduled = every assignment doc scheduled this month
+      //   - completed = of those, the ones whose `status === "completed"`
+      // 260531 fix: the prior version counted `completed` from a SEPARATE
+      // `workout_logs` query (status==="completed", startedAt in-month). That
+      // mixed two collections and produced nonsense like "24/6" — a workout
+      // assigned in a PREVIOUS month but finished this month counted toward
+      // completed-this-month but never toward scheduled-this-month, and
+      // re-logged/ad-hoc logs double-counted. The assignment `status` is the
+      // single source of truth iOS maintains (transitionToCompleted on finish)
+      // and what the client's own calendar shows.
       const workoutsScheduledThisMonth = assignedThisMonthSnap.size;
-      const workoutsCompletedThisMonth = completedThisMonthSnap.docs.filter(
-        (doc) => {
-          const raw = doc.get("startedAt");
-          const startedAt =
-            raw && typeof (raw as { toDate?: () => Date }).toDate === "function"
-              ? (raw as { toDate: () => Date }).toDate()
-              : raw instanceof Date
-                ? raw
-                : null;
-          if (!startedAt) return false;
-          const civil = civilDateToday(tzForToday, startedAt);
-          if (civil < monthStartCivil || civil > monthEndCivil) return false;
-          const status = doc.get("status");
-          return status === "completed";
-        },
+      const workoutsCompletedThisMonth = assignedThisMonthSnap.docs.filter(
+        (doc) => doc.get("status") === "completed",
       ).length;
 
       // 260528 — habit counts for the trailing 7 days. "Scheduled" sums each
