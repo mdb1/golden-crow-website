@@ -417,7 +417,6 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       const monthEndCivil = `${today.slice(0, 7)}-31`;
 
       const [
-        latestWorkoutLog,
         recentHabitLogs,
         latestProgressPhoto,
         chatDocSnap,
@@ -425,13 +424,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         assignedLast7Snap,
         completedLast7Snap,
         assignedThisMonthSnap,
+        windowedHabitLogs,
       ] = await Promise.all([
-        db
-          .collection(FirestoreCollections.workoutLogs)
-          .where("clientId", "==", c.uid)
-          .orderBy("startedAt", "desc")
-          .limit(1)
-          .get(),
         // Habit logs reflect the client's own check-in; the dashboard's
         // "last action" feed surfaces them, so sorting must too.
         //
@@ -506,9 +500,32 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .where("scheduledFor", ">=", monthStartCivil)
           .where("scheduledFor", "<=", monthEndCivil)
           .get(),
+        // 260531-fwc COST: ONE windowed habit_logs query per client (served by
+        // the live (clientId, civilDate) index) replaces the old per-habit
+        // fan-out that ran TWO *sequential* habit_logs queries PER habit — the
+        // compliance loop AND the trailing-7 habit-count loop. Grouped by
+        // habitId in memory below. Fallback to an unwindowed clientId query if
+        // the composite index is ever still building (mirrors recent-logs).
+        db
+          .collection(FirestoreCollections.habitLogs)
+          .where("clientId", "==", c.uid)
+          .where("civilDate", ">=", windowStartCivil)
+          .orderBy("civilDate", "desc")
+          .limit(500)
+          .get()
+          .catch(() =>
+            db
+              .collection(FirestoreCollections.habitLogs)
+              .where("clientId", "==", c.uid)
+              .limit(200)
+              .get(),
+          ),
       ]);
 
-      const tsWorkout = latestDate(latestWorkoutLog, "startedAt");
+      // 260531-fwc: the latest workout is completedLast7Snap.docs[0] (ordered
+      // startedAt desc, NO date filter), so the dedicated limit(1) query the
+      // old `latestWorkoutLog` ran was redundant.
+      const tsWorkout = latestDate(completedLast7Snap, "startedAt");
       // Walk every habit-log doc and take the max event-time across the
       // three timestamp fields. Some docs only have updatedAt; others only
       // loggedAt — picking ANY non-null field is what makes the bug go
@@ -564,9 +581,29 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
             : 0;
       const unreadChatCount = rawUnread > 0 ? rawUnread : 0;
 
-      // This-week compliance — fetch up to 50 logs per habit (>>7 expected),
-      // compute per-habit ratio via the Pattern-B pure function, then average.
+      // This-week compliance. 260531-fwc: group the SINGLE windowed habit_logs
+      // snapshot by habitId ONCE (replaces a per-habit query fan-out), then
+      // compute per-habit ratio via the Pattern-B pure function and average.
+      // The same grouped map feeds the trailing-7 habit-count loop below.
       const habitDocs = clientHabits.docs;
+      const windowedLogsByHabit = new Map<string, HabitLogRow[]>();
+      for (const ldoc of windowedHabitLogs.docs) {
+        const data = ldoc.data() as Record<string, unknown>;
+        const hid = typeof data.habitId === "string" ? data.habitId : "";
+        if (!hid) continue;
+        const row: HabitLogRow = {
+          habitId: hid,
+          clientId: (data.clientId as string) ?? "",
+          civilDate: typeof data.civilDate === "string" ? data.civilDate : "",
+          value: data.value as boolean | string | number,
+          unit: typeof data.unit === "string" ? data.unit : undefined,
+          deleted: data.deleted === true,
+        };
+        const bucket = windowedLogsByHabit.get(hid);
+        if (bucket) bucket.push(row);
+        else windowedLogsByHabit.set(hid, [row]);
+      }
+
       let complianceSum = 0;
       let complianceCount = 0;
       for (const hdoc of habitDocs) {
@@ -578,24 +615,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         const targetValue =
           typeof habit.targetValue === "number" ? habit.targetValue : undefined;
 
-        const logsSnap = await db
-          .collection(FirestoreCollections.habitLogs)
-          .where("habitId", "==", hdoc.id)
-          .orderBy("loggedAt", "desc")
-          .limit(50)
-          .get();
-
-        const logs: HabitLogRow[] = logsSnap.docs.map((d) => {
-          const data = d.data() as Record<string, unknown>;
-          return {
-            habitId: (data.habitId as string) ?? "",
-            clientId: (data.clientId as string) ?? "",
-            civilDate: (data.civilDate as string) ?? "",
-            value: data.value as boolean | string | number,
-            unit: typeof data.unit === "string" ? data.unit : undefined,
-            deleted: data.deleted === true,
-          };
-        });
+        const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
 
         const { ratio } = computeCompliance(
           habitType,
@@ -706,37 +726,17 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           }
         }
       }
-      // Count completed habit logs in the 7-day window from the SAME logs
-      // already loaded by the per-habit compliance loop above — re-querying
-      // would double the read budget. The compliance loop runs first, so by
-      // the time we're here `complianceCount`/`complianceSum` are populated
-      // but we don't have direct access to the raw logs. Re-fetch the same
-      // habit_logs by habit, but ONLY when there are habits to count — the
-      // limit(50) per habit + clientHabits cap means this fan-out stays
-      // bounded for v1 trainer rosters.
+      // Count completed habit logs in the 7-day window. 260531-fwc: reuse the
+      // grouped `windowedLogsByHabit` map built above — the old code re-ran the
+      // per-habit habit_logs fan-out a SECOND time (doubling the read budget).
       for (const hdoc of habitDocs) {
         const habit = hdoc.data() as { type?: HabitType; targetValue?: number };
         const habitType: HabitType = (habit.type ?? "binary") as HabitType;
         const targetValue =
           typeof habit.targetValue === "number" ? habit.targetValue : undefined;
-        const logsSnap = await db
-          .collection(FirestoreCollections.habitLogs)
-          .where("habitId", "==", hdoc.id)
-          .orderBy("loggedAt", "desc")
-          .limit(50)
-          .get();
-        for (const ldoc of logsSnap.docs) {
-          const data = ldoc.data() as Record<string, unknown>;
-          const civil = typeof data.civilDate === "string" ? data.civilDate : "";
-          if (!windowSet.has(civil)) continue;
-          const row: HabitLogRow = {
-            habitId: (data.habitId as string) ?? "",
-            clientId: (data.clientId as string) ?? "",
-            civilDate: civil,
-            value: data.value as boolean | string | number,
-            unit: typeof data.unit === "string" ? data.unit : undefined,
-            deleted: data.deleted === true,
-          };
+        const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
+        for (const row of logs) {
+          if (!windowSet.has(row.civilDate)) continue;
           if (!logCountsAsCompleted(row, habitType, targetValue)) continue;
           habitsCompletedThisWeek += 1;
         }
