@@ -1,12 +1,13 @@
 "use client";
 
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
   CalendarClock,
   Camera,
+  ChevronRight,
   Dumbbell,
   Eye,
   Gauge,
@@ -68,6 +69,15 @@ interface Props {
    * 403 for an admin), so admin passes `false`.
    */
   showActions?: boolean;
+  /**
+   * Routing context for making rows clickable. "trainer" links to the trainer
+   * surfaces; "admin" links to the nested admin god-mode detail routes (which
+   * require `coachUid`). A function prop can't cross the server→client boundary,
+   * so the feed computes hrefs internally from these serializable inputs.
+   */
+  linkMode?: "trainer" | "admin";
+  /** Coach uid — required when `linkMode === "admin"` to build the base path. */
+  coachUid?: string;
 }
 
 /**
@@ -75,10 +85,42 @@ interface Props {
  * the trainer client-profile section and the admin god-mode client view. The
  * incoming `logs` are already sorted newest-first by the server action.
  */
-export function ClientRecentLogsFeed({ logs, showActions = true }: Props) {
+export function ClientRecentLogsFeed({
+  logs,
+  showActions = true,
+  linkMode = "trainer",
+  coachUid,
+}: Props) {
   const t = useTranslations("clients.detail.recentLogs");
   const tf = useTranslations("recentLogs.feed");
   const [page, setPage] = useState(0);
+
+  // Detail destination for a row, or null when the category has no detail
+  // surface. Workout + photo are wired in both contexts (trainer routes and the
+  // nested admin god-mode routes). Habit + weight have no detail page yet and
+  // stay non-clickable.
+  function hrefForRow(row: RecentLogRow): string | null {
+    const adminBase =
+      linkMode === "admin" && coachUid
+        ? `/gc-fitness/admin/coaches/${coachUid}/clients/${row.clientId}`
+        : null;
+    // In admin mode without a coachUid we can't build a safe path — don't link.
+    if (linkMode === "admin" && !adminBase) return null;
+
+    switch (row.category) {
+      case "workout":
+        if (!row.workoutLogId) return null;
+        return adminBase
+          ? `${adminBase}/workouts/${row.workoutLogId}`
+          : `/gc-fitness/recent-logs/workouts/${row.workoutLogId}`;
+      case "photo":
+        return adminBase
+          ? `${adminBase}/photos`
+          : `/gc-fitness/clients/${row.clientId}/compare-photos`;
+      default:
+        return null;
+    }
+  }
 
   const pageCount = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -105,7 +147,7 @@ export function ClientRecentLogsFeed({ logs, showActions = true }: Props) {
               key={row.id}
               className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5"
             >
-              <div className="min-w-0 flex-1">
+              <RowShell href={hrefForRow(row)}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
                     variant="outline"
@@ -149,7 +191,7 @@ export function ClientRecentLogsFeed({ logs, showActions = true }: Props) {
                   {formatDateTime(row.eventAt)}
                   {row.detail ? ` · ${row.detail}` : ""}
                 </p>
-              </div>
+              </RowShell>
               {showActions ? (
                 <div className="flex shrink-0 items-center gap-1">
                   <Button
@@ -212,6 +254,30 @@ export function ClientRecentLogsFeed({ logs, showActions = true }: Props) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Wraps a row's left content: a clickable Link (with a hover chevron) when the
+// category has a detail destination, otherwise an inert div. Keeping the action
+// buttons OUTSIDE this wrapper avoids nesting interactive elements in an anchor.
+function RowShell({
+  href,
+  children,
+}: {
+  href: string | null;
+  children: ReactNode;
+}) {
+  if (!href) {
+    return <div className="min-w-0 flex-1">{children}</div>;
+  }
+  return (
+    <Link
+      href={href}
+      className="group flex min-w-0 flex-1 items-center gap-2 rounded-md outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+    </Link>
   );
 }
 
