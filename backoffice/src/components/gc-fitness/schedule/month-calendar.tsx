@@ -293,7 +293,7 @@ export function MonthCalendar({
         router.replace(`?${params.toString()}`, { scroll: false });
       });
     },
-    [searchParams, router, clients.length],
+    [searchParams, router],
   );
 
   function setMonthAndSync(nextMonth: string) {
@@ -302,13 +302,15 @@ export function MonthCalendar({
   }
 
   function toggleClient(uid: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(uid)) next.delete(uid);
-      else next.add(uid);
-      syncUrl(monthFirst, next);
-      return next;
-    });
+    // syncUrl() triggers router.replace + startTransition, which are side
+    // effects — must run in the event handler, NOT inside the setState updater
+    // (the updater runs during render → "Cannot update Router while rendering").
+    // Mirrors selectAll / clearAll below.
+    const next = new Set(selectedIds);
+    if (next.has(uid)) next.delete(uid);
+    else next.add(uid);
+    setSelectedIds(next);
+    syncUrl(monthFirst, next);
   }
 
   function selectAll() {
