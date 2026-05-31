@@ -283,12 +283,12 @@ export function MonthCalendar({
     (nextMonth: string, nextSelected: Set<string>) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("month", nextMonth.slice(0, 7));
+      // 260531-fwc — always write the explicit selection (including the empty
+      // string) so it's fully reload-safe AND an absent param unambiguously
+      // means "nobody selected". Previously "all selected" deleted the param,
+      // which collided with the new default-empty behavior.
       const ids = Array.from(nextSelected);
-      if (ids.length === clients.length) {
-        params.delete("clientIds");
-      } else {
-        params.set("clientIds", ids.join(","));
-      }
+      params.set("clientIds", ids.join(","));
       startUrlTransition(() => {
         router.replace(`?${params.toString()}`, { scroll: false });
       });
@@ -624,6 +624,11 @@ export function MonthCalendar({
       </div>
 
       {/* ── Calendar grid ──────────────────────────────────────────────── */}
+      {selectedIds.size === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+          Elegí uno o más clientes arriba para ver su agenda.
+        </div>
+      ) : (
       <div className={cn("grid gap-2", gridColsClass)}>
         {cells.map(({ civil, inMonth }) => {
           const workouts = showWorkouts
@@ -682,6 +687,7 @@ export function MonthCalendar({
           );
         })}
       </div>
+      )}
 
       {/* ── Glossary footer (status colors at a glance) ───────────────── */}
       <section className="rounded-xl border bg-card/95 p-3 text-xs">
