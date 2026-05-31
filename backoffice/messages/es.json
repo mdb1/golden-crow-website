@@ -1172,7 +1172,9 @@
       "openProfile": "Perfil",
       "viewWorkout": "Ver entrenamiento",
       "notesBadge": "Notas",
-      "forDay": "Del {date}"
+      "forDay": "Del {date}",
+      "loadMore": "Cargar más",
+      "loading": "Cargando…"
     },
     "workoutDetail": {
       "backToLogs": "Volver a la actividad",

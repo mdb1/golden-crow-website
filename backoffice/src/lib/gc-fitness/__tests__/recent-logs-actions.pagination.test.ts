@@ -29,8 +29,17 @@ jest.mock("@/lib/gc-fitness/auth-helpers", () => ({
 jest.mock("@/lib/gc-fitness/trainer-timezone", () => ({
   getTrainerTimezone: jest.fn(async () => "UTC"),
 }));
+jest.mock("@/lib/gc-fitness/client-roster", () => ({
+  listClients: jest.fn(async () => [
+    { uid: "c1", email: "c1@x.com", displayName: "Client One", timezone: null, photoURL: null, pendingProvisioning: false },
+    { uid: "c2", email: "c2@x.com", displayName: "Client Two", timezone: null, photoURL: null, pendingProvisioning: false },
+  ]),
+}));
 
-import { listRecentLogsForClient } from "../recent-logs-actions";
+import {
+  listRecentLogsForClient,
+  listRecentLogsForTrainerPage,
+} from "../recent-logs-actions";
 import { FirestoreCollections } from "../collections";
 
 function snap(docs: unknown[]) {
@@ -178,5 +187,115 @@ describe("listRecentLogsForClient — time-cursor pagination (260531-fwc)", () =
     const p1 = new Set(page1.logs.map((r) => r.id));
     const overlap = page2.logs.filter((r) => p1.has(r.id));
     expect(overlap.length).toBeLessThanOrEqual(1);
+  });
+});
+
+// ---- multi-client (full-roster) page mode + server-side type filter --------
+
+// Workouts tagged per client; the mock honors where("clientId","==") so the
+// per-client fan-out returns each client's own logs.
+function workoutDocFor(clientId: string, i: number, iso: string) {
+  const data: Record<string, unknown> = {
+    clientId,
+    startedAt: iso,
+    completedAt: iso,
+    templateSnapshot: { name: `${clientId} W${i}` },
+    sets: [],
+  };
+  return {
+    id: `${clientId}_w${i}`,
+    exists: true,
+    data: () => data,
+    get: (f: string) => data[f],
+  };
+}
+
+// 12 workouts each for c1 + c2, interleaved in time.
+const MULTI_WORKOUTS = [
+  ...Array.from({ length: 12 }, (_, i) =>
+    workoutDocFor("c1", i, `2026-05-${String(30 - i * 2).padStart(2, "0")}T10:00:00Z`),
+  ),
+  ...Array.from({ length: 12 }, (_, i) =>
+    workoutDocFor("c2", i, `2026-05-${String(29 - i * 2).padStart(2, "0")}T10:00:00Z`),
+  ),
+];
+
+function makeMultiDb() {
+  function makeQuery(collName: string): Record<string, unknown> {
+    let clientEq: string | null = null;
+    let lim = Infinity;
+    const q: Record<string, unknown> = {
+      where(field: unknown, op: unknown, value: unknown) {
+        if (field === "clientId" && op === "==" && typeof value === "string") {
+          clientEq = value;
+        }
+        return q;
+      },
+      orderBy: () => q,
+      limit(n: number) {
+        lim = n;
+        return q;
+      },
+      get: () => {
+        if (collName === FirestoreCollections.workoutLogs) {
+          const rows = MULTI_WORKOUTS.filter(
+            (d) => !clientEq || (d.get("clientId") as string) === clientEq,
+          ).slice(0, lim === Infinity ? undefined : lim);
+          return Promise.resolve(snap(rows));
+        }
+        if (collName === FirestoreCollections.users) {
+          return Promise.resolve(snap([userDoc()])); // no createdAt → no signup rows
+        }
+        return Promise.resolve(snap([]));
+      },
+      doc: (id: string) => ({
+        id,
+        get: () => Promise.resolve({ exists: false, data: () => ({}), get: () => undefined }),
+        collection: (sub: string) => makeQuery(`${collName}/${id}/${sub}`),
+      }),
+    };
+    return q;
+  }
+  return {
+    collection: (name: string) => makeQuery(name),
+    getAll: () => Promise.resolve([]),
+  };
+}
+
+describe("listRecentLogsForTrainerPage — multi-client merge + type filter", () => {
+  let errSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockState.db = makeMultiDb();
+  });
+  afterEach(() => errSpy.mockRestore());
+
+  it("merges BOTH clients' workouts into one newest-first page", async () => {
+    const page1 = await listRecentLogsForTrainerPage(null, 20);
+
+    expect(page1.logs).toHaveLength(20); // 24 workouts total → first 20
+    expect(page1.hasMore).toBe(true);
+    // Both clients are represented and rows are newest-first.
+    const clientIds = new Set(page1.logs.map((r) => r.clientId));
+    expect(clientIds.has("c1")).toBe(true);
+    expect(clientIds.has("c2")).toBe(true);
+    for (let i = 1; i < page1.logs.length; i++) {
+      expect(Date.parse(page1.logs[i - 1].eventAt)).toBeGreaterThanOrEqual(
+        Date.parse(page1.logs[i].eventAt),
+      );
+    }
+  });
+
+  it("type filter 'habit' queries only the habit source (no workout rows)", async () => {
+    const res = await listRecentLogsForTrainerPage(null, 20, null, "habit");
+    expect(res.logs.every((r) => r.category !== "workout")).toBe(true);
+    // No habit data seeded → empty, proving the workout source was NOT read.
+    expect(res.logs).toHaveLength(0);
+  });
+
+  it("client filter scopes to a single client", async () => {
+    const res = await listRecentLogsForTrainerPage(null, 20, "c2");
+    expect(res.logs.length).toBeGreaterThan(0);
+    expect(res.logs.every((r) => r.clientId === "c2")).toBe(true);
   });
 });

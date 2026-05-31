@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -36,11 +36,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { RecentLogRow } from "@/lib/gc-fitness/recent-logs-actions";
+import {
+  listRecentLogsForTrainerPage,
+  type RecentLogRow,
+} from "@/lib/gc-fitness/recent-logs-actions";
+
+const PAGE_SIZE = 20;
 
 interface Props {
   logs: RecentLogRow[];
   clients: Array<{ id: string; name: string }>;
+  /** Cursor for the next page (from the server). Null ⇒ nothing more to load. */
+  initialCursor?: string | null;
+  /** Whether another page may exist beyond the initially-loaded rows. */
+  initialHasMore?: boolean;
 }
 
 // Category → icon + label key. NEUTRAL: one muted `secondary` badge per the
@@ -83,27 +92,67 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
     "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
 };
 
-export function RecentLogsFeed({ logs, clients }: Props) {
+export function RecentLogsFeed({
+  logs,
+  clients,
+  initialCursor = null,
+  initialHasMore = false,
+}: Props) {
   const t = useTranslations("recentLogs.feed");
   const router = useRouter();
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  // 260531-fwc — server-paginated. Filters refetch page 1 server-side (the
+  // feed is no longer fully in memory); "Cargar más" appends the next window.
+  const [rows, setRows] = useState<RecentLogRow[]>(logs);
+  const [cursor, setCursor] = useState<string | null>(initialCursor);
+  const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
+  const [loading, setLoading] = useState(false);
 
-  const filtered = useMemo(() => {
-    const rows = logs.filter((row) => {
-      if (clientFilter !== "all" && row.clientId !== clientFilter) return false;
-      if (typeFilter !== "all" && row.category !== typeFilter) return false;
-      return true;
-    });
-    rows.sort((a, b) => {
-      const ams = Date.parse(a.eventAt);
-      const bms = Date.parse(b.eventAt);
-      const an = Number.isNaN(ams) ? 0 : ams;
-      const bn = Number.isNaN(bms) ? 0 : bms;
-      return bn - an;
-    });
-    return rows;
-  }, [logs, clientFilter, typeFilter]);
+  // Re-fetch page 1 whenever a filter changes (translates the filter to the
+  // server-side client / type scope so pagination + filtering compose).
+  async function applyFilters(nextClient: string, nextType: string) {
+    setClientFilter(nextClient);
+    setTypeFilter(nextType);
+    setLoading(true);
+    try {
+      const res = await listRecentLogsForTrainerPage(
+        null,
+        PAGE_SIZE,
+        nextClient === "all" ? null : nextClient,
+        nextType === "all" ? null : (nextType as RecentLogRow["category"]),
+      );
+      setRows(res.logs);
+      setCursor(res.nextCursor);
+      setHasMore(res.hasMore);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadMore() {
+    if (!hasMore || loading) return;
+    setLoading(true);
+    try {
+      const res = await listRecentLogsForTrainerPage(
+        cursor,
+        PAGE_SIZE,
+        clientFilter === "all" ? null : clientFilter,
+        typeFilter === "all" ? null : (typeFilter as RecentLogRow["category"]),
+      );
+      setRows((prev) => {
+        const seen = new Set(prev.map((r) => r.id));
+        const fresh = res.logs.filter((r) => !seen.has(r.id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
+      setCursor(res.nextCursor ?? cursor);
+      setHasMore(res.nextCursor ? res.hasMore : false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filtered = rows;
 
   return (
     <div className="flex flex-col gap-4">
@@ -118,7 +167,11 @@ export function RecentLogsFeed({ logs, clients }: Props) {
         <CardContent className="grid max-w-4xl gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <p className="text-sm font-medium">{t("clientLabel")}</p>
-            <Select value={clientFilter} onValueChange={setClientFilter}>
+            <Select
+              value={clientFilter}
+              onValueChange={(v) => applyFilters(v, typeFilter)}
+              disabled={loading}
+            >
               <SelectTrigger className="min-w-[14rem]">
                 <SelectValue placeholder={t("allClients")} />
               </SelectTrigger>
@@ -134,7 +187,11 @@ export function RecentLogsFeed({ logs, clients }: Props) {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">{t("typeLabel")}</p>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select
+              value={typeFilter}
+              onValueChange={(v) => applyFilters(clientFilter, v)}
+              disabled={loading}
+            >
               <SelectTrigger className="min-w-[14rem]">
                 <SelectValue placeholder={t("allActivity")} />
               </SelectTrigger>
@@ -262,6 +319,19 @@ export function RecentLogsFeed({ logs, clients }: Props) {
           );
         })}
       </div>
+
+      {hasMore || loading ? (
+        <div className="flex justify-center pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadMore}
+            disabled={loading || !hasMore}
+          >
+            {loading ? t("loading") : t("loadMore")}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -296,13 +296,20 @@ async function buildRecentLogs(params: {
   clients: ClientRosterEntry[];
   timezone: string;
   /**
-   * 260531-fwc — single-client time-cursor pagination. When present AND the
-   * roster is exactly one client, the per-source queries below switch from the
-   * trainer-wide `limit(600)` scans to index-safe `where(clientId==)` cursor
-   * queries bounded to `pageSize`. Absent (or multi-client) ⇒ the legacy
-   * trainer-wide load-everything path, unchanged.
+   * 260531-fwc — time-cursor pagination. When present, every source switches
+   * from the trainer-wide `limit(600)` scans to index-safe `where(clientId==)`
+   * per-client cursor queries bounded to `pageSize` (fanned out across the
+   * roster — works for one client OR many). Absent ⇒ the legacy trainer-wide
+   * load-everything path (still used by the dashboard), unchanged.
+   *
+   * `typeFilter` (optional) restricts the feed to ONE category server-side by
+   * only querying that source — so a "photos" filter never reads workout logs.
    */
-  page?: { cursor: string | null; pageSize: number };
+  page?: {
+    cursor: string | null;
+    pageSize: number;
+    typeFilter?: RecentLogCategory | null;
+  };
 }): Promise<RecentLogsResult> {
   const db = gcFitnessFirestore();
 
@@ -310,43 +317,43 @@ async function buildRecentLogs(params: {
   const nameByClientId = new Map(clients.map((c) => [c.uid, c.displayName]));
   const clientList = clients.map((c) => ({ id: c.uid, name: c.displayName }));
 
-  // Page mode is single-client only — the k-way merge + habit-progress math
-  // below assume a per-client scope. A multi-client roster always takes the
-  // legacy path even if `page` is set.
-  const pageMode = params.page && clients.length === 1 ? params.page : null;
+  const pageMode = params.page ?? null;
 
-  let workoutLogsSnap: FirebaseFirestore.QuerySnapshot;
-  let usersSnap: FirebaseFirestore.QuerySnapshot;
+  // Only `.docs` is read off these downstream, so a structural type lets page
+  // mode hand back merged per-client docs or an empty `{ docs: [] }`.
+  let workoutLogsSnap: { docs: FirebaseFirestore.QueryDocumentSnapshot[] };
+  let usersSnap: { docs: FirebaseFirestore.QueryDocumentSnapshot[] };
   let habitLogsSnaps: FirebaseFirestore.QuerySnapshot[];
   let photoSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let weightSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let habitsSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
-  // Only `.docs` is read downstream, so a structural type lets page mode hand
-  // back an empty `{ docs: [] }` when the (minor) assignments query is skipped.
   let trainerAssignmentsSnap: { docs: FirebaseFirestore.QueryDocumentSnapshot[] };
   // Set in page mode: true when any time-series source returned a FULL page,
   // i.e. there may be older rows beyond this window.
   let anySourceFull = false;
 
   if (pageMode) {
-    // 260531-fwc — single-client time-cursor window. Each source is queried
-    // newest-first, bounded to `pageSize`, filtered to `field <= cursor` after
-    // page 1. Uses ONLY existing composite indexes:
+    // 260531-fwc — time-cursor window, fanned out PER client across the roster
+    // (one client or many). Each source is queried newest-first, bounded to
+    // `pageSize`, filtered to `field <= cursor` after page 1. Uses ONLY existing
+    // composite indexes:
     //   workout_logs        (clientId, startedAt DESC)
     //   habit_logs          (clientId, civilDate DESC)   [+ fallback]
     //   progress_photos     (clientId, createdAt DESC)
     //   workout_assignments (clientId, scheduledFor DESC, __name__)
     //   body_weight_logs    recordedAt (single-field, subcollection)
-    //   users signup row    fetched by documentId (no index)
+    //   users signup rows   fetched by documentId / coachId (page 1 only)
     // The merge sorts by computed `eventAt` and the CLIENT dedupes by row.id, so
     // an inclusive `<=` boundary never drops or duplicates a row. See the
     // boundary caveats documented on the wrapper actions.
-    const c = clients[0]!;
     const limit = pageMode.pageSize;
+    const typeFilter = pageMode.typeFilter ?? null;
+    const want = (cat: RecentLogCategory) => !typeFilter || typeFilter === cat;
     const cursorDate = pageMode.cursor ? asDate(pageMode.cursor) : null;
     const cursorCivil = cursorDate
       ? civilDateFormat(cursorDate, params.timezone)
       : null;
+    const isFirstPage = !cursorDate;
 
     // Apply the `<= cursor` range (after page 1) + newest-first order + bound,
     // for sources whose cursor field is a real timestamp.
@@ -355,88 +362,163 @@ async function buildRecentLogs(params: {
         .orderBy(field, "desc")
         .limit(limit);
 
-    const workoutQ = ranged(
-      db
-        .collection(FirestoreCollections.workoutLogs)
-        .where("clientId", "==", c.uid),
-      "startedAt",
-    );
-    const photoQ = ranged(
-      db
-        .collection(FirestoreCollections.progressPhotos)
-        .where("clientId", "==", c.uid),
-      "createdAt",
-    );
-    const weightQ = ranged(
-      db
-        .collection(FirestoreCollections.users)
-        .doc(c.uid)
-        .collection("body_weight_logs"),
-      "recordedAt",
-    );
+    // Per-client fan-out for each (wanted) source — fired concurrently. A
+    // skipped (filtered-out) source yields an empty result so its category
+    // simply produces no rows in the assembly below.
+    const workoutSnapsP = want("workout")
+      ? Promise.all(
+          clients.map((c) =>
+            ranged(
+              db
+                .collection(FirestoreCollections.workoutLogs)
+                .where("clientId", "==", c.uid),
+              "startedAt",
+            ).get(),
+          ),
+        )
+      : Promise.resolve([] as FirebaseFirestore.QuerySnapshot[]);
+    const photoSnapsP = want("photo")
+      ? Promise.all(
+          clients.map((c) =>
+            ranged(
+              db
+                .collection(FirestoreCollections.progressPhotos)
+                .where("clientId", "==", c.uid),
+              "createdAt",
+            )
+              .get()
+              .catch(() => null),
+          ),
+        )
+      : Promise.resolve([] as Array<FirebaseFirestore.QuerySnapshot | null>);
+    const weightSnapsP = want("weight")
+      ? Promise.all(
+          clients.map((c) =>
+            ranged(
+              db
+                .collection(FirestoreCollections.users)
+                .doc(c.uid)
+                .collection("body_weight_logs"),
+              "recordedAt",
+            )
+              .get()
+              .catch(() => null),
+          ),
+        )
+      : Promise.resolve([] as Array<FirebaseFirestore.QuerySnapshot | null>);
     // Reschedules order/cursor by `scheduledFor` (a "YYYY-MM-DD" civil string,
     // lexically sortable) as a proxy for `updatedAt` — see boundary caveats.
-    let assignQ: FirebaseFirestore.Query = db
-      .collection(FirestoreCollections.workoutAssignments)
-      .where("clientId", "==", c.uid);
-    if (cursorCivil) assignQ = assignQ.where("scheduledFor", "<=", cursorCivil);
-    assignQ = assignQ.orderBy("scheduledFor", "desc").limit(limit);
+    const assignSnapsP = want("reschedule")
+      ? Promise.all(
+          clients.map((c) => {
+            let q: FirebaseFirestore.Query = db
+              .collection(FirestoreCollections.workoutAssignments)
+              .where("clientId", "==", c.uid);
+            if (cursorCivil) q = q.where("scheduledFor", "<=", cursorCivil);
+            return q
+              .orderBy("scheduledFor", "desc")
+              .limit(limit)
+              .get()
+              .catch(() => null);
+          }),
+        )
+      : Promise.resolve([] as Array<FirebaseFirestore.QuerySnapshot | null>);
     // Habit logs order/cursor by `civilDate`, with the 260529 fallback for an
     // index still building.
-    let habitQ: FirebaseFirestore.Query = db
-      .collection(FirestoreCollections.habitLogs)
-      .where("clientId", "==", c.uid);
-    if (cursorCivil) habitQ = habitQ.where("civilDate", "<=", cursorCivil);
-    habitQ = habitQ.orderBy("civilDate", "desc").limit(limit);
-    const habitGet = habitQ.get().catch(() =>
-      db
-        .collection(FirestoreCollections.habitLogs)
-        .where("clientId", "==", c.uid)
-        .limit(limit)
-        .get(),
-    );
+    const habitSnapsP = want("habit")
+      ? Promise.all(
+          clients.map((c) => {
+            let q: FirebaseFirestore.Query = db
+              .collection(FirestoreCollections.habitLogs)
+              .where("clientId", "==", c.uid);
+            if (cursorCivil) q = q.where("civilDate", "<=", cursorCivil);
+            return q
+              .orderBy("civilDate", "desc")
+              .limit(limit)
+              .get()
+              .catch(() =>
+                db
+                  .collection(FirestoreCollections.habitLogs)
+                  .where("clientId", "==", c.uid)
+                  .limit(limit)
+                  .get(),
+              );
+          }),
+        )
+      : Promise.resolve([] as FirebaseFirestore.QuerySnapshot[]);
+    // Habits master (for the progress badge) — only needed when habit rows show.
+    const habitsMasterP = want("habit")
+      ? Promise.all(
+          clients.map((c) =>
+            db
+              .collection(FirestoreCollections.habits)
+              .where("clientId", "==", c.uid)
+              .limit(50)
+              .get()
+              .catch(() => null),
+          ),
+        )
+      : Promise.resolve([] as Array<FirebaseFirestore.QuerySnapshot | null>);
+    // Signup rows: account-creation events are old, so we only emit them on
+    // page 1 (cursor === null). Fetched by documentId for a small roster (the
+    // exact client docs), else the coachId+role roster query (bounded).
+    const usersP =
+      want("signup") && isFirstPage
+        ? clients.length <= 30
+          ? db
+              .collection(FirestoreCollections.users)
+              .where(
+                FieldPath.documentId(),
+                "in",
+                clients.map((c) => c.uid),
+              )
+              .get()
+          : db
+              .collection(FirestoreCollections.users)
+              .where("coachId", "==", params.trainerId)
+              .where("role", "==", "client")
+              .limit(400)
+              .get()
+        : Promise.resolve({
+            docs: [] as FirebaseFirestore.QueryDocumentSnapshot[],
+          });
 
     const [
-      workoutSnapR,
-      photoSnapR,
-      weightSnapR,
-      assignSnapR,
-      habitSnapR,
+      workoutSnaps,
+      photoSnapsR,
+      weightSnapsR,
+      assignSnapsR,
+      habitSnapsR,
       usersSnapR,
       habitsMasterR,
     ] = await Promise.all([
-      workoutQ.get(),
-      photoQ.get().catch(() => null),
-      weightQ.get().catch(() => null),
-      assignQ.get().catch(() => null),
-      habitGet,
-      // Signup row: just the one client's /users doc (fetched every page so it
-      // surfaces on whichever page reaches its createdAt; deduped by row.id).
-      db
-        .collection(FirestoreCollections.users)
-        .where(FieldPath.documentId(), "in", [c.uid])
-        .get(),
-      db
-        .collection(FirestoreCollections.habits)
-        .where("clientId", "==", c.uid)
-        .limit(50)
-        .get()
-        .catch(() => null),
+      workoutSnapsP,
+      photoSnapsP,
+      weightSnapsP,
+      assignSnapsP,
+      habitSnapsP,
+      usersP,
+      habitsMasterP,
     ]);
 
-    workoutLogsSnap = workoutSnapR;
+    workoutLogsSnap = { docs: workoutSnaps.flatMap((s) => s.docs) };
+    trainerAssignmentsSnap = {
+      docs: assignSnapsR.flatMap((s) => s?.docs ?? []),
+    };
     usersSnap = usersSnapR;
-    habitLogsSnaps = [habitSnapR];
-    photoSnaps = [photoSnapR];
-    weightSnaps = [weightSnapR];
-    habitsSnaps = [habitsMasterR];
-    trainerAssignmentsSnap = assignSnapR ?? { docs: [] };
+    habitLogsSnaps = habitSnapsR;
+    photoSnaps = photoSnapsR;
+    weightSnaps = weightSnapsR;
+    habitsSnaps = habitsMasterR;
 
+    const sourceFull = (
+      snaps: Array<FirebaseFirestore.QuerySnapshot | null>,
+    ) => snaps.some((s) => (s?.size ?? 0) >= limit);
     anySourceFull =
-      workoutSnapR.size >= limit ||
-      habitSnapR.size >= limit ||
-      (photoSnapR?.size ?? 0) >= limit ||
-      (weightSnapR?.size ?? 0) >= limit;
+      sourceFull(workoutSnaps) ||
+      sourceFull(habitSnapsR) ||
+      sourceFull(photoSnapsR) ||
+      sourceFull(weightSnapsR);
   } else {
     const workoutLogsPromise = db
       .collection(FirestoreCollections.workoutLogs)
@@ -1133,7 +1215,12 @@ async function loadClientRosterEntry(
   };
 }
 
-/** Full-roster recent activity feed for the calling trainer (dashboard + feed). */
+/**
+ * Full-roster recent activity feed for the calling trainer — LEGACY
+ * load-everything path. Still used by the DASHBOARD, which needs the latest
+ * activity row for EVERY client (broad coverage), not a recent page. The
+ * paginated `/recent-logs` feed uses `listRecentLogsForTrainerPage` instead.
+ */
 export async function listRecentLogsForTrainer(): Promise<RecentLogsResult> {
   const trainer = await getCurrentTrainer();
   const [clients, timezone] = await Promise.all([
@@ -1141,6 +1228,48 @@ export async function listRecentLogsForTrainer(): Promise<RecentLogsResult> {
     getTrainerTimezone(),
   ]);
   return buildRecentLogs({ trainerId: trainer.uid, clients, timezone });
+}
+
+/**
+ * 260531-fwc — PAGINATED full-roster feed for the `/recent-logs` page. Fans the
+ * time-cursor window out across the whole roster (index-safe per-client queries,
+ * `pageSize` rows/page). `filterClientId` scopes to one client (cheapest path);
+ * `typeFilter` restricts to one category server-side. Also doubles as the
+ * component's "load more" + filter-refetch server action.
+ *
+ * Returns the FULL roster in `clients` only on the unfiltered first page (for
+ * the filter dropdown); callers keep that list and ignore it on later calls.
+ */
+export async function listRecentLogsForTrainerPage(
+  cursor: string | null = null,
+  pageSize: number = RECENT_LOGS_PAGE_SIZE,
+  filterClientId: string | null = null,
+  typeFilter: RecentLogCategory | null = null,
+): Promise<RecentLogsResult> {
+  const trainer = await getCurrentTrainer();
+  const [allClients, timezone] = await Promise.all([
+    listClients(),
+    getTrainerTimezone(),
+  ]);
+  const clients = filterClientId
+    ? allClients.filter((c) => c.uid === filterClientId)
+    : allClients;
+  // A client filter that matches nobody on this roster ⇒ empty feed (the URL/
+  // dropdown can't read a client outside the trainer's roster).
+  if (filterClientId && clients.length === 0) {
+    return {
+      logs: [],
+      clients: allClients.map((c) => ({ id: c.uid, name: c.displayName })),
+      nextCursor: null,
+      hasMore: false,
+    };
+  }
+  return buildRecentLogs({
+    trainerId: trainer.uid,
+    clients,
+    timezone,
+    page: { cursor, pageSize, typeFilter },
+  });
 }
 
 /** Default rows per page for the single-client time-cursor feed (260531-fwc). */
