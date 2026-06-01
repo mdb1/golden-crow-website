@@ -20,6 +20,9 @@ export interface DailyMetric {
 export interface PerformerRow {
   uid: string;
   name: string;
+  /** Client profile photo (`users/{uid}.photoURL`) — Google photo or Storage
+   *  upload, or null. Rendered as a cached avatar in the performers list. */
+  photoURL: string | null;
   pct: number;
   numerator: number;
   denominator: number;
@@ -449,6 +452,7 @@ function pickTopPerformers(
     rows.push({
       uid,
       name: client.displayName,
+      photoURL: client.photoURL,
       pct,
       numerator: stat.num,
       denominator: stat.den,

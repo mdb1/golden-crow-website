@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
 import { RelativeTime } from "./RelativeTime";
@@ -110,6 +111,11 @@ export function RosterTable({ rows }: RosterTableProps) {
           const title = t("needsAttentionTitle", { reasons: reasonText });
           return (
             <div className="flex items-center gap-2">
+              <ClientAvatar
+                name={row.original.displayName}
+                photoURL={row.original.photoURL}
+                size="sm"
+              />
               <span className="font-medium">{row.original.displayName}</span>
               {row.original.pendingProvisioning ? (
                 <Badge variant="secondary">{tCommon("pendingSignIn")}</Badge>

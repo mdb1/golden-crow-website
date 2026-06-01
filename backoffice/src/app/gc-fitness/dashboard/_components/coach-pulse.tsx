@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import {
   Tooltip,
   TooltipContent,
@@ -139,6 +140,11 @@ export function TopPerformers({ performers, emptyLabel }: TopPerformersProps) {
             >
               {idx + 1}
             </span>
+            <ClientAvatar
+              name={performer.name}
+              photoURL={performer.photoURL}
+              size="sm"
+            />
             <span className="min-w-0 flex-1 truncate text-sm font-medium group-hover:text-foreground">
               {performer.name}
             </span>
