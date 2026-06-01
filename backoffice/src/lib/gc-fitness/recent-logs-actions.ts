@@ -25,6 +25,9 @@ export interface RecentLogRow {
   eventAt: string;
   clientId: string;
   clientName: string;
+  /** Client profile photo (`users/{uid}.photoURL`) — Google photo or Storage
+   *  upload, or null. Rendered as a cached avatar next to the client name. */
+  clientPhotoURL: string | null;
   title: string;
   detail: string;
   workoutLogId: string | null;
@@ -294,6 +297,9 @@ async function buildRecentLogs(params: {
 
   const clients = params.clients;
   const nameByClientId = new Map(clients.map((c) => [c.uid, c.displayName]));
+  const photoByClientId = new Map<string, string | null>(
+    clients.map((c) => [c.uid, c.photoURL]),
+  );
   const clientList = clients.map((c) => ({ id: c.uid, name: c.displayName }));
 
   const pageMode = params.page ?? null;
@@ -807,6 +813,7 @@ async function buildRecentLogs(params: {
       eventAt: createdAt,
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
+      clientPhotoURL: photoByClientId.get(clientId) ?? null,
       title: `${nameByClientId.get(clientId) ?? clientId} completed first sign-in`,
       detail: "Pending client converted to active user",
       workoutLogId: null,
@@ -875,6 +882,7 @@ async function buildRecentLogs(params: {
       eventAt: completedAt ?? startedAt,
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
+      clientPhotoURL: photoByClientId.get(clientId) ?? null,
       title:
         status === "completed"
           ? `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`
@@ -925,6 +933,7 @@ async function buildRecentLogs(params: {
       eventAt,
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
+      clientPhotoURL: photoByClientId.get(clientId) ?? null,
       title: `${nameByClientId.get(clientId) ?? clientId} moved ${templateName} from ${fromLabel} to ${toLabel}`,
       detail: `Originally ${fromLabel} → ${toLabel}`,
       workoutLogId: null,
@@ -1006,6 +1015,7 @@ async function buildRecentLogs(params: {
       eventAt,
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
+      clientPhotoURL: photoByClientId.get(clientId) ?? null,
       title: completed
         ? `${titlePrefix}${nameByClientId.get(clientId) ?? clientId} completed: ${habitName}${titleSuffix}`
         : `${nameByClientId.get(clientId) ?? clientId} updated: ${habitName}${titleSuffix}`,
@@ -1087,6 +1097,7 @@ async function buildRecentLogs(params: {
       eventAt: bucket.latestIso,
       clientId: bucket.clientId,
       clientName: nameByClientId.get(bucket.clientId) ?? bucket.clientId,
+      clientPhotoURL: photoByClientId.get(bucket.clientId) ?? null,
       title: `${nameByClientId.get(bucket.clientId) ?? bucket.clientId} - Uploaded progress photos`,
       detail,
       workoutLogId: null,
@@ -1110,6 +1121,7 @@ async function buildRecentLogs(params: {
         eventAt,
         clientId: client.uid,
         clientName: nameByClientId.get(client.uid) ?? client.uid,
+        clientPhotoURL: photoByClientId.get(client.uid) ?? null,
         title: `${nameByClientId.get(client.uid) ?? client.uid} - Logged body weight`,
         detail: `${kg.toFixed(1)} kg`,
         workoutLogId: null,

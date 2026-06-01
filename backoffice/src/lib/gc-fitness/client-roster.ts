@@ -84,6 +84,9 @@ export interface ClientRosterRow {
   uid: string;
   email: string;
   displayName: string;
+  /** Client profile photo (`users/{uid}.photoURL`) — Google photo or Storage
+   *  upload, or null. Rendered as a cached avatar in the roster name column. */
+  photoURL: string | null;
   timezone: string | null;
   source: "active" | "pending";
   pendingProvisioning: boolean;
@@ -763,6 +766,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         uid: c.uid,
         email: c.email,
         displayName: c.displayName,
+        photoURL: c.photoURL,
         timezone: c.timezone,
         source: isPending ? "pending" : "active",
         pendingProvisioning: isPending,

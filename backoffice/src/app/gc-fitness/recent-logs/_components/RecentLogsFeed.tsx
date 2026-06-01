@@ -21,6 +21,7 @@ import {
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import {
   Card,
   CardContent,
@@ -237,6 +238,11 @@ export function RecentLogsFeed({
               }}
               className="group flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:items-center"
             >
+              <ClientAvatar
+                name={row.clientName}
+                photoURL={row.clientPhotoURL}
+                size="md"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
