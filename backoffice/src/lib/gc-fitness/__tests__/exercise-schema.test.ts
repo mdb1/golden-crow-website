@@ -161,4 +161,16 @@ describe("exerciseSchema", () => {
     const parsed = exerciseSchema.parse({ ...VALID_INPUT, equipment: [] });
     expect(parsed.equipment).toEqual(["bodyweight"]);
   });
+
+  it("normalizes missing/undefined equipment to bodyweight", () => {
+    const { equipment: _omit, ...withoutEquipment } = VALID_INPUT;
+    void _omit;
+    const parsed = exerciseSchema.parse(withoutEquipment);
+    expect(parsed.equipment).toEqual(["bodyweight"]);
+  });
+
+  it("normalizes a deselected single-select ([\"\"]) to bodyweight", () => {
+    const parsed = exerciseSchema.parse({ ...VALID_INPUT, equipment: [""] });
+    expect(parsed.equipment).toEqual(["bodyweight"]);
+  });
 });

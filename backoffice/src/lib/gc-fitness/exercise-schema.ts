@@ -119,7 +119,16 @@ const metricSchema = z.enum(["reps", "time"]).default("reps");
 const sourceSchema = z.enum(["wger", "trainer", "free-exercise-db"]);
 
 const equipmentListSchema = z.preprocess(
-  (value) => (Array.isArray(value) && value.length === 0 ? ["bodyweight"] : value),
+  // Normalize a missing/empty selection to the "bodyweight" sentinel so an
+  // exercise can be created without picking equipment. Covers every shape the
+  // form / quick-create can emit: undefined/null, [], and [""] (a deselected
+  // single-select). Real values pass through unchanged.
+  (value) => {
+    const arr = Array.isArray(value)
+      ? value.filter((v): v is string => typeof v === "string" && v.length > 0)
+      : [];
+    return arr.length === 0 ? ["bodyweight"] : arr;
+  },
   z.array(equipmentSchema).max(8),
 );
 
