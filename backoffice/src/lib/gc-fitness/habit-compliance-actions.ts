@@ -152,7 +152,13 @@ export async function fetchHabitCompliance(
     .collection(FirestoreCollections.habitLogs)
     .where("habitId", "==", habitId)
     .where("civilDate", ">=", startDate)
-    .orderBy("civilDate", "asc")
+    // orderBy DESC to match the DEPLOYED composite index
+    // (habit_logs: habitId ASC, civilDate DESC). An ASC orderBy needs a
+    // separate (habitId ASC, civilDate ASC) index that is NOT deployed, which
+    // made this query throw FAILED_PRECONDITION and crash the habit detail
+    // page. Order is irrelevant: computeCompliance derives a Set of completed
+    // days and builds dailyCounts from the window, not the input order.
+    .orderBy("civilDate", "desc")
     .get();
 
   const logs: HabitLogRow[] = snap.docs.map((d) => {
