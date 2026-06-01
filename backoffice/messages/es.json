@@ -1086,7 +1086,7 @@
       "dayLabel": "Día",
       "scheduledFor": "Programado para {date}",
       "timeLabel": "Hora",
-      "timeHint": "Opcional para sesiones en vivo o virtuales.",
+      "timeHint": "Opcional para sesiones en vivo o virtuales. Si configurás una hora, el cliente recibe un recordatorio push antes de la sesión (si tiene las notificaciones activadas).",
       "meetingNotesLabel": "Notas de la sesión",
       "meetingNotesPlaceholder": "Link de Zoom / Meet, instrucciones, notas de preparación...",
       "exerciseOverridesTitle": "Ajustes por cliente",
