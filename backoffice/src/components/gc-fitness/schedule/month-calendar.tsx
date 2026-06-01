@@ -943,7 +943,10 @@ function DayCell({
         "group relative flex flex-col rounded-lg border bg-card p-2.5 transition-colors",
         cellMinHClass,
         !inMonth && "bg-muted/20 opacity-60",
-        isToday && "ring-2 ring-amber-500",
+        // ring-inset so the today highlight draws INSIDE the rounded card —
+        // an outset ring-2 gets clipped/doubled by the column/scroll container
+        // (esp. in the tall week / 3-day columns on mobile).
+        isToday && "ring-2 ring-inset ring-amber-500",
         isDragOver && "border-amber-500 bg-amber-50/50 dark:bg-amber-900/10",
       )}
     >
@@ -1199,7 +1202,8 @@ function AddPopover({
         type="button"
         className={cn(
           "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
-          "opacity-0 group-hover:opacity-100",
+          // Always visible on touch (no hover); reveal-on-hover only where hover exists.
+          "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
         )}
         aria-label={`Asignar ${only === "workout" ? "workout" : "hábito"} el ${civil}`}
         onClick={() => onPick(only)}
@@ -1216,7 +1220,10 @@ function AddPopover({
           type="button"
           className={cn(
             "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
-            open ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+            // Always visible on touch (no hover); reveal-on-hover only where hover exists.
+            open
+              ? "opacity-100"
+              : "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
           )}
           aria-label={`Asignar el ${civil}`}
         >
