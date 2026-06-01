@@ -503,11 +503,11 @@ function ClientRow({
             {timestampLabel}
           </span>
         </div>
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-start gap-1.5">
           {cat ? (
             <Badge
               variant="secondary"
-              className="gap-1 px-1.5 py-0 text-[10px] font-normal [&>svg]:size-3 [&>svg]:opacity-70"
+              className="shrink-0 gap-1 px-1.5 py-0 text-[10px] font-normal [&>svg]:size-3 [&>svg]:opacity-70"
             >
               {CatIcon ? <CatIcon /> : null}
               {cat.label}
@@ -516,13 +516,15 @@ function ClientRow({
           {category === "workout" && rpe !== null ? (
             <Badge
               variant="outline"
-              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+              className="shrink-0 gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
             >
               <Gauge />
               RPE {rpe}
             </Badge>
           ) : null}
-          <p className="truncate text-xs text-muted-foreground">{primary}</p>
+          <p className="min-w-0 flex-1 break-words text-xs text-muted-foreground">
+            {primary}
+          </p>
         </div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
