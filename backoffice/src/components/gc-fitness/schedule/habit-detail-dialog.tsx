@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CalendarDays, CalendarOff, Repeat, Trash2, User } from "lucide-react";
+import { Bell, CalendarDays, CalendarOff, Repeat, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -51,6 +51,34 @@ interface HabitDetailDialogProps {
 const HABIT_TYPE_LABEL = "Sí / no";
 
 const WEEKDAY_SHORT = ["", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+// Reminder weekdays use Apple's Calendar convention (Sun=1 … Sat=7) — the iOS
+// reminder editor writes DateComponents.weekday — which differs from the
+// schedule weekdays (ISO Mon=1). Keep a separate map so labels are correct.
+const REMINDER_WEEKDAY_SHORT = ["", "Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function reminderLabel(h: HabitRow): string {
+  if (!h.reminderEnabled) return "Desactivado";
+  const time = h.reminderTime ?? "—";
+  const cadence = h.reminderCadence ?? "daily";
+  if (cadence === "weekly") {
+    const days = (h.reminderWeekdays ?? [])
+      .slice()
+      .sort((a, b) => a - b)
+      .map((n) => REMINDER_WEEKDAY_SHORT[n] ?? String(n))
+      .join(", ");
+    return days ? `${time} · ${days}` : `${time} · Semanal`;
+  }
+  if (cadence === "monthly") {
+    const monthDays =
+      h.reminderMonthDays ??
+      (typeof h.reminderDayOfMonth === "number" ? [h.reminderDayOfMonth] : []);
+    return monthDays.length
+      ? `${time} · día ${monthDays.slice().sort((a, b) => a - b).join(", ")}`
+      : `${time} · Mensual`;
+  }
+  return `${time} · Diario`;
+}
 
 function recurrenceLabel(h: HabitRow): string {
   if (h.scheduleType === "one-time") return "Única";
@@ -177,6 +205,15 @@ export function HabitDetailDialog({
                   Tipo
                 </p>
                 <p className="font-medium">{HABIT_TYPE_LABEL}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Bell className="size-4 text-muted-foreground" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Recordatorio
+                  </p>
+                  <p className="font-medium">{reminderLabel(data)}</p>
+                </div>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">

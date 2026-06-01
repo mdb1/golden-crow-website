@@ -83,7 +83,12 @@ export default async function HabitDetailPage({ params }: PageParams) {
     redirect("/gc-fitness/forbidden");
   }
 
-  const habitType = (data.type as HabitType) ?? "binary";
+  // Habits are binary-only; any legacy/unknown wire value collapses to binary
+  // so the label-key lookup below never yields undefined.
+  const habitType: HabitType =
+    data.type && HABIT_TYPE_LABEL_KEYS[data.type as HabitType]
+      ? (data.type as HabitType)
+      : "binary";
   const nameEN = data.name?.en ?? t("untitled");
   const nameES = data.name?.es ?? "";
 
