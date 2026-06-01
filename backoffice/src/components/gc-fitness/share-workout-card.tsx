@@ -781,7 +781,7 @@ function ShareCardRenderer({
         disabled={busy}
         variant="outline"
         size="sm"
-        className="gap-1"
+        className="gap-1 whitespace-nowrap"
       >
         {busy ? (
           <Download className="h-4 w-4 animate-pulse" />

@@ -118,6 +118,11 @@ const metricSchema = z.enum(["reps", "time"]).default("reps");
 // scripts/gc-fitness/seed-from-fexd.ts (Plan 24-03).
 const sourceSchema = z.enum(["wger", "trainer", "free-exercise-db"]);
 
+const equipmentListSchema = z.preprocess(
+  (value) => (Array.isArray(value) && value.length === 0 ? ["bodyweight"] : value),
+  z.array(equipmentSchema).max(8),
+);
+
 // Exercise Codable shape mirrored from Swift. Field-by-field rationale:
 //
 //  - `name.en` is REQUIRED with a UI-SPEC error. `name.es` is optional from
@@ -132,9 +137,9 @@ const sourceSchema = z.enum(["wger", "trainer", "free-exercise-db"]);
 //    plan threshold is "Pick at least one + can list any subset of the 16
 //    canonical groups"; 8 is the realistic upper bound for any single
 //    exercise (a deadlift hits ~6).
-//  - `equipment` requires at least one entry — the "bodyweight" sentinel
-//    in the vocab covers the no-equipment case. UI-SPEC copy with curly
-//    quotes.
+//  - `equipment` accepts an empty UI selection by normalizing it to
+//    ["bodyweight"]. The "bodyweight" sentinel in the vocab covers the
+//    no-equipment case and keeps downstream filters/iOS display simple.
 //  - `mediaURL` / `thumbnailURL` accept `null | undefined | gs://...`. The
 //    backoffice form starts both as null and writes them after the
 //    `mintExerciseMediaUploadUrl` round-trip succeeds.
@@ -169,9 +174,7 @@ export const exerciseSchema = z.object({
     .array(muscleGroupSchema)
     .min(1, "Pick at least one muscle group.")
     .max(8),
-  equipment: z
-    .array(equipmentSchema)
-    .min(1, "Pick at least one equipment item, or “bodyweight.”"),
+  equipment: equipmentListSchema,
   mediaURL: gsUrlSchema,
   thumbnailURL: thumbnailUrlSchema,
   youtubeURL: youtubeUrlSchema,

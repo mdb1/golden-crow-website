@@ -135,13 +135,13 @@ export function WorkoutDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-4xl overflow-hidden">
+        <DialogContent className="max-h-[92dvh] overflow-hidden sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-3">
-              <span className="truncate">
+            <DialogTitle className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <span className="max-w-full whitespace-normal break-words text-left leading-tight sm:min-w-0 sm:truncate">
                 {data ? data.templateName : "Detalle del entrenamiento"}
               </span>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
                 {data ? (
                   <ShareCardSlot
                     data={data}
@@ -203,7 +203,7 @@ export function WorkoutDetailDialog({
             ) : null}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button
               variant="ghost"
               onClick={() => onOpenChange(false)}

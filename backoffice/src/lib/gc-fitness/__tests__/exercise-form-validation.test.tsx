@@ -155,9 +155,6 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     expect(
       screen.getByText("Pick at least one muscle group."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Pick at least one equipment item, or “bodyweight.”"),
-    ).toBeInTheDocument();
     expect(mockCreateExercise).not.toHaveBeenCalled();
   });
 
@@ -193,6 +190,33 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     expect(payload.name.en).toBe("Barbell Bench Press");
     expect(payload.muscleGroups).toContain("chest");
     expect(payload.equipment).toContain("barbell");
+  });
+
+  it("T4: a valid form without equipment defaults to bodyweight", async () => {
+    const user = userEvent.setup();
+    render(<ExerciseForm mode="create" />);
+
+    await user.type(
+      screen.getByLabelText(/name \(english\)/i),
+      "No Equipment Drill",
+    );
+    await user.type(
+      screen.getByLabelText(/description \(english\)/i),
+      "Move with control.",
+    );
+    await user.click(screen.getByRole("combobox", { name: /muscle groups/i }));
+    await user.click(await screen.findByRole("option", { name: /core/i }));
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(mockCreateExercise).toHaveBeenCalledTimes(1);
+    });
+    const calls = mockCreateExercise.mock.calls as unknown as Array<
+      [{ equipment: string[] }]
+    >;
+    expect(calls[0][0].equipment).toEqual(["bodyweight"]);
   });
 });
 

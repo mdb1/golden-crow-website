@@ -235,7 +235,7 @@ export function RecentLogsFeed({
                   openProfile();
                 }
               }}
-              className="group flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40"
+              className="group flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:items-center"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -246,7 +246,7 @@ export function RecentLogsFeed({
                     {CatIcon ? <CatIcon /> : null}
                     {t(CATEGORY_LABEL_KEY[row.category])}
                   </Badge>
-                  <span className="truncate text-sm font-medium">
+                  <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
                     {row.title}
                   </span>
                   {row.forCivilDate ? (
@@ -277,7 +277,7 @@ export function RecentLogsFeed({
                     </Badge>
                   ) : null}
                 </div>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
                   {row.clientName} · {formatDateTime(row.eventAt)}
                   {row.detail ? ` · ${row.detail}` : ""}
                 </p>

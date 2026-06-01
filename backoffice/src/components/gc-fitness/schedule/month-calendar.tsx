@@ -606,23 +606,25 @@ export function MonthCalendar({
       </header>
 
       {/* ── Weekday header row ─────────────────────────────────────────── */}
-      <div
-        className={cn(
-          "grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-          gridColsClass,
-        )}
-      >
-        {view === "month"
-          ? WEEKDAY_HEADERS.map((d) => (
-              <div key={d} className="text-center">
-                {d}
-              </div>
-            ))
-          : cells.map(({ civil }) => (
-              <div key={civil} className="text-center">
-                {WEEKDAY_HEADERS[mondayIndex(civil)]} {shortDateLabel(civil)}
-              </div>
-            ))}
+      <div className="overflow-x-auto pb-1">
+        <div
+          className={cn(
+            "grid min-w-[760px] gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:min-w-0",
+            gridColsClass,
+          )}
+        >
+          {view === "month"
+            ? WEEKDAY_HEADERS.map((d) => (
+                <div key={d} className="text-center">
+                  {d}
+                </div>
+              ))
+            : cells.map(({ civil }) => (
+                <div key={civil} className="text-center">
+                  {WEEKDAY_HEADERS[mondayIndex(civil)]} {shortDateLabel(civil)}
+                </div>
+              ))}
+        </div>
       </div>
 
       {/* ── Calendar grid ──────────────────────────────────────────────── */}
@@ -631,7 +633,8 @@ export function MonthCalendar({
           Elegí uno o más clientes arriba para ver su agenda.
         </div>
       ) : (
-      <div className={cn("grid gap-2", gridColsClass)}>
+      <div className="overflow-x-auto pb-1">
+      <div className={cn("grid min-w-[760px] gap-2 md:min-w-0", gridColsClass)}>
         {cells.map(({ civil, inMonth }) => {
           const workouts = showWorkouts
             ? (payload.workoutsByDay[civil] ?? []).filter((w) =>
@@ -688,6 +691,7 @@ export function MonthCalendar({
             />
           );
         })}
+      </div>
       </div>
       )}
 
@@ -960,7 +964,7 @@ function DayCell({
         />
       </div>
 
-      <div className="flex flex-1 flex-col gap-3.5">
+      <div className="min-w-0 flex flex-1 flex-col gap-3.5">
         {(() => {
           // Group everything by client so each day reads as
           // "‹client header› → their workouts + habits". The header carries
@@ -994,7 +998,7 @@ function DayCell({
               <div
                 key={clientId}
                 className={cn(
-                  "flex flex-col gap-1.5",
+                  "min-w-0 flex flex-col gap-1.5",
                   gi > 0 && "border-t border-border/60 pt-3.5",
                 )}
               >
@@ -1023,7 +1027,7 @@ function DayCell({
                       }}
                       onClick={() => onClickChip(w)}
                       className={cn(
-                        "group/chip relative flex w-full items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
+                        "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
                         workoutChipClass(w.status),
                       )}
                       title={
@@ -1048,20 +1052,20 @@ function DayCell({
                 })}
 
                 {group.habits.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-1">
                     {group.habits.map((h) => (
                       <button
                         key={h.id}
                         type="button"
                         onClick={() => onClickHabit(h)}
                         className={cn(
-                          "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
+                          "inline-flex max-w-full items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
                           habitChipClass(h.status),
                         )}
                         title={`${h.habitName} · ${h.status}`}
                       >
                         <HabitStatusGlyph status={h.status} />
-                        <span className="max-w-[80px] truncate">
+                        <span className="min-w-0 max-w-full truncate">
                           {h.habitName}
                         </span>
                       </button>
@@ -1291,4 +1295,3 @@ function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
   }
   return <Circle className="size-2.5 opacity-60" />;
 }
-

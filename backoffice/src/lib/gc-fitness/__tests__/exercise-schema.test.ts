@@ -157,10 +157,8 @@ describe("exerciseSchema", () => {
     expect(parsed.source).toBe("free-exercise-db");
   });
 
-  // Bonus: equipment empty → verbatim UI-SPEC copy with curly quotes
-  it("rejects empty equipment with the exact UI-SPEC copy", () => {
-    expect(firstError({ ...VALID_INPUT, equipment: [] })).toBe(
-      "Pick at least one equipment item, or “bodyweight.”",
-    );
+  it("normalizes empty equipment to bodyweight", () => {
+    const parsed = exerciseSchema.parse({ ...VALID_INPUT, equipment: [] });
+    expect(parsed.equipment).toEqual(["bodyweight"]);
   });
 });
