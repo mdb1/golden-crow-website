@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import {
   getCurrentTrainer,
@@ -128,6 +129,7 @@ export default async function GCFitnessDashboardPage({
       return {
         uid: client.uid,
         name: client.displayName,
+        photoURL: client.photoURL,
         lastActivityAt: client.lastActivityAt,
         lastActionTitle: latestLog?.title ?? "No activity yet",
         lastActionDetail: latestLog?.detail ?? "No records yet.",
@@ -336,6 +338,7 @@ export default async function GCFitnessDashboardPage({
                     key={row.uid}
                     href={`/gc-fitness/clients/${row.uid}`}
                     name={row.name}
+                    photoURL={row.photoURL}
                     primary={row.lastActionTitle}
                     iso={row.lastActivityAt}
                     category={row.category}
@@ -369,6 +372,7 @@ export default async function GCFitnessDashboardPage({
                     key={`attention-${row.uid}`}
                     href={`/gc-fitness/clients/${row.uid}`}
                     name={row.name}
+                    photoURL={row.photoURL}
                     primary={row.lastActionTitle}
                     iso={row.lastActivityAt}
                     category={row.category}
@@ -469,6 +473,7 @@ const CATEGORY_META: Record<
 function ClientRow({
   href,
   name,
+  photoURL,
   primary,
   iso,
   category,
@@ -476,12 +481,12 @@ function ClientRow({
 }: {
   href: string;
   name: string;
+  photoURL: string | null;
   primary: string;
   iso: string | null;
   category: RecentLogCategory | null;
   rpe: number | null;
 }) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
   const cat = category ? CATEGORY_META[category] : null;
   const CatIcon = cat?.icon;
   const timestampLabel = iso ? formatRelative(iso) : "No activity";
@@ -490,12 +495,7 @@ function ClientRow({
       href={href}
       className="group flex items-center gap-3 rounded-md border border-border/70 bg-background/60 px-3 py-2 transition-colors hover:border-primary/40 hover:bg-accent/30"
     >
-      <span
-        aria-hidden
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
-      >
-        {initial}
-      </span>
+      <ClientAvatar name={name} photoURL={photoURL} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">{name}</p>
