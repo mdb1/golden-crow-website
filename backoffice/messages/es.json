@@ -332,6 +332,14 @@
         "loading": "Cargando…",
         "previous": "Anterior",
         "next": "Siguiente"
+      },
+      "preferences": {
+        "title": "Preferencias del cliente",
+        "workoutPrefillLabel": "Pesos iniciales en la app",
+        "workoutPrefillPrevious": "Entrenamiento anterior",
+        "workoutPrefillPreviousDescription": "La app empieza cada serie con los últimos pesos/reps registrados cuando hay historial. El cliente puede cambiarlo en Ajustes.",
+        "workoutPrefillTemplate": "Rutina del coach",
+        "workoutPrefillTemplateDescription": "La app empieza cada serie con los pesos/reps planificados en la rutina. El cliente igual puede tocar Anterior para copiar el último registro."
       }
     }
   },

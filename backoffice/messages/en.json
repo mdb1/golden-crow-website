@@ -332,6 +332,14 @@
         "loading": "Loading…",
         "previous": "Previous",
         "next": "Next"
+      },
+      "preferences": {
+        "title": "Client preferences",
+        "workoutPrefillLabel": "Starting weights in the app",
+        "workoutPrefillPrevious": "Previous workout",
+        "workoutPrefillPreviousDescription": "The app starts each set from the last logged weights/reps when history exists. The client can change this in Settings.",
+        "workoutPrefillTemplate": "Trainer plan",
+        "workoutPrefillTemplateDescription": "The app starts each set from the workout plan weights/reps. The client can still tap Previous to copy the last log."
       }
     }
   },

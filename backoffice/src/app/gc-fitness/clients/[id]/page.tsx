@@ -116,6 +116,9 @@ export default async function ClientDetailPage({
     timezone?: string;
     heightCm?: number;
     bodyWeightKg?: number;
+    preferences?: {
+      workoutPrefillSource?: string;
+    };
   };
   if (client.coachId !== trainer.uid) notFound();
 
@@ -127,6 +130,11 @@ export default async function ClientDetailPage({
     listClientGoals(id),
   ]);
   const tSkeleton = await getTranslations("clients.detail.skeleton");
+  const tPreferences = await getTranslations("clients.detail.preferences");
+  const workoutPrefillSource =
+    client.preferences?.workoutPrefillSource === "template"
+      ? "template"
+      : "previousWorkout";
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
@@ -138,6 +146,21 @@ export default async function ClientDetailPage({
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={typeof client.bodyWeightKg === "number" ? client.bodyWeightKg : null}
       />
+      <ClientWorkoutPreferencesCard
+        title={tPreferences("title")}
+        label={tPreferences("workoutPrefillLabel")}
+        value={
+          workoutPrefillSource === "template"
+            ? tPreferences("workoutPrefillTemplate")
+            : tPreferences("workoutPrefillPrevious")
+        }
+        description={
+          workoutPrefillSource === "template"
+            ? tPreferences("workoutPrefillTemplateDescription")
+            : tPreferences("workoutPrefillPreviousDescription")
+        }
+      />
+
       <ClientSummaryCard clientId={id} clientName={displayName} goals={goals} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -171,6 +194,33 @@ export default async function ClientDetailPage({
         </Suspense>
       </div>
     </div>
+  );
+}
+
+function ClientWorkoutPreferencesCard({
+  title,
+  label,
+  value,
+  description,
+}: {
+  title: string;
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <section className="rounded-md border bg-card p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="section-eyebrow">{title}</p>
+          <h2 className="text-base font-semibold">{label}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+        <span className="w-fit rounded-full border bg-muted px-3 py-1 text-sm font-medium">
+          {value}
+        </span>
+      </div>
+    </section>
   );
 }
 
