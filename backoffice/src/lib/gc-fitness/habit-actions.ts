@@ -699,6 +699,62 @@ export async function softDeleteHabit(
   return { ok: true };
 }
 
+/** "YYYY-MM-DD" → the previous civil day (UTC-safe string arithmetic). */
+function previousCivilDate(civilDate: string): string {
+  const [y, m, d] = civilDate.split("-").map((n) => parseInt(n, 10));
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * "Delete from this day forward" — backs the schedule's habit-detail dialog
+ * delete action. Soft-deleting the whole habit (`deleted: true`) wrongly hides
+ * ALL of it including past occurrences/history. Instead we cap the recurrence
+ * by setting `endsOn` to the day BEFORE `fromCivilDate`: the clicked day and
+ * everything after stop showing, while past occurrences + logs stay intact.
+ * `endsOn` is an INCLUSIVE upper bound in the schedule visibility predicate
+ * (`isHabitScheduledOn`), hence the −1 day.
+ *
+ * If the cutoff falls before the habit's `startsOn` (deleting from at/before
+ * the start), there is no past to preserve, so we fall back to a full
+ * soft-delete.
+ */
+export async function deleteHabitRecurrenceFromDate(
+  id: string,
+  fromCivilDate: string,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+
+  const db = gcFitnessFirestore();
+  const docRef = db.collection(COLLECTION).doc(id);
+  const snap = await docRef.get();
+  if (!snap.exists) {
+    throw new Error("Not found");
+  }
+  const existing = snap.data() as { trainerId?: string; startsOn?: string };
+  if (existing.trainerId !== trainer.uid) {
+    throw new Error("Not your habit.");
+  }
+
+  const newEndsOn = previousCivilDate(fromCivilDate);
+
+  if (existing.startsOn && newEndsOn < existing.startsOn) {
+    await docRef.update({
+      deleted: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { ok: true };
+  }
+
+  await docRef.update({
+    endsOn: newEndsOn,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { ok: true };
+}
+
 /**
  * Reads a single habit by id (ownership-checked). Backs the calendar's
  * habit-detail dialog, which needs the full recurrence to render + the

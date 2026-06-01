@@ -8,7 +8,9 @@
 //
 //   • "Quitar de este día"  → skipHabitOccurrence (adds civilDate to the
 //     habit's skippedDates; recurring habits only).
-//   • "Eliminar el hábito"  → softDeleteHabit (removes the whole recurrence).
+//   • "Eliminar el hábito"  → deleteHabitRecurrenceFromDate (caps endsOn to
+//     the day before the tapped civilDate — removes the tapped day forward,
+//     keeps past occurrences + logs intact).
 //
 // Mirrors WorkoutDetailDialog's structure (useQuery load + confirm-then-mutate
 // footer). Each destructive action requires an inline confirm tap.
@@ -31,7 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getHabit,
   skipHabitOccurrence,
-  softDeleteHabit,
+  deleteHabitRecurrenceFromDate,
   type HabitRow,
 } from "@/lib/gc-fitness/habit-actions";
 
@@ -103,9 +105,9 @@ export function HabitDetailDialog({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => softDeleteHabit(habitId),
+    mutationFn: () => deleteHabitRecurrenceFromDate(habitId, civilDate),
     onSuccess: () => {
-      toast.success("Hábito eliminado");
+      toast.success("Hábito eliminado desde este día en adelante");
       onChanged();
     },
     onError: (err) =>
@@ -200,7 +202,7 @@ export function HabitDetailDialog({
             />
           ) : confirm === "delete" ? (
             <ConfirmRow
-              label="Elimina el hábito y toda su recurrencia para el cliente."
+              label={`Elimina el hábito desde el ${civilDate} en adelante. El historial anterior se conserva.`}
               confirmLabel="Eliminar el hábito"
               pending={deleteMutation.isPending}
               onConfirm={() => deleteMutation.mutate()}
@@ -226,7 +228,7 @@ export function HabitDetailDialog({
                 onClick={() => setConfirm("delete")}
               >
                 <Trash2 className="size-4" />
-                {isRecurring ? "Eliminar el hábito (toda la recurrencia)" : "Eliminar el hábito"}
+                {isRecurring ? "Eliminar el hábito (desde este día)" : "Eliminar el hábito"}
               </Button>
               <Button variant="ghost" onClick={() => onOpenChange(false)}>
                 Cerrar

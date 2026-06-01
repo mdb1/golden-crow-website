@@ -91,6 +91,7 @@ import {
   createHabit,
   updateHabit,
   softDeleteHabit,
+  deleteHabitRecurrenceFromDate,
   listHabitsForTrainer,
   listHabitsForClient,
 } from "../habit-actions";
@@ -121,6 +122,7 @@ function fakeHabitSnapshot(opts: {
   trainerId?: string | null;
   type?: "binary";
   id?: string;
+  startsOn?: string;
 }) {
   return {
     exists: opts.exists,
@@ -132,6 +134,7 @@ function fakeHabitSnapshot(opts: {
       name: { en: "Test", es: "Prueba" },
       reminderEnabled: false,
       deleted: false,
+      ...(opts.startsOn ? { startsOn: opts.startsOn } : {}),
     }),
   } as unknown as DocumentSnapshot;
 }
@@ -370,6 +373,52 @@ describe("softDeleteHabit", () => {
 
     await expect(
       softDeleteHabit("hab-different-trainer-uid-abc"),
+    ).rejects.toThrow(/not your habit/i);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteHabitRecurrenceFromDate", () => {
+  // Caps endsOn to the day BEFORE the tapped date — past stays, future goes.
+  it("sets endsOn = (fromCivilDate − 1 day), preserving past occurrences", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeHabitSnapshot({ exists: true, trainerId: ALLOWED_UID, startsOn: "2026-01-01" }),
+    );
+    mockUpdate.mockResolvedValue(undefined);
+
+    await deleteHabitRecurrenceFromDate(`hab-${ALLOWED_UID}-abc`, "2026-05-20");
+
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const patch = mockUpdate.mock.calls[0][0];
+    expect(patch.endsOn).toBe("2026-05-19");
+    expect(patch.deleted).toBeUndefined();
+    expect(patch.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+  });
+
+  // Deleting from at/before the start has no past to keep → full soft-delete.
+  it("falls back to deleted=true when the cutoff precedes startsOn", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeHabitSnapshot({ exists: true, trainerId: ALLOWED_UID, startsOn: "2026-05-20" }),
+    );
+    mockUpdate.mockResolvedValue(undefined);
+
+    await deleteHabitRecurrenceFromDate(`hab-${ALLOWED_UID}-abc`, "2026-05-20");
+
+    const patch = mockUpdate.mock.calls[0][0];
+    expect(patch.deleted).toBe(true);
+    expect(patch.endsOn).toBeUndefined();
+  });
+
+  it("rejects when caller is not the doc's trainerId", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeHabitSnapshot({ exists: true, trainerId: "different-trainer-uid" }),
+    );
+
+    await expect(
+      deleteHabitRecurrenceFromDate("hab-different-trainer-uid-abc", "2026-05-20"),
     ).rejects.toThrow(/not your habit/i);
     expect(mockUpdate).not.toHaveBeenCalled();
   });
