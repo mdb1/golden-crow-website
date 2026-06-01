@@ -2,8 +2,8 @@
 
 // providers.tsx — React Query provider for the `/gc-fitness/clients` surface.
 //
-// Mirrors `/gc-fitness/chat/providers.tsx` (per-route-group client cache
-// pattern) but with looser defaults: the roster doesn't background-poll
+// Per-route-group client cache pattern (same as schedule/habits/exercises/
+// templates) but with looser defaults: the roster doesn't background-poll
 // today — it is a Server-Component render. The provider is included anyway
 // so 11-06's filter-chip + future client-side mutations
 // can use React Query hooks without re-wiring the layout.
