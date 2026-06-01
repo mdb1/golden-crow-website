@@ -40,7 +40,6 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { ChatInboxClient } from "./client";
-import { ChatQueryProvider } from "./providers";
 
 export const dynamic = "force-dynamic";
 
@@ -64,14 +63,22 @@ export default async function ChatPage() {
     pendingProvisioning: c.pendingProvisioning,
   }));
 
+  // NOTE: the chat surface intentionally does NOT mount its own
+  // QueryClientProvider. It shares the shell-level client
+  // (GCFitnessShellProviders) so the unread badge in the sidebar
+  // (gc-fitness-shell.tsx -> useTrainerChats) and the chat surface read/write
+  // the SAME `CHATS_BASE_KEY` cache. Otherwise ChatConversation's optimistic
+  // mark-read (queryClient.setQueryData on open) lands in a per-route client
+  // the sidebar badge can't see, and the badge only clears on the 120s poll /
+  // window-focus refetch (felt slow). Both `useTrainerChats` and
+  // `useChatMessages` pin their own refetchInterval on the hook, so no
+  // per-route provider defaults are needed here.
   return (
     <div className="gc-page flex flex-col gap-4">
-      <ChatQueryProvider>
-        <ChatInboxClient
-          trainerUid={trainer.uid}
-          clientRoster={clientRoster}
-        />
-      </ChatQueryProvider>
+      <ChatInboxClient
+        trainerUid={trainer.uid}
+        clientRoster={clientRoster}
+      />
     </div>
   );
 }

@@ -94,8 +94,10 @@ export function useTrainerChats(enabled: boolean = true) {
  * Action returns `[]` for a missing chat (never-messaged client) rather than
  * throwing — see `fetchMessages` in chat-server-actions.ts P08-04 contract.
  *
- * Refetch cadence overrides the ChatQueryProvider default (30s → 10s) so the
- * active thread stays tight while the trainer is typing.
+ * Refetch cadence is pinned on the hook itself (10s) so the active thread
+ * stays tight while the trainer is typing — independent of whichever
+ * QueryClient the chat surface mounts under (it now shares the shell-level
+ * client; see chat/page.tsx).
  */
 export function useChatMessages(chatId: string | null) {
   return useInfiniteQuery<MessageRow[], Error>({
