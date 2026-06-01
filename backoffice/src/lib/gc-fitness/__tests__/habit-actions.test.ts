@@ -5,7 +5,8 @@
 // Plan 06-05 contract (T-06-05-01 .. T-06-05-07 threat register):
 //  - createHabit must SET trainerId from `getCurrentTrainer().uid`, NEVER
 //    from client input — even when input claims a different trainerId.
-//  - createHabit Zod-parses BEFORE the Firestore write (T-06-05-03/-04).
+//  - createHabit Zod-parses BEFORE the Firestore write — habits are
+//    binary-only, so a non-binary type is rejected before any write.
 //  - updateHabit rejects cross-trainer updates (T-06-05-02).
 //  - updateHabit builds the patch from an affectedKeys whitelist — clientId,
 //    trainerId, type, createdAt, seedSource NEVER appear in the patch.
@@ -118,7 +119,7 @@ function fakeTokens(opts: {
 function fakeHabitSnapshot(opts: {
   exists: boolean;
   trainerId?: string | null;
-  type?: "binary" | "multi-choice" | "numeric" | "weight";
+  type?: "binary";
   id?: string;
 }) {
   return {
@@ -140,7 +141,7 @@ function fakeQuerySnapshot(
     id: string;
     trainerId: string;
     clientId?: string;
-    type?: "binary" | "multi-choice" | "numeric" | "weight";
+    type?: "binary";
     deleted?: boolean;
     reminderEnabled?: boolean;
   }>,
@@ -169,13 +170,14 @@ const VALID_BINARY_HABIT_INPUT = {
   reminderEnabled: false,
 };
 
-const VALID_MULTI_CHOICE_INPUT_BROKEN = {
+// A non-binary (legacy) type → rejected by the binary-only enum before any
+// Firestore write.
+const NON_BINARY_INPUT = {
   clientId: "uid-client-abc",
-  type: "multi-choice" as const,
-  name: { en: "Mood", es: "Humor" },
-  // No options → should fail Zod superRefine before any Firestore write
+  type: "numeric",
+  name: { en: "Water", es: "Agua" },
   reminderEnabled: false,
-};
+} as unknown;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -208,12 +210,10 @@ describe("createHabit", () => {
     expect(payload.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
   });
 
-  // T02 — multi-choice missing options → ZodError thrown, never writes
-  it("T02 — rejects multi-choice without options BEFORE Firestore (T-06-05-03)", async () => {
+  // T02 — non-binary type → ZodError thrown, never writes (binary-only)
+  it("T02 — rejects a non-binary habit type BEFORE Firestore", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
-    await expect(
-      createHabit(VALID_MULTI_CHOICE_INPUT_BROKEN),
-    ).rejects.toThrow();
+    await expect(createHabit(NON_BINARY_INPUT)).rejects.toThrow();
     expect(mockSet).not.toHaveBeenCalled();
   });
 

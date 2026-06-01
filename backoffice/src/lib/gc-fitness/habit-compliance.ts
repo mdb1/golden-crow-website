@@ -28,12 +28,9 @@
 // PARITY WITH SWIFT — semantic mapping (HabitStreakCalculator.swift):
 //   - `logCountsAsCompleted(log, habitType, targetValue)` mirrors
 //     Swift `logCountsAsCompleted(_:habitType:targetValue:)`.
-//       binary       → value === true                          && !deleted
-//       multi-choice → typeof value === "string" && !empty     && !deleted
-//       numeric      → typeof value === "number" && value > 0
-//                      && (targetValue === undefined || value >= targetValue)
-//                      && !deleted
-//       weight       → typeof value === "number" && value > 0  && !deleted
+//     Habits are BINARY-ONLY now: a log counts iff `!deleted && value === true`.
+//     `habitType` / `targetValue` are kept in the signature for call-site
+//     parity but are unused (every habit is binary).
 //   - `computeCompliance(habitType, logs, windowDays, today, timezone, targetValue?)`
 //     mirrors Swift `complianceRatio(habitType:logs:windowDays:today:timezoneIdentifier:targetValue:)`.
 //       Edge cases: windowDays <= 0 → 0.0; empty logs → 0.0.
@@ -70,15 +67,14 @@ import type { HabitType } from "./habit-schema";
  * `.planning/schemas/habit-logs.md` (Plan 06-01) + the Swift
  * `HabitLog.swift` Codable struct (Plan 06-02 post-fix `4482452`).
  *
- * `value` is type-erased intentionally — the consumer's `habitType`
- * parameter drives the variant projection. Mirrors the Swift
- * `HabitLogValue` enum's `asBool` / `asString` / `asDouble` accessors.
+ * `value` is a boolean — habits are binary-only (yes/no). Mirrors the Swift
+ * `HabitLog.value` after the binary-only collapse.
  */
 export interface HabitLogRow {
   habitId: string;
   clientId: string;
   civilDate: string; // "YYYY-MM-DD"
-  value: boolean | string | number;
+  value: boolean;
   unit?: string;
   loggedAt?: string; // ISO 8601 when the log was tapped (optional in compliance math)
   deleted?: boolean;
@@ -90,47 +86,19 @@ export interface HabitLogRow {
  * SOLE source of truth for "did this log count?". Re-used by
  * `computeCompliance` so the semantics cannot drift between the trainer
  * surface and any future per-day rollup. Parity-matches the Swift
- * `HabitStreakCalculator.logCountsAsCompleted(_:habitType:targetValue:)`.
+ * `HabitStreakCalculator.logCountsAsCompleted`.
  *
- * Per-type completion rules (from `.planning/schemas/habit-logs.md`
- * § HabitType table):
- *   - binary       → value === true                       && !deleted
- *   - multi-choice → typeof value === "string" && !empty  && !deleted
- *   - numeric      → typeof value === "number" && value > 0
- *                    && (targetValue === undefined ? true : value >= targetValue)
- *                    && !deleted
- *   - weight       → typeof value === "number" && value > 0 && !deleted
- *
- * Soft-deleted logs ALWAYS fail the predicate, regardless of habit type.
+ * Habits are BINARY-ONLY: a log counts iff `!deleted && value === true`.
+ * `_habitType` / `_targetValue` are kept in the signature for call-site
+ * parity (callers still pass them) but are unused.
  */
 export function logCountsAsCompleted(
   log: HabitLogRow,
-  habitType: HabitType,
-  targetValue: number | undefined,
+  _habitType?: HabitType,
+  _targetValue?: number | undefined,
 ): boolean {
   if (log.deleted === true) return false;
-
-  switch (habitType) {
-    case "binary":
-      return log.value === true;
-
-    case "multi-choice":
-      return typeof log.value === "string" && log.value.length > 0;
-
-    case "numeric": {
-      if (typeof log.value !== "number") return false;
-      if (log.value <= 0) return false;
-      if (targetValue !== undefined) return log.value >= targetValue;
-      return true;
-    }
-
-    case "weight":
-      return typeof log.value === "number" && log.value > 0;
-
-    default:
-      // Exhaustive — but TypeScript-narrow the discriminated union path.
-      return false;
-  }
+  return log.value === true;
 }
 
 /**

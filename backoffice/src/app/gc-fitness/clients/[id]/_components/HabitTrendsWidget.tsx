@@ -22,7 +22,6 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
-import type { HabitType } from "@/lib/gc-fitness/habit-schema";
 import { TREND_RANGES, type TrendRangeKey, addCivilDays } from "./trend-range";
 import { HabitTrendsClient, type HabitTrendRow } from "./HabitTrendsClient";
 
@@ -66,8 +65,6 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
     habitsSnap.docs.map(async (h) => {
       const habit = h.data() as {
         name?: string | { en?: string; es?: string };
-        type?: HabitType;
-        targetValue?: number;
       } & Record<string, unknown>;
 
       const logsSnap = await db
@@ -79,26 +76,13 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
         .get();
 
       const completedDates = new Set<string>();
-      const targetValue =
-        typeof habit.targetValue === "number" ? habit.targetValue : undefined;
-      const habitType = (habit.type ?? "binary") as HabitType;
+      // Habits are binary-only: a log counts iff !deleted && value === true.
       for (const doc of logsSnap.docs) {
         const data = doc.data() as Record<string, unknown>;
         if (data.deleted === true) continue;
         const date = typeof data.civilDate === "string" ? data.civilDate : "";
         if (!date) continue;
-
-        const value = data.value;
-        let completed = false;
-        if (habitType === "binary") {
-          completed = value === true;
-        } else {
-          const numeric = typeof value === "number" ? value : Number(value);
-          completed =
-            Number.isFinite(numeric) &&
-            (targetValue === undefined ? numeric > 0 : numeric >= targetValue);
-        }
-        if (completed) completedDates.add(date);
+        if (data.value === true) completedDates.add(date);
       }
 
       const byRange = {} as Record<

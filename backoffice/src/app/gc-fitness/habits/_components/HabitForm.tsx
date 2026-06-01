@@ -6,25 +6,19 @@
 //   - mode="create": empty form → `createHabit` → redirect to /gc-fitness/habits
 //   - mode="edit":   defaults from Firestore → `updateHabit` patch
 //
-// Type-conditional rendering (lives in `useWatch("type")` per P04-04 template-
-// form pattern):
-//   - options[] field — RENDERED ONLY when type === "multi-choice"
-//   - targetValue field — RENDERED ONLY when type === "numeric"
-//   - unit field — RENDERED when type is numeric or weight
-//   - reminderTime — RENDERED ONLY when reminderEnabled is true
+// Habits are binary-only (yes/no) — there is no type picker. The only
+// conditional field is `reminderTime`, rendered when `reminderEnabled` is true.
 //
 // The mode is locked at mount; the resolver swaps between
 // `habitCreateSchema` and `habitUpdateSchemaForType(initialValues.type)`
-// based on `mode`. In edit mode, both `clientId` and `type` are rendered
-// as DISABLED inputs (immutable post-create per the schema doc + rule
-// layer enforcement); the values still appear in the form so the trainer
-// sees what they're editing.
+// based on `mode`. In edit mode `clientId` is rendered as a DISABLED input
+// (immutable post-create per the schema doc + rule layer enforcement); the
+// value still appears in the form so the trainer sees what they're editing.
 
-import { useCallback, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -48,13 +42,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 
 import {
   habitCreateSchema,
   habitUpdateSchemaForType,
-  HABIT_TYPES,
-  type HabitType,
   type HabitCreateInput,
 } from "@/lib/gc-fitness/habit-schema";
 
@@ -95,16 +86,6 @@ export interface HabitFormProps {
   hideCancelButton?: boolean;
 }
 
-// Translation keys for the four habit-type strings — resolved at render via
-// `t(`typeOptions.${HABIT_TYPE_LABEL_KEYS[type]}`)`. Keeping a static map
-// here means the keys stay grep-able and the runtime lookup is O(1).
-const HABIT_TYPE_LABEL_KEYS: Record<HabitType, string> = {
-  binary: "binary",
-  "multi-choice": "multiChoice",
-  numeric: "numeric",
-  weight: "weight",
-};
-
 const WEEKDAY_KEYS = [
   { value: 1, key: "mon" },
   { value: 2, key: "tue" },
@@ -131,15 +112,12 @@ function buildDefaults(
 
   return {
     clientId: passed?.clientId ?? "",
-    type: passed?.type ?? "binary",
+    type: "binary",
     name: {
       en: passed?.name?.en ?? "",
       es: passed?.name?.es ?? "",
     },
     description: passed?.description,
-    options: passed?.options,
-    targetValue: passed?.targetValue,
-    unit: passed?.unit,
     reminderTime: passed?.reminderTime,
     reminderEnabled: passed?.reminderEnabled ?? false,
     reminderCadence: passed?.reminderCadence ?? "daily",
@@ -176,7 +154,6 @@ export function HabitForm({
   const t = useTranslations("habits.form");
   const [pending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [targetValueDraft, setTargetValueDraft] = useState<string>("");
 
   // Resolver swap based on mode. In edit mode the type is closure-captured
   // from the initial defaults; in create mode the type is read from the
@@ -194,11 +171,7 @@ export function HabitForm({
     mode: "onSubmit",
   });
 
-  // Watch `type` + `reminderEnabled` so the conditional field UI re-renders.
-  const watchedType = useWatch({
-    control: form.control,
-    name: "type",
-  });
+  // Watch `reminderEnabled` so the conditional reminder UI re-renders.
   const watchedReminderEnabled = useWatch({
     control: form.control,
     name: "reminderEnabled",
@@ -224,30 +197,6 @@ export function HabitForm({
   const watchedReminderMonthDays =
     useWatch({ control: form.control, name: "reminderMonthDays" }) ?? [];
 
-  // Options is a string[] (not array-of-objects), so RHF's useFieldArray —
-  // which is purpose-built for object arrays — is awkward here. Track the
-  // array via useWatch + form.setValue, with append/remove as memoized
-  // helpers. The Zod superRefine still enforces the ≥ 2 constraint on
-  // submit; this is purely UI plumbing for the in-form list.
-  const watchedOptions =
-    useWatch({ control: form.control, name: "options" }) ?? [];
-  const appendOption = useCallback(() => {
-    const current =
-      (form.getValues("options") as string[] | undefined) ?? [];
-    form.setValue("options", [...current, ""], { shouldDirty: true });
-  }, [form]);
-  const removeOption = useCallback(
-    (index: number) => {
-      const current =
-        (form.getValues("options") as string[] | undefined) ?? [];
-      const next = current.filter((_, i) => i !== index);
-      form.setValue("options", next.length > 0 ? next : undefined, {
-        shouldDirty: true,
-      });
-    },
-    [form],
-  );
-
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
       setSubmitError(null);
@@ -256,7 +205,7 @@ export function HabitForm({
         // `undefined` values that would re-emit as `null` on read.
         const cleaned: HabitCreateInput = {
           clientId: values.clientId,
-          type: values.type,
+          type: "binary",
           name: values.name,
           reminderEnabled: values.reminderEnabled,
           scheduleType: values.scheduleType,
@@ -270,24 +219,6 @@ export function HabitForm({
             en: descriptionEn || descriptionEs,
             es: descriptionEs || descriptionEn,
           };
-        }
-        if (values.type === "multi-choice" && values.options) {
-          // Drop empty string entries that the trainer left blank.
-          const trimmed = values.options
-            .map((o) => o.trim())
-            .filter((o) => o.length > 0);
-          if (trimmed.length > 0) {
-            cleaned.options = trimmed;
-          }
-        }
-        if (values.type === "numeric" && values.targetValue !== undefined) {
-          cleaned.targetValue = values.targetValue;
-        }
-        if (
-          (values.type === "numeric" || values.type === "weight") &&
-          values.unit
-        ) {
-          cleaned.unit = values.unit;
         }
         if (values.reminderEnabled && values.reminderTime) {
           cleaned.reminderTime = values.reminderTime;
@@ -384,11 +315,6 @@ export function HabitForm({
     });
   });
 
-  const isMultiChoice = watchedType === "multi-choice";
-  const isNumeric = watchedType === "numeric";
-  const isWeight = watchedType === "weight";
-  const showUnit = isNumeric || isWeight;
-
   return (
     <Form {...form}>
       <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
@@ -419,39 +345,6 @@ export function HabitForm({
               </Select>
               {mode === "edit" && (
                 <FormDescription>{t("clientImmutableHint")}</FormDescription>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Habit type — disabled in edit mode (immutable per schema doc) */}
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem className="max-w-xs">
-              <FormLabel>{t("typeLabel")}</FormLabel>
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={mode === "edit"}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("typePlaceholder")} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {HABIT_TYPES.map((ht) => (
-                    <SelectItem key={ht} value={ht}>
-                      {t(`typeOptions.${HABIT_TYPE_LABEL_KEYS[ht]}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {mode === "edit" && (
-                <FormDescription>{t("typeImmutableHint")}</FormDescription>
               )}
               <FormMessage />
             </FormItem>
@@ -528,160 +421,6 @@ export function HabitForm({
             )}
           />
         </div>
-
-        {/* Multi-choice options — type-conditional */}
-        {isMultiChoice && (
-          <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-base font-semibold tracking-tight">
-                {t("optionsHeading")}
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {t("optionsCount", { count: watchedOptions.length })}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground">{t("optionsHelp")}</p>
-            <ul className="flex flex-col gap-2">
-              {watchedOptions.map((_, index) => (
-                // Index-based React key is acceptable here because options
-                // are primitive strings (not RHF object fields with stable
-                // IDs); a remove always reflows lower entries by one slot.
-                // eslint-disable-next-line react/no-array-index-key
-                <li key={`opt-${index}`}>
-                  <Card>
-                    <CardContent className="flex items-center gap-2 p-3">
-                      <Controller
-                        control={form.control}
-                        name={`options.${index}` as const}
-                        render={({ field: optField, fieldState }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input
-                                placeholder={t("optionPlaceholder", {
-                                  index: index + 1,
-                                })}
-                                value={optField.value ?? ""}
-                                onChange={optField.onChange}
-                                onBlur={optField.onBlur}
-                                maxLength={40}
-                              />
-                            </FormControl>
-                            {fieldState.error && (
-                              <FormMessage>
-                                {fieldState.error.message}
-                              </FormMessage>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeOption(index)}
-                        aria-label={t("removeOptionAria")}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </li>
-              ))}
-            </ul>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={appendOption}
-              disabled={watchedOptions.length >= 8}
-              className="gap-2 self-start"
-            >
-              <Plus className="h-4 w-4" />
-              {t("addOption")}
-            </Button>
-            {form.formState.errors.options &&
-              !Array.isArray(form.formState.errors.options) && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.options.message}
-                </p>
-              )}
-          </div>
-        )}
-
-        {/* Numeric — target value */}
-        {isNumeric && (
-          <Controller
-            control={form.control}
-            name="targetValue"
-            render={({ field, fieldState }) => (
-              <FormItem className="max-w-xs">
-                <FormLabel>{t("dailyTargetLabel")}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    min={0}
-                    placeholder={t("dailyTargetPlaceholder")}
-                    value={targetValueDraft !== "" ? targetValueDraft : (field.value ?? "")}
-                    onChange={(e) => {
-                      if (e.target.value === "") {
-                        setTargetValueDraft("");
-                        return;
-                      }
-                      const parsed = Number(e.target.value);
-                      if (!Number.isFinite(parsed)) return;
-                      setTargetValueDraft(e.target.value);
-                      field.onChange(parsed);
-                    }}
-                    onBlur={() => {
-                      if (targetValueDraft === "") {
-                        field.onChange(undefined);
-                        field.onBlur();
-                        return;
-                      }
-                      const parsed = Number(targetValueDraft);
-                      if (Number.isFinite(parsed)) {
-                        field.onChange(parsed);
-                      }
-                      setTargetValueDraft("");
-                      field.onBlur();
-                    }}
-                  />
-                </FormControl>
-                <FormDescription>{t("dailyTargetHint")}</FormDescription>
-                {fieldState.error && (
-                  <FormMessage>{fieldState.error.message}</FormMessage>
-                )}
-              </FormItem>
-            )}
-          />
-        )}
-
-        {/* Unit — numeric + weight */}
-        {showUnit && (
-          <FormField
-            control={form.control}
-            name="unit"
-            render={({ field }) => (
-              <FormItem className="max-w-xs">
-                <FormLabel>{t("unitLabel")}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={
-                      isWeight
-                        ? t("unitPlaceholderWeight")
-                        : t("unitPlaceholderGlasses")
-                    }
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormDescription>{t("unitHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
 
         {/* Reminder block */}
         <div className="flex flex-col gap-3 rounded-md border bg-card p-4">

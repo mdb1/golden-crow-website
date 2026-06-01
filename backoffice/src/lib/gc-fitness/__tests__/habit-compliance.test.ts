@@ -30,8 +30,9 @@
 //
 // THREAT REGISTER LOCKING (PLAN 06-08):
 //   T-06-08-02 (soft-delete) — T04 + T08 (soft-deleted log excluded).
-//   T-06-08-03 (numeric below-target) — T05 + T06.
 //   T-06-08-04 (cross-surface algorithm drift) — T08 fixture parity lock.
+//
+// Habits are BINARY-ONLY now: a log counts iff `!deleted && value === true`.
 
 import {
   computeCompliance,
@@ -53,130 +54,20 @@ function binaryLog(opts: {
   };
 }
 
-function numericLog(opts: {
-  date: string;
-  value: number;
-  deleted?: boolean;
-}): HabitLogRow {
-  return {
-    habitId: "hab-test",
-    clientId: "client-test",
-    civilDate: opts.date,
-    value: opts.value,
-    deleted: opts.deleted,
-  };
-}
-
-function multiChoiceLog(opts: {
-  date: string;
-  value: string;
-  deleted?: boolean;
-}): HabitLogRow {
-  return {
-    habitId: "hab-test",
-    clientId: "client-test",
-    civilDate: opts.date,
-    value: opts.value,
-    deleted: opts.deleted,
-  };
-}
-
 describe("habit-compliance — logCountsAsCompleted", () => {
   it("binary: returns true iff value === true and not deleted", () => {
     expect(
-      logCountsAsCompleted(
-        binaryLog({ date: "2026-05-19", value: true }),
-        "binary",
-        undefined,
-      ),
+      logCountsAsCompleted(binaryLog({ date: "2026-05-19", value: true })),
     ).toBe(true);
 
     expect(
-      logCountsAsCompleted(
-        binaryLog({ date: "2026-05-19", value: false }),
-        "binary",
-        undefined,
-      ),
+      logCountsAsCompleted(binaryLog({ date: "2026-05-19", value: false })),
     ).toBe(false);
 
     // Soft-delete always overrides even when value === true.
     expect(
       logCountsAsCompleted(
         binaryLog({ date: "2026-05-19", value: true, deleted: true }),
-        "binary",
-        undefined,
-      ),
-    ).toBe(false);
-  });
-
-  it("numeric without targetValue: counts iff value > 0", () => {
-    expect(
-      logCountsAsCompleted(
-        numericLog({ date: "2026-05-19", value: 5 }),
-        "numeric",
-        undefined,
-      ),
-    ).toBe(true);
-
-    expect(
-      logCountsAsCompleted(
-        numericLog({ date: "2026-05-19", value: 0 }),
-        "numeric",
-        undefined,
-      ),
-    ).toBe(false);
-  });
-
-  it("numeric with targetValue: counts iff value >= targetValue", () => {
-    expect(
-      logCountsAsCompleted(
-        numericLog({ date: "2026-05-19", value: 8 }),
-        "numeric",
-        8,
-      ),
-    ).toBe(true);
-
-    expect(
-      logCountsAsCompleted(
-        numericLog({ date: "2026-05-19", value: 7 }),
-        "numeric",
-        8,
-      ),
-    ).toBe(false);
-  });
-
-  it("multi-choice: counts iff value is a non-empty string", () => {
-    expect(
-      logCountsAsCompleted(
-        multiChoiceLog({ date: "2026-05-19", value: "good" }),
-        "multi-choice",
-        undefined,
-      ),
-    ).toBe(true);
-
-    expect(
-      logCountsAsCompleted(
-        multiChoiceLog({ date: "2026-05-19", value: "" }),
-        "multi-choice",
-        undefined,
-      ),
-    ).toBe(false);
-  });
-
-  it("weight: counts iff value > 0", () => {
-    expect(
-      logCountsAsCompleted(
-        numericLog({ date: "2026-05-19", value: 80 }),
-        "weight",
-        undefined,
-      ),
-    ).toBe(true);
-
-    expect(
-      logCountsAsCompleted(
-        numericLog({ date: "2026-05-19", value: 0 }),
-        "weight",
-        undefined,
       ),
     ).toBe(false);
   });
@@ -264,45 +155,6 @@ describe("habit-compliance — computeCompliance", () => {
       undefined,
     );
     // 2 completed (19 + 17), 2026-05-18 excluded by soft-delete
-    expect(result.ratio).toBeCloseTo(2 / 7, 10);
-  });
-
-  // T05 — numeric below target (T-06-08-03)
-  it("T05: numeric value=5 with targetValue=8 → does NOT count", () => {
-    const logs: HabitLogRow[] = [
-      numericLog({ date: "2026-05-19", value: 5 }),
-      numericLog({ date: "2026-05-18", value: 5 }),
-    ];
-    const result = computeCompliance("numeric", logs, 7, "2026-05-19", "UTC", 8);
-    expect(result.ratio).toBe(0);
-  });
-
-  // T06 — numeric meets target (T-06-08-03 complement)
-  it("T06: numeric value=8 with targetValue=8 → counts", () => {
-    const logs: HabitLogRow[] = [
-      numericLog({ date: "2026-05-19", value: 8 }),
-      numericLog({ date: "2026-05-18", value: 10 }),
-      numericLog({ date: "2026-05-17", value: 7 }), // below target — does NOT count
-    ];
-    const result = computeCompliance("numeric", logs, 7, "2026-05-19", "UTC", 8);
-    expect(result.ratio).toBeCloseTo(2 / 7, 10);
-  });
-
-  // T07 — weight habit
-  it("T07: weight habit log value=80 → counts (>0)", () => {
-    const logs: HabitLogRow[] = [
-      numericLog({ date: "2026-05-19", value: 80 }),
-      numericLog({ date: "2026-05-18", value: 79.5 }),
-      numericLog({ date: "2026-05-17", value: 0 }), // zero/negative does NOT count
-    ];
-    const result = computeCompliance(
-      "weight",
-      logs,
-      7,
-      "2026-05-19",
-      "UTC",
-      undefined,
-    );
     expect(result.ratio).toBeCloseTo(2 / 7, 10);
   });
 

@@ -569,7 +569,7 @@ export async function listMonthForClients(input: {
         habitId,
         clientId: (data.clientId as string) ?? "",
         civilDate: civil,
-        value: data.value as boolean | string | number,
+        value: data.value === true,
         unit: typeof data.unit === "string" ? data.unit : undefined,
         deleted: data.deleted === true,
       };

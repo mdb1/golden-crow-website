@@ -245,36 +245,15 @@ function habitScheduledOn(
 
 /**
  * Mirrors `logCountsAsCompleted` from habit-compliance.ts (kept inline so
- * recent-logs-actions doesn't add a deep import path). A log counts as
- * "done" iff it's not soft-deleted AND its `value` reads as completed for
- * the habit's type. Numeric habits with a targetValue require value >=
- * target; numeric habits without a target accept value > 0.
+ * recent-logs-actions doesn't add a deep import path). Habits are binary-only:
+ * a log counts as "done" iff it isn't soft-deleted AND its `value` is `true`.
  */
 function habitLogCountsAsCompleted(
   data: Record<string, unknown>,
-  habit: Record<string, unknown> | undefined,
+  _habit: Record<string, unknown> | undefined,
 ): boolean {
   if (data.deleted === true) return false;
-  const value = data.value;
-  const habitType =
-    typeof habit?.type === "string" ? (habit!.type as string) : "binary";
-  switch (habitType) {
-    case "multi-choice":
-      return typeof value === "string" && value.trim().length > 0;
-    case "numeric": {
-      if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-        return false;
-      }
-      const target =
-        typeof habit?.targetValue === "number" ? (habit!.targetValue as number) : null;
-      return target === null ? true : value >= target;
-    }
-    case "weight":
-      return typeof value === "number" && Number.isFinite(value) && value > 0;
-    case "binary":
-    default:
-      return value === true;
-  }
+  return data.value === true;
 }
 
 /**

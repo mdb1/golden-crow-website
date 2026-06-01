@@ -115,10 +115,7 @@ export async function PendingClientPreload({
     "use server";
     const templateId = String(formData.get("templateId") ?? "").trim();
     const name = String(formData.get("name") ?? "").trim();
-    const type = String(formData.get("type") ?? "binary");
-    const optionsRaw = String(formData.get("options") ?? "").trim();
-    const targetRaw = String(formData.get("targetValue") ?? "").trim();
-    const unitRaw = String(formData.get("unit") ?? "").trim();
+    // Habits are binary-only — `type` is always "binary".
     const scheduleType = String(formData.get("scheduleType") ?? "recurring");
     const startsOn = String(formData.get("startsOn") ?? "").trim();
     const endsOn = String(formData.get("endsOn") ?? "").trim();
@@ -141,24 +138,11 @@ export async function PendingClientPreload({
       ? habitTemplates.find((template) => template.id === templateId)
       : null;
     if (!selectedTemplate && !name) return;
-    const options = optionsRaw
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-    const targetValue = targetRaw.length > 0 ? Number(targetRaw) : undefined;
     const startsOnValue = startsOn || new Date().toISOString().slice(0, 10);
-    const resolvedType = (selectedTemplate?.type ?? type) as "binary" | "multi-choice" | "numeric" | "weight";
+    const resolvedType = "binary" as const;
     const resolvedScheduleType = scheduleType === "one-time" ? "one-time" : "recurring";
     const resolvedCadence =
       scheduleCadence === "weekly" || scheduleCadence === "monthly" ? scheduleCadence : "daily";
-    const parsedTarget =
-      Number.isFinite(targetValue) && resolvedType === "numeric" ? targetValue : undefined;
-    const parsedUnit =
-      unitRaw.length > 0 && (resolvedType === "numeric" || resolvedType === "weight")
-        ? unitRaw
-        : undefined;
-    const parsedOptions =
-      resolvedType === "multi-choice" && options.length > 0 ? options : undefined;
     const parsedWeekdays =
       resolvedScheduleType === "recurring" && resolvedCadence === "weekly" && scheduleWeekdays.length > 0
         ? scheduleWeekdays
@@ -182,12 +166,6 @@ export async function PendingClientPreload({
     await createPendingHabit(normalizedEmail, {
       type: resolvedType,
       name: resolvedName,
-      options: parsedOptions ?? selectedTemplate?.options,
-      targetValue:
-        parsedTarget !== undefined
-          ? parsedTarget
-          : selectedTemplate?.targetValue,
-      unit: parsedUnit ?? selectedTemplate?.unit,
       clientId: `pending:${normalizedEmail}`, // overridden by createPendingHabit
       reminderEnabled: false,
       scheduleType: resolvedScheduleType,
@@ -402,14 +380,13 @@ export async function PendingClientPreload({
           submitAction={submitHabit}
           templates={habitTemplates.map((template) => ({
             id: template.id,
-            label: `${template.name.es || template.name.en || "(sin nombre)"} · ${template.type}`,
-            type: template.type,
+            label: template.name.es || template.name.en || "(sin nombre)",
           }))}
         />
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Pre-carga avanzada: podés definir tipo, opciones, target y unidad
-          antes del primer ingreso del cliente.
+          Pre-carga avanzada: definí el hábito (sí/no) y su recurrencia antes
+          del primer ingreso del cliente.
         </p>
       </section>
     </div>

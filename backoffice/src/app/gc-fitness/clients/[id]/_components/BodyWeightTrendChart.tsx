@@ -11,11 +11,10 @@
 // but as a server-side redirect link instead of a button.
 //
 // Query budget:
-//   1) habits where (clientId, type == "weight", deleted == false) — N=1-2
-//   2) habit_logs where (habitId IN <habitIds>, loggedAt >= 30 days ago)
-//      orderBy loggedAt ASC
-// Firestore caps the `in` operator at 30 values; we expect 1-2 weight
-// habits per client so this is comfortably safe.
+//   1) users/{uid}/body_weight_logs orderBy recordedAt ASC, limit 180.
+// Body weight lives in its OWN dedicated collection; the legacy
+// `habits` (type == "weight") fallback was removed when habits became
+// binary-only.
 //
 // Trust: the parent page's ownership gate guarantees the trainer owns
 // this client; Firestore rules (P02-11) also enforce. The chart never
@@ -67,9 +66,9 @@ export async function BodyWeightTrendChart({
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  // Primary source for this widget: /users/{uid}/body_weight_logs
-  // (what trainers are currently loading in production for client profile).
-  // If empty, we fall back to weight habit logs.
+  // SOLE source for this widget: /users/{uid}/body_weight_logs. Body weight
+  // is no longer a habit type — there is no `habits (type == "weight")`
+  // fallback.
   const directWeightLogsSnap = await db
     .collection(FirestoreCollections.users)
     .doc(clientId)
@@ -79,7 +78,7 @@ export async function BodyWeightTrendChart({
     .get()
     .catch(() => null);
 
-  let unitLabel = "kg";
+  const unitLabel = "kg";
   let points: WeightPoint[] = (directWeightLogsSnap?.docs ?? [])
     .map((d) => {
       const data = d.data() as {
@@ -94,44 +93,6 @@ export async function BodyWeightTrendChart({
       return { date: date.toISOString().slice(0, 10), weight };
     })
     .filter((p): p is WeightPoint => p !== null);
-
-  if (points.length === 0) {
-    const habitsSnap = await db
-      .collection(FirestoreCollections.habits)
-      .where("clientId", "==", clientId)
-      .where("type", "==", "weight")
-      .where("deleted", "==", false)
-      .get();
-
-    if (!habitsSnap.empty) {
-      const habitIds = habitsSnap.docs.map((d) => d.id);
-      const firstHabit = habitsSnap.docs[0]?.data() as { unit?: string } | undefined;
-      unitLabel =
-        typeof firstHabit?.unit === "string" && firstHabit.unit.length > 0
-          ? firstHabit.unit
-          : "kg";
-      const logsSnap = await db
-        .collection(FirestoreCollections.habitLogs)
-        .where("habitId", "in", habitIds)
-        .where("loggedAt", ">=", thirtyDaysAgo)
-        .orderBy("loggedAt", "asc")
-        .get();
-      points = logsSnap.docs
-    .map((d) => {
-      const data = d.data() as {
-        civilDate?: string;
-        value?: number;
-        deleted?: boolean;
-      };
-      if (data.deleted) return null;
-      if (typeof data.value !== "number" || data.value <= 0) return null;
-      if (!isPlausibleWeightKg(data.value)) return null;
-      if (typeof data.civilDate !== "string") return null;
-      return { date: data.civilDate, weight: data.value };
-    })
-    .filter((p): p is WeightPoint => p !== null);
-    }
-  }
 
   // Keep one point per day (latest wins) to avoid overplot noise.
   const byDate = new Map<string, number>();

@@ -595,7 +595,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           habitId: hid,
           clientId: (data.clientId as string) ?? "",
           civilDate: typeof data.civilDate === "string" ? data.civilDate : "",
-          value: data.value as boolean | string | number,
+          value: data.value === true,
           unit: typeof data.unit === "string" ? data.unit : undefined,
           deleted: data.deleted === true,
         };

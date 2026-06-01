@@ -45,12 +45,8 @@ interface HabitDetailDialogProps {
   onChanged: () => void;
 }
 
-const HABIT_TYPE_LABEL: Record<HabitRow["type"], string> = {
-  binary: "Sí / no",
-  numeric: "Numérico",
-  weight: "Peso",
-  "multi-choice": "Opción múltiple",
-};
+// Habits are binary-only (yes/no) now.
+const HABIT_TYPE_LABEL = "Sí / no";
 
 const WEEKDAY_SHORT = ["", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -178,9 +174,7 @@ export function HabitDetailDialog({
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   Tipo
                 </p>
-                <p className="font-medium">
-                  {HABIT_TYPE_LABEL[data.type] ?? data.type}
-                </p>
+                <p className="font-medium">{HABIT_TYPE_LABEL}</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">

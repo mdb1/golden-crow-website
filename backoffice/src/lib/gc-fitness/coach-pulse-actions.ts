@@ -68,31 +68,12 @@ function habitScheduledOn(
 
 function habitLogCountsAsCompleted(
   data: Record<string, unknown>,
-  habit: Record<string, unknown> | undefined,
+  _habit: Record<string, unknown> | undefined,
 ): boolean {
+  // Habits are binary-only: a log counts iff it isn't soft-deleted AND its
+  // value is `true`. Mirrors `logCountsAsCompleted` in habit-compliance.ts.
   if (data.deleted === true) return false;
-  const value = data.value;
-  const habitType =
-    typeof habit?.type === "string" ? (habit!.type as string) : "binary";
-  switch (habitType) {
-    case "multi-choice":
-      return typeof value === "string" && value.trim().length > 0;
-    case "numeric": {
-      if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-        return false;
-      }
-      const target =
-        typeof habit?.targetValue === "number"
-          ? (habit!.targetValue as number)
-          : null;
-      return target === null ? true : value >= target;
-    }
-    case "weight":
-      return typeof value === "number" && Number.isFinite(value) && value > 0;
-    case "binary":
-    default:
-      return value === true;
-  }
+  return data.value === true;
 }
 
 function buildWindowDays(timezone: string): string[] {

@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from "react";
 
-type HabitType = "binary" | "multi-choice" | "numeric" | "weight";
+// Habits are binary-only (yes/no) now.
 type HabitScheduleType = "one-time" | "recurring";
 type HabitCadence = "daily" | "weekly" | "monthly";
 
 interface HabitTemplateOption {
   id: string;
   label: string;
-  type: HabitType;
 }
 
 interface PendingHabitPreloadFormProps {
@@ -40,20 +39,12 @@ export function PendingHabitPreloadForm({
   submitAction,
 }: PendingHabitPreloadFormProps) {
   const [templateId, setTemplateId] = useState("");
-  const [type, setType] = useState<HabitType>("binary");
   const [scheduleType, setScheduleType] = useState<HabitScheduleType>("recurring");
   const [scheduleCadence, setScheduleCadence] = useState<HabitCadence>("daily");
   const [monthDays, setMonthDays] = useState<number[]>([1]);
 
   const startsOnDefault = useMemo(() => todayCivilDate(), []);
   const templateMode = templateId.length > 0;
-  const selectedTemplateType = templateMode
-    ? templates.find((template) => template.id === templateId)?.type
-    : undefined;
-  const effectiveType = selectedTemplateType ?? type;
-  const showOptions = effectiveType === "multi-choice";
-  const showTarget = effectiveType === "numeric";
-  const showUnit = effectiveType === "numeric" || effectiveType === "weight";
   const showCadence = scheduleType === "recurring";
   const showWeekdays = showCadence && scheduleCadence === "weekly";
   const showMonthDay = showCadence && scheduleCadence === "monthly";
@@ -85,70 +76,21 @@ export function PendingHabitPreloadForm({
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
           {!templateMode ? (
-            <>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium">Nombre del hábito</span>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  minLength={1}
-                  maxLength={80}
-                  placeholder="Ej: 10 minutos de meditación"
-                  className="rounded border bg-background px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium">Tipo</span>
-                <select
-                  name="type"
-                  value={type}
-                  onChange={(event) => setType(event.target.value as HabitType)}
-                  className="rounded border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="binary">Binary</option>
-                  <option value="multi-choice">Multi-choice</option>
-                  <option value="numeric">Numeric</option>
-                  <option value="weight">Weight</option>
-                </select>
-              </label>
-            </>
-          ) : (
-            <input type="hidden" name="type" value={effectiveType} />
-          )}
-          {showOptions ? (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Opciones (coma separadas)</span>
+              <span className="font-medium">Nombre del hábito</span>
               <input
                 type="text"
-                name="options"
-                placeholder="Alta, Media, Baja"
+                name="name"
+                required
+                minLength={1}
+                maxLength={80}
+                placeholder="Ej: 10 minutos de meditación"
                 className="rounded border bg-background px-3 py-2 text-sm"
               />
             </label>
           ) : null}
-          {showTarget ? (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Target</span>
-              <input
-                type="number"
-                name="targetValue"
-                step="any"
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          ) : null}
-          {showUnit ? (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Unidad</span>
-              <input
-                type="text"
-                name="unit"
-                placeholder="kg, reps, min..."
-                className="rounded border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          ) : null}
+          {/* Habits are binary-only — type is always "binary". */}
+          <input type="hidden" name="type" value="binary" />
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

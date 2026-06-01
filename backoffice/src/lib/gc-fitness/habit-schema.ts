@@ -30,28 +30,22 @@
 //   lock this defense-in-depth (mirrors T-04-14 + T-04-15 from P04-04).
 //
 // TYPE-CONDITIONAL VALIDATION:
-//   The `superRefine` block enforces the four cross-field rules from the
-//   schema doc (lines 59-65 of `habits.md`):
-//     1. type === "multi-choice"  ⇒ options has ≥ 2 entries
-//     2. type !== "multi-choice"  ⇒ options must be absent
-//     3. type === "weight"        ⇒ targetValue must be absent
-//     4. reminderEnabled === true ⇒ reminderTime must be present
+//   Habits are BINARY-ONLY (yes/no). The only cross-field rule that remains is:
+//     reminderEnabled === true ⇒ reminderTime must be present
+//   The legacy multi-choice/numeric/weight conditional rules were removed when
+//   the product collapsed to binary-only habits (TS↔Swift parity: the Swift
+//   `HabitType` enum + `firestore.rules` were collapsed in the same change).
 //
-//   `habitUpdateSchemaForType(existingType)` re-applies the same rules using
+//   `habitUpdateSchemaForType(existingType)` re-applies the same rule using
 //   a closure-captured `existingType` because the immutable `type` field is
 //   stripped from the update input (clients cannot mutate `type` — rule
 //   layer P06-03 + this schema both enforce that immutability).
 
 import { z } from "zod";
 
-// HabitType enum — wire raw values mirror the Swift `HabitType` enum
-// (incl. the hyphenated `"multi-choice"`). Locked in `habits.md`.
-export const HABIT_TYPES = [
-  "binary",
-  "multi-choice",
-  "numeric",
-  "weight",
-] as const;
+// HabitType enum — binary-only. Mirrors the now-collapsed Swift `HabitType`
+// enum. Locked in `habits.md`.
+export const HABIT_TYPES = ["binary"] as const;
 
 export const habitTypeSchema = z.enum(HABIT_TYPES);
 
@@ -98,22 +92,6 @@ const habitBaseShape = z.object({
   type: habitTypeSchema,
   name: localizedStringSchema,
   description: localizedDescriptionSchema.optional(),
-  // multi-choice only — array of human-friendly option labels. Max 8 keeps
-  // the iOS Menu picker readable on a 6.1" screen.
-  options: z
-    .array(z.string().trim().min(1).max(40))
-    .max(8, "Maximum 8 options.")
-    .optional(),
-  // numeric only — target value (e.g. 8 glasses of water). Positive finite
-  // float; the streak math reads this when set (≥ targetValue counts).
-  targetValue: z.number().positive().finite().optional(),
-  // numeric + weight — human unit string. Free-form to keep v1 simple.
-  unit: z
-    .string()
-    .trim()
-    .min(1)
-    .max(20, "Keep the unit under 20 characters.")
-    .optional(),
   // HH:mm 24-hour local-time string. Regex matches the schema doc spec.
   // iOS schedules a daily UNCalendarNotificationTrigger at this hour-minute.
   reminderTime: z
@@ -169,14 +147,11 @@ const habitBaseShape = z.object({
     .optional(),
 });
 
-// Shared superRefine logic — applied by both create and update schemas. The
-// `existingType` argument lets the update path enforce the same conditional
-// rules using the immutable parent doc's `type` (since the update input no
-// longer carries `type` itself).
+// Shared superRefine logic — applied by both create and update schemas.
+// Habits are binary-only, so the only cross-field rules left are the
+// reminder/schedule cadence ones.
 function applyTypeConditionalRules(
   data: {
-    options?: string[];
-    targetValue?: number;
     reminderTime?: string;
     reminderEnabled: boolean;
     reminderCadence?: "daily" | "weekly" | "monthly";
@@ -191,41 +166,9 @@ function applyTypeConditionalRules(
     scheduleDayOfMonth?: number;
     scheduleMonthDays?: number[];
   },
-  effectiveType: HabitType,
   ctx: z.RefinementCtx,
 ): void {
-  // Rule 1 + 2: options ↔ multi-choice mutual exclusivity.
-  if (effectiveType === "multi-choice") {
-    if (!data.options || data.options.length < 2) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["options"],
-        message: "Multi-choice habits need at least 2 options.",
-      });
-    }
-  } else {
-    if (data.options !== undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["options"],
-        message: "Options are only allowed on multi-choice habits.",
-      });
-    }
-  }
-
-  // Rule 3: weight habits never carry a targetValue (the value is recorded
-  // per-log; a "target weight" makes no sense at the habit definition layer
-  // — that lives on the future Goals collection, V2).
-  if (effectiveType === "weight" && data.targetValue !== undefined) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["targetValue"],
-      message:
-        "targetValue is not used for weight habits — record per-log value instead.",
-    });
-  }
-
-  // Rule 4: reminderEnabled === true ⇒ reminderTime must be present.
+  // Rule: reminderEnabled === true ⇒ reminderTime must be present.
   // Defense in depth: the iOS UI gates the reminderTime control behind the
   // reminderEnabled toggle, but a hand-crafted Server Action input could
   // try to enable reminders without a time.
@@ -356,7 +299,7 @@ function applyTypeConditionalRules(
 // `trainerId: "victim-uid"` in the input never makes it into the output.
 // `habit-actions.ts` adds `trainerId` from the session AFTER parse.
 export const habitCreateSchema = habitBaseShape.superRefine((data, ctx) => {
-  applyTypeConditionalRules(data, data.type, ctx);
+  applyTypeConditionalRules(data, ctx);
 });
 
 export type HabitCreateInput = z.input<typeof habitCreateSchema>;
@@ -364,7 +307,7 @@ export type HabitCreateInput = z.input<typeof habitCreateSchema>;
 export const habitTemplateCreateSchema = habitBaseShape
   .omit({ clientId: true })
   .superRefine((data, ctx) => {
-    applyTypeConditionalRules(data, data.type, ctx);
+    applyTypeConditionalRules(data, ctx);
   });
 
 export type HabitTemplateCreateInput = z.input<
@@ -375,11 +318,11 @@ export type HabitTemplateCreateInput = z.input<
 // habit's immutable `type`. The update input cannot carry `clientId` (FK,
 // immutable) or `type` (immutable — changing type would invalidate every
 // log's value-variant interpretation per P06-02 doc).
-export function habitUpdateSchemaForType(existingType: HabitType) {
+export function habitUpdateSchemaForType(_existingType: HabitType) {
   return habitBaseShape
     .omit({ clientId: true, type: true })
     .superRefine((data, ctx) => {
-      applyTypeConditionalRules(data, existingType, ctx);
+      applyTypeConditionalRules(data, ctx);
     });
 }
 
@@ -394,8 +337,6 @@ export type HabitUpdateInput = z.input<
 export const habitTemplateUpdateSchema = habitBaseShape.pick({
   name: true,
   description: true,
-  targetValue: true,
-  unit: true,
   reminderEnabled: true,
   reminderTime: true,
 });

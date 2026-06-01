@@ -8,24 +8,13 @@
 // backoffice reads as one app. No per-item rainbow colors: a single muted
 // `secondary` badge for the type, quiet `outline` badges for metadata.
 
-import { CalendarDays, Clock, Repeat, Target } from "lucide-react";
+import { CalendarDays, Clock, Repeat } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
-import type {
-  HabitScheduleType,
-  HabitType,
-} from "@/lib/gc-fitness/habit-schema";
+import type { HabitScheduleType } from "@/lib/gc-fitness/habit-schema";
 
 type TFn = ReturnType<typeof useTranslations>;
-
-// HabitType → short label catalog key (resolved via `t(`shortType${...}`)`).
-export const HABIT_SHORT_LABEL_KEYS: Record<HabitType, string> = {
-  binary: "Binary",
-  "multi-choice": "MultiChoice",
-  numeric: "Numeric",
-  weight: "Weight",
-};
 
 // Structural recurrence shape — shared by HabitRow and HabitTemplateRow.
 export interface HabitRecurrence {
@@ -75,14 +64,6 @@ export function recurrenceLabel(
 const META_BADGE =
   "gap-1 px-1.5 py-0 text-[11px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70";
 
-export function HabitTypePill({ type, t }: { type: HabitType; t: TFn }) {
-  return (
-    <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-normal">
-      {t(`shortType${HABIT_SHORT_LABEL_KEYS[type]}`)}
-    </Badge>
-  );
-}
-
 export function RecurrencePill({ rec, t }: { rec: HabitRecurrence; t: TFn }) {
   const { label, cadence } = recurrenceLabel(rec, t);
   const Icon = cadence === "daily" ? Repeat : CalendarDays;
@@ -90,26 +71,6 @@ export function RecurrencePill({ rec, t }: { rec: HabitRecurrence; t: TFn }) {
     <Badge variant="outline" className={META_BADGE}>
       <Icon />
       {label}
-    </Badge>
-  );
-}
-
-export function GoalPill({
-  type,
-  targetValue,
-  unit,
-  t,
-}: {
-  type: HabitType;
-  targetValue?: number;
-  unit?: string;
-  t: TFn;
-}) {
-  if (type !== "numeric" || typeof targetValue !== "number") return null;
-  return (
-    <Badge variant="outline" className={META_BADGE}>
-      <Target />
-      {`${t("recGoal")}: ${targetValue}${unit ? ` ${unit}` : ""}`}
     </Badge>
   );
 }
