@@ -161,7 +161,7 @@ export async function fetchHabitCompliance(
       habitId: (data.habitId as string) ?? "",
       clientId: (data.clientId as string) ?? "",
       civilDate: (data.civilDate as string) ?? "",
-      value: data.value as boolean | string | number,
+      value: data.value === true,
       unit: typeof data.unit === "string" ? data.unit : undefined,
       loggedAt: toIsoOrEmpty(data.loggedAt),
       deleted: data.deleted === true,

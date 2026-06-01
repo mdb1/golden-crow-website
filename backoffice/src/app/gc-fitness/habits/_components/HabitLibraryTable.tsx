@@ -17,12 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { HabitTemplateRow } from "@/lib/gc-fitness/habit-actions";
-import {
-  GoalPill,
-  HabitTypePill,
-  ReminderCell,
-  ScopePill,
-} from "./habit-pills";
+import { ReminderCell, ScopePill } from "./habit-pills";
 
 type TFn = ReturnType<typeof useTranslations>;
 
@@ -46,7 +41,7 @@ export function HabitLibraryTable({
       <Table>
         <TableHeader>
           <TableRow>
-            {[t("name"), t("type"), t("reminder"), t("scope")].map((h, i) => (
+            {[t("name"), t("reminder"), t("scope")].map((h, i) => (
               <TableHead
                 key={i}
                 className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
@@ -60,7 +55,7 @@ export function HabitLibraryTable({
           {isLoading ? (
             <TableRow>
               <TableCell
-                colSpan={4}
+                colSpan={3}
                 className="h-24 text-center text-muted-foreground"
               >
                 {loadingText}
@@ -89,23 +84,13 @@ export function HabitLibraryTable({
                         {tpl.name.en || tpl.name.es || t("untitled")}
                       </span>
                       {/* Recurrence is intentionally NOT shown here: it's a
-                          per-assignment property, not a library/template one.
-                          Only the goal (numeric) is intrinsic to the template. */}
-                      <GoalPill
-                        type={tpl.type}
-                        targetValue={tpl.targetValue}
-                        unit={tpl.unit}
-                        t={t}
-                      />
+                          per-assignment property, not a library/template one. */}
                       {showEs ? (
                         <span className="text-xs text-muted-foreground">
                           {showEs}
                         </span>
                       ) : null}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <HabitTypePill type={tpl.type} t={t} />
                   </TableCell>
                   <TableCell>
                     <ReminderCell

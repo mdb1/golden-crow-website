@@ -27,8 +27,6 @@ import {
 
 import type { HabitRow } from "@/lib/gc-fitness/habit-actions";
 import {
-  GoalPill,
-  HabitTypePill,
   RecurrencePill,
   ReminderCell,
 } from "./_components/habit-pills";
@@ -80,11 +78,6 @@ export function makeHabitColumns(
       ),
     },
     {
-      accessorKey: "type",
-      header: t("type"),
-      cell: ({ row }) => <HabitTypePill type={row.original.type} t={t} />,
-    },
-    {
       accessorKey: "name.en",
       header: t("name"),
       cell: ({ row }) => {
@@ -97,12 +90,6 @@ export function makeHabitColumns(
             </span>
             <div className="flex flex-wrap items-center gap-1">
               <RecurrencePill rec={row.original} t={t} />
-              <GoalPill
-                type={row.original.type}
-                targetValue={row.original.targetValue}
-                unit={row.original.unit}
-                t={t}
-              />
             </div>
             {showEs ? (
               <span className="text-xs text-muted-foreground">

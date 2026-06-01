@@ -41,12 +41,7 @@ import {
   updateHabitTemplate,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
-import {
-  GoalPill,
-  HabitTypePill,
-  ReminderCell,
-  ScopePill,
-} from "./habit-pills";
+import { ReminderCell, ScopePill } from "./habit-pills";
 
 export function HabitTemplateDetailDialog({
   open,
@@ -72,15 +67,12 @@ export function HabitTemplateDetailDialog({
   const [nameEs, setNameEs] = useState("");
   const [descEn, setDescEn] = useState("");
   const [descEs, setDescEs] = useState("");
-  const [targetValue, setTargetValue] = useState("");
-  const [unit, setUnit] = useState("");
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState("");
 
   if (!template) return null;
 
   const isCustom = template.scope === "trainer";
-  const isNumeric = template.type === "numeric";
   const esName =
     template.name.es && template.name.es !== template.name.en
       ? template.name.es
@@ -94,12 +86,6 @@ export function HabitTemplateDetailDialog({
     setNameEs(template.name.es ?? "");
     setDescEn(template.description?.en ?? "");
     setDescEs(template.description?.es ?? "");
-    setTargetValue(
-      typeof template.targetValue === "number"
-        ? String(template.targetValue)
-        : "",
-    );
-    setUnit(template.unit ?? "");
     setReminderEnabled(template.reminderEnabled);
     setReminderTime(template.reminderTime ?? "");
     setEditing(true);
@@ -120,11 +106,6 @@ export function HabitTemplateDetailDialog({
         description: hasDesc
           ? { en: descEn.trim(), es: descEs.trim() }
           : undefined,
-        targetValue:
-          isNumeric && targetValue.trim().length > 0
-            ? Number(targetValue)
-            : undefined,
-        unit: isNumeric && unit.trim().length > 0 ? unit.trim() : undefined,
         reminderEnabled,
         reminderTime: reminderEnabled ? reminderTime || undefined : undefined,
       });
@@ -215,29 +196,6 @@ export function HabitTemplateDetailDialog({
                   rows={2}
                 />
               </div>
-              {isNumeric ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="tpl-target">{tf("dailyTargetLabel")}</Label>
-                    <Input
-                      id="tpl-target"
-                      value={targetValue}
-                      onChange={(e) => setTargetValue(e.target.value)}
-                      inputMode="decimal"
-                      placeholder={tf("dailyTargetPlaceholder")}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="tpl-unit">{tf("unitLabel")}</Label>
-                    <Input
-                      id="tpl-unit"
-                      value={unit}
-                      onChange={(e) => setUnit(e.target.value)}
-                      placeholder={tf("unitPlaceholderGlasses")}
-                    />
-                  </div>
-                </div>
-              ) : null}
               <div className="flex flex-col gap-2 rounded-md border p-3">
                 <Label className="flex items-center gap-2 font-normal">
                   <Checkbox
@@ -265,13 +223,6 @@ export function HabitTemplateDetailDialog({
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-1.5">
-                <HabitTypePill type={template.type} t={tc} />
-                <GoalPill
-                  type={template.type}
-                  targetValue={template.targetValue}
-                  unit={template.unit}
-                  t={tc}
-                />
                 <ScopePill isGlobal={!isCustom} t={tc} />
               </div>
 

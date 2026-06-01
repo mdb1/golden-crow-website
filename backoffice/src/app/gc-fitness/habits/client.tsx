@@ -66,7 +66,6 @@ import {
   type HabitRow,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
-import { HABIT_TYPES, type HabitType } from "@/lib/gc-fitness/habit-schema";
 import { makeHabitColumns } from "./columns";
 import { HabitLibraryTable } from "./_components/HabitLibraryTable";
 import { HabitTemplateDetailDialog } from "./_components/HabitTemplateDetailDialog";
@@ -91,15 +90,6 @@ export interface HabitsLibraryClientProps {
 
 type HabitsView = "assignments" | "library";
 
-// Maps HabitType → message-catalog key (resolved via
-// `t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[type]}`)`).
-const HABIT_TYPE_LABEL_KEYS: Record<HabitType, string> = {
-  binary: "binary",
-  "multi-choice": "multiChoice",
-  numeric: "numeric",
-  weight: "weight",
-};
-
 export function HabitsLibraryClient({
   clientRoster,
 }: HabitsLibraryClientProps) {
@@ -108,7 +98,6 @@ export function HabitsLibraryClient({
   const queryClient = useQueryClient();
   const [view, setView] = useState<HabitsView>("assignments");
   const [createOpen, setCreateOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<HabitType | "all">("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([
@@ -145,7 +134,6 @@ export function HabitsLibraryClient({
     const all = (data ?? []) as HabitRow[];
     const needle = search.trim().toLowerCase();
     return all.filter((r) => {
-      if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (clientFilter !== "all" && r.clientId !== clientFilter) return false;
       if (needle.length > 0) {
         const hay =
@@ -154,20 +142,19 @@ export function HabitsLibraryClient({
       }
       return true;
     });
-  }, [data, typeFilter, clientFilter, search, clientNameMap]);
+  }, [data, clientFilter, search, clientNameMap]);
 
   const filteredTemplates = useMemo(() => {
     const all = templates as HabitTemplateRow[];
     const needle = search.trim().toLowerCase();
     return all.filter((tpl) => {
-      if (typeFilter !== "all" && tpl.type !== typeFilter) return false;
       if (needle.length > 0) {
         const hay = `${tpl.name.en} ${tpl.name.es}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [templates, typeFilter, search]);
+  }, [templates, search]);
 
   const handlers = useMemo(
     () => ({
@@ -278,22 +265,6 @@ export function HabitsLibraryClient({
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
-        <Select
-          value={typeFilter}
-          onValueChange={(v) => setTypeFilter(v as HabitType | "all")}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder={t("filterByTypePlaceholder")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("allTypes")}</SelectItem>
-            {HABIT_TYPES.map((ht) => (
-              <SelectItem key={ht} value={ht}>
-                {t(`typeLabels.${HABIT_TYPE_LABEL_KEYS[ht]}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         {view === "assignments" ? (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
             <SelectTrigger className="w-56">

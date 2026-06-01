@@ -36,11 +36,9 @@ interface PageParams {
 }
 
 // Maps HabitType → catalog key under `habits.detail.typeLabels.*`.
+// Habits are binary-only now.
 const HABIT_TYPE_LABEL_KEYS: Record<HabitType, string> = {
   binary: "binary",
-  "multi-choice": "multiChoice",
-  numeric: "numeric",
-  weight: "weight",
 };
 
 export default async function HabitDetailPage({ params }: PageParams) {
@@ -68,9 +66,6 @@ export default async function HabitDetailPage({ params }: PageParams) {
     type?: HabitType;
     name?: { en?: string; es?: string };
     description?: { en?: string; es?: string };
-    options?: string[];
-    targetValue?: number;
-    unit?: string;
     reminderEnabled?: boolean;
     reminderTime?: string;
     reminderCadence?: string;
@@ -181,39 +176,6 @@ export default async function HabitDetailPage({ params }: PageParams) {
               </dd>
             </div>
           )}
-          {habitType === "multi-choice" && data.options && (
-            <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t("optionsLabel")}
-              </dt>
-              <dd className="mt-1 flex flex-wrap gap-1">
-                {data.options.map((o) => (
-                  <Badge key={o} variant="outline" className="font-normal">
-                    {o}
-                  </Badge>
-                ))}
-              </dd>
-            </div>
-          )}
-          {habitType === "numeric" && data.targetValue !== undefined && (
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t("dailyTargetLabel")}
-              </dt>
-              <dd className="mt-1">
-                {data.targetValue} {data.unit ?? ""}
-              </dd>
-            </div>
-          )}
-          {(habitType === "weight" || habitType === "numeric") &&
-            data.unit && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t("unitLabel")}
-                </dt>
-                <dd className="mt-1">{data.unit}</dd>
-              </div>
-            )}
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t("scheduleLabel")}

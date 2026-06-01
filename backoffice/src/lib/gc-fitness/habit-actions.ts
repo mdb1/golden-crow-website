@@ -13,10 +13,6 @@
 //   T-06-05-02 (Tampering — update foreign trainer's habit)
 //     → get()-based ownership precondition before update; throws Forbidden.
 //       Defense in depth before the rule layer (P06-03).
-//   T-06-05-03 (Tampering — multi-choice without options)
-//     → Zod superRefine in habit-schema.ts fails on parse.
-//   T-06-05-04 (Tampering — weight habit with targetValue)
-//     → Zod superRefine fails on parse.
 //   T-06-05-05 (InfoDisclosure — cross-trainer list leak)
 //     → listHabitsForTrainer scopes by trainerId == session.uid.
 //       listHabitsForClient relies on rule-layer read precondition.
@@ -53,45 +49,19 @@ import { normalizeMirrorEmail } from "./email-normalization";
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
 
+// Global habit templates are BINARY-ONLY (yes/no) now. The former numeric
+// (water/sleep/steps/protein) and multi-choice (energy) templates were
+// dropped when the product collapsed to binary habits; "Water intake" is kept
+// as a yes/no "Drink water" habit so the seed list stays useful.
 const GLOBAL_HABIT_TEMPLATES = [
   {
     id: "global-water",
-    type: "numeric",
-    name: { en: "Water intake", es: "Agua diaria" },
+    type: "binary",
+    name: { en: "Drink water", es: "Beber agua" },
     description: {
-      en: "Hit your daily hydration target.",
-      es: "Cumple tu objetivo diario de hidratacion.",
+      en: "Did you hit your daily hydration goal?",
+      es: "¿Cumpliste tu objetivo diario de hidratación?",
     },
-    targetValue: 2,
-    unit: "L",
-    reminderEnabled: false,
-  },
-  {
-    id: "global-sleep",
-    type: "numeric",
-    name: { en: "Sleep", es: "Sueno" },
-    description: {
-      en: "Track total hours slept.",
-      es: "Registra tus horas totales de sueno.",
-    },
-    targetValue: 7,
-    unit: "h",
-    reminderEnabled: false,
-  },
-  {
-    id: "global-steps",
-    type: "numeric",
-    name: { en: "Steps", es: "Pasos" },
-    targetValue: 8000,
-    unit: "steps",
-    reminderEnabled: false,
-  },
-  {
-    id: "global-protein",
-    type: "numeric",
-    name: { en: "Protein", es: "Proteina" },
-    targetValue: 120,
-    unit: "g",
     reminderEnabled: false,
   },
   {
@@ -116,21 +86,11 @@ const GLOBAL_HABIT_TEMPLATES = [
     name: { en: "Food log", es: "Registro de comidas" },
     reminderEnabled: false,
   },
-  {
-    id: "global-energy",
-    type: "multi-choice",
-    name: { en: "Energy check", es: "Chequeo de energia" },
-    options: ["High", "OK", "Low"],
-    reminderEnabled: false,
-  },
 ] satisfies Array<{
   id: string;
   type: HabitType;
   name: { en: string; es: string };
   description?: { en: string; es: string };
-  options?: string[];
-  targetValue?: number;
-  unit?: string;
   reminderEnabled: boolean;
 }>;
 
@@ -150,9 +110,6 @@ export interface HabitRow {
   type: HabitType;
   name: { en: string; es: string };
   description?: { en: string; es: string };
-  options?: string[];
-  targetValue?: number;
-  unit?: string;
   reminderTime?: string;
   reminderEnabled: boolean;
   reminderCadence?: "daily" | "weekly" | "monthly";
@@ -185,9 +142,6 @@ export interface HabitTemplateRow {
   type: HabitType;
   name: { en: string; es: string };
   description?: { en: string; es: string };
-  options?: string[];
-  targetValue?: number;
-  unit?: string;
   reminderTime?: string;
   reminderEnabled: boolean;
   reminderCadence?: "daily" | "weekly" | "monthly";
@@ -282,12 +236,6 @@ function projectHabitRow(
     type: (data.type as HabitType) ?? "binary",
     name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
     description: data.description as { en: string; es: string } | undefined,
-    options: Array.isArray(data.options)
-      ? (data.options as string[])
-      : undefined,
-    targetValue:
-      typeof data.targetValue === "number" ? data.targetValue : undefined,
-    unit: typeof data.unit === "string" ? data.unit : undefined,
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
@@ -357,12 +305,6 @@ function projectHabitTemplateRow(
     type: (data.type as HabitType) ?? "binary",
     name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
     description: data.description as { en: string; es: string } | undefined,
-    options: Array.isArray(data.options)
-      ? (data.options as string[])
-      : undefined,
-    targetValue:
-      typeof data.targetValue === "number" ? data.targetValue : undefined,
-    unit: typeof data.unit === "string" ? data.unit : undefined,
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
@@ -461,9 +403,8 @@ async function ensureGlobalHabitTemplates(): Promise<void> {
  *   - `createdAt` / `updatedAt` are server timestamps.
  *   - Doc id follows the canonical `hab-${trainerUid}-${uuid}` scheme.
  *
- * Zod-parses BEFORE any Firestore write so multi-choice-without-options,
- * weight-with-targetValue, malformed reminderTime, etc. are caught
- * client-of-DB — T-06-05-03 / -04.
+ * Zod-parses BEFORE any Firestore write so malformed reminderTime, etc. are
+ * caught client-of-DB.
  */
 export async function createHabit(
   input: unknown,
@@ -635,10 +576,9 @@ export async function listPendingHabits(pendingEmail: string): Promise<Array<{
  *  - the doc's `trainerId` isn't the caller (throws "Not your habit" —
  *    T-06-05-02 defense in depth before the rule layer)
  *
- * Parses against `habitUpdateSchemaForType(existingType)` so the same
- * type-conditional refinements (multi-choice⇒options, weight⇒no targetValue,
- * reminderEnabled⇒reminderTime) apply on update even though the immutable
- * `type` field is stripped from the input.
+ * Parses against `habitUpdateSchemaForType(existingType)` so the
+ * reminderEnabled⇒reminderTime refinement applies on update even though the
+ * immutable `type` field is stripped from the input.
  *
  * The patch is built field-by-field from a whitelist matching the
  * affectedKeys list in P06-03 rules — clientId, trainerId, type,
@@ -668,9 +608,6 @@ export async function updateHabit(
   const parsed = habitUpdateSchemaForType(existingType).parse(input) as {
     name: { en: string; es: string };
     description?: { en: string; es: string };
-    options?: string[];
-    targetValue?: number;
-    unit?: string;
     reminderTime?: string;
     reminderEnabled: boolean;
     reminderCadence?: "daily" | "weekly" | "monthly";
@@ -700,15 +637,6 @@ export async function updateHabit(
   }
   if (parsed.description !== undefined) {
     patch.description = parsed.description;
-  }
-  if (parsed.options !== undefined) {
-    patch.options = parsed.options;
-  }
-  if (parsed.targetValue !== undefined) {
-    patch.targetValue = parsed.targetValue;
-  }
-  if (parsed.unit !== undefined) {
-    patch.unit = parsed.unit;
   }
   if (parsed.reminderTime !== undefined) {
     patch.reminderTime = parsed.reminderTime;
@@ -942,7 +870,7 @@ export async function softDeleteHabitTemplate(
 /**
  * Updates the trainer-editable fields of an own (scope === "trainer") habit
  * template. GLOBAL templates are read-only. Only the intrinsic fields shown in
- * the library detail are editable (name, description, numeric goal, reminder);
+ * the library detail are editable (name, description, reminder);
  * `type` / `scope` / `trainerId` / recurrence are left untouched. The affected
  * keys stay within the Firestore-rules update whitelist.
  */
@@ -971,8 +899,6 @@ export async function updateHabitTemplate(
     withoutUndefined({
       name: parsed.name,
       description: parsed.description,
-      targetValue: parsed.targetValue,
-      unit: parsed.unit,
       reminderEnabled: parsed.reminderEnabled,
       // Only persist a time when the reminder is on.
       reminderTime: parsed.reminderEnabled ? parsed.reminderTime : undefined,
@@ -1030,11 +956,6 @@ export async function assignHabitTemplate(input: unknown): Promise<{
       type: template.type,
       name: template.name,
       ...(template.description ? { description: template.description } : {}),
-      ...(template.options ? { options: template.options } : {}),
-      ...(template.targetValue !== undefined
-        ? { targetValue: template.targetValue }
-        : {}),
-      ...(template.unit ? { unit: template.unit } : {}),
       ...(template.reminderTime ? { reminderTime: template.reminderTime } : {}),
       ...(template.reminderCadence
         ? { reminderCadence: template.reminderCadence }
@@ -1122,11 +1043,6 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
     type: template.type,
     name: template.name,
     ...(template.description ? { description: template.description } : {}),
-    ...(template.options ? { options: template.options } : {}),
-    ...(template.targetValue !== undefined
-      ? { targetValue: template.targetValue }
-      : {}),
-    ...(template.unit ? { unit: template.unit } : {}),
     ...(template.reminderTime ? { reminderTime: template.reminderTime } : {}),
     ...(template.reminderCadence
       ? { reminderCadence: template.reminderCadence }

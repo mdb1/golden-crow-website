@@ -64,12 +64,8 @@ function todayCivilDate(): string {
   return `${y}-${m}-${d}`;
 }
 
-const HABIT_TYPE_LABEL: Record<string, string> = {
-  binary: "Sí / no",
-  numeric: "Numérico",
-  weight: "Peso",
-  "multi-choice": "Opción múltiple",
-};
+// Habits are binary-only (yes/no) now.
+const HABIT_TYPE_LABEL = "Sí / no";
 
 type Tab = "existing" | "new";
 
@@ -89,9 +85,6 @@ function templateToDefaults(
     type: tpl.type,
     name: { en: tpl.name.en, es: tpl.name.es },
     description: tpl.description,
-    options: tpl.options,
-    targetValue: tpl.targetValue,
-    unit: tpl.unit,
     reminderTime: tpl.reminderTime,
     reminderEnabled: tpl.reminderEnabled,
     reminderCadence: tpl.reminderCadence,
@@ -329,7 +322,7 @@ function ExistingHabitPicker({
                     ) : null}
                   </span>
                   <span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
-                    {HABIT_TYPE_LABEL[tpl.type] ?? tpl.type}
+                    {HABIT_TYPE_LABEL}
                   </span>
                 </button>
               </li>
