@@ -22,11 +22,12 @@
 import { useRef, useState } from "react";
 import { ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
-import { Upload, Image as ImageIcon, X, CircleAlert } from "lucide-react";
+import { Upload, X, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { StorageImagePreview } from "@/components/gc-fitness/StorageImagePreview";
 import { cn } from "@/lib/utils";
 import { mintExerciseThumbnailUploadUrl } from "@/lib/gc-fitness/exercise-server-actions";
 import { getGCFitnessStorage } from "@/lib/firebase/gc-fitness-client";
@@ -187,8 +188,7 @@ export function ThumbnailUploadDropzone({
           </>
         ) : value ? (
           <>
-            <ImageIcon className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm break-all">{value}</span>
+            <StorageImagePreview value={value} />
             <Button
               type="button"
               variant="ghost"
