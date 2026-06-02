@@ -398,6 +398,27 @@ export function AssignTemplateModal({
       );
   }, [overrideDrafts, templateDetail]);
 
+  function copyFirstSetToAll(exerciseIndex: number, metric: "reps" | "time") {
+    setOverrideDrafts((prev) => {
+      const cur = prev[exerciseIndex];
+      const first = cur?.setRows[0];
+      if (!cur || !first || cur.setRows.length <= 1) return prev;
+      const next = cur.setRows.map((row, index) => {
+        if (index === 0) return row;
+        return {
+          ...row,
+          reps: first.reps,
+          kg: first.kg,
+          ...(metric === "time" ? { duration: first.duration ?? "60" } : {}),
+        };
+      });
+      return {
+        ...prev,
+        [exerciseIndex]: { ...cur, setRows: next },
+      };
+    });
+  }
+
   function toggleWeekday(idx: number) {
     setRecurringWeekdays((prev) => {
       const next = new Set(prev);
@@ -966,44 +987,55 @@ export function AssignTemplateModal({
                         </button>
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOverrideDrafts((prev) => {
-                          const cur = prev[exercise.index];
-                          if (cur.setRows.length >= 10) return prev;
-                          // New row carries the previous row's values as a
-                          // sensible default — common case is +1 set with
-                          // same prescription as the prior set. 26-03
-                          // additionally seeds `duration` when the
-                          // effective metric is "time" so the new row
-                          // surfaces a usable number instead of an empty
-                          // string.
-                          const last = cur.setRows[cur.setRows.length - 1];
-                          const newRow: {
-                            reps: string;
-                            kg: string;
-                            duration?: string;
-                          } = {
-                            reps: last?.reps ?? "0",
-                            kg: last?.kg ?? "",
-                          };
-                          if (effectiveMetric === "time") {
-                            newRow.duration = last?.duration ?? "60";
-                          }
-                          const next = [...cur.setRows, newRow];
-                          return {
-                            ...prev,
-                            [exercise.index]: { ...cur, setRows: next },
-                          };
-                        });
-                      }}
-                      disabled={draft.setRows.length >= 10}
-                      tabIndex={-1}
-                      className="mt-1 self-start inline-flex h-7 items-center gap-1 rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      + {t("exerciseOverridesAddSet")}
-                    </button>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOverrideDrafts((prev) => {
+                            const cur = prev[exercise.index];
+                            if (cur.setRows.length >= 10) return prev;
+                            // New row carries the previous row's values as a
+                            // sensible default — common case is +1 set with
+                            // same prescription as the prior set. 26-03
+                            // additionally seeds `duration` when the
+                            // effective metric is "time" so the new row
+                            // surfaces a usable number instead of an empty
+                            // string.
+                            const last = cur.setRows[cur.setRows.length - 1];
+                            const newRow: {
+                              reps: string;
+                              kg: string;
+                              duration?: string;
+                            } = {
+                              reps: last?.reps ?? "0",
+                              kg: last?.kg ?? "",
+                            };
+                            if (effectiveMetric === "time") {
+                              newRow.duration = last?.duration ?? "60";
+                            }
+                            const next = [...cur.setRows, newRow];
+                            return {
+                              ...prev,
+                              [exercise.index]: { ...cur, setRows: next },
+                            };
+                          });
+                        }}
+                        disabled={draft.setRows.length >= 10}
+                        tabIndex={-1}
+                        className="inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        + {t("exerciseOverridesAddSet")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyFirstSetToAll(exercise.index, effectiveMetric)}
+                        disabled={draft.setRows.length <= 1}
+                        tabIndex={-1}
+                        className="inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {t("exerciseOverridesCopyToAll")}
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     value={draft.notes}

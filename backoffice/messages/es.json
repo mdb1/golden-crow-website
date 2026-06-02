@@ -1108,6 +1108,7 @@
       "exerciseOverridesSeconds": "Segundos",
       "exerciseOverridesDurationPlaceholder": "60",
       "exerciseOverridesAddSet": "Agregar serie",
+      "exerciseOverridesCopyToAll": "Copiar a todas",
       "exerciseOverridesRemoveSet": "Quitar serie {index}",
       "supersetLabel": "Superserie {group}",
       "errorTemplateDetailFallback": "No se pudieron cargar los detalles de la plantilla.",
