@@ -170,6 +170,8 @@ export interface HabitTemplateRow {
   type: HabitType;
   name: { en: string; es: string };
   description?: { en: string; es: string };
+  photoUrl?: string;
+  youtubeUrl?: string;
   reminderTime?: string;
   reminderEnabled: boolean;
   reminderCadence?: "daily" | "weekly" | "monthly";
@@ -336,6 +338,9 @@ function projectHabitTemplateRow(
     type: (data.type as HabitType) ?? "binary",
     name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
     description: data.description as { en: string; es: string } | undefined,
+    photoUrl: typeof data.photoUrl === "string" ? data.photoUrl : undefined,
+    youtubeUrl:
+      typeof data.youtubeUrl === "string" ? data.youtubeUrl : undefined,
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
@@ -838,9 +843,17 @@ export async function mintHabitPhotoUploadUrl(input: {
     throw new Error("BadRequest: habitId is required.");
   }
   // Path-traversal defense — only allow uploads to the caller's own
-  // `hab-${uid}-*` namespace.
+  // namespaces: per-client habits (`hab-${uid}-*`) AND reusable templates
+  // (`habit-template-${uid}-*`). Both embed the caller's uid, so an attacker
+  // still can't target another trainer's object path. A template photo lives
+  // at `habits/${templateId}/photo.*` and is copied (by gs:// path) onto each
+  // assigned per-client habit doc.
   const allowedPrefix = `hab-${trainer.uid}-`;
-  if (!habitId.startsWith(allowedPrefix)) {
+  const allowedTemplatePrefix = `habit-template-${trainer.uid}-`;
+  if (
+    !habitId.startsWith(allowedPrefix) &&
+    !habitId.startsWith(allowedTemplatePrefix)
+  ) {
     throw new Error(
       "Cannot upload to that path. habitId must belong to the caller.",
     );
@@ -1067,6 +1080,8 @@ export async function updateHabitTemplate(
     withoutUndefined({
       name: parsed.name,
       description: parsed.description,
+      photoUrl: parsed.photoUrl,
+      youtubeUrl: parsed.youtubeUrl,
       reminderEnabled: parsed.reminderEnabled,
       // Only persist a time when the reminder is on.
       reminderTime: parsed.reminderEnabled ? parsed.reminderTime : undefined,
@@ -1124,6 +1139,8 @@ export async function assignHabitTemplate(input: unknown): Promise<{
       type: template.type,
       name: template.name,
       ...(template.description ? { description: template.description } : {}),
+      ...(template.photoUrl ? { photoUrl: template.photoUrl } : {}),
+      ...(template.youtubeUrl ? { youtubeUrl: template.youtubeUrl } : {}),
       ...(template.reminderTime ? { reminderTime: template.reminderTime } : {}),
       ...(template.reminderCadence
         ? { reminderCadence: template.reminderCadence }
@@ -1211,6 +1228,8 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
     type: template.type,
     name: template.name,
     ...(template.description ? { description: template.description } : {}),
+    ...(template.photoUrl ? { photoUrl: template.photoUrl } : {}),
+    ...(template.youtubeUrl ? { youtubeUrl: template.youtubeUrl } : {}),
     ...(template.reminderTime ? { reminderTime: template.reminderTime } : {}),
     ...(template.reminderCadence
       ? { reminderCadence: template.reminderCadence }

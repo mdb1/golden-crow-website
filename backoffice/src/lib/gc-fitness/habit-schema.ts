@@ -356,9 +356,13 @@ export type HabitUpdateInput = z.input<
 // (library). `type` and `scope`/`trainerId` are immutable; recurrence is a
 // per-assignment concern (not shown in the library), so it's excluded too.
 // Only the intrinsic fields surfaced in the library detail are editable.
+// `photoUrl`/`youtubeUrl` are intrinsic habit context (not per-assignment), so
+// they ARE editable here and propagate to the per-client doc on assignment.
 export const habitTemplateUpdateSchema = habitBaseShape.pick({
   name: true,
   description: true,
+  photoUrl: true,
+  youtubeUrl: true,
   reminderEnabled: true,
   reminderTime: true,
 });

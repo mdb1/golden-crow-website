@@ -12,6 +12,7 @@
 import {
   habitCreateSchema,
   habitUpdateSchemaForType,
+  habitTemplateUpdateSchema,
 } from "../habit-schema";
 
 const BINARY_VALID = {
@@ -270,5 +271,27 @@ describe("habit-schema — habitUpdateSchemaForType", () => {
       youtubeUrl: "https://youtu.be/abc123",
     });
     expect(result.success).toBe(true);
+  });
+
+  // P09 — TEMPLATE update schema also carries photoUrl/youtubeUrl (260602-moz:
+  // templates can hold intrinsic habit context that propagates on assignment).
+  it("P09 — template update schema accepts photoUrl + youtubeUrl", () => {
+    const result = habitTemplateUpdateSchema.safeParse({
+      name: { en: "Drink water", es: "Beber agua" },
+      reminderEnabled: false,
+      photoUrl: "gs://gcfitness-3476b.firebasestorage.app/habits/habit-template-x/photo.png",
+      youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // P10 — template update still rejects a malformed youtubeUrl.
+  it("P10 — template update schema rejects a non-youtube youtubeUrl", () => {
+    const result = habitTemplateUpdateSchema.safeParse({
+      name: { en: "Drink water", es: "Beber agua" },
+      reminderEnabled: false,
+      youtubeUrl: "https://vimeo.com/123456",
+    });
+    expect(result.success).toBe(false);
   });
 });
