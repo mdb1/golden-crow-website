@@ -584,6 +584,10 @@
       "assignedToast": "{count} asignados.",
       "assignFailed": "Falló la asignación."
     },
+    "compliance": {
+      "scheduledInfo": "Porcentaje de días programados completados desde que empezó el hábito (los días anteriores a la fecha de inicio y los días no programados no cuentan).",
+      "scheduledInfoLabel": "Cómo se calcula el cumplimiento"
+    },
     "columns": {
       "client": "Cliente",
       "type": "Tipo",

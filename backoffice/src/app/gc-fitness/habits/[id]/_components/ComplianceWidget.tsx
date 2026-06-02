@@ -23,12 +23,15 @@
 //   guard correctness — three independent checks would all have to fail
 //   for a leak.
 
+import { getTranslations } from "next-intl/server";
+
 import {
   fetchHabitCompliance,
   type HabitComplianceResponse,
 } from "@/lib/gc-fitness/habit-compliance-actions";
 
 import { ComplianceSparkline } from "./ComplianceSparkline";
+import { ComplianceInfoTooltip } from "./ComplianceInfoTooltip";
 
 interface ComplianceWidgetProps {
   habitId: string;
@@ -37,6 +40,11 @@ interface ComplianceWidgetProps {
 export async function ComplianceWidget({ habitId }: ComplianceWidgetProps) {
   const data: HabitComplianceResponse = await fetchHabitCompliance(habitId);
   const { sevenDayRatio, thirtyDayRatio, dailyCounts } = data;
+
+  // Localized explanation of the SCHEDULED-day adherence semantics (Task 3).
+  const t = await getTranslations("habits.compliance");
+  const infoText = t("scheduledInfo");
+  const infoLabel = t("scheduledInfoLabel");
 
   return (
     <section
@@ -47,8 +55,18 @@ export async function ComplianceWidget({ habitId }: ComplianceWidgetProps) {
         Compliance summary
       </h3>
       <div className="flex flex-wrap gap-4">
-        <RatioCard label="7-day compliance" ratio={sevenDayRatio} />
-        <RatioCard label="30-day compliance" ratio={thirtyDayRatio} />
+        <RatioCard
+          label="7-day compliance"
+          ratio={sevenDayRatio}
+          infoText={infoText}
+          infoLabel={infoLabel}
+        />
+        <RatioCard
+          label="30-day compliance"
+          ratio={thirtyDayRatio}
+          infoText={infoText}
+          infoLabel={infoLabel}
+        />
       </div>
       <div className="flex flex-col gap-1">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -66,12 +84,23 @@ export async function ComplianceWidget({ habitId }: ComplianceWidgetProps) {
  * elsewhere in the file (consistency makes the type-conditional design
  * variant in v2 trivial).
  */
-function RatioCard({ label, ratio }: { label: string; ratio: number }) {
+function RatioCard({
+  label,
+  ratio,
+  infoText,
+  infoLabel,
+}: {
+  label: string;
+  ratio: number;
+  infoText: string;
+  infoLabel: string;
+}) {
   const pct = Math.round(ratio * 100);
   return (
     <div className="rounded-lg border bg-card p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <span>{label}</span>
+        <ComplianceInfoTooltip text={infoText} label={infoLabel} />
       </div>
       <div className="mt-1 text-2xl font-semibold tabular-nums">
         {pct}

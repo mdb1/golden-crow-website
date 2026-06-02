@@ -584,6 +584,10 @@
       "assignedToast": "{count} assigned.",
       "assignFailed": "Assignment failed."
     },
+    "compliance": {
+      "scheduledInfo": "Percentage of scheduled days completed since the habit started (days before the start date and non-scheduled days don't count).",
+      "scheduledInfoLabel": "How compliance is calculated"
+    },
     "columns": {
       "client": "Client",
       "type": "Type",
