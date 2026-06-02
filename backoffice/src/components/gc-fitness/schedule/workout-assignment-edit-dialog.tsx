@@ -111,6 +111,20 @@ export function WorkoutAssignmentEditDialog({
       return { ...prev, [index]: { ...cur, setRows } };
     });
   }
+  function copyFirstSetToAll(index: number) {
+    setDrafts((prev) => {
+      const cur = prev[index];
+      const first = cur?.setRows[0];
+      if (!cur || !first) return prev;
+      return {
+        ...prev,
+        [index]: {
+          ...cur,
+          setRows: cur.setRows.map(() => ({ ...first })),
+        },
+      };
+    });
+  }
 
   function buildPayload() {
     return exercises.map((ex) => {
@@ -260,23 +274,34 @@ export function WorkoutAssignmentEditDialog({
                       </button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    disabled={draft.setRows.length >= 10}
-                    onClick={() => {
-                      const last = draft.setRows[draft.setRows.length - 1];
-                      patch(ex.index, {
-                        setRows: [
-                          ...draft.setRows,
-                          { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
-                        ],
-                      });
-                    }}
-                    className="mt-1 inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
-                  >
-                    + Agregar serie
-                  </button>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      disabled={draft.setRows.length >= 10}
+                      onClick={() => {
+                        const last = draft.setRows[draft.setRows.length - 1];
+                        patch(ex.index, {
+                          setRows: [
+                            ...draft.setRows,
+                            { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
+                          ],
+                        });
+                      }}
+                      className="inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
+                    >
+                      + Agregar serie
+                    </button>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      disabled={draft.setRows.length <= 1}
+                      onClick={() => copyFirstSetToAll(ex.index)}
+                      className="inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
+                    >
+                      Copiar a todas
+                    </button>
+                  </div>
                   <textarea
                     value={draft.notes}
                     onChange={(e) => patch(ex.index, { notes: e.target.value })}

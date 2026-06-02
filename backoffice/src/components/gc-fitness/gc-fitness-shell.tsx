@@ -68,6 +68,11 @@ const sections: NavSection[] = [
         href: "/gc-fitness/recent-logs",
         icon: Activity,
       },
+      {
+        labelKey: "myActivity",
+        href: "/gc-fitness/my-activity",
+        icon: Activity,
+      },
     ],
   },
   {
@@ -243,7 +248,12 @@ function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslation
     {
       groupKey: "overview",
       subtitleKey: "clientsDescription",
-      paths: ["/gc-fitness/dashboard", "/gc-fitness/clients", "/gc-fitness/recent-logs"],
+      paths: [
+        "/gc-fitness/dashboard",
+        "/gc-fitness/clients",
+        "/gc-fitness/recent-logs",
+        "/gc-fitness/my-activity",
+      ],
     },
     {
       groupKey: "programming",

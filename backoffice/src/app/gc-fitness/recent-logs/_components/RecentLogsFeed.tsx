@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -154,6 +154,7 @@ export function RecentLogsFeed({
   }
 
   const filtered = rows;
+  const groups = useMemo(() => groupRowsByClientDay(filtered), [filtered]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -220,13 +221,11 @@ export function RecentLogsFeed({
             </CardContent>
           </Card>
         ) : null}
-        {filtered.map((row) => {
-          const CatIcon = CATEGORY_ICON[row.category];
-          const openProfile = () =>
-            router.push(`/gc-fitness/clients/${row.clientId}`);
+        {groups.map((group) => {
+          const openProfile = () => router.push(`/gc-fitness/clients/${group.clientId}`);
           return (
             <div
-              key={row.id}
+              key={group.key}
               role="button"
               tabIndex={0}
               onClick={openProfile}
@@ -236,90 +235,108 @@ export function RecentLogsFeed({
                   openProfile();
                 }
               }}
-              className="group flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:items-center"
+              className="group cursor-pointer rounded-lg border border-l-4 border-l-primary/45 bg-card transition-colors hover:border-primary/30 hover:border-l-primary hover:bg-accent/40"
             >
-              <ClientAvatar
-                name={row.clientName}
-                photoURL={row.clientPhotoURL}
-                size="md"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
-                  >
-                    {CatIcon ? <CatIcon /> : null}
-                    {t(CATEGORY_LABEL_KEY[row.category])}
-                  </Badge>
-                  <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
-                    {row.title}
-                  </span>
-                  {row.forCivilDate ? (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-                    >
-                      <CalendarClock />
-                      {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
-                    </Badge>
-                  ) : null}
-                  {row.workout?.rpe != null ? (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
-                    >
-                      <Gauge />
-                      RPE {row.workout.rpe}
-                    </Badge>
-                  ) : null}
-                  {row.workout?.hasNotes ? (
-                    <Badge
-                      variant="outline"
-                      className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
-                    >
-                      <StickyNote />
-                      {t("notesBadge")}
-                    </Badge>
-                  ) : null}
+              <div className="flex items-center justify-between gap-3 border-b px-3 py-2.5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <ClientAvatar
+                    name={group.clientName}
+                    photoURL={group.clientPhotoURL}
+                    size="md"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{group.clientName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.dayLabel} · {group.rows.length} {group.rows.length === 1 ? t("groupItem") : t("groupItems")}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-                  {row.clientName} · {formatDateTime(row.eventAt)}
-                  {row.detail ? ` · ${row.detail}` : ""}
-                </p>
-              </div>
-              {/* Actions — small icon buttons; stop card-click propagation. */}
-              <div
-                className="flex shrink-0 items-center gap-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground"
-                  title={t("openChat")}
-                >
-                  <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
-                    <MessageCircle className="h-4 w-4" />
-                    <span className="sr-only">{t("openChat")}</span>
-                  </Link>
-                </Button>
-                {row.workoutLogId ? (
+                <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   <Button
                     asChild
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground"
+                    title={t("openChat")}
                   >
-                    <Link
-                      href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                      {t("viewWorkout")}
+                    <Link href={`/gc-fitness/chat?chatId=${group.clientId}`}>
+                      <MessageCircle className="h-4 w-4" />
+                      <span className="sr-only">{t("openChat")}</span>
                     </Link>
                   </Button>
-                ) : null}
+                </div>
+              </div>
+              <div className="divide-y">
+                {group.rows.map((row) => {
+                  const CatIcon = CATEGORY_ICON[row.category];
+                  return (
+                    <div key={row.id} className="flex items-start gap-3 px-3 py-2.5 sm:items-center">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
+                          >
+                            {CatIcon ? <CatIcon /> : null}
+                            {t(CATEGORY_LABEL_KEY[row.category])}
+                          </Badge>
+                          <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
+                            {row.title}
+                          </span>
+                          {row.forCivilDate ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                            >
+                              <CalendarClock />
+                              {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
+                            </Badge>
+                          ) : null}
+                          {row.workout?.rpe != null ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+                            >
+                              <Gauge />
+                              RPE {row.workout.rpe}
+                            </Badge>
+                          ) : null}
+                          {row.workout?.hasNotes ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+                            >
+                              <StickyNote />
+                              {t("notesBadge")}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
+                          {formatDateTime(row.eventAt)}
+                          {row.detail ? ` · ${row.detail}` : ""}
+                        </p>
+                      </div>
+                      <div
+                        className="flex shrink-0 items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {row.workoutLogId ? (
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 px-2.5"
+                          >
+                            <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
+                              <Eye className="h-4 w-4" />
+                              {t("viewWorkout")}
+                            </Link>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -340,6 +357,66 @@ export function RecentLogsFeed({
       ) : null}
     </div>
   );
+}
+
+function groupRowsByClientDay(rows: RecentLogRow[]): Array<{
+  key: string;
+  clientId: string;
+  clientName: string;
+  clientPhotoURL?: string | null;
+  dayLabel: string;
+  rows: RecentLogRow[];
+}> {
+  const groups = new Map<string, {
+    key: string;
+    clientId: string;
+    clientName: string;
+    clientPhotoURL?: string | null;
+    dayLabel: string;
+    rows: RecentLogRow[];
+  }>();
+  for (const row of rows) {
+    const dayKey = dayKeyFromIso(row.eventAt);
+    const key = `${row.clientId}:${dayKey}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.rows.push(row);
+      continue;
+    }
+    groups.set(key, {
+      key,
+      clientId: row.clientId,
+      clientName: row.clientName,
+      clientPhotoURL: row.clientPhotoURL,
+      dayLabel: formatDayHeading(row.eventAt),
+      rows: [row],
+    });
+  }
+  return Array.from(groups.values());
+}
+
+function dayKeyFromIso(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatDayHeading(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const key = dayKeyFromIso(iso);
+  if (key === dayKeyFromIso(today.toISOString())) return "Hoy";
+  if (key === dayKeyFromIso(yesterday.toISOString())) return "Ayer";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatDateTime(iso: string): string {

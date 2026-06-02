@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import type { Metadata } from "next";
 
 import { BodyThemeScope } from "@/components/gc-fitness/body-theme-scope";
+import { ChatNotificationListener } from "@/components/gc-fitness/chat-notification-listener";
 import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
@@ -46,6 +47,7 @@ export default async function GCFitnessLayout({
       <BodyThemeScope />
       <div className="gc-fitness-theme">
         <GCFitnessShellProviders>
+          <ChatNotificationListener trainerUid={trainerUid} />
           <GCFitnessShell trainerUid={trainerUid} isAdmin={isAdmin}>
             {children}
           </GCFitnessShell>
