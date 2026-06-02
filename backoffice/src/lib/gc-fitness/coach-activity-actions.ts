@@ -22,6 +22,14 @@ export interface MyCoachActivityRow {
   clientName: string | null;
 }
 
+export interface MyCoachActivityPage {
+  rows: MyCoachActivityRow[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+
 function toIso(value: unknown): string | null {
   if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
     return (value as { toDate: () => Date }).toDate().toISOString();
@@ -29,6 +37,12 @@ function toIso(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.length > 0) return value;
   return null;
+}
+
+function cursorDate(cursor: string | null | undefined): Date | null {
+  if (!cursor) return null;
+  const date = new Date(cursor);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function localizedName(value: unknown): string {
@@ -55,10 +69,52 @@ function recurrenceLabel(raw: unknown): string | null {
   return null;
 }
 
-export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityRow[]> {
+export async function listMyCoachActivityPage(
+  cursor: string | null = null,
+  pageSize = DEFAULT_PAGE_SIZE,
+): Promise<MyCoachActivityPage> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
   const clientNameById = new Map<string, string>();
+  const safePageSize = Math.max(1, Math.min(pageSize, 20));
+  const queryLimit = safePageSize + 1;
+  const before = cursorDate(cursor);
+
+  function scopedRecentQuery(collectionName: string, ownerField: "trainerId" | "coachId") {
+    let query = db
+      .collection(collectionName)
+      .where(ownerField, "==", trainer.uid)
+      .orderBy("createdAt", "desc")
+      .limit(queryLimit);
+    if (before) {
+      query = query.where("createdAt", "<", before);
+    }
+    return query.get().catch(() => null);
+  }
+
+  function notesQuery() {
+    let query = db
+      .collection(FirestoreCollections.clientNotes)
+      .where("coachId", "==", trainer.uid)
+      .orderBy("updatedAt", "desc")
+      .limit(queryLimit);
+    if (before) {
+      query = query.where("updatedAt", "<", before);
+    }
+    return query.get().catch(() => null);
+  }
+
+  function sentMessagesQuery() {
+    let query = db
+      .collectionGroup(FirestoreCollections.messages)
+      .where("senderId", "==", trainer.uid)
+      .orderBy("createdAt", "desc")
+      .limit(queryLimit);
+    if (before) {
+      query = query.where("createdAt", "<", before);
+    }
+    return query.get().catch(() => null);
+  }
 
   const [
     clientsSnap,
@@ -67,15 +123,15 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     assignmentsSnap,
     habitsSnap,
     notesSnap,
-    chatsSnap,
+    messagesSnap,
   ] = await Promise.all([
     db.collection(FirestoreCollections.users).where("coachId", "==", trainer.uid).get(),
-    db.collection(FirestoreCollections.workoutTemplates).where("trainerId", "==", trainer.uid).get(),
-    db.collection(FirestoreCollections.exercises).where("trainerId", "==", trainer.uid).get(),
-    db.collection(FirestoreCollections.workoutAssignments).where("trainerId", "==", trainer.uid).get(),
-    db.collection(FirestoreCollections.habits).where("trainerId", "==", trainer.uid).get(),
-    db.collection(FirestoreCollections.clientNotes).where("coachId", "==", trainer.uid).get(),
-    db.collection(FirestoreCollections.chats).where("coachId", "==", trainer.uid).get(),
+    scopedRecentQuery(FirestoreCollections.workoutTemplates, "trainerId"),
+    scopedRecentQuery(FirestoreCollections.exercises, "trainerId"),
+    scopedRecentQuery(FirestoreCollections.workoutAssignments, "trainerId"),
+    scopedRecentQuery(FirestoreCollections.habits, "trainerId"),
+    notesQuery(),
+    sentMessagesQuery(),
   ]);
 
   for (const doc of clientsSnap.docs) {
@@ -85,7 +141,7 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
 
   const rows: MyCoachActivityRow[] = [];
 
-  for (const doc of templatesSnap.docs) {
+  for (const doc of templatesSnap?.docs ?? []) {
     const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown };
     const name = localizedName(data.name);
     rows.push({
@@ -99,7 +155,7 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     });
   }
 
-  for (const doc of exercisesSnap.docs) {
+  for (const doc of exercisesSnap?.docs ?? []) {
     const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown; title?: unknown };
     const name = localizedName(data.name) || localizedName(data.title);
     rows.push({
@@ -118,7 +174,7 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     recurrenceLabel: string | null;
     seriesId: string | null;
   }> = [];
-  for (const doc of assignmentsSnap.docs) {
+  for (const doc of assignmentsSnap?.docs ?? []) {
     const data = doc.data() as {
       createdAt?: unknown;
       updatedAt?: unknown;
@@ -186,7 +242,7 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     });
   }
 
-  for (const doc of habitsSnap.docs) {
+  for (const doc of habitsSnap?.docs ?? []) {
     const data = doc.data() as {
       createdAt?: unknown;
       updatedAt?: unknown;
@@ -208,7 +264,7 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     });
   }
 
-  for (const doc of notesSnap.docs) {
+  for (const doc of notesSnap?.docs ?? []) {
     const data = doc.data() as { updatedAt?: unknown; clientId?: string; entries?: Array<{ createdAt?: string; body?: string }> };
     const clientId = typeof data.clientId === "string" ? data.clientId : doc.id.replace(`${trainer.uid}_`, "");
     for (const [index, entry] of (data.entries ?? []).entries()) {
@@ -224,34 +280,26 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     }
   }
 
-  const messageSnaps = await Promise.all(
-    chatsSnap.docs.map((chatDoc) =>
-      chatDoc.ref
-        .collection(FirestoreCollections.messages)
-        .where("senderId", "==", trainer.uid)
-        .orderBy("createdAt", "desc")
-        .limit(20)
-        .get()
-        .catch(() => null),
-    ),
-  );
-  chatsSnap.docs.forEach((chatDoc, chatIndex) => {
-    const messages = messageSnaps[chatIndex];
-    if (!messages) return;
-    for (const messageDoc of messages.docs) {
-      const data = messageDoc.data() as { createdAt?: unknown; kind?: string; text?: string };
-      rows.push({
-        id: `chat:${chatDoc.id}:${messageDoc.id}`,
-        kind: "chat",
-        occurredAt: toIso(data.createdAt),
-        title: data.kind === "voice" ? "Audio enviado" : data.kind === "image" ? "Imagen enviada" : "Mensaje enviado",
-        detail: typeof data.text === "string" && data.text.trim() ? data.text.slice(0, 120) : null,
-        clientId: chatDoc.id,
-        clientName: clientNameById.get(chatDoc.id) ?? chatDoc.id,
-      });
-    }
-  });
+  for (const messageDoc of messagesSnap?.docs ?? []) {
+    const data = messageDoc.data() as { createdAt?: unknown; kind?: string; text?: string };
+    const chatDoc = messageDoc.ref.parent.parent;
+    const chatId = chatDoc?.id ?? null;
+    rows.push({
+      id: `chat:${chatId ?? "unknown"}:${messageDoc.id}`,
+      kind: "chat",
+      occurredAt: toIso(data.createdAt),
+      title: data.kind === "voice" ? "Audio enviado" : data.kind === "image" ? "Imagen enviada" : "Mensaje enviado",
+      detail: typeof data.text === "string" && data.text.trim() ? data.text.slice(0, 120) : null,
+      clientId: chatId,
+      clientName: chatId ? clientNameById.get(chatId) ?? chatId : null,
+    });
+  }
 
   rows.sort((a, b) => (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""));
-  return rows.slice(0, Math.max(1, Math.min(limit, 200)));
+  const pageRows = rows.slice(0, safePageSize);
+  return {
+    rows: pageRows,
+    nextCursor: pageRows.length === safePageSize ? pageRows[pageRows.length - 1].occurredAt : null,
+    hasMore: rows.length > safePageSize,
+  };
 }
