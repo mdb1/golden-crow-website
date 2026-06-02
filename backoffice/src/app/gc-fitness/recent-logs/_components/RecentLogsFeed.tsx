@@ -156,6 +156,10 @@ export function RecentLogsFeed({
 
   const filtered = rows;
   const groups = useMemo(() => groupRowsByClientDay(filtered), [filtered]);
+  // Second-level grouping: bucket the per-client-day cards under a single day
+  // heading so "Hoy"/"Ayer"/"Jun 5" is shown once per day instead of repeated
+  // on every client card.
+  const daySections = useMemo(() => groupGroupsByDay(groups), [groups]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -249,7 +253,12 @@ export function RecentLogsFeed({
         ) : null}
         {viewMode === "chronological"
           ? filtered.map((row) => <RecentLogItem key={row.id} row={row} router={router} t={t} />)
-          : groups.map((group) => {
+          : daySections.map((section) => (
+          <div key={section.key} className="flex flex-col gap-2">
+            <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              {section.label}
+            </h3>
+            {section.groups.map((group) => {
           const openProfile = () => router.push(`/gc-fitness/clients/${group.clientId}`);
           return (
             <div
@@ -275,7 +284,7 @@ export function RecentLogsFeed({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{group.clientName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {group.dayLabel} · {group.rows.length} {group.rows.length === 1 ? t("groupItem") : t("groupItems")}
+                      {group.rows.length} {group.rows.length === 1 ? t("groupItem") : t("groupItems")}
                     </p>
                   </div>
                 </div>
@@ -340,7 +349,7 @@ export function RecentLogsFeed({
                           ) : null}
                         </div>
                         <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-                          {formatDateTime(row.eventAt)}
+                          {formatTime(row.eventAt)}
                           {row.detail ? ` · ${row.detail}` : ""}
                         </p>
                       </div>
@@ -369,6 +378,8 @@ export function RecentLogsFeed({
             </div>
           );
         })}
+          </div>
+        ))}
       </div>
 
       {hasMore || loading ? (
@@ -517,6 +528,38 @@ function groupRowsByClientDay(rows: RecentLogRow[]): Array<{
     });
   }
   return Array.from(groups.values());
+}
+
+// Buckets the per-client-day cards into day sections, preserving the
+// newest-first order the server returned (Map keeps insertion order, and the
+// first card seen for a day fixes that day's position).
+function groupGroupsByDay(
+  groups: ReturnType<typeof groupRowsByClientDay>,
+): Array<{ key: string; label: string; groups: ReturnType<typeof groupRowsByClientDay> }> {
+  const sections = new Map<
+    string,
+    { key: string; label: string; groups: ReturnType<typeof groupRowsByClientDay> }
+  >();
+  for (const group of groups) {
+    const iso = group.rows[0]?.eventAt ?? "";
+    const key = dayKeyFromIso(iso);
+    const existing = sections.get(key);
+    if (existing) {
+      existing.groups.push(group);
+      continue;
+    }
+    sections.set(key, { key, label: group.dayLabel, groups: [group] });
+  }
+  return Array.from(sections.values());
+}
+
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function dayKeyFromIso(iso: string): string {
