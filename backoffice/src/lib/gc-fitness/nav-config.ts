@@ -148,6 +148,14 @@ export const GC_FITNESS_NAV: AdminNavItem[] = [
     icon: Activity,
     visibleRoles: TRAINER_ROLES,
   },
+  {
+    section: "gc-fitness-roster",
+    label: "My Activity",
+    href: "/gc-fitness/my-activity",
+    description: "Coach-authored actions across programming, notes and chat.",
+    icon: Activity,
+    visibleRoles: TRAINER_ROLES,
+  },
   // Content section
   {
     section: "gc-fitness-content",

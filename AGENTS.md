@@ -7,6 +7,13 @@
 - Keep the bumped version visible on the authentication screen.
 - Before pushing, verify the committed version with `git show HEAD:backoffice/src/lib/app-version.ts`.
 
+## Backoffice Firestore Pagination
+
+- Any backoffice surface that reads potentially unbounded Firestore data must paginate instead of loading full collections.
+- Default to 20 rows per page with a visible "Load more" / "Cargar más" control unless the product asks for a different size.
+- Prefer cursor-based Server Action pagination. For merged activity feeds, bound each Firestore source with a small `limit(...)`, merge those bounded results, and return a cursor for the next page.
+- Avoid fan-out reads across every client/thread when a scoped indexed query or collection-group query can fetch the same page.
+
 ## Auth Surface Isolation
 
 - There are two independent authentication circuits. They must coexist, but they must not share Firebase client apps, server cookies, login pages, redirects, or route handlers unless the user explicitly asks for a cross-surface auth migration.

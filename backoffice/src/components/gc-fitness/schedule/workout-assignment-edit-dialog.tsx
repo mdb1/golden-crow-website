@@ -111,6 +111,20 @@ export function WorkoutAssignmentEditDialog({
       return { ...prev, [index]: { ...cur, setRows } };
     });
   }
+  function copyFirstSetToAll(index: number) {
+    setDrafts((prev) => {
+      const cur = prev[index];
+      const first = cur?.setRows[0];
+      if (!cur || !first) return prev;
+      return {
+        ...prev,
+        [index]: {
+          ...cur,
+          setRows: cur.setRows.map(() => ({ ...first })),
+        },
+      };
+    });
+  }
 
   function buildPayload() {
     return exercises.map((ex) => {
@@ -209,7 +223,7 @@ export function WorkoutAssignmentEditDialog({
                       />
                     </label>
                   </div>
-                  <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <span>#</span>
                     <span>Reps</span>
                     <span>Kg</span>
@@ -218,7 +232,7 @@ export function WorkoutAssignmentEditDialog({
                   {draft.setRows.map((row, rowIdx) => (
                     <div
                       key={rowIdx}
-                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2"
+                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2"
                     >
                       <span className="text-xs text-muted-foreground">
                         {rowIdx + 1}
@@ -242,22 +256,35 @@ export function WorkoutAssignmentEditDialog({
                         }
                         className="h-9 rounded-md border bg-background px-2 text-sm"
                       />
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        disabled={draft.setRows.length <= 1}
-                        aria-label={`Quitar serie ${rowIdx + 1}`}
-                        onClick={() =>
-                          patch(ex.index, {
-                            setRows: draft.setRows.filter(
-                              (_, i) => i !== rowIdx,
-                            ),
-                          })
-                        }
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-30"
-                      >
-                        ×
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {rowIdx === 0 ? (
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            disabled={draft.setRows.length <= 1}
+                            onClick={() => copyFirstSetToAll(ex.index)}
+                            className="inline-flex h-7 items-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
+                          >
+                            Copiar a todas
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          disabled={draft.setRows.length <= 1}
+                          aria-label={`Quitar serie ${rowIdx + 1}`}
+                          onClick={() =>
+                            patch(ex.index, {
+                              setRows: draft.setRows.filter(
+                                (_, i) => i !== rowIdx,
+                              ),
+                            })
+                          }
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-30"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   ))}
                   <button
