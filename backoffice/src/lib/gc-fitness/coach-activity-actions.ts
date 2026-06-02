@@ -41,6 +41,20 @@ function localizedName(value: unknown): string {
   return "";
 }
 
+function recurrenceLabel(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const rec = raw as Record<string, unknown>;
+  if (rec.kind === "daily") return "diaria";
+  if (rec.kind === "weekly") return "semanal";
+  if (rec.kind === "weekly_days") return "semanal";
+  if (rec.kind === "monthly") return "mensual";
+  if (rec.kind === "every_n_days") {
+    const everyN = Number(rec.everyN ?? 0);
+    return Number.isFinite(everyN) && everyN > 0 ? `cada ${everyN} días` : "cada N días";
+  }
+  return null;
+}
+
 export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityRow[]> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
@@ -99,6 +113,11 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
     });
   }
 
+  const assignmentRows: Array<MyCoachActivityRow & {
+    scheduledFor: string | null;
+    recurrenceLabel: string | null;
+    seriesId: string | null;
+  }> = [];
   for (const doc of assignmentsSnap.docs) {
     const data = doc.data() as {
       createdAt?: unknown;
@@ -107,17 +126,63 @@ export async function listMyCoachActivity(limit = 120): Promise<MyCoachActivityR
       clientId?: string;
       pendingEmail?: string;
       templateSnapshot?: { name?: unknown };
+      recurrence?: unknown;
+      seriesId?: unknown;
     };
     const clientId = typeof data.clientId === "string" ? data.clientId : null;
     const name = localizedName(data.templateSnapshot?.name);
-    rows.push({
+    const scheduledFor = typeof data.scheduledFor === "string" ? data.scheduledFor : null;
+    assignmentRows.push({
       id: `assignment:${doc.id}`,
       kind: "workout_assignment",
       occurredAt: toIso(data.createdAt ?? data.updatedAt),
       title: name ? `Workout asignado: ${name}` : "Workout asignado",
-      detail: data.scheduledFor ? `Fecha: ${data.scheduledFor}` : null,
+      detail: scheduledFor ? `Fecha: ${scheduledFor}` : null,
       clientId,
       clientName: clientId ? clientNameById.get(clientId) ?? clientId : data.pendingEmail ?? null,
+      scheduledFor,
+      recurrenceLabel: recurrenceLabel(data.recurrence),
+      seriesId: typeof data.seriesId === "string" && data.seriesId.length > 0 ? data.seriesId : null,
+    });
+  }
+  const assignmentGroups = new Map<string, typeof assignmentRows>();
+  for (const row of assignmentRows) {
+    const key =
+      row.recurrenceLabel && row.seriesId
+        ? `series:${row.seriesId}:${row.clientId ?? row.clientName ?? "pending"}`
+        : `single:${row.id}`;
+    const group = assignmentGroups.get(key);
+    if (group) group.push(row);
+    else assignmentGroups.set(key, [row]);
+  }
+  for (const group of assignmentGroups.values()) {
+    if (group.length === 1 || !group[0].recurrenceLabel) {
+      const { scheduledFor: _scheduledFor, recurrenceLabel: _recurrenceLabel, seriesId: _seriesId, ...row } = group[0];
+      rows.push(row);
+      continue;
+    }
+    const sortedByDate = [...group].sort((a, b) => (a.scheduledFor ?? "").localeCompare(b.scheduledFor ?? ""));
+    const newest = [...group].sort((a, b) => (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""))[0];
+    const firstDate = sortedByDate[0]?.scheduledFor;
+    const lastDate = sortedByDate[sortedByDate.length - 1]?.scheduledFor;
+    const recurrence = newest.recurrenceLabel;
+    const detailParts = [
+      recurrence ? `Recurrencia: ${recurrence}` : null,
+      `${group.length} fechas`,
+      firstDate && lastDate && firstDate !== lastDate
+        ? `${firstDate} a ${lastDate}`
+        : firstDate
+          ? `desde ${firstDate}`
+          : null,
+    ].filter((part): part is string => Boolean(part));
+    rows.push({
+      id: `assignment-series:${newest.seriesId}`,
+      kind: "workout_assignment",
+      occurredAt: newest.occurredAt,
+      title: newest.title,
+      detail: detailParts.join(" · "),
+      clientId: newest.clientId,
+      clientName: newest.clientName,
     });
   }
 
