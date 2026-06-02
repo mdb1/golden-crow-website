@@ -42,6 +42,7 @@
 import { randomUUID } from "node:crypto";
 
 import { FieldValue } from "firebase-admin/firestore";
+import { z } from "zod";
 
 import {
   gcFitnessFirestore,
@@ -120,18 +121,29 @@ export async function createExercise(
     }
   }
 
+  const raw = z
+    .object({
+      id: z.string().trim().min(1).optional(),
+    })
+    .passthrough()
+    .parse(input);
+
   // Normalize source + ownerId to the caller before validation so the Zod
   // schema gets a fully-populated shape. The pre-check above already
   // rejected any conflicting incoming value.
   const normalized = {
-    ...(typeof input === "object" && input !== null ? input : {}),
+    ...raw,
     source: "trainer" as const,
     ownerId: trainer.uid,
   };
   const data = exerciseSchema.parse(normalized) as ExerciseInput;
 
   const db = gcFitnessFirestore();
-  const docId = `custom-${trainer.uid}-${randomUUID()}`;
+  const allowedPrefix = `custom-${trainer.uid}-`;
+  const docId =
+    raw.id && raw.id.startsWith(allowedPrefix)
+      ? raw.id
+      : `custom-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
   await docRef.set({
     ...data,

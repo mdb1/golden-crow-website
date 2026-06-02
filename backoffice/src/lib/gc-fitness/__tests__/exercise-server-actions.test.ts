@@ -202,6 +202,19 @@ describe("createExercise", () => {
     expect(setPayload.deleted).toBe(false);
   });
 
+  it("honors a caller-provided draft id when it belongs to the trainer", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockSet.mockResolvedValue(undefined);
+
+    const draftId = `custom-${ALLOWED_UID}-draft-123`;
+    const result = await createExercise({
+      ...VALID_EXERCISE_INPUT,
+      id: draftId,
+    });
+
+    expect(result.id).toBe(draftId);
+  });
+
   // T5: ownership claim attack — trainer asks for someone else's ownerId
   it("rejects when the input claims a different ownerId than the caller", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));

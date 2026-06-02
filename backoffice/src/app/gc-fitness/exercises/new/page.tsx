@@ -11,15 +11,13 @@ import { ExerciseForm } from "../_components/ExerciseForm";
 export const dynamic = "force-dynamic";
 
 export default async function NewExercisePage() {
-  try {
-    await getCurrentTrainer();
-  } catch (err) {
+  const trainer = await getCurrentTrainer().catch((err) => {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
       redirect("/gc-fitness/login");
     }
     throw err;
-  }
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
@@ -32,7 +30,7 @@ export default async function NewExercisePage() {
           first save.
         </p>
       </div>
-      <ExerciseForm mode="create" />
+      <ExerciseForm mode="create" trainerUid={trainer.uid} />
     </div>
   );
 }

@@ -9,14 +9,12 @@
 //   2. MIME: `file.type` is one of image/jpeg | image/png | image/webp.
 //   3. Size: `file.size <= 10 * 1024 * 1024` (matches the server-side cap).
 //
-// On a valid image, the dropzone calls `mintHabitPhotoUploadUrl` with the
-// habit's id + content length + content type. The server action still owns
-// authorization + canonical path construction, but the browser uploads the
-// returned gs:// path through the Firebase Storage client SDK so local/prod
-// uploads do not depend on bucket CORS for signed URL PUTs.
+// On a valid image, the dropzone POSTs the file to the GC Fitness upload
+// route. The route owns authorization, canonical path construction, and the
+// actual Cloud Storage write, so the browser no longer depends on bucket
+// CORS or Storage client SDK auth state.
 
 import { useRef, useState } from "react";
-import { ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { Upload, ImageIcon, X, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -24,8 +22,6 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { mintHabitPhotoUploadUrl } from "@/lib/gc-fitness/habit-actions";
-import { getGCFitnessStorage } from "@/lib/firebase/gc-fitness-client";
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB — matches server cap.
 
@@ -44,7 +40,7 @@ export interface HabitPhotoDropzoneProps {
   habitId?: string;
   /** Current `photoUrl` value (gs://… , https://… , or null). */
   value: string | null | undefined;
-  /** Called after the PUT to Cloud Storage succeeds. Receives the gs:// path. */
+  /** Called after the upload to Cloud Storage succeeds. Receives the gs:// path. */
   onUploaded: (gsPath: string) => void;
   /** Called when the trainer clicks "Remove" — clears `photoUrl`. */
   onRemoved: () => void;
@@ -111,17 +107,24 @@ export function HabitPhotoDropzone({
     setUploading(true);
     setProgress(0);
     try {
-      const { gsPath } = await mintHabitPhotoUploadUrl({
-        habitId: habitId!,
-        contentLength: file.size,
-        contentType: file.type,
-      });
+      const formData = new FormData();
+      formData.set("habitId", habitId!);
+      formData.set("file", file);
 
-      await uploadBytes(ref(getGCFitnessStorage(), gsPath), file, {
-        contentType: file.type,
+      const response = await fetch("/api/gc-fitness/habits/photo", {
+        method: "POST",
+        body: formData,
       });
+      if (!response.ok) {
+        throw new Error(`Upload failed (${response.status})`);
+      }
+
+      const payload = (await response.json()) as { gsPath?: string };
+      if (!payload.gsPath) {
+        throw new Error("Upload failed: missing storage path.");
+      }
       setProgress(100);
-      onUploaded(gsPath);
+      onUploaded(payload.gsPath);
       toast.success(t("successToast"));
     } catch (err) {
       console.error("[habit-photo-upload] failed", err);

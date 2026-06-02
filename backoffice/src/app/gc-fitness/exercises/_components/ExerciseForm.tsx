@@ -17,7 +17,7 @@
 // guard (it requires an `exerciseId` starting with `custom-${trainer.uid}-`
 // which is generated server-side).
 
-import { useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -77,6 +77,7 @@ export interface ExerciseFormProps {
   mode: ExerciseFormMode;
   exerciseId?: string;
   defaultValues?: Partial<ExerciseInput>;
+  trainerUid?: string;
 }
 
 // Build a fully-typed default-values object covering every Zod field. The
@@ -123,6 +124,7 @@ export function ExerciseForm({
   mode,
   exerciseId,
   defaultValues,
+  trainerUid,
 }: ExerciseFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -137,6 +139,18 @@ export function ExerciseForm({
   const [duplicating, setDuplicating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const isView = mode === "view";
+  const reactId = useId();
+  const draftSuffix = useMemo(
+    () => reactId.replace(/[^a-zA-Z0-9_-]/g, "") || "draft",
+    [reactId],
+  );
+  const draftExerciseId = useMemo(
+    () =>
+      mode === "create" && trainerUid
+        ? `custom-${trainerUid}-${draftSuffix}`
+        : undefined,
+    [draftSuffix, mode, trainerUid],
+  );
 
   // `zodResolver` returns a generic resolver that RHF infers from the
   // Zod schema's output type. We cast through `unknown` so the form's
@@ -154,7 +168,9 @@ export function ExerciseForm({
     startTransition(async () => {
       try {
         if (mode === "create") {
-          await createExercise(values);
+          await createExercise(
+            draftExerciseId ? { ...values, id: draftExerciseId } : values,
+          );
           await invalidateExercises();
           toast.success(t("savedToast"));
           // Push to the library so the trainer lands on the list they
@@ -467,13 +483,13 @@ export function ExerciseForm({
                       value={field.value ?? ""}
                     />
                     <ThumbnailUploadDropzone
-                      exerciseId={exerciseId}
+                      exerciseId={exerciseId ?? draftExerciseId}
                       value={field.value ?? null}
                       onUploaded={(gs) => field.onChange(gs)}
                       onRemoved={() => field.onChange(null)}
-                      disabled={isView || (mode === "create" && !exerciseId)}
+                      disabled={isView || (mode === "create" && !exerciseId && !draftExerciseId)}
                       disabledHint={
-                        mode === "create" && !exerciseId
+                        mode === "create" && !exerciseId && !draftExerciseId
                           ? t("thumbnailCreateDeferHint")
                           : undefined
                       }

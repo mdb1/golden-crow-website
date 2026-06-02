@@ -721,6 +721,7 @@
       "reminderFollowsSchedule": "Usa la misma frecuencia que el cronograma del hábito.",
       "cancel": "Cancelar",
       "saving": "Guardando…",
+      "save": "Guardar",
       "createCta": "Crear hábito",
       "saveCta": "Guardar cambios",
       "createdToast": "Hábito creado.",

@@ -721,6 +721,7 @@
       "reminderFollowsSchedule": "Uses the same cadence as the habit schedule.",
       "cancel": "Cancel",
       "saving": "Saving…",
+      "save": "Save",
       "createCta": "Create habit",
       "saveCta": "Save changes",
       "createdToast": "Habit created.",
