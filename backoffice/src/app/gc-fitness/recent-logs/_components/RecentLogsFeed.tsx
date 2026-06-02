@@ -109,6 +109,7 @@ export function RecentLogsFeed({
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<"grouped" | "chronological">("grouped");
 
   // Re-fetch page 1 whenever a filter changes (translates the filter to the
   // server-side client / type scope so pagination + filtering compose).
@@ -166,7 +167,7 @@ export function RecentLogsFeed({
           </CardTitle>
           <CardDescription>{t("filtersDescription")}</CardDescription>
         </CardHeader>
-        <CardContent className="grid max-w-4xl gap-3 md:grid-cols-2">
+        <CardContent className="grid max-w-4xl gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <div className="space-y-1">
             <p className="text-sm font-medium">{t("clientLabel")}</p>
             <Select
@@ -210,6 +211,31 @@ export function RecentLogsFeed({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{t("viewLabel")}</p>
+            <div className="inline-flex h-10 rounded-md border bg-background p-0.5">
+              {(
+                [
+                  ["grouped", t("viewGrouped")],
+                  ["chronological", t("viewChronological")],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setViewMode(value)}
+                  className={[
+                    "rounded-sm px-3 text-sm font-medium transition-colors",
+                    viewMode === value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -221,7 +247,9 @@ export function RecentLogsFeed({
             </CardContent>
           </Card>
         ) : null}
-        {groups.map((group) => {
+        {viewMode === "chronological"
+          ? filtered.map((row) => <RecentLogItem key={row.id} row={row} router={router} t={t} />)
+          : groups.map((group) => {
           const openProfile = () => router.push(`/gc-fitness/clients/${group.clientId}`);
           return (
             <div
@@ -355,6 +383,102 @@ export function RecentLogsFeed({
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function RecentLogItem({
+  row,
+  router,
+  t,
+}: {
+  row: RecentLogRow;
+  router: ReturnType<typeof useRouter>;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const CatIcon = CATEGORY_ICON[row.category];
+  const openProfile = () => router.push(`/gc-fitness/clients/${row.clientId}`);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openProfile}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openProfile();
+        }
+      }}
+      className="group flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:items-center"
+    >
+      <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
+          >
+            {CatIcon ? <CatIcon /> : null}
+            {t(CATEGORY_LABEL_KEY[row.category])}
+          </Badge>
+          <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
+            {row.title}
+          </span>
+          {row.forCivilDate ? (
+            <Badge
+              variant="outline"
+              className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+            >
+              <CalendarClock />
+              {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
+            </Badge>
+          ) : null}
+          {row.workout?.rpe != null ? (
+            <Badge
+              variant="outline"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+            >
+              <Gauge />
+              RPE {row.workout.rpe}
+            </Badge>
+          ) : null}
+          {row.workout?.hasNotes ? (
+            <Badge
+              variant="outline"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+            >
+              <StickyNote />
+              {t("notesBadge")}
+            </Badge>
+          ) : null}
+        </div>
+        <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
+          {row.clientName} · {formatDateTime(row.eventAt)}
+          {row.detail ? ` · ${row.detail}` : ""}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground"
+          title={t("openChat")}
+        >
+          <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
+            <MessageCircle className="h-4 w-4" />
+            <span className="sr-only">{t("openChat")}</span>
+          </Link>
+        </Button>
+        {row.workoutLogId ? (
+          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 px-2.5">
+            <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
+              <Eye className="h-4 w-4" />
+              {t("viewWorkout")}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -6,6 +6,9 @@ import { toast } from "sonner";
 
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 
+const NOTIFICATION_WAV =
+  "data:audio/wav;base64,UklGRqQBAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YYABAAD/AwYJDA8SFRgbHiEkJyopLC8yNTg7PkFCQ0ZJS01PUVNUVlZXWVlZWVlXVlRTUU9NSUlGQ0E+Ozg1Mi8sKiknJCEeGxgVFRIPDAkGA/8D/gD8//r/+P/2//T/8v/x/+//7f/s/+v/6v/p/+j/6P/o/+j/6f/q/+v/7P/t/+//8f/y//T/9v/4//r//P/+AAEABAYJDA8SFRgbHiEkJyopLC8yNTg7PkFCQ0ZJS01PUVNUVlZXWVlZWVlXVlRTUU9NSUlGQ0E+Ozg1Mi8sKiknJCEeGxgVFRIPDAkGA/8D/gD8//r/+P/2//T/8v/x/+//7f/s/+v/6v/p/+j/6P/o/+j/6f/q/+v/7P/t/+//8f/y//T/9v/4//r//P/+AAEABAYJDA8SFRgbHiEkJyopLC8yNTg7PkFCQ0ZJS01PUVNUVlZXWVlZWVlXVlRTUU9NSUlGQ0E+Ozg1Mi8sKiknJCEeGxgVFRIPDAkGA/8D/gD8//r/+P/2//T/8v/x/+//7f/s/+v/6v/p/+j/6P/o/+j/6f/q/+v/7P/t/+//8f/y//T/9v/4//r//P/+AAE=";
+
 export function ChatNotificationListener({
   trainerUid,
 }: {
@@ -15,7 +18,32 @@ export function ChatNotificationListener({
   const { data } = useTrainerChats(enabled);
   const initialized = useRef(false);
   const previous = useRef(new Map<string, { unread: number; messageKey: string | null }>());
-  const audioContext = useRef<AudioContext | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const armAudio = () => {
+      const audio = audioRef.current ?? new Audio(NOTIFICATION_WAV);
+      audio.volume = 0;
+      audioRef.current = audio;
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = 0.65;
+      }).catch(() => {
+        audio.volume = 0.65;
+        // Browser did not unlock audio yet; next interaction will retry.
+      });
+    };
+    window.addEventListener("pointerdown", armAudio, { once: true });
+    window.addEventListener("keydown", armAudio, { once: true });
+    window.addEventListener("touchstart", armAudio, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", armAudio);
+      window.removeEventListener("keydown", armAudio);
+      window.removeEventListener("touchstart", armAudio);
+    };
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled || !trainerUid || !data) return;
@@ -42,7 +70,7 @@ export function ChatNotificationListener({
             },
           },
         });
-        playNotificationSound(audioContext);
+        playNotificationSound(audioRef);
       }
     }
 
@@ -60,27 +88,12 @@ function previewText(message: { kind?: string; text?: string } | null | undefine
   return message.text || "Tenés un nuevo mensaje.";
 }
 
-function playNotificationSound(ref: MutableRefObject<AudioContext | null>) {
-  try {
-    const AudioContextCtor =
-      window.AudioContext ||
-      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return;
-    const ctx = ref.current ?? new AudioContextCtor();
-    ref.current = ctx;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.2);
-  } catch {
-    // Browser autoplay policies can block programmatic audio until interaction.
-  }
+function playNotificationSound(ref: MutableRefObject<HTMLAudioElement | null>) {
+  const audio = ref.current ?? new Audio(NOTIFICATION_WAV);
+  audio.volume = 0.65;
+  ref.current = audio;
+  audio.currentTime = 0;
+  audio.play().catch(() => {
+    // Browser autoplay policies can still block sound until user interaction.
+  });
 }
