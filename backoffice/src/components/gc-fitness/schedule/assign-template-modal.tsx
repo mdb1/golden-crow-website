@@ -880,7 +880,7 @@ export function AssignTemplateModal({
                       exact (reps × kg) prescription set-by-set rather than
                       typing a comma-joined string. */}
                   <div className="mt-2 flex flex-col gap-1.5">
-                    <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       <span>{t("exerciseOverridesSetHeader")}</span>
                       <span>
                         {effectiveMetric === "time"
@@ -893,7 +893,7 @@ export function AssignTemplateModal({
                     {draft.setRows.map((row, setIdx) => (
                       <div
                         key={`${exercise.exerciseId}-set-${setIdx + 1}`}
-                        className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_28px] items-center gap-2"
+                        className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2"
                       >
                         <span className="text-xs text-muted-foreground">{setIdx + 1}</span>
                         {/* 26-03 — Primary input branches on effectiveMetric.
@@ -965,77 +965,79 @@ export function AssignTemplateModal({
                           placeholder={t("exerciseOverridesKgPlaceholder")}
                           className="h-9 rounded-md border bg-background px-2 text-sm"
                         />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOverrideDrafts((prev) => {
-                              const cur = prev[exercise.index];
-                              if (cur.setRows.length <= 1) return prev;
-                              const next = cur.setRows.filter((_, i) => i !== setIdx);
-                              return {
-                                ...prev,
-                                [exercise.index]: { ...cur, setRows: next },
-                              };
-                            });
-                          }}
-                          disabled={draft.setRows.length <= 1}
-                          tabIndex={-1}
-                          aria-label={t("exerciseOverridesRemoveSet", { index: setIdx + 1 })}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
-                        >
-                          ×
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          {setIdx === 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => copyFirstSetToAll(exercise.index, effectiveMetric)}
+                              disabled={draft.setRows.length <= 1}
+                              tabIndex={-1}
+                              className="inline-flex h-7 items-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {t("exerciseOverridesCopyToAll")}
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOverrideDrafts((prev) => {
+                                const cur = prev[exercise.index];
+                                if (cur.setRows.length <= 1) return prev;
+                                const next = cur.setRows.filter((_, i) => i !== setIdx);
+                                return {
+                                  ...prev,
+                                  [exercise.index]: { ...cur, setRows: next },
+                                };
+                              });
+                            }}
+                            disabled={draft.setRows.length <= 1}
+                            tabIndex={-1}
+                            aria-label={t("exerciseOverridesRemoveSet", { index: setIdx + 1 })}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
                     ))}
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOverrideDrafts((prev) => {
-                            const cur = prev[exercise.index];
-                            if (cur.setRows.length >= 10) return prev;
-                            // New row carries the previous row's values as a
-                            // sensible default — common case is +1 set with
-                            // same prescription as the prior set. 26-03
-                            // additionally seeds `duration` when the
-                            // effective metric is "time" so the new row
-                            // surfaces a usable number instead of an empty
-                            // string.
-                            const last = cur.setRows[cur.setRows.length - 1];
-                            const newRow: {
-                              reps: string;
-                              kg: string;
-                              duration?: string;
-                            } = {
-                              reps: last?.reps ?? "0",
-                              kg: last?.kg ?? "",
-                            };
-                            if (effectiveMetric === "time") {
-                              newRow.duration = last?.duration ?? "60";
-                            }
-                            const next = [...cur.setRows, newRow];
-                            return {
-                              ...prev,
-                              [exercise.index]: { ...cur, setRows: next },
-                            };
-                          });
-                        }}
-                        disabled={draft.setRows.length >= 10}
-                        tabIndex={-1}
-                        className="inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        + {t("exerciseOverridesAddSet")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => copyFirstSetToAll(exercise.index, effectiveMetric)}
-                        disabled={draft.setRows.length <= 1}
-                        tabIndex={-1}
-                        className="inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {t("exerciseOverridesCopyToAll")}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOverrideDrafts((prev) => {
+                          const cur = prev[exercise.index];
+                          if (cur.setRows.length >= 10) return prev;
+                          // New row carries the previous row's values as a
+                          // sensible default — common case is +1 set with
+                          // same prescription as the prior set. 26-03
+                          // additionally seeds `duration` when the
+                          // effective metric is "time" so the new row
+                          // surfaces a usable number instead of an empty
+                          // string.
+                          const last = cur.setRows[cur.setRows.length - 1];
+                          const newRow: {
+                            reps: string;
+                            kg: string;
+                            duration?: string;
+                          } = {
+                            reps: last?.reps ?? "0",
+                            kg: last?.kg ?? "",
+                          };
+                          if (effectiveMetric === "time") {
+                            newRow.duration = last?.duration ?? "60";
+                          }
+                          const next = [...cur.setRows, newRow];
+                          return {
+                            ...prev,
+                            [exercise.index]: { ...cur, setRows: next },
+                          };
+                        });
+                      }}
+                      disabled={draft.setRows.length >= 10}
+                      tabIndex={-1}
+                      className="mt-1 inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      + {t("exerciseOverridesAddSet")}
+                    </button>
                   </div>
                   <textarea
                     value={draft.notes}
