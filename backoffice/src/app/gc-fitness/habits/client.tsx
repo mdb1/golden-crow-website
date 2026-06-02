@@ -60,6 +60,7 @@ import {
 
 import { NewHabitDialog } from "@/components/gc-fitness/schedule/new-habit-dialog";
 import {
+  deleteHabitRecurrenceFromDate,
   listHabitsForTrainer,
   listHabitTemplates,
   softDeleteHabit,
@@ -183,6 +184,7 @@ export function HabitsLibraryClient({
     initialState: { pagination: { pageSize: 25 } },
   });
 
+  // Soft-delete the whole habit (hides it + its history from the client).
   const handleConfirmDelete = useCallback(async () => {
     if (!confirmDelete) return;
     setDeletePending(true);
@@ -193,6 +195,30 @@ export function HabitsLibraryClient({
       setConfirmDelete(null);
     } catch (err) {
       console.error("[habits] delete failed", err);
+      const message =
+        err instanceof Error ? err.message : t("deleteFailedToast");
+      toast.error(message);
+    } finally {
+      setDeletePending(false);
+    }
+  }, [confirmDelete, queryClient, t]);
+
+  // Recurring-only: end the recurrence from today onward (caps endsOn to
+  // yesterday), keeping past days + their logs intact. Mirrors the calendar
+  // habit-detail dialog's "delete from this day forward" action, anchored at
+  // today since the list has no per-day context.
+  const handleEndFromToday = useCallback(async () => {
+    if (!confirmDelete) return;
+    setDeletePending(true);
+    try {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      await deleteHabitRecurrenceFromDate(confirmDelete.id, today);
+      await queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY });
+      toast.success(t("endedFromTodayToast"));
+      setConfirmDelete(null);
+    } catch (err) {
+      console.error("[habits] end-from-today failed", err);
       const message =
         err instanceof Error ? err.message : t("deleteFailedToast");
       toast.error(message);
@@ -442,22 +468,64 @@ export function HabitsLibraryClient({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("deleteDialogBody")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePending}>
-              {t("deleteDialogCancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={deletePending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletePending ? t("deleting") : t("deleteDialogConfirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {confirmDelete?.scheduleType === "recurring" ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("deleteRecurringTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("deleteRecurringBody")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="sm:flex-col sm:items-stretch sm:space-x-0 sm:gap-2">
+                {/* End from today: keeps past history + logs. */}
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleEndFromToday();
+                  }}
+                  disabled={deletePending}
+                >
+                  {deletePending ? t("deleting") : t("deleteFromTodayCta")}
+                </AlertDialogAction>
+                {/* Delete the entire habit + history. */}
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleConfirmDelete();
+                  }}
+                  disabled={deletePending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deletePending ? t("deleting") : t("deleteEntireCta")}
+                </AlertDialogAction>
+                <AlertDialogCancel disabled={deletePending}>
+                  {t("deleteDialogCancel")}
+                </AlertDialogCancel>
+              </AlertDialogFooter>
+            </>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>{t("deleteDialogBody")}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletePending}>
+                  {t("deleteDialogCancel")}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleConfirmDelete();
+                  }}
+                  disabled={deletePending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deletePending ? t("deleting") : t("deleteDialogConfirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
     </div>
