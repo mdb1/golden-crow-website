@@ -19,6 +19,7 @@ export function ChatNotificationListener({
   const initialized = useRef(false);
   const previous = useRef(new Map<string, { unread: number; messageKey: string | null }>());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -34,6 +35,20 @@ export function ChatNotificationListener({
         audio.volume = 0.65;
         // Browser did not unlock audio yet; next interaction will retry.
       });
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => undefined);
+      }
+      try {
+        const AudioContextCtor =
+          window.AudioContext ||
+          (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (AudioContextCtor) {
+          audioContextRef.current = audioContextRef.current ?? new AudioContextCtor();
+          audioContextRef.current.resume().catch(() => undefined);
+        }
+      } catch {
+        // WebAudio is a best-effort fallback for a longer message sound.
+      }
     };
     window.addEventListener("pointerdown", armAudio, { once: true });
     window.addEventListener("keydown", armAudio, { once: true });
@@ -70,7 +85,10 @@ export function ChatNotificationListener({
             },
           },
         });
-        playNotificationSound(audioRef);
+        if (document.hidden) {
+          showSystemNotification(chat.clientId, previewText(chat.lastMessage));
+        }
+        playNotificationSound(audioRef, audioContextRef);
       }
     }
 
@@ -88,7 +106,66 @@ function previewText(message: { kind?: string; text?: string } | null | undefine
   return message.text || "Tenés un nuevo mensaje.";
 }
 
-function playNotificationSound(ref: MutableRefObject<HTMLAudioElement | null>) {
+function showSystemNotification(chatId: string, body: string) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const notification = new Notification("Nuevo mensaje", {
+    body,
+    tag: `gc-fitness-chat-${chatId}`,
+    requireInteraction: false,
+  });
+  notification.onclick = () => {
+    window.focus();
+    window.location.href = `/gc-fitness/chat?chatId=${chatId}`;
+  };
+}
+
+function playNotificationSound(
+  audioRef: MutableRefObject<HTMLAudioElement | null>,
+  audioContextRef: MutableRefObject<AudioContext | null>,
+) {
+  if (playMelody(audioContextRef)) return;
+  playEmbeddedAudio(audioRef);
+}
+
+function playMelody(ref: MutableRefObject<AudioContext | null>): boolean {
+  try {
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return false;
+    const ctx = ref.current ?? new AudioContextCtor();
+    ref.current = ctx;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => undefined);
+    }
+    const notes = [
+      { frequency: 740, start: 0, duration: 0.22 },
+      { frequency: 988, start: 0.24, duration: 0.28 },
+      { frequency: 830, start: 0.56, duration: 0.26 },
+      { frequency: 1108, start: 0.86, duration: 0.32 },
+    ];
+    for (const note of notes) {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime + note.start;
+      const end = start + note.duration;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(note.frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, end);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(start);
+      oscillator.stop(end + 0.03);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function playEmbeddedAudio(ref: MutableRefObject<HTMLAudioElement | null>) {
   const audio = ref.current ?? new Audio(NOTIFICATION_WAV);
   audio.volume = 0.65;
   ref.current = audio;

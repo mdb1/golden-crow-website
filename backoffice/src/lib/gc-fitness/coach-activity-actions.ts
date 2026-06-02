@@ -80,7 +80,7 @@ export async function listMyCoachActivityPage(
   const queryLimit = safePageSize + 1;
   const before = cursorDate(cursor);
 
-  function scopedRecentQuery(collectionName: string, ownerField: "trainerId" | "coachId") {
+  async function scopedRecentQuery(collectionName: string, ownerField: "trainerId" | "coachId") {
     let query = db
       .collection(collectionName)
       .where(ownerField, "==", trainer.uid)
@@ -89,10 +89,22 @@ export async function listMyCoachActivityPage(
     if (before) {
       query = query.where("createdAt", "<", before);
     }
-    return query.get().catch(() => null);
+    return query.get().catch((error) => {
+      console.warn(
+        `[gc-fitness/my-activity] ordered ${collectionName} query failed; using bounded fallback`,
+        error,
+      );
+      if (before) return null;
+      return db
+        .collection(collectionName)
+        .where(ownerField, "==", trainer.uid)
+        .limit(queryLimit)
+        .get()
+        .catch(() => null);
+    });
   }
 
-  function notesQuery() {
+  async function notesQuery() {
     let query = db
       .collection(FirestoreCollections.clientNotes)
       .where("coachId", "==", trainer.uid)
@@ -101,10 +113,22 @@ export async function listMyCoachActivityPage(
     if (before) {
       query = query.where("updatedAt", "<", before);
     }
-    return query.get().catch(() => null);
+    return query.get().catch((error) => {
+      console.warn(
+        "[gc-fitness/my-activity] ordered client notes query failed; using bounded fallback",
+        error,
+      );
+      if (before) return null;
+      return db
+        .collection(FirestoreCollections.clientNotes)
+        .where("coachId", "==", trainer.uid)
+        .limit(queryLimit)
+        .get()
+        .catch(() => null);
+    });
   }
 
-  function sentMessagesQuery() {
+  async function sentMessagesQuery() {
     let query = db
       .collectionGroup(FirestoreCollections.messages)
       .where("senderId", "==", trainer.uid)
@@ -113,7 +137,13 @@ export async function listMyCoachActivityPage(
     if (before) {
       query = query.where("createdAt", "<", before);
     }
-    return query.get().catch(() => null);
+    return query.get().catch((error) => {
+      console.warn(
+        "[gc-fitness/my-activity] ordered sent messages query failed; skipping chat rows for this page",
+        error,
+      );
+      return null;
+    });
   }
 
   const [

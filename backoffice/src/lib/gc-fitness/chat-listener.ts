@@ -81,6 +81,7 @@ export function useTrainerChats(enabled: boolean = true) {
     // 10s so a focus refetch within the window is still deduped.
     staleTime: 10_000,
     refetchInterval: 120_000,
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   });
 }
