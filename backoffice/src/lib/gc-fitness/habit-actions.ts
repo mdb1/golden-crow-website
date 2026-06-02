@@ -842,21 +842,32 @@ export async function mintHabitPhotoUploadUrl(input: {
   if (!habitId || typeof habitId !== "string") {
     throw new Error("BadRequest: habitId is required.");
   }
-  // Path-traversal defense — only allow uploads to the caller's own
-  // namespaces: per-client habits (`hab-${uid}-*`) AND reusable templates
-  // (`habit-template-${uid}-*`). Both embed the caller's uid, so an attacker
-  // still can't target another trainer's object path. A template photo lives
-  // at `habits/${templateId}/photo.*` and is copied (by gs:// path) onto each
-  // assigned per-client habit doc.
-  const allowedPrefix = `hab-${trainer.uid}-`;
-  const allowedTemplatePrefix = `habit-template-${trainer.uid}-`;
-  if (
-    !habitId.startsWith(allowedPrefix) &&
-    !habitId.startsWith(allowedTemplatePrefix)
-  ) {
-    throw new Error(
-      "Cannot upload to that path. habitId must belong to the caller.",
-    );
+  // Path-traversal + ownership defense. The earlier prefix-only guard
+  // (`hab-${uid}-*` / `habit-template-${uid}-*`) was too narrow: habits
+  // assigned to PENDING clients use `hab-pending-${email}-*` and seeded habits
+  // carry other id shapes, so a legitimate trainer photo upload was rejected
+  // → "Photo upload failed". Instead, RESOLVE the doc and verify ownership:
+  // the id must reference a /habits OR /habit_templates doc whose trainerId is
+  // the caller. This both proves ownership (an attacker can't target another
+  // trainer's doc) and accepts every legitimate id shape. No `..`/slash can
+  // reach here because the id must match a real doc id.
+  {
+    const db = gcFitnessFirestore();
+    const [habitSnap, templateSnap] = await Promise.all([
+      db.collection(COLLECTION).doc(habitId).get(),
+      db.collection(TEMPLATE_COLLECTION).doc(habitId).get(),
+    ]);
+    const owner =
+      (habitSnap.exists &&
+        (habitSnap.data() as { trainerId?: string }).trainerId) ||
+      (templateSnap.exists &&
+        (templateSnap.data() as { trainerId?: string }).trainerId) ||
+      null;
+    if (owner !== trainer.uid) {
+      throw new Error(
+        "Cannot upload to that path. habitId must reference a habit or template you own.",
+      );
+    }
   }
   // Cost-DoS guard.
   if (
@@ -1088,6 +1099,45 @@ export async function updateHabitTemplate(
       updatedAt: FieldValue.serverTimestamp(),
     }),
   );
+
+  // Cascade the CONTENT fields (description / photo / video) onto every live
+  // assignment created from this template (linked via `sourceTemplateId`). The
+  // iOS app reads the per-client assignment doc, not the template — without
+  // this, a library edit would never reach the client. We intentionally do NOT
+  // cascade name / schedule / reminder: those are commonly customised per
+  // assignment, whereas the description/photo/video are intrinsic "what is this
+  // habit" context the trainer expects to edit once.
+  //
+  // LIMITATION: only assignments carrying `sourceTemplateId` are reached.
+  // Assignments created before this link existed (or by any unlinked path) are
+  // NOT updated — edit those directly from the Assignments tab.
+  const contentPatch = withoutUndefined({
+    description: parsed.description,
+    photoUrl: parsed.photoUrl,
+    youtubeUrl: parsed.youtubeUrl,
+  });
+  if (Object.keys(contentPatch).length > 0) {
+    // Single-field equality query — no composite index required.
+    const linked = await db
+      .collection(COLLECTION)
+      .where("sourceTemplateId", "==", id)
+      .get();
+    const mine = linked.docs.filter((d) => {
+      const data = d.data() as { trainerId?: string; deleted?: boolean };
+      return data.trainerId === trainer.uid && data.deleted !== true;
+    });
+    // Firestore batches cap at 500 writes; chunk defensively.
+    for (let i = 0; i < mine.length; i += 450) {
+      const batch = db.batch();
+      for (const d of mine.slice(i, i + 450)) {
+        batch.update(d.ref, {
+          ...contentPatch,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
 
   return { ok: true };
 }

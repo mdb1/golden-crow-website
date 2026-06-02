@@ -114,6 +114,12 @@ const habitBaseShape = z.object({
       "Must be a youtube.com/watch?v=… or youtu.be/… URL.",
     )
     .optional(),
+  // Optional back-link to the /habit_templates doc this assignment was created
+  // from. Set when assigning a template (Library "assign" action OR the agenda
+  // assign-existing flow). Lets `updateHabitTemplate` cascade content-field
+  // edits (description/photo/youtube) onto its linked assignments. Internal —
+  // never rendered in the form. Habits created blank have no source template.
+  sourceTemplateId: z.string().trim().min(1).optional(),
   // HH:mm 24-hour local-time string. Regex matches the schema doc spec.
   // iOS schedules a daily UNCalendarNotificationTrigger at this hour-minute.
   reminderTime: z

@@ -85,6 +85,11 @@ function templateToDefaults(
     type: tpl.type,
     name: { en: tpl.name.en, es: tpl.name.es },
     description: tpl.description,
+    photoUrl: tpl.photoUrl,
+    youtubeUrl: tpl.youtubeUrl,
+    // Link the new assignment to its source template so library edits can
+    // cascade onto it later (see updateHabitTemplate).
+    sourceTemplateId: tpl.id,
     reminderTime: tpl.reminderTime,
     reminderEnabled: tpl.reminderEnabled,
     reminderCadence: tpl.reminderCadence,
