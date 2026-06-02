@@ -38,15 +38,13 @@ function monthFirstFromQuery(monthQuery: string | undefined, todayCivil: string)
 }
 
 export default async function SchedulePage({ searchParams }: SchedulePageProps) {
-  try {
-    await getCurrentTrainer();
-  } catch (err) {
+  const trainer = await getCurrentTrainer().catch((err) => {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
       redirect("/gc-fitness/login");
     }
     throw err;
-  }
+  });
 
   const { month, clientIds } = await searchParams;
   const clients = (await listClients()).filter((c) => !c.pendingProvisioning);
@@ -96,6 +94,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
           initialClientIds={selectedClientIds}
           initialPayload={initialPayload}
           todayCivil={todayCivil}
+          trainerUid={trainer.uid}
         />
       </ScheduleQueryProvider>
     </div>

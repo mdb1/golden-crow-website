@@ -15,11 +15,13 @@
 // "GIFs aren't supported. Please convert to MP4 first."
 //
 // On a valid MP4, the dropzone calls `mintExerciseMediaUploadUrl` with the
-// exercise's id + content length, then `fetch(url, { method: 'PUT', ...})`
-// to upload directly to Cloud Storage. The returned gs:// path lands in the
-// form's `mediaURL` field via the `onUploaded` callback.
+// exercise's id + content length. The server action still owns authorization
+// + canonical path construction, but the browser uploads the returned gs://
+// path through the Firebase Storage client SDK so local/prod uploads do not
+// depend on bucket CORS for signed URL PUTs.
 
 import { useRef, useState } from "react";
+import { ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { Upload, FileVideo, X, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -28,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { mintExerciseMediaUploadUrl } from "@/lib/gc-fitness/exercise-server-actions";
+import { getGCFitnessStorage } from "@/lib/firebase/gc-fitness-client";
 import { GifConversionModal } from "./GifConversionModal";
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
@@ -126,25 +129,14 @@ export function MediaUploadDropzone({
     setProgress(0);
     setShowHowToConvert(false);
     try {
-      const { url, gsPath } = await mintExerciseMediaUploadUrl({
+      const { gsPath } = await mintExerciseMediaUploadUrl({
         exerciseId: exerciseId!,
         contentLength: file.size,
       });
 
-      // We use `fetch(PUT)` instead of XHR — fetch in modern browsers doesn't
-      // expose upload progress events for the request body (the
-      // `ReadableStream` upload-progress proposal is still draft as of May
-      // 2026). For v1 we surface an indeterminate `<Progress>` then jump to
-      // 100% on success; XHR-based progress is deferred to a polish phase.
-      const resp = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": "video/mp4" },
-        body: file,
+      await uploadBytes(ref(getGCFitnessStorage(), gsPath), file, {
+        contentType: "video/mp4",
       });
-
-      if (!resp.ok) {
-        throw new Error(`Upload failed with status ${resp.status}`);
-      }
       setProgress(100);
       onUploaded(gsPath);
       toast.success(t("successToast"));

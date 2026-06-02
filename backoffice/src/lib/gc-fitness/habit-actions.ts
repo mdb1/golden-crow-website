@@ -863,7 +863,8 @@ export async function mintHabitPhotoUploadUrl(input: {
       (templateSnap.exists &&
         (templateSnap.data() as { trainerId?: string }).trainerId) ||
       null;
-    if (owner !== trainer.uid) {
+    const isDraftTemplateId = habitId.startsWith(`habit-template-${trainer.uid}-`);
+    if (owner !== trainer.uid && !isDraftTemplateId) {
       throw new Error(
         "Cannot upload to that path. habitId must reference a habit or template you own.",
       );
@@ -1000,9 +1001,18 @@ export async function createHabitTemplate(
   input: unknown,
 ): Promise<{ id: string }> {
   const trainer = await getCurrentTrainer();
-  const parsed = habitTemplateCreateSchema.parse(input);
+  const raw = z
+    .object({
+      id: z.string().trim().min(1).optional(),
+    })
+    .passthrough()
+    .parse(input);
+  const parsed = habitTemplateCreateSchema.parse(raw);
   const db = gcFitnessFirestore();
-  const docId = `habit-template-${trainer.uid}-${randomUUID()}`;
+  const docId =
+    raw.id && raw.id.startsWith(`habit-template-${trainer.uid}-`)
+      ? raw.id
+      : `habit-template-${trainer.uid}-${randomUUID()}`;
   await db.collection(TEMPLATE_COLLECTION).doc(docId).set(withoutUndefined({
     ...parsed,
     reminderDayOfMonth:

@@ -11,11 +11,12 @@
 //     can tweak the cadence before assigning.
 //   • "Crear nuevo" (right) → the same form, blank.
 //
-// Both paths submit through `createHabit`, so the assigned/created habit lands
-// on the same client + day; "existente" just skips the re-typing when the
-// trainer already has the habit defined.
+// The dialog has two different create targets:
+//   - fixed-client calendar flow → create an assigned habit for that client/day
+//   - roster flow ("habits" page) → create a reusable template with the same
+//     photo/demo affordances, then assign it later from the library
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ChevronLeft, Plus, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -29,8 +30,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HabitForm } from "@/app/gc-fitness/habits/_components/HabitForm";
+import { HabitTemplateForm } from "@/app/gc-fitness/habits/_components/HabitTemplateForm";
 import {
   createHabit,
+  createHabitTemplate,
   listHabitTemplates,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
@@ -52,6 +55,7 @@ interface NewHabitDialogProps {
    * these options, so the trainer picks the client + start date in the form.
    */
   clients?: Array<{ uid: string; displayName: string }>;
+  trainerUid: string;
   /** Fires after a successful create/assign so the parent can invalidate caches. */
   onCreated: () => void;
 }
@@ -113,6 +117,7 @@ export function NewHabitDialog({
   clientName,
   startsOn,
   clients,
+  trainerUid,
   onCreated,
 }: NewHabitDialogProps) {
   const [tab, setTab] = useState<Tab>("existing");
@@ -120,6 +125,11 @@ export function NewHabitDialog({
   // Seeded by the "create it" shortcut in the existing-tab empty state so the
   // create form opens pre-filled with the searched name.
   const [prefillName, setPrefillName] = useState("");
+  const reactId = useId();
+  const draftSuffix = useMemo(
+    () => reactId.replace(/[^a-zA-Z0-9_-]/g, "") || "draft",
+    [reactId],
+  );
 
   // ROSTER mode = no fixed client → the form's own client dropdown (fed the
   // whole roster) is the picker, and `startsOn` defaults to today (editable in
@@ -128,6 +138,10 @@ export function NewHabitDialog({
   const clientOptions = rosterMode
     ? (clients ?? []).map((c) => ({ uid: c.uid, displayName: c.displayName }))
     : [{ uid: clientId ?? "", displayName: clientName ?? "" }];
+  const templateId = useMemo(
+    () => `habit-template-${trainerUid}-${draftSuffix}`,
+    [draftSuffix, trainerUid],
+  );
   const effStartsOn = startsOn ?? todayCivilDate();
   const effClientId = clientId ?? "";
   const afterSubmit = () => {
@@ -150,7 +164,11 @@ export function NewHabitDialog({
           </DialogTitle>
           <DialogDescription>
             {rosterMode ? (
-              "Elegí el cliente y la fecha de inicio en el formulario."
+              tab === "new" ? (
+                "Creá la plantilla sin elegir cliente. Después la asignás desde la biblioteca."
+              ) : (
+                "Elegí el cliente y la fecha de inicio en el formulario."
+              )
             ) : (
               <>
                 Cliente: <span className="font-medium">{clientName}</span> ·
@@ -190,24 +208,38 @@ export function NewHabitDialog({
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
           {tab === "new" ? (
-            <HabitForm
-              // Remount when the prefilled name changes so defaults re-seed.
-              key={prefillName || "blank"}
-              mode="create"
-              clientOptions={clientOptions}
-              defaultValues={
-                {
-                  clientId: effClientId,
-                  startsOn: effStartsOn,
-                  ...(prefillName
+            rosterMode ? (
+              <HabitTemplateForm
+                templateId={templateId}
+                defaultValues={
+                  prefillName
                     ? { name: { en: prefillName, es: prefillName } }
-                    : {}),
-                } as Partial<HabitCreateInput>
-              }
-              hideCancelButton
-              onAfterSubmit={afterSubmit}
-              onSubmit={async (input) => createHabit(input)}
-            />
+                    : undefined
+                }
+                hideCancelButton
+                onAfterSubmit={afterSubmit}
+                onSubmit={async (input) => createHabitTemplate(input)}
+              />
+            ) : (
+              <HabitForm
+                // Remount when the prefilled name changes so defaults re-seed.
+                key={prefillName || "blank"}
+                mode="create"
+                clientOptions={clientOptions}
+                defaultValues={
+                  {
+                    clientId: effClientId,
+                    startsOn: effStartsOn,
+                    ...(prefillName
+                      ? { name: { en: prefillName, es: prefillName } }
+                      : {}),
+                  } as Partial<HabitCreateInput>
+                }
+                hideCancelButton
+                onAfterSubmit={afterSubmit}
+                onSubmit={async (input) => createHabit(input)}
+              />
+            )
           ) : selected ? (
             <div className="flex flex-col gap-3">
               <button

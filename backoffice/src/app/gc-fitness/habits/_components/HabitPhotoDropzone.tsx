@@ -10,11 +10,13 @@
 //   3. Size: `file.size <= 10 * 1024 * 1024` (matches the server-side cap).
 //
 // On a valid image, the dropzone calls `mintHabitPhotoUploadUrl` with the
-// habit's id + content length + content type, then `fetch(url, { PUT })` to
-// upload directly to Cloud Storage. The returned gs:// path lands in the
-// form's `photoUrl` field via the `onUploaded` callback.
+// habit's id + content length + content type. The server action still owns
+// authorization + canonical path construction, but the browser uploads the
+// returned gs:// path through the Firebase Storage client SDK so local/prod
+// uploads do not depend on bucket CORS for signed URL PUTs.
 
 import { useRef, useState } from "react";
+import { ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { Upload, ImageIcon, X, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -23,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { mintHabitPhotoUploadUrl } from "@/lib/gc-fitness/habit-actions";
+import { getGCFitnessStorage } from "@/lib/firebase/gc-fitness-client";
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB — matches server cap.
 
@@ -108,21 +111,15 @@ export function HabitPhotoDropzone({
     setUploading(true);
     setProgress(0);
     try {
-      const { url, gsPath } = await mintHabitPhotoUploadUrl({
+      const { gsPath } = await mintHabitPhotoUploadUrl({
         habitId: habitId!,
         contentLength: file.size,
         contentType: file.type,
       });
 
-      const resp = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+      await uploadBytes(ref(getGCFitnessStorage(), gsPath), file, {
+        contentType: file.type,
       });
-
-      if (!resp.ok) {
-        throw new Error(`Upload failed with status ${resp.status}`);
-      }
       setProgress(100);
       onUploaded(gsPath);
       toast.success(t("successToast"));

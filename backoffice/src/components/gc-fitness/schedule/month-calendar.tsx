@@ -75,6 +75,7 @@ interface MonthCalendarProps {
   initialClientIds: string[];
   initialPayload: MonthCalendarPayload;
   todayCivil: string;
+  trainerUid: string;
 }
 
 const MONTH_LABELS_ES = [
@@ -212,6 +213,7 @@ export function MonthCalendar({
   initialClientIds,
   initialPayload,
   todayCivil,
+  trainerUid,
 }: MonthCalendarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -853,6 +855,7 @@ export function MonthCalendar({
           clientId={newHabitContext.clientId}
           clientName={newHabitContext.clientName}
           startsOn={newHabitContext.date}
+          trainerUid={trainerUid}
           onCreated={() => {
             queryClient.invalidateQueries({
               queryKey: ["schedule"],

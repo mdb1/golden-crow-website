@@ -1,36 +1,24 @@
-// /gc-fitness/habits/new/page.tsx — create form (Server Component shell)
+// /gc-fitness/habits/new/page.tsx — template create form (Server Component shell)
 //
-// Auth gate same as the list page. On forbid → /login. The form's onSubmit
-// resolves with `{ id }` from `createHabit`; the form's internal router
-// push handles the redirect to /gc-fitness/habits.
-//
-// Pulls the trainer's client roster on the server so the picker has
-// stable, sorted entries on first render (no client-side roundtrip).
+// Auth gate same as the list page. On forbid → /login. This surface now
+// creates a reusable habit template first, so the trainer can attach the
+// photo/demo link immediately and assign the template later from the library.
 
 import { redirect } from "next/navigation";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
-import { listClients } from "@/lib/gc-fitness/client-roster";
 import { NewHabitClient } from "./client";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewHabitPage() {
-  try {
-    await getCurrentTrainer();
-  } catch (err) {
+  const trainer = await getCurrentTrainer().catch((err) => {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
       redirect("/gc-fitness/login");
     }
     throw err;
-  }
-
-  const clients = await listClients();
-  const clientOptions = clients.map((c) => ({
-    uid: c.uid,
-    displayName: c.displayName,
-  }));
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
@@ -39,11 +27,11 @@ export default async function NewHabitPage() {
           New habit
         </h1>
         <p className="text-sm text-muted-foreground">
-          Pick a client, pick a habit type, fill in the localized name, and
-          save. The habit shows up on the client&apos;s phone within seconds.
+          Create a reusable habit template, add its photo or demo link, and
+          assign it to clients later from the library.
         </p>
       </div>
-      <NewHabitClient clientOptions={clientOptions} />
+      <NewHabitClient trainerUid={trainer.uid} />
     </div>
   );
 }

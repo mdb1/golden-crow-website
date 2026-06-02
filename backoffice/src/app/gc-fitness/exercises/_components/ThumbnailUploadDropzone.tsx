@@ -14,14 +14,13 @@
 // without rejection or conversion affordance.
 //
 // On a valid image, the dropzone calls `mintExerciseThumbnailUploadUrl`
-// with the exercise's id + content length + content type, then
-// `fetch(url, { method: 'PUT', ... })` to upload directly to Cloud
-// Storage with a matching `Content-Type` header (the signed URL is
-// pinned to that exact content type — drift fails the PUT). The
-// returned gs:// path lands in the form's `thumbnailURL` field via the
-// `onUploaded` callback.
+// with the exercise's id + content length + content type. The server action
+// still owns authorization + canonical path construction, but the browser
+// uploads the returned gs:// path through the Firebase Storage client SDK so
+// local/prod uploads do not depend on bucket CORS for signed URL PUTs.
 
 import { useRef, useState } from "react";
+import { ref, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { Upload, Image as ImageIcon, X, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -30,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { mintExerciseThumbnailUploadUrl } from "@/lib/gc-fitness/exercise-server-actions";
+import { getGCFitnessStorage } from "@/lib/firebase/gc-fitness-client";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"] as const;
@@ -123,24 +123,15 @@ export function ThumbnailUploadDropzone({
     setUploading(true);
     setProgress(0);
     try {
-      const { url, gsPath } = await mintExerciseThumbnailUploadUrl({
+      const { gsPath } = await mintExerciseThumbnailUploadUrl({
         exerciseId: exerciseId!,
         contentLength: file.size,
         contentType: file.type,
       });
 
-      // See MediaUploadDropzone for the rationale on fetch(PUT) instead of
-      // XHR-based progress: indeterminate progress for v1, real progress
-      // bar deferred to a polish phase.
-      const resp = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+      await uploadBytes(ref(getGCFitnessStorage(), gsPath), file, {
+        contentType: file.type,
       });
-
-      if (!resp.ok) {
-        throw new Error(`Upload failed with status ${resp.status}`);
-      }
       setProgress(100);
       onUploaded(gsPath);
       toast.success(t("successToast"));

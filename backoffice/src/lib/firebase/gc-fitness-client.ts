@@ -9,6 +9,7 @@ import {
   getPerformance,
   type FirebasePerformance,
 } from "firebase/performance";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 // Scoped Firebase Web SDK initializer for the gc-fitness Firebase project
 // (`gcfitness-3476b`). The existing MyDNAMap / Pocket Gyms surfaces use the
@@ -49,6 +50,10 @@ function getGCFitnessApp(): FirebaseApp {
 
 export function getGCFitnessAuth(): Auth {
   return getAuth(getGCFitnessApp());
+}
+
+export function getGCFitnessStorage(): FirebaseStorage {
+  return getStorage(getGCFitnessApp());
 }
 
 // Analytics + Performance — both web SDKs require `window` and are safe-noop

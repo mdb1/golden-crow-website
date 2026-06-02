@@ -23,15 +23,13 @@ import { HabitsQueryProvider } from "./providers";
 export const dynamic = "force-dynamic";
 
 export default async function HabitsPage() {
-  try {
-    await getCurrentTrainer();
-  } catch (err) {
+  const trainer = await getCurrentTrainer().catch((err) => {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
       redirect("/gc-fitness/login");
     }
     throw err;
-  }
+  });
 
   const clients = await listClients();
   const clientRoster = clients.map((c) => ({
@@ -43,7 +41,10 @@ export default async function HabitsPage() {
   return (
     <div className="gc-page flex flex-col gap-6">
       <HabitsQueryProvider>
-        <HabitsLibraryClient clientRoster={clientRoster} />
+        <HabitsLibraryClient
+          clientRoster={clientRoster}
+          trainerUid={trainer.uid}
+        />
       </HabitsQueryProvider>
     </div>
   );

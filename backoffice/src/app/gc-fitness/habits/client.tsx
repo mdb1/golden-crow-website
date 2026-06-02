@@ -88,12 +88,14 @@ export interface HabitsLibraryClientProps {
    * create dialog's client picker.
    */
   clientRoster: ClientNameEntry[];
+  trainerUid: string;
 }
 
 type HabitsView = "assignments" | "library";
 
 export function HabitsLibraryClient({
   clientRoster,
+  trainerUid,
 }: HabitsLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("habits.list");
@@ -467,6 +469,7 @@ export function HabitsLibraryClient({
           uid: c.uid,
           displayName: c.displayName,
         }))}
+        trainerUid={trainerUid}
         onCreated={handleHabitCreated}
       />
 
