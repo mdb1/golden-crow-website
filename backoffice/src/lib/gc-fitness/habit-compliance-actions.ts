@@ -148,33 +148,47 @@ export async function fetchHabitCompliance(
   // 3) Window-bounded query using the habitId+civilDate composite index
   //    (#3 from P06-01). Returns ≤30 docs per habit by construction
   //    (T-06-08-05 DoS mitigation).
-  const snap = await db
-    .collection(FirestoreCollections.habitLogs)
-    .where("habitId", "==", habitId)
-    .where("civilDate", ">=", startDate)
-    // orderBy DESC to match the DEPLOYED composite index
-    // (habit_logs: habitId ASC, civilDate DESC). An ASC orderBy needs a
-    // separate (habitId ASC, civilDate ASC) index that is NOT deployed, which
-    // made this query throw FAILED_PRECONDITION and crash the habit detail
-    // page. Order is irrelevant: computeCompliance derives a Set of completed
-    // days and builds dailyCounts from the window, not the input order.
-    .orderBy("civilDate", "desc")
-    .get();
+  // Defensive (260602-moz): a failure HERE (e.g. a missing/not-yet-built
+  // composite index, or a transient Firestore read error) must NOT crash the
+  // whole habit detail page — that throws up to /habits/error.tsx and "bounces
+  // back to the list with an error card", blocking BOTH viewing and (via the
+  // page) reaching the Edit button. Degrade to empty compliance instead: the
+  // metadata card + Edit button still render; compliance just shows 0/empty.
+  // The ownership checks above still throw (those are legitimate 403/404s).
+  let logs: HabitLogRow[] = [];
+  try {
+    const snap = await db
+      .collection(FirestoreCollections.habitLogs)
+      .where("habitId", "==", habitId)
+      .where("civilDate", ">=", startDate)
+      // orderBy DESC to match the DEPLOYED composite index
+      // (habit_logs: habitId ASC, civilDate DESC). An ASC orderBy needs a
+      // separate (habitId ASC, civilDate ASC) index that is NOT deployed.
+      // Order is irrelevant: computeCompliance derives a Set of completed days
+      // and builds dailyCounts from the window, not the input order.
+      .orderBy("civilDate", "desc")
+      .get();
 
-  const logs: HabitLogRow[] = snap.docs.map((d) => {
-    const data = d.data() as Record<string, unknown>;
-    return {
-      habitId: (data.habitId as string) ?? "",
-      clientId: (data.clientId as string) ?? "",
-      civilDate: (data.civilDate as string) ?? "",
-      value: data.value === true,
-      unit: typeof data.unit === "string" ? data.unit : undefined,
-      loggedAt: toIsoOrEmpty(data.loggedAt),
-      deleted: data.deleted === true,
-      createdAt: toIsoOrEmpty(data.createdAt),
-      updatedAt: toIsoOrEmpty(data.updatedAt),
-    };
-  });
+    logs = snap.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      return {
+        habitId: (data.habitId as string) ?? "",
+        clientId: (data.clientId as string) ?? "",
+        civilDate: (data.civilDate as string) ?? "",
+        value: data.value === true,
+        unit: typeof data.unit === "string" ? data.unit : undefined,
+        loggedAt: toIsoOrEmpty(data.loggedAt),
+        deleted: data.deleted === true,
+        createdAt: toIsoOrEmpty(data.createdAt),
+        updatedAt: toIsoOrEmpty(data.updatedAt),
+      };
+    });
+  } catch (err) {
+    console.error(
+      "[habit-compliance] habit_logs query failed; degrading to empty compliance",
+      err,
+    );
+  }
 
   // 4) Pure-function rollup — single source of truth for "did this log
   //    count?" lives in habit-compliance.ts.
