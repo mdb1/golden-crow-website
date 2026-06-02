@@ -57,6 +57,8 @@ export default async function EditHabitPage({ params }: PageParams) {
     type?: HabitType;
     name?: { en: string; es: string };
     description?: { en: string; es: string };
+    photoUrl?: string;
+    youtubeUrl?: string;
     reminderTime?: string;
     reminderEnabled?: boolean;
     reminderCadence?: "daily" | "weekly" | "monthly";
@@ -85,6 +87,8 @@ export default async function EditHabitPage({ params }: PageParams) {
     type: (data.type as HabitType) ?? "binary",
     name: data.name ?? { en: "", es: "" },
     description: data.description,
+    photoUrl: data.photoUrl,
+    youtubeUrl: data.youtubeUrl,
     reminderTime: data.reminderTime,
     reminderEnabled: data.reminderEnabled ?? false,
     reminderCadence: data.reminderCadence,

@@ -694,7 +694,24 @@
       "saveCta": "Guardar cambios",
       "createdToast": "Hábito creado.",
       "savedToast": "Hábito guardado.",
-      "saveFailed": "No se pudo guardar."
+      "saveFailed": "No se pudo guardar.",
+      "photoLabel": "Foto de referencia",
+      "photoHint": "Imagen opcional que el cliente ve en la ficha del hábito (JPEG, PNG o WebP, hasta 10 MB).",
+      "photoCreateHint": "Guardá el hábito primero y luego volvé para agregar una foto.",
+      "youtubeUrlLabel": "Demo de YouTube",
+      "youtubeUrlHint": "Enlace opcional youtube.com/watch?v=… o youtu.be/… que se muestra al cliente.",
+      "photo": {
+        "inputAria": "Subir foto de referencia",
+        "dropHint": "Soltá una foto o hacé clic para subir",
+        "dropSubHint": "JPEG, PNG o WebP hasta 10 MB",
+        "uploadingLabel": "Subiendo…",
+        "removeCta": "Quitar",
+        "rejectFormat": "Formato no admitido. Usá JPEG, PNG o WebP.",
+        "rejectSize": "Esa imagen supera el límite de 10 MB.",
+        "rejectNoId": "Guardá el hábito primero y luego agregá una foto.",
+        "successToast": "Foto subida.",
+        "failToast": "No se pudo subir la foto. Intentá de nuevo."
+      }
     }
   },
   "exercises": {

@@ -92,6 +92,28 @@ const habitBaseShape = z.object({
   type: habitTypeSchema,
   name: localizedStringSchema,
   description: localizedDescriptionSchema.optional(),
+  // Optional reference photo — either an `https://` URL (manual link) or a
+  // `gs://` Storage path (the HabitPhotoDropzone returns the gs:// path after
+  // uploading to Firebase Storage). Both schemes accepted; habits without a
+  // photo are the common case. TS↔Swift parity: `Habit.photoUrl: String?`.
+  photoUrl: z
+    .string()
+    .trim()
+    .regex(
+      /^(https:\/\/|gs:\/\/)\S+$/,
+      "Photo URL must be an https:// link or a gs:// Storage path.",
+    )
+    .optional(),
+  // Optional YouTube demo link — youtube.com/watch?v=… or youtu.be/… only.
+  // TS↔Swift parity: `Habit.youtubeUrl: String?`.
+  youtubeUrl: z
+    .string()
+    .trim()
+    .regex(
+      /^https:\/\/(www\.)?(youtube\.com\/watch\?(\S*&)?v=[\w-]+(\S*)?|youtu\.be\/[\w-]+(\S*)?)$/,
+      "Must be a youtube.com/watch?v=… or youtu.be/… URL.",
+    )
+    .optional(),
   // HH:mm 24-hour local-time string. Regex matches the schema doc spec.
   // iOS schedules a daily UNCalendarNotificationTrigger at this hour-minute.
   reminderTime: z

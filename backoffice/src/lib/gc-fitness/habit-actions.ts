@@ -32,7 +32,10 @@ import { randomUUID } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  gcFitnessFirestore,
+  gcFitnessStorage,
+} from "@/lib/firebase/gc-fitness-admin";
 
 import {
   habitCreateSchema,
@@ -48,6 +51,27 @@ import { normalizeMirrorEmail } from "./email-normalization";
 
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
+
+// Habit reference-photo upload constraints. Mirrors the exercise-thumbnail
+// pattern (exercise-server-actions.ts) — narrower than the 50 MB video cap
+// since a habit photo is a single static image.
+const MAX_HABIT_PHOTO_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+const HABIT_PHOTO_SIGNED_URL_TTL_MS = 60 * 60 * 1000; // 60 minutes
+// Allowed image content types for habit photo uploads. Keys are the MIME
+// strings the client MUST send (and the signed URL is pinned to); values are
+// the extension we append to the object path.
+const HABIT_PHOTO_CONTENT_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function getMediaBucketName(): string {
+  return (
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET ??
+    "gcfitness-3476b.firebasestorage.app"
+  );
+}
 
 // Global habit templates are BINARY-ONLY (yes/no) now. The former numeric
 // (water/sleep/steps/protein) and multi-choice (energy) templates were
@@ -110,6 +134,10 @@ export interface HabitRow {
   type: HabitType;
   name: { en: string; es: string };
   description?: { en: string; es: string };
+  /** Reference photo — `https://` URL or `gs://` Storage path. TS↔Swift parity. */
+  photoUrl?: string;
+  /** YouTube demo link (youtube.com/watch or youtu.be). TS↔Swift parity. */
+  youtubeUrl?: string;
   reminderTime?: string;
   reminderEnabled: boolean;
   reminderCadence?: "daily" | "weekly" | "monthly";
@@ -236,6 +264,9 @@ function projectHabitRow(
     type: (data.type as HabitType) ?? "binary",
     name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
     description: data.description as { en: string; es: string } | undefined,
+    photoUrl: typeof data.photoUrl === "string" ? data.photoUrl : undefined,
+    youtubeUrl:
+      typeof data.youtubeUrl === "string" ? data.youtubeUrl : undefined,
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
@@ -608,6 +639,8 @@ export async function updateHabit(
   const parsed = habitUpdateSchemaForType(existingType).parse(input) as {
     name: { en: string; es: string };
     description?: { en: string; es: string };
+    photoUrl?: string;
+    youtubeUrl?: string;
     reminderTime?: string;
     reminderEnabled: boolean;
     reminderCadence?: "daily" | "weekly" | "monthly";
@@ -637,6 +670,12 @@ export async function updateHabit(
   }
   if (parsed.description !== undefined) {
     patch.description = parsed.description;
+  }
+  if (parsed.photoUrl !== undefined) {
+    patch.photoUrl = parsed.photoUrl;
+  }
+  if (parsed.youtubeUrl !== undefined) {
+    patch.youtubeUrl = parsed.youtubeUrl;
   }
   if (parsed.reminderTime !== undefined) {
     patch.reminderTime = parsed.reminderTime;
@@ -768,6 +807,79 @@ export async function getHabit(id: string): Promise<HabitRow> {
   const data = snap.data() as Record<string, unknown>;
   if (data.trainerId !== trainer.uid) throw new Error("Not your habit.");
   return projectHabitRow(snap.id, data);
+}
+
+/**
+ * Mints a 60-minute v4 signed URL pinned to an image content type that the
+ * HabitPhotoDropzone uses to PUT a reference photo directly to Cloud Storage.
+ * Mirrors `mintExerciseThumbnailUploadUrl` (exercise-server-actions.ts) — same
+ * threat coverage, habit-namespaced path:
+ *
+ *  - 10 MB `contentLength` cap (COST-DOS mitigation, server-side in addition
+ *    to the dropzone's client gate).
+ *  - `habitId` MUST start with `hab-${trainer.uid}-` so a trainer cannot mint
+ *    an upload URL for another trainer's habit (PATH-TRAVERSAL mitigation).
+ *    Habit doc ids are `hab-${trainerUid}-${uuid}` (see createHabit).
+ *  - `contentType` MUST be one of `image/jpeg | image/png | image/webp`,
+ *    pinned in the signed URL options (CONTENT-TYPE-SPOOF, server side). The
+ *    browser MUST send a matching `Content-Type` header on the PUT.
+ *
+ * Object path: `habits/${habitId}/photo.${ext}`.
+ */
+export async function mintHabitPhotoUploadUrl(input: {
+  habitId: string;
+  contentLength: number;
+  contentType: string;
+}): Promise<{ url: string; gsPath: string }> {
+  const trainer = await getCurrentTrainer();
+
+  const { habitId, contentLength, contentType } = input;
+  if (!habitId || typeof habitId !== "string") {
+    throw new Error("BadRequest: habitId is required.");
+  }
+  // Path-traversal defense — only allow uploads to the caller's own
+  // `hab-${uid}-*` namespace.
+  const allowedPrefix = `hab-${trainer.uid}-`;
+  if (!habitId.startsWith(allowedPrefix)) {
+    throw new Error(
+      "Cannot upload to that path. habitId must belong to the caller.",
+    );
+  }
+  // Cost-DoS guard.
+  if (
+    typeof contentLength !== "number" ||
+    !Number.isFinite(contentLength) ||
+    contentLength <= 0
+  ) {
+    throw new Error("BadRequest: contentLength must be a positive number.");
+  }
+  if (contentLength > MAX_HABIT_PHOTO_UPLOAD_BYTES) {
+    throw new Error("File too large. The 10 MB photo ceiling was exceeded.");
+  }
+  // Content-type guard.
+  const ext = HABIT_PHOTO_CONTENT_TYPES[contentType];
+  if (!ext) {
+    throw new Error(
+      "BadRequest: contentType must be one of image/jpeg, image/png, image/webp.",
+    );
+  }
+
+  const bucketName = getMediaBucketName();
+  const bucket = gcFitnessStorage().bucket(bucketName);
+  const objectPath = `habits/${habitId}/photo.${ext}`;
+  const file = bucket.file(objectPath);
+
+  const [url] = await file.getSignedUrl({
+    version: "v4",
+    action: "write",
+    expires: Date.now() + HABIT_PHOTO_SIGNED_URL_TTL_MS,
+    contentType,
+  });
+
+  return {
+    url,
+    gsPath: `gs://${bucketName}/${objectPath}`,
+  };
 }
 
 /**

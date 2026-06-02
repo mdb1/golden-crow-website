@@ -694,7 +694,24 @@
       "saveCta": "Save changes",
       "createdToast": "Habit created.",
       "savedToast": "Habit saved.",
-      "saveFailed": "Couldn't save."
+      "saveFailed": "Couldn't save.",
+      "photoLabel": "Reference photo",
+      "photoHint": "Optional image clients see in the habit info sheet (JPEG, PNG, or WebP, up to 10 MB).",
+      "photoCreateHint": "Save the habit first, then come back to add a photo.",
+      "youtubeUrlLabel": "YouTube demo",
+      "youtubeUrlHint": "Optional youtube.com/watch?v=… or youtu.be/… link shown to the client.",
+      "photo": {
+        "inputAria": "Upload reference photo",
+        "dropHint": "Drop a photo or click to upload",
+        "dropSubHint": "JPEG, PNG, or WebP up to 10 MB",
+        "uploadingLabel": "Uploading…",
+        "removeCta": "Remove",
+        "rejectFormat": "Unsupported format. Use JPEG, PNG, or WebP.",
+        "rejectSize": "That image is over the 10 MB limit.",
+        "rejectNoId": "Save the habit first, then add a photo.",
+        "successToast": "Photo uploaded.",
+        "failToast": "Photo upload failed. Try again."
+      }
     }
   },
   "exercises": {
