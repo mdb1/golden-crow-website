@@ -499,6 +499,7 @@
       "pageSubtitle": "Overview of your clients' habits. Create and assign habits from the Agenda.",
       "newHabitCta": "New habit",
       "createHabitCta": "Create habit",
+      "bulkAssignCta": "Assign to clients",
       "tabAssignments": "Assignments",
       "tabLibrary": "Library",
       "libraryEmpty": "No habits in your library yet.",
@@ -561,6 +562,27 @@
         "numeric": "Numeric",
         "weight": "Weight"
       }
+    },
+    "bulkAssign": {
+      "title": "Assign a habit to clients",
+      "description": "Pick one habit and assign it to several clients at once.",
+      "habitLabel": "Habit",
+      "changeHabit": "Change",
+      "searchPlaceholder": "Search habit…",
+      "loadingHabits": "Loading habits…",
+      "noMatches": "No matches.",
+      "noHabits": "You don't have any saved habits yet.",
+      "clientsLabel": "Clients ({count} selected)",
+      "selectAll": "Select all",
+      "clearAll": "Clear",
+      "noClients": "Add clients before assigning habits.",
+      "startsOnLabel": "Start date",
+      "startsOnHint": "The habit starts on this day for every selected client.",
+      "submit": "Assign to {count}",
+      "assigning": "Assigning…",
+      "cancel": "Cancel",
+      "assignedToast": "{count} assigned.",
+      "assignFailed": "Assignment failed."
     },
     "columns": {
       "client": "Client",

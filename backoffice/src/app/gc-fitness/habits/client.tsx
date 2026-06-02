@@ -16,7 +16,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   flexRender,
@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { NewHabitDialog } from "@/components/gc-fitness/schedule/new-habit-dialog";
+import { BulkAssignHabitDialog } from "@/components/gc-fitness/schedule/bulk-assign-habit-dialog";
 import {
   deleteHabitRecurrenceFromDate,
   listHabitsForTrainer,
@@ -99,6 +100,7 @@ export function HabitsLibraryClient({
   const queryClient = useQueryClient();
   const [view, setView] = useState<HabitsView>("assignments");
   const [createOpen, setCreateOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([
@@ -234,6 +236,13 @@ export function HabitsLibraryClient({
     toast.success(t("habitCreatedToast"));
   }, [queryClient, t]);
 
+  // Bulk assign (one habit → many clients) invalidates the assignments feed.
+  // The dialog owns its own "{n} assigned" toast (count-aware), so we only
+  // refresh caches here.
+  const handleBulkAssigned = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY });
+  }, [queryClient]);
+
   const totalFromServer = (data ?? []).length;
   const isUnfilteredEmpty = !isLoading && totalFromServer === 0;
   const isFilteredEmpty =
@@ -248,14 +257,25 @@ export function HabitsLibraryClient({
           </h1>
           <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
         </div>
-        <Button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          {t("createHabitCta")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setBulkAssignOpen(true)}
+            className="gap-2"
+          >
+            <Users className="h-4 w-4" />
+            {t("bulkAssignCta")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            {t("createHabitCta")}
+          </Button>
+        </div>
       </div>
 
       {/* View toggle: per-client assignments vs reusable template library. */}
@@ -448,6 +468,16 @@ export function HabitsLibraryClient({
           displayName: c.displayName,
         }))}
         onCreated={handleHabitCreated}
+      />
+
+      <BulkAssignHabitDialog
+        open={bulkAssignOpen}
+        onOpenChange={setBulkAssignOpen}
+        clients={activeClientRoster.map((c) => ({
+          uid: c.uid,
+          displayName: c.displayName,
+        }))}
+        onAssigned={handleBulkAssigned}
       />
 
       <HabitTemplateDetailDialog

@@ -499,6 +499,7 @@
       "pageSubtitle": "Vista general de los hábitos de tus clientes. Creá y asigná hábitos desde la Agenda.",
       "newHabitCta": "Nuevo hábito",
       "createHabitCta": "Crear hábito",
+      "bulkAssignCta": "Asignar a clientes",
       "tabAssignments": "Asignaciones",
       "tabLibrary": "Biblioteca",
       "libraryEmpty": "Aún no tenés hábitos en tu biblioteca.",
@@ -561,6 +562,27 @@
         "numeric": "Numérico",
         "weight": "Peso"
       }
+    },
+    "bulkAssign": {
+      "title": "Asignar un hábito a clientes",
+      "description": "Elegí un hábito y asignalo a varios clientes a la vez.",
+      "habitLabel": "Hábito",
+      "changeHabit": "Cambiar",
+      "searchPlaceholder": "Buscar hábito…",
+      "loadingHabits": "Cargando hábitos…",
+      "noMatches": "Sin coincidencias.",
+      "noHabits": "Todavía no tenés hábitos guardados.",
+      "clientsLabel": "Clientes ({count} seleccionados)",
+      "selectAll": "Seleccionar todos",
+      "clearAll": "Limpiar",
+      "noClients": "Agregá clientes antes de asignar hábitos.",
+      "startsOnLabel": "Fecha de inicio",
+      "startsOnHint": "El hábito empieza este día para cada cliente seleccionado.",
+      "submit": "Asignar a {count}",
+      "assigning": "Asignando…",
+      "cancel": "Cancelar",
+      "assignedToast": "{count} asignados.",
+      "assignFailed": "Falló la asignación."
     },
     "columns": {
       "client": "Cliente",
