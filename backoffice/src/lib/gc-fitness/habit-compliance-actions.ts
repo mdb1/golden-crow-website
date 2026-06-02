@@ -42,7 +42,7 @@
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import {
-  computeCompliance,
+  computeAdherence,
   type HabitLogRow,
 } from "./habit-compliance";
 import { getCurrentTrainer } from "./auth-helpers";
@@ -112,6 +112,16 @@ export async function fetchHabitCompliance(
     clientId?: string;
     type?: HabitType;
     targetValue?: number;
+    // Schedule fields — drive the SCHEDULED-DAY adherence denominator via
+    // isHabitScheduledOn (honors startsOn/endsOn/skippedDates + cadence).
+    scheduleType?: "one-time" | "recurring";
+    startsOn?: string;
+    endsOn?: string;
+    scheduleCadence?: "daily" | "weekly" | "monthly";
+    scheduleWeekdays?: number[];
+    scheduleDayOfMonth?: number;
+    scheduleMonthDays?: number[];
+    skippedDates?: string[];
   };
   if (habit.trainerId !== trainer.uid) {
     throw new Error("Not your habit.");
@@ -120,6 +130,20 @@ export async function fetchHabitCompliance(
   const habitType: HabitType = (habit.type as HabitType) ?? "binary";
   const targetValue =
     typeof habit.targetValue === "number" ? habit.targetValue : undefined;
+
+  // Habit-like object consumed by computeAdherence → isHabitScheduledOn. Only
+  // the schedule fields matter for the scheduled-day denominator; we pass them
+  // through verbatim so the predicate matches what the client sees on iOS.
+  const habitSchedule: Record<string, unknown> = {
+    scheduleType: habit.scheduleType,
+    startsOn: habit.startsOn,
+    endsOn: habit.endsOn,
+    scheduleCadence: habit.scheduleCadence,
+    scheduleWeekdays: habit.scheduleWeekdays,
+    scheduleDayOfMonth: habit.scheduleDayOfMonth,
+    scheduleMonthDays: habit.scheduleMonthDays,
+    skippedDates: habit.skippedDates,
+  };
 
   // 2) Compute the 30-day civil-date window.
   //
@@ -190,15 +214,23 @@ export async function fetchHabitCompliance(
     );
   }
 
-  // 4) Pure-function rollup — single source of truth for "did this log
-  //    count?" lives in habit-compliance.ts.
-  const seven = computeCompliance(habitType, logs, 7, today, clientTz, targetValue);
-  const thirty = computeCompliance(habitType, logs, 30, today, clientTz, targetValue);
+  // 4) Pure-function rollup. The displayed compliance % is SCHEDULED-DAY
+  //    adherence (computeAdherence): the denominator counts only days the
+  //    habit was active + scheduled in the window — NOT the full 7/30-day
+  //    calendar window. This matches the iOS definition
+  //    (HabitStreakCalculator.computeAdherenceRatio) and fixes the
+  //    "activated May 5, done 5/5 → reads 5/30 instead of 100%" bug.
+  const sevenAdherence = computeAdherence(habitSchedule, logs, 7, today);
+  const thirtyAdherence = computeAdherence(habitSchedule, logs, 30, today);
 
+  // dailyCounts keeps the full 30-day per-day completion timeline for the
+  // sparkline. computeCompliance and computeAdherence build dailyCounts
+  // identically (every day in the window, `completed` from the log set), so
+  // we source it from the 30-day adherence pass.
   return {
-    sevenDayRatio: seven.ratio,
-    thirtyDayRatio: thirty.ratio,
-    dailyCounts: thirty.dailyCounts,
+    sevenDayRatio: sevenAdherence.ratio,
+    thirtyDayRatio: thirtyAdherence.ratio,
+    dailyCounts: thirtyAdherence.dailyCounts,
   };
 }
 

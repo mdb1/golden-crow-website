@@ -58,6 +58,7 @@
 //     directly with hand-crafted log fixtures (no Firestore round-trip).
 
 import type { HabitType } from "./habit-schema";
+import { isHabitScheduledOn } from "./habit-schedule";
 
 /**
  * Wire-shape projection of a `/habit_logs/{logId}` document as seen by the
@@ -170,6 +171,95 @@ export function computeCompliance(
 
   return {
     ratio: completedCount / windowDays,
+    dailyCounts,
+  };
+}
+
+/**
+ * SCHEDULED-DAY adherence over a window ending at `today`.
+ *
+ * Unlike `computeCompliance` (which divides by the full calendar window,
+ * e.g. 7 or 30 days), `computeAdherence` divides by the number of days the
+ * habit was ACTIVE + SCHEDULED in the window — using `isHabitScheduledOn`
+ * (which honors startsOn, endsOn, skippedDates, and cadence
+ * daily/weekly/monthly). This is the cross-surface "compliance %" definition
+ * shared with iOS GCFitnessCore.HabitStreakCalculator.computeAdherenceRatio:
+ *
+ *   ratio = completedScheduledDays / scheduledDays
+ *
+ * Example (the May-5 case): a daily habit activated 2026-05-05, evaluated on
+ * 2026-05-10 with 5 completed logs (05-06..05-10) over a 30-day window →
+ * scheduledDays = 6 (05-05..05-10), completedScheduled = 5 → 5/6, NOT 5/30.
+ * (Days before startsOn are excluded from the denominator.)
+ *
+ * Returns `{ ratio, scheduledDays, completedScheduled, dailyCounts }`:
+ *   - `ratio`: in [0.0, 1.0]; 0 when scheduledDays === 0 (avoids div-by-zero).
+ *   - `scheduledDays`: count of days in window that were scheduled (denominator).
+ *   - `completedScheduled`: scheduled days that also had a completed log (numerator).
+ *   - `dailyCounts`: ascending civil-date order (oldest → newest) for the
+ *     sparkline. We keep ALL days in the window (same shape as
+ *     `computeCompliance`) with `completed` reflecting whether a completed log
+ *     exists that day — the RATIO is scheduled-only, but the sparkline can
+ *     keep showing every day's completion.
+ *
+ * Edge cases:
+ *   - windowDays ≤ 0 → ratio 0, scheduledDays 0, dailyCounts [].
+ *   - empty logs → ratio 0 (numerator 0), denominator still counts scheduled days.
+ *   - soft-deleted logs → never count (logCountsAsCompleted).
+ *   - multiple logs same civilDate → at-least-one rule (set semantics).
+ *
+ * @param habit a habit-like object exposing the schedule fields consumed by
+ *   `isHabitScheduledOn` (scheduleType, startsOn, endsOn, scheduleCadence,
+ *   scheduleWeekdays, scheduleDayOfMonth, scheduleMonthDays, skippedDates).
+ * @param logs all logs for ONE habit (caller filters by habitId).
+ * @param windowDays positive integer (7 or 30 in v1).
+ * @param today civil-date string "YYYY-MM-DD" ending the window (inclusive).
+ */
+export function computeAdherence(
+  habit: Record<string, unknown>,
+  logs: HabitLogRow[],
+  windowDays: number,
+  today: string,
+): {
+  ratio: number;
+  scheduledDays: number;
+  completedScheduled: number;
+  dailyCounts: { date: string; completed: boolean }[];
+} {
+  if (windowDays <= 0) {
+    return { ratio: 0, scheduledDays: 0, completedScheduled: 0, dailyCounts: [] };
+  }
+
+  // Set of civil-dates with at least one completed log (at-least-one rule).
+  const completedDays = new Set<string>();
+  for (const log of logs) {
+    if (logCountsAsCompleted(log)) {
+      completedDays.add(log.civilDate);
+    }
+  }
+
+  const todayDate = parseISOCivilDateToUTC(today);
+  const dailyCountsDesc: { date: string; completed: boolean }[] = [];
+  let scheduledDays = 0;
+  let completedScheduled = 0;
+  for (let i = 0; i < windowDays; i++) {
+    const d = new Date(todayDate);
+    d.setUTCDate(d.getUTCDate() - i);
+    const dateStr = formatUTCDateAsCivil(d);
+    const completed = completedDays.has(dateStr);
+    // Denominator: only count days the habit was actually scheduled.
+    if (isHabitScheduledOn(habit, dateStr)) {
+      scheduledDays++;
+      if (completed) completedScheduled++;
+    }
+    dailyCountsDesc.push({ date: dateStr, completed });
+  }
+  const dailyCounts = dailyCountsDesc.slice().reverse();
+
+  return {
+    ratio: scheduledDays === 0 ? 0 : completedScheduled / scheduledDays,
+    scheduledDays,
+    completedScheduled,
     dailyCounts,
   };
 }
