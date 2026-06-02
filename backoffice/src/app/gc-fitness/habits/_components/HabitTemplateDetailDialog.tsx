@@ -42,6 +42,7 @@ import {
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
 import { ReminderCell, ScopePill } from "./habit-pills";
+import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
 
 export function HabitTemplateDetailDialog({
   open,
@@ -67,6 +68,8 @@ export function HabitTemplateDetailDialog({
   const [nameEs, setNameEs] = useState("");
   const [descEn, setDescEn] = useState("");
   const [descEs, setDescEs] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState("");
 
@@ -86,6 +89,8 @@ export function HabitTemplateDetailDialog({
     setNameEs(template.name.es ?? "");
     setDescEn(template.description?.en ?? "");
     setDescEs(template.description?.es ?? "");
+    setYoutubeUrl(template.youtubeUrl ?? "");
+    setPhotoUrl(template.photoUrl ?? "");
     setReminderEnabled(template.reminderEnabled);
     setReminderTime(template.reminderTime ?? "");
     setEditing(true);
@@ -106,6 +111,8 @@ export function HabitTemplateDetailDialog({
         description: hasDesc
           ? { en: descEn.trim(), es: descEs.trim() }
           : undefined,
+        youtubeUrl: youtubeUrl.trim() || undefined,
+        photoUrl: photoUrl.trim() || undefined,
         reminderEnabled,
         reminderTime: reminderEnabled ? reminderTime || undefined : undefined,
       });
@@ -195,6 +202,32 @@ export function HabitTemplateDetailDialog({
                   placeholder={tf("descriptionPlaceholderEs")}
                   rows={2}
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tpl-youtube">{tf("youtubeUrlLabel")}</Label>
+                <Input
+                  id="tpl-youtube"
+                  type="url"
+                  inputMode="url"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="https://youtu.be/…"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {tf("youtubeUrlHint")}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>{tf("photoLabel")}</Label>
+                <HabitPhotoDropzone
+                  habitId={template.id}
+                  value={photoUrl}
+                  onUploaded={(gsPath) => setPhotoUrl(gsPath)}
+                  onRemoved={() => setPhotoUrl("")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {tf("photoHint")}
+                </p>
               </div>
               <div className="flex flex-col gap-2 rounded-md border p-3">
                 <Label className="flex items-center gap-2 font-normal">

@@ -12,6 +12,7 @@
 import {
   habitCreateSchema,
   habitUpdateSchemaForType,
+  habitTemplateUpdateSchema,
 } from "../habit-schema";
 
 const BINARY_VALID = {
@@ -177,5 +178,120 @@ describe("habit-schema — habitUpdateSchemaForType", () => {
         result.error.issues.some((i) => i.path[0] === "reminderTime"),
       ).toBe(true);
     }
+  });
+
+  // ── photoUrl + youtubeUrl (260602-moz) ────────────────────────────────────
+
+  // P01 — habit valid WITHOUT photoUrl/youtubeUrl (both omittable)
+  it("P01 — accepts a habit without photoUrl or youtubeUrl", () => {
+    const result = habitCreateSchema.safeParse(BINARY_VALID);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.photoUrl).toBeUndefined();
+      expect(result.data.youtubeUrl).toBeUndefined();
+    }
+  });
+
+  // P02 — valid https photoUrl accepted
+  it("P02 — accepts an https photoUrl", () => {
+    const result = habitCreateSchema.safeParse({
+      ...BINARY_VALID,
+      photoUrl: "https://cdn.example.com/habits/photo.jpg",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.photoUrl).toBe(
+        "https://cdn.example.com/habits/photo.jpg",
+      );
+    }
+  });
+
+  // P03 — valid gs:// photoUrl accepted (dropzone output)
+  it("P03 — accepts a gs:// photoUrl", () => {
+    const result = habitCreateSchema.safeParse({
+      ...BINARY_VALID,
+      photoUrl: "gs://gcfitness-3476b.firebasestorage.app/habits/hab-x/photo.png",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // P04 — malformed photoUrl scheme rejected
+  it("P04 — rejects a photoUrl that is neither https nor gs", () => {
+    const result = habitCreateSchema.safeParse({
+      ...BINARY_VALID,
+      photoUrl: "ftp://evil.example.com/x.jpg",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.path[0] === "photoUrl"),
+      ).toBe(true);
+    }
+  });
+
+  // P05 — youtu.be short link accepted
+  it("P05 — accepts a youtu.be youtubeUrl", () => {
+    const result = habitCreateSchema.safeParse({
+      ...BINARY_VALID,
+      youtubeUrl: "https://youtu.be/dQw4w9WgXcQ",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // P06 — youtube.com/watch?v= accepted
+  it("P06 — accepts a youtube.com/watch?v= youtubeUrl", () => {
+    const result = habitCreateSchema.safeParse({
+      ...BINARY_VALID,
+      youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // P07 — non-youtube URL rejected
+  it("P07 — rejects a non-youtube youtubeUrl (vimeo)", () => {
+    const result = habitCreateSchema.safeParse({
+      ...BINARY_VALID,
+      youtubeUrl: "https://vimeo.com/123456",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.path[0] === "youtubeUrl"),
+      ).toBe(true);
+    }
+  });
+
+  // P08 — update schema also carries photoUrl/youtubeUrl
+  it("P08 — update schema accepts photoUrl + youtubeUrl", () => {
+    const schema = habitUpdateSchemaForType("binary");
+    const result = schema.safeParse({
+      name: { en: "Stretch", es: "Estirar" },
+      reminderEnabled: false,
+      photoUrl: "https://cdn.example.com/p.webp",
+      youtubeUrl: "https://youtu.be/abc123",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // P09 — TEMPLATE update schema also carries photoUrl/youtubeUrl (260602-moz:
+  // templates can hold intrinsic habit context that propagates on assignment).
+  it("P09 — template update schema accepts photoUrl + youtubeUrl", () => {
+    const result = habitTemplateUpdateSchema.safeParse({
+      name: { en: "Drink water", es: "Beber agua" },
+      reminderEnabled: false,
+      photoUrl: "gs://gcfitness-3476b.firebasestorage.app/habits/habit-template-x/photo.png",
+      youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // P10 — template update still rejects a malformed youtubeUrl.
+  it("P10 — template update schema rejects a non-youtube youtubeUrl", () => {
+    const result = habitTemplateUpdateSchema.safeParse({
+      name: { en: "Drink water", es: "Beber agua" },
+      reminderEnabled: false,
+      youtubeUrl: "https://vimeo.com/123456",
+    });
+    expect(result.success).toBe(false);
   });
 });

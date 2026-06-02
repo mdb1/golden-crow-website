@@ -499,6 +499,7 @@
       "pageSubtitle": "Overview of your clients' habits. Create and assign habits from the Agenda.",
       "newHabitCta": "New habit",
       "createHabitCta": "Create habit",
+      "bulkAssignCta": "Assign to clients",
       "tabAssignments": "Assignments",
       "tabLibrary": "Library",
       "libraryEmpty": "No habits in your library yet.",
@@ -540,10 +541,15 @@
       "next": "Next",
       "deleteDialogTitle": "Delete this habit?",
       "deleteDialogBody": "The habit will be hidden from the client's iOS app. Logs are preserved in case you want to restore the habit. This is a soft-delete and can be reversed later.",
+      "deleteRecurringTitle": "Delete this recurring habit?",
+      "deleteRecurringBody": "This habit repeats. You can end it from today onward (past days and their logs stay intact), or remove the whole habit and its history.",
+      "deleteFromTodayCta": "End from today",
+      "deleteEntireCta": "Delete entire habit",
       "deleteDialogCancel": "Cancel",
       "deleting": "Deleting…",
       "deleteDialogConfirm": "Delete",
       "deletedToast": "Habit deleted.",
+      "endedFromTodayToast": "Habit ended from today onward.",
       "deleteFailedToast": "Couldn't delete.",
       "assignedToastSingular": "Assigned {count} habit.",
       "assignedToastPlural": "Assigned {count} habits.",
@@ -556,6 +562,31 @@
         "numeric": "Numeric",
         "weight": "Weight"
       }
+    },
+    "bulkAssign": {
+      "title": "Assign a habit to clients",
+      "description": "Pick one habit and assign it to several clients at once.",
+      "habitLabel": "Habit",
+      "changeHabit": "Change",
+      "searchPlaceholder": "Search habit…",
+      "loadingHabits": "Loading habits…",
+      "noMatches": "No matches.",
+      "noHabits": "You don't have any saved habits yet.",
+      "clientsLabel": "Clients ({count} selected)",
+      "selectAll": "Select all",
+      "clearAll": "Clear",
+      "noClients": "Add clients before assigning habits.",
+      "startsOnLabel": "Start date",
+      "startsOnHint": "The habit starts on this day for every selected client.",
+      "submit": "Assign to {count}",
+      "assigning": "Assigning…",
+      "cancel": "Cancel",
+      "assignedToast": "{count} assigned.",
+      "assignFailed": "Assignment failed."
+    },
+    "compliance": {
+      "scheduledInfo": "Percentage of scheduled days completed since the habit started (days before the start date and non-scheduled days don't count).",
+      "scheduledInfoLabel": "How compliance is calculated"
     },
     "columns": {
       "client": "Client",
@@ -694,7 +725,24 @@
       "saveCta": "Save changes",
       "createdToast": "Habit created.",
       "savedToast": "Habit saved.",
-      "saveFailed": "Couldn't save."
+      "saveFailed": "Couldn't save.",
+      "photoLabel": "Reference photo",
+      "photoHint": "Optional image clients see in the habit info sheet (JPEG, PNG, or WebP, up to 10 MB).",
+      "photoCreateHint": "Save the habit first, then come back to add a photo.",
+      "youtubeUrlLabel": "YouTube demo",
+      "youtubeUrlHint": "Optional youtube.com/watch?v=… or youtu.be/… link shown to the client.",
+      "photo": {
+        "inputAria": "Upload reference photo",
+        "dropHint": "Drop a photo or click to upload",
+        "dropSubHint": "JPEG, PNG, or WebP up to 10 MB",
+        "uploadingLabel": "Uploading…",
+        "removeCta": "Remove",
+        "rejectFormat": "Unsupported format. Use JPEG, PNG, or WebP.",
+        "rejectSize": "That image is over the 10 MB limit.",
+        "rejectNoId": "Save the habit first, then add a photo.",
+        "successToast": "Photo uploaded.",
+        "failToast": "Photo upload failed. Try again."
+      }
     }
   },
   "exercises": {

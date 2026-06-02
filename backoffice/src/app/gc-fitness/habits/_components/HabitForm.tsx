@@ -48,6 +48,7 @@ import {
   habitUpdateSchemaForType,
   type HabitCreateInput,
 } from "@/lib/gc-fitness/habit-schema";
+import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
 
 export type HabitFormMode = "create" | "edit";
 
@@ -65,6 +66,12 @@ export interface HabitFormProps {
    * a per-client roster page).
    */
   defaultValues?: Partial<HabitCreateInput>;
+  /**
+   * For mode="edit": the existing habit's doc id (`hab-${uid}-${uuid}`), so the
+   * photo dropzone can mint an upload URL. Absent in create mode — the dropzone
+   * stays disabled until the habit is saved and has an id.
+   */
+  habitId?: string;
   /**
    * Server-side handler. Resolves with `{ id }` on create (form redirects
    * to the list), or `{ ok: true }` on edit (form toasts + stays).
@@ -118,6 +125,8 @@ function buildDefaults(
       es: passed?.name?.es ?? "",
     },
     description: passed?.description,
+    photoUrl: passed?.photoUrl,
+    youtubeUrl: passed?.youtubeUrl,
     reminderTime: passed?.reminderTime,
     reminderEnabled: passed?.reminderEnabled ?? false,
     reminderCadence: passed?.reminderCadence ?? "daily",
@@ -146,6 +155,7 @@ export function HabitForm({
   mode,
   clientOptions,
   defaultValues,
+  habitId,
   onSubmit,
   onAfterSubmit,
   hideCancelButton,
@@ -211,6 +221,14 @@ export function HabitForm({
             en: descriptionEn || descriptionEs,
             es: descriptionEs || descriptionEn,
           };
+        }
+        const photoUrl = values.photoUrl?.trim() ?? "";
+        if (photoUrl.length > 0) {
+          cleaned.photoUrl = photoUrl;
+        }
+        const youtubeUrl = values.youtubeUrl?.trim() ?? "";
+        if (youtubeUrl.length > 0) {
+          cleaned.youtubeUrl = youtubeUrl;
         }
         if (values.reminderEnabled && values.reminderTime) {
           cleaned.reminderTime = values.reminderTime;
@@ -397,6 +415,56 @@ export function HabitForm({
                     value={field.value ?? ""}
                   />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Reference photo + YouTube demo (both optional) */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="youtubeUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("youtubeUrlLabel")}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="url"
+                    placeholder="https://youtu.be/…"
+                    {...field}
+                    value={field.value ?? ""}
+                  />
+                </FormControl>
+                <FormDescription>{t("youtubeUrlHint")}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="photoUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("photoLabel")}</FormLabel>
+                <FormControl>
+                  <HabitPhotoDropzone
+                    habitId={habitId}
+                    value={field.value}
+                    onUploaded={(gsPath) =>
+                      field.onChange(gsPath)
+                    }
+                    onRemoved={() => field.onChange(undefined)}
+                    disabled={mode === "create" && !habitId}
+                    disabledHint={
+                      mode === "create" && !habitId
+                        ? t("photoCreateHint")
+                        : undefined
+                    }
+                  />
+                </FormControl>
+                <FormDescription>{t("photoHint")}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

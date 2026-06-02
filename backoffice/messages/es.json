@@ -499,6 +499,7 @@
       "pageSubtitle": "Vista general de los hábitos de tus clientes. Creá y asigná hábitos desde la Agenda.",
       "newHabitCta": "Nuevo hábito",
       "createHabitCta": "Crear hábito",
+      "bulkAssignCta": "Asignar a clientes",
       "tabAssignments": "Asignaciones",
       "tabLibrary": "Biblioteca",
       "libraryEmpty": "Aún no tenés hábitos en tu biblioteca.",
@@ -540,10 +541,15 @@
       "next": "Siguiente",
       "deleteDialogTitle": "¿Eliminar este hábito?",
       "deleteDialogBody": "El hábito se ocultará en la app del cliente. Los registros se conservan por si querés restaurarlo. Es un borrado lógico y se puede revertir.",
+      "deleteRecurringTitle": "¿Eliminar este hábito recurrente?",
+      "deleteRecurringBody": "Este hábito se repite. Podés terminarlo de hoy en adelante (los días pasados y sus registros se conservan), o eliminar todo el hábito y su historial.",
+      "deleteFromTodayCta": "Terminar desde hoy",
+      "deleteEntireCta": "Eliminar todo el hábito",
       "deleteDialogCancel": "Cancelar",
       "deleting": "Eliminando…",
       "deleteDialogConfirm": "Eliminar",
       "deletedToast": "Hábito eliminado.",
+      "endedFromTodayToast": "Hábito terminado desde hoy.",
       "deleteFailedToast": "No se pudo eliminar.",
       "assignedToastSingular": "Se asignó {count} hábito.",
       "assignedToastPlural": "Se asignaron {count} hábitos.",
@@ -556,6 +562,31 @@
         "numeric": "Numérico",
         "weight": "Peso"
       }
+    },
+    "bulkAssign": {
+      "title": "Asignar un hábito a clientes",
+      "description": "Elegí un hábito y asignalo a varios clientes a la vez.",
+      "habitLabel": "Hábito",
+      "changeHabit": "Cambiar",
+      "searchPlaceholder": "Buscar hábito…",
+      "loadingHabits": "Cargando hábitos…",
+      "noMatches": "Sin coincidencias.",
+      "noHabits": "Todavía no tenés hábitos guardados.",
+      "clientsLabel": "Clientes ({count} seleccionados)",
+      "selectAll": "Seleccionar todos",
+      "clearAll": "Limpiar",
+      "noClients": "Agregá clientes antes de asignar hábitos.",
+      "startsOnLabel": "Fecha de inicio",
+      "startsOnHint": "El hábito empieza este día para cada cliente seleccionado.",
+      "submit": "Asignar a {count}",
+      "assigning": "Asignando…",
+      "cancel": "Cancelar",
+      "assignedToast": "{count} asignados.",
+      "assignFailed": "Falló la asignación."
+    },
+    "compliance": {
+      "scheduledInfo": "Porcentaje de días programados completados desde que empezó el hábito (los días anteriores a la fecha de inicio y los días no programados no cuentan).",
+      "scheduledInfoLabel": "Cómo se calcula el cumplimiento"
     },
     "columns": {
       "client": "Cliente",
@@ -694,7 +725,24 @@
       "saveCta": "Guardar cambios",
       "createdToast": "Hábito creado.",
       "savedToast": "Hábito guardado.",
-      "saveFailed": "No se pudo guardar."
+      "saveFailed": "No se pudo guardar.",
+      "photoLabel": "Foto de referencia",
+      "photoHint": "Imagen opcional que el cliente ve en la ficha del hábito (JPEG, PNG o WebP, hasta 10 MB).",
+      "photoCreateHint": "Guardá el hábito primero y luego volvé para agregar una foto.",
+      "youtubeUrlLabel": "Demo de YouTube",
+      "youtubeUrlHint": "Enlace opcional youtube.com/watch?v=… o youtu.be/… que se muestra al cliente.",
+      "photo": {
+        "inputAria": "Subir foto de referencia",
+        "dropHint": "Soltá una foto o hacé clic para subir",
+        "dropSubHint": "JPEG, PNG o WebP hasta 10 MB",
+        "uploadingLabel": "Subiendo…",
+        "removeCta": "Quitar",
+        "rejectFormat": "Formato no admitido. Usá JPEG, PNG o WebP.",
+        "rejectSize": "Esa imagen supera el límite de 10 MB.",
+        "rejectNoId": "Guardá el hábito primero y luego agregá una foto.",
+        "successToast": "Foto subida.",
+        "failToast": "No se pudo subir la foto. Intentá de nuevo."
+      }
     }
   },
   "exercises": {

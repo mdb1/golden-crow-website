@@ -29,6 +29,7 @@ export function EditHabitClient({
       mode="edit"
       clientOptions={clientOptions}
       defaultValues={defaults}
+      habitId={id}
       onSubmit={async (input: HabitCreateInput) => {
         await updateHabit(id, input);
         return { ok: true };
