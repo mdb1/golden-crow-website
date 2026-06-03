@@ -70,6 +70,7 @@ const DRAFT_STORAGE_KEY_NEW = "gc-fitness:template-draft:new";
 interface NewTemplateDraft {
   name?: { en?: string; es?: string };
   description?: { en?: string; es?: string };
+  endsOn?: string;
   tag?: string;
   tags?: string[];
   exercises?: Array<unknown>;
@@ -144,6 +145,7 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
         es: newDraft.name?.es ?? "",
       },
       description: undefined,
+      endsOn: typeof newDraft.endsOn === "string" ? newDraft.endsOn : undefined,
       // Cast: the draft can hold any free-form tag the trainer typed; for list
       // rendering we only need the string. The Badge / filter logic tolerates
       // arbitrary strings already.

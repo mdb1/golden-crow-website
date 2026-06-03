@@ -391,6 +391,7 @@
     "columns": {
       "name": "Name",
       "tag": "Tags",
+      "endDate": "End date",
       "exercises": "Exercises",
       "updated": "Updated",
       "untitled": "(untitled)",
