@@ -47,6 +47,8 @@ export interface RecentLogRow {
     rpe: number | null;
     /** True when the athlete left post-workout notes. */
     hasNotes: boolean;
+    /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
+    source?: "coach" | "client";
   };
 }
 
@@ -96,6 +98,8 @@ export interface WorkoutLogDetail {
   rpe: number | null;
   /** Athlete self-reported free-form notes from the post-workout summary. */
   athleteNotes: string | null;
+  /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
+  source?: "coach" | "client";
   sets: Array<{
     index: number;
     setLogId: string;
@@ -873,6 +877,8 @@ async function buildRecentLogs(params: {
         : null;
     const hasNotes =
       typeof data.notes === "string" && data.notes.trim().length > 0;
+    const source =
+      data.source === "coach" ? "coach" : "client";
     const setsLabel =
       plannedSets > 0 ? `${sets}/${plannedSets} sets` : `${sets} sets`;
 
@@ -894,6 +900,7 @@ async function buildRecentLogs(params: {
         plannedSets: plannedSets > 0 ? plannedSets : null,
         rpe,
         hasNotes,
+        source,
       },
     });
   });
@@ -1578,6 +1585,7 @@ async function buildWorkoutLogDetail(
     typeof data.notes === "string" && data.notes.trim().length > 0
       ? data.notes.trim()
       : null;
+  const source = data.source === "coach" ? "coach" : "client";
 
   return {
     id: logId,
@@ -1598,6 +1606,7 @@ async function buildWorkoutLogDetail(
     durationSeconds: numeric(data.duration_seconds ?? data.durationSeconds),
     rpe,
     athleteNotes,
+    source,
     sets,
   };
 }

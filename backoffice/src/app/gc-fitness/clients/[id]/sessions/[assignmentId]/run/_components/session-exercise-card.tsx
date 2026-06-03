@@ -9,7 +9,7 @@
 // table (SET · ANTERIOR · KG · REPS/TIME · ✓).
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { setClientExerciseNote } from "@/lib/gc-fitness/live-workout-actions";
 import {
@@ -60,6 +59,64 @@ function formatRest(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return s === 0 ? `${m}m descanso` : `${m}m ${s}s descanso`;
+}
+
+function clampInputNumber(raw: string, fallback: number, max: number): number {
+  const trimmed = raw.trim();
+  if (!trimmed) return fallback;
+  const parsed = Number(trimmed.replace(",", "."));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(max, parsed));
+}
+
+function EditableNumberInput({
+  value,
+  onCommit,
+  inputMode,
+  max,
+  disabled,
+  className,
+}: {
+  value: number;
+  onCommit: (next: number) => void;
+  inputMode: "numeric" | "decimal";
+  max: number;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setDraft(String(value));
+  }, [focused, value]);
+
+  function commit(nextDraft: string) {
+    const next = clampInputNumber(nextDraft, value, max);
+    onCommit(next);
+    setDraft(String(next));
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode={inputMode}
+      disabled={disabled}
+      value={draft}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        commit(draft);
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          (e.currentTarget as HTMLInputElement).blur();
+        }
+      }}
+      className={className}
+    />
+  );
 }
 
 export interface SessionExerciseCardProps {
@@ -104,6 +161,7 @@ export function SessionExerciseCard({
   const [draftNote, setDraftNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const coachNote = noteQuery.data?.note ?? exercise.notes ?? "";
+  const nextPendingRowIndex = rows.findIndex((row) => !row.done && !row.isWarmup);
 
   async function saveNote() {
     setSavingNote(true);
@@ -209,6 +267,10 @@ export function SessionExerciseCard({
             rows={2}
             maxLength={1000}
           />
+          <p className="text-xs text-muted-foreground">
+            Esta nota queda guardada para este cliente y ejercicio, y se
+            reutiliza en futuros workouts donde aparezca el mismo ejercicio.
+          </p>
           <div className="flex gap-2">
             <Button size="sm" onClick={saveNote} disabled={savingNote}>
               {savingNote ? "Guardando…" : "Guardar nota"}
@@ -243,7 +305,11 @@ export function SessionExerciseCard({
             <div
               key={row.id}
               className={`grid grid-cols-[2rem_1fr_4.5rem_4.5rem_2.5rem] items-center gap-2 rounded-lg px-1 py-1 ${
-                row.done ? "bg-emerald-500/10" : ""
+                row.done
+                  ? "bg-emerald-500/10"
+                  : idx === nextPendingRowIndex
+                    ? "border border-amber-400/70 bg-amber-500/10 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]"
+                    : ""
               }`}
             >
               <button
@@ -261,25 +327,23 @@ export function SessionExerciseCard({
               <span className="truncate text-xs text-muted-foreground">
                 {prevLabel ?? "—"}
               </span>
-              <Input
-                type="number"
-                inputMode="decimal"
+              <EditableNumberInput
                 value={row.weightKg}
+                onCommit={(next) => onWeight(idx, next)}
+                inputMode="decimal"
+                max={2000}
                 disabled={row.done}
-                onChange={(e) => onWeight(idx, Number(e.target.value))}
-                className="h-8 text-center"
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-center text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
               />
-              <Input
-                type="number"
-                inputMode="numeric"
+              <EditableNumberInput
                 value={isTime ? row.durationSeconds ?? 0 : row.reps}
-                disabled={row.done}
-                onChange={(e) =>
-                  isTime
-                    ? onDuration(idx, Number(e.target.value))
-                    : onReps(idx, Number(e.target.value))
+                onCommit={(next) =>
+                  isTime ? onDuration(idx, next) : onReps(idx, next)
                 }
-                className="h-8 text-center"
+                inputMode="numeric"
+                max={isTime ? 86_400 : 100}
+                disabled={row.done}
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-center text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
               />
               <button
                 type="button"

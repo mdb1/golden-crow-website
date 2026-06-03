@@ -242,6 +242,16 @@ export function ClientRecentLogsFeed({
                       {tf("notesBadge")}
                     </Badge>
                   ) : null}
+                  {row.workout ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+                    >
+                      {(row.workout.source ?? "client") === "coach"
+                        ? tf("sourceCoach")
+                        : tf("sourceClient")}
+                    </Badge>
+                  ) : null}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {formatDateTime(row.eventAt)}

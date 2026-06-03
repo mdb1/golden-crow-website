@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Video, X } from "lucide-react";
+import { Loader2, Timer, Video, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { groupIntoSupersetBlocks } from "@/lib/gc-fitness/live-workout-supersets";
@@ -179,6 +179,18 @@ export function ActiveWorkoutSession({
         <p className="mt-1 text-sm text-muted-foreground">
           {live.doneCount} / {live.totalPlanned} series completadas
         </p>
+        {timer.active ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-amber-400/50 bg-amber-500/10 px-3 py-2 text-sm">
+            <span className="inline-flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
+              <Timer className="h-4 w-4" />
+              Descanso en curso
+            </span>
+            <span className="font-mono tabular-nums text-amber-700 dark:text-amber-300">
+              {Math.floor(timer.remainingSeconds / 60)}:
+              {String(timer.remainingSeconds % 60).padStart(2, "0")}
+            </span>
+          </div>
+        ) : null}
 
         {/* Meeting link / reunion (#6) */}
         {session.meetingNotes ? (

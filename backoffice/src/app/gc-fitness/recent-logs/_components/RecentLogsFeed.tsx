@@ -316,6 +316,16 @@ function RecentLogItem({
               {t("notesBadge")}
             </Badge>
           ) : null}
+          {row.workout ? (
+            <Badge
+              variant="outline"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
+            >
+              {(row.workout.source ?? "client") === "coach"
+                ? t("sourceCoach")
+                : t("sourceClient")}
+            </Badge>
+          ) : null}
         </div>
         <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
           {row.clientName} · {formatTime(row.eventAt)}

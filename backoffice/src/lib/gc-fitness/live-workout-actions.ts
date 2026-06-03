@@ -322,13 +322,14 @@ export async function startWorkoutSession(
   const now = FieldValue.serverTimestamp();
   await db
     .collection(LOGS)
-    .doc(logId)
-    .set({
-      clientId: asg.clientId,
-      trainerId: trainer.uid,
-      assignment_id: assignmentId,
-      templateSnapshot: asg.templateSnapshot ?? {},
-      status: "active",
+      .doc(logId)
+      .set({
+        clientId: asg.clientId,
+        trainerId: trainer.uid,
+        source: "coach",
+        assignment_id: assignmentId,
+        templateSnapshot: asg.templateSnapshot ?? {},
+        status: "active",
       sets: [],
       prs: [],
       startedAt: now,
