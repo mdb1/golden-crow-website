@@ -177,6 +177,19 @@ function clearDraft(key: string) {
   }
 }
 
+function withTransitionRestDefault(
+  exercises:
+    | Array<Partial<WorkoutTemplateInput["exercises"][number]>>
+    | undefined,
+): WorkoutTemplateInput["exercises"] {
+  return (exercises ?? []).map((exercise) => ({
+    ...exercise,
+    transition_rest_seconds:
+      typeof exercise.transition_rest_seconds === "number"
+        ? exercise.transition_rest_seconds
+        : 60,
+  })) as WorkoutTemplateInput["exercises"];
+}
 function InfoTooltip({ text, label }: { text: string; label: string }) {
   return (
     <TooltipProvider>
@@ -279,7 +292,9 @@ export function TemplateForm({
   // `exercises.${index}.durationSeconds`.
   const [durationSecondsDraft, setDurationSecondsDraft] = useState<Record<string, string>>({});
   const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
-  const [transitionRestSecondsDraft, setTransitionRestSecondsDraft] = useState<Record<string, string>>({});
+  const [transitionRestSecondsDraft, setTransitionRestSecondsDraft] = useState<
+    Record<string, string>
+  >({});
   const [step, setStep] = useState<1 | 2>(1);
   const [showSpanishFields, setShowSpanishFields] = useState(false);
   const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
