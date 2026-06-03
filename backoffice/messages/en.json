@@ -33,6 +33,7 @@
     "schedule": "Schedule",
     "recentLogs": "Recent Logs",
     "myActivity": "My Activity",
+    "notifications": "Notifications",
     "programming": "Workout Planning",
     "workouts": "Workouts",
     "library": "Library",
@@ -57,6 +58,7 @@
     "clientsDescription": "Roster with last activity, compliance, unread chat.",
     "recentLogsDescription": "Cross-client recent habit/workout activity feed.",
     "myActivityDescription": "Coach-authored actions across programming, notes and chat.",
+    "notificationsDescription": "Recurring workout/habit renewals and recent client activations.",
     "workoutsDescription": "Workout-template authoring + assignments.",
     "habitsDescription": "Habit CRUD + per-client assignment.",
     "exercisesDescription": "Exercise library + GIF management.",
@@ -104,6 +106,22 @@
       "chatTitle": "Chat",
       "chatDescription": "Reply to client conversations."
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Recurring workout/habit renewals and recent client activations.",
+    "renewalsTitle": "Renewals",
+    "renewalsDescription": "Workout and habit series that are due soon or already expired.",
+    "activationsTitle": "Recent activations",
+    "activationsDescription": "New client sign-ins that are worth following up.",
+    "noRenewals": "No recurring workouts or habits need attention right now.",
+    "noActivations": "No recent client activations yet.",
+    "clientActivated": "Client activated",
+    "openClient": "Open client",
+    "openCalendar": "Open calendar",
+    "renewHabit": "Renew habit",
+    "openRecentLogs": "Recent logs",
+    "openMyActivity": "My activity"
   },
   "clients": {
     "title": "Clients",
