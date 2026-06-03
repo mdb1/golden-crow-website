@@ -182,6 +182,31 @@
       "openChat": "Abrir chat",
       "assignWorkout": "Asignar entrenamiento",
       "assignHabit": "Asignar hábito",
+      "requests": {
+        "title": "Pedidos al cliente",
+        "subtitle": "Pedidos rápidos que abren el flujo correcto en la app y quedan activos por 3 días.",
+        "progressPhotos": {
+          "title": "Pedir Progress Photos",
+          "description": "Pedile a {clientName} un nuevo set de fotos de progreso."
+        },
+        "weight": {
+          "title": "Pedir peso",
+          "description": "Pedile a {clientName} que registre su peso corporal."
+        },
+        "request": {
+          "cta": "Pedir"
+        },
+        "status": {
+          "never": "Sin pedidos todavía",
+          "neverHelp": "Podés enviar el primer pedido ahora.",
+          "requestedOn": "Pedido el {date}",
+          "lastRequestedOn": "Última petición {date}",
+          "reactivatesOn": "Se reactiva el {date}",
+          "readyHelp": "Podés volver a pedirlo ahora.",
+          "active": "El pedido queda activo por 3 días",
+          "ready": "Listo para pedir"
+        }
+      },
       "skeleton": {
         "workoutTrends": "Workouts",
         "habitTrends": "Hábitos",

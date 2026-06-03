@@ -182,6 +182,31 @@
       "openChat": "Open chat",
       "assignWorkout": "Assign workout",
       "assignHabit": "Assign habit",
+      "requests": {
+        "title": "Client requests",
+        "subtitle": "Quick prompts that open the right flow in the app and stay active for 3 days.",
+        "progressPhotos": {
+          "title": "Request progress photos",
+          "description": "Ask {clientName} for a fresh set of progress photos."
+        },
+        "weight": {
+          "title": "Request weight",
+          "description": "Ask {clientName} to log their body weight."
+        },
+        "request": {
+          "cta": "Request"
+        },
+        "status": {
+          "never": "No requests yet",
+          "neverHelp": "You can send the first request now.",
+          "requestedOn": "Requested on {date}",
+          "lastRequestedOn": "Last request {date}",
+          "reactivatesOn": "Reactivates on {date}",
+          "readyHelp": "You can request it again now.",
+          "active": "Request is active for 3 days",
+          "ready": "Ready to request"
+        }
+      },
       "skeleton": {
         "workoutTrends": "Workouts",
         "habitTrends": "Habits",

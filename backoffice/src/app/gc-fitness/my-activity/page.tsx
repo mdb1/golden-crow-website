@@ -37,7 +37,7 @@ export default async function MyActivityPage() {
           Mi actividad
         </h1>
         <p className="text-sm text-muted-foreground">
-          Acciones recientes del coach: workouts, ejercicios, asignaciones, hábitos, notas y chats.
+          Acciones recientes del coach: workouts, ejercicios, asignaciones, hábitos, notas, chats y pedidos de fotos/peso.
         </p>
       </div>
 

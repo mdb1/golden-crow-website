@@ -274,7 +274,7 @@ export function ActiveWorkoutSession({
           {live.doneCount} / {live.totalPlanned} series completadas
         </p>
         {timer.active ? (
-          <div className="mt-3 overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-500/12 via-amber-400/8 to-background px-3 py-3 shadow-sm">
+          <div className="sticky top-16 z-20 mt-3 overflow-hidden rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/18 via-amber-400/10 to-background px-3 py-3 shadow-lg ring-1 ring-amber-400/20 backdrop-blur">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Timer
@@ -302,7 +302,7 @@ export function ActiveWorkoutSession({
               <button
                 type="button"
                 onClick={timer.sheetOpen ? timer.minimize : timer.expand}
-                className={`rounded-full border bg-background/80 px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-background ${
+                className={`rounded-full border bg-background/85 px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-background ${
                   timer.isPaused
                     ? "border-slate-500/30 text-slate-700 dark:text-slate-300"
                     : "border-amber-500/30 text-amber-700 dark:text-amber-300"

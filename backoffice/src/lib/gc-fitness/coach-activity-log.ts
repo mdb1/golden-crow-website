@@ -28,7 +28,9 @@ export type CoachActivityLogKind =
   | "exercise"
   | "workout_assignment"
   | "habit_assignment"
-  | "note";
+  | "note"
+  | "progress_photo_request"
+  | "weight_request";
 
 export interface CoachActivityEvent {
   /** Deterministic id so re-runs / per-occurrence triggers are idempotent. */
@@ -205,6 +207,44 @@ export function noteAddedEvent(args: {
     clientId: args.clientId,
     pendingEmail: null,
     occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/** Coach requested new progress photos from a client. eventId `req:photo:{uid}:{stamp}`. */
+export function progressPhotoRequestedEvent(args: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  requestedAt: Date;
+}): CoachActivityEvent {
+  return {
+    eventId: `req:photo:${args.clientId}:${args.requestedAt.toISOString()}`,
+    trainerId: args.trainerId,
+    kind: "progress_photo_request",
+    title: `Pedir fotos de progreso: ${args.clientName}`,
+    detail: "Válido durante 3 días",
+    clientId: args.clientId,
+    pendingEmail: null,
+    occurredAt: args.requestedAt,
+  };
+}
+
+/** Coach requested a body-weight check-in from a client. eventId `req:weight:{uid}:{stamp}`. */
+export function weightRequestedEvent(args: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  requestedAt: Date;
+}): CoachActivityEvent {
+  return {
+    eventId: `req:weight:${args.clientId}:${args.requestedAt.toISOString()}`,
+    trainerId: args.trainerId,
+    kind: "weight_request",
+    title: `Pedir peso: ${args.clientName}`,
+    detail: "Válido durante 3 días",
+    clientId: args.clientId,
+    pendingEmail: null,
+    occurredAt: args.requestedAt,
   };
 }
 
