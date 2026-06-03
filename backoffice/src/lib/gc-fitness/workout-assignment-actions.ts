@@ -154,8 +154,16 @@ async function templateSnapshotForAssignment(
       const exerciseId =
         typeof exercise.exerciseId === "string" ? exercise.exerciseId : "";
       const source = exerciseMap.get(exerciseId);
+      const transitionRestSecondsRaw =
+        exercise.transition_rest_seconds ?? exercise.transitionRestSeconds;
+      const transitionRestSeconds =
+        typeof transitionRestSecondsRaw === "number" &&
+        Number.isFinite(transitionRestSecondsRaw)
+          ? Math.max(0, Math.min(600, transitionRestSecondsRaw))
+          : 60;
       return {
         ...exercise,
+        transition_rest_seconds: transitionRestSeconds,
         name:
           (source?.name as { en: string; es: string } | undefined) ??
           ({ en: exerciseId, es: "" } as const),

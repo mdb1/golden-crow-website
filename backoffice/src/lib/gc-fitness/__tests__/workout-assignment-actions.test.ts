@@ -155,6 +155,8 @@ const VALID_TEMPLATE = {
       sets: 3,
       reps: 10,
       restSeconds: 90,
+      transitionRestSeconds: 60,
+      transition_rest_seconds: 60,
       notes: null,
       order: 0,
       license: { spdx: "CC-BY-SA-3.0", author: "wger", sourceUrl: null },

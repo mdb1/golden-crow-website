@@ -180,6 +180,7 @@ const VALID_TEMPLATE_INPUT = {
       sets: 3,
       reps: 10,
       rest_seconds: 90,
+      transition_rest_seconds: 60,
       notes: "Keep elbows in.",
       order: 1,
     },

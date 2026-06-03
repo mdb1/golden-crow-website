@@ -133,6 +133,20 @@ function writeDraft(key: string, value: WorkoutTemplateInput) {
   }
 }
 
+function withTransitionRestDefault(
+  exercises:
+    | Array<Partial<WorkoutTemplateInput["exercises"][number]>>
+    | undefined,
+): WorkoutTemplateInput["exercises"] {
+  return (exercises ?? []).map((exercise) => ({
+    ...exercise,
+    transition_rest_seconds:
+      typeof exercise.transition_rest_seconds === "number"
+        ? exercise.transition_rest_seconds
+        : 60,
+  })) as WorkoutTemplateInput["exercises"];
+}
+
 function clearDraft(key: string) {
   if (typeof window === "undefined") return;
   try {
@@ -198,7 +212,7 @@ function buildDefaults(
     description: passed?.description ?? { en: "", es: "" },
     tag: passed?.tag ?? restoredTags[0] ?? "custom",
     tags: restoredTags,
-    exercises: passed?.exercises ?? [],
+    exercises: withTransitionRestDefault(passed?.exercises),
   };
 }
 
@@ -224,6 +238,7 @@ export function TemplateForm({
   // `exercises.${index}.durationSeconds`.
   const [durationSecondsDraft, setDurationSecondsDraft] = useState<Record<string, string>>({});
   const [restSecondsDraft, setRestSecondsDraft] = useState<Record<string, string>>({});
+  const [transitionRestSecondsDraft, setTransitionRestSecondsDraft] = useState<Record<string, string>>({});
   const [step, setStep] = useState<1 | 2>(1);
   const [showSpanishFields, setShowSpanishFields] = useState(false);
   const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
@@ -494,6 +509,10 @@ export function TemplateForm({
               ...ex,
               sets: canonicalLen,
               reps: alignedReps[0] ?? repsFallback,
+              transition_rest_seconds:
+                typeof ex.transition_rest_seconds === "number"
+                  ? ex.transition_rest_seconds
+                  : 60,
               ...(alignedReps.length > 0 ? { repsBySet: alignedReps } : {}),
               ...(alignedWeights ? { weightBySetKg: alignedWeights } : {}),
               ...(alignedDurations
@@ -543,6 +562,7 @@ export function TemplateForm({
       sets: 3,
       reps: 10,
       rest_seconds: 60,
+      transition_rest_seconds: 60,
       notes: "",
       order: fields.length + 1,
     });
@@ -635,6 +655,7 @@ export function TemplateForm({
         sets: 3,
         reps: 10,
         rest_seconds: 60,
+        transition_rest_seconds: 60,
         notes: "",
         order: fields.length + idx + 1,
       })),
@@ -1027,8 +1048,9 @@ export function TemplateForm({
                       ) : null}
                     </div>
 
-                    {/* Sets / Rest. Reps is defined per-set below to avoid double source of truth. */}
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Sets / Rest / Transition rest. Reps is defined per-set
+                        below to avoid double source of truth. */}
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <Controller
                         control={form.control}
                         name={`exercises.${index}.sets` as const}
@@ -1144,6 +1166,65 @@ export function TemplateForm({
                                     }
                                   }
                                   setRestSecondsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
+                                  numField.onBlur();
+                                }}
+                              />
+                            </FormControl>
+                            {fieldState.error && (
+                              <FormMessage>
+                                {fieldState.error.message}
+                              </FormMessage>
+                            )}
+                          </FormItem>
+                        )}
+                      />
+                      <Controller
+                        control={form.control}
+                        name={`exercises.${index}.transition_rest_seconds` as const}
+                        render={({
+                          field: numField,
+                          fieldState,
+                        }) => (
+                          <FormItem>
+                            <FormLabel>{t("transitionRestSeconds")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={transitionRestSecondsDraft[field.id] ?? (numField.value ?? "")}
+                                onChange={(e) => {
+                                  if (e.target.value === "") {
+                                    setTransitionRestSecondsDraft((prev) => ({ ...prev, [field.id]: "" }));
+                                    return;
+                                  }
+                                  const parsed = Number(e.target.value);
+                                  if (!Number.isFinite(parsed)) return;
+                                  setTransitionRestSecondsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
+                                }}
+                                onBlur={() => {
+                                  const raw = transitionRestSecondsDraft[field.id];
+                                  if (raw === "") {
+                                    setTransitionRestSecondsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[field.id];
+                                      return next;
+                                    });
+                                    numField.onChange(60);
+                                    numField.onBlur();
+                                    return;
+                                  }
+                                  if (raw !== undefined) {
+                                    const parsed = Number(raw);
+                                    if (Number.isFinite(parsed)) {
+                                      numField.onChange(parsed);
+                                    }
+                                  }
+                                  setTransitionRestSecondsDraft((prev) => {
                                     const next = { ...prev };
                                     delete next[field.id];
                                     return next;

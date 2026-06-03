@@ -26,6 +26,7 @@ const VALID_EXERCISE = {
   sets: 3,
   reps: 10,
   rest_seconds: 90,
+  transition_rest_seconds: 60,
   notes: "Keep elbows in.",
   order: 1,
 };
@@ -53,6 +54,7 @@ describe("workoutTemplateSchema — top-level fields", () => {
     expect(parsed.tag).toBe("push");
     expect(parsed.exercises).toHaveLength(1);
     expect(parsed.exercises[0].rest_seconds).toBe(90);
+    expect(parsed.exercises[0].transition_rest_seconds).toBe(60);
   });
 
   // T2: name.en empty → rejected

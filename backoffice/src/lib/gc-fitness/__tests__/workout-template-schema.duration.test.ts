@@ -34,6 +34,7 @@ describe("exerciseRefSchema — 26-01 metric + duration fields", () => {
     expect(parsed.metric).toBeUndefined();
     expect(parsed.durationBySetSeconds).toBeUndefined();
     expect(parsed.durationSeconds).toBeUndefined();
+    expect(parsed.transition_rest_seconds).toBe(60);
   });
 
   // T2: metric "time" + scalar duration → OK
