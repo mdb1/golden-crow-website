@@ -75,6 +75,7 @@ export interface WorkoutTemplateRow {
   id: string;
   name: { en: string; es: string };
   description?: { en: string; es: string };
+  endsOn?: string;
   /** Legacy single-tag mirror. Always equal to `tags[0]` (or "custom"
    *  when tags is empty). Kept so iOS clients reading the old field stay
    *  working until they migrate. */
@@ -229,6 +230,7 @@ export async function forkStandardWorkoutTemplate(
   await docRef.set({
     name: source.name ?? { en: "", es: "" },
     description: source.description ?? { en: "", es: "" },
+    endsOn: typeof source.endsOn === "string" ? source.endsOn : undefined,
     tag: sourceTags[0] ?? "custom",
     tags: sourceTags,
     exercises: Array.isArray(source.exercises) ? source.exercises : [],
@@ -282,6 +284,7 @@ export async function duplicateWorkoutTemplate(
   await docRef.set({
     name: suffixedName,
     description: source.description ?? { en: "", es: "" },
+    endsOn: typeof source.endsOn === "string" ? source.endsOn : undefined,
     tag: sourceTags[0] ?? "custom",
     tags: sourceTags,
     exercises: Array.isArray(source.exercises) ? source.exercises : [],
@@ -406,6 +409,7 @@ export async function listWorkoutTemplates(opts?: {
       id: d.id,
       name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
       description: data.description as { en: string; es: string } | undefined,
+      endsOn: typeof data.endsOn === "string" ? data.endsOn : undefined,
       // Legacy mirror: prefer the explicit `tag` field; fall back to tags[0].
       tag: (data.tag as WorkoutTag) ?? tags[0] ?? "custom",
       tags,

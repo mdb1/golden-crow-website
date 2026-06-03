@@ -53,6 +53,11 @@ import {
 import { getWorkoutTemplateForAssignment } from "@/lib/gc-fitness/workout-template-actions";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
 import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  inferEndDatePresetMonths,
+} from "@/lib/gc-fitness/end-date-presets";
 
 interface AssignTemplateModalProps {
   open: boolean;
@@ -117,6 +122,9 @@ export function AssignTemplateModal({
   const [recurringEveryNDraft, setRecurringEveryNDraft] = useState<string>("2");
   const [recurringEndEnabled, setRecurringEndEnabled] = useState(false);
   const [recurringEndDate, setRecurringEndDate] = useState<string>(defaultDate);
+  const [recurringEndPresetMonths, setRecurringEndPresetMonths] = useState<
+    number | null
+  >(3);
   const [templateDetail, setTemplateDetail] = useState<Awaited<
     ReturnType<typeof getWorkoutTemplateForAssignment>
   > | null>(null);
@@ -157,13 +165,22 @@ export function AssignTemplateModal({
       );
       setRecurringEveryN(2);
       setRecurringEveryNDraft("2");
-      setRecurringEndEnabled(false);
-      setRecurringEndDate(defaultDate);
+      setRecurringEndEnabled(true);
+      setRecurringEndDate(addCivilMonths(defaultDate, 3));
+      setRecurringEndPresetMonths(3);
       setTemplateDetail(null);
       setTemplateDetailError(null);
       setOverrideDrafts({});
     }
   }, [open, defaultDate]);
+
+  useEffect(() => {
+    if (!recurringEndEnabled) return;
+    if (recurringEndPresetMonths == null) return;
+    const nextEndDate = addCivilMonths(civilDate, recurringEndPresetMonths);
+    if (nextEndDate === recurringEndDate) return;
+    setRecurringEndDate(nextEndDate);
+  }, [civilDate, recurringEndEnabled, recurringEndDate, recurringEndPresetMonths]);
 
   useEffect(() => {
     let cancelled = false;
@@ -725,7 +742,15 @@ export function AssignTemplateModal({
                   id="recurring-end-enabled"
                   type="checkbox"
                   checked={recurringEndEnabled}
-                  onChange={(event) => setRecurringEndEnabled(event.target.checked)}
+                  onChange={(event) => {
+                    const next = event.target.checked;
+                    setRecurringEndEnabled(next);
+                    if (next) {
+                      const preset = recurringEndPresetMonths ?? 3;
+                      setRecurringEndPresetMonths(preset);
+                      setRecurringEndDate(addCivilMonths(civilDate, preset));
+                    }
+                  }}
                   className="h-4 w-4 rounded border"
                 />
                 <label htmlFor="recurring-end-enabled" className="text-sm">
@@ -734,12 +759,43 @@ export function AssignTemplateModal({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium">{t("endDateLabel")}</label>
+                <div className="flex flex-wrap gap-2">
+                  {END_DATE_PRESET_MONTHS.map((months) => {
+                    const active =
+                      recurringEndEnabled &&
+                      recurringEndPresetMonths === months &&
+                      recurringEndDate === addCivilMonths(civilDate, months);
+                    return (
+                      <Button
+                        key={months}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        size="sm"
+                        className="rounded-full"
+                        aria-pressed={active}
+                        onClick={() => {
+                          setRecurringEndEnabled(true);
+                          setRecurringEndPresetMonths(months);
+                          setRecurringEndDate(addCivilMonths(civilDate, months));
+                        }}
+                      >
+                        {t("endDatePreset", { months })}
+                      </Button>
+                    );
+                  })}
+                </div>
                 <input
                   type="date"
                   value={recurringEndDate}
                   disabled={!recurringEndEnabled}
                   min={civilDate}
-                  onChange={(event) => setRecurringEndDate(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setRecurringEndDate(next);
+                    setRecurringEndPresetMonths(
+                      inferEndDatePresetMonths(civilDate, next),
+                    );
+                  }}
                   className="h-10 rounded-md border bg-background px-3 text-sm disabled:opacity-50"
                 />
                 <p className="text-xs text-muted-foreground">

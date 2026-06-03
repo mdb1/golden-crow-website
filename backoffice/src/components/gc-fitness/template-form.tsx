@@ -86,6 +86,12 @@ import {
   type WorkoutTemplateInput,
 } from "@/lib/gc-fitness/workout-template-schema";
 import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  inferEndDatePresetMonths,
+  localDateToCivil,
+} from "@/lib/gc-fitness/end-date-presets";
+import {
   getSupersetGroupMemberIndexes,
   getSupersetMembership,
   listSupersetGroupOptions,
@@ -234,6 +240,7 @@ function SortableExerciseRow({
 
 function buildDefaults(
   passed?: Partial<WorkoutTemplateInput>,
+  mode: TemplateFormMode = "create",
 ): WorkoutTemplateInput {
   // Migrate from legacy single `tag` to `tags[]` when restoring server data
   // or a draft authored before multi-tag landed. tags[0] is mirrored back to
@@ -250,6 +257,12 @@ function buildDefaults(
       es: passed?.name?.es ?? "",
     },
     description: passed?.description ?? { en: "", es: "" },
+    endsOn:
+      typeof passed?.endsOn === "string" && passed.endsOn.length > 0
+        ? passed.endsOn
+        : mode === "create"
+          ? addCivilMonths(localDateToCivil(new Date()), 3)
+          : undefined,
     tag: passed?.tag ?? restoredTags[0] ?? "custom",
     tags: restoredTags,
     exercises: withTransitionRestDefault(passed?.exercises),
@@ -284,6 +297,13 @@ export function TemplateForm({
   const [step, setStep] = useState<1 | 2>(1);
   const [showSpanishFields, setShowSpanishFields] = useState(false);
   const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
+  const [todayCivil] = useState(() => localDateToCivil(new Date()));
+  const initialDefaults = buildDefaults(defaultValues, mode);
+  const initialEndsOn =
+    typeof initialDefaults.endsOn === "string" ? initialDefaults.endsOn : undefined;
+  const [selectedEndPresetMonths, setSelectedEndPresetMonths] = useState<
+    number | null
+  >(() => inferEndDatePresetMonths(todayCivil, initialEndsOn));
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -291,7 +311,7 @@ export function TemplateForm({
     // type parameter. The runtime parse behavior is unchanged.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(workoutTemplateSchema as any) as unknown as any,
-    defaultValues: buildDefaults(defaultValues),
+    defaultValues: initialDefaults,
     mode: "onSubmit",
   });
 
@@ -320,6 +340,7 @@ export function TemplateForm({
     return m;
   }, [exerciseLibrary]);
   const watchedExercises = form.watch("exercises") ?? [];
+  const watchedEndsOn = (form.watch("endsOn") ?? "") as string;
   const supersetGroupOptions = useMemo(
     () => listSupersetGroupOptions(watchedExercises),
     [watchedExercises],
@@ -341,7 +362,7 @@ export function TemplateForm({
     const stored = readDraft(draftKey);
     if (!stored) return;
     form.reset({
-      ...buildDefaults(defaultValues),
+      ...buildDefaults(defaultValues, mode),
       ...stored,
     });
     setDraftRestored(true);
@@ -377,6 +398,13 @@ export function TemplateForm({
     };
   }, [draftKey, form]);
 
+  useEffect(() => {
+    if (selectedEndPresetMonths == null) return;
+    const nextEndsOn = addCivilMonths(todayCivil, selectedEndPresetMonths);
+    if (watchedEndsOn === nextEndsOn) return;
+    form.setValue("endsOn", nextEndsOn, { shouldDirty: true });
+  }, [form, selectedEndPresetMonths, todayCivil, watchedEndsOn]);
+
   // Also flush on tab close / route change so SPA back-button doesn't lose
   // the trailing edit either. `pagehide` covers both navigation and tab
   // close (more reliable than `beforeunload` on iOS Safari).
@@ -401,7 +429,7 @@ export function TemplateForm({
   function discardDraft() {
     if (!draftKey) return;
     clearDraft(draftKey);
-    form.reset(buildDefaults(defaultValues));
+    form.reset(buildDefaults(defaultValues, mode));
     setDraftRestored(false);
   }
   // ------------------------------------------------------------------------
@@ -892,6 +920,59 @@ export function TemplateForm({
                 />
               </FormControl>
               <FormDescription>{t("tagsHint")}</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="endsOn"
+          render={({ field }) => (
+            <FormItem className="max-w-md">
+              <FormLabel>{t("endsOnLabel")}</FormLabel>
+              <div className="flex flex-wrap gap-2">
+                {END_DATE_PRESET_MONTHS.map((months) => {
+                  const active =
+                    selectedEndPresetMonths === months &&
+                    field.value === addCivilMonths(todayCivil, months);
+                  return (
+                    <Button
+                      key={months}
+                      type="button"
+                      variant={active ? "default" : "outline"}
+                      size="sm"
+                      className="rounded-full"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setSelectedEndPresetMonths(months);
+                        field.onChange(addCivilMonths(todayCivil, months));
+                      }}
+                    >
+                      {t("endDatePreset", { months })}
+                    </Button>
+                  );
+                })}
+              </div>
+              <FormControl>
+                <Input
+                  type="date"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={typeof field.value === "string" ? field.value : ""}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    field.onChange(next);
+                    setSelectedEndPresetMonths(
+                      next.length > 0
+                        ? inferEndDatePresetMonths(todayCivil, next)
+                        : null,
+                    );
+                  }}
+                />
+              </FormControl>
+              <FormDescription>{t("endsOnHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
