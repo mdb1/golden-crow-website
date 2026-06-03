@@ -1,0 +1,627 @@
+// live-workout-actions.ts
+//
+// Server Actions for the backoffice live-workout (coach-run session) surface.
+// The coach runs a client's scheduled workout live from the backoffice,
+// logging weights/reps/rests, then finalizes it.
+//
+// SECURITY MODEL (see .planning/features/backoffice-live-workout/ROADMAP.md
+// constraint #0): the backoffice writes via the Firebase Admin SDK, which
+// BYPASSES firestore.rules. The real authorization boundary is THIS file —
+// every action gates on `getCurrentTrainer()` and verifies the trainer owns
+// the assignment/log it touches. `trainerId`/`clientId` are sourced from the
+// server-read doc, NEVER from caller input.
+//
+// COACH IS THE SINGLE WRITER (D3): v1 assumes the client is not logging on
+// iOS at the same time. We write the same `workout_logs` wire shape the iOS
+// app writes (SetLog.swift / WorkoutLog.swift CodingKeys) so a finished
+// session is indistinguishable from a phone-logged one downstream.
+
+"use server";
+
+import { randomUUID } from "node:crypto";
+
+import { FieldValue } from "firebase-admin/firestore";
+
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+
+import { getCurrentTrainer } from "./auth-helpers";
+import { FirestoreCollections } from "./collections";
+import { civilDateFormat } from "./civil-date";
+import {
+  finalizeSessionSchema,
+  getClientExerciseNoteSchema,
+  setClientExerciseNoteSchema,
+  startSessionSchema,
+  syncSessionSchema,
+  type FinalizeSessionInput,
+  type GetClientExerciseNoteInput,
+  type SetClientExerciseNoteInput,
+  type StartSessionInput,
+  type SyncSessionInput,
+} from "./live-workout-schema";
+import {
+  computeDurationSeconds,
+  computeTotalVolumeKg,
+} from "./live-workout-volume";
+import type {
+  ActiveSession,
+  LocalizedString,
+  PreviousSessionMap,
+  SessionExercise,
+  SessionSetLog,
+} from "./live-workout-types";
+
+const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
+const LOGS = FirestoreCollections.workoutLogs;
+const EXERCISES = FirestoreCollections.exercises;
+const NOTES = FirestoreCollections.clientExerciseNotes;
+
+/** Bound the previous-session history scan (iOS uses limit 20). */
+const HISTORY_LIMIT = 20;
+/** Safety cap on how many future assignments a single finalize rewrites. */
+const MAX_FUTURE_PROPAGATION = 200;
+
+// ── small coercion helpers ───────────────────────────────────────────────
+function toIso(v: unknown): string | null {
+  if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
+    return (v as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") return v;
+  return null;
+}
+
+function num(v: unknown, fallback: number): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+function localized(v: unknown, fallback: string): LocalizedString {
+  if (v && typeof v === "object" && typeof (v as { en?: unknown }).en === "string") {
+    const obj = v as { en: string; es?: string };
+    return { en: obj.en, es: typeof obj.es === "string" ? obj.es : undefined };
+  }
+  return { en: fallback };
+}
+
+function numArrayOrNull(v: unknown): number[] | null {
+  if (!Array.isArray(v)) return null;
+  const out = v.filter((n): n is number => typeof n === "number");
+  return out.length > 0 ? out : null;
+}
+
+// ── exercise enrichment (snapshot → SessionExercise[] with media) ──────────
+async function buildSessionExercises(
+  templateSnapshot: Record<string, unknown> | undefined | null,
+): Promise<SessionExercise[]> {
+  const raw = Array.isArray(templateSnapshot?.exercises)
+    ? (templateSnapshot!.exercises as Array<Record<string, unknown>>)
+    : [];
+  if (raw.length === 0) return [];
+
+  const db = gcFitnessFirestore();
+  const ids = raw
+    .map((e) => e.exerciseId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const docs = ids.length
+    ? await db.getAll(...ids.map((id) => db.collection(EXERCISES).doc(id)))
+    : [];
+  const srcMap = new Map(
+    docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
+  );
+
+  return raw
+    .map((e, i): SessionExercise => {
+      const exerciseId = typeof e.exerciseId === "string" ? e.exerciseId : "";
+      const src = srcMap.get(exerciseId) ?? {};
+      const metric =
+        e.metric === "time" || e.metric === "reps"
+          ? (e.metric as "time" | "reps")
+          : null;
+      return {
+        exerciseId,
+        name: localized(e.name ?? src.name, exerciseId),
+        sets: num(e.sets, 1),
+        reps: num(e.reps, 0),
+        restSeconds: num(e.restSeconds ?? e.rest_seconds, 60),
+        notes: typeof e.notes === "string" ? e.notes : null,
+        order: num(e.order, i + 1),
+        supersetGroup:
+          typeof e.supersetGroup === "string" && e.supersetGroup.trim().length > 0
+            ? e.supersetGroup
+            : null,
+        repsBySet: numArrayOrNull(e.repsBySet),
+        weightBySetKg: numArrayOrNull(e.weightBySetKg),
+        metric,
+        durationBySetSeconds: numArrayOrNull(e.durationBySetSeconds),
+        durationSeconds:
+          typeof e.durationSeconds === "number" ? e.durationSeconds : null,
+        mediaURL:
+          (typeof src.mediaURL === "string" && src.mediaURL) ||
+          (typeof e.mediaURL === "string" && e.mediaURL) ||
+          null,
+        thumbnailURL:
+          (typeof src.thumbnailURL === "string" && src.thumbnailURL) ||
+          (typeof e.thumbnailURL === "string" && e.thumbnailURL) ||
+          null,
+      };
+    })
+    .sort((a, b) => a.order - b.order);
+}
+
+// ── wire (snake_case) ↔ session (camelCase) set mapping ────────────────────
+function wireSetToSession(s: Record<string, unknown>): SessionSetLog {
+  return {
+    id: String(s.id ?? ""),
+    exerciseId: String(s.exerciseId ?? ""),
+    setIndex: num(s.set_index, 0),
+    weightKg: num(s.weight_kg, 0),
+    reps: num(s.reps, 0),
+    completedAt: toIso(s.completed_at) ?? new Date(0).toISOString(),
+    isWarmup: s.is_warmup === true,
+    clientLoggedAt: toIso(s.client_logged_at) ?? new Date(0).toISOString(),
+    durationSeconds:
+      typeof s.duration_seconds === "number" ? s.duration_seconds : null,
+  };
+}
+
+function sessionSetToWire(s: SessionSetLog): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    id: s.id,
+    exerciseId: s.exerciseId,
+    set_index: s.setIndex,
+    weight_kg: s.weightKg,
+    reps: s.reps,
+    completed_at: new Date(s.completedAt),
+    is_warmup: s.isWarmup,
+    client_logged_at: new Date(s.clientLoggedAt),
+  };
+  // Firestore rejects `undefined`; iOS omits the field on reps-based sets.
+  if (typeof s.durationSeconds === "number" && s.durationSeconds > 0) {
+    wire.duration_seconds = s.durationSeconds;
+  }
+  return wire;
+}
+
+async function buildActiveSession(
+  logId: string,
+  assignmentId: string,
+  assignment: Record<string, unknown>,
+  log: Record<string, unknown> | null,
+): Promise<ActiveSession> {
+  const snapshot =
+    (log?.templateSnapshot as Record<string, unknown> | undefined) ??
+    (assignment.templateSnapshot as Record<string, unknown> | undefined) ??
+    null;
+  const exercises = await buildSessionExercises(snapshot);
+  const sets = Array.isArray(log?.sets)
+    ? (log!.sets as Array<Record<string, unknown>>).map(wireSetToSession)
+    : [];
+  return {
+    logId,
+    assignmentId,
+    clientId: String(assignment.clientId ?? log?.clientId ?? ""),
+    trainerId: String(assignment.trainerId ?? log?.trainerId ?? ""),
+    workoutName: localized(
+      (snapshot?.name as unknown) ?? undefined,
+      "Workout",
+    ),
+    startedAt: toIso(log?.startedAt),
+    status:
+      (log?.status as ActiveSession["status"]) ?? "active",
+    exercises,
+    sets,
+    meetingNotes:
+      typeof assignment.meetingNotes === "string"
+        ? assignment.meetingNotes
+        : null,
+    scheduledTime:
+      typeof assignment.scheduledTime === "string"
+        ? assignment.scheduledTime
+        : null,
+    scheduledFor: String(assignment.scheduledFor ?? ""),
+    seriesId: typeof assignment.seriesId === "string" ? assignment.seriesId : null,
+  };
+}
+
+// ── ownership-gated readers of the assignment + active log ─────────────────
+async function ownedAssignment(assignmentId: string, trainerUid: string) {
+  const db = gcFitnessFirestore();
+  const ref = db.collection(ASSIGNMENTS).doc(assignmentId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Assignment not found.");
+  const data = snap.data() as Record<string, unknown>;
+  if (data.trainerId !== trainerUid) throw new Error("Not your assignment.");
+  return { ref, data };
+}
+
+async function ownedActiveLog(logId: string, trainerUid: string) {
+  const db = gcFitnessFirestore();
+  const ref = db.collection(LOGS).doc(logId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Session not found.");
+  const data = snap.data() as Record<string, unknown>;
+  if (data.trainerId !== trainerUid) throw new Error("Not your session.");
+  return { ref, data };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// startWorkoutSession — create (or resume) the active log + mark assignment
+// ───────────────────────────────────────────────────────────────────────────
+export async function startWorkoutSession(
+  input: StartSessionInput,
+): Promise<ActiveSession> {
+  const trainer = await getCurrentTrainer();
+  const { assignmentId } = startSessionSchema.parse(input);
+  const db = gcFitnessFirestore();
+
+  const { ref: asgRef, data: asg } = await ownedAssignment(
+    assignmentId,
+    trainer.uid,
+  );
+
+  // Idempotent: reuse an existing active log for this assignment.
+  const existing = await db
+    .collection(LOGS)
+    .where("assignment_id", "==", assignmentId)
+    .where("status", "==", "active")
+    .limit(1)
+    .get();
+
+  if (!existing.empty) {
+    const doc = existing.docs[0];
+    if (asg.status === "scheduled") {
+      await asgRef.update({
+        status: "started",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    return buildActiveSession(doc.id, assignmentId, asg, doc.data());
+  }
+
+  const logId = randomUUID();
+  const now = FieldValue.serverTimestamp();
+  await db
+    .collection(LOGS)
+    .doc(logId)
+    .set({
+      clientId: asg.clientId,
+      trainerId: trainer.uid,
+      assignment_id: assignmentId,
+      templateSnapshot: asg.templateSnapshot ?? {},
+      status: "active",
+      sets: [],
+      prs: [],
+      startedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+  if (asg.status === "scheduled") {
+    await asgRef.update({ status: "started", updatedAt: now });
+  }
+
+  // Re-read the just-written log so startedAt resolves to a real instant.
+  const fresh = await db.collection(LOGS).doc(logId).get();
+  return buildActiveSession(logId, assignmentId, asg, fresh.data() ?? null);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// getActiveSessionForAssignment — resume support + entry-button state
+// ───────────────────────────────────────────────────────────────────────────
+export async function getActiveSessionForAssignment(
+  assignmentId: string,
+): Promise<ActiveSession | null> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const { data: asg } = await ownedAssignment(assignmentId, trainer.uid);
+
+  const existing = await db
+    .collection(LOGS)
+    .where("assignment_id", "==", assignmentId)
+    .where("status", "==", "active")
+    .limit(1)
+    .get();
+  if (existing.empty) return null;
+  const doc = existing.docs[0];
+  return buildActiveSession(doc.id, assignmentId, asg, doc.data());
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// syncWorkoutSession — persist in-progress sets (reload-resume resilience)
+// ───────────────────────────────────────────────────────────────────────────
+export async function syncWorkoutSession(
+  input: SyncSessionInput,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+  const { logId, sets } = syncSessionSchema.parse(input);
+  const { ref, data } = await ownedActiveLog(logId, trainer.uid);
+  if (data.status !== "active") {
+    throw new Error("Session already finalized.");
+  }
+  await ref.update({
+    sets: sets.map(sessionSetToWire),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { ok: true };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// finalizeWorkoutSession — write the completed log + optional recurrence
+// propagation. The future-dated same-series assignments are rewritten to
+// match the performed structure but STAY `scheduled` (never completed).
+// ───────────────────────────────────────────────────────────────────────────
+export async function finalizeWorkoutSession(
+  input: FinalizeSessionInput,
+): Promise<{ logId: string; futureUpdated: number }> {
+  const trainer = await getCurrentTrainer();
+  const parsed = finalizeSessionSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const { ref: logRef, data: log } = await ownedActiveLog(
+    parsed.logId,
+    trainer.uid,
+  );
+
+  const assignmentId = String(log.assignment_id ?? "");
+  const clientId = String(log.clientId ?? "");
+
+  // Idempotent: a re-fired finalize on an already-completed log is a no-op.
+  if (log.status === "completed") {
+    return { logId: parsed.logId, futureUpdated: 0 };
+  }
+
+  const totalVolumeKg = computeTotalVolumeKg(parsed.sets);
+  const durationSeconds = computeDurationSeconds(
+    toIso(log.startedAt),
+    Date.now(),
+  );
+
+  const finalize: Record<string, unknown> = {
+    sets: parsed.sets.map(sessionSetToWire),
+    status: "completed",
+    total_volume_kg: totalVolumeKg,
+    duration_seconds: durationSeconds,
+    completedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (typeof parsed.rpe === "number") finalize.rpe = parsed.rpe;
+  if (typeof parsed.notes === "string" && parsed.notes.trim().length > 0) {
+    finalize.notes = parsed.notes.trim();
+  }
+  await logRef.update(finalize);
+
+  // Mark the assignment that produced this session completed.
+  if (assignmentId) {
+    await db
+      .collection(ASSIGNMENTS)
+      .doc(assignmentId)
+      .update({ status: "completed", updatedAt: FieldValue.serverTimestamp() })
+      .catch(() => {
+        /* assignment may have been deleted mid-session — log is source of truth */
+      });
+  }
+
+  let futureUpdated = 0;
+  if (
+    parsed.mode === "session_and_future" &&
+    parsed.editedExercises &&
+    parsed.editedExercises.length > 0 &&
+    assignmentId
+  ) {
+    futureUpdated = await propagateToFutureRecurrence({
+      currentAssignmentId: assignmentId,
+      clientId,
+      trainerUid: trainer.uid,
+      editedExercises: parsed.editedExercises,
+    });
+  }
+
+  return { logId: parsed.logId, futureUpdated };
+}
+
+/**
+ * Rewrite the `templateSnapshot.exercises` of this client's FUTURE-dated
+ * assignments in the same recurring series so they match the just-performed
+ * structure. Future assignments STAY `scheduled`. No-op when the source
+ * assignment has no `seriesId` (a one-off has no future occurrences).
+ */
+async function propagateToFutureRecurrence(opts: {
+  currentAssignmentId: string;
+  clientId: string;
+  trainerUid: string;
+  editedExercises: NonNullable<FinalizeSessionInput["editedExercises"]>;
+}): Promise<number> {
+  const db = gcFitnessFirestore();
+  const currentSnap = await db
+    .collection(ASSIGNMENTS)
+    .doc(opts.currentAssignmentId)
+    .get();
+  if (!currentSnap.exists) return 0;
+  const current = currentSnap.data() as Record<string, unknown>;
+  const seriesId =
+    typeof current.seriesId === "string" ? current.seriesId : null;
+  if (!seriesId) return 0;
+
+  const timezone =
+    typeof current.timezone === "string" ? current.timezone : "UTC";
+  const todayCivil = civilDateFormat(new Date(), timezone);
+
+  // Single equality query on seriesId; filter the rest in memory to avoid a
+  // composite index requirement.
+  const series = await db
+    .collection(ASSIGNMENTS)
+    .where("seriesId", "==", seriesId)
+    .limit(MAX_FUTURE_PROPAGATION + 50)
+    .get();
+
+  // Rebuild the exercises with denormalized name/license from the library so
+  // the future snapshots stay consistent with how assignTemplate writes them.
+  const enriched = await enrichEditedExercises(opts.editedExercises);
+
+  const batch = db.batch();
+  let count = 0;
+  for (const doc of series.docs) {
+    if (doc.id === opts.currentAssignmentId) continue; // not the performed one
+    const data = doc.data() as Record<string, unknown>;
+    if (data.trainerId !== opts.trainerUid) continue;
+    if (data.clientId !== opts.clientId) continue;
+    if (data.status !== "scheduled") continue; // never touch completed/missed
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    if (scheduledFor <= todayCivil) continue; // strictly future only
+
+    const existingSnapshot =
+      (data.templateSnapshot as Record<string, unknown> | undefined) ?? {};
+    batch.update(doc.ref, {
+      templateSnapshot: { ...existingSnapshot, exercises: enriched },
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    count += 1;
+    if (count >= MAX_FUTURE_PROPAGATION) break;
+  }
+
+  if (count > 0) await batch.commit();
+  return count;
+}
+
+/** Map edited session exercises to the wire snapshot exercise shape, joining
+ *  the exercises library for denormalized name + license. */
+async function enrichEditedExercises(
+  edited: NonNullable<FinalizeSessionInput["editedExercises"]>,
+): Promise<Array<Record<string, unknown>>> {
+  const db = gcFitnessFirestore();
+  const ids = edited
+    .map((e) => e.exerciseId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const docs = ids.length
+    ? await db.getAll(...ids.map((id) => db.collection(EXERCISES).doc(id)))
+    : [];
+  const srcMap = new Map(
+    docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
+  );
+
+  return edited.map((e) => {
+    const src = srcMap.get(e.exerciseId) ?? {};
+    const out: Record<string, unknown> = {
+      exerciseId: e.exerciseId,
+      sets: e.sets,
+      reps: e.reps,
+      restSeconds: e.restSeconds,
+      notes: e.notes ?? null,
+      order: e.order,
+      name: localized(src.name, e.exerciseId),
+      license: src.license ?? null,
+    };
+    if (e.supersetGroup) out.supersetGroup = e.supersetGroup;
+    if (e.repsBySet) out.repsBySet = e.repsBySet;
+    if (e.weightBySetKg) out.weightBySetKg = e.weightBySetKg;
+    if (e.metric) out.metric = e.metric;
+    if (e.durationBySetSeconds) out.durationBySetSeconds = e.durationBySetSeconds;
+    if (typeof e.durationSeconds === "number") {
+      out.durationSeconds = e.durationSeconds;
+    }
+    return out;
+  });
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// getPreviousSessionForClient — "ANTERIOR" column (most-recent perf/exercise)
+// ───────────────────────────────────────────────────────────────────────────
+export async function getPreviousSessionForClient(
+  clientId: string,
+): Promise<PreviousSessionMap> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+
+  // Most-recent completed logs for this client (bounded). Filter by trainer
+  // in memory — the trainer-of-record is denormalized on every log.
+  const snap = await db
+    .collection(LOGS)
+    .where("clientId", "==", clientId)
+    .where("status", "==", "completed")
+    .orderBy("completedAt", "desc")
+    .limit(HISTORY_LIMIT)
+    .get();
+
+  const map: PreviousSessionMap = {};
+  for (const doc of snap.docs) {
+    const data = doc.data() as Record<string, unknown>;
+    if (data.trainerId !== trainer.uid) continue;
+    const sets = Array.isArray(data.sets)
+      ? (data.sets as Array<Record<string, unknown>>)
+      : [];
+    // Logs are newest-first; first time we see an exercise wins. Within a log
+    // keep the heaviest working set as the representative "last time".
+    for (const raw of sets) {
+      if (raw.is_warmup === true) continue;
+      const exerciseId = String(raw.exerciseId ?? "");
+      if (!exerciseId || map[exerciseId]) continue;
+      // find heaviest set for this exercise in this (most recent) log
+      const sameExercise = sets.filter(
+        (s) => s.exerciseId === exerciseId && s.is_warmup !== true,
+      );
+      const best = sameExercise.reduce((acc, s) =>
+        num(s.weight_kg, 0) > num(acc.weight_kg, 0) ? s : acc,
+      );
+      map[exerciseId] = {
+        weightKg: num(best.weight_kg, 0),
+        reps: num(best.reps, 0),
+        durationSeconds:
+          typeof best.duration_seconds === "number"
+            ? best.duration_seconds
+            : null,
+      };
+    }
+  }
+  return map;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// client_exercise_notes (#7) — coach's private per-client per-exercise note
+// ───────────────────────────────────────────────────────────────────────────
+function noteDocId(trainerId: string, clientId: string, exerciseId: string) {
+  return `${trainerId}_${clientId}_${exerciseId}`;
+}
+
+export async function getClientExerciseNote(
+  input: GetClientExerciseNoteInput,
+): Promise<{ note: string }> {
+  const trainer = await getCurrentTrainer();
+  const { clientId, exerciseId } = getClientExerciseNoteSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(NOTES)
+    .doc(noteDocId(trainer.uid, clientId, exerciseId))
+    .get();
+  const note = snap.exists ? String((snap.data() as { note?: unknown }).note ?? "") : "";
+  return { note };
+}
+
+export async function setClientExerciseNote(
+  input: SetClientExerciseNoteInput,
+): Promise<{ note: string }> {
+  const trainer = await getCurrentTrainer();
+  const { clientId, exerciseId, note } = setClientExerciseNoteSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const ref = db.collection(NOTES).doc(noteDocId(trainer.uid, clientId, exerciseId));
+  const trimmed = note.trim();
+
+  if (trimmed.length === 0) {
+    await ref.delete().catch(() => {
+      /* deleting a non-existent note is fine */
+    });
+    return { note: "" };
+  }
+
+  await ref.set(
+    {
+      trainerId: trainer.uid,
+      clientId,
+      exerciseId,
+      note: trimmed,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  return { note: trimmed };
+}

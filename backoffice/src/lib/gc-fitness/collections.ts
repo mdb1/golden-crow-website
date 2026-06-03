@@ -130,6 +130,17 @@ export const FirestoreCollections = {
    * Immutable operator audit trail for admin actions (dry-run + execute).
    */
   adminOperations: "admin_operations",
+
+  /**
+   * Coach's private per-client per-exercise note (backoffice-live-workout #7).
+   * Deterministic doc id `${trainerId}_${clientId}_${exerciseId}`. Written
+   * EXCLUSIVELY by the backoffice via the Admin SDK (the firestore.rules block
+   * denies all client-SDK writes); read by trainer-of-record + the assigned
+   * client (deferred iOS surfacing). The Swift twin constant is added when the
+   * iOS read surface ships (same lag pattern as `workoutLogs`, which reached
+   * this TS twin in P11 long after Collections.swift).
+   */
+  clientExerciseNotes: "client_exercise_notes",
 } as const;
 
 /**
