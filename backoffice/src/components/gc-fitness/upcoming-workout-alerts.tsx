@@ -11,13 +11,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Play, Video } from "lucide-react";
+import { Bell, Pause, Play, Video } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   listUpcomingScheduledWorkouts,
   type UpcomingWorkout,
 } from "@/lib/gc-fitness/live-workout-actions";
+import { useActiveWorkoutSummaries } from "@/lib/gc-fitness/live-workout-listener";
 
 const THRESHOLDS = [30, 10, 1] as const;
 /** Show a card once the workout is within this many minutes. */
@@ -67,6 +68,7 @@ export function UpcomingWorkoutAlerts() {
     refetchOnWindowFocus: true,
     staleTime: 20_000,
   });
+  const activeWorkoutsQuery = useActiveWorkoutSummaries(true);
 
   const [now, setNow] = useState(() => Date.now());
   const [permission, setPermission] = useState<NotificationPermission>("default");
@@ -116,6 +118,9 @@ export function UpcomingWorkoutAlerts() {
   const visible = items.filter(
     (i) => (i.scheduledEpochMs - now) / 60_000 <= VISIBLE_WITHIN_MIN,
   );
+  const activeByAssignmentId = new Map(
+    (activeWorkoutsQuery.data ?? []).map((item) => [item.assignmentId, item]),
+  );
 
   if (visible.length === 0 && permission === "granted") return null;
 
@@ -147,7 +152,12 @@ export function UpcomingWorkoutAlerts() {
       ) : (
         <ul className="space-y-2">
           {visible.map((item) => (
-            <UpcomingRow key={item.assignmentId} item={item} now={now} />
+            <UpcomingRow
+              key={item.assignmentId}
+              item={item}
+              now={now}
+              active={activeByAssignmentId.get(item.assignmentId) ?? null}
+            />
           ))}
         </ul>
       )}
@@ -155,21 +165,44 @@ export function UpcomingWorkoutAlerts() {
   );
 }
 
-function UpcomingRow({ item, now }: { item: UpcomingWorkout; now: number }) {
+function UpcomingRow({
+  item,
+  now,
+  active,
+}: {
+  item: UpcomingWorkout;
+  now: number;
+  active: { assignmentId: string; clientId: string } | null;
+}) {
   const minutes = (item.scheduledEpochMs - now) / 60_000;
   const imminent = minutes <= 10;
+  const started = active !== null;
   return (
     <li
       className={`flex items-center gap-3 rounded-lg border p-3 ${
-        imminent ? "border-amber-500/40 bg-amber-500/5" : "border-border/60"
+        started
+          ? "border-sky-500/40 bg-sky-500/5"
+          : imminent
+            ? "border-amber-500/40 bg-amber-500/5"
+            : "border-border/60"
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
-          {item.clientName} · {item.workoutName}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium">
+            {item.clientName} · {item.workoutName}
+          </p>
+          {started ? (
+            <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+              En curso
+            </span>
+          ) : null}
+        </div>
         <p className="text-xs text-muted-foreground">
-          {item.scheduledTime} · {countdownLabel(minutes)}
+          {item.scheduledTime} ·{" "}
+          {started
+            ? "ya iniciado"
+            : countdownLabel(minutes)}
         </p>
         {item.meetingNotes ? (
           <span className="mt-1 inline-flex items-center gap-1 text-xs text-sky-600">
@@ -193,8 +226,8 @@ function UpcomingRow({ item, now }: { item: UpcomingWorkout; now: number }) {
         <Link
           href={`/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`}
         >
-          <Play className="h-3.5 w-3.5" />
-          Iniciar
+          {started ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          {started ? "Seguir" : "Iniciar"}
         </Link>
       </Button>
     </li>
