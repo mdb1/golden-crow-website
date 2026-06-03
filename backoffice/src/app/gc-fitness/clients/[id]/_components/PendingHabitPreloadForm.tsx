@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  type EndDatePresetMonths,
+} from "@/lib/gc-fitness/end-date-presets";
 
 // Habits are binary-only (yes/no) now.
 type HabitScheduleType = "one-time" | "recurring";
@@ -42,15 +47,35 @@ export function PendingHabitPreloadForm({
   const [scheduleType, setScheduleType] = useState<HabitScheduleType>("recurring");
   const [scheduleCadence, setScheduleCadence] = useState<HabitCadence>("daily");
   const [monthDays, setMonthDays] = useState<number[]>([1]);
+  const [startsOn, setStartsOn] = useState(() => todayCivilDate());
+  const [endsOn, setEndsOn] = useState(() => addCivilMonths(todayCivilDate(), 3));
+  const [selectedEndPresetMonths, setSelectedEndPresetMonths] =
+    useState<EndDatePresetMonths>(3);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const startsOnDefault = useMemo(() => todayCivilDate(), []);
   const templateMode = templateId.length > 0;
   const showCadence = scheduleType === "recurring";
   const showWeekdays = showCadence && scheduleCadence === "weekly";
   const showMonthDay = showCadence && scheduleCadence === "monthly";
 
+  useEffect(() => {
+    setEndsOn(addCivilMonths(startsOn, selectedEndPresetMonths));
+  }, [selectedEndPresetMonths, startsOn]);
+
+  async function handleSubmit(formData: FormData) {
+    await submitAction(formData);
+    setTemplateId("");
+    setScheduleType("recurring");
+    setScheduleCadence("daily");
+    setMonthDays([1]);
+    setStartsOn(todayCivilDate());
+    setEndsOn(addCivilMonths(todayCivilDate(), 3));
+    setSelectedEndPresetMonths(3);
+    formRef.current?.reset();
+  }
+
   return (
-    <form action={submitAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={handleSubmit} className="flex flex-col gap-4">
       <div className="grid gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Hábito existente (opcional)</span>
@@ -111,18 +136,46 @@ export function PendingHabitPreloadForm({
             <input
               type="date"
               name="startsOn"
-              defaultValue={startsOnDefault}
+              value={startsOn}
+              onChange={(event) => setStartsOn(event.target.value)}
               className="rounded border bg-background px-3 py-2 text-sm"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-2 text-sm">
             <span className="font-medium">Fin (opcional)</span>
+            <div className="flex flex-wrap gap-2">
+              {END_DATE_PRESET_MONTHS.map((months) => {
+                const active =
+                  selectedEndPresetMonths === months &&
+                  endsOn === addCivilMonths(startsOn, months);
+                return (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => {
+                      setSelectedEndPresetMonths(months);
+                      setEndsOn(addCivilMonths(startsOn, months));
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {months} mes{months === 1 ? "" : "es"}
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="date"
               name="endsOn"
+              value={endsOn}
+              onChange={(event) => setEndsOn(event.target.value)}
               className="rounded border bg-background px-3 py-2 text-sm"
             />
-          </label>
+          </div>
           {showCadence ? (
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Cadencia</span>

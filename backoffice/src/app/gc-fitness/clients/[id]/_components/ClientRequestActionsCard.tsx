@@ -3,10 +3,8 @@ import { revalidatePath } from "next/cache";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  getClientRequestStatus,
-  runClientRequest,
-} from "@/lib/gc-fitness/client-request-actions";
+import { runClientRequest } from "@/lib/gc-fitness/client-request-actions";
+import { getClientRequestStatus } from "@/lib/gc-fitness/client-request-state";
 
 type RequestState = {
   statusText: string;

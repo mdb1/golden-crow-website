@@ -1,4 +1,7 @@
-import { CLIENT_REQUEST_TTL_MS, getClientRequestStatus } from "../client-request-actions";
+import {
+  CLIENT_REQUEST_TTL_MS,
+  getClientRequestStatus,
+} from "../client-request-state";
 
 describe("client-request-actions", () => {
   const now = new Date("2026-06-03T15:00:00.000Z");
