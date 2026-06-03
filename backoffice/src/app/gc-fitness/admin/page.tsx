@@ -247,6 +247,18 @@ export default async function AdminPage({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Data hygiene</CardTitle>
+          <CardDescription>Scan for orphaned users, chats, images, workouts and other suspicious records.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href="/gc-fitness/admin/hygiene">Open hygiene dashboard</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card className="border-destructive/35">
         <CardHeader>
           <CardTitle className="text-destructive">Delete coach (cascade)</CardTitle>
