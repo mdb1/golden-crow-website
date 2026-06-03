@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { groupIntoSupersetBlocks } from "@/lib/gc-fitness/live-workout-supersets";
 import { usePreviousSessionForClient } from "@/lib/gc-fitness/live-workout-listener";
 
+import { CancelWorkoutDialog } from "./cancel-workout-dialog";
 import { FinalizeDialog, type FinalizeMode } from "./finalize-dialog";
 import { RestTimerOverlay } from "./rest-timer-overlay";
 import { SessionExerciseCard } from "./session-exercise-card";
@@ -62,6 +63,7 @@ export function ActiveWorkoutSession({
   const timer = useRestTimer();
   const [finishing, setFinishing] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const blocks = useMemo(
     () => groupIntoSupersetBlocks(live.exercises),
@@ -105,20 +107,27 @@ export function ActiveWorkoutSession({
     });
   }, [live, restDecision, timer]);
 
-  async function handleConfirmFinish(mode: FinalizeMode, notes: string | null) {
+  async function finishWorkout(
+    mode: FinalizeMode,
+    notes: string | null,
+    close: () => void,
+  ) {
     setFinishing(true);
-    const res = await live.finalize({ mode, notes });
-    setFinishing(false);
-    if (res) {
-      setFinalizeOpen(false);
-      toast.success(
-        res.futureUpdated > 0
-          ? `Entrenamiento finalizado · ${res.futureUpdated} futuro${
-              res.futureUpdated === 1 ? "" : "s"
-            } actualizado${res.futureUpdated === 1 ? "" : "s"}`
-          : "Entrenamiento finalizado",
-      );
-      router.push(`/gc-fitness/clients/${clientId}`);
+    try {
+      const res = await live.finalize({ mode, notes });
+      if (res) {
+        close();
+        toast.success(
+          res.futureUpdated > 0
+            ? `Entrenamiento finalizado · ${res.futureUpdated} futuro${
+                res.futureUpdated === 1 ? "" : "s"
+              } actualizado${res.futureUpdated === 1 ? "" : "s"}`
+            : "Entrenamiento finalizado",
+        );
+        router.push(`/gc-fitness/clients/${clientId}`);
+      }
+    } finally {
+      setFinishing(false);
     }
   }
 
@@ -180,7 +189,7 @@ export function ActiveWorkoutSession({
           variant="ghost"
           size="icon"
           aria-label="Cerrar"
-          onClick={() => router.back()}
+          onClick={() => setCancelOpen(true)}
         >
           <X className="h-5 w-5" />
         </Button>
@@ -254,7 +263,7 @@ export function ActiveWorkoutSession({
       {/* Finalize bar */}
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-border/60 bg-background/90 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => router.back()}>
+          <Button variant="outline" className="flex-1" onClick={() => setCancelOpen(true)}>
             Cancelar
           </Button>
           <Button
@@ -275,7 +284,14 @@ export function ActiveWorkoutSession({
         assignmentId={assignmentId}
         hasSeries={Boolean(session.seriesId)}
         finishing={finishing}
-        onConfirm={handleConfirmFinish}
+        onConfirm={(mode, notes) => finishWorkout(mode, notes, () => setFinalizeOpen(false))}
+      />
+
+      <CancelWorkoutDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        pending={finishing}
+        onConfirm={() => finishWorkout("session", null, () => setCancelOpen(false))}
       />
     </div>
   );
