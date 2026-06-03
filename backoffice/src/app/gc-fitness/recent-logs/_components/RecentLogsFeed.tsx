@@ -170,6 +170,9 @@ export function RecentLogsFeed({
   // heading so "Hoy"/"Ayer"/"Jun 5" is shown once per day instead of repeated
   // on every client card.
   const daySections = useMemo(() => groupGroupsByDay(groups), [groups]);
+  // Chronological view: flat rows grouped under day headings so the date moves
+  // out of every row into a single per-day header.
+  const chronoSections = useMemo(() => groupRowsByDayFlat(filtered), [filtered]);
   // Only render days that are fully loaded — hide the trailing (oldest) day
   // while more pages exist so a client's group never grows from "2 acciones"
   // to "4 acciones" after the user has seen it (260602 bug).
@@ -287,7 +290,16 @@ export function RecentLogsFeed({
           </Card>
         ) : null}
         {viewMode === "chronological"
-          ? filtered.map((row) => <RecentLogItem key={row.id} row={row} router={router} t={t} />)
+          ? chronoSections.map((section) => (
+            <div key={section.key} className="flex flex-col gap-2">
+              <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                {section.label}
+              </h3>
+              {section.rows.map((row) => (
+                <RecentLogItem key={row.id} row={row} router={router} t={t} />
+              ))}
+            </div>
+          ))
           : sectionsToRender.map((section) => (
           <div key={section.key} className="flex flex-col gap-2">
             <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -499,7 +511,7 @@ function RecentLogItem({
           ) : null}
         </div>
         <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-          {row.clientName} · {formatDateTime(row.eventAt)}
+          {row.clientName} · {formatTime(row.eventAt)}
           {row.detail ? ` · ${row.detail}` : ""}
         </p>
       </div>
@@ -621,15 +633,20 @@ function formatDayHeading(iso: string): string {
   });
 }
 
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function groupRowsByDayFlat(
+  rows: RecentLogRow[],
+): Array<{ key: string; label: string; rows: RecentLogRow[] }> {
+  const map = new Map<string, { key: string; label: string; rows: RecentLogRow[] }>();
+  for (const row of rows) {
+    const key = dayKeyFromIso(row.eventAt);
+    const existing = map.get(key);
+    if (existing) {
+      existing.rows.push(row);
+      continue;
+    }
+    map.set(key, { key, label: formatDayHeading(row.eventAt), rows: [row] });
+  }
+  return Array.from(map.values());
 }
 
 // Render a "YYYY-MM-DD" civil date as a short day label ("May 29" / "29 may").
