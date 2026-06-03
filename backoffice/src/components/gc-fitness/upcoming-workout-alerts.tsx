@@ -199,7 +199,7 @@ function UpcomingRow({
         </div>
         <p className="text-xs text-muted-foreground">
           {item.isToday ? "Hoy" : item.scheduledTime} ·{" "}
-          {started ? "ya iniciado" : countdownLabel(minutes)}
+          {started ? "en curso" : countdownLabel(minutes)}
         </p>
         {item.meetingNotes ? (
           <span className="mt-1 inline-flex items-center gap-1 text-xs text-sky-600">
@@ -224,7 +224,7 @@ function UpcomingRow({
           href={`/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`}
         >
           {started ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-          {started ? "Seguir" : "Iniciar"}
+          {started ? "Continuar" : "Iniciar"}
         </Link>
       </Button>
     </li>

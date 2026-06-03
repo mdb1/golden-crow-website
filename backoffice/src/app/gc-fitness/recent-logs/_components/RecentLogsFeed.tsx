@@ -93,6 +93,18 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
     "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
 };
 
+const UTC_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+const UTC_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "UTC",
+});
+
 export function RecentLogsFeed({
   logs,
   clients,
@@ -361,34 +373,25 @@ function RecentLogItem({
 function formatTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return UTC_TIME_FORMAT.format(date);
 }
 
 function dayKeyFromIso(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return date.toISOString().slice(0, 10);
 }
 
 function formatDayHeading(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
   const key = dayKeyFromIso(iso);
-  if (key === dayKeyFromIso(today.toISOString())) return "Hoy";
-  if (key === dayKeyFromIso(yesterday.toISOString())) return "Ayer";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  const todayKey = dayKeyFromIso(new Date().toISOString());
+  const yesterday = new Date(Date.now() - 86_400_000);
+  const yesterdayKey = dayKeyFromIso(yesterday.toISOString());
+  if (key === todayKey) return "Hoy";
+  if (key === yesterdayKey) return "Ayer";
+  return UTC_DATE_FORMAT.format(date);
 }
 
 function groupRowsByDayFlat(
@@ -414,10 +417,7 @@ function groupRowsByDayFlat(
 function formatCivilDate(civil: string): string {
   const [y, m, d] = civil.split("-").map((n) => Number.parseInt(n, 10));
   if (!y || !m || !d) return civil;
-  const date = new Date(y, m - 1, d);
+  const date = new Date(Date.UTC(y, m - 1, d));
   if (Number.isNaN(date.getTime())) return civil;
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  return UTC_DATE_FORMAT.format(date);
 }
