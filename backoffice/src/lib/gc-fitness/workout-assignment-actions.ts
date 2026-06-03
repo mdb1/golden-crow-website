@@ -1395,6 +1395,7 @@ const editAssignmentExercisesSchema = z.object({
         repsBySet: z.array(z.number().int().min(0).max(50)).min(1).max(10),
         weightBySetKg: z.array(z.number().min(0).max(500)).max(10),
         rest_seconds: z.number().int().min(0).max(600),
+        transition_rest_seconds: z.number().int().min(0).max(600).optional(),
         notes: z.string().max(500),
       }),
     )
@@ -1436,6 +1437,9 @@ export async function editAssignmentExercises(
         repsBySet: edit.repsBySet,
         weightBySetKg: edit.weightBySetKg, // [] = bodyweight / no load
         rest_seconds: edit.rest_seconds,
+        ...(edit.transition_rest_seconds !== undefined
+          ? { transition_rest_seconds: edit.transition_rest_seconds }
+          : {}),
         notes: edit.notes,
       };
     }

@@ -204,6 +204,7 @@ export interface AssignmentExercise {
   sets: number;
   reps: number;
   rest_seconds: number;
+  transition_rest_seconds: number;
   notes: string;
   repsBySet: number[];
   weightBySetKg: number[];
@@ -342,6 +343,11 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
         rest_seconds:
           typeof ex.rest_seconds === "number" && Number.isFinite(ex.rest_seconds)
             ? ex.rest_seconds
+            : 60,
+        transition_rest_seconds:
+          typeof ex.transition_rest_seconds === "number" &&
+          Number.isFinite(ex.transition_rest_seconds)
+            ? ex.transition_rest_seconds
             : 60,
         notes: typeof ex.notes === "string" ? ex.notes : "",
         repsBySet: Array.isArray(ex.repsBySet)
