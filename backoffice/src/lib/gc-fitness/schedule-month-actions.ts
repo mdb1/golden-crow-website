@@ -99,8 +99,11 @@ function statusFromAssignment(
   todayCivil: string,
 ): MonthWorkoutChip["status"] {
   const status = typeof rawStatus === "string" ? rawStatus : "scheduled";
-  if (status === "completed" || status === "started" || status === "missed") {
+  if (status === "completed" || status === "missed") {
     return status;
+  }
+  if (status === "started") {
+    return "scheduled";
   }
   // scheduled, but in the past → missed (trainer-side visual). We don't
   // mutate the doc here — the calendar's "missed" badge is computed.
