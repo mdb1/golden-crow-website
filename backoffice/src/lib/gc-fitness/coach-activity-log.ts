@@ -27,6 +27,11 @@ export type CoachActivityLogKind =
   | "workout_template"
   | "exercise"
   | "workout_assignment"
+  // Emitted by the iOS-facing `editAssignmentRests` Cloud Function when a
+  // client edits the rest times of an assigned workout (written from the
+  // functions repo, not the backoffice). Listed here so the kind union stays
+  // consistent across both writers.
+  | "workout_rest_edited"
   | "habit_assignment"
   | "note"
   | "progress_photo_request"

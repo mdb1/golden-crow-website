@@ -11,6 +11,7 @@ import {
   NotebookPen,
   PersonStanding,
   Scale,
+  Timer,
   Trash2,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ import {
 const TYPE_OPTIONS: Array<[string, string]> = [
   ["all", "Toda la actividad"],
   ["workout_assignment", "Asignaciones"],
+  ["workout_rest_edited", "Descansos editados"],
   ["habit_assignment", "Hábitos"],
   ["progress_photo_request", "Fotos pedidas"],
   ["weight_request", "Peso pedido"],
@@ -53,6 +55,7 @@ const KIND_LABEL: Record<CoachActivityKind, string> = {
   workout_template: "Workout",
   exercise: "Ejercicio",
   workout_assignment: "Asignación",
+  workout_rest_edited: "Descanso",
   habit_assignment: "Hábito",
   progress_photo_request: "Fotos",
   weight_request: "Peso",
@@ -64,6 +67,7 @@ const KIND_ICON = {
   workout_template: Dumbbell,
   exercise: PersonStanding,
   workout_assignment: ClipboardList,
+  workout_rest_edited: Timer,
   habit_assignment: ListChecks,
   progress_photo_request: Camera,
   weight_request: Scale,
@@ -79,6 +83,8 @@ const KIND_TONE: Record<CoachActivityKind, string> = {
     "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
   workout_assignment:
     "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
+  workout_rest_edited:
+    "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300",
   habit_assignment:
     "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
   progress_photo_request:

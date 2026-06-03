@@ -9,6 +9,7 @@ export type CoachActivityKind =
   | "workout_template"
   | "exercise"
   | "workout_assignment"
+  | "workout_rest_edited"
   | "habit_assignment"
   | "note"
   | "progress_photo_request"
