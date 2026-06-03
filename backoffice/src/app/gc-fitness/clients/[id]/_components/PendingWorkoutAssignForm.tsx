@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   addCivilMonths,
   END_DATE_PRESET_MONTHS,
+  localDateToCivil,
   type EndDatePresetMonths,
 } from "@/lib/gc-fitness/end-date-presets";
 
@@ -29,13 +30,17 @@ const WEEKDAYS = [
   { value: 0, label: "Dom" },
 ] as const;
 
+function todayCivilDate(): string {
+  return localDateToCivil(new Date());
+}
+
 export function PendingWorkoutAssignForm({
   templates,
   submitAction,
 }: PendingWorkoutAssignFormProps) {
   const [mode, setMode] = useState<AssignMode>("once");
-  const [scheduledFor, setScheduledFor] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [scheduledFor, setScheduledFor] = useState(() => todayCivilDate());
+  const [endDate, setEndDate] = useState(() => addCivilMonths(todayCivilDate(), 3));
   const [selectedEndPresetMonths, setSelectedEndPresetMonths] =
     useState<EndDatePresetMonths>(3);
   const formRef = useRef<HTMLFormElement>(null);
@@ -60,8 +65,8 @@ export function PendingWorkoutAssignForm({
   async function handleSubmit(formData: FormData) {
     await submitAction(formData);
     setMode("once");
-    setScheduledFor("");
-    setEndDate("");
+    setScheduledFor(todayCivilDate());
+    setEndDate(addCivilMonths(todayCivilDate(), 3));
     setSelectedEndPresetMonths(3);
     formRef.current?.reset();
   }
