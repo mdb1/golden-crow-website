@@ -243,9 +243,17 @@ export function ActiveWorkoutSession({
             <button
               type="button"
               onClick={timer.sheetOpen ? timer.minimize : timer.expand}
-              className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-300"
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                timer.isPaused
+                  ? "border-slate-400/40 bg-slate-500/10 text-slate-700 hover:bg-slate-500/15 dark:text-slate-300"
+                  : "border-amber-400/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
+              }`}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  timer.isPaused ? "bg-slate-500" : "bg-amber-500"
+                }`}
+              />
               <Timer className="h-3.5 w-3.5" />
               <span className="font-mono tabular-nums">
                 {formatMmss(timer.remainingSeconds)}
@@ -269,9 +277,21 @@ export function ActiveWorkoutSession({
           <div className="mt-3 overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-500/12 via-amber-400/8 to-background px-3 py-3 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Timer className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <Timer
+                  className={`h-4 w-4 ${
+                    timer.isPaused
+                      ? "text-slate-500 dark:text-slate-300"
+                      : "text-amber-600 dark:text-amber-300"
+                  }`}
+                />
                 <div>
-                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                  <p
+                    className={`text-sm font-semibold ${
+                      timer.isPaused
+                        ? "text-slate-700 dark:text-slate-300"
+                        : "text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
                     Descanso en curso
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -282,18 +302,34 @@ export function ActiveWorkoutSession({
               <button
                 type="button"
                 onClick={timer.sheetOpen ? timer.minimize : timer.expand}
-                className="rounded-full border border-amber-500/30 bg-background/80 px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm transition-colors hover:bg-background dark:text-amber-300"
+                className={`rounded-full border bg-background/80 px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-background ${
+                  timer.isPaused
+                    ? "border-slate-500/30 text-slate-700 dark:text-slate-300"
+                    : "border-amber-500/30 text-amber-700 dark:text-amber-300"
+                }`}
               >
                 {timer.sheetOpen ? "Minimizar" : "Abrir"}
               </button>
             </div>
             <div className="mt-3 flex items-end justify-between gap-4">
-              <div className="font-mono text-4xl font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+              <div
+                className={`font-mono text-4xl font-semibold tabular-nums ${
+                  timer.isPaused
+                    ? "text-slate-700 dark:text-slate-300"
+                    : "text-amber-700 dark:text-amber-300"
+                }`}
+              >
                 {Math.floor(timer.remainingSeconds / 60)}:
                 {String(timer.remainingSeconds % 60).padStart(2, "0")}
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
+                    timer.isPaused
+                      ? "bg-slate-500/15 text-slate-700 dark:text-slate-300"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  }`}
+                >
                   {timer.isPaused ? "Pausado" : "Corriendo"}
                 </span>
                 <button
