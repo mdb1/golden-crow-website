@@ -176,6 +176,10 @@ async function buildSessionExercises(
         sets: num(e.sets, 1),
         reps: num(e.reps, 0),
         restSeconds: num(e.restSeconds ?? e.rest_seconds, 60),
+        transitionRestSeconds: num(
+          e.transitionRestSeconds ?? e.transition_rest_seconds,
+          60,
+        ),
         notes: typeof e.notes === "string" ? e.notes : null,
         order: num(e.order, i + 1),
         supersetGroup:

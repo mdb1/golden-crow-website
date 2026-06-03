@@ -54,6 +54,8 @@ export interface SessionExercise {
   reps: number;
   /** Rest between sets, seconds. */
   restSeconds: number;
+  /** Rest between exercises / transition fallback, seconds. */
+  transitionRestSeconds?: number | null;
   /** Coach's template note (frozen on the snapshot), if any. */
   notes?: string | null;
   /** 1-based order. */

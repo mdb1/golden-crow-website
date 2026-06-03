@@ -57,6 +57,19 @@ function formatMmss(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function resolveRestSeconds(
+  exercise: SessionExercise,
+  rowWeightKg: number | null | undefined,
+): number {
+  const base =
+    exercise.restSeconds > 0
+      ? exercise.restSeconds
+      : exercise.transitionRestSeconds ?? 0;
+  if (base > 0) return base;
+  if (rowWeightKg === 0) return 60;
+  return 0;
+}
+
 export interface ActiveWorkoutSessionProps {
   clientId: string;
   assignmentId: string;
@@ -176,9 +189,14 @@ export function ActiveWorkoutSession({
         onToggleDone={(i) => {
           const becameDone = live.toggleDone(ex.exerciseId, i);
           const decision = restDecision[ex.exerciseId];
-          if (becameDone && decision?.rest && decision.seconds > 0) {
+          const row = live.rowsByExercise[ex.exerciseId]?.[i];
+          const restSeconds =
+            becameDone && decision?.rest
+              ? resolveRestSeconds(ex, row?.weightKg)
+              : 0;
+          if (restSeconds > 0) {
             setRestingExerciseId(ex.exerciseId);
-            timer.start(decision.seconds);
+            timer.start(restSeconds);
           }
         }}
         onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
