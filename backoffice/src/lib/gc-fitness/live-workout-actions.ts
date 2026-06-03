@@ -614,13 +614,15 @@ export async function getPreviousSessionForClient(
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
-  // Most-recent completed logs for this client (bounded). Filter by trainer
-  // in memory — the trainer-of-record is denormalized on every log.
+  // Most-recent completed logs for this client (bounded). Ordered by
+  // `startedAt` (NOT completedAt) to reuse the EXISTING composite index
+  // `(clientId ASC, status ASC, startedAt DESC)` — avoids requiring an index
+  // deploy. Filter by trainer in memory (trainer-of-record is denormalized).
   const snap = await db
     .collection(LOGS)
     .where("clientId", "==", clientId)
     .where("status", "==", "completed")
-    .orderBy("completedAt", "desc")
+    .orderBy("startedAt", "desc")
     .limit(HISTORY_LIMIT)
     .get();
 
