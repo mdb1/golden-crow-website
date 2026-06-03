@@ -13,6 +13,7 @@ import {
   editClientNote,
   updateClientNotes,
 } from "@/lib/gc-fitness/client-notes-actions";
+import { formatClientActivityDateTime } from "@/lib/gc-fitness/client-activity-time";
 
 interface ClientNoteEntryView {
   date: string;
@@ -22,6 +23,8 @@ interface ClientNoteEntryView {
 
 interface Props {
   clientId: string;
+  timezone: string;
+  todayCivil: string;
   initialNotes: string;
   initialUpdatedAt: string | null;
   initialEntries: ClientNoteEntryView[];
@@ -29,6 +32,8 @@ interface Props {
 
 export function ClientNotesCard({
   clientId,
+  timezone,
+  todayCivil,
   initialNotes,
   initialUpdatedAt,
   initialEntries,
@@ -36,7 +41,7 @@ export function ClientNotesCard({
   const t = useTranslations("clients.detail.notes");
   const [notes, setNotes] = useState("");
   const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
-  const [noteDate, setNoteDate] = useState(new Date().toISOString().slice(0, 10));
+  const [noteDate, setNoteDate] = useState(todayCivil);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [entries, setEntries] = useState(initialEntries);
@@ -151,6 +156,7 @@ export function ClientNotesCard({
                   key={`${entry.date}-${entry.createdAt ?? index}`}
                   clientId={clientId}
                   entry={entry}
+                  timezone={timezone}
                   variant="forDate"
                   onEdited={handleEdited}
                   onDeleted={handleDeleted}
@@ -173,6 +179,7 @@ export function ClientNotesCard({
                   key={`recent-${entry.date}-${entry.createdAt ?? index}`}
                   clientId={clientId}
                   entry={entry}
+                  timezone={timezone}
                   variant="recent"
                   onEdited={handleEdited}
                   onDeleted={handleDeleted}
@@ -189,12 +196,14 @@ export function ClientNotesCard({
 function EntryItem({
   clientId,
   entry,
+  timezone,
   variant,
   onEdited,
   onDeleted,
 }: {
   clientId: string;
   entry: ClientNoteEntryView;
+  timezone: string;
   variant: "forDate" | "recent";
   onEdited: (target: ClientNoteEntryView, newText: string) => void;
   onDeleted: (target: ClientNoteEntryView) => void;
@@ -223,7 +232,7 @@ function EntryItem({
         <div className="flex items-center gap-2">
           <span>
             {entry.createdAt
-              ? new Date(entry.createdAt).toLocaleString()
+              ? formatClientActivityDateTime(entry.createdAt, timezone)
               : ""}
           </span>
           {canMutate && !editing ? (

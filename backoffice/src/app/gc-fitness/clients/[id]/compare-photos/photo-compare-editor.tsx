@@ -4,12 +4,19 @@ import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
+import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
 
 type Angle = "front" | "side" | "back";
 type Transform = { scale: number; x: number; y: number };
 type CompareMode = "side-by-side" | "slider";
 
-export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRow[] }) {
+export function ProgressPhotoCompareEditor({
+  photos,
+  timezone,
+}: {
+  photos: ProgressPhotoRow[];
+  timezone: string;
+}) {
   const params = useSearchParams();
   const initialAngle = (params.get("angle") as Angle) || "front";
   const [angle, setAngle] = useState<Angle>(initialAngle);
@@ -71,10 +78,10 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
           <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option>
         </select>
         <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => setBeforeId(e.target.value)}>
-          <option value="">Before</option>{angled.map((p) => <option key={p.id} value={p.id}>{p.checkInDate ?? p.id}</option>)}
+          <option value="">Before</option>{angled.map((p) => <option key={p.id} value={p.id}>{p.checkInDate ?? dateFromRow(p, timezone)}</option>)}
         </select>
         <select className="h-10 rounded-md border px-2" value={afterId} onChange={(e) => setAfterId(e.target.value)}>
-          <option value="">After</option>{angled.map((p) => <option key={p.id} value={p.id}>{p.checkInDate ?? p.id}</option>)}
+          <option value="">After</option>{angled.map((p) => <option key={p.id} value={p.id}>{p.checkInDate ?? dateFromRow(p, timezone)}</option>)}
         </select>
       </div>
       {before?.url && after?.url ? (
@@ -110,9 +117,10 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
                       afterT,
                       cssWidth: rect.width,
                       cssHeight: rect.height,
+                      timezone,
                     });
                   } else {
-                    await exportSideBySideJpg({ before, after });
+                    await exportSideBySideJpg({ before, after, timezone });
                   }
                 } catch (err) {
                   // eslint-disable-next-line no-console
@@ -146,8 +154,16 @@ export function ProgressPhotoCompareEditor({ photos }: { photos: ProgressPhotoRo
           ) : (
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <CompareStaticImage url={before.url} alt="before" date={before.checkInDate ?? dateFromRow(before)} />
-                <CompareStaticImage url={after.url} alt="after" date={after.checkInDate ?? dateFromRow(after)} />
+                <CompareStaticImage
+                  url={before.url}
+                  alt="before"
+                  date={before.checkInDate ?? dateFromRow(before, timezone)}
+                />
+                <CompareStaticImage
+                  url={after.url}
+                  alt="after"
+                  date={after.checkInDate ?? dateFromRow(after, timezone)}
+                />
               </div>
             </div>
           )}
@@ -171,17 +187,19 @@ function CompareStaticImage({ url, alt, date }: { url: string; alt: string; date
   );
 }
 
-function dateFromRow(photo: ProgressPhotoRow): string {
+function dateFromRow(photo: ProgressPhotoRow, timezone: string): string {
   const source = photo.takenAt ?? photo.createdAt;
-  return source ? new Date(source).toLocaleDateString() : photo.id;
+  return source ? formatClientActivityDate(source, timezone) : photo.id;
 }
 
 async function exportSideBySideJpg({
   before,
   after,
+  timezone,
 }: {
   before: ProgressPhotoRow;
   after: ProgressPhotoRow;
+  timezone: string;
 }) {
   if (!before.url || !after.url) return;
 
@@ -212,7 +230,7 @@ async function exportSideBySideJpg({
     y: outerMargin + gap,
     width: panelWidth,
     height: panelHeight,
-    label: before.checkInDate ?? dateFromRow(before),
+    label: before.checkInDate ?? dateFromRow(before, timezone),
     title: "Before",
     labelHeight,
     radius: cornerRadius,
@@ -225,7 +243,7 @@ async function exportSideBySideJpg({
     y: outerMargin + gap,
     width: panelWidth,
     height: panelHeight,
-    label: after.checkInDate ?? dateFromRow(after),
+    label: after.checkInDate ?? dateFromRow(after, timezone),
     title: "After",
     labelHeight,
     radius: cornerRadius,
@@ -254,6 +272,7 @@ async function exportSliderSnapshotJpg({
   afterT,
   cssWidth,
   cssHeight,
+  timezone,
 }: {
   before: ProgressPhotoRow;
   after: ProgressPhotoRow;
@@ -262,6 +281,7 @@ async function exportSliderSnapshotJpg({
   afterT: Transform;
   cssWidth: number;
   cssHeight: number;
+  timezone: string;
 }) {
   if (!before.url || !after.url) return;
   if (cssWidth <= 0 || cssHeight <= 0) throw new Error("Empty slider bounds");
@@ -336,8 +356,8 @@ async function exportSliderSnapshotJpg({
   ctx.restore();
 
   // Bottom labels (Before — date | After — date) outside the rounded panel.
-  const beforeLabel = before.checkInDate ?? dateFromRow(before);
-  const afterLabel = after.checkInDate ?? dateFromRow(after);
+  const beforeLabel = before.checkInDate ?? dateFromRow(before, timezone);
+  const afterLabel = after.checkInDate ?? dateFromRow(after, timezone);
   ctx.fillStyle = "#111111";
   ctx.font = "700 54px system-ui, -apple-system, sans-serif";
   const labelY = panelY + panelH + 86;

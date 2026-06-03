@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 export async function ProgressPhotosWidget({
   photos,
   clientId,
+  timezone,
 }: {
   photos: ProgressPhotoRow[];
   clientId: string;
+  timezone: string;
 }) {
   const t = await getTranslations("clients.detail.photos");
   return (
@@ -37,7 +39,7 @@ export async function ProgressPhotosWidget({
               </Link>
             </Button>
           </div>
-          <ProgressPhotosGridClient photos={photos} />
+          <ProgressPhotosGridClient photos={photos} timezone={timezone} />
         </div>
       )}
     </section>

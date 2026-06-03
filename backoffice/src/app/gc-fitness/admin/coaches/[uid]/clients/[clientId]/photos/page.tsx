@@ -10,7 +10,9 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ProgressPhotoCompareEditor } from "@/app/gc-fitness/clients/[id]/compare-photos/photo-compare-editor";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +38,13 @@ export default async function AdminClientPhotosPage({
   } catch {
     notFound();
   }
+  const clientSnap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  const storedTimezone = clientSnap.get("timezone");
+  const timezone =
+    typeof storedTimezone === "string" && storedTimezone ? storedTimezone : "UTC";
 
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">
@@ -52,7 +61,7 @@ export default async function AdminClientPhotosPage({
         </Button>
       </div>
       {photos.length > 0 ? (
-        <ProgressPhotoCompareEditor photos={photos} />
+        <ProgressPhotoCompareEditor photos={photos} timezone={timezone} />
       ) : (
         <p className="text-sm text-muted-foreground">No progress photos yet.</p>
       )}

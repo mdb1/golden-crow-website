@@ -20,6 +20,10 @@ import {
   getClientDailyTimelineDay,
   type ClientDailyTimelineDay,
 } from "@/lib/gc-fitness/client-daily-timeline-actions";
+import {
+  formatClientActivityDate,
+  formatClientActivityDateTime,
+} from "@/lib/gc-fitness/client-activity-time";
 import { Button } from "@/components/ui/button";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 
@@ -28,11 +32,13 @@ export function ClientDailyTimeline({
   availableDates,
   initialDay,
   todayCivil,
+  timezone,
 }: {
   clientId: string;
   availableDates: string[];
   initialDay: ClientDailyTimelineDay;
   todayCivil: string;
+  timezone: string;
 }) {
   const t = useTranslations("clients.detail.timeline");
   const tCommon = useTranslations("common");
@@ -360,7 +366,7 @@ export function ClientDailyTimeline({
                           <span className="text-xs text-muted-foreground">
                             {photo.checkInDate ??
                               (photo.takenAt || photo.createdAt
-                                ? new Date(photo.takenAt ?? photo.createdAt ?? "").toLocaleDateString()
+                                ? formatClientActivityDate(photo.takenAt ?? photo.createdAt ?? null, timezone)
                                 : tCommon("noDate"))}
                           </span>
                         </div>
@@ -412,7 +418,9 @@ export function ClientDailyTimeline({
                   <div key={note.id} className="rounded-md bg-muted px-3 py-2 text-sm">
                     <p className="whitespace-pre-wrap">{note.body}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {note.createdAt ? new Date(note.createdAt).toLocaleString() : tCommon("emDash")}
+                      {note.createdAt
+                        ? formatClientActivityDateTime(note.createdAt, timezone)
+                        : tCommon("emDash")}
                     </p>
                   </div>
                 ))}

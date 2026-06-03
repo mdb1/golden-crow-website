@@ -27,10 +27,16 @@ export default async function ComparePhotosPage({
 
   const clientSnap = await gcFitnessFirestore().collection(FirestoreCollections.users).doc(id).get();
   if (!clientSnap.exists) notFound();
-  const client = clientSnap.data() as { coachId?: string; displayName?: string; email?: string };
+  const client = clientSnap.data() as {
+    coachId?: string;
+    displayName?: string;
+    email?: string;
+    timezone?: string;
+  };
   if (client.coachId !== trainer.uid) notFound();
 
   const photos = await listProgressPhotosForClient(id);
+  const timezone = client.timezone ?? "UTC";
 
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">
@@ -43,8 +49,7 @@ export default async function ComparePhotosPage({
           <Link href={`/gc-fitness/clients/${id}#progress-photos`}>Volver al perfil</Link>
         </Button>
       </div>
-      <ProgressPhotoCompareEditor photos={photos} />
+      <ProgressPhotoCompareEditor photos={photos} timezone={timezone} />
     </div>
   );
 }
-

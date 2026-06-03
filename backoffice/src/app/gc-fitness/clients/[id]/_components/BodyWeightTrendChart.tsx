@@ -24,6 +24,7 @@
 
 import { getTranslations } from "next-intl/server";
 
+import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { BodyWeightTrendChartClient } from "./BodyWeightTrendChartClient";
@@ -60,6 +61,7 @@ function toDate(v: unknown): Date | null {
 
 export async function BodyWeightTrendChart({
   clientId,
+  timezone,
 }: BodyWeightTrendChartProps) {
   const t = await getTranslations("clients.detail.bodyWeightChart");
   const db = gcFitnessFirestore();
@@ -90,7 +92,7 @@ export async function BodyWeightTrendChart({
       if (weight === null || !date) return null;
       if (!isPlausibleWeightKg(weight)) return null;
       if (date < thirtyDaysAgo) return null;
-      return { date: date.toISOString().slice(0, 10), weight };
+      return { date: civilDateFormat(date, timezone), weight };
     })
     .filter((p): p is WeightPoint => p !== null);
 

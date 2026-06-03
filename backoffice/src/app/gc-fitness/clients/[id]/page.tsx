@@ -28,6 +28,7 @@ import {
   getCurrentTrainer,
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -124,6 +125,9 @@ export default async function ClientDetailPage({
 
   const displayName = client.displayName ?? client.email ?? id;
   const timezone = client.timezone ?? "UTC";
+  // Contract: every client activity surface below reads this explicit IANA
+  // timezone. Leaf components must not infer UTC or the host timezone.
+  const todayCivil = civilDateToday(timezone);
   const [notes, progressPhotos, goals] = await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
@@ -161,7 +165,12 @@ export default async function ClientDetailPage({
         }
       />
 
-      <ClientSummaryCard clientId={id} clientName={displayName} goals={goals} />
+      <ClientSummaryCard
+        clientId={id}
+        clientName={displayName}
+        timezone={timezone}
+        goals={goals}
+      />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
@@ -173,7 +182,7 @@ export default async function ClientDetailPage({
         </Suspense>
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>
-          <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} />
+          <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} timezone={timezone} />
         </Suspense>
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("bodyWeight")} />}>
@@ -182,12 +191,14 @@ export default async function ClientDetailPage({
 
         <ClientNotesCard
           clientId={id}
+          timezone={timezone}
+          todayCivil={todayCivil}
           initialNotes={notes.notes}
           initialUpdatedAt={notes.updatedAt}
           initialEntries={notes.entries}
         />
 
-        <ProgressPhotosWidget photos={progressPhotos} clientId={id} />
+        <ProgressPhotosWidget photos={progressPhotos} clientId={id} timezone={timezone} />
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>
           <ClientRecentLogsWidget clientId={id} timezone={timezone} />

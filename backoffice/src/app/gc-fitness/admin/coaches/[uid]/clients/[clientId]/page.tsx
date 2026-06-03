@@ -116,7 +116,7 @@ export default async function AdminCoachClientPage({
         </CardHeader>
         <CardContent>
           {photos.length > 0 ? (
-            <ProgressPhotosGridClient photos={photos} />
+            <ProgressPhotosGridClient photos={photos} timezone={timezone} />
           ) : (
             <p className="text-sm text-muted-foreground">
               No progress photos yet.
