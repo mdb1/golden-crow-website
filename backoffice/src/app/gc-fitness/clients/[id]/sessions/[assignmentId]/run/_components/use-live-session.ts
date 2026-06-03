@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  cancelWorkoutSession,
   getActiveSessionForAssignment,
   finalizeWorkoutSession,
   startWorkoutSession,
@@ -137,6 +138,7 @@ export interface LiveSessionApi {
   onSetCompleted?: (ex: SessionExercise) => void;
   registerOnSetCompleted: (cb: (ex: SessionExercise) => void) => void;
   finalize: (args: FinalizeArgs) => Promise<{ futureUpdated: number } | null>;
+  cancel: () => Promise<boolean>;
 }
 
 export function useLiveSession(
@@ -430,6 +432,20 @@ export function useLiveSession(
     [session, rowsByExercise, exercises, deriveLoggedSets],
   );
 
+  const cancel = useCallback(async () => {
+    if (!session) return false;
+    setStatus("finishing");
+    try {
+      await cancelWorkoutSession({ logId: session.logId });
+      setStatus("finished");
+      return true;
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "No se pudo cancelar.");
+      setStatus("active");
+      return false;
+    }
+  }, [session]);
+
   const { doneCount, totalPlanned } = useMemo(() => {
     let done = 0;
     let total = 0;
@@ -460,6 +476,7 @@ export function useLiveSession(
     moveExercise,
     registerOnSetCompleted,
     finalize,
+    cancel,
   };
 }
 

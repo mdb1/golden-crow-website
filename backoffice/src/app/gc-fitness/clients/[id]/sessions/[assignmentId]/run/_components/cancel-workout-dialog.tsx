@@ -36,11 +36,12 @@ export function CancelWorkoutDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>¿Cancelar entrenamiento?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esto cerrará la sesión actual y guardará lo que ya cargaste.
+            Esto dejará la asignación como programada otra vez y cerrará la
+            sesión activa sin marcarla como finalizada.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Volver</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>Seguir editando</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -49,7 +50,7 @@ export function CancelWorkoutDialog({
             disabled={pending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {pending ? "Finalizando…" : "Finalizar entrenamiento"}
+            {pending ? "Cancelando…" : "Cancelar entrenamiento"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

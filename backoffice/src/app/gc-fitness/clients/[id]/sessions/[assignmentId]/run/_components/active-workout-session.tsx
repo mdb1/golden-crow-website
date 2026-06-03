@@ -10,12 +10,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Timer, Video, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { groupIntoSupersetBlocks } from "@/lib/gc-fitness/live-workout-supersets";
-import { usePreviousSessionForClient } from "@/lib/gc-fitness/live-workout-listener";
+import {
+  activeSessionKey,
+  activeWorkoutSummariesKey,
+  usePreviousSessionForClient,
+} from "@/lib/gc-fitness/live-workout-listener";
 
 import { CancelWorkoutDialog } from "./cancel-workout-dialog";
 import { FinalizeDialog, type FinalizeMode } from "./finalize-dialog";
@@ -55,6 +60,7 @@ export function ActiveWorkoutSession({
   assignmentId,
 }: ActiveWorkoutSessionProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const previousQuery = usePreviousSessionForClient(clientId);
   const previous = useMemo(() => previousQuery.data ?? {}, [previousQuery.data]);
 
@@ -117,6 +123,8 @@ export function ActiveWorkoutSession({
       const res = await live.finalize({ mode, notes });
       if (res) {
         close();
+        void queryClient.invalidateQueries({ queryKey: activeWorkoutSummariesKey() });
+        void queryClient.invalidateQueries({ queryKey: activeSessionKey(assignmentId) });
         toast.success(
           res.futureUpdated > 0
             ? `Entrenamiento finalizado · ${res.futureUpdated} futuro${
@@ -124,6 +132,22 @@ export function ActiveWorkoutSession({
               } actualizado${res.futureUpdated === 1 ? "" : "s"}`
             : "Entrenamiento finalizado",
         );
+        router.push(`/gc-fitness/clients/${clientId}`);
+      }
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  async function cancelWorkout(close: () => void) {
+    setFinishing(true);
+    try {
+      const ok = await live.cancel();
+      if (ok) {
+        close();
+        void queryClient.invalidateQueries({ queryKey: activeWorkoutSummariesKey() });
+        void queryClient.invalidateQueries({ queryKey: activeSessionKey(assignmentId) });
+        toast.success("Entrenamiento cancelado · volvió a programado");
         router.push(`/gc-fitness/clients/${clientId}`);
       }
     } finally {
@@ -291,7 +315,7 @@ export function ActiveWorkoutSession({
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         pending={finishing}
-        onConfirm={() => finishWorkout("session", null, () => setCancelOpen(false))}
+        onConfirm={() => cancelWorkout(() => setCancelOpen(false))}
       />
     </div>
   );

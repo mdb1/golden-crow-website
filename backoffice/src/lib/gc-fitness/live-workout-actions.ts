@@ -21,6 +21,7 @@
 import { randomUUID } from "node:crypto";
 
 import { FieldValue } from "firebase-admin/firestore";
+import { z } from "zod";
 
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
@@ -604,6 +605,49 @@ export async function finalizeWorkoutSession(
   }
 
   return { logId: parsed.logId, futureUpdated };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// cancelWorkoutSession — abandon the active log and return the assignment to
+// `scheduled` so the coach can restart it later without marking it complete.
+// ───────────────────────────────────────────────────────────────────────────
+export async function cancelWorkoutSession(
+  input: { logId: string },
+): Promise<{ logId: string }> {
+  const trainer = await getCurrentTrainer();
+  const logId = z.object({ logId: z.string().min(1) }).parse(input).logId;
+  const db = gcFitnessFirestore();
+  const { ref: logRef, data: log } = await ownedActiveLog(logId, trainer.uid);
+  const assignmentId = String(log.assignment_id ?? "");
+  if (!assignmentId) throw new Error("Assignment not found.");
+  const assignmentRef = db.collection(ASSIGNMENTS).doc(assignmentId);
+
+  await db.runTransaction(async (tx) => {
+    const [logSnap, assignmentSnap] = await Promise.all([
+      tx.get(logRef),
+      tx.get(assignmentRef),
+    ]);
+    if (!logSnap.exists) throw new Error("Session not found.");
+    const currentLog = logSnap.data() as Record<string, unknown>;
+    if (currentLog.trainerId !== trainer.uid) throw new Error("Not your session.");
+    if (currentLog.status !== "active") throw new Error("Session already finalized.");
+    if (!assignmentSnap.exists) throw new Error("Assignment not found.");
+    const currentAssignment = assignmentSnap.data() as Record<string, unknown>;
+    if (currentAssignment.trainerId !== trainer.uid) {
+      throw new Error("Not your assignment.");
+    }
+
+    tx.update(logRef, {
+      status: "abandoned",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    tx.update(assignmentRef, {
+      status: "scheduled",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { logId };
 }
 
 /**
