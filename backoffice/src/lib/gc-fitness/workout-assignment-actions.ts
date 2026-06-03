@@ -41,6 +41,12 @@ import {
   MAX_CLIENTS_PER_BATCH,
 } from "./workout-assignment-schema";
 import { getCurrentTrainer } from "./auth-helpers";
+import {
+  recordCoachActivityEvent,
+  markCoachActivityDeleted,
+  singleAssignmentEvent,
+  seriesAssignmentEvent,
+} from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 import { civilDateFormat } from "./civil-date";
@@ -333,6 +339,18 @@ export async function assignTemplate(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
+  await recordCoachActivityEvent(
+    db,
+    singleAssignmentEvent({
+      trainerId: trainer.uid,
+      assignmentId: docId,
+      templateName: (customizedSnapshot as { name?: unknown }).name,
+      clientId: parsed.clientId,
+      pendingEmail: null,
+      scheduledFor: parsed.scheduledFor,
+    }),
+  );
+
   return { id: docId };
 }
 
@@ -397,6 +415,18 @@ export async function assignTemplateToPending(input: {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  await recordCoachActivityEvent(
+    db,
+    singleAssignmentEvent({
+      trainerId: trainer.uid,
+      assignmentId: docId,
+      templateName: (templateSnapshot as { name?: unknown }).name,
+      clientId: null,
+      pendingEmail,
+      scheduledFor: input.scheduledFor,
+    }),
+  );
 
   return { id: docId };
 }
@@ -544,6 +574,22 @@ export async function bulkAssignTemplate(
   // included in the error (T-04-24 — count + verbatim error string only).
   await batch.commit();
 
+  await Promise.all(
+    parsed.clientIds.map((clientId, i) =>
+      recordCoachActivityEvent(
+        db,
+        singleAssignmentEvent({
+          trainerId: trainer.uid,
+          assignmentId: ids[i],
+          templateName: (templateSnapshot as { name?: unknown }).name,
+          clientId,
+          pendingEmail: null,
+          scheduledFor: parsed.scheduledFor,
+        }),
+      ),
+    ),
+  );
+
   return { ids };
 }
 
@@ -676,6 +722,20 @@ export async function assignTemplateRecurring(
     ids.push(docId);
   }
   await batch.commit();
+
+  await recordCoachActivityEvent(
+    db,
+    seriesAssignmentEvent({
+      trainerId: trainer.uid,
+      seriesId,
+      templateName: (templateSnapshot as { name?: unknown }).name,
+      clientId: parsed.clientId,
+      pendingEmail: null,
+      recurrence: recurrencePayload,
+      dates,
+    }),
+  );
+
   return { ids, count: ids.length, windowStart, windowEnd };
 }
 
@@ -832,6 +892,20 @@ export async function assignTemplateRecurringToPending(input: {
     ids.push(docId);
   }
   await batch.commit();
+
+  await recordCoachActivityEvent(
+    db,
+    seriesAssignmentEvent({
+      trainerId: trainer.uid,
+      seriesId,
+      templateName: (templateSnapshot as { name?: unknown }).name,
+      clientId: null,
+      pendingEmail,
+      recurrence: recurrencePayload,
+      dates,
+    }),
+  );
+
   return { ids, count: ids.length, windowStart, windowEnd };
 }
 
@@ -944,6 +1018,12 @@ export async function deleteAssignment(
     // this: the recurrence cascade below only deletes `scheduled` future docs,
     // which never have logs.
     await deleteWorkoutLogsForAssignment(db, trainer.uid, id);
+    // A true single (no series) → surface the deletion in My Activity. Deleting
+    // ONE occurrence of a series (seriesId set, no cascade) must NOT mark the
+    // whole series deleted, so only act when there's no seriesId.
+    if (!existing.seriesId) {
+      await markCoachActivityDeleted(db, `asg:${id}`);
+    }
     return { ok: true, deletedCount: 1 };
   }
 
@@ -975,6 +1055,10 @@ export async function deleteAssignment(
     batch.delete(doc.ref);
   }
   await batch.commit();
+
+  // Series-wide cascade from the series start removes the whole assignment →
+  // mark the series event deleted so it shows as "eliminado" in My Activity.
+  await markCoachActivityDeleted(db, `asg:${existing.seriesId}`);
 
   return { ok: true, deletedCount: querySnap.size };
 }

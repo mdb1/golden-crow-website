@@ -254,7 +254,9 @@ describe("assignTemplate", () => {
       timezone: "America/Mexico_City",
     });
 
-    expect(mockSet).toHaveBeenCalledTimes(1);
+    // calls[0] is the assignment doc write; a 2nd set() writes the
+    // best-effort coach_activity event log (see coach-activity-log.ts).
+    expect(mockSet).toHaveBeenCalled();
     const payload = mockSet.mock.calls[0][0];
     expect(payload.templateSnapshot).toEqual(VALID_TEMPLATE);
     expect(payload.templateId).toBe("tpl-abc");

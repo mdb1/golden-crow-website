@@ -3,6 +3,7 @@
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
 
 export type CoachActivityKind =
   | "workout_template"
@@ -56,20 +57,6 @@ function localizedName(value: unknown): string {
     if (typeof raw.en === "string" && raw.en.trim()) return raw.en;
   }
   return "";
-}
-
-function recurrenceLabel(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object") return null;
-  const rec = raw as Record<string, unknown>;
-  if (rec.kind === "daily") return "diaria";
-  if (rec.kind === "weekly") return "semanal";
-  if (rec.kind === "weekly_days") return "semanal";
-  if (rec.kind === "monthly") return "mensual";
-  if (rec.kind === "every_n_days") {
-    const everyN = Number(rec.everyN ?? 0);
-    return Number.isFinite(everyN) && everyN > 0 ? `cada ${everyN} días` : "cada N días";
-  }
-  return null;
 }
 
 export async function listMyCoachActivityPage(
@@ -181,11 +168,34 @@ export async function listMyCoachActivityPage(
     });
   }
 
+  // Assignments are read from the `coach_activity` event log (one event per
+  // assign ACTION) — NOT from raw `workout_assignments`, where a single
+  // recurring assignment writes one doc per (client, date) and thousands of
+  // occurrence docs made the old fan-out drop whole assignments. The log query
+  // is `where(trainerId).orderBy(occurredAt desc)` over a tiny, complete set.
+  async function coachActivityQuery() {
+    let query = db
+      .collection(COACH_ACTIVITY_COLLECTION)
+      .where("trainerId", "==", trainer.uid)
+      .orderBy("occurredAt", "desc")
+      .limit(queryLimit);
+    if (before) {
+      query = query.where("occurredAt", "<", before);
+    }
+    return query.get().catch((error) => {
+      console.warn(
+        "[gc-fitness/my-activity] coach_activity query failed; assignment rows skipped this page",
+        error,
+      );
+      return null;
+    });
+  }
+
   const [
     clientsSnap,
     templatesSnap,
     exercisesSnap,
-    assignmentsSnap,
+    coachActivitySnap,
     habitsSnap,
     notesSnap,
     messagesSnap,
@@ -195,7 +205,7 @@ export async function listMyCoachActivityPage(
     db.collection(FirestoreCollections.users).where("coachId", "==", trainer.uid).get(),
     scopedRecentQuery(FirestoreCollections.workoutTemplates, "trainerId"),
     scopedRecentQuery(FirestoreCollections.exercises, "trainerId"),
-    scopedRecentQuery(FirestoreCollections.workoutAssignments, "trainerId"),
+    coachActivityQuery(),
     scopedRecentQuery(FirestoreCollections.habits, "trainerId"),
     notesQuery(),
     sentMessagesQuery(),
@@ -240,76 +250,32 @@ export async function listMyCoachActivityPage(
     });
   }
 
-  const assignmentRows: Array<MyCoachActivityRow & {
-    scheduledFor: string | null;
-    recurrenceLabel: string | null;
-    seriesId: string | null;
-  }> = [];
-  for (const doc of assignmentsSnap?.docs ?? []) {
+  // Assignment activity — one row per logged assign ACTION (create or delete).
+  for (const doc of coachActivitySnap?.docs ?? []) {
     const data = doc.data() as {
-      createdAt?: unknown;
-      updatedAt?: unknown;
-      scheduledFor?: string;
+      kind?: string;
+      title?: string;
+      detail?: string | null;
       clientId?: string;
       pendingEmail?: string;
-      templateSnapshot?: { name?: unknown };
-      recurrence?: unknown;
-      seriesId?: unknown;
+      deleted?: boolean;
+      occurredAt?: unknown;
     };
     const clientId = typeof data.clientId === "string" ? data.clientId : null;
-    const name = localizedName(data.templateSnapshot?.name);
-    const scheduledFor = typeof data.scheduledFor === "string" ? data.scheduledFor : null;
-    assignmentRows.push({
-      id: `assignment:${doc.id}`,
-      kind: "workout_assignment",
-      occurredAt: toIso(data.createdAt ?? data.updatedAt),
-      title: name ? `Workout asignado: ${name}` : "Workout asignado",
-      detail: scheduledFor ? `Fecha: ${scheduledFor}` : null,
-      clientId,
-      clientName: clientId ? clientNameById.get(clientId) ?? clientId : data.pendingEmail ?? null,
-      scheduledFor,
-      recurrenceLabel: recurrenceLabel(data.recurrence),
-      seriesId: typeof data.seriesId === "string" && data.seriesId.length > 0 ? data.seriesId : null,
-    });
-  }
-  const assignmentGroups = new Map<string, typeof assignmentRows>();
-  for (const row of assignmentRows) {
-    const key =
-      row.recurrenceLabel && row.seriesId
-        ? `series:${row.seriesId}:${row.clientId ?? row.clientName ?? "pending"}`
-        : `single:${row.id}`;
-    const group = assignmentGroups.get(key);
-    if (group) group.push(row);
-    else assignmentGroups.set(key, [row]);
-  }
-  for (const group of assignmentGroups.values()) {
-    if (group.length === 1 || !group[0].recurrenceLabel) {
-      const { scheduledFor: _scheduledFor, recurrenceLabel: _recurrenceLabel, seriesId: _seriesId, ...row } = group[0];
-      rows.push(row);
-      continue;
-    }
-    const sortedByDate = [...group].sort((a, b) => (a.scheduledFor ?? "").localeCompare(b.scheduledFor ?? ""));
-    const newest = [...group].sort((a, b) => (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""))[0];
-    const firstDate = sortedByDate[0]?.scheduledFor;
-    const lastDate = sortedByDate[sortedByDate.length - 1]?.scheduledFor;
-    const recurrence = newest.recurrenceLabel;
-    const detailParts = [
-      recurrence ? `Recurrencia: ${recurrence}` : null,
-      `${group.length} fechas`,
-      firstDate && lastDate && firstDate !== lastDate
-        ? `${firstDate} a ${lastDate}`
-        : firstDate
-          ? `desde ${firstDate}`
-          : null,
-    ].filter((part): part is string => Boolean(part));
+    const deleted = data.deleted === true;
+    let title = typeof data.title === "string" ? data.title : "Workout asignado";
+    if (deleted) title = title.replace("Workout asignado:", "Workout eliminado:");
     rows.push({
-      id: `assignment-series:${newest.seriesId}`,
+      id: `coachevt:${doc.id}`,
       kind: "workout_assignment",
-      occurredAt: newest.occurredAt,
-      title: newest.title,
-      detail: detailParts.join(" · "),
-      clientId: newest.clientId,
-      clientName: newest.clientName,
+      deleted: deleted || undefined,
+      occurredAt: toIso(data.occurredAt),
+      title,
+      detail: typeof data.detail === "string" ? data.detail : null,
+      clientId,
+      clientName: clientId
+        ? clientNameById.get(clientId) ?? clientId
+        : data.pendingEmail ?? null,
     });
   }
 
