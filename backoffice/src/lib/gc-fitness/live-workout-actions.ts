@@ -901,6 +901,7 @@ export interface UpcomingWorkout {
   clientName: string;
   workoutName: string;
   scheduledFor: string;
+  isToday: boolean;
   scheduledTime: string;
   /** UTC epoch ms of the scheduled start (client tz). */
   scheduledEpochMs: number;
@@ -917,6 +918,7 @@ export async function listUpcomingScheduledWorkouts(): Promise<UpcomingWorkout[]
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
   const tz = await getTrainerTimezone().catch(() => "UTC");
+  const todayCivil = civilDateFormat(new Date(), tz);
 
   const lo = shiftCivilDate(-1, tz);
   const hi = shiftCivilDate(1, tz);
@@ -949,6 +951,7 @@ export async function listUpcomingScheduledWorkouts(): Promise<UpcomingWorkout[]
       clientId: String(data.clientId ?? ""),
       workoutName: localized(snapshot?.name, "Entrenamiento").en,
       scheduledFor,
+      isToday: scheduledFor === todayCivil,
       scheduledTime,
       scheduledEpochMs: epoch,
       meetingNotes:

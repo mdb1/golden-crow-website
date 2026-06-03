@@ -21,8 +21,6 @@ import {
 import { useActiveWorkoutSummaries } from "@/lib/gc-fitness/live-workout-listener";
 
 const THRESHOLDS = [30, 10, 1] as const;
-/** Show a card once the workout is within this many minutes. */
-const VISIBLE_WITHIN_MIN = 35;
 
 function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
@@ -115,9 +113,10 @@ export function UpcomingWorkoutAlerts() {
     if (changed) persistFired(firedRef.current);
   }, [items, now]);
 
-  const visible = items.filter(
-    (i) => (i.scheduledEpochMs - now) / 60_000 <= VISIBLE_WITHIN_MIN,
-  );
+  const visible = items.filter((i) => {
+    const minutes = (i.scheduledEpochMs - now) / 60_000;
+    return i.isToday || minutes <= 35;
+  });
   const activeByAssignmentId = new Map(
     (activeWorkoutsQuery.data ?? []).map((item) => [item.assignmentId, item]),
   );
@@ -199,10 +198,8 @@ function UpcomingRow({
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          {item.scheduledTime} ·{" "}
-          {started
-            ? "ya iniciado"
-            : countdownLabel(minutes)}
+          {item.isToday ? "Hoy" : item.scheduledTime} ·{" "}
+          {started ? "ya iniciado" : countdownLabel(minutes)}
         </p>
         {item.meetingNotes ? (
           <span className="mt-1 inline-flex items-center gap-1 text-xs text-sky-600">
