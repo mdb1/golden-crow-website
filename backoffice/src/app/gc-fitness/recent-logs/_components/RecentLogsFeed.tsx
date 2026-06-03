@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -41,8 +41,14 @@ import {
   listRecentLogsForTrainerPage,
   type RecentLogRow,
 } from "@/lib/gc-fitness/recent-logs-actions";
+import { visibleCompleteSections } from "@/lib/gc-fitness/activity-day-grouping";
 
 const PAGE_SIZE = 20;
+// Cap on automatic page loads used to "close" a still-partial trailing day so
+// the grouped view never first-paints blank when every loaded row is the same
+// day. Beyond this we fall back to rendering the partial day (rare: a single
+// day with > MAX_AUTO_PAGES × PAGE_SIZE rows).
+const MAX_AUTO_PAGES = 6;
 
 interface Props {
   logs: RecentLogRow[];
@@ -110,12 +116,16 @@ export function RecentLogsFeed({
   const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"grouped" | "chronological">("grouped");
+  // Counts auto-loads triggered to close a still-partial trailing day. Reset on
+  // every filter change (which replaces the dataset).
+  const autoLoadCountRef = useRef(0);
 
   // Re-fetch page 1 whenever a filter changes (translates the filter to the
   // server-side client / type scope so pagination + filtering compose).
   async function applyFilters(nextClient: string, nextType: string) {
     setClientFilter(nextClient);
     setTypeFilter(nextType);
+    autoLoadCountRef.current = 0;
     setLoading(true);
     try {
       const res = await listRecentLogsForTrainerPage(
@@ -156,6 +166,38 @@ export function RecentLogsFeed({
 
   const filtered = rows;
   const groups = useMemo(() => groupRowsByClientDay(filtered), [filtered]);
+  // Second-level grouping: bucket the per-client-day cards under a single day
+  // heading so "Hoy"/"Ayer"/"Jun 5" is shown once per day instead of repeated
+  // on every client card.
+  const daySections = useMemo(() => groupGroupsByDay(groups), [groups]);
+  // Chronological view: flat rows grouped under day headings so the date moves
+  // out of every row into a single per-day header.
+  const chronoSections = useMemo(() => groupRowsByDayFlat(filtered), [filtered]);
+  // Only render days that are fully loaded — hide the trailing (oldest) day
+  // while more pages exist so a client's group never grows from "2 acciones"
+  // to "4 acciones" after the user has seen it (260602 bug).
+  const completeSections = useMemo(
+    () => visibleCompleteSections(daySections, hasMore),
+    [daySections, hasMore],
+  );
+  // Fallback so the feed never first-paints blank when every loaded row is the
+  // same (still-partial) day and the auto-load cap below was reached.
+  const sectionsToRender =
+    completeSections.length > 0 || !hasMore ? completeSections : daySections;
+
+  // When the only loaded day is still partial (no complete day to show yet),
+  // pull the next page automatically — up to a cap — so the boundary day gets
+  // closed instead of leaving the user staring at an empty grouped view.
+  useEffect(() => {
+    if (viewMode !== "grouped") return;
+    if (!hasMore || loading) return;
+    if (completeSections.length > 0) return;
+    if (autoLoadCountRef.current >= MAX_AUTO_PAGES) return;
+    autoLoadCountRef.current += 1;
+    void loadMore();
+    // loadMore is a stable closure over the latest state via setState updaters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, hasMore, loading, completeSections.length]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -248,8 +290,22 @@ export function RecentLogsFeed({
           </Card>
         ) : null}
         {viewMode === "chronological"
-          ? filtered.map((row) => <RecentLogItem key={row.id} row={row} router={router} t={t} />)
-          : groups.map((group) => {
+          ? chronoSections.map((section) => (
+            <div key={section.key} className="flex flex-col gap-2">
+              <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                {section.label}
+              </h3>
+              {section.rows.map((row) => (
+                <RecentLogItem key={row.id} row={row} router={router} t={t} />
+              ))}
+            </div>
+          ))
+          : sectionsToRender.map((section) => (
+          <div key={section.key} className="flex flex-col gap-2">
+            <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              {section.label}
+            </h3>
+            {section.groups.map((group) => {
           const openProfile = () => router.push(`/gc-fitness/clients/${group.clientId}`);
           return (
             <div
@@ -275,7 +331,7 @@ export function RecentLogsFeed({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{group.clientName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {group.dayLabel} · {group.rows.length} {group.rows.length === 1 ? t("groupItem") : t("groupItems")}
+                      {group.rows.length} {group.rows.length === 1 ? t("groupItem") : t("groupItems")}
                     </p>
                   </div>
                 </div>
@@ -340,7 +396,7 @@ export function RecentLogsFeed({
                           ) : null}
                         </div>
                         <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-                          {formatDateTime(row.eventAt)}
+                          {formatTime(row.eventAt)}
                           {row.detail ? ` · ${row.detail}` : ""}
                         </p>
                       </div>
@@ -369,6 +425,8 @@ export function RecentLogsFeed({
             </div>
           );
         })}
+          </div>
+        ))}
       </div>
 
       {hasMore || loading ? (
@@ -453,7 +511,7 @@ function RecentLogItem({
           ) : null}
         </div>
         <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-          {row.clientName} · {formatDateTime(row.eventAt)}
+          {row.clientName} · {formatTime(row.eventAt)}
           {row.detail ? ` · ${row.detail}` : ""}
         </p>
       </div>
@@ -519,6 +577,38 @@ function groupRowsByClientDay(rows: RecentLogRow[]): Array<{
   return Array.from(groups.values());
 }
 
+// Buckets the per-client-day cards into day sections, preserving the
+// newest-first order the server returned (Map keeps insertion order, and the
+// first card seen for a day fixes that day's position).
+function groupGroupsByDay(
+  groups: ReturnType<typeof groupRowsByClientDay>,
+): Array<{ key: string; label: string; groups: ReturnType<typeof groupRowsByClientDay> }> {
+  const sections = new Map<
+    string,
+    { key: string; label: string; groups: ReturnType<typeof groupRowsByClientDay> }
+  >();
+  for (const group of groups) {
+    const iso = group.rows[0]?.eventAt ?? "";
+    const key = dayKeyFromIso(iso);
+    const existing = sections.get(key);
+    if (existing) {
+      existing.groups.push(group);
+      continue;
+    }
+    sections.set(key, { key, label: group.dayLabel, groups: [group] });
+  }
+  return Array.from(sections.values());
+}
+
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function dayKeyFromIso(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
@@ -543,15 +633,20 @@ function formatDayHeading(iso: string): string {
   });
 }
 
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function groupRowsByDayFlat(
+  rows: RecentLogRow[],
+): Array<{ key: string; label: string; rows: RecentLogRow[] }> {
+  const map = new Map<string, { key: string; label: string; rows: RecentLogRow[] }>();
+  for (const row of rows) {
+    const key = dayKeyFromIso(row.eventAt);
+    const existing = map.get(key);
+    if (existing) {
+      existing.rows.push(row);
+      continue;
+    }
+    map.set(key, { key, label: formatDayHeading(row.eventAt), rows: [row] });
+  }
+  return Array.from(map.values());
 }
 
 // Render a "YYYY-MM-DD" civil date as a short day label ("May 29" / "29 may").

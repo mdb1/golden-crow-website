@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { ComponentType } from "react";
 import {
   ClipboardList,
@@ -18,8 +18,10 @@ import {
   type CoachActivityKind,
   type MyCoachActivityRow,
 } from "@/lib/gc-fitness/coach-activity-actions";
+import { visibleCompleteSections } from "@/lib/gc-fitness/activity-day-grouping";
 
 const PAGE_SIZE = 20;
+const MAX_AUTO_PAGES = 6;
 
 const KIND_LABEL: Record<CoachActivityKind, string> = {
   workout_template: "Workout",
@@ -39,6 +41,24 @@ const KIND_ICON = {
   chat: MessageSquare,
 } satisfies Record<CoachActivityKind, ComponentType<{ className?: string }>>;
 
+// Subtle per-kind tint for the type pill — mirrors RecentLogsFeed's
+// CATEGORY_TONE so the two activity surfaces read consistently. Only the
+// type pill is colored; everything else stays neutral.
+const KIND_TONE: Record<CoachActivityKind, string> = {
+  workout_template:
+    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
+  workout_assignment:
+    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
+  habit_assignment:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
+  exercise:
+    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+  note:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+  chat:
+    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
+};
+
 export function MyActivityFeed({
   initialRows,
   initialCursor,
@@ -52,6 +72,7 @@ export function MyActivityFeed({
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [pending, startTransition] = useTransition();
+  const autoLoadCountRef = useRef(0);
 
   function loadMore() {
     if (!hasMore || pending) return;
@@ -67,6 +88,33 @@ export function MyActivityFeed({
     });
   }
 
+  // Group the flat row list into day sections so the date isn't repeated on
+  // every row — the day is shown once as a section heading and each row only
+  // carries its time. Rows arrive newest-first from the server, so insertion
+  // order already yields the correct day ordering.
+  const dayGroups = useMemo(() => groupRowsByDay(rows), [rows]);
+  // Hide the trailing (oldest) day while more pages exist so a day's rows don't
+  // grow after the user has seen them — the pagination boundary cuts through a
+  // day, leaving the oldest loaded day partial (260602 bug). Same invariant as
+  // RecentLogsFeed.
+  const completeGroups = useMemo(
+    () => visibleCompleteSections(dayGroups, hasMore),
+    [dayGroups, hasMore],
+  );
+  const groupsToRender =
+    completeGroups.length > 0 || !hasMore ? completeGroups : dayGroups;
+
+  // Auto-close a still-partial single loaded day so the feed never shows an
+  // empty list while there is more to load (capped).
+  useEffect(() => {
+    if (!hasMore || pending) return;
+    if (completeGroups.length > 0) return;
+    if (autoLoadCountRef.current >= MAX_AUTO_PAGES) return;
+    autoLoadCountRef.current += 1;
+    loadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, pending, completeGroups.length]);
+
   if (rows.length === 0) {
     return (
       <div className="px-4 py-10 text-center text-sm text-muted-foreground">
@@ -77,9 +125,18 @@ export function MyActivityFeed({
 
   return (
     <>
-      <div className="divide-y">
-        {rows.map((row) => (
-          <ActivityRow key={row.id} row={row} />
+      <div className="flex flex-col">
+        {groupsToRender.map((group) => (
+          <section key={group.key}>
+            <h3 className="sticky top-0 z-10 border-b bg-background/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              {group.label}
+            </h3>
+            <div className="divide-y">
+              {group.rows.map((row) => (
+                <ActivityRow key={row.id} row={row} />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
       {hasMore ? (
@@ -102,7 +159,10 @@ function ActivityRow({ row }: { row: MyCoachActivityRow }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="gap-1 px-1.5 py-0 text-[11px] font-normal">
+          <Badge
+            variant="outline"
+            className={`gap-1 px-1.5 py-0 text-[11px] font-normal ${KIND_TONE[row.kind]}`}
+          >
             {KIND_LABEL[row.kind]}
           </Badge>
           <span className="min-w-0 break-words text-sm font-medium leading-snug">
@@ -110,7 +170,7 @@ function ActivityRow({ row }: { row: MyCoachActivityRow }) {
           </span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatWhen(row.occurredAt)}
+          {formatTime(row.occurredAt)}
           {row.clientName ? ` · ${row.clientName}` : ""}
           {row.detail ? ` · ${row.detail}` : ""}
         </p>
@@ -119,13 +179,53 @@ function ActivityRow({ row }: { row: MyCoachActivityRow }) {
   );
 }
 
-function formatWhen(iso: string | null): string {
+function groupRowsByDay(
+  rows: MyCoachActivityRow[],
+): Array<{ key: string; label: string; rows: MyCoachActivityRow[] }> {
+  const groups = new Map<
+    string,
+    { key: string; label: string; rows: MyCoachActivityRow[] }
+  >();
+  for (const row of rows) {
+    const key = dayKeyFromIso(row.occurredAt);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.rows.push(row);
+      continue;
+    }
+    groups.set(key, { key, label: formatDayHeading(row.occurredAt), rows: [row] });
+  }
+  return Array.from(groups.values());
+}
+
+function dayKeyFromIso(iso: string | null): string {
+  if (!iso) return "no-date";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatDayHeading(iso: string | null): string {
   if (!iso) return "Sin fecha";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const key = dayKeyFromIso(iso);
+  if (key === dayKeyFromIso(today.toISOString())) return "Hoy";
+  if (key === dayKeyFromIso(yesterday.toISOString())) return "Ayer";
+  return date.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+}
+
+function formatTime(iso: string | null): string {
+  if (!iso) return "Sin fecha";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
   });

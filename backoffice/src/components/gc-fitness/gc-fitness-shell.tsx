@@ -61,13 +61,7 @@ const sections: NavSection[] = [
     sectionKey: "overview",
     items: [
       { labelKey: "dashboard", href: "/gc-fitness/dashboard", icon: Home },
-      { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
       { labelKey: "schedule", href: "/gc-fitness/schedule", icon: CalendarDays },
-      {
-        labelKey: "recentLogs",
-        href: "/gc-fitness/recent-logs",
-        icon: Activity,
-      },
       {
         labelKey: "myActivity",
         href: "/gc-fitness/my-activity",
@@ -76,17 +70,28 @@ const sections: NavSection[] = [
     ],
   },
   {
-    sectionKey: "programming",
+    sectionKey: "clientsGroup",
     items: [
-      { labelKey: "workouts", href: "/gc-fitness/templates", icon: Dumbbell },
-      { labelKey: "habits", href: "/gc-fitness/habits", icon: ListChecks },
-      { labelKey: "library", href: "/gc-fitness/exercises", icon: Library },
+      { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
+      {
+        labelKey: "recentLogs",
+        href: "/gc-fitness/recent-logs",
+        icon: Activity,
+      },
+      { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
     ],
   },
   {
-    sectionKey: "communication",
+    sectionKey: "libraryGroup",
     items: [
-      { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
+      { labelKey: "workouts", href: "/gc-fitness/templates", icon: Dumbbell },
+      { labelKey: "exercises", href: "/gc-fitness/exercises", icon: Library },
+      { labelKey: "habits", href: "/gc-fitness/habits", icon: ListChecks },
+    ],
+  },
+  {
+    sectionKey: "settingsGroup",
+    items: [
       { labelKey: "settings", href: "/gc-fitness/settings", icon: Settings },
     ],
   },
@@ -121,7 +126,7 @@ export function GCFitnessShell({
         ...sections,
         {
           sectionKey: "admin",
-          items: [{ labelKey: "admin", href: "/gc-fitness/admin", icon: Shield }],
+          items: [{ labelKey: "adminPanel", href: "/gc-fitness/admin", icon: Shield }],
         },
       ]
     : sections;
@@ -236,9 +241,8 @@ function describeSection(
   key: string,
   tNav: ReturnType<typeof useTranslations>,
 ) {
-  if (key === "overview") return tNav("clientsSectionDescription");
-  if (key === "programming") return tNav("contentSectionDescription");
-  if (key === "communication") return tNav("engagementSectionDescription");
+  if (key === "clientsGroup") return tNav("clientsSectionDescription");
+  if (key === "libraryGroup") return tNav("contentSectionDescription");
   if (key === "admin") return tNav("adminSectionDescription");
   return "";
 }
@@ -247,23 +251,31 @@ function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslation
   const grouped = [
     {
       groupKey: "overview",
-      subtitleKey: "clientsDescription",
+      subtitleKey: "myActivityDescription",
       paths: [
         "/gc-fitness/dashboard",
-        "/gc-fitness/clients",
-        "/gc-fitness/recent-logs",
+        "/gc-fitness/schedule",
         "/gc-fitness/my-activity",
       ],
     },
     {
-      groupKey: "programming",
-      subtitleKey: "workoutsDescription",
-      paths: ["/gc-fitness/schedule", "/gc-fitness/templates", "/gc-fitness/exercises", "/gc-fitness/habits"],
+      groupKey: "clientsGroup",
+      subtitleKey: "clientsDescription",
+      paths: [
+        "/gc-fitness/clients",
+        "/gc-fitness/recent-logs",
+        "/gc-fitness/chat",
+      ],
     },
     {
-      groupKey: "communication",
-      subtitleKey: "chatDescription",
-      paths: ["/gc-fitness/chat", "/gc-fitness/settings"],
+      groupKey: "libraryGroup",
+      subtitleKey: "workoutsDescription",
+      paths: ["/gc-fitness/templates", "/gc-fitness/exercises", "/gc-fitness/habits"],
+    },
+    {
+      groupKey: "settingsGroup",
+      subtitleKey: "settingsDescription",
+      paths: ["/gc-fitness/settings"],
     },
     {
       groupKey: "admin",

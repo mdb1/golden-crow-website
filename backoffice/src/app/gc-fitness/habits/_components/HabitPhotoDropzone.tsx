@@ -16,11 +16,12 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, ImageIcon, X, CircleAlert } from "lucide-react";
+import { Upload, X, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { StorageImagePreview } from "@/components/gc-fitness/StorageImagePreview";
 import { cn } from "@/lib/utils";
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB — matches server cap.
@@ -178,8 +179,7 @@ export function HabitPhotoDropzone({
           </>
         ) : value ? (
           <>
-            <ImageIcon className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm break-all">{value}</span>
+            <StorageImagePreview value={value} />
             <Button
               type="button"
               variant="ghost"
