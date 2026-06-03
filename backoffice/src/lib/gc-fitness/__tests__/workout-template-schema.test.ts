@@ -87,6 +87,15 @@ describe("workoutTemplateSchema — top-level fields", () => {
     expect(parsed.description).toBeUndefined();
   });
 
+  // T5b: endsOn is optional but valid when present
+  it("accepts an optional endsOn field", () => {
+    const parsed = workoutTemplateSchema.parse({
+      ...VALID_TEMPLATE,
+      endsOn: "2026-09-01",
+    });
+    expect(parsed.endsOn).toBe("2026-09-01");
+  });
+
   // T6: tag must be non-empty
   it("rejects an empty tag", () => {
     const result = workoutTemplateSchema.safeParse({
@@ -270,6 +279,14 @@ describe("workoutTemplateUpdateSchema", () => {
     });
     expect(parsed.name?.en).toBe("Updated");
     expect(parsed.tag).toBeUndefined();
+  });
+
+  // T22b: partial update can carry an endsOn change
+  it("accepts a partial update with only endsOn", () => {
+    const parsed = workoutTemplateUpdateSchema.parse({
+      endsOn: "2026-12-31",
+    });
+    expect(parsed.endsOn).toBe("2026-12-31");
   });
 
   // T23: partial update of just exercises still applies array-length cap

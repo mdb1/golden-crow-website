@@ -15,7 +15,7 @@
 // (immutable post-create per the schema doc + rule layer enforcement); the
 // value still appears in the form so the trainer sees what they're editing.
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,6 +48,12 @@ import {
   habitUpdateSchemaForType,
   type HabitCreateInput,
 } from "@/lib/gc-fitness/habit-schema";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  inferEndDatePresetMonths,
+  localDateToCivil,
+} from "@/lib/gc-fitness/end-date-presets";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
 
 export type HabitFormMode = "create" | "edit";
@@ -107,15 +113,18 @@ const SCHEDULE_TYPE_VALUES = ["recurring", "one-time"] as const;
 
 function buildDefaults(
   passed?: Partial<HabitCreateInput>,
+  mode: HabitFormMode = "create",
 ): HabitCreateInput {
   const safeStartsOn =
     typeof passed?.startsOn === "string" && passed.startsOn.length > 0
       ? passed.startsOn
-      : new Date().toISOString().slice(0, 10);
+      : localDateToCivil(new Date());
   const safeEndsOn =
     typeof passed?.endsOn === "string" && passed.endsOn.length > 0
       ? passed.endsOn
-      : undefined;
+      : mode === "create"
+        ? addCivilMonths(safeStartsOn, 3)
+        : undefined;
 
   return {
     clientId: passed?.clientId ?? "",
@@ -174,10 +183,11 @@ export function HabitForm({
         (zodResolver(habitUpdateSchemaForType(defaultValues.type) as any) as unknown as any)
       : // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (zodResolver(habitCreateSchema as any) as unknown as any);
+  const initialDefaults = buildDefaults(defaultValues, mode);
 
   const form = useForm<HabitCreateInput>({
     resolver,
-    defaultValues: buildDefaults(defaultValues),
+    defaultValues: initialDefaults,
     mode: "onSubmit",
   });
 
@@ -194,10 +204,31 @@ export function HabitForm({
     control: form.control,
     name: "scheduleCadence",
   });
+  const watchedStartsOn =
+    (useWatch({ control: form.control, name: "startsOn" }) ?? "") as string;
+  const watchedEndsOn =
+    (useWatch({ control: form.control, name: "endsOn" }) ?? "") as string;
   const watchedScheduleWeekdays =
     useWatch({ control: form.control, name: "scheduleWeekdays" }) ?? [];
   const watchedScheduleMonthDays =
     useWatch({ control: form.control, name: "scheduleMonthDays" }) ?? [];
+  const initialStartsOn =
+    typeof initialDefaults.startsOn === "string" ? initialDefaults.startsOn : "";
+  const initialEndsOn =
+    typeof initialDefaults.endsOn === "string" ? initialDefaults.endsOn : undefined;
+  const [selectedEndPresetMonths, setSelectedEndPresetMonths] = useState<
+    number | null
+  >(() =>
+    inferEndDatePresetMonths(initialStartsOn, initialEndsOn),
+  );
+
+  useEffect(() => {
+    if (selectedEndPresetMonths == null) return;
+    if (watchedStartsOn.length === 0) return;
+    const nextEndsOn = addCivilMonths(watchedStartsOn, selectedEndPresetMonths);
+    if (watchedEndsOn === nextEndsOn) return;
+    form.setValue("endsOn", nextEndsOn, { shouldDirty: true });
+  }, [form, selectedEndPresetMonths, watchedEndsOn, watchedStartsOn]);
 
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
@@ -532,7 +563,15 @@ export function HabitForm({
                       ref={field.ref}
                       onBlur={field.onBlur}
                       value={typeof field.value === "string" ? field.value : ""}
-                      onChange={(event) => field.onChange(event.target.value)}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        field.onChange(next);
+                        if (selectedEndPresetMonths != null && next.length > 0) {
+                          form.setValue("endsOn", addCivilMonths(next, selectedEndPresetMonths), {
+                            shouldDirty: true,
+                          });
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -546,6 +585,31 @@ export function HabitForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("scheduleEndLabel")}</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {END_DATE_PRESET_MONTHS.map((months) => {
+                      const active =
+                        selectedEndPresetMonths === months &&
+                        typeof watchedStartsOn === "string" &&
+                        watchedEndsOn === addCivilMonths(watchedStartsOn, months);
+                      return (
+                        <Button
+                          key={months}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          className="rounded-full"
+                          aria-pressed={active}
+                          onClick={() => {
+                            setSelectedEndPresetMonths(months);
+                            const next = addCivilMonths(watchedStartsOn, months);
+                            field.onChange(next);
+                          }}
+                        >
+                          {t("scheduleEndPreset", { months })}
+                        </Button>
+                      );
+                    })}
+                  </div>
                   <FormControl>
                     <Input
                       type="date"
@@ -553,7 +617,16 @@ export function HabitForm({
                       ref={field.ref}
                       onBlur={field.onBlur}
                       value={typeof field.value === "string" ? field.value : ""}
-                      onChange={(event) => field.onChange(event.target.value)}
+                      min={watchedStartsOn}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        field.onChange(next);
+                        setSelectedEndPresetMonths(
+                          next.length > 0
+                            ? inferEndDatePresetMonths(watchedStartsOn, next)
+                            : null,
+                        );
+                      }}
                     />
                   </FormControl>
                   <FormDescription>

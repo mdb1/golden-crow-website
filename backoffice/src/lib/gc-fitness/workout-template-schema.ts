@@ -213,6 +213,10 @@ export const workoutTagsSchema = z
 export const workoutTemplateSchema = z.object({
   name: localizedStringSchema,
   description: localizedDescriptionSchema.optional(),
+  endsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be YYYY-MM-DD.")
+    .optional(),
   tag: workoutTagSchema,
   tags: workoutTagsSchema,
   exercises: z
@@ -230,6 +234,10 @@ export type WorkoutTemplateInput = z.infer<typeof workoutTemplateSchema>;
 export const workoutTemplateUpdateSchema = z.object({
   name: localizedStringSchema.optional(),
   description: localizedDescriptionSchema.optional(),
+  endsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be YYYY-MM-DD.")
+    .optional(),
   tag: workoutTagSchema.optional(),
   tags: workoutTagsSchema.optional(),
   exercises: z

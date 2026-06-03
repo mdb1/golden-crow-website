@@ -85,6 +85,7 @@ export default async function EditTemplatePage({ params }: PageParams) {
   const defaults: Partial<WorkoutTemplateInput> = {
     name: (data.name as WorkoutTemplateInput["name"]) ?? { en: "", es: "" },
     description: data.description as WorkoutTemplateInput["description"],
+    endsOn: data.endsOn as WorkoutTemplateInput["endsOn"],
     tag: (data.tag as WorkoutTemplateInput["tag"]) ?? "custom",
     exercises: Array.isArray(data.exercises)
       ? (data.exercises as WorkoutTemplateInput["exercises"])

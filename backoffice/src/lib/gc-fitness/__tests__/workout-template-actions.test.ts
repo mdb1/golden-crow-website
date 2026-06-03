@@ -173,6 +173,7 @@ function fakeQuerySnapshot(
 const VALID_TEMPLATE_INPUT = {
   name: { en: "Push Day", es: "Día de empuje" },
   description: { en: "Chest, shoulders, triceps.", es: "Pecho, hombros, tríceps." },
+  endsOn: "2026-09-01",
   tag: "push" as const,
   exercises: [
     {
@@ -241,6 +242,7 @@ describe("createWorkoutTemplate", () => {
     // also includes name/tag/exercises copied from the input. Sanity-check
     // the input fields survive.
     expect(payload.name).toEqual({ en: "Push Day", es: "Día de empuje" });
+    expect(payload.endsOn).toBe("2026-09-01");
     expect(payload.tag).toBe("push");
     expect(payload.exercises).toHaveLength(1);
   });
@@ -343,6 +345,7 @@ describe("updateWorkoutTemplate", () => {
 
     await updateWorkoutTemplate(`tpl-${ALLOWED_UID}-abc`, {
       name: { en: "New Name", es: "Nuevo Nombre" },
+      endsOn: "2026-12-31",
     });
 
     expect(mockUpdate).toHaveBeenCalledTimes(1);
@@ -350,6 +353,7 @@ describe("updateWorkoutTemplate", () => {
     expect(patch.version).toEqual({ __increment: 1 });
     expect(patch.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
     expect(patch.name).toEqual({ en: "New Name", es: "Nuevo Nombre" });
+    expect(patch.endsOn).toBe("2026-12-31");
     // T-04-14 / 15: immutable fields never echoed in the patch.
     expect(patch.trainerId).toBeUndefined();
     expect(patch.createdAt).toBeUndefined();
