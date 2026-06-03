@@ -29,7 +29,16 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowUp, ArrowDown, GripVertical, Trash2, Plus, X, ExternalLink } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  Trash2,
+  Plus,
+  X,
+  ExternalLink,
+  Info,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import {
@@ -64,12 +73,24 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import {
   workoutTemplateSchema,
   type WorkoutTemplateInput,
 } from "@/lib/gc-fitness/workout-template-schema";
+import {
+  getSupersetGroupMemberIndexes,
+  getSupersetMembership,
+  listSupersetGroupOptions,
+  normalizeSupersetGroup,
+} from "@/lib/gc-fitness/superset-groups";
 
 import { ExercisePickerPopover } from "./exercise-picker-popover";
 import { ExerciseMultiAddDialog } from "./exercise-multi-add-dialog";
@@ -154,6 +175,40 @@ function clearDraft(key: string) {
   } catch {
     /* ignore */
   }
+}
+
+function withTransitionRestDefault(
+  exercises:
+    | Array<Partial<WorkoutTemplateInput["exercises"][number]>>
+    | undefined,
+): WorkoutTemplateInput["exercises"] {
+  return (exercises ?? []).map((exercise) => ({
+    ...exercise,
+    transition_rest_seconds:
+      typeof exercise.transition_rest_seconds === "number"
+        ? exercise.transition_rest_seconds
+        : 60,
+  })) as WorkoutTemplateInput["exercises"];
+}
+
+function InfoTooltip({ text, label }: { text: string; label: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            title={text}
+            className="inline-flex items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{text}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 // Legacy datalist source — superseded by TemplateTagsPicker's
@@ -277,6 +332,11 @@ export function TemplateForm({
     }
     return m;
   }, [exerciseLibrary]);
+  const watchedExercises = form.watch("exercises") ?? [];
+  const supersetGroupOptions = useMemo(
+    () => listSupersetGroupOptions(watchedExercises),
+    [watchedExercises],
+  );
 
   // ---- Draft autosave + restore ------------------------------------------
   //
@@ -423,6 +483,57 @@ export function TemplateForm({
     form.setValue(weightPath, nextWeight, { shouldDirty: true });
     if (nextDurations !== undefined) {
       form.setValue(durationPath, nextDurations, { shouldDirty: true });
+    }
+  }
+
+  function syncSupersetGroupSets(group: string, nextSets: number) {
+    const normalized = normalizeSupersetGroup(group);
+    if (!normalized) return;
+    const memberIndexes = getSupersetGroupMemberIndexes(watchedExercises, normalized);
+    for (const memberIndex of memberIndexes) {
+      form.setValue(
+        `exercises.${memberIndex}.sets` as const,
+        nextSets,
+        { shouldDirty: true },
+      );
+      syncSetArrays(memberIndex, nextSets);
+    }
+  }
+
+  function applySupersetGroup(index: number, nextGroupRaw: string) {
+    const nextGroup = normalizeSupersetGroup(nextGroupRaw);
+    form.setValue(
+      `exercises.${index}.supersetGroup` as const,
+      nextGroup,
+      { shouldDirty: true },
+    );
+    if (!nextGroup) return;
+
+    const snapshot = watchedExercises.map((exercise, exerciseIndex) =>
+      exerciseIndex === index
+        ? { ...exercise, supersetGroup: nextGroup }
+        : exercise,
+    );
+    const membership = getSupersetMembership(snapshot, index);
+    if (!membership.group || membership.leaderIndex === null) return;
+
+    const leaderIndex = membership.leaderIndex;
+    const leaderSets = Number(
+      form.getValues(`exercises.${leaderIndex}.sets` as const) ?? 1,
+    );
+    if (leaderIndex !== index) {
+      form.setValue(`exercises.${index}.sets` as const, leaderSets, {
+        shouldDirty: true,
+      });
+      syncSetArrays(index, leaderSets);
+    }
+
+    for (const memberIndex of membership.memberIndexes) {
+      if (memberIndex === leaderIndex || memberIndex === index) continue;
+      form.setValue(`exercises.${memberIndex}.sets` as const, leaderSets, {
+        shouldDirty: true,
+      });
+      syncSetArrays(memberIndex, leaderSets);
     }
   }
 
@@ -901,6 +1012,13 @@ export function TemplateForm({
                     : undefined;
                   const effectiveMetric: "reps" | "time" =
                     templateMetric ?? sourceMetric ?? "reps";
+                  const supersetMembership = getSupersetMembership(
+                    watchedExercises,
+                    index,
+                  );
+                  const supersetGroup = supersetMembership.group;
+                  const isSupersetLeader = supersetMembership.isLeader;
+                  const isSupersetFollower = supersetMembership.isFollower;
                   // True when the trainer hasn't explicitly chosen a
                   // per-template override — we show a small "Heredado"
                   // hint next to the chips so they know the value is
@@ -1086,19 +1204,23 @@ export function TemplateForm({
                                 onBlur={(e) => {
                                   const raw = setsDraft[field.id];
                                   if (raw === "") {
-                                  setSetsDraft((prev) => {
-                                    const next = { ...prev };
-                                    delete next[field.id];
-                                    return next;
-                                  });
-                                  numField.onBlur();
-                                  return;
-                                }
+                                    setSetsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[field.id];
+                                      return next;
+                                    });
+                                    numField.onBlur();
+                                    return;
+                                  }
                                   if (raw !== undefined) {
                                     const parsed = Number(raw);
                                     if (Number.isFinite(parsed)) {
                                       numField.onChange(parsed);
-                                      syncSetArrays(index, parsed);
+                                      if (isSupersetLeader && supersetGroup) {
+                                        syncSupersetGroupSets(supersetGroup, parsed);
+                                      } else {
+                                        syncSetArrays(index, parsed);
+                                      }
                                     }
                                   }
                                   setSetsDraft((prev) => {
@@ -1109,6 +1231,12 @@ export function TemplateForm({
                                   numField.onBlur();
                                   e.currentTarget.value = String(form.getValues(`exercises.${index}.sets` as const) ?? "");
                                 }}
+                                disabled={isSupersetFollower}
+                                aria-describedby={
+                                  isSupersetFollower
+                                    ? `superset-sets-hint-${field.id}`
+                                    : undefined
+                                }
                               />
                             </FormControl>
                             {fieldState.error && (
@@ -1116,6 +1244,13 @@ export function TemplateForm({
                                 {fieldState.error.message}
                               </FormMessage>
                             )}
+                            {isSupersetFollower && supersetGroup ? (
+                              <FormDescription id={`superset-sets-hint-${field.id}`}>
+                                {t("supersetSetsLockedHint", {
+                                  group: supersetGroup,
+                                })}
+                              </FormDescription>
+                            ) : null}
                           </FormItem>
                         )}
                       />
@@ -1798,14 +1933,37 @@ export function TemplateForm({
                       />
                     </div>
 
-                    {/* Superset group — last input of the card; on Tab the
-                        focus jumps to the next exercise card's Sets input. */}
+                    {/* Superset group — shared across all matching exercises.
+                        Chips let the trainer reuse existing group letters
+                        without retyping them. */}
                     <FormField
                       control={form.control}
                       name={`exercises.${index}.supersetGroup` as const}
                       render={({ field: supersetField }) => (
                         <FormItem>
                           <FormLabel>{t("supersetGroup")}</FormLabel>
+                          {supersetGroupOptions.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {supersetGroupOptions.map((group) => {
+                                const active = supersetField.value?.trim() === group;
+                                return (
+                                  <button
+                                    key={group}
+                                    type="button"
+                                    onClick={() => applySupersetGroup(index, group)}
+                                    className={cn(
+                                      "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors",
+                                      active
+                                        ? "border-amber-400 bg-amber-400/15 text-amber-100"
+                                        : "border-border/70 bg-background text-foreground hover:border-amber-400/60 hover:text-amber-100",
+                                    )}
+                                  >
+                                    {group}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
                           <FormControl>
                             <Input
                               placeholder={t("supersetGroupPlaceholder")}
@@ -1829,14 +1987,90 @@ export function TemplateForm({
                                   }
                                 }
                               }}
-                              {...supersetField}
                               value={supersetField.value ?? ""}
+                              onChange={(e) => {
+                                const nextGroup = e.target.value;
+                                supersetField.onChange(nextGroup);
+                              }}
+                              onBlur={() => {
+                                supersetField.onBlur();
+                                applySupersetGroup(index, supersetField.value ?? "");
+                              }}
                             />
                           </FormControl>
                           <FormDescription>{t("supersetGroupHint")}</FormDescription>
                         </FormItem>
                       )}
                     />
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                      <div className="flex items-center gap-2">
+                        <FormLabel className="text-amber-100">
+                          {t("transitionRestSeconds")}
+                        </FormLabel>
+                        <InfoTooltip
+                          text={t("transitionRestTooltip")}
+                          label={t("transitionRestTooltipLabel")}
+                        />
+                      </div>
+                      <Controller
+                        control={form.control}
+                        name={`exercises.${index}.transition_rest_seconds` as const}
+                        render={({
+                          field: numField,
+                          fieldState,
+                        }) => (
+                          <FormItem className="mt-2">
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={transitionRestSecondsDraft[field.id] ?? (numField.value ?? "")}
+                                onChange={(e) => {
+                                  if (e.target.value === "") {
+                                    setTransitionRestSecondsDraft((prev) => ({ ...prev, [field.id]: "" }));
+                                    return;
+                                  }
+                                  const parsed = Number(e.target.value);
+                                  if (!Number.isFinite(parsed)) return;
+                                  setTransitionRestSecondsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
+                                }}
+                                onBlur={() => {
+                                  const raw = transitionRestSecondsDraft[field.id];
+                                  if (raw === "") {
+                                    setTransitionRestSecondsDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[field.id];
+                                      return next;
+                                    });
+                                    numField.onChange(60);
+                                    numField.onBlur();
+                                    return;
+                                  }
+                                  if (raw !== undefined) {
+                                    const parsed = Number(raw);
+                                    if (Number.isFinite(parsed)) {
+                                      numField.onChange(parsed);
+                                    }
+                                  }
+                                  setTransitionRestSecondsDraft((prev) => {
+                                    const next = { ...prev };
+                                    delete next[field.id];
+                                    return next;
+                                  });
+                                  numField.onBlur();
+                                }}
+                              />
+                            </FormControl>
+                            {fieldState.error && (
+                              <FormMessage>
+                                {fieldState.error.message}
+                              </FormMessage>
+                            )}
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
                     )}
