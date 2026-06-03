@@ -999,6 +999,12 @@
       "noMessagesYet": "Aún no hay mensajes. Saludá a {name}.",
       "imagePhoto": "📷 Foto",
       "voiceNote": "🎤 Mensaje de voz",
+      "reply": {
+        "you": "Tú",
+        "cancel": "Cancelar respuesta",
+        "replyingTo": "Respondiendo a {name}",
+        "replyButton": "Responder"
+      },
       "voiceNoteWithDuration": "🎤 Mensaje de voz ({seconds}s)",
       "unsupportedMessage": "Tipo de mensaje no soportado.",
       "deleteMessageAria": "Eliminar mensaje",

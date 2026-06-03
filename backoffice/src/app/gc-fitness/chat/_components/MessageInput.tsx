@@ -36,11 +36,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
+import { X } from "lucide-react";
+
 import {
   sendTrainerMessage,
   uploadTrainerChatAttachment,
 } from "@/lib/gc-fitness/chat-server-actions";
 import { CHATS_BASE_KEY } from "@/lib/gc-fitness/chat-listener";
+import { buildReplyQuote } from "@/lib/gc-fitness/chat-reply";
+import type { MessageRow } from "@/lib/gc-fitness/chat-schema";
 
 import { QuickReplyDropdown } from "./QuickReplyDropdown";
 
@@ -49,10 +53,23 @@ export interface MessageInputProps {
   disabled?: boolean;
   /** 08-12 quick-reply templates — reserved API slot (dropdown self-fetches in V1). */
   trainerQuickReplies?: string[];
+  /** quick-260603-p1p — the message being replied to, or null. */
+  replyingTo?: MessageRow | null;
+  /** quick-260603-p1p — resolved "You"/client label for the reply banner. */
+  replyAuthorLabel?: string;
+  /** quick-260603-p1p — cancel-reply hook (banner X). */
+  onCancelReply?: () => void;
 }
 
-export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
+export function MessageInput({
+  chatId,
+  disabled = false,
+  replyingTo = null,
+  replyAuthorLabel = "",
+  onCancelReply,
+}: MessageInputProps) {
   const t = useTranslations("chat.composer");
+  const tc = useTranslations("chat.conversation");
   const [text, setText] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -76,7 +93,11 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
 
   const mutation = useMutation({
     mutationFn: async (textPayload: string) => {
-      await sendTrainerMessage({ chatId, kind: "text", text: textPayload });
+      // quick-260603-p1p — thread the reply quote (if any) onto the text
+      // message. buildReplyQuote returns null when no reply is staged or
+      // the quoted message has no id; pass undefined in that case.
+      const replyTo = replyingTo ? buildReplyQuote(replyingTo) ?? undefined : undefined;
+      await sendTrainerMessage({ chatId, kind: "text", text: textPayload, replyTo });
     },
     onMutate: () => {
       setSubmitError(null);
@@ -88,6 +109,7 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
       });
       void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
       setText("");
+      onCancelReply?.();
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
     onError: (err) => {
@@ -296,6 +318,32 @@ export function MessageInput({ chatId, disabled = false }: MessageInputProps) {
       }}
       className="flex flex-col gap-1 border-t bg-background p-3"
     >
+      {replyingTo ? (
+        <div className="mb-1 flex items-center gap-2 rounded-md border-l-2 border-primary/60 bg-muted/60 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-semibold text-primary">
+              {tc("reply.replyingTo", {
+                name: replyAuthorLabel || tc("reply.you"),
+              })}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {replyingTo.kind === "text"
+                ? replyingTo.text ?? ""
+                : replyingTo.kind === "image"
+                  ? tc("imagePhoto")
+                  : tc("voiceNote")}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onCancelReply?.()}
+            aria-label={tc("reply.cancel")}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
       <div className="flex items-end gap-2">
         <label
           className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input px-2 py-2 text-xs"
