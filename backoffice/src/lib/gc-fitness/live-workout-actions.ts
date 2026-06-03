@@ -350,6 +350,7 @@ export async function listActiveWorkoutSessionsForTrainer(): Promise<
         assignmentId,
         assignment,
         data,
+        { resolveMedia: false },
       );
       const clientSnap = await db.collection(FirestoreCollections.users).doc(session.clientId).get();
       const clientName =
@@ -431,7 +432,13 @@ export async function startWorkoutSession(
         updatedAt: FieldValue.serverTimestamp(),
       });
     }
-    return buildActiveSession(doc.id, assignmentId, asg, doc.data());
+    return buildActiveSession(
+      doc.id,
+      assignmentId,
+      asg,
+      doc.data(),
+      { resolveMedia: false },
+    );
   }
 
   const logId = randomUUID();
@@ -498,7 +505,13 @@ export async function getActiveSessionForAssignment(
     .get();
   if (existing.empty) return null;
   const doc = existing.docs[0];
-  return buildActiveSession(doc.id, assignmentId, asg, doc.data());
+  return buildActiveSession(
+    doc.id,
+    assignmentId,
+    asg,
+    doc.data(),
+    { resolveMedia: false },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────────
