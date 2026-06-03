@@ -14,8 +14,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listRecentLogsForClientAsAdmin } from "@/lib/gc-fitness/recent-logs-actions";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -59,6 +61,13 @@ export default async function AdminCoachClientPage({
   }
 
   const clientName = logs.clients[0]?.name ?? clientId;
+  const clientSnap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  const storedTimezone = clientSnap.get("timezone");
+  const timezone =
+    typeof storedTimezone === "string" && storedTimezone ? storedTimezone : "UTC";
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
@@ -91,6 +100,7 @@ export default async function AdminCoachClientPage({
           <ClientRecentLogsFeed
             logs={logs.logs}
             clientId={clientId}
+            timezone={timezone}
             initialCursor={logs.nextCursor}
             initialHasMore={logs.hasMore}
             showActions={false}

@@ -190,7 +190,7 @@ export default async function ClientDetailPage({
         <ProgressPhotosWidget photos={progressPhotos} clientId={id} />
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>
-          <ClientRecentLogsWidget clientId={id} />
+          <ClientRecentLogsWidget clientId={id} timezone={timezone} />
         </Suspense>
       </div>
     </div>

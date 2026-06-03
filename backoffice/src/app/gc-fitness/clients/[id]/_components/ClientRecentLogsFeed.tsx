@@ -72,6 +72,8 @@ interface Props {
   logs: RecentLogRow[];
   /** The single client this feed belongs to — used for "load more" fetches. */
   clientId: string;
+  /** IANA timezone used to render timestamps in the client's local time. */
+  timezone: string;
   /** Cursor for the next page (from the server). Null/absent ⇒ no more to load. */
   initialCursor?: string | null;
   /** Whether another page may exist beyond the initially-loaded rows. */
@@ -104,6 +106,7 @@ interface Props {
 export function ClientRecentLogsFeed({
   logs,
   clientId,
+  timezone,
   initialCursor = null,
   initialHasMore = false,
   showActions = true,
@@ -254,7 +257,7 @@ export function ClientRecentLogsFeed({
                   ) : null}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {formatDateTime(row.eventAt)}
+                  {formatDateTime(row.eventAt, timezone)}
                   {row.detail ? ` · ${row.detail}` : ""}
                 </p>
               </RowShell>
@@ -347,7 +350,7 @@ function RowShell({
   );
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string, timeZone: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString(undefined, {
@@ -355,6 +358,7 @@ function formatDateTime(iso: string): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone,
   });
 }
 

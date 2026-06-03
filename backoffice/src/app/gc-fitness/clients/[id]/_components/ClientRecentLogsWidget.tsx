@@ -18,8 +18,10 @@ import { ClientRecentLogsFeed } from "./ClientRecentLogsFeed";
  */
 export async function ClientRecentLogsWidget({
   clientId,
+  timezone,
 }: {
   clientId: string;
+  timezone: string;
 }) {
   const t = await getTranslations("clients.detail.recentLogs");
   const { logs, nextCursor, hasMore } = await listRecentLogsForClient(clientId);
@@ -32,6 +34,7 @@ export async function ClientRecentLogsWidget({
         <ClientRecentLogsFeed
           logs={logs}
           clientId={clientId}
+          timezone={timezone}
           initialCursor={nextCursor}
           initialHasMore={hasMore}
           showActions
