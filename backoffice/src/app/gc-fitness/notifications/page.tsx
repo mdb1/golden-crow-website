@@ -20,6 +20,7 @@ import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
 import { listHabitsForTrainer, type HabitRow } from "@/lib/gc-fitness/habit-actions";
 import { listMyCoachActivityPage } from "@/lib/gc-fitness/coach-activity-actions";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
+import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,8 @@ export default async function NotificationsPage() {
           </Button>
         </div>
       </div>
+
+      <UpcomingWorkoutAlerts />
 
       <Card>
         <CardHeader>

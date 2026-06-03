@@ -27,6 +27,7 @@ import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
+import { getTrainerTimezone } from "./trainer-timezone";
 import {
   finalizeSessionSchema,
   getClientExerciseNoteSchema,
@@ -654,6 +655,130 @@ export async function getPreviousSessionForClient(
     }
   }
   return map;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// listUpcomingScheduledWorkouts — pre-workout alerts (30/10/1 min) feed (#1)
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Civil-date string shifted by N days, formatted in `tz`. */
+function shiftCivilDate(days: number, tz: string): string {
+  return civilDateFormat(new Date(Date.now() + days * 86_400_000), tz);
+}
+
+/**
+ * Convert a wall-clock "YYYY-MM-DD" + "HH:mm" in IANA `tz` to a UTC epoch ms.
+ * Two-step offset correction (handles DST to the minute we care about).
+ */
+function zonedWallTimeToEpochMs(
+  civilDate: string,
+  time: string,
+  tz: string,
+): number | null {
+  const [y, mo, d] = civilDate.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  if ([y, mo, d, h, mi].some((n) => Number.isNaN(n))) return null;
+  const utcGuess = Date.UTC(y, mo - 1, d, h, mi);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(utcGuess));
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+  const tzAsUtc = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour === "24" ? "0" : map.hour),
+    Number(map.minute),
+  );
+  const offset = tzAsUtc - utcGuess;
+  return utcGuess - offset;
+}
+
+export interface UpcomingWorkout {
+  assignmentId: string;
+  clientId: string;
+  clientName: string;
+  workoutName: string;
+  scheduledFor: string;
+  scheduledTime: string;
+  /** UTC epoch ms of the scheduled start (client tz). */
+  scheduledEpochMs: number;
+  meetingNotes: string | null;
+}
+
+/**
+ * Upcoming scheduled workouts (with a scheduledTime) for the current trainer
+ * within the next ~12h. Powers the in-tab 30/10/1-minute countdown alerts.
+ * Index-free: ranges on the single `scheduledFor` field, filters the rest in
+ * memory (the 3-day window keeps the read small at current scale).
+ */
+export async function listUpcomingScheduledWorkouts(): Promise<UpcomingWorkout[]> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const tz = await getTrainerTimezone().catch(() => "UTC");
+
+  const lo = shiftCivilDate(-1, tz);
+  const hi = shiftCivilDate(1, tz);
+  const snap = await db
+    .collection(ASSIGNMENTS)
+    .where("scheduledFor", ">=", lo)
+    .where("scheduledFor", "<=", hi)
+    .get();
+
+  const now = Date.now();
+  const WINDOW_MS = 12 * 60 * 60 * 1000;
+  const rows: Array<Omit<UpcomingWorkout, "clientName">> = [];
+  for (const doc of snap.docs) {
+    const data = doc.data() as Record<string, unknown>;
+    if (data.trainerId !== trainer.uid) continue;
+    if (data.status !== "scheduled" && data.status !== "started") continue;
+    const scheduledTime =
+      typeof data.scheduledTime === "string" ? data.scheduledTime : null;
+    if (!scheduledTime) continue;
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    const assignmentTz =
+      typeof data.timezone === "string" ? data.timezone : tz;
+    const epoch = zonedWallTimeToEpochMs(scheduledFor, scheduledTime, assignmentTz);
+    if (epoch === null) continue;
+    if (epoch < now - 2 * 60 * 1000 || epoch > now + WINDOW_MS) continue;
+    const snapshot = data.templateSnapshot as Record<string, unknown> | undefined;
+    rows.push({
+      assignmentId: doc.id,
+      clientId: String(data.clientId ?? ""),
+      workoutName: localized(snapshot?.name, "Entrenamiento").en,
+      scheduledFor,
+      scheduledTime,
+      scheduledEpochMs: epoch,
+      meetingNotes:
+        typeof data.meetingNotes === "string" ? data.meetingNotes : null,
+    });
+  }
+
+  // Resolve client display names.
+  const clientIds = Array.from(new Set(rows.map((r) => r.clientId).filter(Boolean)));
+  const userDocs = clientIds.length
+    ? await db.getAll(
+        ...clientIds.map((id) => db.collection(FirestoreCollections.users).doc(id)),
+      )
+    : [];
+  const nameMap = new Map(
+    userDocs.map((d) => [
+      d.id,
+      String((d.data() as { displayName?: unknown })?.displayName ?? "Cliente"),
+    ]),
+  );
+
+  return rows
+    .map((r) => ({ ...r, clientName: nameMap.get(r.clientId) ?? "Cliente" }))
+    .sort((a, b) => a.scheduledEpochMs - b.scheduledEpochMs);
 }
 
 // ───────────────────────────────────────────────────────────────────────────
