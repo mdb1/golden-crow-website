@@ -289,6 +289,15 @@ function describeSection(
 }
 
 function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslations>) {
+  const inLiveWorkout = pathname.includes("/sessions/") && pathname.endsWith("/run");
+  if (inLiveWorkout) {
+    return {
+      groupLabel: tNav("activeWorkout"),
+      title: tNav("activeWorkout"),
+      subtitle: tNav("activeWorkoutDescription"),
+    };
+  }
+
   const grouped = [
     {
       groupKey: "overview",
