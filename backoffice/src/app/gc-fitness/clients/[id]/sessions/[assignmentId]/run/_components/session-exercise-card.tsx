@@ -124,6 +124,7 @@ export interface SessionExerciseCardProps {
   exercise: SessionExercise;
   rows: SetRowState[];
   previous?: PreviousSetSummary;
+  highlightNextRow?: number | null;
   onWeight: (idx: number, value: number) => void;
   onReps: (idx: number, value: number) => void;
   onDuration: (idx: number, value: number) => void;
@@ -141,6 +142,7 @@ export function SessionExerciseCard({
   exercise,
   rows,
   previous,
+  highlightNextRow,
   onWeight,
   onReps,
   onDuration,
@@ -161,8 +163,6 @@ export function SessionExerciseCard({
   const [draftNote, setDraftNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const coachNote = noteQuery.data?.note ?? exercise.notes ?? "";
-  const nextPendingRowIndex = rows.findIndex((row) => !row.done && !row.isWarmup);
-
   async function saveNote() {
     setSavingNote(true);
     try {
@@ -307,7 +307,7 @@ export function SessionExerciseCard({
               className={`grid grid-cols-[2rem_1fr_4.5rem_4.5rem_2.5rem] items-center gap-2 rounded-lg px-1 py-1 ${
                 row.done
                   ? "bg-emerald-500/10"
-                  : idx === nextPendingRowIndex
+                  : idx === highlightNextRow
                     ? "border border-amber-400/70 bg-amber-500/10 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]"
                     : ""
               }`}

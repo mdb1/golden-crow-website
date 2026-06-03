@@ -235,6 +235,7 @@ async function buildActiveSession(
   assignment: Record<string, unknown>,
   log: Record<string, unknown> | null,
   options?: { resolveMedia?: boolean },
+  startedAtOverride?: string | null,
 ): Promise<ActiveSession> {
   const snapshot =
     (log?.templateSnapshot as Record<string, unknown> | undefined) ??
@@ -253,7 +254,7 @@ async function buildActiveSession(
       (snapshot?.name as unknown) ?? undefined,
       "Workout",
     ),
-    startedAt: toIso(log?.startedAt),
+    startedAt: startedAtOverride ?? toIso(log?.startedAt),
     status:
       (log?.status as ActiveSession["status"]) ?? "active",
     exercises,
@@ -332,7 +333,7 @@ export async function listActiveWorkoutSessionsForTrainer(): Promise<
   const db = gcFitnessFirestore();
   const snap = await db.collection(LOGS).where("status", "==", "active").get();
 
-  const summaries: ActiveWorkoutSummary[] = [];
+  const summaries = new Map<string, ActiveWorkoutSummary>();
   for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
     if (data.trainerId !== trainer.uid) continue;
@@ -355,19 +356,27 @@ export async function listActiveWorkoutSessionsForTrainer(): Promise<
         clientSnap.exists && typeof clientSnap.get("displayName") === "string"
           ? String(clientSnap.get("displayName"))
           : session.clientId;
-      summaries.push(summarizeActiveSession(session, clientName));
+      const summary = summarizeActiveSession(session, clientName);
+      const existing = summaries.get(summary.assignmentId);
+      if (!existing) {
+        summaries.set(summary.assignmentId, summary);
+        continue;
+      }
+      const existingMs = existing.startedAt ? Date.parse(existing.startedAt) : 0;
+      const currentMs = summary.startedAt ? Date.parse(summary.startedAt) : 0;
+      if (currentMs >= existingMs) {
+        summaries.set(summary.assignmentId, summary);
+      }
     } catch {
       /* stale or foreign assignment — skip it */
     }
   }
 
-  summaries.sort((a, b) => {
+  return [...summaries.values()].sort((a, b) => {
     const aMs = a.startedAt ? Date.parse(a.startedAt) : 0;
     const bMs = b.startedAt ? Date.parse(b.startedAt) : 0;
     return bMs - aMs;
   });
-
-  return summaries;
 }
 
 // ── ownership-gated readers of the assignment + active log ─────────────────
@@ -449,10 +458,26 @@ export async function startWorkoutSession(
   }
 
   // Re-read the just-written log so startedAt resolves to a real instant.
-  const fresh = await db.collection(LOGS).doc(logId).get();
-  return buildActiveSession(logId, assignmentId, asg, fresh.data() ?? null, {
-    resolveMedia: false,
-  });
+  return buildActiveSession(
+    logId,
+    assignmentId,
+    asg,
+    {
+      clientId: asg.clientId,
+      trainerId: trainer.uid,
+      source: "coach",
+      assignment_id: assignmentId,
+      templateSnapshot: asg.templateSnapshot ?? {},
+      status: "active",
+      sets: [],
+      prs: [],
+      startedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    } as Record<string, unknown>,
+    { resolveMedia: false },
+    new Date().toISOString(),
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────────

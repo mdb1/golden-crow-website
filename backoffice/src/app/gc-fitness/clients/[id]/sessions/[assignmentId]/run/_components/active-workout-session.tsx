@@ -68,6 +68,17 @@ export function ActiveWorkoutSession({
     [live.exercises],
   );
 
+  const nextTarget = useMemo(() => {
+    for (const ex of live.exercises) {
+      const rows = live.rowsByExercise[ex.exerciseId] ?? [];
+      const idx = rows.findIndex((row) => !row.done && !row.isWarmup);
+      if (idx >= 0) {
+        return { exerciseId: ex.exerciseId, rowIndex: idx };
+      }
+    }
+    return null;
+  }, [live.exercises, live.rowsByExercise]);
+
   // Per-exercise rest decision: a superset only rests AFTER its last sibling
   // (the coach alternates the others). Standalone exercises always rest.
   const restDecision = useMemo(() => {
@@ -128,6 +139,9 @@ export function ActiveWorkoutSession({
         onAddSet={() => live.addSet(ex.exerciseId)}
         onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
         onMove={(dir) => live.moveExercise(ex.exerciseId, dir)}
+        highlightNextRow={
+          nextTarget?.exerciseId === ex.exerciseId ? nextTarget.rowIndex : null
+        }
         canMoveUp={idx > 0}
         canMoveDown={idx >= 0 && idx < live.exercises.length - 1}
       />
