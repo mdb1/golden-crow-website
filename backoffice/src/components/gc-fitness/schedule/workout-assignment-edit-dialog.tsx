@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Info } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -22,6 +23,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   getAssignmentDetail,
@@ -43,8 +50,29 @@ interface SetRow {
 }
 interface ExerciseDraft {
   rest: string;
+  transitionRest: string;
   notes: string;
   setRows: SetRow[];
+}
+
+function InfoTooltip({ text, label }: { text: string; label: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            title={text}
+            className="inline-flex items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{text}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 function seedDrafts(exercises: AssignmentDetail["exercises"]): Record<number, ExerciseDraft> {
@@ -63,6 +91,7 @@ function seedDrafts(exercises: AssignmentDetail["exercises"]): Record<number, Ex
     }));
     out[ex.index] = {
       rest: String(ex.rest_seconds ?? 60),
+      transitionRest: String(ex.transition_rest_seconds ?? 60),
       notes: ex.notes ?? "",
       setRows: setRows.length > 0 ? setRows : [{ reps: "0", kg: "" }],
     };
@@ -151,6 +180,9 @@ export function WorkoutAssignmentEditDialog({
         rest_seconds: Number.isFinite(rest)
           ? Math.max(0, Math.min(600, Math.round(rest)))
           : 60,
+        transition_rest_seconds: Number.isFinite(Number(draft.transitionRest))
+          ? Math.max(0, Math.min(600, Math.round(Number(draft.transitionRest))))
+          : 60,
         notes: draft.notes.trim(),
       };
     });
@@ -210,18 +242,36 @@ export function WorkoutAssignmentEditDialog({
                   key={`${ex.exerciseId}-${ex.index}`}
                   className="rounded-lg border p-3"
                 >
-                  <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm font-medium">{ex.exerciseName}</p>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      Descanso (seg)
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={draft.rest}
-                        onChange={(e) => patch(ex.index, { rest: e.target.value })}
-                        className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
-                      />
-                    </label>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        Descanso (seg)
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={draft.rest}
+                          onChange={(e) => patch(ex.index, { rest: e.target.value })}
+                          className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
+                        />
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/5 px-2 py-1 text-xs text-amber-100">
+                        Descanso entre ejercicios (s)
+                        <InfoTooltip
+                          text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
+                          label="Explicar descanso entre ejercicios"
+                        />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={draft.transitionRest}
+                          onChange={(e) =>
+                            patch(ex.index, { transitionRest: e.target.value })
+                          }
+                          className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
+                        />
+                      </label>
+                    </div>
                   </div>
                   <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <span>#</span>
