@@ -30,12 +30,7 @@ export interface RestTimerApi {
 
 function beep() {
   try {
-    const Ctx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    const ctx = ensureAudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -50,6 +45,25 @@ function beep() {
   } catch {
     /* audio not available — visual cue only */
   }
+}
+
+function ensureAudioContext(): AudioContext {
+  const win = window as Window & {
+    __gcFitnessRestTimerAudioContext?: AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  } & {
+    AudioContext?: typeof AudioContext;
+  };
+  if (win.__gcFitnessRestTimerAudioContext) {
+    return win.__gcFitnessRestTimerAudioContext;
+  }
+  const Ctx = win.AudioContext ?? win.webkitAudioContext;
+  if (!Ctx) {
+    throw new Error("AudioContext unavailable");
+  }
+  const ctx = new Ctx();
+  win.__gcFitnessRestTimerAudioContext = ctx;
+  return ctx;
 }
 
 export function useRestTimer(): RestTimerApi {
@@ -90,6 +104,14 @@ export function useRestTimer(): RestTimerApi {
   const start = useCallback((seconds: number) => {
     const s = Math.max(1, Math.round(seconds));
     firedRef.current = false;
+    try {
+      const ctx = ensureAudioContext();
+      if (ctx.state === "suspended") {
+        void ctx.resume().catch(() => {});
+      }
+    } catch {
+      /* audio not available — visual cue only */
+    }
     setTotalSeconds(s);
     setPausedRemaining(null);
     setEndsAt(Date.now() + s * 1000);

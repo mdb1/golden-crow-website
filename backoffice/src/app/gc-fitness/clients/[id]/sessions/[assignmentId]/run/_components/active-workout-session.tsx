@@ -106,16 +106,6 @@ export function ActiveWorkoutSession({
     return map;
   }, [blocks]);
 
-  // Auto-start rest when a working set is completed (superset-aware).
-  useEffect(() => {
-    live.registerOnSetCompleted((ex) => {
-      const decision = restDecision[ex.exerciseId];
-      if (decision?.rest && decision.seconds > 0) {
-        timer.start(decision.seconds);
-      }
-    });
-  }, [live, restDecision, timer]);
-
   async function finishWorkout(
     mode: FinalizeMode,
     notes: string | null,
@@ -170,7 +160,13 @@ export function ActiveWorkoutSession({
         onWeight={(i, v) => live.setWeight(ex.exerciseId, i, v)}
         onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
         onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
-        onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
+        onToggleDone={(i) => {
+          const becameDone = live.toggleDone(ex.exerciseId, i);
+          const decision = restDecision[ex.exerciseId];
+          if (becameDone && decision?.rest && decision.seconds > 0) {
+            timer.start(decision.seconds);
+          }
+        }}
         onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
         onAddSet={() => live.addSet(ex.exerciseId)}
         onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
@@ -230,15 +226,45 @@ export function ActiveWorkoutSession({
           {live.doneCount} / {live.totalPlanned} series completadas
         </p>
         {timer.active ? (
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-amber-400/50 bg-amber-500/10 px-3 py-2 text-sm">
-            <span className="inline-flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
-              <Timer className="h-4 w-4" />
-              Descanso en curso
-            </span>
-            <span className="font-mono tabular-nums text-amber-700 dark:text-amber-300">
-              {Math.floor(timer.remainingSeconds / 60)}:
-              {String(timer.remainingSeconds % 60).padStart(2, "0")}
-            </span>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-500/12 via-amber-400/8 to-background px-3 py-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                    Descanso en curso
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Termina y suena solo cuando llegue a cero.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={timer.sheetOpen ? timer.minimize : timer.expand}
+                className="rounded-full border border-amber-500/30 bg-background/80 px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm transition-colors hover:bg-background dark:text-amber-300"
+              >
+                {timer.sheetOpen ? "Minimizar" : "Abrir"}
+              </button>
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-4">
+              <div className="font-mono text-4xl font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                {Math.floor(timer.remainingSeconds / 60)}:
+                {String(timer.remainingSeconds % 60).padStart(2, "0")}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  {timer.isPaused ? "Pausado" : "Corriendo"}
+                </span>
+                <button
+                  type="button"
+                  onClick={timer.skip}
+                  className="rounded-full border border-border/80 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Saltar descanso
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
 

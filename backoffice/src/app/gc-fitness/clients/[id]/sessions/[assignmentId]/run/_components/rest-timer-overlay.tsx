@@ -27,7 +27,7 @@ export function RestTimerOverlay({ timer }: { timer: RestTimerApi }) {
       <button
         type="button"
         onClick={timer.expand}
-        className="fixed bottom-24 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-lg"
+        className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-lg"
       >
         <Timer className="h-4 w-4 text-amber-500" />
         <span className="font-mono text-sm tabular-nums">
@@ -42,7 +42,7 @@ export function RestTimerOverlay({ timer }: { timer: RestTimerApi }) {
   const offset = C * (1 - Math.max(0, Math.min(1, timer.progress)));
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4">
+    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4">
       <div className="mx-auto max-w-md rounded-3xl border border-border bg-card p-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-muted-foreground">
