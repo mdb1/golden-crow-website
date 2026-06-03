@@ -76,8 +76,14 @@ export async function listMyCoachActivityPage(
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
   const clientNameById = new Map<string, string>();
-  const safePageSize = Math.max(1, Math.min(pageSize, 20));
-  const queryLimit = safePageSize + 1;
+  const safePageSize = Math.max(1, Math.min(pageSize, 100));
+  // Fetch FAR more docs per source than we show as rows. Recurring/bulk
+  // assignments write one doc per (client, date) — a single "19 fechas" series
+  // is 19 docs that collapse to ONE row (see assignment grouping below) — so a
+  // tight per-source limit would let one series crowd out everything else and
+  // drop the rest of the day. A generous window guarantees a full day's worth
+  // of activity is present in the merge before we slice to the page.
+  const queryLimit = Math.max(safePageSize + 1, 250);
   const before = cursorDate(cursor);
 
   async function scopedRecentQuery(collectionName: string, ownerField: "trainerId" | "coachId") {

@@ -18,7 +18,9 @@ export default async function MyActivityPage() {
     throw err;
   }
 
-  const firstPage = await listMyCoachActivityPage(null, 20);
+  // Load a full page (50) so the whole of today's activity is present on first
+  // paint — a coach must see everything they did, not a truncated slice.
+  const firstPage = await listMyCoachActivityPage(null, 50);
 
   return (
     <div className="gc-page flex flex-col gap-6">
