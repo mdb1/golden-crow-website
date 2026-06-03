@@ -177,20 +177,6 @@ function clearDraft(key: string) {
   }
 }
 
-function withTransitionRestDefault(
-  exercises:
-    | Array<Partial<WorkoutTemplateInput["exercises"][number]>>
-    | undefined,
-): WorkoutTemplateInput["exercises"] {
-  return (exercises ?? []).map((exercise) => ({
-    ...exercise,
-    transition_rest_seconds:
-      typeof exercise.transition_rest_seconds === "number"
-        ? exercise.transition_rest_seconds
-        : 60,
-  })) as WorkoutTemplateInput["exercises"];
-}
-
 function InfoTooltip({ text, label }: { text: string; label: string }) {
   return (
     <TooltipProvider>
