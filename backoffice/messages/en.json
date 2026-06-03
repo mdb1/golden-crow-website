@@ -999,6 +999,12 @@
       "noMessagesYet": "No messages yet. Say hi to {name}.",
       "imagePhoto": "📷 Photo",
       "voiceNote": "🎤 Voice note",
+      "reply": {
+        "you": "You",
+        "cancel": "Cancel reply",
+        "replyingTo": "Replying to {name}",
+        "replyButton": "Reply"
+      },
       "voiceNoteWithDuration": "🎤 Voice note ({seconds}s)",
       "unsupportedMessage": "Unsupported message type.",
       "deleteMessageAria": "Delete message",

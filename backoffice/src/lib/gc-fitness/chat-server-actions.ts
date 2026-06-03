@@ -311,6 +311,19 @@ export async function sendTrainerMessage(
     data.voicePath = parsed.voicePath;
     data.voiceDurationMs = parsed.voiceDurationMs;
   }
+  // Optional reply quote (quick-260603-p1p). Re-emit EXACTLY the 4 keys —
+  // never spread `parsed.replyTo` (T-p1p-03 — defense in depth above the
+  // Zod parse). `senderId` here is a denormalized DISPLAY field of the
+  // QUOTED message, not an auth identity; the message's own senderId
+  // remains session.uid above.
+  if (parsed.replyTo !== undefined) {
+    data.replyTo = {
+      messageId: parsed.replyTo.messageId,
+      senderId: parsed.replyTo.senderId,
+      kind: parsed.replyTo.kind,
+      textSnippet: parsed.replyTo.textSnippet,
+    };
+  }
 
   const msgRef = db
     .collection(CHATS)
@@ -587,6 +600,19 @@ export async function fetchMessages(
       const iso = toIso(ts);
       if (iso) readBy[uid] = iso;
     }
+    // Optional reply quote (quick-260603-p1p). Map through only when the
+    // 4 keys look present; otherwise undefined (backward-compatible with
+    // pre-feature messages that have no replyTo field).
+    const replyToRaw = data.replyTo;
+    const replyTo =
+      replyToRaw && typeof replyToRaw === "object"
+        ? {
+            messageId: String((replyToRaw as Record<string, unknown>).messageId ?? ""),
+            senderId: String((replyToRaw as Record<string, unknown>).senderId ?? ""),
+            kind: (replyToRaw as Record<string, unknown>).kind as MessageRow["kind"],
+            textSnippet: String((replyToRaw as Record<string, unknown>).textSnippet ?? ""),
+          }
+        : undefined;
     return {
       id: doc.id,
       kind: data.kind as MessageRow["kind"],
@@ -601,6 +627,7 @@ export async function fetchMessages(
         typeof data.voiceDurationMs === "number" ? data.voiceDurationMs : undefined,
       reactions: (data.reactions as Record<string, string> | undefined) ?? {},
       readBy,
+      replyTo,
     } satisfies MessageRow;
   }).reverse();
 }

@@ -77,6 +77,28 @@ import { z } from "zod";
 export const messageKindSchema = z.enum(["text", "image", "voice"]);
 export type MessageKind = z.infer<typeof messageKindSchema>;
 
+// ── replyTo — WhatsApp-style reply quote (quick-260603-p1p) ────────────
+// Denormalized snapshot of the quoted (replied-to) message, written on the
+// NEW message at create time. OPTIONAL + ADDITIVE + backward-compatible.
+//
+// SAME-SOURCE-OF-TRUTH (Pitfall 7) — mirrors the iOS `ReplyQuote` struct
+// landed in Task 1:
+//   gc-fitness/Packages/GCFitnessCore/Sources/GCFitnessCore/Schema/ReplyQuote.swift
+//   gc-fitness/firestore.rules messages-create replyTo validation clause
+//   gc-fitness/.planning/schemas/chats.md § "Reply quote (replyTo)"
+//   chat-reply.ts `buildReplyQuote` (TS twin of ReplyQuote.make)
+//
+// Exactly the 4 keys. The Server Action whitelist re-emits exactly these
+// 4 keys (never spreads `parsed`), and the iOS rule layer validates the
+// same shape on the client write path (Admin SDK bypasses rules).
+export const replyToSchema = z.object({
+  messageId: z.string().min(1).max(128),
+  senderId: z.string().min(1).max(128),
+  kind: messageKindSchema,
+  textSnippet: z.string().max(200),
+});
+export type ReplyQuote = z.infer<typeof replyToSchema>;
+
 // ── SendMessageInput — Server Action input for sendTrainerMessage ──────
 // Variant-by-discriminator. The Server Action layer is the type guard
 // (the iOS rule layer at P08-01 is the cross-cutting defense-in-depth).
@@ -141,6 +163,13 @@ export const sendMessageInputSchema = z
      * chats.md § voice-note format.
      */
     voiceDurationMs: z.number().int().min(0).max(60000).optional(),
+
+    /**
+     * Optional reply quote (quick-260603-p1p). When present, the Server
+     * Action re-emits EXACTLY the 4 keys into the message doc; the iOS
+     * rule layer validates the same shape on the client write path.
+     */
+    replyTo: replyToSchema.optional(),
   })
   .superRefine((data, ctx) => {
     // T-08-04-VARIANT — enforce variant-required fields at the parse
@@ -236,6 +265,19 @@ export interface MessageRow {
    * slot only.
    */
   readBy?: Record<string, string>;
+
+  /**
+   * Optional denormalized snapshot of the quoted (replied-to) message
+   * (WhatsApp-style reply, quick-260603-p1p). Mirrors the iOS `ReplyQuote`
+   * struct landed in Task 1. Present only when this message is a reply;
+   * `textSnippet` is <= 200 chars, image → caption/"", voice → "".
+   */
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    kind: MessageKind;
+    textSnippet: string;
+  };
 }
 
 // ── ChatRow — READ shape for the trainer inbox (P08-11 consumes this) ──

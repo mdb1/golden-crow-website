@@ -35,7 +35,7 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useMutation } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Trash2, CornerUpLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -101,6 +101,11 @@ export function ChatConversation({
     return entry?.displayName ?? chatId;
   }, [clientRoster, chatId]);
 
+  // quick-260603-p1p — WhatsApp-style reply quote. The message the trainer
+  // is replying to (staged via the per-bubble hover reply button), or null.
+  // Reset when the active chat changes (see the chatId effect below).
+  const [replyingTo, setReplyingTo] = useState<MessageRow | null>(null);
+
   // Mark unread partner messages as read on every payload change.
   //
   // Race guard (`alreadyMarkedRef`) — React Query polls every 10s; without
@@ -112,6 +117,8 @@ export function ChatConversation({
   useEffect(() => {
     // Reset the dedupe set when the active chat changes.
     alreadyMarkedRef.current = new Set();
+    // quick-260603-p1p — drop any staged reply when switching chats.
+    setReplyingTo(null);
     // 260524 — FAST path: zero chats/{chatId}.unreadCount.{trainerUid}
     // on open so the inbox row badge clears in one round-trip instead of
     // waiting for the per-message readBy fan-in.
@@ -304,6 +311,9 @@ export function ChatConversation({
                   message={row.message}
                   isOwn={row.message.senderId === trainerUid}
                   timezone={timezone}
+                  trainerUid={trainerUid}
+                  partnerName={partnerName}
+                  onReply={setReplyingTo}
                   onAttachmentLoaded={handleAttachmentLoaded}
                   onDeleted={() => {
                     void queryClient.invalidateQueries({
@@ -318,7 +328,19 @@ export function ChatConversation({
         )}
       </div>
       <div className="shrink-0 border-t bg-background">
-        <MessageInput chatId={chatId} disabled={isPendingClient} />
+        <MessageInput
+          chatId={chatId}
+          disabled={isPendingClient}
+          replyingTo={replyingTo}
+          replyAuthorLabel={
+            replyingTo
+              ? replyingTo.senderId === trainerUid
+                ? t("reply.you")
+                : partnerName
+              : ""
+          }
+          onCancelReply={() => setReplyingTo(null)}
+        />
       </div>
     </div>
   );
@@ -343,6 +365,12 @@ interface MessageBubbleProps {
   message: MessageRow;
   isOwn: boolean;
   timezone: string;
+  /** quick-260603-p1p — signed-in trainer uid (resolves "You" in quotes). */
+  trainerUid: string;
+  /** quick-260603-p1p — client display name (resolves the partner author). */
+  partnerName: string;
+  /** quick-260603-p1p — stage this message as a reply (hover button). */
+  onReply?: (m: MessageRow) => void;
   onAttachmentLoaded?: () => void;
   onDeleted?: () => void;
 }
@@ -352,6 +380,9 @@ function MessageBubble({
   message,
   isOwn,
   timezone,
+  trainerUid,
+  partnerName,
+  onReply,
   onAttachmentLoaded,
   onDeleted,
 }: MessageBubbleProps) {
@@ -416,21 +447,63 @@ function MessageBubble({
     body = <span className="text-sm italic">{t("unsupportedMessage")}</span>;
   }
 
+  // quick-260603-p1p — nested quoted block rendered INSIDE the bubble above
+  // the body when this message is a reply. Author = "You" when the quoted
+  // message's author is the trainer, else the client display name. Snippet =
+  // text snippet (text kind) or the localized 📷/🎤 placeholder. A desktop
+  // swipe-to-reply gesture is intentionally NOT implemented — the hover
+  // reply button is the equivalent affordance on this surface.
+  const reply = message.replyTo;
+  const quotedBlock = reply ? (
+    <div className="mb-1 flex gap-2 rounded-md border-l-2 border-primary/60 bg-background/60 px-2 py-1">
+      <div className="min-w-0">
+        <div className="truncate text-xs font-semibold text-primary">
+          {reply.senderId === trainerUid ? t("reply.you") : partnerName}
+        </div>
+        <div className="truncate text-xs text-muted-foreground">
+          {reply.kind === "text"
+            ? reply.textSnippet
+            : reply.kind === "image"
+              ? t("imagePhoto")
+              : t("voiceNote")}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // quick-260603-p1p — hover reply button mirroring the delete affordance,
+  // placed on the OPPOSITE side of the delete button.
+  const replyButton = onReply ? (
+    <button
+      type="button"
+      onClick={() => onReply(message)}
+      aria-label={t("reply.replyButton")}
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+    >
+      <CornerUpLeft className="h-3.5 w-3.5" />
+    </button>
+  ) : null;
+
   return (
     <div className={`group/msg flex items-center gap-1 ${align}`}>
-      {/* Delete affordance — visible on hover, sits OUTSIDE the bubble on
-          the side that doesn't break the bubble's rounded corner. */}
+      {/* Delete + reply affordances — visible on hover, sit OUTSIDE the
+          bubble. Delete is on the bubble's near side; reply on the far
+          side (mirrored relative to alignment). */}
       {isOwn ? (
-        <button
-          type="button"
-          onClick={() => setConfirmOpen(true)}
-          aria-label={t("deleteMessageAria")}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <>
+          {replyButton}
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            aria-label={t("deleteMessageAria")}
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </>
       ) : null}
       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${tone}`}>
+        {quotedBlock}
         {body}
         {message.reactions && Object.keys(message.reactions).length > 0 ? (
           <ReactionRow reactions={message.reactions} />
@@ -438,14 +511,17 @@ function MessageBubble({
         <TimeStamp iso={message.createdAt} isOwn={isOwn} timezone={timezone} />
       </div>
       {!isOwn ? (
-        <button
-          type="button"
-          onClick={() => setConfirmOpen(true)}
-          aria-label={t("deleteMessageAria")}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            aria-label={t("deleteMessageAria")}
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+          {replyButton}
+        </>
       ) : null}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
