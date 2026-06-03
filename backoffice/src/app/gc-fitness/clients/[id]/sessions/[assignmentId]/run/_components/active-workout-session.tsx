@@ -126,12 +126,6 @@ export function ActiveWorkoutSession({
     return map;
   }, [blocks]);
 
-  useEffect(() => {
-    if (!timer.active) {
-      setRestingExerciseId(null);
-    }
-  }, [timer.active]);
-
   async function finishWorkout(
     mode: FinalizeMode,
     notes: string | null,
