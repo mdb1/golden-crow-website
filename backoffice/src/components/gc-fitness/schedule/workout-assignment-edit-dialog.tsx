@@ -124,7 +124,7 @@ export function WorkoutAssignmentEditDialog({
     if (!open) setScope("one");
   }, [open]);
 
-  const isSeries = Boolean(data?.seriesId);
+  const isSeries = Boolean(data?.seriesId || data?.recurrence);
 
   const exercises = useMemo(() => data?.exercises ?? [], [data]);
 
@@ -224,6 +224,13 @@ export function WorkoutAssignmentEditDialog({
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
+          {isSeries ? (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
+              Esta asignación pertenece a una recurrencia. Elegí abajo si los
+              cambios aplican solo a esta fecha o también a las siguientes
+              ocurrencias antes de guardar.
+            </div>
+          ) : null}
           {isLoading ? (
             <div className="flex flex-col gap-3">
               <Skeleton className="h-24 w-full" />
