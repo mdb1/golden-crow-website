@@ -172,7 +172,8 @@ export async function listMyCoachActivityPage(
   const rows: MyCoachActivityRow[] = [];
 
   for (const doc of templatesSnap?.docs ?? []) {
-    const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown };
+    const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown; deleted?: boolean };
+    if (data.deleted === true) continue; // soft-deleted templates are not activity
     const name = localizedName(data.name);
     rows.push({
       id: `template:${doc.id}`,
@@ -186,7 +187,8 @@ export async function listMyCoachActivityPage(
   }
 
   for (const doc of exercisesSnap?.docs ?? []) {
-    const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown; title?: unknown };
+    const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown; title?: unknown; deleted?: boolean; deletedAt?: unknown };
+    if (data.deleted === true || data.deletedAt) continue; // soft-deleted (trainer flag or curation tombstone)
     const name = localizedName(data.name) || localizedName(data.title);
     rows.push({
       id: `exercise:${doc.id}`,
@@ -280,7 +282,9 @@ export async function listMyCoachActivityPage(
       pendingEmail?: string;
       name?: unknown;
       title?: unknown;
+      deleted?: boolean;
     };
+    if (data.deleted === true) continue; // soft-deleted habit (e.g. "Mate") is not activity
     const clientId = typeof data.clientId === "string" ? data.clientId : null;
     const name = localizedName(data.name) || localizedName(data.title);
     rows.push({
