@@ -89,9 +89,11 @@ mockOrderBy.mockImplementation(() => ({
 }));
 
 const mockBatchSet = jest.fn();
+const mockBatchUpdate = jest.fn();
 const mockBatchCommit = jest.fn();
 const mockBatch = jest.fn(() => ({
   set: mockBatchSet,
+  update: mockBatchUpdate,
   commit: mockBatchCommit,
 }));
 
@@ -114,6 +116,7 @@ import {
   assignTemplate,
   bulkAssignTemplate,
   editAssignmentScheduledFor,
+  editAssignmentExercises,
   deleteAssignment,
   listAssignmentsForClientWeek,
   listAssignmentsForTrainerDay,
@@ -155,7 +158,6 @@ const VALID_TEMPLATE = {
       sets: 3,
       reps: 10,
       restSeconds: 90,
-      transitionRestSeconds: 60,
       transition_rest_seconds: 60,
       notes: null,
       order: 0,
@@ -569,6 +571,36 @@ describe("editAssignmentScheduledFor", () => {
   });
 });
 
+describe("editAssignmentExercises", () => {
+  it("preserves and writes transition rest in the assignment snapshot", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({ exists: true, trainerId: ALLOWED_UID }),
+    );
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    await editAssignmentExercises("asg-abc", {
+      scope: "one",
+      exercises: [
+        {
+          index: 0,
+          repsBySet: [10, 10],
+          weightBySetKg: [0, 0],
+          rest_seconds: 45,
+          transition_rest_seconds: 60,
+          notes: "Keep tempo",
+        },
+      ],
+    });
+
+    expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
+    const patch = mockBatchUpdate.mock.calls[0][1];
+    expect(patch.templateSnapshot.exercises[0].rest_seconds).toBe(45);
+    expect(patch.templateSnapshot.exercises[0].transition_rest_seconds).toBe(60);
+    expect(patch.templateSnapshot.exercises[0].sets).toBe(2);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // deleteAssignment — narrow trainer-owned hard delete (rule layer allows it)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -599,6 +631,7 @@ describe("deleteAssignment", () => {
     const batchDelete = jest.fn();
     mockBatch.mockImplementation(() => ({
       set: mockBatchSet,
+      update: mockBatchUpdate,
       delete: batchDelete,
       commit: mockBatchCommit,
     }));
@@ -674,6 +707,7 @@ describe("deleteAssignment", () => {
     const batchDelete = jest.fn();
     mockBatch.mockImplementation(() => ({
       set: mockBatchSet,
+      update: mockBatchUpdate,
       delete: batchDelete,
       commit: mockBatchCommit,
     }));
@@ -735,6 +769,7 @@ describe("deleteAssignment", () => {
     const batchDelete = jest.fn();
     mockBatch.mockImplementation(() => ({
       set: mockBatchSet,
+      update: mockBatchUpdate,
       delete: batchDelete,
       commit: mockBatchCommit,
     }));

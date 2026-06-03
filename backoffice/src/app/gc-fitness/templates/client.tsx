@@ -107,9 +107,9 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
 
   // Pull the entire roster from the server (the trainer surface tops out at a
   // few dozen templates, so paging server-side adds latency without saving
-  // reads). Tag filtering runs client-side as a case-insensitive substring so
-  // a partial query like "Her" surfaces tags like "Herfli" — the prior
-  // server-side strict equality only matched on exact "Herfli".
+  // reads). Filtering runs client-side as a case-insensitive substring across
+  // both names and tags, so a query like "Pull" surfaces "PULL Manu" as well
+  // as rows tagged "Pull".
   const { data, isLoading, error } = useWorkoutTemplates();
 
   // Read the in-progress "new" draft from localStorage so we can surface it as
@@ -173,15 +173,19 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
     }
     const needle = tagFilter.trim().toLowerCase();
     if (needle) {
-      // Any-of substring match across the canonical tags[] list. Falls back
-      // to the legacy `tag` field for rows authored before multi-tag landed.
+      // Any-of substring match across the row name(s) plus the canonical
+      // tags[] list. Falls back to the legacy `tag` field for rows authored
+      // before multi-tag landed.
       list = list.filter((row) => {
         const all = row.tags && row.tags.length > 0
           ? row.tags
           : row.tag
             ? [row.tag]
             : [];
-        return all.some((t) => t.toLowerCase().includes(needle));
+        const haystack = [row.name.en, row.name.es, ...all]
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => value.toLowerCase());
+        return haystack.some((value) => value.includes(needle));
       });
     }
     return draftRow ? [draftRow, ...list] : list;
