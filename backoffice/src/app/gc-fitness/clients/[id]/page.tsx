@@ -41,6 +41,7 @@ import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
 import { ClientNotesCard } from "./_components/ClientNotesCard";
 import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
 import { ClientRecentLogsWidget } from "./_components/ClientRecentLogsWidget";
+import ClientRequestActionsCard from "./_components/ClientRequestActionsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
@@ -117,6 +118,8 @@ export default async function ClientDetailPage({
     timezone?: string;
     heightCm?: number;
     bodyWeightKg?: number;
+    progressPhotosRequestedAt?: unknown;
+    bodyWeightRequestedAt?: unknown;
     preferences?: {
       workoutPrefillSource?: string;
     };
@@ -170,6 +173,14 @@ export default async function ClientDetailPage({
         clientName={displayName}
         timezone={timezone}
         goals={goals}
+      />
+
+      <ClientRequestActionsCard
+        clientId={id}
+        clientName={displayName}
+        timezone={timezone}
+        progressPhotosRequestedAt={client.progressPhotosRequestedAt ?? null}
+        bodyWeightRequestedAt={client.bodyWeightRequestedAt ?? null}
       />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">

@@ -11,6 +11,8 @@ export type CoachActivityKind =
   | "workout_assignment"
   | "habit_assignment"
   | "note"
+  | "progress_photo_request"
+  | "weight_request"
   | "chat";
 
 export interface MyCoachActivityRow {

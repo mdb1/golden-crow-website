@@ -28,7 +28,7 @@ export default async function RecentLogsPage() {
   }
 
   const tCommon = await getTranslations("common");
-  const tRecent = await getTranslations("recentLogs");
+  const tRecent = await getTranslations("recentLogs.feed");
   const trainerTimezone = await getTrainerTimezone();
 
   // Plan 20-06: catch Server-Action failures (Firestore unavailable, index

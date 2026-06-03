@@ -1,6 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  type EndDatePresetMonths,
+} from "@/lib/gc-fitness/end-date-presets";
 
 interface WorkoutTemplateOption {
   id: string;
@@ -29,10 +34,23 @@ export function PendingWorkoutAssignForm({
   submitAction,
 }: PendingWorkoutAssignFormProps) {
   const [mode, setMode] = useState<AssignMode>("once");
+  const [scheduledFor, setScheduledFor] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedEndPresetMonths, setSelectedEndPresetMonths] =
+    useState<EndDatePresetMonths>(3);
   const formRef = useRef<HTMLFormElement>(null);
   const isRecurring = mode !== "once";
   const showWeekdays = mode === "weekly";
   const showEveryN = mode === "everyN";
+
+  useEffect(() => {
+    if (!scheduledFor) {
+      setEndDate("");
+      return;
+    }
+    if (!isRecurring) return;
+    setEndDate(addCivilMonths(scheduledFor, selectedEndPresetMonths));
+  }, [isRecurring, scheduledFor, selectedEndPresetMonths]);
 
   // Wrap the server action so we can reset React-controlled state (`mode`)
   // and the native form fields together. Without this the controlled `mode`
@@ -42,6 +60,9 @@ export function PendingWorkoutAssignForm({
   async function handleSubmit(formData: FormData) {
     await submitAction(formData);
     setMode("once");
+    setScheduledFor("");
+    setEndDate("");
+    setSelectedEndPresetMonths(3);
     formRef.current?.reset();
   }
 
@@ -70,6 +91,8 @@ export function PendingWorkoutAssignForm({
             name="scheduledFor"
             required
             className="rounded border bg-background px-3 py-2 text-sm"
+            value={scheduledFor}
+            onChange={(event) => setScheduledFor(event.target.value)}
           />
         </label>
       </div>
@@ -106,14 +129,47 @@ export function PendingWorkoutAssignForm({
         ) : null}
 
         {isRecurring ? (
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-2 text-sm md:col-span-2 lg:col-span-4">
             <span className="font-medium">Fin (opcional)</span>
+            <div className="flex flex-wrap gap-2">
+              {END_DATE_PRESET_MONTHS.map((months) => {
+                const active =
+                  scheduledFor.length > 0 &&
+                  selectedEndPresetMonths === months &&
+                  endDate === addCivilMonths(scheduledFor, months);
+                return (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => {
+                      setSelectedEndPresetMonths(months);
+                      if (scheduledFor.length > 0) {
+                        setEndDate(addCivilMonths(scheduledFor, months));
+                      }
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    {months} mes{months === 1 ? "" : "es"}
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="date"
               name="endDate"
               className="rounded border bg-background px-3 py-2 text-sm"
+              value={endDate}
+              min={scheduledFor || undefined}
+              onChange={(event) => {
+                setEndDate(event.target.value);
+              }}
             />
-          </label>
+          </div>
         ) : null}
 
         <label className="flex flex-col gap-1 text-sm">

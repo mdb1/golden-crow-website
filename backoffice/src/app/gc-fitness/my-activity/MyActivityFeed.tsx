@@ -4,11 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import type { ComponentType } from "react";
 import {
   ClipboardList,
+  Camera,
   Dumbbell,
   ListChecks,
   MessageSquare,
   NotebookPen,
   PersonStanding,
+  Scale,
   Trash2,
 } from "lucide-react";
 
@@ -37,6 +39,8 @@ const TYPE_OPTIONS: Array<[string, string]> = [
   ["all", "Toda la actividad"],
   ["workout_assignment", "Asignaciones"],
   ["habit_assignment", "Hábitos"],
+  ["progress_photo_request", "Fotos pedidas"],
+  ["weight_request", "Peso pedido"],
   ["workout_template", "Workouts"],
   ["exercise", "Ejercicios"],
   ["note", "Notas"],
@@ -50,6 +54,8 @@ const KIND_LABEL: Record<CoachActivityKind, string> = {
   exercise: "Ejercicio",
   workout_assignment: "Asignación",
   habit_assignment: "Hábito",
+  progress_photo_request: "Fotos",
+  weight_request: "Peso",
   note: "Nota",
   chat: "Chat",
 };
@@ -59,6 +65,8 @@ const KIND_ICON = {
   exercise: PersonStanding,
   workout_assignment: ClipboardList,
   habit_assignment: ListChecks,
+  progress_photo_request: Camera,
+  weight_request: Scale,
   note: NotebookPen,
   chat: MessageSquare,
 } satisfies Record<CoachActivityKind, ComponentType<{ className?: string }>>;
@@ -73,6 +81,10 @@ const KIND_TONE: Record<CoachActivityKind, string> = {
     "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
   habit_assignment:
     "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
+  progress_photo_request:
+    "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-900 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
+  weight_request:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
   exercise:
     "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
   note:
