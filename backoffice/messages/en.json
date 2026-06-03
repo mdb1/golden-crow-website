@@ -121,7 +121,13 @@
     "openCalendar": "Open calendar",
     "renewHabit": "Renew habit",
     "openRecentLogs": "Recent logs",
-    "openMyActivity": "My activity"
+    "openMyActivity": "My activity",
+    "activeWorkoutBadge": "ACTIVE VIRTUAL WORKOUT",
+    "currentExercise": "Current exercise",
+    "currentSet": "Set",
+    "progress": "Progress",
+    "pauseWorkout": "Pause",
+    "viewDetails": "View details"
   },
   "clients": {
     "title": "Clients",

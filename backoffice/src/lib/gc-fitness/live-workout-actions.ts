@@ -62,6 +62,21 @@ const HISTORY_LIMIT = 20;
 /** Safety cap on how many future assignments a single finalize rewrites. */
 const MAX_FUTURE_PROPAGATION = 200;
 
+/** Compact summary for the notifications dashboard active-workout card. */
+export interface ActiveWorkoutSummary {
+  logId: string;
+  assignmentId: string;
+  clientId: string;
+  workoutName: string;
+  startedAt: string | null;
+  elapsedSeconds: number;
+  currentExerciseName: string;
+  currentSet: number;
+  totalSets: number;
+  completedSets: number;
+  progress: number;
+}
+
 // ── small coercion helpers ───────────────────────────────────────────────
 function toIso(v: unknown): string | null {
   if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
@@ -261,6 +276,96 @@ async function buildActiveSession(
     scheduledFor: String(assignment.scheduledFor ?? ""),
     seriesId: typeof assignment.seriesId === "string" ? assignment.seriesId : null,
   };
+}
+
+function workoutNameToString(value: LocalizedString): string {
+  return value.en || value.es || "Workout";
+}
+
+function summarizeActiveSession(session: ActiveSession): ActiveWorkoutSummary {
+  const completedByExercise = new Map<string, number>();
+  for (const set of session.sets) {
+    completedByExercise.set(
+      set.exerciseId,
+      (completedByExercise.get(set.exerciseId) ?? 0) + 1,
+    );
+  }
+
+  let currentExercise = session.exercises[0] ?? null;
+  let totalSets = 0;
+  let completedSets = 0;
+  for (const ex of session.exercises) {
+    const planned = Math.max(1, ex.sets);
+    const completed = Math.min(
+      planned,
+      completedByExercise.get(ex.exerciseId) ?? 0,
+    );
+    totalSets += planned;
+    completedSets += completed;
+    currentExercise = ex;
+    if (completed < planned) break;
+  }
+
+  const startedAt = session.startedAt;
+  const elapsedSeconds = startedAt
+    ? Math.max(0, Math.floor((Date.now() - Date.parse(startedAt)) / 1000))
+    : 0;
+
+  return {
+    logId: session.logId,
+    assignmentId: session.assignmentId,
+    clientId: session.clientId,
+    workoutName: workoutNameToString(session.workoutName),
+    startedAt,
+    elapsedSeconds,
+    currentExerciseName: currentExercise
+      ? workoutNameToString(currentExercise.name)
+      : "Workout",
+    currentSet: Math.min(totalSets || 1, completedSets + 1),
+    totalSets: Math.max(1, totalSets),
+    completedSets,
+    progress: totalSets > 0 ? completedSets / totalSets : 0,
+  };
+}
+
+export async function listActiveWorkoutSessionsForTrainer(): Promise<
+  ActiveWorkoutSummary[]
+> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db.collection(LOGS).where("status", "==", "active").get();
+
+  const summaries: ActiveWorkoutSummary[] = [];
+  for (const doc of snap.docs) {
+    const data = doc.data() as Record<string, unknown>;
+    if (data.trainerId !== trainer.uid) continue;
+    const assignmentId =
+      typeof data.assignment_id === "string" ? data.assignment_id : "";
+    if (!assignmentId) continue;
+    try {
+      const { data: assignment } = await ownedAssignment(
+        assignmentId,
+        trainer.uid,
+      );
+      const session = await buildActiveSession(
+        doc.id,
+        assignmentId,
+        assignment,
+        data,
+      );
+      summaries.push(summarizeActiveSession(session));
+    } catch {
+      /* stale or foreign assignment — skip it */
+    }
+  }
+
+  summaries.sort((a, b) => {
+    const aMs = a.startedAt ? Date.parse(a.startedAt) : 0;
+    const bMs = b.startedAt ? Date.parse(b.startedAt) : 0;
+    return bMs - aMs;
+  });
+
+  return summaries;
 }
 
 // ── ownership-gated readers of the assignment + active log ─────────────────

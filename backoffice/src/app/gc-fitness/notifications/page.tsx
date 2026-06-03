@@ -2,9 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
+  Activity,
   Bell,
   CalendarClock,
+  Clock3,
   RefreshCw,
+  Pause,
   UserCheck,
   ArrowUpRight,
 } from "lucide-react";
@@ -19,6 +22,10 @@ import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
 import { listHabitsForTrainer, type HabitRow } from "@/lib/gc-fitness/habit-actions";
 import { listMyCoachActivityPage } from "@/lib/gc-fitness/coach-activity-actions";
+import {
+  listActiveWorkoutSessionsForTrainer,
+  type ActiveWorkoutSummary,
+} from "@/lib/gc-fitness/live-workout-actions";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
 
@@ -50,6 +57,10 @@ type ActivationNotification = {
   actionLabel: string;
 };
 
+type ActiveWorkoutCardData = ActiveWorkoutSummary & {
+  clientName: string;
+};
+
 export default async function NotificationsPage() {
   try {
     await getCurrentTrainer();
@@ -66,7 +77,9 @@ export default async function NotificationsPage() {
   const todayCivil = civilDateToday(await getTrainerTimezone());
   const renewalWindowEnd = addCivilDays(todayCivil, 14);
 
-  const [workoutActivity, habits, activations, clients] = await Promise.all([
+  const [activeWorkoutSummaries, workoutActivity, habits, activations, clients] =
+    await Promise.all([
+    listActiveWorkoutSessionsForTrainer(),
     listMyCoachActivityPage(null, 100, null, "workout_assignment"),
     listHabitsForTrainer(),
     listRecentLogsForTrainerPage(null, 20, null, "signup"),
@@ -76,6 +89,10 @@ export default async function NotificationsPage() {
   const clientNameById = new Map(
     clients.map((client) => [client.uid, client.displayName]),
   );
+  const activeWorkouts: ActiveWorkoutCardData[] = activeWorkoutSummaries.map((item) => ({
+    ...item,
+    clientName: clientNameById.get(item.clientId) ?? item.clientId,
+  }));
 
   const renewalNotifications = [
     ...buildWorkoutRenewalNotifications(
@@ -137,6 +154,14 @@ export default async function NotificationsPage() {
         </div>
       </div>
 
+      {activeWorkouts.length > 0 ? (
+        <div className="space-y-4">
+          {activeWorkouts.map((item) => (
+            <ActiveWorkoutCard key={item.logId} item={item} t={t} />
+          ))}
+        </div>
+      ) : null}
+
       <UpcomingWorkoutAlerts />
 
       <Card>
@@ -186,6 +211,103 @@ export default async function NotificationsPage() {
       </Card>
     </div>
   );
+}
+
+function ActiveWorkoutCard({
+  item,
+  t,
+}: {
+  item: ActiveWorkoutCardData;
+  t: (key: string) => string;
+}) {
+  const elapsedLabel = formatWorkoutElapsed(item.elapsedSeconds);
+
+  return (
+    <section className="overflow-hidden rounded-[28px] border border-amber-300/60 bg-gradient-to-br from-amber-50/85 via-card to-card p-5 shadow-sm dark:from-amber-500/10 dark:via-card dark:to-card">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
+            <Activity className="h-3.5 w-3.5" />
+            {t("activeWorkoutBadge")}
+          </div>
+          <div className="space-y-1">
+            <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+              {item.clientName}
+            </h2>
+            <p className="text-lg font-medium text-muted-foreground">
+              {item.workoutName}
+            </p>
+          </div>
+        </div>
+        <div className="shrink-0 rounded-full border border-border/60 bg-background px-4 py-2 shadow-sm">
+          <span className="inline-flex items-center gap-2 font-mono text-xl font-semibold tabular-nums text-foreground">
+            <Clock3 className="h-4 w-4 text-muted-foreground" />
+            {elapsedLabel}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
+          <p className="text-sm font-medium text-muted-foreground">
+            {t("currentExercise")}
+          </p>
+          <p className="mt-1 text-xl font-semibold text-foreground">
+            {item.currentExerciseName}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
+          <p className="text-sm font-medium text-muted-foreground">
+            {t("currentSet")}
+          </p>
+          <p className="mt-1 text-xl font-semibold text-foreground">
+            {item.currentSet} / {item.totalSets}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-muted-foreground">
+              {t("progress")}
+            </p>
+            <p className="text-sm font-semibold text-foreground">
+              {Math.round(item.progress * 100)}%
+            </p>
+          </div>
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-[width]"
+              style={{ width: `${Math.max(4, item.progress * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <Button asChild className="flex-1 gap-2 bg-amber-500 text-foreground hover:bg-amber-500/90">
+          <Link href={`/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`}>
+            <Pause className="h-4 w-4" />
+            {t("pauseWorkout")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="flex-1 gap-2">
+          <Link href={`/gc-fitness/clients/${item.clientId}`}>
+            <ArrowUpRight className="h-4 w-4" />
+            {t("viewDetails")}
+          </Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function formatWorkoutElapsed(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function NotificationRow({

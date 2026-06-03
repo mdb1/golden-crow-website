@@ -121,7 +121,13 @@
     "openCalendar": "Abrir calendario",
     "renewHabit": "Renovar hábito",
     "openRecentLogs": "Actividad reciente",
-    "openMyActivity": "Mi actividad"
+    "openMyActivity": "Mi actividad",
+    "activeWorkoutBadge": "WORKOUT VIRTUAL ACTIVO",
+    "currentExercise": "Ejercicio actual",
+    "currentSet": "Serie",
+    "progress": "Progreso",
+    "pauseWorkout": "Pausar",
+    "viewDetails": "Ver detalles"
   },
   "clients": {
     "title": "Clientes",
