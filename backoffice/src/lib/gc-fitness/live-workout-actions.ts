@@ -944,7 +944,9 @@ export async function listUpcomingScheduledWorkouts(): Promise<UpcomingWorkout[]
       typeof data.timezone === "string" ? data.timezone : tz;
     const epoch = zonedWallTimeToEpochMs(scheduledFor, scheduledTime, assignmentTz);
     if (epoch === null) continue;
-    if (epoch < now - 2 * 60 * 1000 || epoch > now + WINDOW_MS) continue;
+    if (scheduledFor !== todayCivil && (epoch < now - 2 * 60 * 1000 || epoch > now + WINDOW_MS)) {
+      continue;
+    }
     const snapshot = data.templateSnapshot as Record<string, unknown> | undefined;
     rows.push({
       assignmentId: doc.id,

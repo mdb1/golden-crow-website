@@ -120,6 +120,7 @@ export function GCFitnessShell({
   const chatsQuery = useTrainerChats(!shellHidden && !!trainerUid);
   const activeWorkoutQuery = useActiveWorkoutSummaries(!shellHidden && !!trainerUid);
   const sectionMeta = getSectionMeta(pathname, tNav);
+  const inLiveWorkout = pathname.includes("/sessions/") && pathname.endsWith("/run");
   const unreadChatTotal = (chatsQuery.data ?? []).reduce((sum, chat) => {
     if (!trainerUid) return sum;
     return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
@@ -202,9 +203,10 @@ export function GCFitnessShell({
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {section.items.map((item) => {
-                      const active =
-                        pathname === item.href ||
-                        pathname.startsWith(`${item.href}/`);
+                      const active = inLiveWorkout
+                        ? false
+                        : pathname === item.href ||
+                          pathname.startsWith(`${item.href}/`);
                       const label = tNav(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.href}>

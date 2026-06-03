@@ -31,12 +31,13 @@ import { useLiveSession } from "./use-live-session";
 import type { ActiveSession, SessionExercise } from "@/lib/gc-fitness/live-workout-types";
 
 function useElapsed(startedAt: string | null): string {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (!startedAt) return "0:00";
+  if (!startedAt || now === null) return "0:00";
   const total = Math.max(0, Math.floor((now - Date.parse(startedAt)) / 1000));
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
