@@ -872,8 +872,11 @@ export function AssignTemplateModal({
                           }));
                         }}
                         className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
-                      />
-                    </div>
+                        />
+                      </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("exerciseOverridesTransitionRest")}: {exercise.transition_rest_seconds}s
+                    </p>
                   </div>
                   {/* Per-set table — one row per prescribed set. Mirrors the
                       authoring form so the trainer assigns by editing the

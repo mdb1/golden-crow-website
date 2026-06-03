@@ -59,6 +59,13 @@ function readTagsFromSource(source: Record<string, unknown>): string[] {
   return ["custom"];
 }
 
+function readTransitionRestSeconds(source: Record<string, unknown>): number {
+  const raw = source.transition_rest_seconds ?? source.transitionRestSeconds;
+  return typeof raw === "number" && Number.isFinite(raw)
+    ? Math.max(0, Math.min(600, raw))
+    : 60;
+}
+
 /**
  * Shape returned by `listWorkoutTemplates` — denormalized projection used
  * by the trainer-library list view. Timestamps are converted to ISO strings
@@ -92,6 +99,7 @@ export interface WorkoutTemplateExerciseDetail {
   sets: number;
   reps: number;
   rest_seconds: number;
+  transition_rest_seconds: number;
   notes?: string;
   repsBySet?: number[];
   weightBySetKg?: number[];
@@ -497,6 +505,7 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
         Number.isFinite(durationSecondsRaw)
           ? durationSecondsRaw
           : undefined;
+      const transitionRestSeconds = readTransitionRestSeconds(exercise);
       return {
         index,
         exerciseId,
@@ -514,6 +523,7 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
           Number.isFinite(exercise.rest_seconds)
             ? exercise.rest_seconds
             : 60,
+        transition_rest_seconds: transitionRestSeconds,
         notes: typeof exercise.notes === "string" ? exercise.notes : "",
         repsBySet: Array.isArray(exercise.repsBySet)
           ? (exercise.repsBySet as number[]).filter((n) => Number.isFinite(n))

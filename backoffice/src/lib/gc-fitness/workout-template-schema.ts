@@ -13,10 +13,12 @@
 //   `safeParse` round-trip on the TS side both lock the literal field names.
 //
 // WIRE-FORMAT NOTE:
-//   `rest_seconds` is snake_case to match the Firestore rule-layer guard and
-//   the Swift `ExerciseRef.CodingKeys.restSeconds = "rest_seconds"` bridge.
+//   `rest_seconds` and `transition_rest_seconds` are snake_case to match the
+//   Firestore rule-layer guard and the Swift
+//   `ExerciseRef.CodingKeys.restSeconds = "rest_seconds"` /
+//   `transitionRestSeconds = "transition_rest_seconds"` bridge.
 //   Do NOT camelCase here — every other camelCase field uses its Swift name
-//   verbatim, but `rest_seconds` is the documented snake_case exception
+//   verbatim, but the rest fields are the documented snake_case exceptions
 //   inside `exercises[]`.
 //
 // SERVER-SIDE FIELDS — NOT IN THIS SCHEMA:
@@ -93,6 +95,12 @@ export const exerciseRefSchema = z
       .int()
       .min(0, "Rest seconds cannot be negative.")
       .max(600, "Rest seconds max is 600 (10 min)."),
+    transition_rest_seconds: z
+      .number()
+      .int()
+      .min(0, "Transition rest seconds cannot be negative.")
+      .max(600, "Transition rest seconds max is 600 (10 min).")
+      .default(60),
     notes: z
       .string()
       .max(500, "Keep coaching notes under 500 characters.")
