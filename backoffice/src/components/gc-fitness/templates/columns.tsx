@@ -7,9 +7,10 @@
 //
 //   1. Name (EN primary, ES subtitle) — sortable
 //   2. Tag — Badge (push/pull/legs/full-body/upper/lower/custom)
-//   3. Exercise count
-//   4. Updated — relative time via Intl.RelativeTimeFormat — sortable
-//   5. Actions — DropdownMenu (Edit + Delete)
+//   3. End date — compact badge when present
+//   4. Exercise count
+//   5. Updated — relative time via Intl.RelativeTimeFormat — sortable
+//   6. Actions — DropdownMenu (Edit + Delete)
 //
 // Sortable columns use `column.toggleSorting(column.getIsSorted() === "asc")`
 // per RESEARCH §Pattern 6. Per-row handlers (`onEdit`, `onDelete`) are
@@ -95,6 +96,11 @@ const TAG_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
+function formatCivilDateBadge(civilDate?: string | null): string {
+  if (!civilDate) return "—";
+  return civilDate;
+}
+
 type TFn = ReturnType<typeof useTranslations>;
 
 export function makeTemplateColumns(
@@ -179,6 +185,19 @@ export function makeTemplateColumns(
           </div>
         );
       },
+      enableSorting: false,
+    },
+    {
+      accessorKey: "endsOn",
+      header: t("endDate"),
+      cell: ({ row }) => (
+        <Badge
+          variant={row.original.endsOn ? "outline" : "ghost"}
+          className={row.original.endsOn ? "font-mono tabular-nums" : "text-muted-foreground"}
+        >
+          {formatCivilDateBadge(row.original.endsOn)}
+        </Badge>
+      ),
       enableSorting: false,
     },
     {
