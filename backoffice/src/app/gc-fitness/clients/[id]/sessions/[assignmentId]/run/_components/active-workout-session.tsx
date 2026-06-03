@@ -8,7 +8,7 @@
 // exercise cards grouped into superset blocks, and the finalize control.
 // (Rest timer = Phase 4; finalize "session vs future" dialog = Phase 5.)
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -91,6 +91,7 @@ export function ActiveWorkoutSession({
   const [finishing, setFinishing] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const seenCompletedRowKeysRef = useRef<Set<string>>(new Set());
 
   const blocks = useMemo(
     () => groupIntoSupersetBlocks(live.exercises),
@@ -107,6 +108,39 @@ export function ActiveWorkoutSession({
     }
     return null;
   }, [live.exercises, live.rowsByExercise]);
+
+  useEffect(() => {
+    if (!live.session) return;
+
+    // Seed the completion cache with the current live rows first so a resumed
+    // session doesn't auto-trigger a rest timer for already-done sets.
+    if (seenCompletedRowKeysRef.current.size === 0) {
+      for (const ex of live.exercises) {
+        const rows = live.rowsByExercise[ex.exerciseId] ?? [];
+        for (const row of rows) {
+          if (row.done) {
+            seenCompletedRowKeysRef.current.add(
+              `${row.id}:${row.completedAt ?? "done"}`,
+            );
+          }
+        }
+      }
+      return;
+    }
+
+    for (const ex of live.exercises) {
+      const rows = live.rowsByExercise[ex.exerciseId] ?? [];
+      for (const row of rows) {
+        if (!row.done || row.isWarmup) continue;
+        const completionKey = `${row.id}:${row.completedAt ?? "done"}`;
+        if (seenCompletedRowKeysRef.current.has(completionKey)) continue;
+        seenCompletedRowKeysRef.current.add(completionKey);
+        setRestingExerciseId(ex.exerciseId);
+        timer.start(resolveRestSeconds(ex));
+        return;
+      }
+    }
+  }, [live.session, live.exercises, live.rowsByExercise, timer.start]);
 
   async function finishWorkout(
     mode: FinalizeMode,
@@ -165,13 +199,7 @@ export function ActiveWorkoutSession({
         onWeight={(i, v) => live.setWeight(ex.exerciseId, i, v)}
         onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
         onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
-        onToggleDone={(i) => {
-          const becameDone = live.toggleDone(ex.exerciseId, i);
-          if (becameDone) {
-            setRestingExerciseId(ex.exerciseId);
-            timer.start(resolveRestSeconds(ex));
-          }
-        }}
+        onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
         onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
         onAddSet={() => live.addSet(ex.exerciseId)}
         onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
