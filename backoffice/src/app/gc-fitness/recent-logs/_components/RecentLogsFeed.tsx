@@ -109,7 +109,6 @@ export function RecentLogsFeed({
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<"grouped" | "chronological">("grouped");
 
   // Re-fetch page 1 whenever a filter changes (translates the filter to the
   // server-side client / type scope so pagination + filtering compose).
@@ -155,13 +154,9 @@ export function RecentLogsFeed({
   }
 
   const filtered = rows;
-  const groups = useMemo(() => groupRowsByClientDay(filtered), [filtered]);
-  // Second-level grouping: bucket the per-client-day cards under a single day
-  // heading so "Hoy"/"Ayer"/"Jun 5" is shown once per day instead of repeated
-  // on every client card.
-  const daySections = useMemo(() => groupGroupsByDay(groups), [groups]);
-  // Chronological view: flat rows grouped under day headings so the date moves
-  // out of every row into a single per-day header.
+  // Flat rows grouped under day headings so the date moves out of every row
+  // into a single per-day header. (Per-client grouping was removed — the Client
+  // filter above covers that need.)
   const chronoSections = useMemo(() => groupRowsByDayFlat(filtered), [filtered]);
 
   return (
@@ -174,7 +169,7 @@ export function RecentLogsFeed({
           </CardTitle>
           <CardDescription>{t("filtersDescription")}</CardDescription>
         </CardHeader>
-        <CardContent className="grid max-w-4xl gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <CardContent className="grid max-w-2xl gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <p className="text-sm font-medium">{t("clientLabel")}</p>
             <Select
@@ -218,31 +213,6 @@ export function RecentLogsFeed({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{t("viewLabel")}</p>
-            <div className="inline-flex h-10 rounded-md border bg-background p-0.5">
-              {(
-                [
-                  ["grouped", t("viewGrouped")],
-                  ["chronological", t("viewChronological")],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setViewMode(value)}
-                  className={[
-                    "rounded-sm px-3 text-sm font-medium transition-colors",
-                    viewMode === value
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  ].join(" ")}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -254,142 +224,14 @@ export function RecentLogsFeed({
             </CardContent>
           </Card>
         ) : null}
-        {viewMode === "chronological"
-          ? chronoSections.map((section) => (
-            <div key={section.key} className="flex flex-col gap-2">
-              <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                {section.label}
-              </h3>
-              {section.rows.map((row) => (
-                <RecentLogItem key={row.id} row={row} router={router} t={t} />
-              ))}
-            </div>
-          ))
-          : daySections.map((section) => (
+        {chronoSections.map((section) => (
           <div key={section.key} className="flex flex-col gap-2">
             <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
               {section.label}
             </h3>
-            {section.groups.map((group) => {
-          const openProfile = () => router.push(`/gc-fitness/clients/${group.clientId}`);
-          return (
-            <div
-              key={group.key}
-              role="button"
-              tabIndex={0}
-              onClick={openProfile}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openProfile();
-                }
-              }}
-              className="group cursor-pointer rounded-lg border border-l-4 border-l-primary/45 bg-card transition-colors hover:border-primary/30 hover:border-l-primary hover:bg-accent/40"
-            >
-              <div className="flex items-center justify-between gap-3 border-b px-3 py-2.5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <ClientAvatar
-                    name={group.clientName}
-                    photoURL={group.clientPhotoURL}
-                    size="md"
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{group.clientName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {group.rows.length} {group.rows.length === 1 ? t("groupItem") : t("groupItems")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground"
-                    title={t("openChat")}
-                  >
-                    <Link href={`/gc-fitness/chat?chatId=${group.clientId}`}>
-                      <MessageCircle className="h-4 w-4" />
-                      <span className="sr-only">{t("openChat")}</span>
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-              <div className="divide-y">
-                {group.rows.map((row) => {
-                  const CatIcon = CATEGORY_ICON[row.category];
-                  return (
-                    <div key={row.id} className="flex items-start gap-3 px-3 py-2.5 sm:items-center">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
-                          >
-                            {CatIcon ? <CatIcon /> : null}
-                            {t(CATEGORY_LABEL_KEY[row.category])}
-                          </Badge>
-                          <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
-                            {row.title}
-                          </span>
-                          {row.forCivilDate ? (
-                            <Badge
-                              variant="outline"
-                              className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-                            >
-                              <CalendarClock />
-                              {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
-                            </Badge>
-                          ) : null}
-                          {row.workout?.rpe != null ? (
-                            <Badge
-                              variant="outline"
-                              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
-                            >
-                              <Gauge />
-                              RPE {row.workout.rpe}
-                            </Badge>
-                          ) : null}
-                          {row.workout?.hasNotes ? (
-                            <Badge
-                              variant="outline"
-                              className="gap-1 px-1.5 py-0 text-[10px] font-normal text-muted-foreground [&>svg]:size-3 [&>svg]:opacity-70"
-                            >
-                              <StickyNote />
-                              {t("notesBadge")}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-                          {formatTime(row.eventAt)}
-                          {row.detail ? ` · ${row.detail}` : ""}
-                        </p>
-                      </div>
-                      <div
-                        className="flex shrink-0 items-center gap-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {row.workoutLogId ? (
-                          <Button
-                            asChild
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 px-2.5"
-                          >
-                            <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
-                              <Eye className="h-4 w-4" />
-                              {t("viewWorkout")}
-                            </Link>
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+            {section.rows.map((row) => (
+              <RecentLogItem key={row.id} row={row} router={router} t={t} />
+            ))}
           </div>
         ))}
       </div>
@@ -504,65 +346,6 @@ function RecentLogItem({
       </div>
     </div>
   );
-}
-
-function groupRowsByClientDay(rows: RecentLogRow[]): Array<{
-  key: string;
-  clientId: string;
-  clientName: string;
-  clientPhotoURL?: string | null;
-  dayLabel: string;
-  rows: RecentLogRow[];
-}> {
-  const groups = new Map<string, {
-    key: string;
-    clientId: string;
-    clientName: string;
-    clientPhotoURL?: string | null;
-    dayLabel: string;
-    rows: RecentLogRow[];
-  }>();
-  for (const row of rows) {
-    const dayKey = dayKeyFromIso(row.eventAt);
-    const key = `${row.clientId}:${dayKey}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.rows.push(row);
-      continue;
-    }
-    groups.set(key, {
-      key,
-      clientId: row.clientId,
-      clientName: row.clientName,
-      clientPhotoURL: row.clientPhotoURL,
-      dayLabel: formatDayHeading(row.eventAt),
-      rows: [row],
-    });
-  }
-  return Array.from(groups.values());
-}
-
-// Buckets the per-client-day cards into day sections, preserving the
-// newest-first order the server returned (Map keeps insertion order, and the
-// first card seen for a day fixes that day's position).
-function groupGroupsByDay(
-  groups: ReturnType<typeof groupRowsByClientDay>,
-): Array<{ key: string; label: string; groups: ReturnType<typeof groupRowsByClientDay> }> {
-  const sections = new Map<
-    string,
-    { key: string; label: string; groups: ReturnType<typeof groupRowsByClientDay> }
-  >();
-  for (const group of groups) {
-    const iso = group.rows[0]?.eventAt ?? "";
-    const key = dayKeyFromIso(iso);
-    const existing = sections.get(key);
-    if (existing) {
-      existing.groups.push(group);
-      continue;
-    }
-    sections.set(key, { key, label: group.dayLabel, groups: [group] });
-  }
-  return Array.from(sections.values());
 }
 
 function formatTime(iso: string): string {
