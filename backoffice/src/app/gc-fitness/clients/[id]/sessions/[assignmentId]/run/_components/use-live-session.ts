@@ -130,7 +130,7 @@ export interface LiveSessionApi {
   setReps: (exerciseId: string, idx: number, value: number) => void;
   setDuration: (exerciseId: string, idx: number, value: number) => void;
   toggleWarmup: (exerciseId: string, idx: number) => void;
-  toggleDone: (exerciseId: string, idx: number) => void;
+  toggleDone: (exerciseId: string, idx: number) => boolean;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, idx: number) => void;
   moveExercise: (exerciseId: string, dir: -1 | 1) => void;
@@ -326,6 +326,7 @@ export function useLiveSession(
           onCompletedRef.current(ex);
         }
       }
+      return becameDone;
     },
     [mutateRow, exercises, rowsByExercise],
   );

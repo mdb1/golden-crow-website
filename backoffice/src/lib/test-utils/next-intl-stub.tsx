@@ -12,6 +12,8 @@
 //     that walks the EN message catalog by `${namespace}.${key}` and
 //     interpolates `{var}` placeholders. Unknown keys return the dotted
 //     path verbatim so failures surface obviously in assertions.
+//   - `useLocale()` — returns `en` so locale-aware formatting code has a
+//     deterministic default in tests.
 //   - `NextIntlClientProvider` — a pass-through wrapper (no provider
 //     plumbing needed when the stub `useTranslations` reads the catalog
 //     directly).
@@ -105,6 +107,10 @@ function makeTFn(namespace?: string): TFn {
 
 export function useTranslations(namespace?: string): TFn {
   return makeTFn(namespace);
+}
+
+export function useLocale(): string {
+  return "en";
 }
 
 export function NextIntlClientProvider({

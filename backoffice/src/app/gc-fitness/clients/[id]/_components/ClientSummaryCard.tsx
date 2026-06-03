@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
@@ -18,10 +19,12 @@ const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
 export async function ClientSummaryCard({
   clientId,
   clientName,
+  timezone,
   goals,
 }: {
   clientId: string;
   clientName: string;
+  timezone: string;
   goals: ClientGoalRow[];
 }) {
   const t = await getTranslations("clients.detail.summary");
@@ -68,8 +71,8 @@ export async function ClientSummaryCard({
   // assignments. Mirrors the iOS dashboard chip's `workoutStreak` so
   // trainer + client see the same number. Uses the SAME 80-doc fetch
   // above (no extra query).
-  const workoutStreak = computeWorkoutStreak(assignmentsSnap.docs);
-  const todayCivil = new Date().toISOString().slice(0, 10);
+  const todayCivil = civilDateToday(timezone);
+  const workoutStreak = computeWorkoutStreak(assignmentsSnap.docs, todayCivil);
   const visibleWorkouts = workouts.filter((row) => row.isRecurring || row.scheduledFor >= todayCivil);
   const pastWorkouts = workouts.filter((row) => !row.isRecurring && row.scheduledFor < todayCivil);
   const workoutsGrouped = groupWorkouts(visibleWorkouts);
@@ -301,8 +304,8 @@ function habitCadenceLabel(
  */
 function computeWorkoutStreak(
   docs: Array<{ data: () => Record<string, unknown> }>,
+  todayCivil: string,
 ): number {
-  const todayCivil = new Date().toISOString().slice(0, 10);
   const rows = docs
     .map((doc) => {
       const data = doc.data();

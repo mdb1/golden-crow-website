@@ -216,6 +216,7 @@ function applyExerciseOverrides(
         sets?: number;
         reps?: number;
         rest_seconds?: number;
+        transition_rest_seconds?: number;
         notes?: string;
         weightBySetKg?: number[];
         repsBySet?: number[];
@@ -235,6 +236,9 @@ function applyExerciseOverrides(
       ...(override.reps !== undefined ? { reps: override.reps } : {}),
       ...(override.rest_seconds !== undefined
         ? { rest_seconds: override.rest_seconds }
+        : {}),
+      ...(override.transition_rest_seconds !== undefined
+        ? { transition_rest_seconds: override.transition_rest_seconds }
         : {}),
       ...(override.notes !== undefined ? { notes: override.notes } : {}),
       ...(override.weightBySetKg !== undefined

@@ -66,6 +66,7 @@ const assignmentExerciseOverrideSchema = z.object({
   sets: z.number().int().min(1).max(10).optional(),
   reps: z.number().int().min(1).max(50).optional(),
   rest_seconds: z.number().int().min(0).max(600).optional(),
+  transition_rest_seconds: z.number().int().min(0).max(600).optional(),
   notes: z.string().max(500).optional(),
   weightBySetKg: z.array(z.number().min(0).max(500)).max(10).optional(),
   repsBySet: z.array(z.number().int().min(1).max(50)).max(10).optional(),

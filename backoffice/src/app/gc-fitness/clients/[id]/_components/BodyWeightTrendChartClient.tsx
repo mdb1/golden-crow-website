@@ -9,6 +9,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useLocale } from "next-intl";
+
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 
 export interface BodyWeightPoint {
   date: string;
@@ -22,6 +25,7 @@ export function BodyWeightTrendChartClient({
   data: BodyWeightPoint[];
   unitLabel: string;
 }) {
+  const locale = useLocale();
   return (
     <div className="h-60 w-full rounded-md border bg-muted/20 p-2 sm:p-3">
       <ResponsiveContainer width="100%" height="100%">
@@ -40,8 +44,11 @@ export function BodyWeightTrendChartClient({
             axisLine={false}
             minTickGap={24}
             tickFormatter={(value: string) => {
-              const d = new Date(`${value}T00:00:00`);
-              return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+              return formatCivilDateLabel(
+                value,
+                { month: "short", day: "numeric" },
+                locale,
+              );
             }}
           />
           <YAxis
@@ -61,8 +68,15 @@ export function BodyWeightTrendChartClient({
             }}
             formatter={(value) => [`${Number(value).toFixed(1)} ${unitLabel}`, "Peso"]}
             labelFormatter={(label) => {
-              const d = new Date(`${String(label)}T00:00:00`);
-              return d.toLocaleDateString();
+              return formatCivilDateLabel(
+                String(label),
+                {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                },
+                locale,
+              );
             }}
           />
           <Area

@@ -51,6 +51,12 @@ function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function formatMmss(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export interface ActiveWorkoutSessionProps {
   clientId: string;
   assignmentId: string;
@@ -70,6 +76,7 @@ export function ActiveWorkoutSession({
   const live = useLiveSession(assignmentId, previous, initialSession);
   const elapsed = useElapsed(live.session?.startedAt ?? null);
   const timer = useRestTimer();
+  const [restingExerciseId, setRestingExerciseId] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -106,15 +113,11 @@ export function ActiveWorkoutSession({
     return map;
   }, [blocks]);
 
-  // Auto-start rest when a working set is completed (superset-aware).
   useEffect(() => {
-    live.registerOnSetCompleted((ex) => {
-      const decision = restDecision[ex.exerciseId];
-      if (decision?.rest && decision.seconds > 0) {
-        timer.start(decision.seconds);
-      }
-    });
-  }, [live, restDecision, timer]);
+    if (!timer.active) {
+      setRestingExerciseId(null);
+    }
+  }, [timer.active]);
 
   async function finishWorkout(
     mode: FinalizeMode,
@@ -170,11 +173,23 @@ export function ActiveWorkoutSession({
         onWeight={(i, v) => live.setWeight(ex.exerciseId, i, v)}
         onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
         onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
-        onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
+        onToggleDone={(i) => {
+          const becameDone = live.toggleDone(ex.exerciseId, i);
+          const decision = restDecision[ex.exerciseId];
+          if (becameDone && decision?.rest && decision.seconds > 0) {
+            setRestingExerciseId(ex.exerciseId);
+            timer.start(decision.seconds);
+          }
+        }}
         onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
         onAddSet={() => live.addSet(ex.exerciseId)}
         onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
         onMove={(dir) => live.moveExercise(ex.exerciseId, dir)}
+        restCountdown={
+          timer.active && restingExerciseId === ex.exerciseId
+            ? formatMmss(timer.remainingSeconds)
+            : null
+        }
         highlightNextRow={
           nextTarget?.exerciseId === ex.exerciseId ? nextTarget.rowIndex : null
         }
@@ -211,7 +226,7 @@ export function ActiveWorkoutSession({
   return (
     <div className="mx-auto w-full max-w-2xl pb-28">
       {/* Header */}
-      <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 grid grid-cols-[auto_1fr_auto] items-center border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur">
         <Button
           variant="ghost"
           size="icon"
@@ -220,8 +235,37 @@ export function ActiveWorkoutSession({
         >
           <X className="h-5 w-5" />
         </Button>
-        <span className="font-mono text-lg tabular-nums">{elapsed}</span>
-        <span className="w-9" />
+        <div className="flex justify-center">
+          <span className="font-mono text-lg tabular-nums">{elapsed}</span>
+        </div>
+        <div className="flex justify-end">
+          {timer.active ? (
+            <button
+              type="button"
+              onClick={timer.sheetOpen ? timer.minimize : timer.expand}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                timer.isPaused
+                  ? "border-slate-400/40 bg-slate-500/10 text-slate-700 hover:bg-slate-500/15 dark:text-slate-300"
+                  : "border-amber-400/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  timer.isPaused ? "bg-slate-500" : "bg-amber-500"
+                }`}
+              />
+              <Timer className="h-3.5 w-3.5" />
+              <span className="font-mono tabular-nums">
+                {formatMmss(timer.remainingSeconds)}
+              </span>
+              <span className="hidden sm:inline">
+                {timer.isPaused ? "Pausado" : "Descanso"}
+              </span>
+            </button>
+          ) : (
+            <span className="w-9" />
+          )}
+        </div>
       </div>
 
       <div className="px-1 pt-4">
@@ -230,15 +274,73 @@ export function ActiveWorkoutSession({
           {live.doneCount} / {live.totalPlanned} series completadas
         </p>
         {timer.active ? (
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-amber-400/50 bg-amber-500/10 px-3 py-2 text-sm">
-            <span className="inline-flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
-              <Timer className="h-4 w-4" />
-              Descanso en curso
-            </span>
-            <span className="font-mono tabular-nums text-amber-700 dark:text-amber-300">
-              {Math.floor(timer.remainingSeconds / 60)}:
-              {String(timer.remainingSeconds % 60).padStart(2, "0")}
-            </span>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-500/12 via-amber-400/8 to-background px-3 py-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Timer
+                  className={`h-4 w-4 ${
+                    timer.isPaused
+                      ? "text-slate-500 dark:text-slate-300"
+                      : "text-amber-600 dark:text-amber-300"
+                  }`}
+                />
+                <div>
+                  <p
+                    className={`text-sm font-semibold ${
+                      timer.isPaused
+                        ? "text-slate-700 dark:text-slate-300"
+                        : "text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    Descanso en curso
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Termina y suena solo cuando llegue a cero.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={timer.sheetOpen ? timer.minimize : timer.expand}
+                className={`rounded-full border bg-background/80 px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-background ${
+                  timer.isPaused
+                    ? "border-slate-500/30 text-slate-700 dark:text-slate-300"
+                    : "border-amber-500/30 text-amber-700 dark:text-amber-300"
+                }`}
+              >
+                {timer.sheetOpen ? "Minimizar" : "Abrir"}
+              </button>
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-4">
+              <div
+                className={`font-mono text-4xl font-semibold tabular-nums ${
+                  timer.isPaused
+                    ? "text-slate-700 dark:text-slate-300"
+                    : "text-amber-700 dark:text-amber-300"
+                }`}
+              >
+                {Math.floor(timer.remainingSeconds / 60)}:
+                {String(timer.remainingSeconds % 60).padStart(2, "0")}
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
+                    timer.isPaused
+                      ? "bg-slate-500/15 text-slate-700 dark:text-slate-300"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  }`}
+                >
+                  {timer.isPaused ? "Pausado" : "Corriendo"}
+                </span>
+                <button
+                  type="button"
+                  onClick={timer.skip}
+                  className="rounded-full border border-border/80 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Saltar descanso
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
 

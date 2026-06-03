@@ -3,6 +3,7 @@
 import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -17,7 +18,6 @@ import {
   StickyNote,
   User,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
   listRecentLogsForClientAsAdmin,
   type RecentLogRow,
 } from "@/lib/gc-fitness/recent-logs-actions";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 
 // Must match the server page size (listRecentLogsForClient default). The feed
 // pages through already-loaded rows in memory; only when the user crosses the
@@ -72,6 +73,8 @@ interface Props {
   logs: RecentLogRow[];
   /** The single client this feed belongs to — used for "load more" fetches. */
   clientId: string;
+  /** IANA timezone used to render timestamps in the client's local time. */
+  timezone: string;
   /** Cursor for the next page (from the server). Null/absent ⇒ no more to load. */
   initialCursor?: string | null;
   /** Whether another page may exist beyond the initially-loaded rows. */
@@ -104,12 +107,14 @@ interface Props {
 export function ClientRecentLogsFeed({
   logs,
   clientId,
+  timezone,
   initialCursor = null,
   initialHasMore = false,
   showActions = true,
   linkMode = "trainer",
   coachUid,
 }: Props) {
+  const locale = useLocale();
   const t = useTranslations("clients.detail.recentLogs");
   const tf = useTranslations("recentLogs.feed");
   const [page, setPage] = useState(0);
@@ -221,7 +226,9 @@ export function ClientRecentLogsFeed({
                       className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
                     >
                       <CalendarClock />
-                      {tf("forDay", { date: formatCivilDate(row.forCivilDate) })}
+                      {tf("forDay", {
+                        date: formatCivilDate(row.forCivilDate, locale),
+                      })}
                     </Badge>
                   ) : null}
                   {row.workout?.rpe != null ? (
@@ -254,7 +261,7 @@ export function ClientRecentLogsFeed({
                   ) : null}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {formatDateTime(row.eventAt)}
+                  {formatDateTime(row.eventAt, timezone)}
                   {row.detail ? ` · ${row.detail}` : ""}
                 </p>
               </RowShell>
@@ -347,7 +354,7 @@ function RowShell({
   );
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string, timeZone: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString(undefined, {
@@ -355,15 +362,16 @@ function formatDateTime(iso: string): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone,
   });
 }
 
 // Render a "YYYY-MM-DD" civil date as a short day label. Construct from parts
 // (NOT `new Date(iso)`) so a negative-offset host doesn't shift the day back.
-function formatCivilDate(civil: string): string {
-  const [y, m, d] = civil.split("-").map((n) => Number.parseInt(n, 10));
-  if (!y || !m || !d) return civil;
-  const date = new Date(y, m - 1, d);
-  if (Number.isNaN(date.getTime())) return civil;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function formatCivilDate(civil: string, locale: string): string {
+  return formatCivilDateLabel(
+    civil,
+    { month: "short", day: "numeric" },
+    locale,
+  );
 }

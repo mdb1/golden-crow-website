@@ -18,7 +18,7 @@ import {
   StickyNote,
   User,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
@@ -37,16 +37,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import {
   listRecentLogsForTrainerPage,
   type RecentLogRow,
 } from "@/lib/gc-fitness/recent-logs-actions";
+import {
+  formatRecentLogDayHeading,
+  formatRecentLogTime,
+  recentLogDayKeyFromIso,
+} from "@/lib/gc-fitness/recent-logs-time";
 
 const PAGE_SIZE = 20;
 
 interface Props {
   logs: RecentLogRow[];
   clients: Array<{ id: string; name: string }>;
+  trainerTimezone: string;
   /** Cursor for the next page (from the server). Null ⇒ nothing more to load. */
   initialCursor?: string | null;
   /** Whether another page may exist beyond the initially-loaded rows. */
@@ -93,25 +100,15 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
     "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
 };
 
-const UTC_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-
-const UTC_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "UTC",
-});
-
 export function RecentLogsFeed({
   logs,
   clients,
+  trainerTimezone,
   initialCursor = null,
   initialHasMore = false,
 }: Props) {
   const t = useTranslations("recentLogs.feed");
+  const locale = useLocale();
   const router = useRouter();
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -169,7 +166,10 @@ export function RecentLogsFeed({
   // Flat rows grouped under day headings so the date moves out of every row
   // into a single per-day header. (Per-client grouping was removed — the Client
   // filter above covers that need.)
-  const chronoSections = useMemo(() => groupRowsByDayFlat(filtered), [filtered]);
+  const chronoSections = useMemo(
+    () => groupRowsByDayFlat(filtered, trainerTimezone, locale, t("today"), t("yesterday")),
+    [filtered, locale, t, trainerTimezone],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -242,7 +242,14 @@ export function RecentLogsFeed({
               {section.label}
             </h3>
             {section.rows.map((row) => (
-              <RecentLogItem key={row.id} row={row} router={router} t={t} />
+              <RecentLogItem
+                key={row.id}
+                row={row}
+                router={router}
+                t={t}
+                timezone={trainerTimezone}
+                locale={locale}
+              />
             ))}
           </div>
         ))}
@@ -268,10 +275,14 @@ function RecentLogItem({
   row,
   router,
   t,
+  timezone,
+  locale,
 }: {
   row: RecentLogRow;
   router: ReturnType<typeof useRouter>;
   t: ReturnType<typeof useTranslations>;
+  timezone: string;
+  locale: string;
 }) {
   const CatIcon = CATEGORY_ICON[row.category];
   const openProfile = () => router.push(`/gc-fitness/clients/${row.clientId}`);
@@ -307,7 +318,7 @@ function RecentLogItem({
               className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
             >
               <CalendarClock />
-              {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
+              {t("forDay", { date: formatCivilDate(row.forCivilDate, locale) })}
             </Badge>
           ) : null}
           {row.workout?.rpe != null ? (
@@ -340,7 +351,7 @@ function RecentLogItem({
           ) : null}
         </div>
         <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-          {row.clientName} · {formatTime(row.eventAt)}
+          {row.clientName} · {formatRecentLogTime(row.eventAt, timezone, locale)}
           {row.detail ? ` · ${row.detail}` : ""}
         </p>
       </div>
@@ -370,42 +381,29 @@ function RecentLogItem({
   );
 }
 
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return UTC_TIME_FORMAT.format(date);
-}
-
-function dayKeyFromIso(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
-  return date.toISOString().slice(0, 10);
-}
-
-function formatDayHeading(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const key = dayKeyFromIso(iso);
-  const todayKey = dayKeyFromIso(new Date().toISOString());
-  const yesterday = new Date(Date.now() - 86_400_000);
-  const yesterdayKey = dayKeyFromIso(yesterday.toISOString());
-  if (key === todayKey) return "Hoy";
-  if (key === yesterdayKey) return "Ayer";
-  return UTC_DATE_FORMAT.format(date);
-}
-
 function groupRowsByDayFlat(
   rows: RecentLogRow[],
+  timezone: string,
+  locale: string,
+  todayLabel: string,
+  yesterdayLabel: string,
 ): Array<{ key: string; label: string; rows: RecentLogRow[] }> {
   const map = new Map<string, { key: string; label: string; rows: RecentLogRow[] }>();
   for (const row of rows) {
-    const key = dayKeyFromIso(row.eventAt);
+    const key = recentLogDayKeyFromIso(row.eventAt, timezone);
     const existing = map.get(key);
     if (existing) {
       existing.rows.push(row);
       continue;
     }
-    map.set(key, { key, label: formatDayHeading(row.eventAt), rows: [row] });
+    map.set(key, {
+      key,
+      label: formatRecentLogDayHeading(row.eventAt, timezone, locale, {
+        today: todayLabel,
+        yesterday: yesterdayLabel,
+      }),
+      rows: [row],
+    });
   }
   return Array.from(map.values());
 }
@@ -414,10 +412,6 @@ function groupRowsByDayFlat(
 // Construct from parts (NOT `new Date(iso)`) so the local-time constructor is
 // used instead of UTC-midnight parsing — otherwise a negative-offset host
 // shifts the day back by one.
-function formatCivilDate(civil: string): string {
-  const [y, m, d] = civil.split("-").map((n) => Number.parseInt(n, 10));
-  if (!y || !m || !d) return civil;
-  const date = new Date(Date.UTC(y, m - 1, d));
-  if (Number.isNaN(date.getTime())) return civil;
-  return UTC_DATE_FORMAT.format(date);
+function formatCivilDate(civil: string, locale: string): string {
+  return formatCivilDateLabel(civil, { month: "short", day: "numeric" }, locale);
 }

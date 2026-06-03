@@ -15,6 +15,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  clientActivityCivilDateKey,
+  formatClientActivityDate,
+  formatClientActivityTime,
+} from "@/lib/gc-fitness/client-activity-time";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -86,11 +91,13 @@ export function MyActivityFeed({
   initialCursor,
   initialHasMore,
   clients,
+  timezone,
 }: {
   initialRows: MyCoachActivityRow[];
   initialCursor: string | null;
   initialHasMore: boolean;
   clients: MyActivityClientOption[];
+  timezone: string;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
@@ -137,7 +144,7 @@ export function MyActivityFeed({
   // Group the flat row list into day sections so the date isn't repeated on
   // every row — the day is shown once as a section heading and each row only
   // carries its time.
-  const dayGroups = useMemo(() => groupRowsByDay(rows), [rows]);
+  const dayGroups = useMemo(() => groupRowsByDay(rows, timezone), [rows, timezone]);
 
   return (
     <div className="flex flex-col">
@@ -198,7 +205,7 @@ export function MyActivityFeed({
               </h3>
               <div className="divide-y">
                 {group.rows.map((row) => (
-                  <ActivityRow key={row.id} row={row} />
+                  <ActivityRow key={row.id} row={row} timezone={timezone} />
                 ))}
               </div>
             </section>
@@ -217,7 +224,13 @@ export function MyActivityFeed({
   );
 }
 
-function ActivityRow({ row }: { row: MyCoachActivityRow }) {
+function ActivityRow({
+  row,
+  timezone,
+}: {
+  row: MyCoachActivityRow;
+  timezone: string;
+}) {
   const Icon = row.deleted ? Trash2 : KIND_ICON[row.kind];
   const tone = row.deleted ? DELETED_TONE : KIND_TONE[row.kind];
   const label = row.deleted ? "Eliminado" : KIND_LABEL[row.kind];
@@ -239,7 +252,7 @@ function ActivityRow({ row }: { row: MyCoachActivityRow }) {
           </span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatTime(row.occurredAt)}
+          {formatTime(row.occurredAt, timezone)}
           {row.clientName ? ` · ${row.clientName}` : ""}
           {row.detail ? ` · ${row.detail}` : ""}
         </p>
@@ -250,52 +263,36 @@ function ActivityRow({ row }: { row: MyCoachActivityRow }) {
 
 function groupRowsByDay(
   rows: MyCoachActivityRow[],
+  timezone: string,
 ): Array<{ key: string; label: string; rows: MyCoachActivityRow[] }> {
   const groups = new Map<
     string,
     { key: string; label: string; rows: MyCoachActivityRow[] }
   >();
   for (const row of rows) {
-    const key = dayKeyFromIso(row.occurredAt);
+    const key = clientActivityCivilDateKey(row.occurredAt, timezone);
     const existing = groups.get(key);
     if (existing) {
       existing.rows.push(row);
       continue;
     }
-    groups.set(key, { key, label: formatDayHeading(row.occurredAt), rows: [row] });
+    groups.set(key, { key, label: formatDayHeading(row.occurredAt, timezone), rows: [row] });
   }
   return Array.from(groups.values());
 }
 
-function dayKeyFromIso(iso: string | null): string {
-  if (!iso) return "no-date";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function formatDayHeading(iso: string | null): string {
+function formatDayHeading(iso: string | null, timezone: string): string {
   if (!iso) return "Sin fecha";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
-  const key = dayKeyFromIso(iso);
-  if (key === dayKeyFromIso(today.toISOString())) return "Hoy";
-  if (key === dayKeyFromIso(yesterday.toISOString())) return "Ayer";
-  return date.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  const key = clientActivityCivilDateKey(iso, timezone);
+  if (key === clientActivityCivilDateKey(today.toISOString(), timezone)) return "Hoy";
+  if (key === clientActivityCivilDateKey(yesterday.toISOString(), timezone)) return "Ayer";
+  return formatClientActivityDate(iso, timezone);
 }
 
-function formatTime(iso: string | null): string {
+function formatTime(iso: string | null, timezone: string): string {
   if (!iso) return "Sin fecha";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatClientActivityTime(iso, timezone);
 }

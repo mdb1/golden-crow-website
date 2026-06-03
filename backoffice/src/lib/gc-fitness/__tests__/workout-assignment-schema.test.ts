@@ -25,6 +25,14 @@ describe("assignTemplateSchema", () => {
       scheduledTime: "19:30",
       meetingNotes: "Meet on Google Meet.",
       timezone: "America/Mexico_City",
+      exerciseOverrides: [
+        {
+          index: 0,
+          rest_seconds: 45,
+          transition_rest_seconds: 75,
+          notes: "Tempo control",
+        },
+      ],
     });
     expect(result.success).toBe(true);
   });

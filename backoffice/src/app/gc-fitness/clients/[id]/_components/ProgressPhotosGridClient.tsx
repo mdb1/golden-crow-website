@@ -5,12 +5,20 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
+import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
 
 const PAGE_GROUPS = 3;
 const ANGLE_ORDER: Record<string, number> = { front: 0, side: 1, back: 2 };
 
-export function ProgressPhotosGridClient({ photos }: { photos: ProgressPhotoRow[] }) {
+export function ProgressPhotosGridClient({
+  photos,
+  timezone,
+}: {
+  photos: ProgressPhotoRow[];
+  timezone: string;
+}) {
   const t = useTranslations("clients.detail.photos");
   const tCommon = useTranslations("common");
   const [visibleGroups, setVisibleGroups] = useState(PAGE_GROUPS);
@@ -18,7 +26,7 @@ export function ProgressPhotosGridClient({ photos }: { photos: ProgressPhotoRow[
   const grouped = useMemo(() => {
     const map = new Map<string, ProgressPhotoRow[]>();
     for (const photo of photos) {
-      const key = photo.checkInDate ?? dateKey(photo);
+      const key = photo.checkInDate ?? dateKey(photo, timezone);
       const list = map.get(key) ?? [];
       list.push(photo);
       map.set(key, list);
@@ -34,7 +42,7 @@ export function ProgressPhotosGridClient({ photos }: { photos: ProgressPhotoRow[
           return (ANGLE_ORDER[angleA] ?? 99) - (ANGLE_ORDER[angleB] ?? 99);
         }),
       }));
-  }, [photos]);
+  }, [photos, timezone]);
 
   const visible = grouped.slice(0, visibleGroups);
   const hasMore = visibleGroups < grouped.length;
@@ -66,10 +74,11 @@ export function ProgressPhotosGridClient({ photos }: { photos: ProgressPhotoRow[
                     {photo.angle ?? t("photoFallback")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {photo.checkInDate ??
-                      (photo.takenAt || photo.createdAt
-                        ? new Date(photo.takenAt ?? photo.createdAt ?? "").toLocaleDateString()
-                        : tCommon("noDate"))}
+                    {photo.checkInDate
+                      ? photo.checkInDate
+                      : photo.takenAt || photo.createdAt
+                        ? formatClientActivityDate(photo.takenAt ?? photo.createdAt ?? null, timezone)
+                        : tCommon("noDate")}
                   </p>
                 </div>
                 {photo.caption ? <p className="line-clamp-2 text-sm">{photo.caption}</p> : null}
@@ -90,9 +99,10 @@ export function ProgressPhotosGridClient({ photos }: { photos: ProgressPhotoRow[
   );
 }
 
-function dateKey(photo: ProgressPhotoRow): string {
+function dateKey(photo: ProgressPhotoRow, timezone: string): string {
   const source = photo.takenAt ?? photo.createdAt;
   if (!source) return "0000-00-00";
-  return new Date(source).toISOString().slice(0, 10);
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return "0000-00-00";
+  return civilDateFormat(date, timezone);
 }
-

@@ -24,10 +24,16 @@ import { getTranslations } from "next-intl/server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import {
+  clientActivityGroupKey,
+  formatClientActivityDayHeader,
+  formatClientActivityTime,
+} from "@/lib/gc-fitness/client-activity-time";
 
 export interface ChatHistoryWidgetProps {
   clientId: string;
   trainerUid: string;
+  timezone: string;
 }
 
 interface MessagePreviewRow {
@@ -59,6 +65,7 @@ function toDate(v: unknown): Date | null {
 export async function ChatHistoryWidget({
   clientId,
   trainerUid,
+  timezone,
 }: ChatHistoryWidgetProps) {
   const t = await getTranslations("clients.detail.chatHistory");
   const tCommon = await getTranslations("common");
@@ -103,15 +110,9 @@ export async function ChatHistoryWidget({
 
   const groups: MessageGroup[] = [];
   for (const row of rows) {
-    const key = row.createdAt
-      ? row.createdAt.toISOString().slice(0, 13)
-      : "unknown";
+    const key = clientActivityGroupKey(row.createdAt?.toISOString() ?? null, timezone);
     const label = row.createdAt
-      ? row.createdAt.toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-        })
+      ? formatClientActivityDayHeader(row.createdAt.toISOString(), timezone)
       : tCommon("emDash");
     const last = groups[groups.length - 1];
     if (last && last.key === key) {
@@ -145,16 +146,14 @@ export async function ChatHistoryWidget({
                     <p
                       className={
                         row.isTrainer
-                          ? "mt-1 text-[10px] text-primary-foreground/70"
+                      ? "mt-1 text-[10px] text-primary-foreground/70"
                           : "mt-1 text-[10px] text-emerald-900/70 dark:text-emerald-50/70"
                       }
                     >
-                      {row.createdAt
-                        ? row.createdAt.toLocaleTimeString(undefined, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : tCommon("emDash")}
+                      {formatClientActivityTime(
+                        row.createdAt ? row.createdAt.toISOString() : null,
+                        timezone,
+                      )}
                     </p>
                   ) : null}
                 </div>

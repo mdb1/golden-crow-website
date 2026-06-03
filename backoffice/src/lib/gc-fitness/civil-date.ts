@@ -66,6 +66,38 @@ export function civilDateFormat(date: Date, timezone: string): string {
   return assemble(parts);
 }
 
+/**
+ * Formats a civil date (`YYYY-MM-DD`) for display without letting the host
+ * timezone reinterpret it as an instant.
+ *
+ * The input is treated as a calendar date in UTC noon and rendered with an
+ * explicit `timeZone: "UTC"` so browser/server locale differences cannot
+ * shift the visible day.
+ */
+export function formatCivilDateLabel(
+  civilDate: string,
+  options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+  },
+  locale?: string,
+): string {
+  const date = parseCivilDate(civilDate);
+  if (!date) return civilDate;
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      calendar: "gregory",
+      timeZone: "UTC",
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      calendar: "gregory",
+    }).format(date);
+  }
+}
+
 // MARK: - Helpers
 
 /**
@@ -88,6 +120,18 @@ function formatPartsInZone(date: Date, timezone: string): Intl.DateTimeFormatPar
     // `TimeZone(identifier:) ?? .current` fallback.
     return new Intl.DateTimeFormat(undefined, CALENDAR_OPTIONS).formatToParts(date);
   }
+}
+
+function parseCivilDate(civilDate: string): Date | null {
+  const [yearText, monthText, dayText] = civilDate.split("-");
+  const year = Number.parseInt(yearText ?? "", 10);
+  const month = Number.parseInt(monthText ?? "", 10);
+  const day = Number.parseInt(dayText ?? "", 10);
+  if (!year || !month || !day) return null;
+
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (civilDateFormat(date, "UTC") !== civilDate) return null;
+  return date;
 }
 
 function assemble(parts: readonly Intl.DateTimeFormatPart[]): string {

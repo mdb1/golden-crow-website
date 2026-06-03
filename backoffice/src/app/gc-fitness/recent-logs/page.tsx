@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { Info } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   getCurrentTrainer,
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { RecentLogsFeed } from "./_components/RecentLogsFeed";
 
@@ -26,6 +28,8 @@ export default async function RecentLogsPage() {
   }
 
   const tCommon = await getTranslations("common");
+  const tRecent = await getTranslations("recentLogs");
+  const trainerTimezone = await getTrainerTimezone();
 
   // Plan 20-06: catch Server-Action failures (Firestore unavailable, index
   // missing, transient network) so the trainer sees a tasteful recovery card
@@ -64,12 +68,28 @@ export default async function RecentLogsPage() {
           </CardContent>
         </Card>
       ) : (
-        <RecentLogsFeed
-          logs={logs}
-          clients={clients}
-          initialCursor={nextCursor}
-          initialHasMore={hasMore}
-        />
+        <div className="flex flex-col gap-4">
+          <Card className="border-primary/15 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Info className="h-4 w-4" />
+                {tRecent("timezoneInfoTitle")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-sm text-muted-foreground">
+                {tRecent("timezoneInfoBody", { timezone: trainerTimezone })}
+              </p>
+            </CardContent>
+          </Card>
+          <RecentLogsFeed
+            logs={logs}
+            clients={clients}
+            trainerTimezone={trainerTimezone}
+            initialCursor={nextCursor}
+            initialHasMore={hasMore}
+          />
+        </div>
       )}
     </div>
   );

@@ -38,6 +38,11 @@ import { useMutation } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  clientActivityCivilDateKey,
+  formatClientActivityDate,
+  formatClientActivityTime,
+} from "@/lib/gc-fitness/client-activity-time";
 import { CHATS_BASE_KEY, useChatMessages } from "@/lib/gc-fitness/chat-listener";
 import {
   deleteTrainerChatMessage,
@@ -64,6 +69,7 @@ import { MessageInput } from "./MessageInput";
 export interface ChatConversationProps {
   chatId: string;
   trainerUid: string;
+  timezone: string;
   clientRoster: ClientRosterEntry[];
   isPendingClient?: boolean;
 }
@@ -71,6 +77,7 @@ export interface ChatConversationProps {
 export function ChatConversation({
   chatId,
   trainerUid,
+  timezone,
   clientRoster,
   isPendingClient = false,
 }: ChatConversationProps) {
@@ -172,7 +179,7 @@ export function ChatConversation({
   // Day-separator grouping — civil-date bucket via toDateString(). The
   // iOS edge uses `DaySeparatorGrouper` (P08-02 — pure-function module);
   // a TS port for Pitfall 7 same-source-of-truth is a V2 carry-forward.
-  const rows = useMemo(() => groupByCivilDate(messages), [messages]);
+  const rows = useMemo(() => groupByCivilDate(messages, timezone), [messages, timezone]);
 
   // 260524 — auto-scroll the message pane to the most recent message
   // when:
@@ -288,7 +295,7 @@ export function ChatConversation({
               row.kind === "separator" ? (
                 <DaySeparator
                   key={`sep-${row.civilDate}`}
-                  civilDate={row.civilDate}
+                  label={row.label}
                 />
               ) : (
                 <MessageBubble
@@ -296,6 +303,7 @@ export function ChatConversation({
                   chatId={chatId}
                   message={row.message}
                   isOwn={row.message.senderId === trainerUid}
+                  timezone={timezone}
                   onAttachmentLoaded={handleAttachmentLoaded}
                   onDeleted={() => {
                     void queryClient.invalidateQueries({
@@ -318,12 +326,12 @@ export function ChatConversation({
 
 // ── Internal helpers (V2 may hoist to shared modules) ──────────────────
 
-function DaySeparator({ civilDate }: { civilDate: string }) {
+function DaySeparator({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="h-px flex-1 bg-border" />
       <span className="text-xs uppercase tracking-wide text-muted-foreground">
-        {civilDate}
+        {label}
       </span>
       <div className="h-px flex-1 bg-border" />
     </div>
@@ -334,6 +342,7 @@ interface MessageBubbleProps {
   chatId: string;
   message: MessageRow;
   isOwn: boolean;
+  timezone: string;
   onAttachmentLoaded?: () => void;
   onDeleted?: () => void;
 }
@@ -342,6 +351,7 @@ function MessageBubble({
   chatId,
   message,
   isOwn,
+  timezone,
   onAttachmentLoaded,
   onDeleted,
 }: MessageBubbleProps) {
@@ -425,7 +435,7 @@ function MessageBubble({
         {message.reactions && Object.keys(message.reactions).length > 0 ? (
           <ReactionRow reactions={message.reactions} />
         ) : null}
-        <TimeStamp iso={message.createdAt} isOwn={isOwn} />
+        <TimeStamp iso={message.createdAt} isOwn={isOwn} timezone={timezone} />
       </div>
       {!isOwn ? (
         <button
@@ -680,17 +690,16 @@ function ReactionRow({ reactions }: { reactions: Record<string, string> }) {
 function TimeStamp({
   iso,
   isOwn,
+  timezone,
 }: {
   iso: string | null | undefined;
   isOwn: boolean;
+  timezone: string;
 }) {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const label = d.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const label = formatClientActivityTime(iso, timezone);
   return (
     <p
       className={`mt-1 text-[10px] ${
@@ -712,22 +721,28 @@ function TimeStamp({
 // is a one-bucket-per-locale-civil-date stub).
 
 type GroupedRow =
-  | { kind: "separator"; civilDate: string }
+  | { kind: "separator"; civilDate: string; label: string }
   | { kind: "message"; message: MessageRow };
 
-function groupByCivilDate(messages: MessageRow[]): GroupedRow[] {
+function groupByCivilDate(messages: MessageRow[], timezone: string): GroupedRow[] {
   const rows: GroupedRow[] = [];
   let lastBucket: string | null = null;
   for (const m of messages) {
     let bucket: string;
     if (m.createdAt) {
       const d = new Date(m.createdAt);
-      bucket = Number.isNaN(d.getTime()) ? "(pending)" : d.toDateString();
+      bucket = Number.isNaN(d.getTime())
+        ? "(pending)"
+        : clientActivityCivilDateKey(m.createdAt, timezone);
     } else {
       bucket = "(pending)";
     }
     if (bucket !== lastBucket) {
-      rows.push({ kind: "separator", civilDate: bucket });
+      rows.push({
+        kind: "separator",
+        civilDate: bucket,
+        label: m.createdAt ? formatClientActivityDate(m.createdAt, timezone) : bucket,
+      });
       lastBucket = bucket;
     }
     rows.push({ kind: "message", message: m });
