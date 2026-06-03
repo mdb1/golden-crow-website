@@ -6,6 +6,7 @@ import {
   getCurrentTrainer,
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { RecentLogsFeed } from "./_components/RecentLogsFeed";
 
@@ -26,6 +27,7 @@ export default async function RecentLogsPage() {
   }
 
   const tCommon = await getTranslations("common");
+  const trainerTimezone = await getTrainerTimezone();
 
   // Plan 20-06: catch Server-Action failures (Firestore unavailable, index
   // missing, transient network) so the trainer sees a tasteful recovery card
@@ -67,6 +69,7 @@ export default async function RecentLogsPage() {
         <RecentLogsFeed
           logs={logs}
           clients={clients}
+          trainerTimezone={trainerTimezone}
           initialCursor={nextCursor}
           initialHasMore={hasMore}
         />

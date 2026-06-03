@@ -1287,6 +1287,8 @@
       "notesBadge": "Notes",
       "sourceCoach": "Coach-run",
       "sourceClient": "Client-run",
+      "today": "Today",
+      "yesterday": "Yesterday",
       "forDay": "For {date}",
       "groupItem": "action",
       "groupItems": "actions",

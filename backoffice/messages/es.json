@@ -1287,6 +1287,8 @@
       "notesBadge": "Notas",
       "sourceCoach": "Del coach",
       "sourceClient": "Del cliente",
+      "today": "Hoy",
+      "yesterday": "Ayer",
       "forDay": "Del {date}",
       "groupItem": "acción",
       "groupItems": "acciones",
