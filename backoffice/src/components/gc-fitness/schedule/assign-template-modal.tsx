@@ -145,6 +145,7 @@ export function AssignTemplateModal({
       number,
       {
         rest_seconds: string;
+        transition_rest_seconds: string;
         notes: string;
         setRows: Array<{ reps: string; kg: string; duration?: string }>;
       }
@@ -200,6 +201,7 @@ export function AssignTemplateModal({
         setOverrideDrafts(
           detail.exercises.reduce<Record<number, {
             rest_seconds: string;
+            transition_rest_seconds: string;
             notes: string;
             setRows: Array<{ reps: string; kg: string; duration?: string }>;
           }>>((acc, exercise) => {
@@ -258,6 +260,9 @@ export function AssignTemplateModal({
             }));
             acc[exercise.index] = {
               rest_seconds: String(exercise.rest_seconds),
+              transition_rest_seconds: String(
+                exercise.transition_rest_seconds ?? 60,
+              ),
               notes: exercise.notes ?? "",
               setRows,
             };
@@ -338,6 +343,7 @@ export function AssignTemplateModal({
           .map((n) => (Number.isFinite(n) ? n : 60));
 
         const nextRest = Number(draft.rest_seconds);
+        const nextTransitionRest = Number(draft.transition_rest_seconds);
         const nextNotes = draft.notes.trim();
 
         const baseRepsBySet = Array.isArray(exercise.repsBySet) ? exercise.repsBySet : [];
@@ -362,6 +368,9 @@ export function AssignTemplateModal({
           : baseWeightBySetKg.length > 0;
         const changedRest =
           Number.isFinite(nextRest) && nextRest !== exercise.rest_seconds;
+        const changedTransitionRest =
+          Number.isFinite(nextTransitionRest) &&
+          nextTransitionRest !== (exercise.transition_rest_seconds ?? 60);
         const changedNotes = nextNotes !== (exercise.notes ?? "").trim();
         // 26-03 — Duration change detection (only relevant when time).
         const changedDurations =
@@ -377,6 +386,7 @@ export function AssignTemplateModal({
           !changedRepsBySet &&
           !changedWeights &&
           !changedRest &&
+          !changedTransitionRest &&
           !changedNotes &&
           !changedDurations
         ) {
@@ -401,6 +411,14 @@ export function AssignTemplateModal({
           ...(changedWeights && !finalWeights ? { weightBySetKg: [] } : {}),
           ...(changedRest
             ? { rest_seconds: Math.max(0, Math.min(600, Math.round(nextRest))) }
+            : {}),
+          ...(changedTransitionRest
+            ? {
+                transition_rest_seconds: Math.max(
+                  0,
+                  Math.min(600, Math.round(nextTransitionRest)),
+                ),
+              }
             : {}),
           ...(changedNotes ? { notes: nextNotes } : {}),
           // 26-03 — Duration override write (time exercises only).
@@ -933,8 +951,26 @@ export function AssignTemplateModal({
                         className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
                         />
                       </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      {t("exerciseOverridesTransitionRest")}: {exercise.transition_rest_seconds}s
+                    <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <span>{t("exerciseOverridesTransitionRest")}:</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={draft.transition_rest_seconds}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setOverrideDrafts((prev) => ({
+                            ...prev,
+                            [exercise.index]: {
+                              ...prev[exercise.index],
+                              transition_rest_seconds: value,
+                            },
+                          }));
+                        }}
+                        className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
+                      />
+                      <span>s</span>
                     </p>
                   </div>
                   {/* Per-set table — one row per prescribed set. Mirrors the

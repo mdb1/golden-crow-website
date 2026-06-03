@@ -124,6 +124,7 @@ export interface SessionExerciseCardProps {
   exercise: SessionExercise;
   rows: SetRowState[];
   previous?: PreviousSetSummary;
+  restCountdown?: string | null;
   highlightNextRow?: number | null;
   onWeight: (idx: number, value: number) => void;
   onReps: (idx: number, value: number) => void;
@@ -142,6 +143,7 @@ export function SessionExerciseCard({
   exercise,
   rows,
   previous,
+  restCountdown,
   highlightNextRow,
   onWeight,
   onReps,
@@ -207,6 +209,12 @@ export function SessionExerciseCard({
             {rows.length} {rows.length === 1 ? "serie" : "series"} ·{" "}
             {formatRest(exercise.restSeconds)}
           </p>
+          {restCountdown ? (
+            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Descanso activo: {restCountdown}
+            </div>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <div className="mr-1 flex flex-col">

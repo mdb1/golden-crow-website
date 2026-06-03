@@ -51,6 +51,12 @@ function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function formatMmss(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export interface ActiveWorkoutSessionProps {
   clientId: string;
   assignmentId: string;
@@ -70,6 +76,7 @@ export function ActiveWorkoutSession({
   const live = useLiveSession(assignmentId, previous, initialSession);
   const elapsed = useElapsed(live.session?.startedAt ?? null);
   const timer = useRestTimer();
+  const [restingExerciseId, setRestingExerciseId] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -105,6 +112,12 @@ export function ActiveWorkoutSession({
     }
     return map;
   }, [blocks]);
+
+  useEffect(() => {
+    if (!timer.active) {
+      setRestingExerciseId(null);
+    }
+  }, [timer.active]);
 
   async function finishWorkout(
     mode: FinalizeMode,
@@ -164,6 +177,7 @@ export function ActiveWorkoutSession({
           const becameDone = live.toggleDone(ex.exerciseId, i);
           const decision = restDecision[ex.exerciseId];
           if (becameDone && decision?.rest && decision.seconds > 0) {
+            setRestingExerciseId(ex.exerciseId);
             timer.start(decision.seconds);
           }
         }}
@@ -171,6 +185,11 @@ export function ActiveWorkoutSession({
         onAddSet={() => live.addSet(ex.exerciseId)}
         onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
         onMove={(dir) => live.moveExercise(ex.exerciseId, dir)}
+        restCountdown={
+          timer.active && restingExerciseId === ex.exerciseId
+            ? formatMmss(timer.remainingSeconds)
+            : null
+        }
         highlightNextRow={
           nextTarget?.exerciseId === ex.exerciseId ? nextTarget.rowIndex : null
         }

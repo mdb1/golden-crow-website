@@ -256,13 +256,22 @@ describe("assignTemplate", () => {
       clientId: CLIENT_UID,
       scheduledFor: "2026-06-01",
       timezone: "America/Mexico_City",
+      exerciseOverrides: [
+        {
+          index: 0,
+          rest_seconds: 45,
+          transition_rest_seconds: 75,
+          notes: "Tempo control",
+        },
+      ],
     });
 
     // calls[0] is the assignment doc write; a 2nd set() writes the
     // best-effort coach_activity event log (see coach-activity-log.ts).
     expect(mockSet).toHaveBeenCalled();
     const payload = mockSet.mock.calls[0][0];
-    expect(payload.templateSnapshot).toEqual(VALID_TEMPLATE);
+    expect(payload.templateSnapshot.exercises[0].rest_seconds).toBe(45);
+    expect(payload.templateSnapshot.exercises[0].transition_rest_seconds).toBe(75);
     expect(payload.templateId).toBe("tpl-abc");
     expect(payload.clientId).toBe(CLIENT_UID);
     expect(payload.trainerId).toBe(ALLOWED_UID);
