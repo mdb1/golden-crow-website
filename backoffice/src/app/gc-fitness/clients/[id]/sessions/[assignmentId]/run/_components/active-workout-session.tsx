@@ -28,7 +28,7 @@ import { RestTimerOverlay } from "./rest-timer-overlay";
 import { SessionExerciseCard } from "./session-exercise-card";
 import { useRestTimer } from "./use-rest-timer";
 import { useLiveSession } from "./use-live-session";
-import type { SessionExercise } from "@/lib/gc-fitness/live-workout-types";
+import type { ActiveSession, SessionExercise } from "@/lib/gc-fitness/live-workout-types";
 
 function useElapsed(startedAt: string | null): string {
   const [now, setNow] = useState(() => Date.now());
@@ -53,18 +53,20 @@ function isUrl(value: string): boolean {
 export interface ActiveWorkoutSessionProps {
   clientId: string;
   assignmentId: string;
+  initialSession: ActiveSession | null;
 }
 
 export function ActiveWorkoutSession({
   clientId,
   assignmentId,
+  initialSession,
 }: ActiveWorkoutSessionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const previousQuery = usePreviousSessionForClient(clientId);
   const previous = useMemo(() => previousQuery.data ?? {}, [previousQuery.data]);
 
-  const live = useLiveSession(assignmentId, previous);
+  const live = useLiveSession(assignmentId, previous, initialSession);
   const elapsed = useElapsed(live.session?.startedAt ?? null);
   const timer = useRestTimer();
   const [finishing, setFinishing] = useState(false);

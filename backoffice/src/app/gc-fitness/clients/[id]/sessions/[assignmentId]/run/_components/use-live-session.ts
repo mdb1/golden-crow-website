@@ -144,14 +144,27 @@ export interface LiveSessionApi {
 export function useLiveSession(
   assignmentId: string,
   previous: PreviousSessionMap,
+  bootstrapSession: ActiveSession | null = null,
 ): LiveSessionApi {
-  const [status, setStatus] = useState<SessionStatus>("loading");
+  const previousRef = useRef(previous);
+  const [status, setStatus] = useState<SessionStatus>(
+    bootstrapSession ? "active" : "loading",
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [session, setSession] = useState<ActiveSession | null>(null);
-  const [exercises, setExercises] = useState<SessionExercise[]>([]);
-  const [rowsByExercise, setRowsByExercise] = useState<
-    Record<string, SetRowState[]>
-  >({});
+  const [session, setSession] = useState<ActiveSession | null>(bootstrapSession);
+  const [exercises, setExercises] = useState<SessionExercise[]>(
+    bootstrapSession?.exercises ?? [],
+  );
+  const [rowsByExercise, setRowsByExercise] = useState<Record<string, SetRowState[]>>(
+    () => {
+      if (!bootstrapSession) return {};
+      const base: Record<string, SetRowState[]> = {};
+      for (const ex of bootstrapSession.exercises) {
+        base[ex.exerciseId] = initialRows(ex, previousRef.current);
+      }
+      return hydrateLoggedSets(base, bootstrapSession.sets);
+    },
+  );
 
   const startedRef = useRef(false);
   const hydratedRef = useRef(false);
@@ -160,7 +173,7 @@ export function useLiveSession(
 
   // Start (or resume) the session once on mount.
   useEffect(() => {
-    if (startedRef.current) return;
+    if (startedRef.current || bootstrapSession) return;
     startedRef.current = true;
     let cancelled = false;
     (async () => {
@@ -168,7 +181,7 @@ export function useLiveSession(
         const s = await startWorkoutSession({ assignmentId });
         if (cancelled) return;
         const base: Record<string, SetRowState[]> = {};
-        for (const ex of s.exercises) base[ex.exerciseId] = initialRows(ex, previous);
+        for (const ex of s.exercises) base[ex.exerciseId] = initialRows(ex, previousRef.current);
         setSession(s);
         setExercises(s.exercises);
         setRowsByExercise(hydrateLoggedSets(base, s.sets));
@@ -182,9 +195,7 @@ export function useLiveSession(
     return () => {
       cancelled = true;
     };
-    // previous is intentionally read once at start; later changes don't reset rows.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignmentId]);
+  }, [assignmentId, bootstrapSession]);
 
   useEffect(() => {
     if (status !== "active" || !session || hydratedRef.current) return;

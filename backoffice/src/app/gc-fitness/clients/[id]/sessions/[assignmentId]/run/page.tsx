@@ -8,6 +8,7 @@
 import { notFound } from "next/navigation";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { getActiveSessionForAssignment } from "@/lib/gc-fitness/live-workout-actions";
 
 import { ActiveWorkoutSession } from "./_components/active-workout-session";
 
@@ -24,9 +25,16 @@ export default async function RunSessionPage({
   } catch {
     notFound();
   }
+  const initialSession = await getActiveSessionForAssignment(assignmentId).catch(
+    () => null,
+  );
   return (
     <div className="gc-page">
-      <ActiveWorkoutSession clientId={id} assignmentId={assignmentId} />
+      <ActiveWorkoutSession
+        clientId={id}
+        assignmentId={assignmentId}
+        initialSession={initialSession}
+      />
     </div>
   );
 }
