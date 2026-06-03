@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale } from "next-intl";
 
 import { cn } from "@/lib/utils";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +26,7 @@ interface DailyBarsProps {
 }
 
 export function DailyBars({ data, emptyLabel, unitLabel }: DailyBarsProps) {
+  const locale = useLocale();
   const hasAnyData = data.some((d) => d.denominator > 0);
   if (!hasAnyData) {
     return (
@@ -76,7 +79,7 @@ export function DailyBars({ data, emptyLabel, unitLabel }: DailyBarsProps) {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-[11px] leading-tight">
-                <div className="font-semibold">{formatTooltipDate(d.civilDate)}</div>
+                <div className="font-semibold">{formatTooltipDate(d.civilDate, locale)}</div>
                 <div className="text-background/85">
                   {d.denominator === 0
                     ? `Nothing scheduled`
@@ -96,15 +99,16 @@ function tooltipLabel(d: DailyMetric, unit: string): string {
   return `${d.weekdayLabel}: ${d.numerator} of ${d.denominator} ${unit} (${d.percentage}%)`;
 }
 
-function formatTooltipDate(civilDate: string): string {
-  const date = new Date(`${civilDate}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return civilDate;
-  return date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+function formatTooltipDate(civilDate: string, locale: string): string {
+  return formatCivilDateLabel(
+    civilDate,
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    },
+    locale,
+  );
 }
 
 interface TopPerformersProps {

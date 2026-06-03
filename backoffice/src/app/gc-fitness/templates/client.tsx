@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   flexRender,
   getCoreRowModel,
@@ -94,6 +94,7 @@ export interface TemplatesLibraryClientProps {
 
 export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientProps) {
   const router = useRouter();
+  const locale = useLocale();
   const t = useTranslations("templates.list");
   const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
@@ -226,8 +227,8 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
 
   const columnsT = useTranslations("templates.columns");
   const columns = useMemo(
-    () => makeTemplateColumns(handlers, columnsT),
-    [handlers, columnsT],
+    () => makeTemplateColumns(handlers, columnsT, locale),
+    [handlers, columnsT, locale],
   );
 
   const table = useReactTable({

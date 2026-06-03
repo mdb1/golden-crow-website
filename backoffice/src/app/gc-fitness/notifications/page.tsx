@@ -74,7 +74,8 @@ export default async function NotificationsPage() {
 
   const locale = (await getLocale()) as Locale;
   const t = await getTranslations("notifications");
-  const todayCivil = civilDateToday(await getTrainerTimezone());
+  const trainerTimezone = await getTrainerTimezone();
+  const todayCivil = civilDateToday(trainerTimezone);
   const renewalWindowEnd = addCivilDays(todayCivil, 14);
 
   const [activeWorkoutSummaries, workoutActivity, habits, activations, clients] =
@@ -177,7 +178,7 @@ export default async function NotificationsPage() {
             <EmptyState label={t("noRenewals")} />
           ) : (
             renewalNotifications.map((item) => (
-              <NotificationRow key={item.id} title={item.title} detail={item.detail} meta={formatMeta(item.occurredAtISO, item.clientName, item.dueLabel, locale)} actionHref={item.actionHref} actionLabel={item.actionLabel} icon={<CalendarClock className="h-4 w-4" />} />
+              <NotificationRow key={item.id} title={item.title} detail={item.detail} meta={formatMeta(item.occurredAtISO, item.clientName, item.dueLabel, locale, trainerTimezone)} actionHref={item.actionHref} actionLabel={item.actionLabel} icon={<CalendarClock className="h-4 w-4" />} />
             ))
           )}
         </CardContent>
@@ -200,7 +201,7 @@ export default async function NotificationsPage() {
                 key={item.id}
                 title={t("clientActivated")}
                 detail={item.detail}
-                meta={formatMeta(item.occurredAtISO, item.clientName, null, locale)}
+                meta={formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone)}
                 actionHref={item.actionHref}
                 actionLabel={item.actionLabel}
                 icon={<Bell className="h-4 w-4" />}
@@ -463,22 +464,24 @@ function formatMeta(
   clientName: string,
   secondary: string | null,
   locale: Locale,
+  timezone: string,
 ): string {
   const bits = [
-    occurredAtISO ? formatClock(occurredAtISO, locale) : null,
+    occurredAtISO ? formatClock(occurredAtISO, locale, timezone) : null,
     clientName,
   ];
   if (secondary) bits.push(secondary);
   return bits.filter(Boolean).join(" · ");
 }
 
-function formatClock(iso: string | null, locale: Locale): string {
+function formatClock(iso: string | null, locale: Locale, timezone: string): string {
   if (!iso) return locale === "es" ? "Sin hora" : "No time";
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return locale === "es" ? "Sin hora" : "No time";
   return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : "en-US", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: timezone,
   }).format(dt);
 }
 

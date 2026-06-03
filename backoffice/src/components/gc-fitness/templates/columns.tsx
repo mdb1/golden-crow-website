@@ -42,6 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 
@@ -96,9 +97,9 @@ const TAG_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
-function formatCivilDateBadge(civilDate?: string | null): string {
+function formatCivilDateBadge(civilDate?: string | null, locale?: string): string {
   if (!civilDate) return "—";
-  return civilDate;
+  return formatCivilDateLabel(civilDate, { month: "short", day: "numeric" }, locale);
 }
 
 type TFn = ReturnType<typeof useTranslations>;
@@ -106,6 +107,7 @@ type TFn = ReturnType<typeof useTranslations>;
 export function makeTemplateColumns(
   handlers: TemplateColumnHandlers,
   t: TFn,
+  locale: string,
 ): ColumnDef<TemplateListRow>[] {
   return [
     {
@@ -195,7 +197,7 @@ export function makeTemplateColumns(
           variant={row.original.endsOn ? "outline" : "ghost"}
           className={row.original.endsOn ? "font-mono tabular-nums" : "text-muted-foreground"}
         >
-          {formatCivilDateBadge(row.original.endsOn)}
+          {formatCivilDateBadge(row.original.endsOn, locale)}
         </Badge>
       ),
       enableSorting: false,

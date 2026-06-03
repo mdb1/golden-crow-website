@@ -28,7 +28,11 @@
 //   - .planning/phases/04-workout-templates-assignments/04-RESEARCH.md §Pitfall 1
 //   - .planning/phases/04-workout-templates-assignments/04-RESEARCH.md §Pitfall 2
 
-import { civilDateFormat, civilDateToday } from "../civil-date";
+import {
+  civilDateFormat,
+  civilDateToday,
+  formatCivilDateLabel,
+} from "../civil-date";
 
 // Shared fixture epochs (seconds).
 const MXC_NOON_2026_06_01 = 1780336800;
@@ -122,6 +126,22 @@ describe("civilDateToday(timezone, now)", () => {
     expect(today[4]).toBe("-");
     expect(today[7]).toBe("-");
     expect(/^\d{4}-\d{2}-\d{2}$/.test(today)).toBe(true);
+  });
+});
+
+describe("formatCivilDateLabel(civilDate, options)", () => {
+  it("formats civil dates without host timezone drift", () => {
+    expect(
+      formatCivilDateLabel("2026-06-01", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+      }, "en-US"),
+    ).toBe("Monday, Jun 1");
+  });
+
+  it("returns the original string for malformed civil dates", () => {
+    expect(formatCivilDateLabel("not-a-date")).toBe("not-a-date");
   });
 });
 

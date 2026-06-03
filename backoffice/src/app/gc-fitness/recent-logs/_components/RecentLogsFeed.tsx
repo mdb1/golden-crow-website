@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import {
   listRecentLogsForTrainerPage,
   type RecentLogRow,
@@ -98,12 +99,6 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
   signup:
     "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
 };
-
-const UTC_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
 
 export function RecentLogsFeed({
   logs,
@@ -323,7 +318,7 @@ function RecentLogItem({
               className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
             >
               <CalendarClock />
-              {t("forDay", { date: formatCivilDate(row.forCivilDate) })}
+              {t("forDay", { date: formatCivilDate(row.forCivilDate, locale) })}
             </Badge>
           ) : null}
           {row.workout?.rpe != null ? (
@@ -417,10 +412,6 @@ function groupRowsByDayFlat(
 // Construct from parts (NOT `new Date(iso)`) so the local-time constructor is
 // used instead of UTC-midnight parsing — otherwise a negative-offset host
 // shifts the day back by one.
-function formatCivilDate(civil: string): string {
-  const [y, m, d] = civil.split("-").map((n) => Number.parseInt(n, 10));
-  if (!y || !m || !d) return civil;
-  const date = new Date(Date.UTC(y, m - 1, d));
-  if (Number.isNaN(date.getTime())) return civil;
-  return UTC_DATE_FORMAT.format(date);
+function formatCivilDate(civil: string, locale: string): string {
+  return formatCivilDateLabel(civil, { month: "short", day: "numeric" }, locale);
 }

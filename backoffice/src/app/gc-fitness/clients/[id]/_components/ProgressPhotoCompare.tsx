@@ -4,9 +4,16 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 
-export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] }) {
+export function ProgressPhotoCompare({
+  photos,
+  timezone,
+}: {
+  photos: ProgressPhotoRow[];
+  timezone: string;
+}) {
   const t = useTranslations("clients.detail.photoCompare");
   const tPhotos = useTranslations("clients.detail.photos");
   const [angle, setAngle] = useState<"front" | "side" | "back">("front");
@@ -44,7 +51,7 @@ export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] })
           <option value="">{t("before")}</option>
           {angled.map((photo) => (
             <option key={photo.id} value={photo.id}>
-              {photo.checkInDate ?? dateLabel(photo)}
+              {photo.checkInDate ?? dateLabel(photo, timezone)}
             </option>
           ))}
         </select>
@@ -56,7 +63,7 @@ export function ProgressPhotoCompare({ photos }: { photos: ProgressPhotoRow[] })
           <option value="">{t("after")}</option>
           {angled.map((photo) => (
             <option key={photo.id} value={photo.id}>
-              {photo.checkInDate ?? dateLabel(photo)}
+              {photo.checkInDate ?? dateLabel(photo, timezone)}
             </option>
           ))}
         </select>
@@ -108,7 +115,7 @@ function CompareImage({ photo, alt }: { photo: ProgressPhotoRow; alt: string }) 
   );
 }
 
-function dateLabel(photo: ProgressPhotoRow): string {
+function dateLabel(photo: ProgressPhotoRow, timezone: string): string {
   const value = photo.takenAt ?? photo.createdAt;
-  return value ? new Date(value).toLocaleDateString() : photo.id;
+  return value ? formatClientActivityDate(value, timezone) : photo.id;
 }

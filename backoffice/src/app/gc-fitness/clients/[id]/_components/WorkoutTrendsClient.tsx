@@ -6,6 +6,7 @@
 // the server shipped one lightweight point per counted session.
 
 import { useMemo, useState } from "react";
+import { useLocale } from "next-intl";
 import {
   Bar,
   BarChart,
@@ -24,6 +25,7 @@ import {
   type TrendRangeKey,
 } from "./trend-range";
 import { TrendRangeSelector } from "./TrendRangeSelector";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 
 export interface WorkoutTrendPoint {
   /** civilDate YYYY-MM-DD of the session start. */
@@ -57,14 +59,8 @@ interface Bucket {
   count: number;
 }
 
-function formatCivilShort(civilDate: string): string {
-  const d = new Date(`${civilDate}T12:00:00Z`);
-  if (Number.isNaN(d.getTime())) return civilDate;
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+function formatCivilShort(civilDate: string, locale: string): string {
+  return formatCivilDateLabel(civilDate, { month: "short", day: "numeric" }, locale);
 }
 
 function formatVolume(kg: number): string {
@@ -79,6 +75,7 @@ export function WorkoutTrendsClient({
   rangeStarts,
   labels,
 }: WorkoutTrendsClientProps) {
+  const locale = useLocale();
   const [range, setRange] = useState<TrendRangeKey>(DEFAULT_TREND_RANGE);
 
   const { buckets, totals } = useMemo(() => {
@@ -102,7 +99,7 @@ export function WorkoutTrendsClient({
     if (granularity === "day") {
       for (let i = 0; i <= span; i += 1) {
         const day = addCivilDays(start, i);
-        buckets.push({ key: day, label: formatCivilShort(day), count: 0 });
+        buckets.push({ key: day, label: formatCivilShort(day, locale), count: 0 });
       }
       const byKey = new Map(buckets.map((b) => [b.key, b]));
       for (const p of inRange) {
@@ -116,7 +113,7 @@ export function WorkoutTrendsClient({
         bucketStarts.push(addCivilDays(start, i));
       }
       for (const bs of bucketStarts) {
-        buckets.push({ key: bs, label: formatCivilShort(bs), count: 0 });
+        buckets.push({ key: bs, label: formatCivilShort(bs, locale), count: 0 });
       }
       for (const p of inRange) {
         const offset = civilDiffDays(p.date, start);

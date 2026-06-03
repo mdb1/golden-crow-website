@@ -14,7 +14,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   getClientDailyTimelineDay,
@@ -24,6 +24,7 @@ import {
   formatClientActivityDate,
   formatClientActivityDateTime,
 } from "@/lib/gc-fitness/client-activity-time";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import { Button } from "@/components/ui/button";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 
@@ -40,6 +41,7 @@ export function ClientDailyTimeline({
   todayCivil: string;
   timezone: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("clients.detail.timeline");
   const tCommon = useTranslations("common");
   const initialDate =
@@ -197,7 +199,7 @@ export function ClientDailyTimeline({
                   : "bg-background hover:bg-muted",
               ].join(" ")}
             >
-              <span className="block font-medium">{shortDate(day)}</span>
+              <span className="block font-medium">{shortDate(day, locale)}</span>
               <span
                 className={
                   isSelected ? "text-primary-foreground/75" : "text-muted-foreground"
@@ -282,7 +284,13 @@ export function ClientDailyTimeline({
                       <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
                         <ArrowRightLeft className="size-3" aria-hidden="true" />
                         <span>
-                          {`Originalmente ${formatTimelineCivilDate(workout.originallyScheduledFor)}, el cliente lo movió a ${formatTimelineCivilDate(selected.date)}.`}
+                          {`Originalmente ${formatTimelineCivilDate(
+                            workout.originallyScheduledFor,
+                            locale,
+                          )}, el cliente lo movió a ${formatTimelineCivilDate(
+                            selected.date,
+                            locale,
+                          )}.`}
                         </span>
                       </p>
                     ) : null}
@@ -460,18 +468,16 @@ export function ClientDailyTimeline({
  * label stable across regions; the trainer reads it as a civil-date
  * label, not a moment in time.
  */
-function formatTimelineCivilDate(civilDate: string): string {
-  const parts = civilDate.split("-");
-  if (parts.length !== 3) return civilDate;
-  const [y, m, d] = parts.map(Number);
-  if (!y || !m || !d) return civilDate;
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(date);
+function formatTimelineCivilDate(civilDate: string, locale: string): string {
+  return formatCivilDateLabel(
+    civilDate,
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+    },
+    locale,
+  );
 }
 
 function hasActivity(day: ClientDailyTimelineDay): boolean {
@@ -525,7 +531,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>;
 }
 
-function shortDate(date: string): string {
-  const parsed = new Date(`${date}T00:00:00`);
-  return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function shortDate(date: string, locale: string): string {
+  return formatCivilDateLabel(date, { month: "short", day: "numeric" }, locale);
 }

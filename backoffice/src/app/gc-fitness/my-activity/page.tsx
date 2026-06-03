@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import {
   listMyActivityClients,
   listMyCoachActivityPage,
@@ -23,6 +24,7 @@ export default async function MyActivityPage() {
 
   // Load a full page (50) so the whole of today's activity is present on first
   // paint — a coach must see everything they did, not a truncated slice.
+  const timezone = await getTrainerTimezone();
   const [firstPage, clients] = await Promise.all([
     listMyCoachActivityPage(null, 50),
     listMyActivityClients(),
@@ -46,12 +48,13 @@ export default async function MyActivityPage() {
         <CardContent className="p-0">
           <MyActivityFeed
             initialRows={firstPage.rows}
-            initialCursor={firstPage.nextCursor}
-            initialHasMore={firstPage.hasMore}
-            clients={clients}
-          />
-        </CardContent>
-      </Card>
+          initialCursor={firstPage.nextCursor}
+          initialHasMore={firstPage.hasMore}
+          clients={clients}
+          timezone={timezone}
+        />
+      </CardContent>
+    </Card>
     </div>
   );
 }

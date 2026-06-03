@@ -25,6 +25,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
+import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import type { ChatRow } from "@/lib/gc-fitness/chat-schema";
 
@@ -33,6 +34,8 @@ import type { ClientRosterEntry } from "../client";
 interface Props {
   /** Trainer's Firebase Auth UID — used to read per-uid unread count. */
   trainerUid: string;
+  /** IANA timezone used to render timestamps in the trainer's local day. */
+  timezone: string;
   /** Currently selected chatId (from `?chatId=...`). */
   activeChatId: string | null;
   /** Row click → set the `?chatId=` search param. */
@@ -43,6 +46,7 @@ interface Props {
 
 export function ChatThreadList({
   trainerUid,
+  timezone,
   activeChatId,
   onSelect,
   clientRoster,
@@ -131,6 +135,7 @@ export function ChatThreadList({
           key={chat.id}
           chat={chat}
           trainerUid={trainerUid}
+          timezone={timezone}
           displayName={nameByUid.get(chat.clientId) ?? chat.clientId}
           photoURL={photoByUid.get(chat.clientId) ?? null}
           isActive={chat.id === activeChatId}
@@ -146,6 +151,7 @@ export function ChatThreadList({
 interface ChatThreadRowProps {
   chat: ChatRow;
   trainerUid: string;
+  timezone: string;
   displayName: string;
   photoURL: string | null;
   isActive: boolean;
@@ -155,6 +161,7 @@ interface ChatThreadRowProps {
 function ChatThreadRow({
   chat,
   trainerUid,
+  timezone,
   displayName,
   photoURL,
   isActive,
@@ -179,7 +186,7 @@ function ChatThreadRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <div className="truncate font-medium">{displayName}</div>
-            <RelativeTime iso={previewIso} />
+            <RelativeTime iso={previewIso} timezone={timezone} />
           </div>
           <div className="mt-1 flex items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
@@ -230,7 +237,13 @@ function Avatar({ name, photoURL }: { name: string; photoURL?: string | null }) 
   );
 }
 
-function RelativeTime({ iso }: { iso: string | null | undefined }) {
+function RelativeTime({
+  iso,
+  timezone,
+}: {
+  iso: string | null | undefined;
+  timezone: string;
+}) {
   const t = useTranslations("chat.threadList");
   if (!iso) return null;
   const date = new Date(iso);
@@ -244,7 +257,7 @@ function RelativeTime({ iso }: { iso: string | null | undefined }) {
     label = t("hoursShort", { count: Math.floor(diffSec / 3600) });
   else if (diffSec < 86400 * 7)
     label = t("daysShort", { count: Math.floor(diffSec / 86400) });
-  else label = date.toLocaleDateString();
+  else label = formatClientActivityDate(iso, timezone);
   return (
     <span className="flex-shrink-0 text-xs text-muted-foreground">
       {label}

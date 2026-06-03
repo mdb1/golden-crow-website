@@ -52,9 +52,5 @@ export function RelativeTime({
   else if (day < 365) text = `${Math.floor(day / 30)}mo ago`;
   else text = `${Math.floor(day / 365)}y ago`;
 
-  return (
-    <time dateTime={iso} title={then.toLocaleString()}>
-      {text}
-    </time>
-  );
+  return <time dateTime={iso} title={then.toISOString()}>{text}</time>;
 }

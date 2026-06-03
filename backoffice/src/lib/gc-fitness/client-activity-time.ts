@@ -76,3 +76,13 @@ export function clientActivityGroupKey(
   });
   return `${day}T${hour}`;
 }
+
+export function clientActivityCivilDateKey(
+  iso: string | null,
+  timezone: string,
+): string {
+  if (!iso) return "unknown";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
+  return civilDateFormat(date, timezone);
+}

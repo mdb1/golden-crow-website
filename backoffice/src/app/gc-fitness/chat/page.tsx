@@ -39,6 +39,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { ChatInboxClient } from "./client";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,7 @@ export default async function ChatPage() {
   }
 
   const clients = await listClients();
+  const timezone = await getTrainerTimezone();
   const clientRoster = clients.map((c) => ({
     uid: c.uid,
     displayName: c.displayName,
@@ -78,6 +80,7 @@ export default async function ChatPage() {
       <ChatInboxClient
         trainerUid={trainer.uid}
         clientRoster={clientRoster}
+        timezone={timezone}
       />
     </div>
   );

@@ -47,12 +47,15 @@ export interface ClientRosterEntry {
 export interface ChatInboxClientProps {
   /** Trainer's Firebase Auth UID — resolved server-side via getCurrentTrainer(). */
   trainerUid: string;
+  /** IANA timezone used to render chat timestamps in the trainer's local day. */
+  timezone: string;
   /** Client roster from listClients() — uid → displayName lookup map source. */
   clientRoster: ClientRosterEntry[];
 }
 
 export function ChatInboxClient({
   trainerUid,
+  timezone,
   clientRoster,
 }: ChatInboxClientProps) {
   const t = useTranslations("chat.inbox");
@@ -86,6 +89,7 @@ export function ChatInboxClient({
       >
         <ChatThreadList
           trainerUid={trainerUid}
+          timezone={timezone}
           activeChatId={activeChatId}
           onSelect={setActiveChatId}
           clientRoster={clientRoster}
@@ -108,6 +112,7 @@ export function ChatInboxClient({
             <ChatConversation
               chatId={activeChatId}
               trainerUid={trainerUid}
+              timezone={timezone}
               clientRoster={clientRoster}
               isPendingClient={activeClientIsPending}
             />
