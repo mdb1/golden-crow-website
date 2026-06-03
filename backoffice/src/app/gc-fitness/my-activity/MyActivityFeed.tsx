@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { ComponentType } from "react";
 import {
   ClipboardList,
@@ -18,8 +18,10 @@ import {
   type CoachActivityKind,
   type MyCoachActivityRow,
 } from "@/lib/gc-fitness/coach-activity-actions";
+import { visibleCompleteSections } from "@/lib/gc-fitness/activity-day-grouping";
 
 const PAGE_SIZE = 20;
+const MAX_AUTO_PAGES = 6;
 
 const KIND_LABEL: Record<CoachActivityKind, string> = {
   workout_template: "Workout",
@@ -70,6 +72,7 @@ export function MyActivityFeed({
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [pending, startTransition] = useTransition();
+  const autoLoadCountRef = useRef(0);
 
   function loadMore() {
     if (!hasMore || pending) return;
@@ -90,6 +93,27 @@ export function MyActivityFeed({
   // carries its time. Rows arrive newest-first from the server, so insertion
   // order already yields the correct day ordering.
   const dayGroups = useMemo(() => groupRowsByDay(rows), [rows]);
+  // Hide the trailing (oldest) day while more pages exist so a day's rows don't
+  // grow after the user has seen them — the pagination boundary cuts through a
+  // day, leaving the oldest loaded day partial (260602 bug). Same invariant as
+  // RecentLogsFeed.
+  const completeGroups = useMemo(
+    () => visibleCompleteSections(dayGroups, hasMore),
+    [dayGroups, hasMore],
+  );
+  const groupsToRender =
+    completeGroups.length > 0 || !hasMore ? completeGroups : dayGroups;
+
+  // Auto-close a still-partial single loaded day so the feed never shows an
+  // empty list while there is more to load (capped).
+  useEffect(() => {
+    if (!hasMore || pending) return;
+    if (completeGroups.length > 0) return;
+    if (autoLoadCountRef.current >= MAX_AUTO_PAGES) return;
+    autoLoadCountRef.current += 1;
+    loadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, pending, completeGroups.length]);
 
   if (rows.length === 0) {
     return (
@@ -102,7 +126,7 @@ export function MyActivityFeed({
   return (
     <>
       <div className="flex flex-col">
-        {dayGroups.map((group) => (
+        {groupsToRender.map((group) => (
           <section key={group.key}>
             <h3 className="sticky top-0 z-10 border-b bg-background/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
               {group.label}

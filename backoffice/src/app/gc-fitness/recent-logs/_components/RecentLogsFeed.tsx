@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -41,8 +41,14 @@ import {
   listRecentLogsForTrainerPage,
   type RecentLogRow,
 } from "@/lib/gc-fitness/recent-logs-actions";
+import { visibleCompleteSections } from "@/lib/gc-fitness/activity-day-grouping";
 
 const PAGE_SIZE = 20;
+// Cap on automatic page loads used to "close" a still-partial trailing day so
+// the grouped view never first-paints blank when every loaded row is the same
+// day. Beyond this we fall back to rendering the partial day (rare: a single
+// day with > MAX_AUTO_PAGES × PAGE_SIZE rows).
+const MAX_AUTO_PAGES = 6;
 
 interface Props {
   logs: RecentLogRow[];
@@ -110,12 +116,16 @@ export function RecentLogsFeed({
   const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"grouped" | "chronological">("grouped");
+  // Counts auto-loads triggered to close a still-partial trailing day. Reset on
+  // every filter change (which replaces the dataset).
+  const autoLoadCountRef = useRef(0);
 
   // Re-fetch page 1 whenever a filter changes (translates the filter to the
   // server-side client / type scope so pagination + filtering compose).
   async function applyFilters(nextClient: string, nextType: string) {
     setClientFilter(nextClient);
     setTypeFilter(nextType);
+    autoLoadCountRef.current = 0;
     setLoading(true);
     try {
       const res = await listRecentLogsForTrainerPage(
@@ -160,6 +170,31 @@ export function RecentLogsFeed({
   // heading so "Hoy"/"Ayer"/"Jun 5" is shown once per day instead of repeated
   // on every client card.
   const daySections = useMemo(() => groupGroupsByDay(groups), [groups]);
+  // Only render days that are fully loaded — hide the trailing (oldest) day
+  // while more pages exist so a client's group never grows from "2 acciones"
+  // to "4 acciones" after the user has seen it (260602 bug).
+  const completeSections = useMemo(
+    () => visibleCompleteSections(daySections, hasMore),
+    [daySections, hasMore],
+  );
+  // Fallback so the feed never first-paints blank when every loaded row is the
+  // same (still-partial) day and the auto-load cap below was reached.
+  const sectionsToRender =
+    completeSections.length > 0 || !hasMore ? completeSections : daySections;
+
+  // When the only loaded day is still partial (no complete day to show yet),
+  // pull the next page automatically — up to a cap — so the boundary day gets
+  // closed instead of leaving the user staring at an empty grouped view.
+  useEffect(() => {
+    if (viewMode !== "grouped") return;
+    if (!hasMore || loading) return;
+    if (completeSections.length > 0) return;
+    if (autoLoadCountRef.current >= MAX_AUTO_PAGES) return;
+    autoLoadCountRef.current += 1;
+    void loadMore();
+    // loadMore is a stable closure over the latest state via setState updaters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, hasMore, loading, completeSections.length]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -253,7 +288,7 @@ export function RecentLogsFeed({
         ) : null}
         {viewMode === "chronological"
           ? filtered.map((row) => <RecentLogItem key={row.id} row={row} router={router} t={t} />)
-          : daySections.map((section) => (
+          : sectionsToRender.map((section) => (
           <div key={section.key} className="flex flex-col gap-2">
             <h3 className="sticky top-0 z-10 -mx-0.5 bg-background/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
               {section.label}
