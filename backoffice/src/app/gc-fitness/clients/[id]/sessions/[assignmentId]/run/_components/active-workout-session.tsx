@@ -226,7 +226,7 @@ export function ActiveWorkoutSession({
   return (
     <div className="mx-auto w-full max-w-2xl pb-28">
       {/* Header */}
-      <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 grid grid-cols-[auto_1fr_auto] items-center border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur">
         <Button
           variant="ghost"
           size="icon"
@@ -235,8 +235,29 @@ export function ActiveWorkoutSession({
         >
           <X className="h-5 w-5" />
         </Button>
-        <span className="font-mono text-lg tabular-nums">{elapsed}</span>
-        <span className="w-9" />
+        <div className="flex justify-center">
+          <span className="font-mono text-lg tabular-nums">{elapsed}</span>
+        </div>
+        <div className="flex justify-end">
+          {timer.active ? (
+            <button
+              type="button"
+              onClick={timer.sheetOpen ? timer.minimize : timer.expand}
+              className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-300"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <Timer className="h-3.5 w-3.5" />
+              <span className="font-mono tabular-nums">
+                {formatMmss(timer.remainingSeconds)}
+              </span>
+              <span className="hidden sm:inline">
+                {timer.isPaused ? "Pausado" : "Descanso"}
+              </span>
+            </button>
+          ) : (
+            <span className="w-9" />
+          )}
+        </div>
       </div>
 
       <div className="px-1 pt-4">
