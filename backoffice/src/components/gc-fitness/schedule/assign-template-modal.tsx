@@ -775,6 +775,9 @@ export function AssignTemplateModal({
                 className="h-10 rounded-md border bg-background px-3 text-sm"
               />
               <p className="text-xs text-muted-foreground">{t("timeHint")}</p>
+              <p className="text-xs text-muted-foreground">
+                Si hace falta, también podés iniciar este workout desde el backoffice.
+              </p>
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-1">
               <label className="text-sm font-medium">{t("meetingNotesLabel")}</label>

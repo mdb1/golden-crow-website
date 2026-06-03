@@ -21,6 +21,7 @@ import { Trophy, Dumbbell, Gauge, NotebookText } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
 
 // Stable HSL palette — assigns each distinct exerciseId a recognisable
@@ -92,6 +93,13 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
             <Dumbbell className="h-5 w-5" />
             {detail.clientName} · {detail.workoutName}
           </CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-[10px] font-normal uppercase tracking-wide">
+              {(detail.source ?? "client") === "coach"
+                ? t("sourceCoach")
+                : t("sourceClient")}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-3">
           <Metric

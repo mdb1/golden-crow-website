@@ -19,6 +19,7 @@ import {
   Download,
   MessageCircle,
   Pencil,
+  Play,
   Trash2,
   User,
 } from "lucide-react";
@@ -66,14 +67,14 @@ interface WorkoutDetailDialogProps {
 
 const STATUS_LABEL: Record<AssignmentDetail["status"], string> = {
   scheduled: "Programado",
-  started: "Iniciado",
+  started: "Programado",
   completed: "Completado",
   missed: "No realizado",
 };
 
 const STATUS_TONE: Record<AssignmentDetail["status"], string> = {
   scheduled: "bg-muted text-muted-foreground",
-  started: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
+  started: "bg-muted text-muted-foreground",
   completed: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   missed: "bg-rose-500/15 text-rose-800 dark:text-rose-300",
 };
@@ -111,6 +112,8 @@ export function WorkoutDetailDialog({
     enabled: open,
     staleTime: 30_000,
   });
+
+  const displayStatus = data?.status === "started" ? "scheduled" : data?.status ?? null;
 
   // When the assignment is completed we share the LOGGED actuals (mirroring
   // iOS), so fetch the workout log by its assignmentId FK. Only runs while the
@@ -165,9 +168,9 @@ export function WorkoutDetailDialog({
                 ) : null}
                 {data ? (
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_TONE[data.status]}`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_TONE[displayStatus ?? "scheduled"]}`}
                   >
-                    {STATUS_LABEL[data.status]}
+                    {STATUS_LABEL[displayStatus ?? "scheduled"]}
                   </span>
                 ) : null}
               </div>
@@ -211,6 +214,18 @@ export function WorkoutDetailDialog({
             >
               Cerrar
             </Button>
+            {data && data.status !== "completed" && data.status !== "missed" ? (
+              <Button asChild className="gap-1">
+                <Link
+                  href={`/gc-fitness/clients/${data.clientId}/sessions/${data.id}/run`}
+                >
+                  <Play className="size-4" />
+                  {data.status === "started"
+                    ? "Seguir entrenamiento"
+                    : "Iniciar entrenamiento"}
+                </Link>
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               disabled={!data || isLoading}

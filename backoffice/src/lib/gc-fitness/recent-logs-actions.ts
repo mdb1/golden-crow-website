@@ -47,6 +47,8 @@ export interface RecentLogRow {
     rpe: number | null;
     /** True when the athlete left post-workout notes. */
     hasNotes: boolean;
+    /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
+    source?: "coach" | "client";
   };
 }
 
@@ -81,7 +83,7 @@ export interface WorkoutLogDetail {
   workoutName: string;
   startedAt: string | null;
   completedAt: string | null;
-  status: "completed" | "started";
+  status: "completed";
   setCount: number;
   completedSetCount: number;
   exerciseCount: number;
@@ -96,6 +98,8 @@ export interface WorkoutLogDetail {
   rpe: number | null;
   /** Athlete self-reported free-form notes from the post-workout summary. */
   athleteNotes: string | null;
+  /** Origin of the workout log: coach-run backoffice session or client-run iOS session. */
+  source?: "coach" | "client";
   sets: Array<{
     index: number;
     setLogId: string;
@@ -849,7 +853,7 @@ async function buildRecentLogs(params: {
     if (!startedAt) return;
 
     const completedAt = asIso(data.completedAt);
-    const status: "completed" | "started" = completedAt ? "completed" : "started";
+    if (!completedAt) return;
     const templateName = localizedText(
       (data.templateSnapshot as { name?: unknown } | undefined)?.name,
       "Workout",
@@ -873,20 +877,19 @@ async function buildRecentLogs(params: {
         : null;
     const hasNotes =
       typeof data.notes === "string" && data.notes.trim().length > 0;
+    const source =
+      data.source === "coach" ? "coach" : "client";
     const setsLabel =
       plannedSets > 0 ? `${sets}/${plannedSets} sets` : `${sets} sets`;
 
     rows.push({
       id: `workout:${doc.id}`,
       category: "workout",
-      eventAt: completedAt ?? startedAt,
+      eventAt: completedAt,
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
-      title:
-        status === "completed"
-          ? `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`
-          : `${nameByClientId.get(clientId) ?? clientId} - Workout started: ${templateName}`,
+      title: `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`,
       detail: `${templateName} · ${setsLabel}`,
       workoutLogId: doc.id,
       workout: {
@@ -894,6 +897,7 @@ async function buildRecentLogs(params: {
         plannedSets: plannedSets > 0 ? plannedSets : null,
         rpe,
         hasNotes,
+        source,
       },
     });
   });
@@ -1578,6 +1582,7 @@ async function buildWorkoutLogDetail(
     typeof data.notes === "string" && data.notes.trim().length > 0
       ? data.notes.trim()
       : null;
+  const source = data.source === "coach" ? "coach" : "client";
 
   return {
     id: logId,
@@ -1588,7 +1593,7 @@ async function buildWorkoutLogDetail(
     workoutName,
     startedAt,
     completedAt,
-    status: completedAt ? "completed" : "started",
+    status: "completed",
     setCount: sets.length,
     completedSetCount: sets.filter((s) => Boolean(s.completedAt)).length,
     exerciseCount: templateExercises.length,
@@ -1598,6 +1603,7 @@ async function buildWorkoutLogDetail(
     durationSeconds: numeric(data.duration_seconds ?? data.durationSeconds),
     rpe,
     athleteNotes,
+    source,
     sets,
   };
 }

@@ -44,6 +44,12 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
     expect(FirestoreCollections.exercises).toBe("exercises");
   });
 
+  it("clientExerciseNotes is 'client_exercise_notes' (backoffice-live-workout #7 — Admin-SDK-only writer)", () => {
+    expect(FirestoreCollections.clientExerciseNotes).toBe(
+      "client_exercise_notes",
+    );
+  });
+
   it("every value is lowercase snake_case", () => {
     for (const [key, value] of Object.entries(FirestoreCollections)) {
       expect(value).toBe(value.toLowerCase());

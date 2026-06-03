@@ -10,6 +10,7 @@ import {
   Library,
   ListChecks,
   MessagesSquare,
+  Bell,
   Shield,
   Settings,
   Users,
@@ -36,6 +37,7 @@ import {
 import { SignOutButton } from "@/components/gc-fitness/sign-out-button";
 import { LanguagePicker } from "@/components/gc-fitness/language-picker";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
+import { useActiveWorkoutSummaries } from "@/lib/gc-fitness/live-workout-listener";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GCFitnessAppearanceToggle } from "@/components/gc-fitness/gc-fitness-appearance-toggle";
@@ -66,6 +68,11 @@ const sections: NavSection[] = [
         labelKey: "myActivity",
         href: "/gc-fitness/my-activity",
         icon: Activity,
+      },
+      {
+        labelKey: "notifications",
+        href: "/gc-fitness/notifications",
+        icon: Bell,
       },
     ],
   },
@@ -111,7 +118,9 @@ export function GCFitnessShell({
   const tNav = useTranslations("nav");
   const shellHidden = HIDDEN_SHELL_PATHS.has(pathname);
   const chatsQuery = useTrainerChats(!shellHidden && !!trainerUid);
+  const activeWorkoutQuery = useActiveWorkoutSummaries(!shellHidden && !!trainerUid);
   const sectionMeta = getSectionMeta(pathname, tNav);
+  const inLiveWorkout = pathname.includes("/sessions/") && pathname.endsWith("/run");
   const unreadChatTotal = (chatsQuery.data ?? []).reduce((sum, chat) => {
     if (!trainerUid) return sum;
     return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
@@ -153,6 +162,36 @@ export function GCFitnessShell({
             </div>
           </SidebarHeader>
           <SidebarContent>
+            {activeWorkoutQuery.data && activeWorkoutQuery.data.length > 0 ? (
+              <SidebarGroup>
+                <SidebarGroupLabel className="mb-1 flex flex-col items-start gap-0.5 px-2">
+                  <span>{tNav("activeWorkout")}</span>
+                  <span className="hidden text-[11px] font-normal normal-case tracking-normal text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+                    {tNav("activeWorkoutDescription")}
+                  </span>
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {activeWorkoutQuery.data.map((item) => {
+                      const href = `/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`;
+                      const active =
+                        pathname === href || pathname.startsWith(`${href}/`);
+                      return (
+                        <SidebarMenuItem key={item.logId}>
+                          <SidebarNavLink
+                            href={href}
+                            label={`${item.clientName} · ${item.workoutName}`}
+                            isActive={active}
+                            icon={<Activity className="h-4 w-4" />}
+                            badge={null}
+                          />
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ) : null}
             {resolvedSections.map((section) => (
               <SidebarGroup key={section.sectionKey}>
                 <SidebarGroupLabel className="mb-1 flex flex-col items-start gap-0.5 px-2">
@@ -164,9 +203,10 @@ export function GCFitnessShell({
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {section.items.map((item) => {
-                      const active =
-                        pathname === item.href ||
-                        pathname.startsWith(`${item.href}/`);
+                      const active = inLiveWorkout
+                        ? false
+                        : pathname === item.href ||
+                          pathname.startsWith(`${item.href}/`);
                       const label = tNav(item.labelKey);
                       return (
                         <SidebarMenuItem key={item.href}>
@@ -244,10 +284,20 @@ function describeSection(
   if (key === "clientsGroup") return tNav("clientsSectionDescription");
   if (key === "libraryGroup") return tNav("contentSectionDescription");
   if (key === "admin") return tNav("adminSectionDescription");
+  if (key === "activeWorkout") return tNav("activeWorkoutDescription");
   return "";
 }
 
 function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslations>) {
+  const inLiveWorkout = pathname.includes("/sessions/") && pathname.endsWith("/run");
+  if (inLiveWorkout) {
+    return {
+      groupLabel: tNav("activeWorkout"),
+      title: tNav("activeWorkout"),
+      subtitle: tNav("activeWorkoutDescription"),
+    };
+  }
+
   const grouped = [
     {
       groupKey: "overview",
@@ -256,6 +306,7 @@ function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslation
         "/gc-fitness/dashboard",
         "/gc-fitness/schedule",
         "/gc-fitness/my-activity",
+        "/gc-fitness/notifications",
       ],
     },
     {
@@ -301,7 +352,10 @@ function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslation
   return {
     groupLabel: tNav(match.groupKey),
     title: route ? tNav(route.labelKey) : "Trainer Backoffice",
-    subtitle: tNav(match.subtitleKey),
+    subtitle:
+      pathname.startsWith("/gc-fitness/notifications")
+        ? tNav("notificationsDescription")
+        : tNav(match.subtitleKey),
   };
 }
 

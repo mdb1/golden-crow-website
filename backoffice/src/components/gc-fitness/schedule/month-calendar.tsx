@@ -107,7 +107,7 @@ function paletteFor(clients: ClientLite[], clientId: string) {
 // Status-first palette that overrides the per-client tint for terminal
 // states so trainers can scan the calendar for "what's still pending"
 // vs "what already happened". Client color is preserved only on
-// scheduled / started chips, where ownership ambiguity actually matters.
+// scheduled chips, where ownership ambiguity actually matters.
 const STATUS_PALETTE: Record<
   MonthWorkoutChip["status"] | MonthHabitChip["status"],
   string
@@ -115,8 +115,7 @@ const STATUS_PALETTE: Record<
   completed:
     "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200",
   done: "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200",
-  started:
-    "border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200",
+  started: "",
   missed:
     "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200",
   scheduled: "",
@@ -709,10 +708,6 @@ export function MonthCalendar({
             note="usa el color del cliente"
           />
           <LegendItem
-            label="Iniciado"
-            tone="border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200"
-          />
-          <LegendItem
             label="Completado"
             tone="border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200"
           />
@@ -1124,9 +1119,6 @@ function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
   if (status === "missed") {
     return <XCircle className="size-3 text-rose-600 dark:text-rose-400" />;
   }
-  if (status === "started") {
-    return <CalendarCheck className="size-3 text-sky-600 dark:text-sky-400" />;
-  }
   return <Dumbbell className="size-3 opacity-70" />;
 }
 
@@ -1138,7 +1130,6 @@ function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
  *
  * Visual reads at a glance:
  *   - emerald = completed
- *   - sky     = started
  *   - rose    = missed
  *   - amber   = scheduled (still pending)
  */
@@ -1146,17 +1137,13 @@ function StatusDogear({ status }: { status: MonthWorkoutChip["status"] }) {
   const tone =
     status === "completed"
       ? "bg-emerald-500"
-      : status === "started"
-        ? "bg-sky-500"
-        : status === "missed"
+      : status === "missed"
           ? "bg-rose-500"
           : "bg-amber-500";
   const titleLabel =
     status === "completed"
       ? "Completado"
-      : status === "started"
-        ? "Iniciado"
-        : status === "missed"
+      : status === "missed"
           ? "No realizado"
           : "Programado";
   return (
