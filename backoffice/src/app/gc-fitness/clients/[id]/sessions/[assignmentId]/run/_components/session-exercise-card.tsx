@@ -12,7 +12,15 @@ import Image from "next/image";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ExternalLink, NotebookPen } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Minus,
+  NotebookPen,
+  Plus,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +72,11 @@ export interface SessionExerciseCardProps {
   onDuration: (idx: number, value: number) => void;
   onToggleDone: (idx: number) => void;
   onToggleWarmup: (idx: number) => void;
+  onAddSet: () => void;
+  onRemoveSet: (idx: number) => void;
+  onMove: (dir: -1 | 1) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }
 
 export function SessionExerciseCard({
@@ -76,6 +89,11 @@ export function SessionExerciseCard({
   onDuration,
   onToggleDone,
   onToggleWarmup,
+  onAddSet,
+  onRemoveSet,
+  onMove,
+  canMoveUp,
+  canMoveDown,
 }: SessionExerciseCardProps) {
   const isTime = exercise.metric === "time";
   const prevLabel = formatPrevious(previous, isTime);
@@ -133,6 +151,26 @@ export function SessionExerciseCard({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <div className="mr-1 flex flex-col">
+            <button
+              type="button"
+              aria-label="Subir ejercicio"
+              disabled={!canMoveUp}
+              onClick={() => onMove(-1)}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Bajar ejercicio"
+              disabled={!canMoveDown}
+              onClick={() => onMove(1)}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -257,6 +295,24 @@ export function SessionExerciseCard({
               </button>
             </div>
           ))}
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1" onClick={onAddSet}>
+            <Plus className="h-3.5 w-3.5" />
+            Agregar serie
+          </Button>
+          {rows.length > 1 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-muted-foreground"
+              onClick={() => onRemoveSet(rows.length - 1)}
+            >
+              <Minus className="h-3.5 w-3.5" />
+              Quitar serie
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>

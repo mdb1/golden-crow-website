@@ -17,10 +17,12 @@ import { Button } from "@/components/ui/button";
 import { groupIntoSupersetBlocks } from "@/lib/gc-fitness/live-workout-supersets";
 import { usePreviousSessionForClient } from "@/lib/gc-fitness/live-workout-listener";
 
+import { FinalizeDialog, type FinalizeMode } from "./finalize-dialog";
 import { RestTimerOverlay } from "./rest-timer-overlay";
 import { SessionExerciseCard } from "./session-exercise-card";
 import { useRestTimer } from "./use-rest-timer";
 import { useLiveSession } from "./use-live-session";
+import type { SessionExercise } from "@/lib/gc-fitness/live-workout-types";
 
 function useElapsed(startedAt: string | null): string {
   const [now, setNow] = useState(() => Date.now());
@@ -59,6 +61,7 @@ export function ActiveWorkoutSession({
   const elapsed = useElapsed(live.session?.startedAt ?? null);
   const timer = useRestTimer();
   const [finishing, setFinishing] = useState(false);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
 
   const blocks = useMemo(
     () => groupIntoSupersetBlocks(live.exercises),
@@ -91,15 +94,44 @@ export function ActiveWorkoutSession({
     });
   }, [live, restDecision, timer]);
 
-  async function handleFinish() {
-    // Phase 5 swaps this for the "esta sesión vs recurrencia futura" dialog.
+  async function handleConfirmFinish(mode: FinalizeMode, notes: string | null) {
     setFinishing(true);
-    const res = await live.finalize({ mode: "session" });
+    const res = await live.finalize({ mode, notes });
     setFinishing(false);
     if (res) {
-      toast.success("Entrenamiento finalizado");
+      setFinalizeOpen(false);
+      toast.success(
+        res.futureUpdated > 0
+          ? `Entrenamiento finalizado · ${res.futureUpdated} futuro${
+              res.futureUpdated === 1 ? "" : "s"
+            } actualizado${res.futureUpdated === 1 ? "" : "s"}`
+          : "Entrenamiento finalizado",
+      );
       router.push(`/gc-fitness/clients/${clientId}`);
     }
+  }
+
+  function renderCard(ex: SessionExercise) {
+    const idx = live.exercises.findIndex((e) => e.exerciseId === ex.exerciseId);
+    return (
+      <SessionExerciseCard
+        key={ex.exerciseId}
+        clientId={clientId}
+        exercise={ex}
+        rows={live.rowsByExercise[ex.exerciseId] ?? []}
+        previous={previous[ex.exerciseId]}
+        onWeight={(i, v) => live.setWeight(ex.exerciseId, i, v)}
+        onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
+        onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
+        onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
+        onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
+        onAddSet={() => live.addSet(ex.exerciseId)}
+        onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
+        onMove={(dir) => live.moveExercise(ex.exerciseId, dir)}
+        canMoveUp={idx > 0}
+        canMoveDown={idx >= 0 && idx < live.exercises.length - 1}
+      />
+    );
   }
 
   if (live.status === "loading") {
@@ -185,38 +217,11 @@ export function ActiveWorkoutSession({
                     Alterná los ejercicios
                   </span>
                 </div>
-                {block.exercises.map((ex) => (
-                  <SessionExerciseCard
-                    key={ex.exerciseId}
-                    clientId={clientId}
-                    exercise={ex}
-                    rows={live.rowsByExercise[ex.exerciseId] ?? []}
-                    previous={previous[ex.exerciseId]}
-                    onWeight={(i, v) => live.setWeight(ex.exerciseId, i, v)}
-                    onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
-                    onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
-                    onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
-                    onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
-                  />
-                ))}
+                {block.exercises.map((ex) => renderCard(ex))}
               </div>
             );
           }
-          const ex = block.exercises[0];
-          return (
-            <SessionExerciseCard
-              key={ex.exerciseId}
-              clientId={clientId}
-              exercise={ex}
-              rows={live.rowsByExercise[ex.exerciseId] ?? []}
-              previous={previous[ex.exerciseId]}
-              onWeight={(i, v) => live.setWeight(ex.exerciseId, i, v)}
-              onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
-              onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
-              onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
-              onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
-            />
-          );
+          return renderCard(block.exercises[0]);
         })}
       </div>
 
@@ -226,13 +231,26 @@ export function ActiveWorkoutSession({
           <Button variant="outline" className="flex-1" onClick={() => router.back()}>
             Cancelar
           </Button>
-          <Button className="flex-1" onClick={handleFinish} disabled={finishing}>
-            {finishing ? "Finalizando…" : "Finalizar"}
+          <Button
+            className="flex-1"
+            onClick={() => setFinalizeOpen(true)}
+            disabled={finishing}
+          >
+            Finalizar
           </Button>
         </div>
       </div>
 
       <RestTimerOverlay timer={timer} />
+
+      <FinalizeDialog
+        open={finalizeOpen}
+        onOpenChange={setFinalizeOpen}
+        assignmentId={assignmentId}
+        hasSeries={Boolean(session.seriesId)}
+        finishing={finishing}
+        onConfirm={handleConfirmFinish}
+      />
     </div>
   );
 }

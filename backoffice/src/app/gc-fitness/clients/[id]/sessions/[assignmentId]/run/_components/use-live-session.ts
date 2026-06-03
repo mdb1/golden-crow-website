@@ -129,6 +129,9 @@ export interface LiveSessionApi {
   setDuration: (exerciseId: string, idx: number, value: number) => void;
   toggleWarmup: (exerciseId: string, idx: number) => void;
   toggleDone: (exerciseId: string, idx: number) => void;
+  addSet: (exerciseId: string) => void;
+  removeSet: (exerciseId: string, idx: number) => void;
+  moveExercise: (exerciseId: string, dir: -1 | 1) => void;
   /** Called by the rest-timer / done flow when a set is completed. */
   onSetCompleted?: (ex: SessionExercise) => void;
   registerOnSetCompleted: (cb: (ex: SessionExercise) => void) => void;
@@ -293,28 +296,92 @@ export function useLiveSession(
     [],
   );
 
+  const addSet = useCallback(
+    (exerciseId: string) => {
+      setRowsByExercise((prev) => {
+        const rows = prev[exerciseId];
+        if (!rows) return prev;
+        const last = rows[rows.length - 1];
+        const next = {
+          ...prev,
+          [exerciseId]: [
+            ...rows,
+            {
+              id: newId(),
+              weightKg: last?.weightKg ?? 0,
+              reps: last?.reps ?? 0,
+              durationSeconds: last?.durationSeconds ?? null,
+              isWarmup: false,
+              done: false,
+              completedAt: null,
+            },
+          ],
+        };
+        return next;
+      });
+    },
+    [],
+  );
+
+  const removeSet = useCallback(
+    (exerciseId: string, idx: number) => {
+      setRowsByExercise((prev) => {
+        const rows = prev[exerciseId];
+        if (!rows || rows.length <= 1) return prev; // keep at least one row
+        const nextRows = rows.slice(0, idx).concat(rows.slice(idx + 1));
+        const next = { ...prev, [exerciseId]: nextRows };
+        scheduleSync(next);
+        return next;
+      });
+    },
+    [scheduleSync],
+  );
+
+  const moveExercise = useCallback(
+    (exerciseId: string, dir: -1 | 1) => {
+      setExercises((prev) => {
+        const i = prev.findIndex((e) => e.exerciseId === exerciseId);
+        const j = i + dir;
+        if (i === -1 || j < 0 || j >= prev.length) return prev;
+        const next = prev.slice();
+        [next[i], next[j]] = [next[j], next[i]];
+        return next;
+      });
+    },
+    [],
+  );
+
   const finalize = useCallback(
     async (args: FinalizeArgs) => {
       if (!session) return null;
       setStatus("finishing");
       try {
         const sets = deriveLoggedSets(rowsByExercise);
+        // "Future recurrence" should MATCH what the coach just performed: the
+        // future prescription is rebuilt from the performed rows (set count,
+        // per-set reps + weight + duration), keeping rest/superset/metric.
         const editedExercises =
           args.mode === "session_and_future"
-            ? exercises.map((ex, i) => ({
-                exerciseId: ex.exerciseId,
-                sets: rowsByExercise[ex.exerciseId]?.length ?? ex.sets,
-                reps: ex.reps,
-                restSeconds: ex.restSeconds,
-                notes: ex.notes ?? null,
-                order: i + 1,
-                supersetGroup: ex.supersetGroup ?? null,
-                repsBySet: ex.repsBySet ?? null,
-                weightBySetKg: ex.weightBySetKg ?? null,
-                metric: ex.metric ?? null,
-                durationBySetSeconds: ex.durationBySetSeconds ?? null,
-                durationSeconds: ex.durationSeconds ?? null,
-              }))
+            ? exercises.map((ex, i) => {
+                const rows = rowsByExercise[ex.exerciseId] ?? [];
+                const isTime = ex.metric === "time";
+                return {
+                  exerciseId: ex.exerciseId,
+                  sets: Math.max(1, rows.length),
+                  reps: rows[0]?.reps ?? ex.reps,
+                  restSeconds: ex.restSeconds,
+                  notes: ex.notes ?? null,
+                  order: i + 1,
+                  supersetGroup: ex.supersetGroup ?? null,
+                  repsBySet: rows.map((r) => r.reps),
+                  weightBySetKg: rows.map((r) => r.weightKg),
+                  metric: ex.metric ?? null,
+                  durationBySetSeconds: isTime
+                    ? rows.map((r) => r.durationSeconds ?? 0)
+                    : null,
+                  durationSeconds: ex.durationSeconds ?? null,
+                };
+              })
             : undefined;
         const res = await finalizeWorkoutSession({
           logId: session.logId,
@@ -360,6 +427,9 @@ export function useLiveSession(
     setDuration,
     toggleWarmup,
     toggleDone,
+    addSet,
+    removeSet,
+    moveExercise,
     registerOnSetCompleted,
     finalize,
   };

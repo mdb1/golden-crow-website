@@ -563,6 +563,48 @@ async function enrichEditedExercises(
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// getFutureRecurrenceInfo — preview of what "save to future recurrence" touches
+// ───────────────────────────────────────────────────────────────────────────
+export async function getFutureRecurrenceInfo(
+  assignmentId: string,
+): Promise<{ count: number; nextDates: string[] }> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db.collection(ASSIGNMENTS).doc(assignmentId).get();
+  if (!snap.exists) return { count: 0, nextDates: [] };
+  const current = snap.data() as Record<string, unknown>;
+  if (current.trainerId !== trainer.uid) return { count: 0, nextDates: [] };
+  const seriesId =
+    typeof current.seriesId === "string" ? current.seriesId : null;
+  if (!seriesId) return { count: 0, nextDates: [] };
+
+  const timezone =
+    typeof current.timezone === "string" ? current.timezone : "UTC";
+  const todayCivil = civilDateFormat(new Date(), timezone);
+  const clientId = String(current.clientId ?? "");
+
+  const series = await db
+    .collection(ASSIGNMENTS)
+    .where("seriesId", "==", seriesId)
+    .limit(MAX_FUTURE_PROPAGATION + 50)
+    .get();
+
+  const futureDates: string[] = [];
+  for (const doc of series.docs) {
+    if (doc.id === assignmentId) continue;
+    const data = doc.data() as Record<string, unknown>;
+    if (data.trainerId !== trainer.uid) continue;
+    if (data.clientId !== clientId) continue;
+    if (data.status !== "scheduled") continue;
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    if (scheduledFor > todayCivil) futureDates.push(scheduledFor);
+  }
+  futureDates.sort();
+  return { count: futureDates.length, nextDates: futureDates.slice(0, 3) };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // getPreviousSessionForClient — "ANTERIOR" column (most-recent perf/exercise)
 // ───────────────────────────────────────────────────────────────────────────
 export async function getPreviousSessionForClient(
