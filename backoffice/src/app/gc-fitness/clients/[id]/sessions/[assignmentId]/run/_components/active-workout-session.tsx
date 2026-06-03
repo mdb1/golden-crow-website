@@ -140,13 +140,13 @@ export function ActiveWorkoutSession({
       const ok = await live.cancel();
       if (ok) {
         close();
-        void queryClient.invalidateQueries({ queryKey: activeWorkoutSummariesKey() });
-        void queryClient.invalidateQueries({ queryKey: activeSessionKey(assignmentId) });
+        queryClient.removeQueries({ queryKey: activeWorkoutSummariesKey() });
+        queryClient.removeQueries({ queryKey: activeSessionKey(assignmentId) });
         toast.success("Entrenamiento cancelado · volvió a programado");
         // Cancel is an operational action, not a client-detail action.
         // Send the coach back to the notifications hub so the canceled
         // workout does not re-enter the client profile flow.
-        router.replace("/gc-fitness/notifications");
+        window.location.replace("/gc-fitness/notifications");
       }
     } finally {
       setFinishing(false);
