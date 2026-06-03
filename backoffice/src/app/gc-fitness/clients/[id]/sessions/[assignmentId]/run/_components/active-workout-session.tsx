@@ -17,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import { groupIntoSupersetBlocks } from "@/lib/gc-fitness/live-workout-supersets";
 import { usePreviousSessionForClient } from "@/lib/gc-fitness/live-workout-listener";
 
+import { RestTimerOverlay } from "./rest-timer-overlay";
 import { SessionExerciseCard } from "./session-exercise-card";
+import { useRestTimer } from "./use-rest-timer";
 import { useLiveSession } from "./use-live-session";
 
 function useElapsed(startedAt: string | null): string {
@@ -55,12 +57,39 @@ export function ActiveWorkoutSession({
 
   const live = useLiveSession(assignmentId, previous);
   const elapsed = useElapsed(live.session?.startedAt ?? null);
+  const timer = useRestTimer();
   const [finishing, setFinishing] = useState(false);
 
   const blocks = useMemo(
     () => groupIntoSupersetBlocks(live.exercises),
     [live.exercises],
   );
+
+  // Per-exercise rest decision: a superset only rests AFTER its last sibling
+  // (the coach alternates the others). Standalone exercises always rest.
+  const restDecision = useMemo(() => {
+    const map: Record<string, { rest: boolean; seconds: number }> = {};
+    for (const block of blocks) {
+      block.exercises.forEach((ex, i) => {
+        const isLast = i === block.exercises.length - 1;
+        map[ex.exerciseId] = {
+          rest: !block.isSuperset || isLast,
+          seconds: ex.restSeconds,
+        };
+      });
+    }
+    return map;
+  }, [blocks]);
+
+  // Auto-start rest when a working set is completed (superset-aware).
+  useEffect(() => {
+    live.registerOnSetCompleted((ex) => {
+      const decision = restDecision[ex.exerciseId];
+      if (decision?.rest && decision.seconds > 0) {
+        timer.start(decision.seconds);
+      }
+    });
+  }, [live, restDecision, timer]);
 
   async function handleFinish() {
     // Phase 5 swaps this for the "esta sesión vs recurrencia futura" dialog.
@@ -202,6 +231,8 @@ export function ActiveWorkoutSession({
           </Button>
         </div>
       </div>
+
+      <RestTimerOverlay timer={timer} />
     </div>
   );
 }
