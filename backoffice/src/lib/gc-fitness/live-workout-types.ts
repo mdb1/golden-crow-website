@@ -100,6 +100,22 @@ export interface ActiveSession {
   seriesId?: string | null;
 }
 
+/** Compact summary for notifications/sidebar surfaces. */
+export interface ActiveWorkoutSummary {
+  logId: string;
+  assignmentId: string;
+  clientId: string;
+  clientName: string;
+  workoutName: string;
+  startedAt: string | null;
+  elapsedSeconds: number;
+  currentExerciseName: string;
+  currentSet: number;
+  totalSets: number;
+  completedSets: number;
+  progress: number;
+}
+
 /** Per-exercise previous-session summary for the "ANTERIOR" column. */
 export interface PreviousSetSummary {
   weightKg: number;

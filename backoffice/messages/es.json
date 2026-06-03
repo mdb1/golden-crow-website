@@ -34,6 +34,8 @@
     "recentLogs": "Actividad reciente",
     "myActivity": "Mi actividad",
     "notifications": "Notificaciones",
+    "activeWorkout": "Workout en vivo",
+    "activeWorkoutDescription": "Sección temporal mientras corre un workout activo.",
     "programming": "Planificación de workouts",
     "workouts": "Entrenamientos",
     "library": "Biblioteca",

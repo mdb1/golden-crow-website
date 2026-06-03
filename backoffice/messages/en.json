@@ -34,6 +34,8 @@
     "recentLogs": "Recent Logs",
     "myActivity": "My Activity",
     "notifications": "Notifications",
+    "activeWorkout": "Live workout",
+    "activeWorkoutDescription": "Temporary section while a live workout is running.",
     "programming": "Workout Planning",
     "workouts": "Workouts",
     "library": "Library",

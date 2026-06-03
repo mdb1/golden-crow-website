@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  getActiveSessionForAssignment,
   finalizeWorkoutSession,
   startWorkoutSession,
   syncWorkoutSession,
@@ -151,6 +152,7 @@ export function useLiveSession(
   >({});
 
   const startedRef = useRef(false);
+  const hydratedRef = useRef(false);
   const onCompletedRef = useRef<((ex: SessionExercise) => void) | null>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -181,6 +183,32 @@ export function useLiveSession(
     // previous is intentionally read once at start; later changes don't reset rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId]);
+
+  useEffect(() => {
+    if (status !== "active" || !session || hydratedRef.current) return;
+    const needsHydration = session.exercises.some(
+      (ex) => !ex.thumbnailURL && !ex.mediaURL,
+    );
+    if (!needsHydration) {
+      hydratedRef.current = true;
+      return;
+    }
+    hydratedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const hydrated = await getActiveSessionForAssignment(assignmentId);
+        if (cancelled || !hydrated) return;
+        setSession(hydrated);
+        setExercises(hydrated.exercises);
+      } catch {
+        /* best-effort media hydration; the live session already started */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId, session, status]);
 
   const deriveLoggedSets = useCallback(
     (rows: Record<string, SetRowState[]>): SessionSetLog[] => {

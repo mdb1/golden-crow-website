@@ -46,6 +46,7 @@ import {
 } from "./live-workout-volume";
 import type {
   ActiveSession,
+  ActiveWorkoutSummary,
   LocalizedString,
   PreviousSessionMap,
   SessionExercise,
@@ -61,21 +62,6 @@ const NOTES = FirestoreCollections.clientExerciseNotes;
 const HISTORY_LIMIT = 20;
 /** Safety cap on how many future assignments a single finalize rewrites. */
 const MAX_FUTURE_PROPAGATION = 200;
-
-/** Compact summary for the notifications dashboard active-workout card. */
-export interface ActiveWorkoutSummary {
-  logId: string;
-  assignmentId: string;
-  clientId: string;
-  workoutName: string;
-  startedAt: string | null;
-  elapsedSeconds: number;
-  currentExerciseName: string;
-  currentSet: number;
-  totalSets: number;
-  completedSets: number;
-  progress: number;
-}
 
 // ── small coercion helpers ───────────────────────────────────────────────
 function toIso(v: unknown): string | null {
@@ -144,22 +130,26 @@ async function resolveMedia(value: unknown): Promise<string | null> {
 // ── exercise enrichment (snapshot → SessionExercise[] with media) ──────────
 async function buildSessionExercises(
   templateSnapshot: Record<string, unknown> | undefined | null,
+  options?: { resolveMedia?: boolean },
 ): Promise<SessionExercise[]> {
   const raw = Array.isArray(templateSnapshot?.exercises)
     ? (templateSnapshot!.exercises as Array<Record<string, unknown>>)
     : [];
   if (raw.length === 0) return [];
 
+  const shouldResolveMedia = options?.resolveMedia !== false;
   const db = gcFitnessFirestore();
   const ids = raw
     .map((e) => e.exerciseId)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
-  const docs = ids.length
+  const docs = shouldResolveMedia && ids.length
     ? await db.getAll(...ids.map((id) => db.collection(EXERCISES).doc(id)))
     : [];
-  const srcMap = new Map(
-    docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
-  );
+  const srcMap = shouldResolveMedia
+    ? new Map(
+        docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
+      )
+    : new Map<string, Record<string, unknown>>();
 
   const built = await Promise.all(
     raw.map(async (e, i): Promise<SessionExercise> => {
@@ -171,12 +161,14 @@ async function buildSessionExercises(
           : null;
       // Preview preference mirrors the exercise picker: imageUrl > gifUrl >
       // thumbnailURL. mediaURL is the (video) clip. gs:// values are signed.
-      const [thumbnailURL, mediaURL] = await Promise.all([
-        resolveMedia(
-          src.imageUrl ?? src.gifUrl ?? src.thumbnailURL ?? e.thumbnailURL,
-        ),
-        resolveMedia(src.mediaURL ?? e.mediaURL),
-      ]);
+      const [thumbnailURL, mediaURL] = shouldResolveMedia
+        ? await Promise.all([
+            resolveMedia(
+              src.imageUrl ?? src.gifUrl ?? src.thumbnailURL ?? e.thumbnailURL,
+            ),
+            resolveMedia(src.mediaURL ?? e.mediaURL),
+          ])
+        : [null, null];
       return {
         exerciseId,
         name: localized(e.name ?? src.name, exerciseId),
@@ -242,12 +234,13 @@ async function buildActiveSession(
   assignmentId: string,
   assignment: Record<string, unknown>,
   log: Record<string, unknown> | null,
+  options?: { resolveMedia?: boolean },
 ): Promise<ActiveSession> {
   const snapshot =
     (log?.templateSnapshot as Record<string, unknown> | undefined) ??
     (assignment.templateSnapshot as Record<string, unknown> | undefined) ??
     null;
-  const exercises = await buildSessionExercises(snapshot);
+  const exercises = await buildSessionExercises(snapshot, options);
   const sets = Array.isArray(log?.sets)
     ? (log!.sets as Array<Record<string, unknown>>).map(wireSetToSession)
     : [];
@@ -282,7 +275,10 @@ function workoutNameToString(value: LocalizedString): string {
   return value.en || value.es || "Workout";
 }
 
-function summarizeActiveSession(session: ActiveSession): ActiveWorkoutSummary {
+function summarizeActiveSession(
+  session: ActiveSession,
+  clientName: string,
+): ActiveWorkoutSummary {
   const completedByExercise = new Map<string, number>();
   for (const set of session.sets) {
     completedByExercise.set(
@@ -315,6 +311,7 @@ function summarizeActiveSession(session: ActiveSession): ActiveWorkoutSummary {
     logId: session.logId,
     assignmentId: session.assignmentId,
     clientId: session.clientId,
+    clientName,
     workoutName: workoutNameToString(session.workoutName),
     startedAt,
     elapsedSeconds,
@@ -353,7 +350,12 @@ export async function listActiveWorkoutSessionsForTrainer(): Promise<
         assignment,
         data,
       );
-      summaries.push(summarizeActiveSession(session));
+      const clientSnap = await db.collection(FirestoreCollections.users).doc(session.clientId).get();
+      const clientName =
+        clientSnap.exists && typeof clientSnap.get("displayName") === "string"
+          ? String(clientSnap.get("displayName"))
+          : session.clientId;
+      summaries.push(summarizeActiveSession(session, clientName));
     } catch {
       /* stale or foreign assignment — skip it */
     }
@@ -448,7 +450,9 @@ export async function startWorkoutSession(
 
   // Re-read the just-written log so startedAt resolves to a real instant.
   const fresh = await db.collection(LOGS).doc(logId).get();
-  return buildActiveSession(logId, assignmentId, asg, fresh.data() ?? null);
+  return buildActiveSession(logId, assignmentId, asg, fresh.data() ?? null, {
+    resolveMedia: false,
+  });
 }
 
 // ───────────────────────────────────────────────────────────────────────────

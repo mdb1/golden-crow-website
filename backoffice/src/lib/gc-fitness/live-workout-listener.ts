@@ -10,10 +10,15 @@ import { useQuery } from "@tanstack/react-query";
 
 import {
   getActiveSessionForAssignment,
+  listActiveWorkoutSessionsForTrainer,
   getClientExerciseNote,
   getPreviousSessionForClient,
 } from "./live-workout-actions";
-import type { ActiveSession, PreviousSessionMap } from "./live-workout-types";
+import type {
+  ActiveSession,
+  ActiveWorkoutSummary,
+  PreviousSessionMap,
+} from "./live-workout-types";
 
 export function previousSessionKey(clientId: string): readonly unknown[] {
   return ["live-workout", "previous-session", clientId] as const;
@@ -34,6 +39,10 @@ export function activeSessionKey(assignmentId: string): readonly unknown[] {
   return ["live-workout", "active-session", assignmentId] as const;
 }
 
+export function activeWorkoutSummariesKey(): readonly unknown[] {
+  return ["live-workout", "active-workouts"] as const;
+}
+
 /** Existing active log for an assignment (drives resume / entry-button copy). */
 export function useActiveSessionForAssignment(assignmentId: string) {
   return useQuery<ActiveSession | null>({
@@ -42,6 +51,19 @@ export function useActiveSessionForAssignment(assignmentId: string) {
     enabled: Boolean(assignmentId),
     staleTime: 15_000,
     refetchOnWindowFocus: false,
+  });
+}
+
+/** Trainer-wide active workout list for notifications/sidebar context. */
+export function useActiveWorkoutSummaries(enabled = true) {
+  return useQuery<ActiveWorkoutSummary[]>({
+    queryKey: activeWorkoutSummariesKey(),
+    queryFn: () => listActiveWorkoutSessionsForTrainer(),
+    enabled,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 }
 

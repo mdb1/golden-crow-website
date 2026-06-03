@@ -24,8 +24,8 @@ import { listHabitsForTrainer, type HabitRow } from "@/lib/gc-fitness/habit-acti
 import { listMyCoachActivityPage } from "@/lib/gc-fitness/coach-activity-actions";
 import {
   listActiveWorkoutSessionsForTrainer,
-  type ActiveWorkoutSummary,
 } from "@/lib/gc-fitness/live-workout-actions";
+import type { ActiveWorkoutSummary } from "@/lib/gc-fitness/live-workout-types";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
 
