@@ -70,12 +70,14 @@ function userDoc() {
   };
 }
 
-// Workout log `i`, started/completed at `iso`. eventAt = completedAt.
-function workoutDoc(i: number, iso: string) {
+// Workout log `i`, started at `startedIso`; `completedIso` defaults to the
+// same instant so the row counts as a finished workout. When `completedIso`
+// is null, the log is still in progress and should not surface in Recent Logs.
+function workoutDoc(i: number, startedIso: string, completedIso: string | null = startedIso) {
   const data: Record<string, unknown> = {
     clientId: "c1",
-    startedAt: iso,
-    completedAt: iso,
+    startedAt: startedIso,
+    completedAt: completedIso,
     templateSnapshot: { name: `Workout ${i}` },
     sets: [],
   };
@@ -187,6 +189,60 @@ describe("listRecentLogsForClient — time-cursor pagination (260531-fwc)", () =
     const p1 = new Set(page1.logs.map((r) => r.id));
     const overlap = page2.logs.filter((r) => p1.has(r.id));
     expect(overlap.length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("listRecentLogsForClient — omits unfinished workout logs", () => {
+  let errSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    function makeQuery(collName: string): Record<string, unknown> {
+      const q: Record<string, unknown> = {
+        where: () => q,
+        orderBy: () => q,
+        limit: () => q,
+        get: () => {
+          if (collName === FirestoreCollections.workoutLogs) {
+            return Promise.resolve(
+              snap([
+                workoutDoc(0, "2026-05-31T12:00:00Z", "2026-05-31T12:30:00Z"),
+                workoutDoc(1, "2026-05-30T12:00:00Z", null),
+              ]),
+            );
+          }
+          return Promise.resolve(snap([]));
+        },
+        doc: (id: string) => makeDocRef(collName, id),
+      };
+      return q;
+    }
+
+    function makeDocRef(collName: string, id: string) {
+      return {
+        id,
+        get: () =>
+          Promise.resolve(
+            collName === FirestoreCollections.users
+              ? userDoc()
+              : { exists: false, data: () => ({}), get: () => undefined },
+          ),
+        collection: (sub: string) => makeQuery(`${collName}/${id}/${sub}`),
+      };
+    }
+
+    mockState.db = {
+      collection: (name: string) => makeQuery(name),
+      getAll: () => Promise.resolve([]),
+    };
+  });
+  afterEach(() => errSpy.mockRestore());
+
+  it("drops workout rows that have not completed yet", async () => {
+    const res = await listRecentLogsForClient("c1", null, 20);
+
+    expect(res.logs).toHaveLength(1);
+    expect(res.logs[0].title).toContain("Workout completed");
+    expect(res.logs[0].title).not.toContain("Workout started");
   });
 });
 

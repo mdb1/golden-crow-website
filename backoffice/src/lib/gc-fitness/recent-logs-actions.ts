@@ -83,7 +83,7 @@ export interface WorkoutLogDetail {
   workoutName: string;
   startedAt: string | null;
   completedAt: string | null;
-  status: "completed" | "started";
+  status: "completed";
   setCount: number;
   completedSetCount: number;
   exerciseCount: number;
@@ -853,7 +853,7 @@ async function buildRecentLogs(params: {
     if (!startedAt) return;
 
     const completedAt = asIso(data.completedAt);
-    const status: "completed" | "started" = completedAt ? "completed" : "started";
+    if (!completedAt) return;
     const templateName = localizedText(
       (data.templateSnapshot as { name?: unknown } | undefined)?.name,
       "Workout",
@@ -885,14 +885,11 @@ async function buildRecentLogs(params: {
     rows.push({
       id: `workout:${doc.id}`,
       category: "workout",
-      eventAt: completedAt ?? startedAt,
+      eventAt: completedAt,
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
-      title:
-        status === "completed"
-          ? `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`
-          : `${nameByClientId.get(clientId) ?? clientId} - Workout started: ${templateName}`,
+      title: `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`,
       detail: `${templateName} · ${setsLabel}`,
       workoutLogId: doc.id,
       workout: {
@@ -1596,7 +1593,7 @@ async function buildWorkoutLogDetail(
     workoutName,
     startedAt,
     completedAt,
-    status: completedAt ? "completed" : "started",
+    status: "completed",
     setCount: sets.length,
     completedSetCount: sets.filter((s) => Boolean(s.completedAt)).length,
     exerciseCount: templateExercises.length,
