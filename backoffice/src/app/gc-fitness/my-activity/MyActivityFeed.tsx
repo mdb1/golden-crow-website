@@ -9,6 +9,7 @@ import {
   MessageSquare,
   NotebookPen,
   PersonStanding,
+  Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,11 @@ const KIND_TONE: Record<CoachActivityKind, string> = {
   chat:
     "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
 };
+
+// Distinct tone for deletion rows (coach removed something) so they stand out
+// from creates/assigns.
+const DELETED_TONE =
+  "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300";
 
 export function MyActivityFeed({
   initialRows,
@@ -128,7 +134,9 @@ export function MyActivityFeed({
 }
 
 function ActivityRow({ row }: { row: MyCoachActivityRow }) {
-  const Icon = KIND_ICON[row.kind];
+  const Icon = row.deleted ? Trash2 : KIND_ICON[row.kind];
+  const tone = row.deleted ? DELETED_TONE : KIND_TONE[row.kind];
+  const label = row.deleted ? "Eliminado" : KIND_LABEL[row.kind];
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -138,9 +146,9 @@ function ActivityRow({ row }: { row: MyCoachActivityRow }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant="outline"
-            className={`gap-1 px-1.5 py-0 text-[11px] font-normal ${KIND_TONE[row.kind]}`}
+            className={`gap-1 px-1.5 py-0 text-[11px] font-normal ${tone}`}
           >
-            {KIND_LABEL[row.kind]}
+            {label}
           </Badge>
           <span className="min-w-0 break-words text-sm font-medium leading-snug">
             {row.title}

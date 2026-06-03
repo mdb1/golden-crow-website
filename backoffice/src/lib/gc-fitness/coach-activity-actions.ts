@@ -20,6 +20,9 @@ export interface MyCoachActivityRow {
   detail: string | null;
   clientId: string | null;
   clientName: string | null;
+  /** True when this row represents a DELETION (e.g. the coach removed a habit
+   *  from a client). The UI styles these distinctly (trash icon + red tone). */
+  deleted?: boolean;
 }
 
 export interface MyCoachActivityPage {
@@ -110,6 +113,32 @@ export async function listMyCoachActivityPage(
     });
   }
 
+  // Surfaces DELETIONS for soft-deleted collections (habits, workout templates):
+  // the doc still exists with `deleted: true`, and the delete bumps `updatedAt`,
+  // so a deleted doc's `updatedAt` is effectively its deletion time. Ordered by
+  // `updatedAt` (the `(trainerId, deleted, updatedAt DESC)` composite index
+  // already exists for both collections). Hard-deleted collections (e.g.
+  // workout_assignments) leave no doc, so deletions there can't be recovered
+  // without a dedicated audit log.
+  async function deletedScopedQuery(collectionName: string) {
+    let query = db
+      .collection(collectionName)
+      .where("trainerId", "==", trainer.uid)
+      .where("deleted", "==", true)
+      .orderBy("updatedAt", "desc")
+      .limit(queryLimit);
+    if (before) {
+      query = query.where("updatedAt", "<", before);
+    }
+    return query.get().catch((error) => {
+      console.warn(
+        `[gc-fitness/my-activity] deleted ${collectionName} query failed; skipping deletion rows`,
+        error,
+      );
+      return null;
+    });
+  }
+
   async function notesQuery() {
     let query = db
       .collection(FirestoreCollections.clientNotes)
@@ -160,6 +189,8 @@ export async function listMyCoachActivityPage(
     habitsSnap,
     notesSnap,
     messagesSnap,
+    deletedHabitsSnap,
+    deletedTemplatesSnap,
   ] = await Promise.all([
     db.collection(FirestoreCollections.users).where("coachId", "==", trainer.uid).get(),
     scopedRecentQuery(FirestoreCollections.workoutTemplates, "trainerId"),
@@ -168,6 +199,8 @@ export async function listMyCoachActivityPage(
     scopedRecentQuery(FirestoreCollections.habits, "trainerId"),
     notesQuery(),
     sentMessagesQuery(),
+    deletedScopedQuery(FirestoreCollections.habits),
+    deletedScopedQuery(FirestoreCollections.workoutTemplates),
   ]);
 
   for (const doc of clientsSnap.docs) {
@@ -332,6 +365,47 @@ export async function listMyCoachActivityPage(
       detail: typeof data.text === "string" && data.text.trim() ? data.text.slice(0, 120) : null,
       clientId: chatId,
       clientName: chatId ? clientNameById.get(chatId) ?? chatId : null,
+    });
+  }
+
+  // Deletion events — a soft-deleted habit/template is surfaced as a "deleted"
+  // row at its deletion time (updatedAt), NOT as a stale "assigned"/"created"
+  // row (those are skipped above). This is what lets a coach see, e.g., "Hábito
+  // eliminado: Mate" after removing a habit from a client.
+  for (const doc of deletedHabitsSnap?.docs ?? []) {
+    const data = doc.data() as {
+      updatedAt?: unknown;
+      clientId?: string;
+      pendingEmail?: string;
+      name?: unknown;
+      title?: unknown;
+    };
+    const clientId = typeof data.clientId === "string" ? data.clientId : null;
+    const name = localizedName(data.name) || localizedName(data.title);
+    rows.push({
+      id: `habit-deleted:${doc.id}`,
+      kind: "habit_assignment",
+      deleted: true,
+      occurredAt: toIso(data.updatedAt),
+      title: name ? `Hábito eliminado: ${name}` : "Hábito eliminado",
+      detail: null,
+      clientId,
+      clientName: clientId ? clientNameById.get(clientId) ?? clientId : data.pendingEmail ?? null,
+    });
+  }
+
+  for (const doc of deletedTemplatesSnap?.docs ?? []) {
+    const data = doc.data() as { updatedAt?: unknown; name?: unknown };
+    const name = localizedName(data.name);
+    rows.push({
+      id: `template-deleted:${doc.id}`,
+      kind: "workout_template",
+      deleted: true,
+      occurredAt: toIso(data.updatedAt),
+      title: name ? `Workout eliminado: ${name}` : "Workout eliminado",
+      detail: null,
+      clientId: null,
+      clientName: null,
     });
   }
 
