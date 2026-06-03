@@ -55,6 +55,11 @@ import {
   type ExerciseInput,
 } from "./exercise-schema";
 import { getCurrentTrainer } from "./auth-helpers";
+import {
+  recordCoachActivityEvent,
+  markCoachActivityDeleted,
+  exerciseCreatedEvent,
+} from "./coach-activity-log";
 
 const COLLECTION = "exercises";
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -153,6 +158,11 @@ export async function createExercise(
     deleted: false,
   });
 
+  await recordCoachActivityEvent(
+    db,
+    exerciseCreatedEvent({ trainerId: trainer.uid, exerciseId: docId, name: data.name }),
+  );
+
   return { id: docId };
 }
 
@@ -243,6 +253,8 @@ export async function softDeleteExercise(
     deleted: true,
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  await markCoachActivityDeleted(db, `exr:${id}`);
 
   return { ok: true };
 }

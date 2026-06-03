@@ -172,7 +172,8 @@ describe("createExercise", () => {
     const result = await createExercise(VALID_EXERCISE_INPUT);
 
     expect(result.id).toMatch(new RegExp(`^custom-${ALLOWED_UID}-`));
-    expect(mockSet).toHaveBeenCalledTimes(1);
+    // calls[0] is the exercise doc; a 2nd set() writes the coach_activity event.
+    expect(mockSet).toHaveBeenCalled();
   });
 
   // T3: token + email OK but role != trainer → Forbidden
@@ -192,7 +193,7 @@ describe("createExercise", () => {
     const result = await createExercise(VALID_EXERCISE_INPUT);
 
     expect(result.id).toMatch(new RegExp(`^custom-${ALLOWED_UID}-`));
-    expect(mockSet).toHaveBeenCalledTimes(1);
+    expect(mockSet).toHaveBeenCalled();
     const setPayload = mockSet.mock.calls[0][0];
     expect(setPayload.source).toBe("trainer");
     expect(setPayload.ownerId).toBe(ALLOWED_UID);

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import { recordCoachActivityEvent, noteAddedEvent } from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 
 const updateClientNotesSchema = z.object({
@@ -103,9 +104,11 @@ export async function updateClientNotes(input: unknown): Promise<{
   const parsed = updateClientNotesSchema.parse(input);
   await assertOwnsClient(trainer.uid, parsed.clientId);
 
-  const ref = gcFitnessFirestore()
+  const db = gcFitnessFirestore();
+  const docId = noteDocId(trainer.uid, parsed.clientId);
+  const ref = db
     .collection(FirestoreCollections.clientNotes)
-    .doc(noteDocId(trainer.uid, parsed.clientId));
+    .doc(docId);
   const now = FieldValue.serverTimestamp();
   const entryCreatedAt = new Date().toISOString();
   const snap = await ref.get();
@@ -127,6 +130,18 @@ export async function updateClientNotes(input: unknown): Promise<{
       updatedAt: now,
     },
     { merge: true },
+  );
+
+  await recordCoachActivityEvent(
+    db,
+    noteAddedEvent({
+      trainerId: trainer.uid,
+      noteDocId: docId,
+      entryKey: entryCreatedAt,
+      body: parsed.notes,
+      clientId: parsed.clientId,
+      occurredAt: new Date(entryCreatedAt),
+    }),
   );
 
   return { ok: true, updatedAt: new Date().toISOString() };

@@ -23,7 +23,12 @@ import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore"
 
 export const COACH_ACTIVITY_COLLECTION = "coach_activity";
 
-export type CoachActivityLogKind = "workout_assignment";
+export type CoachActivityLogKind =
+  | "workout_template"
+  | "exercise"
+  | "workout_assignment"
+  | "habit_assignment"
+  | "note";
 
 export interface CoachActivityEvent {
   /** Deterministic id so re-runs / per-occurrence triggers are idempotent. */
@@ -116,6 +121,89 @@ export function seriesAssignmentEvent(args: {
     detail: detailParts.join(" · ") || null,
     clientId: args.clientId,
     pendingEmail: args.pendingEmail,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/** Workout template created (no client). eventId `tpl:${id}`. */
+export function templateCreatedEvent(args: {
+  trainerId: string;
+  templateId: string;
+  name: unknown;
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  return {
+    eventId: `tpl:${args.templateId}`,
+    trainerId: args.trainerId,
+    kind: "workout_template",
+    title: name ? `Workout creado: ${name}` : "Workout creado",
+    detail: null,
+    clientId: null,
+    pendingEmail: null,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/** Exercise created (no client). eventId `exr:${id}`. */
+export function exerciseCreatedEvent(args: {
+  trainerId: string;
+  exerciseId: string;
+  name: unknown;
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  return {
+    eventId: `exr:${args.exerciseId}`,
+    trainerId: args.trainerId,
+    kind: "exercise",
+    title: name ? `Ejercicio creado: ${name}` : "Ejercicio creado",
+    detail: null,
+    clientId: null,
+    pendingEmail: null,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/** Habit assigned to a client. eventId `hab:${id}`. */
+export function habitAssignedEvent(args: {
+  trainerId: string;
+  habitId: string;
+  name: unknown;
+  clientId: string | null;
+  pendingEmail: string | null;
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  const name = localizedText(args.name);
+  return {
+    eventId: `hab:${args.habitId}`,
+    trainerId: args.trainerId,
+    kind: "habit_assignment",
+    title: name ? `Hábito asignado: ${name}` : "Hábito asignado",
+    detail: null,
+    clientId: args.clientId,
+    pendingEmail: args.pendingEmail,
+    occurredAt: args.occurredAt ?? null,
+  };
+}
+
+/** Coach note added for a client. eventId `note:${docId}:${entryKey}`. */
+export function noteAddedEvent(args: {
+  trainerId: string;
+  noteDocId: string;
+  entryKey: string;
+  body: string | null;
+  clientId: string | null;
+  occurredAt?: Date | null;
+}): CoachActivityEvent {
+  return {
+    eventId: `note:${args.noteDocId}:${args.entryKey}`,
+    trainerId: args.trainerId,
+    kind: "note",
+    title: "Nota agregada",
+    detail: args.body ? args.body.slice(0, 120) : null,
+    clientId: args.clientId,
+    pendingEmail: null,
     occurredAt: args.occurredAt ?? null,
   };
 }

@@ -15,10 +15,28 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   listMyCoachActivityPage,
   type CoachActivityKind,
+  type MyActivityClientOption,
   type MyCoachActivityRow,
 } from "@/lib/gc-fitness/coach-activity-actions";
+
+const TYPE_OPTIONS: Array<[string, string]> = [
+  ["all", "Toda la actividad"],
+  ["workout_assignment", "Asignaciones"],
+  ["habit_assignment", "Hábitos"],
+  ["workout_template", "Workouts"],
+  ["exercise", "Ejercicios"],
+  ["note", "Notas"],
+  ["chat", "Chat"],
+];
 
 const PAGE_SIZE = 50;
 
@@ -67,20 +85,45 @@ export function MyActivityFeed({
   initialRows,
   initialCursor,
   initialHasMore,
+  clients,
 }: {
   initialRows: MyCoachActivityRow[];
   initialCursor: string | null;
   initialHasMore: boolean;
+  clients: MyActivityClientOption[];
 }) {
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
+  const [clientFilter, setClientFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [pending, startTransition] = useTransition();
+
+  function applyFilters(nextClient: string, nextType: string) {
+    setClientFilter(nextClient);
+    setTypeFilter(nextType);
+    startTransition(async () => {
+      const res = await listMyCoachActivityPage(
+        null,
+        PAGE_SIZE,
+        nextClient === "all" ? null : nextClient,
+        nextType === "all" ? null : nextType,
+      );
+      setRows(res.rows);
+      setCursor(res.nextCursor);
+      setHasMore(res.hasMore);
+    });
+  }
 
   function loadMore() {
     if (!hasMore || pending) return;
     startTransition(async () => {
-      const next = await listMyCoachActivityPage(cursor, PAGE_SIZE);
+      const next = await listMyCoachActivityPage(
+        cursor,
+        PAGE_SIZE,
+        clientFilter === "all" ? null : clientFilter,
+        typeFilter === "all" ? null : typeFilter,
+      );
       setRows((current) => {
         const seen = new Set(current.map((row) => row.id));
         const fresh = next.rows.filter((row) => !seen.has(row.id));
@@ -93,35 +136,76 @@ export function MyActivityFeed({
 
   // Group the flat row list into day sections so the date isn't repeated on
   // every row — the day is shown once as a section heading and each row only
-  // carries its time. Rows arrive newest-first from the server, so insertion
-  // order already yields the correct day ordering. Every loaded row is shown:
-  // the coach must see everything they did, so we do NOT hide the trailing day.
+  // carries its time.
   const dayGroups = useMemo(() => groupRowsByDay(rows), [rows]);
 
-  if (rows.length === 0) {
-    return (
-      <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-        Todavía no hay acciones recientes.
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div className="flex flex-col">
-        {dayGroups.map((group) => (
-          <section key={group.key}>
-            <h3 className="sticky top-0 z-10 border-b bg-background/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
-              {group.label}
-            </h3>
-            <div className="divide-y">
-              {group.rows.map((row) => (
-                <ActivityRow key={row.id} row={row} />
+    <div className="flex flex-col">
+      <div className="grid gap-3 border-b px-4 py-3 sm:grid-cols-2 sm:max-w-xl">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Cliente</p>
+          <Select
+            value={clientFilter}
+            onValueChange={(v) => applyFilters(v, typeFilter)}
+            disabled={pending}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los clientes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los clientes</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
               ))}
-            </div>
-          </section>
-        ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Tipo</p>
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => applyFilters(clientFilter, v)}
+            disabled={pending}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Toda la actividad" />
+            </SelectTrigger>
+            <SelectContent>
+              {TYPE_OPTIONS.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {rows.length === 0 ? (
+        <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+          {clientFilter !== "all" || typeFilter !== "all"
+            ? "No hay actividad para este filtro."
+            : "Todavía no hay acciones recientes."}
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {dayGroups.map((group) => (
+            <section key={group.key}>
+              <h3 className="sticky top-0 z-10 border-b bg-background/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                {group.label}
+              </h3>
+              <div className="divide-y">
+                {group.rows.map((row) => (
+                  <ActivityRow key={row.id} row={row} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
       {hasMore ? (
         <div className="flex justify-center border-t px-4 py-3">
           <Button variant="outline" size="sm" onClick={loadMore} disabled={pending}>
@@ -129,7 +213,7 @@ export function MyActivityFeed({
           </Button>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 

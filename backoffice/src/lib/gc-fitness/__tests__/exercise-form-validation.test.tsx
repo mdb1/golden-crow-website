@@ -67,6 +67,13 @@ jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
+// This validation suite never exercises the upload path, so stub the
+// GC Fitness Firebase client helper to avoid importing the browser-only
+// Firebase Auth module under the Node-based Jest environment.
+jest.mock("@/lib/firebase/gc-fitness-client", () => ({
+  getGCFitnessStorage: () => ({}),
+}));
+
 // --- Mock sonner toasts (sonner needs a DOM container that's harder to wire
 // in jsdom; the form imports the helper directly so we observe call args). ---
 const mockToastError = jest.fn();

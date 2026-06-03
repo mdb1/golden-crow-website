@@ -49,19 +49,12 @@ function cursorDate(cursor: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function localizedName(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value && typeof value === "object") {
-    const raw = value as Record<string, unknown>;
-    if (typeof raw.es === "string" && raw.es.trim()) return raw.es;
-    if (typeof raw.en === "string" && raw.en.trim()) return raw.en;
-  }
-  return "";
-}
 
 export async function listMyCoachActivityPage(
   cursor: string | null = null,
   pageSize = DEFAULT_PAGE_SIZE,
+  clientId: string | null = null,
+  kind: string | null = null,
 ): Promise<MyCoachActivityPage> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
@@ -75,82 +68,38 @@ export async function listMyCoachActivityPage(
   // of activity is present in the merge before we slice to the page.
   const queryLimit = Math.max(safePageSize + 1, 250);
   const before = cursorDate(cursor);
+  const kindFilter = kind && kind !== "all" ? kind : null;
+  const wantChat = !kindFilter || kindFilter === "chat";
+  const wantLog = !kindFilter || kindFilter !== "chat";
 
-  async function scopedRecentQuery(collectionName: string, ownerField: "trainerId" | "coachId") {
-    let query = db
-      .collection(collectionName)
-      .where(ownerField, "==", trainer.uid)
-      .orderBy("createdAt", "desc")
-      .limit(queryLimit);
-    if (before) {
-      query = query.where("createdAt", "<", before);
+  // `coach_activity` is the single source of truth for EVERY coach action
+  // except chat (workout templates, exercises, habit assignments, workout
+  // assignments, notes) — one durable event per action. Filters compose
+  // server-side: `clientId` is the most selective, so it's applied in-query;
+  // `kind` is applied in-query only when no clientId is set (so we don't need a
+  // 4-field composite index) — otherwise kind is filtered in memory below.
+  async function coachActivityQuery() {
+    if (!wantLog) return null;
+    let q = db
+      .collection(COACH_ACTIVITY_COLLECTION)
+      .where("trainerId", "==", trainer.uid) as FirebaseFirestore.Query;
+    if (clientId) {
+      q = q.where("clientId", "==", clientId);
+    } else if (kindFilter && kindFilter !== "chat") {
+      q = q.where("kind", "==", kindFilter);
     }
-    return query.get().catch((error) => {
-      console.warn(
-        `[gc-fitness/my-activity] ordered ${collectionName} query failed; using bounded fallback`,
-        error,
-      );
-      if (before) return null;
-      return db
-        .collection(collectionName)
-        .where(ownerField, "==", trainer.uid)
-        .limit(queryLimit)
-        .get()
-        .catch(() => null);
-    });
-  }
-
-  // Surfaces DELETIONS for soft-deleted collections (habits, workout templates):
-  // the doc still exists with `deleted: true`, and the delete bumps `updatedAt`,
-  // so a deleted doc's `updatedAt` is effectively its deletion time. Ordered by
-  // `updatedAt` (the `(trainerId, deleted, updatedAt DESC)` composite index
-  // already exists for both collections). Hard-deleted collections (e.g.
-  // workout_assignments) leave no doc, so deletions there can't be recovered
-  // without a dedicated audit log.
-  async function deletedScopedQuery(collectionName: string) {
-    let query = db
-      .collection(collectionName)
-      .where("trainerId", "==", trainer.uid)
-      .where("deleted", "==", true)
-      .orderBy("updatedAt", "desc")
-      .limit(queryLimit);
-    if (before) {
-      query = query.where("updatedAt", "<", before);
-    }
-    return query.get().catch((error) => {
-      console.warn(
-        `[gc-fitness/my-activity] deleted ${collectionName} query failed; skipping deletion rows`,
-        error,
-      );
+    q = q.orderBy("occurredAt", "desc").limit(queryLimit);
+    if (before) q = q.where("occurredAt", "<", before);
+    return q.get().catch((error) => {
+      console.warn("[gc-fitness/my-activity] coach_activity query failed", error);
       return null;
     });
   }
 
-  async function notesQuery() {
-    let query = db
-      .collection(FirestoreCollections.clientNotes)
-      .where("coachId", "==", trainer.uid)
-      .orderBy("updatedAt", "desc")
-      .limit(queryLimit);
-    if (before) {
-      query = query.where("updatedAt", "<", before);
-    }
-    return query.get().catch((error) => {
-      console.warn(
-        "[gc-fitness/my-activity] ordered client notes query failed; using bounded fallback",
-        error,
-      );
-      if (before) return null;
-      return db
-        .collection(FirestoreCollections.clientNotes)
-        .where("coachId", "==", trainer.uid)
-        .limit(queryLimit)
-        .get()
-        .catch(() => null);
-    });
-  }
-
+  // Chat is NOT logged to coach_activity (it would double every message write);
+  // it's read live from the messages collection group and merged in.
   async function sentMessagesQuery() {
+    if (!wantChat) return null;
     let query = db
       .collectionGroup(FirestoreCollections.messages)
       .where("senderId", "==", trainer.uid)
@@ -160,57 +109,15 @@ export async function listMyCoachActivityPage(
       query = query.where("createdAt", "<", before);
     }
     return query.get().catch((error) => {
-      console.warn(
-        "[gc-fitness/my-activity] ordered sent messages query failed; skipping chat rows for this page",
-        error,
-      );
+      console.warn("[gc-fitness/my-activity] sent messages query failed", error);
       return null;
     });
   }
 
-  // Assignments are read from the `coach_activity` event log (one event per
-  // assign ACTION) — NOT from raw `workout_assignments`, where a single
-  // recurring assignment writes one doc per (client, date) and thousands of
-  // occurrence docs made the old fan-out drop whole assignments. The log query
-  // is `where(trainerId).orderBy(occurredAt desc)` over a tiny, complete set.
-  async function coachActivityQuery() {
-    let query = db
-      .collection(COACH_ACTIVITY_COLLECTION)
-      .where("trainerId", "==", trainer.uid)
-      .orderBy("occurredAt", "desc")
-      .limit(queryLimit);
-    if (before) {
-      query = query.where("occurredAt", "<", before);
-    }
-    return query.get().catch((error) => {
-      console.warn(
-        "[gc-fitness/my-activity] coach_activity query failed; assignment rows skipped this page",
-        error,
-      );
-      return null;
-    });
-  }
-
-  const [
-    clientsSnap,
-    templatesSnap,
-    exercisesSnap,
-    coachActivitySnap,
-    habitsSnap,
-    notesSnap,
-    messagesSnap,
-    deletedHabitsSnap,
-    deletedTemplatesSnap,
-  ] = await Promise.all([
+  const [clientsSnap, coachActivitySnap, messagesSnap] = await Promise.all([
     db.collection(FirestoreCollections.users).where("coachId", "==", trainer.uid).get(),
-    scopedRecentQuery(FirestoreCollections.workoutTemplates, "trainerId"),
-    scopedRecentQuery(FirestoreCollections.exercises, "trainerId"),
     coachActivityQuery(),
-    scopedRecentQuery(FirestoreCollections.habits, "trainerId"),
-    notesQuery(),
     sentMessagesQuery(),
-    deletedScopedQuery(FirestoreCollections.habits),
-    deletedScopedQuery(FirestoreCollections.workoutTemplates),
   ]);
 
   for (const doc of clientsSnap.docs) {
@@ -220,37 +127,7 @@ export async function listMyCoachActivityPage(
 
   const rows: MyCoachActivityRow[] = [];
 
-  for (const doc of templatesSnap?.docs ?? []) {
-    const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown; deleted?: boolean };
-    if (data.deleted === true) continue; // soft-deleted templates are not activity
-    const name = localizedName(data.name);
-    rows.push({
-      id: `template:${doc.id}`,
-      kind: "workout_template",
-      occurredAt: toIso(data.createdAt ?? data.updatedAt),
-      title: name ? `Workout creado: ${name}` : "Workout creado",
-      detail: null,
-      clientId: null,
-      clientName: null,
-    });
-  }
-
-  for (const doc of exercisesSnap?.docs ?? []) {
-    const data = doc.data() as { createdAt?: unknown; updatedAt?: unknown; name?: unknown; title?: unknown; deleted?: boolean; deletedAt?: unknown };
-    if (data.deleted === true || data.deletedAt) continue; // soft-deleted (trainer flag or curation tombstone)
-    const name = localizedName(data.name) || localizedName(data.title);
-    rows.push({
-      id: `exercise:${doc.id}`,
-      kind: "exercise",
-      occurredAt: toIso(data.createdAt ?? data.updatedAt),
-      title: name ? `Ejercicio creado: ${name}` : "Ejercicio creado",
-      detail: null,
-      clientId: null,
-      clientName: null,
-    });
-  }
-
-  // Assignment activity — one row per logged assign ACTION (create or delete).
+  // Every non-chat action — one row per logged event (create / assign / delete).
   for (const doc of coachActivitySnap?.docs ?? []) {
     const data = doc.data() as {
       kind?: string;
@@ -261,68 +138,40 @@ export async function listMyCoachActivityPage(
       deleted?: boolean;
       occurredAt?: unknown;
     };
-    const clientId = typeof data.clientId === "string" ? data.clientId : null;
+    const evKind = (typeof data.kind === "string" ? data.kind : "workout_assignment") as CoachActivityKind;
+    // When BOTH clientId and kind filters are set, clientId was applied
+    // server-side; apply kind here in memory.
+    if (clientId && kindFilter && kindFilter !== "chat" && evKind !== kindFilter) {
+      continue;
+    }
+    const rowClientId = typeof data.clientId === "string" ? data.clientId : null;
     const deleted = data.deleted === true;
-    let title = typeof data.title === "string" ? data.title : "Workout asignado";
-    if (deleted) title = title.replace("Workout asignado:", "Workout eliminado:");
+    let title = typeof data.title === "string" ? data.title : "Actividad";
+    if (deleted) {
+      title = title
+        .replace("Workout asignado:", "Workout eliminado:")
+        .replace("Workout creado:", "Workout eliminado:")
+        .replace("Ejercicio creado:", "Ejercicio eliminado:")
+        .replace("Hábito asignado:", "Hábito eliminado:");
+    }
     rows.push({
       id: `coachevt:${doc.id}`,
-      kind: "workout_assignment",
+      kind: evKind,
       deleted: deleted || undefined,
       occurredAt: toIso(data.occurredAt),
       title,
       detail: typeof data.detail === "string" ? data.detail : null,
-      clientId,
-      clientName: clientId
-        ? clientNameById.get(clientId) ?? clientId
+      clientId: rowClientId,
+      clientName: rowClientId
+        ? clientNameById.get(rowClientId) ?? rowClientId
         : data.pendingEmail ?? null,
     });
   }
 
-  for (const doc of habitsSnap?.docs ?? []) {
-    const data = doc.data() as {
-      createdAt?: unknown;
-      updatedAt?: unknown;
-      clientId?: string;
-      pendingEmail?: string;
-      name?: unknown;
-      title?: unknown;
-      deleted?: boolean;
-    };
-    if (data.deleted === true) continue; // soft-deleted habit (e.g. "Mate") is not activity
-    const clientId = typeof data.clientId === "string" ? data.clientId : null;
-    const name = localizedName(data.name) || localizedName(data.title);
-    rows.push({
-      id: `habit:${doc.id}`,
-      kind: "habit_assignment",
-      occurredAt: toIso(data.createdAt ?? data.updatedAt),
-      title: name ? `Hábito asignado: ${name}` : "Hábito asignado",
-      detail: null,
-      clientId,
-      clientName: clientId ? clientNameById.get(clientId) ?? clientId : data.pendingEmail ?? null,
-    });
-  }
-
-  for (const doc of notesSnap?.docs ?? []) {
-    const data = doc.data() as { updatedAt?: unknown; clientId?: string; entries?: Array<{ createdAt?: string; body?: string }> };
-    const clientId = typeof data.clientId === "string" ? data.clientId : doc.id.replace(`${trainer.uid}_`, "");
-    for (const [index, entry] of (data.entries ?? []).entries()) {
-      rows.push({
-        id: `note:${doc.id}:${entry.createdAt ?? index}`,
-        kind: "note",
-        occurredAt: toIso(entry.createdAt) ?? toIso(data.updatedAt),
-        title: "Nota agregada",
-        detail: typeof entry.body === "string" ? entry.body.slice(0, 120) : null,
-        clientId,
-        clientName: clientNameById.get(clientId) ?? clientId,
-      });
-    }
-  }
-
   for (const messageDoc of messagesSnap?.docs ?? []) {
     const data = messageDoc.data() as { createdAt?: unknown; kind?: string; text?: string };
-    const chatDoc = messageDoc.ref.parent.parent;
-    const chatId = chatDoc?.id ?? null;
+    const chatId = messageDoc.ref.parent.parent?.id ?? null;
+    if (clientId && chatId !== clientId) continue; // chat client filter (in memory)
     rows.push({
       id: `chat:${chatId ?? "unknown"}:${messageDoc.id}`,
       kind: "chat",
@@ -334,47 +183,6 @@ export async function listMyCoachActivityPage(
     });
   }
 
-  // Deletion events — a soft-deleted habit/template is surfaced as a "deleted"
-  // row at its deletion time (updatedAt), NOT as a stale "assigned"/"created"
-  // row (those are skipped above). This is what lets a coach see, e.g., "Hábito
-  // eliminado: Mate" after removing a habit from a client.
-  for (const doc of deletedHabitsSnap?.docs ?? []) {
-    const data = doc.data() as {
-      updatedAt?: unknown;
-      clientId?: string;
-      pendingEmail?: string;
-      name?: unknown;
-      title?: unknown;
-    };
-    const clientId = typeof data.clientId === "string" ? data.clientId : null;
-    const name = localizedName(data.name) || localizedName(data.title);
-    rows.push({
-      id: `habit-deleted:${doc.id}`,
-      kind: "habit_assignment",
-      deleted: true,
-      occurredAt: toIso(data.updatedAt),
-      title: name ? `Hábito eliminado: ${name}` : "Hábito eliminado",
-      detail: null,
-      clientId,
-      clientName: clientId ? clientNameById.get(clientId) ?? clientId : data.pendingEmail ?? null,
-    });
-  }
-
-  for (const doc of deletedTemplatesSnap?.docs ?? []) {
-    const data = doc.data() as { updatedAt?: unknown; name?: unknown };
-    const name = localizedName(data.name);
-    rows.push({
-      id: `template-deleted:${doc.id}`,
-      kind: "workout_template",
-      deleted: true,
-      occurredAt: toIso(data.updatedAt),
-      title: name ? `Workout eliminado: ${name}` : "Workout eliminado",
-      detail: null,
-      clientId: null,
-      clientName: null,
-    });
-  }
-
   rows.sort((a, b) => (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""));
   const pageRows = rows.slice(0, safePageSize);
   return {
@@ -382,4 +190,25 @@ export async function listMyCoachActivityPage(
     nextCursor: pageRows.length === safePageSize ? pageRows[pageRows.length - 1].occurredAt : null,
     hasMore: rows.length > safePageSize,
   };
+}
+
+export interface MyActivityClientOption {
+  id: string;
+  name: string;
+}
+
+/** The calling trainer's clients (for the My Activity client filter). */
+export async function listMyActivityClients(): Promise<MyActivityClientOption[]> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(FirestoreCollections.users)
+    .where("coachId", "==", trainer.uid)
+    .get();
+  return snap.docs
+    .map((d) => {
+      const x = d.data() as { displayName?: string; email?: string };
+      return { id: d.id, name: x.displayName ?? x.email ?? d.id };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

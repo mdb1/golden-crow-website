@@ -32,6 +32,11 @@ import {
   type WorkoutTag,
 } from "./workout-template-schema";
 import { getCurrentTrainer } from "./auth-helpers";
+import {
+  recordCoachActivityEvent,
+  markCoachActivityDeleted,
+  templateCreatedEvent,
+} from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 
 const COLLECTION = FirestoreCollections.workoutTemplates;
@@ -176,6 +181,11 @@ export async function createWorkoutTemplate(
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  await recordCoachActivityEvent(
+    db,
+    templateCreatedEvent({ trainerId: trainer.uid, templateId: docId, name: data.name }),
+  );
 
   return { id: docId };
 }
@@ -346,6 +356,8 @@ export async function softDeleteWorkoutTemplate(
     deleted: true,
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  await markCoachActivityDeleted(db, `tpl:${id}`);
 
   return { ok: true };
 }

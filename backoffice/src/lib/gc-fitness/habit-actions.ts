@@ -46,6 +46,11 @@ import {
   type HabitScheduleType,
 } from "./habit-schema";
 import { getCurrentTrainer } from "./auth-helpers";
+import {
+  recordCoachActivityEvent,
+  markCoachActivityDeleted,
+  habitAssignedEvent,
+} from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 
@@ -477,6 +482,17 @@ export async function createHabit(
     updatedAt: FieldValue.serverTimestamp(),
   }));
 
+  await recordCoachActivityEvent(
+    db,
+    habitAssignedEvent({
+      trainerId: trainer.uid,
+      habitId: docId,
+      name: data.name,
+      clientId: typeof data.clientId === "string" ? data.clientId : null,
+      pendingEmail: null,
+    }),
+  );
+
   return { id: docId };
 }
 
@@ -538,6 +554,17 @@ export async function createPendingHabit(
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }));
+
+  await recordCoachActivityEvent(
+    db,
+    habitAssignedEvent({
+      trainerId: trainer.uid,
+      habitId: docId,
+      name: data.name,
+      clientId: null,
+      pendingEmail: normalizedPendingEmail,
+    }),
+  );
 
   return { id: docId };
 }
@@ -739,6 +766,8 @@ export async function softDeleteHabit(
     deleted: true,
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  await markCoachActivityDeleted(db, `hab:${id}`);
 
   return { ok: true };
 }
@@ -1189,8 +1218,10 @@ export async function assignHabitTemplate(input: unknown): Promise<{
   }
 
   const batch = db.batch();
+  const assignedHabits: Array<{ docId: string; clientId: string }> = [];
   for (const clientId of parsed.clientIds) {
     const docId = `hab-${trainer.uid}-${randomUUID()}`;
+    assignedHabits.push({ docId, clientId });
     const docRef = db.collection(COLLECTION).doc(docId);
     batch.set(docRef, {
       id: docId,
@@ -1237,6 +1268,21 @@ export async function assignHabitTemplate(input: unknown): Promise<{
     });
   }
   await batch.commit();
+
+  await Promise.all(
+    assignedHabits.map(({ docId, clientId }) =>
+      recordCoachActivityEvent(
+        db,
+        habitAssignedEvent({
+          trainerId: trainer.uid,
+          habitId: docId,
+          name: template.name,
+          clientId,
+          pendingEmail: null,
+        }),
+      ),
+    ),
+  );
 
   return { created: parsed.clientIds.length };
 }
@@ -1324,6 +1370,17 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }));
+
+  await recordCoachActivityEvent(
+    db,
+    habitAssignedEvent({
+      trainerId: trainer.uid,
+      habitId: docId,
+      name: template.name,
+      clientId: null,
+      pendingEmail: normalizedPendingEmail,
+    }),
+  );
 
   return { created: 1 };
 }
