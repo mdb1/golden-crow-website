@@ -19,6 +19,7 @@ import {
   Download,
   MessageCircle,
   Pencil,
+  Play,
   Trash2,
   User,
 } from "lucide-react";
@@ -211,6 +212,18 @@ export function WorkoutDetailDialog({
             >
               Cerrar
             </Button>
+            {data && data.status !== "completed" && data.status !== "missed" ? (
+              <Button asChild className="gap-1">
+                <Link
+                  href={`/gc-fitness/clients/${data.clientId}/sessions/${data.id}/run`}
+                >
+                  <Play className="size-4" />
+                  {data.status === "started"
+                    ? "Continuar entrenamiento"
+                    : "Iniciar entrenamiento"}
+                </Link>
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               disabled={!data || isLoading}

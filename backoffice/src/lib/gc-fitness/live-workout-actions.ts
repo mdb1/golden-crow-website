@@ -22,7 +22,7 @@ import { randomUUID } from "node:crypto";
 
 import { FieldValue } from "firebase-admin/firestore";
 
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
@@ -89,6 +89,42 @@ function numArrayOrNull(v: unknown): number[] | null {
   return out.length > 0 ? out : null;
 }
 
+// ── media resolution (gs:// → 1h signed URL; https passes through) ─────────
+async function signedUrlForPath(storagePath: string): Promise<string | null> {
+  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
+  const candidates = [
+    process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_STORAGE_BUCKET,
+    projectId ? `${projectId}.appspot.com` : undefined,
+    projectId ? `${projectId}.firebasestorage.app` : undefined,
+  ].filter((v): v is string => Boolean(v));
+  for (const bucketName of candidates) {
+    try {
+      const [url] = await gcFitnessStorage()
+        .bucket(bucketName)
+        .file(storagePath)
+        .getSignedUrl({ action: "read", expires: Date.now() + 60 * 60 * 1000 });
+      return url;
+    } catch {
+      /* try next bucket candidate */
+    }
+  }
+  return null;
+}
+
+async function resolveMedia(value: unknown): Promise<string | null> {
+  if (typeof value !== "string" || value.length === 0) return null;
+  if (/^https?:\/\//.test(value)) return value;
+  if (value.startsWith("gs://")) {
+    // gs://<bucket>/<path...> — mint a signed URL from the in-bucket path.
+    const withoutScheme = value.slice("gs://".length);
+    const slash = withoutScheme.indexOf("/");
+    if (slash === -1) return null;
+    const path = withoutScheme.slice(slash + 1);
+    return signedUrlForPath(path);
+  }
+  return null;
+}
+
 // ── exercise enrichment (snapshot → SessionExercise[] with media) ──────────
 async function buildSessionExercises(
   templateSnapshot: Record<string, unknown> | undefined | null,
@@ -109,14 +145,22 @@ async function buildSessionExercises(
     docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
   );
 
-  return raw
-    .map((e, i): SessionExercise => {
+  const built = await Promise.all(
+    raw.map(async (e, i): Promise<SessionExercise> => {
       const exerciseId = typeof e.exerciseId === "string" ? e.exerciseId : "";
       const src = srcMap.get(exerciseId) ?? {};
       const metric =
         e.metric === "time" || e.metric === "reps"
           ? (e.metric as "time" | "reps")
           : null;
+      // Preview preference mirrors the exercise picker: imageUrl > gifUrl >
+      // thumbnailURL. mediaURL is the (video) clip. gs:// values are signed.
+      const [thumbnailURL, mediaURL] = await Promise.all([
+        resolveMedia(
+          src.imageUrl ?? src.gifUrl ?? src.thumbnailURL ?? e.thumbnailURL,
+        ),
+        resolveMedia(src.mediaURL ?? e.mediaURL),
+      ]);
       return {
         exerciseId,
         name: localized(e.name ?? src.name, exerciseId),
@@ -135,17 +179,12 @@ async function buildSessionExercises(
         durationBySetSeconds: numArrayOrNull(e.durationBySetSeconds),
         durationSeconds:
           typeof e.durationSeconds === "number" ? e.durationSeconds : null,
-        mediaURL:
-          (typeof src.mediaURL === "string" && src.mediaURL) ||
-          (typeof e.mediaURL === "string" && e.mediaURL) ||
-          null,
-        thumbnailURL:
-          (typeof src.thumbnailURL === "string" && src.thumbnailURL) ||
-          (typeof e.thumbnailURL === "string" && e.thumbnailURL) ||
-          null,
+        mediaURL,
+        thumbnailURL,
       };
-    })
-    .sort((a, b) => a.order - b.order);
+    }),
+  );
+  return built.sort((a, b) => a.order - b.order);
 }
 
 // ── wire (snake_case) ↔ session (camelCase) set mapping ────────────────────
