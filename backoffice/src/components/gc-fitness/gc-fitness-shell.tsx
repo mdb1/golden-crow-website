@@ -10,6 +10,7 @@ import {
   Library,
   ListChecks,
   MessagesSquare,
+  Bell,
   Shield,
   Settings,
   Users,
@@ -66,6 +67,11 @@ const sections: NavSection[] = [
         labelKey: "myActivity",
         href: "/gc-fitness/my-activity",
         icon: Activity,
+      },
+      {
+        labelKey: "notifications",
+        href: "/gc-fitness/notifications",
+        icon: Bell,
       },
     ],
   },
@@ -256,6 +262,7 @@ function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslation
         "/gc-fitness/dashboard",
         "/gc-fitness/schedule",
         "/gc-fitness/my-activity",
+        "/gc-fitness/notifications",
       ],
     },
     {
@@ -301,7 +308,10 @@ function getSectionMeta(pathname: string, tNav: ReturnType<typeof useTranslation
   return {
     groupLabel: tNav(match.groupKey),
     title: route ? tNav(route.labelKey) : "Trainer Backoffice",
-    subtitle: tNav(match.subtitleKey),
+    subtitle:
+      pathname.startsWith("/gc-fitness/notifications")
+        ? tNav("notificationsDescription")
+        : tNav(match.subtitleKey),
   };
 }
 
