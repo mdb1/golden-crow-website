@@ -59,15 +59,13 @@ function formatMmss(totalSeconds: number): string {
 
 function resolveRestSeconds(
   exercise: SessionExercise,
-  rowWeightKg: number | null | undefined,
 ): number {
   const base =
     exercise.restSeconds > 0
       ? exercise.restSeconds
       : exercise.transitionRestSeconds ?? 0;
   if (base > 0) return base;
-  if (rowWeightKg === 0) return 60;
-  return 0;
+  return 60;
 }
 
 export interface ActiveWorkoutSessionProps {
@@ -110,22 +108,6 @@ export function ActiveWorkoutSession({
     return null;
   }, [live.exercises, live.rowsByExercise]);
 
-  // Per-exercise rest decision: a superset only rests AFTER its last sibling
-  // (the coach alternates the others). Standalone exercises always rest.
-  const restDecision = useMemo(() => {
-    const map: Record<string, { rest: boolean; seconds: number }> = {};
-    for (const block of blocks) {
-      block.exercises.forEach((ex, i) => {
-        const isLast = i === block.exercises.length - 1;
-        map[ex.exerciseId] = {
-          rest: !block.isSuperset || isLast,
-          seconds: ex.restSeconds,
-        };
-      });
-    }
-    return map;
-  }, [blocks]);
-
   async function finishWorkout(
     mode: FinalizeMode,
     notes: string | null,
@@ -161,7 +143,10 @@ export function ActiveWorkoutSession({
         void queryClient.invalidateQueries({ queryKey: activeWorkoutSummariesKey() });
         void queryClient.invalidateQueries({ queryKey: activeSessionKey(assignmentId) });
         toast.success("Entrenamiento cancelado · volvió a programado");
-        router.push(`/gc-fitness/clients/${clientId}`);
+        // Cancel is an operational action, not a client-detail action.
+        // Send the coach back to the notifications hub so the canceled
+        // workout does not re-enter the client profile flow.
+        router.replace("/gc-fitness/notifications");
       }
     } finally {
       setFinishing(false);
@@ -182,15 +167,9 @@ export function ActiveWorkoutSession({
         onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
         onToggleDone={(i) => {
           const becameDone = live.toggleDone(ex.exerciseId, i);
-          const decision = restDecision[ex.exerciseId];
-          const row = live.rowsByExercise[ex.exerciseId]?.[i];
-          const restSeconds =
-            becameDone && decision?.rest
-              ? resolveRestSeconds(ex, row?.weightKg)
-              : 0;
-          if (restSeconds > 0) {
+          if (becameDone) {
             setRestingExerciseId(ex.exerciseId);
-            timer.start(restSeconds);
+            timer.start(resolveRestSeconds(ex));
           }
         }}
         onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
