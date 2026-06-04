@@ -6,42 +6,54 @@ Status: ☐ todo · ◐ in progress · ☑ done. Companion to
 `docs/gc-fitness-redesign.md` (design system).
 
 ## Done (committed)
-- ☑ Foundation: tokens (light+dark), shell, primitives (PageHeader/StatCard/PillTabs), Biblioteca consolidation.
-- ☑ Hero screens restyle (dashboard, clients, recent-logs, notifications, my-activity, chat, agenda, biblioteca, settings) + secondary routes.
-- ☑ Sidebar: solid-gold active pill (no shadow), bigger font, grouped nav, real Golden Crow logo.
+- ☑ Foundation: tokens (light+dark), shell, primitives, Biblioteca consolidation.
+- ☑ Hero screens + secondary routes restyle.
+- ☑ Sidebar: solid-gold active pill, bigger font, grouped nav, Golden Crow logo.
 - ☑ Agenda client selector → design system + avatars.
-- ☑ Client photos in pickers (recent-logs filter, habits filter).
-- ☑ Loading skeletons for instant navigation.
-- ☑ i18n: Spanish-first default + redesign hero literals routed through catalog.
+- ☑ Client photos in pickers.
+- ☑ Loading skeletons + skeleton→loaded fade-in (A8).
+- ☑ i18n: Spanish-first default + redesign hero literals through catalog.
 
-## A. Quick visual / UX fixes
-- ☐ **A1** Dashboard "Actividad reciente": remove the adherence **% numbers** from the rows — they shift as more pages load and read as misleading. (img: dashboard recent activity)
-- ☐ **A2** Dashboard: add a **CTA to Schedule** (agenda) — missing.
-- ☐ **A3** **Client names are links** to their profile everywhere they appear (dashboard rows, recent-logs rows, my-activity, etc.) → `/gc-fitness/clients/[id]`.
-- ☐ **A4** Clients page "Filtros": unclear it only filters **needs-attention**. Make it an explicit labelled toggle ("Necesitan atención") instead of a vague "Filtros (N)".
-- ☐ **A5** Client detail: the **client name is duplicated** (ClientHeader + another spot). Remove the dup.
-- ☐ **A6** **Chat**: too much padding + rounded card. Make it **full-bleed** (occupy all available space), no rounded outer card.
-- ☐ **A7** Settings: theme control shows "**Dark**" while the app is **light** — confusing/buggy. Make it a clear current-state control (Claro/Oscuro). Also finish settings i18n: "Language"→Idioma, "Quick replies"→Respuestas rápidas, "1 guardadas" etc.
-- ☐ **A8** Animate the **skeleton → loaded** transition (fade/cross-fade) so it doesn't pop.
+## A. Quick visual / UX fixes — ALL DONE
+- ☑ **A1** Dashboard recent-activity: removed shifting % numbers.
+- ☑ **A2** Dashboard: Schedule CTA added.
+- ☑ **A3** Client names link to profile (dashboard, recent-logs, my-activity).
+- ☑ **A4** Clients filter → explicit "Necesitan atención (N)" toggle.
+- ☑ **A5** Client detail: removed duplicated name (email echo).
+- ☑ **A6** Chat: full-bleed, no rounded card/padding.
+- ☑ **A7** Settings: clear Claro/Oscuro segmented theme control; settings i18n.
+- ☑ **A8** Skeleton→loaded fade-in.
 
 ## B. Biblioteca restructure
-- ☐ **B1** Workouts (Entrenamientos): switch from cards to a **vertical list** — cards add little here.
-- ☐ **B2** Habits **Library** list: show the **habit photo** (if any); **remove the "Reminder" column** — reminders only make sense in Assignments, not the library.
-- ☐ **B3** Habits **Assignments**: switch to a **vertical list grouped by habit title**, so you can see who has each habit; show recurrence/reminder per individual assignment.
-- ☐ **B4** **New Exercise** and **New Habit**: convert from their own routes to a **modal/popup over the library**. Keep the **workout creator** as its own route (it's multi-step).
-- ☐ **B5** Allow **delete/hide habits from the standard (global) library** — currently impossible.
-- ☐ **B6** Habit **delete confirm**: show **impact on assignments** — what happens to them, to whom, and their recurrences.
+- ☑ **B1** Workouts → vertical list.
+- ☑ **B2** Habits Library: habit thumbnail + dropped Reminder column.
+- ☑ **B3** Habits Assignments: vertical list grouped by habit title.
+- ☑ **B4** New Exercise → modal over library (workout creator stays a route).
+- ☐ **B5** Hide/delete habits from the standard (GLOBAL) library. NOT a per-doc
+  `deleted` flip (globals are shared across all trainers). Needs a **per-trainer
+  hidden-set** (`habit_template_hidden/{trainerUid}` doc or subcollection) that
+  `listHabitTemplates` filters out + an unhide affordance + a NEW owner-scoped
+  firestore rule + a matching `firestore-tests` suite (happy + spoofed-owner
+  deny) per the mandatory rules gate.
+- ☑ **B6** Habit delete confirm shows assignment impact (informational; truthful
+  that soft-delete does NOT cascade).
 
 ## C. Client-detail features
-- ☐ **C1** "Pedidos al cliente" (client requests): show a **fulfilled note** — whether the client already uploaded photos/weight **after** the request date.
-- ☐ **C2** Body-weight chart "Último": show the record **closest to today by date** (not just last-created).
-- ☐ **C3** Body-weight chart: add a **timeline range selector** like the other charts.
-- ☐ **C4** New route + CTA: **per-client per-exercise progress charts** (e.g. flat-bench weight over time), mirroring the iOS app.
+- ☑ **C1** "Pedidos al cliente": fulfilled/pending note (uploaded after request).
+- ☑ **C2** Body-weight "Último" by most-recent measurement DATE, not last-created.
+- ☑ **C3** Body-weight chart timeline range selector (All/90d/30d/7d).
+- ☐ **C4** NEW route + CTA: per-client per-exercise **progress charts** (e.g.
+  flat-bench weight over time), mirroring the iOS app. Needs: investigate how
+  workout logs store per-exercise set weights, an aggregation query (read-cost
+  aware), a chart route under `clients/[id]/...`, an exercise picker, and a CTA
+  from the client detail.
 
-## D. i18n — deep forms (pre-existing debt, larger)
-- ☐ **D1** Deep forms/dialogs are still English-only (New Exercise form, exercise/habit forms, schedule dialogs, habit detail). Route through the catalog (es-first). Large; do incrementally.
+## D. i18n — deep forms (pre-existing debt)
+- ☐ **D1** Deep forms/dialogs still English-only (exercise/habit forms, schedule
+  dialogs, habit detail). Route through the catalog (es-first), incrementally.
 
 ## Notes / constraints
 - Tokens only (both themes). Preserve all data/logic/server-actions. Spanish-first.
-- Test gate before push: backoffice `npx jest` (1 known locale flake), `next build`, `tsc`.
-- Don't touch firestore.rules behavior without the rules test gate.
+- Test gate before push: backoffice `npx jest` (1 known locale flake — see
+  memory), `next build`, `tsc`. B5 additionally needs the firestore-rules
+  emulator gate (JDK 21).
