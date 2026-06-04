@@ -1375,15 +1375,17 @@ function ClientDayCell({
           </button>
         ))}
 
-        {isEmpty ? (
-          <AddPopover
-            civil={civil}
-            onPick={onClickAdd}
-            showWorkouts={showWorkouts}
-            showHabits={showHabits}
-            variant="cell"
-          />
-        ) : null}
+        {/* The add affordance is ALWAYS present: a prominent dashed fill when
+            the cell is empty, and a slim "+" mini-row below the chips when it
+            already has content — so a day with a workout/habit can still take
+            another one (this was missing, the "+" only showed on empty cells). */}
+        <AddPopover
+          civil={civil}
+          onPick={onClickAdd}
+          showWorkouts={showWorkouts}
+          showHabits={showHabits}
+          variant={isEmpty ? "cell" : "row"}
+        />
       </div>
     </td>
   );
@@ -1483,8 +1485,10 @@ function AddPopover({
   showWorkouts: boolean;
   showHabits: boolean;
   /** "icon" = compact reveal-on-hover "+" (month grid header). "cell" = full
-   *  dashed add affordance filling an empty week/3-day cell (screenshot). */
-  variant?: "icon" | "cell";
+   *  dashed add affordance filling an empty week/3-day cell. "row" = slim
+   *  always-visible "+" mini-row appended below existing chips so a week/3-day
+   *  cell that already has content can still take another workout/habit. */
+  variant?: "icon" | "cell" | "row";
 }) {
   const [open, setOpen] = useState(false);
   const enabled: Array<"workout" | "habit"> = [
@@ -1501,7 +1505,14 @@ function AddPopover({
   );
   const cellTriggerClass =
     "flex min-h-[40px] w-full flex-1 items-center justify-center rounded-xl border border-dashed border-foreground/20 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
-  const triggerClass = variant === "cell" ? cellTriggerClass : iconTriggerClass;
+  const rowTriggerClass =
+    "flex h-6 w-full items-center justify-center rounded-md border border-dashed border-foreground/15 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
+  const triggerClass =
+    variant === "cell"
+      ? cellTriggerClass
+      : variant === "row"
+        ? rowTriggerClass
+        : iconTriggerClass;
   const plusClass = variant === "cell" ? "size-4" : "size-3.5";
 
   // Neither type shown → nothing to add.
