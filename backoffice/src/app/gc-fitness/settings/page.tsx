@@ -104,8 +104,7 @@ export default async function SettingsPage() {
             {trainer.email}
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            {/* TODO i18n: verified coach badge */}
-            <Badge variant="success">Verificado</Badge>
+            <Badge variant="success">{t("verifiedBadge")}</Badge>
           </div>
         </div>
       </div>

@@ -151,8 +151,7 @@ export function makeColumns(
     },
     {
       id: "category",
-      // TODO i18n: no dedicated "category" header key in the catalog yet.
-      header: "Categoría",
+      header: t("category"),
       cell: ({ row }) => {
         // Prefer the FEXD `category`; fall back to the first muscle group so
         // legacy / trainer rows that predate the category enrichment still
@@ -193,8 +192,7 @@ export function makeColumns(
     },
     {
       id: "level",
-      // TODO i18n: no dedicated "difficulty" header key in the catalog yet.
-      header: "Dificultad",
+      header: t("difficulty"),
       cell: ({ row }) => {
         const level = row.original.level;
         if (!level) {
@@ -210,8 +208,7 @@ export function makeColumns(
     },
     {
       id: "actions",
-      // TODO i18n: no dedicated "actions" header key in the catalog yet.
-      header: "Acciones",
+      header: t("actionsHeader"),
       cell: ({ row }) => {
         // Library exercises (wger + free-exercise-db) are read-only — they
         // canNOT be edited or deleted (the edit page redirects them to /view

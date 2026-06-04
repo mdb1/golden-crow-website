@@ -101,7 +101,7 @@ export function ClientHeader({
           <Button variant="outline" asChild className="rounded-full">
             <Link href={`/gc-fitness/schedule?clientIds=${clientId}`}>
               <Calendar className="size-4" />
-              Abrir en calendario
+              {t("openInCalendar")}
             </Link>
           </Button>
         </div>

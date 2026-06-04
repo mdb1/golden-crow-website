@@ -441,12 +441,15 @@ export function HabitsLibraryClient({
                     <RecurrencePill rec={row} t={columnsT} />
                   </div>
 
-                  {/* TODO i18n: no "assignedTo" key in catalog yet */}
                   <p className="text-sm text-muted-foreground">
-                    Asignado a{" "}
-                    <span className="font-medium text-foreground">
-                      {clientName}
-                    </span>
+                    {t.rich("assignedTo", {
+                      name: clientName,
+                      client: (chunks) => (
+                        <span className="font-medium text-foreground">
+                          {chunks}
+                        </span>
+                      ),
+                    })}
                   </p>
                 </CardContent>
               </Card>

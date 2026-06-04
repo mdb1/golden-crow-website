@@ -22,6 +22,7 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   useMutation,
   useQuery,
@@ -219,6 +220,8 @@ export function MonthCalendar({
   todayCivil,
   trainerUid,
 }: MonthCalendarProps) {
+  const t = useTranslations("schedule.calendar");
+  const tNav = useTranslations("nav");
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -447,7 +450,7 @@ export function MonthCalendar({
 
   function onCellAddClicked(civil: string, kind: "workout" | "habit") {
     if (selectedIds.size === 0) {
-      toast.error("Elegí al menos un cliente primero");
+      toast.error(t("pickClientFirstToast"));
       return;
     }
     if (selectedIds.size === 1) {
@@ -477,9 +480,9 @@ export function MonthCalendar({
       size="sm"
       activeKey={view}
       items={[
-        { key: "3day", label: "3 Días", onSelect: () => setView("3day") },
-        { key: "week", label: "Semana", onSelect: () => setView("week") },
-        { key: "month", label: "Mes", onSelect: () => setView("month") },
+        { key: "3day", label: t("view3Day"), onSelect: () => setView("3day") },
+        { key: "week", label: t("viewWeek"), onSelect: () => setView("week") },
+        { key: "month", label: t("viewMonth"), onSelect: () => setView("month") },
       ]}
     />
   );
@@ -491,7 +494,7 @@ export function MonthCalendar({
         size="icon"
         className="size-8 rounded-full"
         onClick={goPrev}
-        aria-label="Anterior"
+        aria-label={t("previousAria")}
       >
         <ChevronLeftIcon className="h-4 w-4" />
       </Button>
@@ -503,7 +506,7 @@ export function MonthCalendar({
         size="icon"
         className="size-8 rounded-full"
         onClick={goNext}
-        aria-label="Siguiente"
+        aria-label={t("nextAria")}
       >
         <ChevronRightIcon className="h-4 w-4" />
       </Button>
@@ -513,8 +516,8 @@ export function MonthCalendar({
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Agenda"
-        subtitle="Planifica y asigna entrenamientos a tus clientes"
+        title={tNav("schedule")}
+        subtitle={t("headerSubtitle")}
         actions={
           <>
             {viewSwitcher}
@@ -526,7 +529,7 @@ export function MonthCalendar({
               className="rounded-full"
               onClick={goToday}
             >
-              Hoy
+              {t("today")}
             </Button>
             <Button
               variant="outline"
@@ -534,10 +537,10 @@ export function MonthCalendar({
               className="rounded-full"
               asChild
             >
-              <Link href="/gc-fitness/schedule/bulk">Asignación masiva</Link>
+              <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
             </Button>
             {isFetching ? (
-              <span className="text-xs text-muted-foreground">Cargando…</span>
+              <span className="text-xs text-muted-foreground">{t("loading")}</span>
             ) : null}
           </>
         }
@@ -548,13 +551,13 @@ export function MonthCalendar({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-base font-semibold tracking-tight">
-              Clientes en pantalla{" "}
+              {t("clientsOnScreen")}{" "}
               <span className="text-muted-foreground">
                 ({selectedIds.size}/{clients.length})
               </span>
             </p>
             <p className="text-sm text-muted-foreground">
-              Marcá uno o varios. El calendario va a mostrar sus workouts y hábitos juntos.
+              {t("clientsOnScreenHint")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -566,7 +569,7 @@ export function MonthCalendar({
               onClick={selectAll}
               disabled={selectedIds.size === clients.length}
             >
-              Marcar todos
+              {t("selectAll")}
             </Button>
             <Button
               type="button"
@@ -576,7 +579,7 @@ export function MonthCalendar({
               onClick={clearAll}
               disabled={selectedIds.size === 0}
             >
-              Limpiar
+              {t("clear")}
             </Button>
           </div>
         </div>
@@ -624,7 +627,7 @@ export function MonthCalendar({
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
           <span className="mr-1 text-sm font-medium text-muted-foreground">
-            Mostrar
+            {t("show")}
           </span>
           <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-full px-2 text-sm">
             <input
@@ -634,7 +637,7 @@ export function MonthCalendar({
               className="size-4 rounded border accent-primary"
             />
             <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
-            Workouts
+            {t("workouts")}
           </label>
           <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-full px-2 text-sm">
             <input
@@ -644,7 +647,7 @@ export function MonthCalendar({
               className="size-4 rounded border accent-primary"
             />
             <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
-            Hábitos
+            {t("habits")}
           </label>
         </div>
       </Card>
@@ -652,7 +655,7 @@ export function MonthCalendar({
       {/* ── Calendar surface ───────────────────────────────────────────── */}
       {selectedIds.size === 0 ? (
         <div className="rounded-[1.25rem] border border-dashed p-10 text-center text-sm text-muted-foreground">
-          Elegí uno o más clientes arriba para ver su agenda.
+          {t("pickClientsPrompt")}
         </div>
       ) : view === "month" ? (
         // ── Month view: classic calendar grid in a framed card ──────────

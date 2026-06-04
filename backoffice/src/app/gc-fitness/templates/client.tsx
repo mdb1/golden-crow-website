@@ -337,8 +337,7 @@ export function TemplatesLibraryClient({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {/* TODO i18n: no "allLabel" key in catalog yet */}
-            Todos
+            {tFilters("allLabel")}
           </button>
           <button
             type="button"

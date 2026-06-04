@@ -15,6 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { useTranslations } from "next-intl";
+
 import { Button } from "@/components/ui/button";
 import {
   clientActivityCivilDateKey,
@@ -35,32 +37,20 @@ import {
   type MyCoachActivityRow,
 } from "@/lib/gc-fitness/coach-activity-actions";
 
-const TYPE_OPTIONS: Array<[string, string]> = [
-  ["all", "Toda la actividad"],
-  ["workout_assignment", "Asignaciones"],
-  ["workout_rest_edited", "Descansos editados"],
-  ["habit_assignment", "Hábitos"],
-  ["progress_photo_request", "Fotos pedidas"],
-  ["weight_request", "Peso pedido"],
-  ["workout_template", "Workouts"],
-  ["exercise", "Ejercicios"],
-  ["note", "Notas"],
-  ["chat", "Chat"],
+const TYPE_OPTION_KEYS: string[] = [
+  "all",
+  "workout_assignment",
+  "workout_rest_edited",
+  "habit_assignment",
+  "progress_photo_request",
+  "weight_request",
+  "workout_template",
+  "exercise",
+  "note",
+  "chat",
 ];
 
 const PAGE_SIZE = 50;
-
-const KIND_LABEL: Record<CoachActivityKind, string> = {
-  workout_template: "Workout",
-  exercise: "Ejercicio",
-  workout_assignment: "Asignación",
-  workout_rest_edited: "Descanso",
-  habit_assignment: "Hábito",
-  progress_photo_request: "Fotos",
-  weight_request: "Peso",
-  note: "Nota",
-  chat: "Chat",
-};
 
 const KIND_ICON = {
   workout_template: Dumbbell,
@@ -116,6 +106,7 @@ export function MyActivityFeed({
   clients: MyActivityClientOption[];
   timezone: string;
 }) {
+  const t = useTranslations("myActivity");
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -161,23 +152,28 @@ export function MyActivityFeed({
   // Group the flat row list into day sections so the date isn't repeated on
   // every row — the day is shown once as a section heading and each row only
   // carries its time.
-  const dayGroups = useMemo(() => groupRowsByDay(rows, timezone), [rows, timezone]);
+  const dayGroups = useMemo(
+    () => groupRowsByDay(rows, timezone, t),
+    [rows, timezone, t],
+  );
 
   return (
     <div className="flex flex-col">
       <div className="grid gap-3 border-b px-4 py-3 sm:grid-cols-2 sm:max-w-xl">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Cliente</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {t("clientLabel")}
+          </p>
           <Select
             value={clientFilter}
             onValueChange={(v) => applyFilters(v, typeFilter)}
             disabled={pending}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Todos los clientes" />
+              <SelectValue placeholder={t("allClients")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los clientes</SelectItem>
+              <SelectItem value="all">{t("allClients")}</SelectItem>
               {clients.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -187,19 +183,21 @@ export function MyActivityFeed({
           </Select>
         </div>
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Tipo</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {t("typeLabel")}
+          </p>
           <Select
             value={typeFilter}
             onValueChange={(v) => applyFilters(clientFilter, v)}
             disabled={pending}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Toda la actividad" />
+              <SelectValue placeholder={t("allActivity")} />
             </SelectTrigger>
             <SelectContent>
-              {TYPE_OPTIONS.map(([value, label]) => (
+              {TYPE_OPTION_KEYS.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {label}
+                  {t(`typeOptions.${value}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -210,8 +208,8 @@ export function MyActivityFeed({
       {rows.length === 0 ? (
         <div className="px-4 py-10 text-center text-sm text-muted-foreground">
           {clientFilter !== "all" || typeFilter !== "all"
-            ? "No hay actividad para este filtro."
-            : "Todavía no hay acciones recientes."}
+            ? t("emptyFiltered")
+            : t("emptyAll")}
         </div>
       ) : (
         <div className="flex flex-col">
@@ -222,7 +220,7 @@ export function MyActivityFeed({
               </h3>
               <div className="divide-y">
                 {group.rows.map((row) => (
-                  <ActivityRow key={row.id} row={row} timezone={timezone} />
+                  <ActivityRow key={row.id} row={row} timezone={timezone} t={t} />
                 ))}
               </div>
             </section>
@@ -233,7 +231,7 @@ export function MyActivityFeed({
       {hasMore ? (
         <div className="flex justify-center border-t px-4 py-3">
           <Button variant="outline" size="sm" onClick={loadMore} disabled={pending}>
-            {pending ? "Cargando..." : "Cargar más"}
+            {pending ? t("loading") : t("loadMore")}
           </Button>
         </div>
       ) : null}
@@ -244,13 +242,15 @@ export function MyActivityFeed({
 function ActivityRow({
   row,
   timezone,
+  t,
 }: {
   row: MyCoachActivityRow;
   timezone: string;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const Icon = row.deleted ? Trash2 : KIND_ICON[row.kind];
   const chip = row.deleted ? DELETED_CHIP : KIND_CHIP[row.kind];
-  const label = row.deleted ? "Eliminado" : KIND_LABEL[row.kind];
+  const label = row.deleted ? t("deleted") : t(`kindLabels.${row.kind}`);
   return (
     <div className="flex items-start gap-3 px-4 py-3.5">
       <div
@@ -267,7 +267,7 @@ function ActivityRow({
         {row.clientName || row.detail ? (
           <p className="mt-0.5 text-xs text-muted-foreground">
             {[
-              row.clientName ? `Para ${row.clientName}` : null,
+              row.clientName ? t("forClient", { name: row.clientName }) : null,
               row.detail,
             ]
               .filter(Boolean)
@@ -276,7 +276,7 @@ function ActivityRow({
         ) : null}
       </div>
       <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-        {formatTime(row.occurredAt, timezone)}
+        {formatTime(row.occurredAt, timezone, t)}
       </span>
     </div>
   );
@@ -285,6 +285,7 @@ function ActivityRow({
 function groupRowsByDay(
   rows: MyCoachActivityRow[],
   timezone: string,
+  t: ReturnType<typeof useTranslations>,
 ): Array<{ key: string; label: string; rows: MyCoachActivityRow[] }> {
   const groups = new Map<
     string,
@@ -297,23 +298,37 @@ function groupRowsByDay(
       existing.rows.push(row);
       continue;
     }
-    groups.set(key, { key, label: formatDayHeading(row.occurredAt, timezone), rows: [row] });
+    groups.set(key, {
+      key,
+      label: formatDayHeading(row.occurredAt, timezone, t),
+      rows: [row],
+    });
   }
   return Array.from(groups.values());
 }
 
-function formatDayHeading(iso: string | null, timezone: string): string {
-  if (!iso) return "Sin fecha";
+function formatDayHeading(
+  iso: string | null,
+  timezone: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  if (!iso) return t("noDate");
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
   const key = clientActivityCivilDateKey(iso, timezone);
-  if (key === clientActivityCivilDateKey(today.toISOString(), timezone)) return "Hoy";
-  if (key === clientActivityCivilDateKey(yesterday.toISOString(), timezone)) return "Ayer";
+  if (key === clientActivityCivilDateKey(today.toISOString(), timezone))
+    return t("today");
+  if (key === clientActivityCivilDateKey(yesterday.toISOString(), timezone))
+    return t("yesterday");
   return formatClientActivityDate(iso, timezone);
 }
 
-function formatTime(iso: string | null, timezone: string): string {
-  if (!iso) return "Sin fecha";
+function formatTime(
+  iso: string | null,
+  timezone: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  if (!iso) return t("noDate");
   return formatClientActivityTime(iso, timezone);
 }

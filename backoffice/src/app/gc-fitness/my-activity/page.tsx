@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/gc-fitness/page-header";
@@ -26,6 +27,7 @@ export default async function MyActivityPage() {
   // Load a full page (50) so the whole of today's activity is present on first
   // paint — a coach must see everything they did, not a truncated slice.
   const timezone = await getTrainerTimezone();
+  const t = await getTranslations("myActivity");
   const [firstPage, clients] = await Promise.all([
     listMyCoachActivityPage(null, 50),
     listMyActivityClients(),
@@ -34,8 +36,8 @@ export default async function MyActivityPage() {
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Mi Actividad"
-        subtitle="Historial completo de tus acciones"
+        title={t("title")}
+        subtitle={t("headerSubtitle")}
       />
 
       <Card>

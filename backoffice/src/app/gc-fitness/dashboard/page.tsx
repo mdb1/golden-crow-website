@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+type DashboardT = Awaited<ReturnType<typeof getTranslations>>;
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -88,6 +90,8 @@ export default async function GCFitnessDashboardPage({
     }
   }
 
+  const tDashboard = await getTranslations("dashboard");
+
   const activeClients = roster.filter((client) => client.source === "active");
   const lastActionRows = activeClients
     .map((client) => {
@@ -97,8 +101,8 @@ export default async function GCFitnessDashboardPage({
         name: client.displayName,
         photoURL: client.photoURL,
         lastActivityAt: client.lastActivityAt,
-        lastActionTitle: latestLog?.title ?? "Sin actividad",
-        lastActionDetail: latestLog?.detail ?? "Sin registros.",
+        lastActionTitle: latestLog?.title ?? tDashboard("noActivity"),
+        lastActionDetail: latestLog?.detail ?? tDashboard("noRecords"),
         category: latestLog?.category ?? null,
         rpe: latestLog?.workout?.rpe ?? null,
         // % adherence over the last 7 days — drives the activity progress bar.
@@ -125,7 +129,6 @@ export default async function GCFitnessDashboardPage({
     });
 
   const params = await searchParams;
-  const tDashboard = await getTranslations("dashboard");
   const requestedRecentPage = parsePage(params.recentPage);
   const requestedAttentionPage = parsePage(params.attentionPage);
   const recentTotalPages = Math.max(
@@ -163,8 +166,8 @@ export default async function GCFitnessDashboardPage({
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Dashboard"
-        subtitle="Vista general de tus clientes y su progreso"
+        title={tDashboard("title")}
+        subtitle={tDashboard("headerSubtitle")}
         actions={
           <Button asChild className="rounded-full">
             <Link href="/gc-fitness/clients">
@@ -180,26 +183,26 @@ export default async function GCFitnessDashboardPage({
           href="/gc-fitness/clients"
           icon={<Users />}
           value={activeClientCount}
-          label="Clientes activos"
+          label={tDashboard("kpiActiveClients")}
         />
         <StatCard
           icon={<Gauge />}
           value={`${adherencePct}%`}
-          label="Adherencia promedio"
-          delta={adherencePct >= 70 ? "On track" : undefined}
+          label={tDashboard("kpiAdherence")}
+          delta={adherencePct >= 70 ? tDashboard("kpiOnTrack") : undefined}
           trend={adherencePct >= 70 ? "up" : "neutral"}
         />
         <StatCard
           href="/gc-fitness/recent-logs"
           icon={<TrendingUp />}
           value={workoutsThisWeek}
-          label="Workouts esta semana"
+          label={tDashboard("kpiWorkoutsThisWeek")}
         />
         <StatCard
           href="/gc-fitness/clients?filter=attention"
           icon={<AlertTriangle />}
           value={atRiskCount}
-          label="Pendientes de revisar"
+          label={tDashboard("kpiNeedsReview")}
           delta={atRiskCount > 0 ? `${atRiskCount}` : undefined}
           trend={atRiskCount > 0 ? "down" : "neutral"}
         />
@@ -210,28 +213,28 @@ export default async function GCFitnessDashboardPage({
         <Card>
           <CardHeader>
             <CardTitle className="gc-page-title text-xl">
-              Adherencia a Workouts
+              {tDashboard("workoutAdherenceTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <DailyBars
               data={pulse?.workoutDaily ?? []}
-              emptyLabel="No hay workouts asignados esta semana."
-              unitLabel="clientes"
+              emptyLabel={tDashboard("workoutAdherenceEmpty")}
+              unitLabel={tDashboard("workoutUnit")}
             />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="gc-page-title text-xl">
-              Adherencia a Hábitos
+              {tDashboard("habitAdherenceTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <DailyLineChart
               data={pulse?.habitDaily ?? []}
-              emptyLabel="No hay hábitos programados esta semana."
-              unitLabel="hábitos"
+              emptyLabel={tDashboard("habitAdherenceEmpty")}
+              unitLabel={tDashboard("habitUnit")}
             />
           </CardContent>
         </Card>
@@ -242,19 +245,19 @@ export default async function GCFitnessDashboardPage({
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <CardTitle className="gc-page-title text-xl">
-              Actividad Reciente de Clientes
+              {tDashboard("recentActivityTitle")}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Última acción de cada cliente
+              {tDashboard("recentActivitySubtitle")}
             </p>
           </div>
           <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link href="/gc-fitness/recent-logs">Ver Todos</Link>
+            <Link href="/gc-fitness/recent-logs">{tDashboard("viewAll")}</Link>
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col divide-y divide-border">
           {recentPageRows.length === 0 ? (
-            <EmptyRow>Todavía no hay actividad de clientes.</EmptyRow>
+            <EmptyRow>{tDashboard("noRecentActivity")}</EmptyRow>
           ) : (
             recentPageRows.map((row) => (
               <ActivityRow
@@ -265,8 +268,8 @@ export default async function GCFitnessDashboardPage({
                   photoURL: row.photoURL,
                   primary: row.lastActionTitle,
                   timeLabel: row.lastActivityAt
-                    ? formatRelative(row.lastActivityAt)
-                    : "Sin actividad",
+                    ? formatRelative(row.lastActivityAt, tDashboard)
+                    : tDashboard("noActivity"),
                   ratio: row.ratio,
                   stale: staleUids.has(row.uid),
                 }}
@@ -277,6 +280,7 @@ export default async function GCFitnessDashboardPage({
             page={recentPage}
             total={recentTotalPages}
             buildHref={(p) => `?recentPage=${p}&attentionPage=${attentionPage}`}
+            t={tDashboard}
           />
         </CardContent>
       </Card>
@@ -286,32 +290,32 @@ export default async function GCFitnessDashboardPage({
         <Card>
           <CardHeader>
             <CardTitle className="gc-page-title text-xl">
-              Top performers · hoy
+              {tDashboard("topPerformersTodayTitle")}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Cumplimiento de hábitos en lo que va del día.
+              {tDashboard("topPerformersTodaySubtitle")}
             </p>
           </CardHeader>
           <CardContent>
             <TopPerformers
               performers={pulse.topPerformersToday}
-              emptyLabel="Todavía nadie completó hábitos hoy."
+              emptyLabel={tDashboard("topPerformersTodayEmpty")}
             />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="gc-page-title text-xl">
-              Top performers · 7 días
+              {tDashboard("topPerformersWeekTitle")}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Mejor cumplimiento de hábitos en los últimos 7 días.
+              {tDashboard("topPerformersWeekSubtitle")}
             </p>
           </CardHeader>
           <CardContent>
             <TopPerformers
               performers={pulse.topPerformersWeek}
-              emptyLabel="Sin actividad de hábitos para rankear todavía."
+              emptyLabel={tDashboard("topPerformersWeekEmpty")}
             />
           </CardContent>
         </Card>
@@ -321,15 +325,15 @@ export default async function GCFitnessDashboardPage({
       <Card>
         <CardHeader>
           <CardTitle className="gc-page-title text-xl">
-            Pendientes de revisar
+            {tDashboard("needsReviewTitle")}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Sin registros en {attentionDays}+ días. Más antiguos primero.
+            {tDashboard("needsReviewSubtitle", { days: attentionDays })}
           </p>
         </CardHeader>
         <CardContent className="flex flex-col divide-y divide-border">
           {attentionPageRows.length === 0 ? (
-            <EmptyRow>Todos al día — buen trabajo.</EmptyRow>
+            <EmptyRow>{tDashboard("allCaughtUp")}</EmptyRow>
           ) : (
             attentionPageRows.map((row) => (
               <ActivityRow
@@ -340,8 +344,8 @@ export default async function GCFitnessDashboardPage({
                   photoURL: row.photoURL,
                   primary: row.lastActionTitle,
                   timeLabel: row.lastActivityAt
-                    ? formatRelative(row.lastActivityAt)
-                    : "Sin actividad",
+                    ? formatRelative(row.lastActivityAt, tDashboard)
+                    : tDashboard("noActivity"),
                   ratio: row.ratio,
                   stale: true,
                 }}
@@ -352,6 +356,7 @@ export default async function GCFitnessDashboardPage({
             page={attentionPage}
             total={attentionTotalPages}
             buildHref={(p) => `?recentPage=${recentPage}&attentionPage=${p}`}
+            t={tDashboard}
           />
         </CardContent>
       </Card>
@@ -371,10 +376,12 @@ function Pager({
   page,
   total,
   buildHref,
+  t,
 }: {
   page: number;
   total: number;
   buildHref: (page: number) => string;
+  t: DashboardT;
 }) {
   if (total <= 1) return null;
   const hasPrev = page > 1;
@@ -382,7 +389,7 @@ function Pager({
   return (
     <div className="flex items-center justify-between pt-3">
       <p className="text-xs text-muted-foreground">
-        Página {page} de {total}
+        {t("pageOf", { page, total })}
       </p>
       <div className="flex gap-2">
         {hasPrev ? (
@@ -391,7 +398,7 @@ function Pager({
             className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
           >
             <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-            Anterior
+            {t("previous")}
           </Link>
         ) : null}
         {hasNext ? (
@@ -399,7 +406,7 @@ function Pager({
             href={buildHref(page + 1)}
             className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
           >
-            Siguiente
+            {t("next")}
             <ChevronRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         ) : null}
@@ -408,14 +415,16 @@ function Pager({
   );
 }
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, t: DashboardT): string {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Desconocido";
+  if (Number.isNaN(date.getTime())) return t("relativeUnknown");
   const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
-  if (diffSec < 60) return "Hace instantes";
-  if (diffSec < 3600) return `Hace ${Math.floor(diffSec / 60)} min`;
-  if (diffSec < 86400) return `Hace ${Math.floor(diffSec / 3600)} h`;
-  return `Hace ${Math.floor(diffSec / 86400)} d`;
+  if (diffSec < 60) return t("relativeJustNow");
+  if (diffSec < 3600)
+    return t("relativeMinutes", { count: Math.floor(diffSec / 60) });
+  if (diffSec < 86400)
+    return t("relativeHours", { count: Math.floor(diffSec / 3600) });
+  return t("relativeDays", { count: Math.floor(diffSec / 86400) });
 }
 
 function parsePage(raw?: string): number {

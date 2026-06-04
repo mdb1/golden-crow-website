@@ -168,15 +168,16 @@ export function SettingsSections({
   localeLabel,
   initialReplies,
 }: SettingsSectionsProps) {
+  const tSettings = useTranslations("settings");
   const tQuick = useTranslations("settings.quickReplies");
   const tLang = useTranslations("settings.language");
   const tPrefs = useTranslations("settings.preferences");
+  const tTheme = useTranslations("settings.theme");
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        {/* TODO i18n: section group label */}
-        <SectionLabel>Preferencias</SectionLabel>
+        <SectionLabel>{tSettings("preferencesGroup")}</SectionLabel>
         <Section>
           <ExpandableRow
             tone="warning"
@@ -189,10 +190,8 @@ export function SettingsSections({
           <InfoRow
             tone="brand"
             icon={<SunMoon />}
-            // TODO i18n: "Tema" row title
-            title="Tema"
-            // TODO i18n: theme row helper
-            value="Claro u oscuro"
+            title={tTheme("title")}
+            value={tTheme("helper")}
             trailing={<GCFitnessAppearanceToggle />}
             last
           />
@@ -201,15 +200,13 @@ export function SettingsSections({
 
       <div className="flex flex-col gap-2">
         {/* Reuse tPrefs as the umbrella group; quick replies live under chat tools. */}
-        {/* TODO i18n: section group label */}
-        <SectionLabel>Chat</SectionLabel>
+        <SectionLabel>{tSettings("chatGroup")}</SectionLabel>
         <Section>
           <ExpandableRow
             tone="violet"
             icon={<MessageSquareText />}
             title={tQuick("title")}
-            // TODO i18n: count of saved quick replies
-            value={`${initialReplies.length} guardadas`}
+            value={tQuick("savedCount", { count: initialReplies.length })}
             last
           >
             <div className="flex flex-col gap-3">

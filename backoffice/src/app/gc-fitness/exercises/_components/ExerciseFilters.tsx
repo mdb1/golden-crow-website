@@ -174,8 +174,7 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {/* TODO i18n: no "allLabel" key in catalog yet */}
-            Todos
+            {t("allLabel")}
           </button>
           <button
             type="button"

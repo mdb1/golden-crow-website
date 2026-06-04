@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { CheckCircle2, Clock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -52,6 +52,7 @@ function GridLines() {
 
 export function DailyBars({ data, emptyLabel, unitLabel }: DailyBarsProps) {
   const locale = useLocale();
+  const t = useTranslations("dashboard");
   const hasAnyData = data.some((d) => d.denominator > 0);
   if (!hasAnyData) {
     return (
@@ -76,7 +77,7 @@ export function DailyBars({ data, emptyLabel, unitLabel }: DailyBarsProps) {
                     <button
                       type="button"
                       className="group relative flex h-full min-w-0 flex-1 items-end outline-none"
-                      aria-label={tooltipLabel(d, unitLabel)}
+                      aria-label={tooltipLabel(d, unitLabel, t)}
                     >
                       <div
                         className={cn(
@@ -96,7 +97,7 @@ export function DailyBars({ data, emptyLabel, unitLabel }: DailyBarsProps) {
                     </div>
                     <div className="text-background/85">
                       {d.denominator === 0
-                        ? `Nada programado`
+                        ? t("nothingScheduled")
                         : `${d.numerator}/${d.denominator} ${unitLabel} · ${d.percentage}%`}
                     </div>
                   </TooltipContent>
@@ -139,6 +140,7 @@ export function DailyLineChart({
   unitLabel,
 }: DailyBarsProps) {
   const locale = useLocale();
+  const t = useTranslations("dashboard");
   const hasAnyData = data.some((d) => d.denominator > 0);
   if (!hasAnyData) {
     return (
@@ -187,7 +189,7 @@ export function DailyLineChart({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    aria-label={tooltipLabel(p.d, unitLabel)}
+                    aria-label={tooltipLabel(p.d, unitLabel, t)}
                     className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full p-1 outline-none"
                     style={{ left: `${p.x}%`, top: `${p.y}%` }}
                   >
@@ -203,7 +205,7 @@ export function DailyLineChart({
                   </div>
                   <div className="text-background/85">
                     {p.d.denominator === 0
-                      ? `Nada programado`
+                      ? t("nothingScheduled")
                       : `${p.d.numerator}/${p.d.denominator} ${unitLabel} · ${p.d.percentage}%`}
                   </div>
                 </TooltipContent>
@@ -217,9 +219,20 @@ export function DailyLineChart({
   );
 }
 
-function tooltipLabel(d: DailyMetric, unit: string): string {
-  if (d.denominator === 0) return `${d.weekdayLabel}: nothing scheduled`;
-  return `${d.weekdayLabel}: ${d.numerator} of ${d.denominator} ${unit} (${d.percentage}%)`;
+function tooltipLabel(
+  d: DailyMetric,
+  unit: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  if (d.denominator === 0)
+    return t("chartTooltipNothingScheduled", { weekday: d.weekdayLabel });
+  return t("chartTooltipValue", {
+    weekday: d.weekdayLabel,
+    numerator: d.numerator,
+    denominator: d.denominator,
+    unit,
+    percentage: d.percentage,
+  });
 }
 
 function formatTooltipDate(civilDate: string, locale: string): string {
@@ -240,10 +253,11 @@ interface TopPerformersProps {
 }
 
 export function TopPerformers({ performers, emptyLabel }: TopPerformersProps) {
+  const t = useTranslations("dashboard");
   if (performers.length === 0) {
     return (
       <p className="rounded-md border border-dashed bg-background/40 px-3 py-6 text-center text-xs text-muted-foreground">
-        {emptyLabel ?? "No habit activity to rank yet."}
+        {emptyLabel ?? t("topPerformersWeekEmpty")}
       </p>
     );
   }
