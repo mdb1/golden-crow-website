@@ -260,9 +260,7 @@ function buildDefaults(
     endsOn:
       typeof passed?.endsOn === "string" && passed.endsOn.length > 0
         ? passed.endsOn
-        : mode === "create"
-          ? addCivilMonths(localDateToCivil(new Date()), 3)
-          : undefined,
+        : undefined,
     tag: passed?.tag ?? restoredTags[0] ?? "custom",
     tags: restoredTags,
     exercises: withTransitionRestDefault(passed?.exercises),
@@ -361,9 +359,18 @@ export function TemplateForm({
     if (!draftKey) return;
     const stored = readDraft(draftKey);
     if (!stored) return;
+    const draftDefaults = buildDefaults(defaultValues, mode);
+    const restoredStored =
+      mode === "create"
+        ? (() => {
+            const next = { ...stored };
+            delete (next as { endsOn?: unknown }).endsOn;
+            return next;
+          })()
+        : stored;
     form.reset({
-      ...buildDefaults(defaultValues, mode),
-      ...stored,
+      ...draftDefaults,
+      ...restoredStored,
     });
     setDraftRestored(true);
     // Intentionally only runs on mount + when the key changes. Editing the
@@ -564,10 +571,14 @@ export function TemplateForm({
           const tagsClean = values.tags.length > 0
             ? values.tags
             : [values.tag || "custom"];
+          const { endsOn: _endsOn, ...valuesWithoutEndsOn } = values;
           const normalized: WorkoutTemplateInput = {
-          ...values,
+          ...valuesWithoutEndsOn,
           tag: tagsClean[0] ?? "custom",
           tags: tagsClean,
+          ...(mode === "edit" && typeof _endsOn === "string" && _endsOn.length > 0
+            ? { endsOn: _endsOn }
+            : {}),
           exercises: values.exercises.map((ex, idx) => {
             // Align sets, repsBySet, weightBySetKg around a single
             // canonical length so the saved doc never has the desync that
@@ -925,58 +936,60 @@ export function TemplateForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="endsOn"
-          render={({ field }) => (
-            <FormItem className="max-w-md">
-              <FormLabel>{t("endsOnLabel")}</FormLabel>
-              <div className="flex flex-wrap gap-2">
-                {END_DATE_PRESET_MONTHS.map((months) => {
-                  const active =
-                    selectedEndPresetMonths === months &&
-                    field.value === addCivilMonths(todayCivil, months);
-                  return (
-                    <Button
-                      key={months}
-                      type="button"
-                      variant={active ? "default" : "outline"}
-                      size="sm"
-                      className="rounded-full"
-                      aria-pressed={active}
-                      onClick={() => {
-                        setSelectedEndPresetMonths(months);
-                        field.onChange(addCivilMonths(todayCivil, months));
-                      }}
-                    >
-                      {t("endDatePreset", { months })}
-                    </Button>
-                  );
-                })}
-              </div>
-              <FormControl>
-                <Input
-                  type="date"
-                  name={field.name}
-                  ref={field.ref}
-                  onBlur={field.onBlur}
-                  value={typeof field.value === "string" ? field.value : ""}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    field.onChange(next);
-                    setSelectedEndPresetMonths(
-                      next.length > 0
-                        ? inferEndDatePresetMonths(todayCivil, next)
-                        : null,
+        {mode === "edit" ? (
+          <FormField
+            control={form.control}
+            name="endsOn"
+            render={({ field }) => (
+              <FormItem className="max-w-md">
+                <FormLabel>{t("endsOnLabel")}</FormLabel>
+                <div className="flex flex-wrap gap-2">
+                  {END_DATE_PRESET_MONTHS.map((months) => {
+                    const active =
+                      selectedEndPresetMonths === months &&
+                      field.value === addCivilMonths(todayCivil, months);
+                    return (
+                      <Button
+                        key={months}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        size="sm"
+                        className="rounded-full"
+                        aria-pressed={active}
+                        onClick={() => {
+                          setSelectedEndPresetMonths(months);
+                          field.onChange(addCivilMonths(todayCivil, months));
+                        }}
+                      >
+                        {t("endDatePreset", { months })}
+                      </Button>
                     );
-                  }}
-                />
-              </FormControl>
-              <FormDescription>{t("endsOnHint")}</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  })}
+                </div>
+                <FormControl>
+                  <Input
+                    type="date"
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={typeof field.value === "string" ? field.value : ""}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      field.onChange(next);
+                      setSelectedEndPresetMonths(
+                        next.length > 0
+                          ? inferEndDatePresetMonths(todayCivil, next)
+                          : null,
+                      );
+                    }}
+                  />
+                </FormControl>
+                <FormDescription>{t("endsOnHint")}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
 
         <div className="rounded-xl border bg-card/90 p-3">
           <div className="flex items-center justify-between">
@@ -2167,7 +2180,7 @@ export function TemplateForm({
                 setQuickCreated((prev) => [{ id: exercise.id, name: exercise.name }, ...prev])
               }
               disabled={fields.length >= 30}
-              triggerClassName="bg-primary text-primary-foreground hover:bg-primary/90"
+              triggerClassName="shadow-sm"
             />
             {step === 1 ? (
               <Button type="button" onClick={() => setStep(2)} disabled={!canContinueToDetails} className="ml-auto">

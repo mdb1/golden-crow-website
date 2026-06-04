@@ -153,7 +153,7 @@ export function ExerciseMultiAddDialog({
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           className={triggerClassName}
           disabled={disabled}
         >
