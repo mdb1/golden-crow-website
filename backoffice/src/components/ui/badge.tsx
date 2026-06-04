@@ -20,6 +20,8 @@ const badgeVariants = cva(
           "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
         rose:
           "border-[color:var(--badge-rose-border)] bg-[color:var(--badge-rose-bg)] text-[color:var(--badge-rose-fg)]",
+        violet:
+          "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
         destructive:
           "border-[color:var(--badge-destructive-border)] bg-[color:var(--badge-destructive-bg)] text-[color:var(--badge-destructive-fg)] focus-visible:ring-destructive/20",
         outline:

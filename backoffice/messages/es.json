@@ -82,7 +82,10 @@
       "spanish": "Español",
       "ariaLabel": "Cambiar idioma"
     },
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "themeDark": "Tema oscuro",
+    "themeLight": "Tema claro",
+    "coachPortal": "Coach Portal"
   },
   "dashboard": {
     "title": "Inicio",

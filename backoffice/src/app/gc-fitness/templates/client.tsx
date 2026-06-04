@@ -90,9 +90,15 @@ function readNewDraft(): NewTemplateDraft | null {
 
 export interface TemplatesLibraryClientProps {
   trainerUid: string;
+  /** When rendered inside the Biblioteca shell, the page title is provided by
+   *  the shell — suppress this component's own heading. */
+  embedded?: boolean;
 }
 
-export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientProps) {
+export function TemplatesLibraryClient({
+  trainerUid,
+  embedded = false,
+}: TemplatesLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("templates.list");
   const tFilters = useTranslations("exercises.filters");
@@ -271,16 +277,20 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            {t("pageHeading")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
-        </div>
+        {embedded ? (
+          <span />
+        ) : (
+          <div className="flex flex-col gap-1">
+            <h1 className="gc-page-title text-2xl tracking-tight">
+              {t("pageHeading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
+          </div>
+        )}
         <Button
           type="button"
           onClick={() => router.push("/gc-fitness/templates/new")}
-          className="gap-2"
+          className="gap-2 rounded-full"
         >
           <Plus className="h-4 w-4" />
           {t("newTemplateCta")}

@@ -1,45 +1,10 @@
-// /gc-fitness/templates/page.tsx — list view (Server Component shell)
-//
-// Auth gate runs on the server BEFORE any client component mounts. Failure
-// modes mirror the exercises list page:
-//   - missing/invalid cookie → redirect to `/gc-fitness/login`
-//   - server-misconfigured env → throws, surfaces Next.js 500
-//
-// Once verified, render `<TemplatesLibraryClient />` inside this route's
-// local QueryClientProvider.
-//
-// Plan 13-03 — i18n via getTranslations('templates'). The title is rendered
-// at the page level; the deeper TemplatesLibraryClient renders English-only
-// inner form/table content (out of scope for v1 — translations stop at the
-// page shell + section heading, matching the schedule/exercises/habits
-// pattern).
-
+// /gc-fitness/templates — consolidated into Biblioteca (redesign 2026-06).
+// The workouts LIST now lives under /gc-fitness/library?tab=workouts. The
+// create/edit routes (templates/new, templates/[id]/edit) are unaffected.
 import { redirect } from "next/navigation";
-
-import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
-import { TemplatesLibraryClient } from "./client";
-import { TemplatesQueryProvider } from "./providers";
 
 export const dynamic = "force-dynamic";
 
-export default async function TemplatesPage() {
-  let trainerUid: string;
-  try {
-    const trainer = await getCurrentTrainer();
-    trainerUid = trainer.uid;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Forbidden";
-    if (message === "Forbidden") {
-      redirect("/gc-fitness/login");
-    }
-    throw err;
-  }
-
-  return (
-    <div className="gc-page flex flex-col gap-6">
-      <TemplatesQueryProvider>
-        <TemplatesLibraryClient trainerUid={trainerUid} />
-      </TemplatesQueryProvider>
-    </div>
-  );
+export default function TemplatesListRedirect() {
+  redirect("/gc-fitness/library?tab=workouts");
 }

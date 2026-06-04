@@ -89,6 +89,8 @@ export interface HabitsLibraryClientProps {
    */
   clientRoster: ClientNameEntry[];
   trainerUid: string;
+  /** Suppress own heading when rendered inside the Biblioteca shell. */
+  embedded?: boolean;
 }
 
 type HabitsView = "assignments" | "library";
@@ -96,6 +98,7 @@ type HabitsView = "assignments" | "library";
 export function HabitsLibraryClient({
   clientRoster,
   trainerUid,
+  embedded = false,
 }: HabitsLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("habits.list");
@@ -253,12 +256,16 @@ export function HabitsLibraryClient({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            {t("pageHeading")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
-        </div>
+        {embedded ? (
+          <span />
+        ) : (
+          <div className="flex flex-col gap-1">
+            <h1 className="gc-page-title text-2xl tracking-tight">
+              {t("pageHeading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"

@@ -74,6 +74,8 @@ const EMPTY_FILTERS: ExerciseFiltersState = {
 
 interface ExerciseLibraryClientProps {
   trainerUid: string;
+  /** Suppress own heading when rendered inside the Biblioteca shell. */
+  embedded?: boolean;
 }
 
 function matchesFilters(
@@ -124,7 +126,10 @@ function matchesFilters(
   return true;
 }
 
-export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps) {
+export function ExerciseLibraryClient({
+  trainerUid,
+  embedded = false,
+}: ExerciseLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("exercises.list");
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery(trainerUid);
@@ -208,16 +213,22 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
       <div className="flex flex-col gap-6">
         {/* Heading row — title + primary CTA */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              {t("pageHeading")}
-            </h1>
-            <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
-          </div>
+          {embedded ? (
+            <span />
+          ) : (
+            <div className="flex flex-col gap-1">
+              <h1 className="gc-page-title text-2xl tracking-tight">
+                {t("pageHeading")}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {t("pageSubtitle")}
+              </p>
+            </div>
+          )}
           <Button
             type="button"
             onClick={() => router.push("/gc-fitness/exercises/new")}
-            className="gap-2"
+            className="gap-2 rounded-full"
           >
             <Plus className="h-4 w-4" />
             {t("newExerciseCta")}

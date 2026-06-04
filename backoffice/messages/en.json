@@ -82,7 +82,10 @@
       "spanish": "Spanish",
       "ariaLabel": "Change language"
     },
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "themeDark": "Dark theme",
+    "themeLight": "Light theme",
+    "coachPortal": "Coach Portal"
   },
   "dashboard": {
     "title": "Dashboard",
