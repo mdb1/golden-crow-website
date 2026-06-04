@@ -158,10 +158,26 @@ export function HabitsLibraryClient({
       ? null
       : (activeClientRoster.find((c) => c.uid === clientFilter) ?? null);
 
+  // Local "today" as a civil date (YYYY-MM-DD) — mirrors the end-from-today
+  // delete handler so an assignment ended "from today onward" (which caps
+  // endsOn to YESTERDAY) is consistently treated as no-longer-current here.
+  const todayCivil = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }, []);
+
   const rows = useMemo(() => {
     const all = (data ?? []) as HabitRow[];
     const needle = search.trim().toLowerCase();
     return all.filter((r) => {
+      if (r.deleted) return false;
+      // Assignments = current/future commitments only. Hide anything whose
+      // recurrence has already ENDED before today (endsOn < today). For a
+      // one-time habit the single occurrence is endsOn ?? startsOn; for a
+      // recurring habit a missing endsOn means "never ends" (always current).
+      const lastActive =
+        r.scheduleType === "one-time" ? r.endsOn ?? r.startsOn : r.endsOn;
+      if (lastActive != null && lastActive < todayCivil) return false;
       if (clientFilter !== "all" && r.clientId !== clientFilter) return false;
       if (needle.length > 0) {
         const hay =
@@ -170,7 +186,7 @@ export function HabitsLibraryClient({
       }
       return true;
     });
-  }, [data, clientFilter, search, clientNameMap]);
+  }, [data, clientFilter, search, clientNameMap, todayCivil]);
 
   // B3 — group the filtered assignments by habit title so the coach can scan
   // "who has habit X". Title is the display name (EN ?? ES). Groups are sorted
