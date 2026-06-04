@@ -36,6 +36,7 @@ import {
   ChevronRightIcon,
   Circle,
   Dumbbell,
+  Loader2,
   PlusIcon,
   XCircle,
 } from "lucide-react";
@@ -669,9 +670,29 @@ export function MonthCalendar({
         <div className="rounded-[1.25rem] border border-dashed p-10 text-center text-sm text-muted-foreground">
           {t("pickClientsPrompt")}
         </div>
-      ) : view === "month" ? (
-        // ── Month view: classic calendar grid in a framed card ──────────
-        <Card className="min-w-0 max-w-full overflow-hidden p-0">
+      ) : (
+        // Selected clients' calendar. `placeholderData` keeps the PRIOR grid
+        // mounted while the new selection's assignments load, so without a
+        // signal it just looks like "no data". Dim the grid + show a spinner
+        // overlay whenever the query is fetching.
+        <div className="relative">
+          {isFetching ? (
+            <div className="pointer-events-none absolute inset-0 z-30 flex items-start justify-center pt-20">
+              <span className="inline-flex items-center gap-2 rounded-full bg-card/95 px-4 py-2 text-sm font-medium text-muted-foreground shadow-md ring-1 ring-border">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                {t("loading")}
+              </span>
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              "transition-opacity duration-200",
+              isFetching && "opacity-50",
+            )}
+          >
+            {view === "month" ? (
+              // ── Month view: classic calendar grid in a framed card ──────
+              <Card className="min-w-0 max-w-full overflow-hidden p-0">
           <div className="overflow-x-auto">
             <div className="min-w-[760px] p-3 md:min-w-0">
               <div
@@ -856,6 +877,9 @@ export function MonthCalendar({
             </table>
           </div>
         </Card>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Glossary footer (status colors at a glance) ───────────────── */}
