@@ -759,7 +759,7 @@ export function MonthCalendar({
             <table className={cn("w-full border-separate border-spacing-0", gridMinWClass)}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 w-28 min-w-28 border-b bg-card px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:w-40 sm:min-w-40 sm:px-4">
+                  <th className="z-20 w-28 min-w-28 border-b bg-card px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:sticky sm:left-0 sm:w-40 sm:min-w-40 sm:px-4">
                     Cliente
                   </th>
                   {cells.map(({ civil }) => {
@@ -802,7 +802,7 @@ export function MonthCalendar({
                     <tr key={client.uid} className="group/row">
                       <th
                         scope="row"
-                        className="sticky left-0 z-10 w-28 min-w-28 border-b bg-card px-3 py-3 text-left align-top sm:w-40 sm:min-w-40 sm:px-4"
+                        className="z-10 w-28 min-w-28 border-b bg-card px-3 py-3 text-left align-top sm:sticky sm:left-0 sm:w-40 sm:min-w-40 sm:px-4"
                       >
                         <div className="flex items-center gap-2 sm:gap-2.5">
                           <ClientAvatar
