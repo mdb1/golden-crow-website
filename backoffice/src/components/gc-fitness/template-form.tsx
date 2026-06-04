@@ -86,12 +86,6 @@ import {
   type WorkoutTemplateInput,
 } from "@/lib/gc-fitness/workout-template-schema";
 import {
-  addCivilMonths,
-  END_DATE_PRESET_MONTHS,
-  inferEndDatePresetMonths,
-  localDateToCivil,
-} from "@/lib/gc-fitness/end-date-presets";
-import {
   getSupersetGroupMemberIndexes,
   getSupersetMembership,
   listSupersetGroupOptions,
@@ -257,10 +251,6 @@ function buildDefaults(
       es: passed?.name?.es ?? "",
     },
     description: passed?.description ?? { en: "", es: "" },
-    endsOn:
-      typeof passed?.endsOn === "string" && passed.endsOn.length > 0
-        ? passed.endsOn
-        : undefined,
     tag: passed?.tag ?? restoredTags[0] ?? "custom",
     tags: restoredTags,
     exercises: withTransitionRestDefault(passed?.exercises),
@@ -295,13 +285,7 @@ export function TemplateForm({
   const [step, setStep] = useState<1 | 2>(1);
   const [showSpanishFields, setShowSpanishFields] = useState(false);
   const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
-  const [todayCivil] = useState(() => localDateToCivil(new Date()));
   const initialDefaults = buildDefaults(defaultValues, mode);
-  const initialEndsOn =
-    typeof initialDefaults.endsOn === "string" ? initialDefaults.endsOn : undefined;
-  const [selectedEndPresetMonths, setSelectedEndPresetMonths] = useState<
-    number | null
-  >(() => inferEndDatePresetMonths(todayCivil, initialEndsOn));
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -338,7 +322,6 @@ export function TemplateForm({
     return m;
   }, [exerciseLibrary]);
   const watchedExercises = form.watch("exercises") ?? [];
-  const watchedEndsOn = (form.watch("endsOn") ?? "") as string;
   const supersetGroupOptions = useMemo(
     () => listSupersetGroupOptions(watchedExercises),
     [watchedExercises],
@@ -359,18 +342,10 @@ export function TemplateForm({
     if (!draftKey) return;
     const stored = readDraft(draftKey);
     if (!stored) return;
-    const draftDefaults = buildDefaults(defaultValues, mode);
-    const restoredStored =
-      mode === "create"
-        ? (() => {
-            const next = { ...stored };
-            delete (next as { endsOn?: unknown }).endsOn;
-            return next;
-          })()
-        : stored;
+    const { endsOn: _endsOn, ...restored } = stored as { endsOn?: unknown };
     form.reset({
-      ...draftDefaults,
-      ...restoredStored,
+      ...buildDefaults(defaultValues, mode),
+      ...restored,
     });
     setDraftRestored(true);
     // Intentionally only runs on mount + when the key changes. Editing the
@@ -404,13 +379,6 @@ export function TemplateForm({
       }
     };
   }, [draftKey, form]);
-
-  useEffect(() => {
-    if (selectedEndPresetMonths == null) return;
-    const nextEndsOn = addCivilMonths(todayCivil, selectedEndPresetMonths);
-    if (watchedEndsOn === nextEndsOn) return;
-    form.setValue("endsOn", nextEndsOn, { shouldDirty: true });
-  }, [form, selectedEndPresetMonths, todayCivil, watchedEndsOn]);
 
   // Also flush on tab close / route change so SPA back-button doesn't lose
   // the trailing edit either. `pagehide` covers both navigation and tab
@@ -571,14 +539,10 @@ export function TemplateForm({
           const tagsClean = values.tags.length > 0
             ? values.tags
             : [values.tag || "custom"];
-          const { endsOn: _endsOn, ...valuesWithoutEndsOn } = values;
           const normalized: WorkoutTemplateInput = {
-          ...valuesWithoutEndsOn,
+          ...values,
           tag: tagsClean[0] ?? "custom",
           tags: tagsClean,
-          ...(mode === "edit" && typeof _endsOn === "string" && _endsOn.length > 0
-            ? { endsOn: _endsOn }
-            : {}),
           exercises: values.exercises.map((ex, idx) => {
             // Align sets, repsBySet, weightBySetKg around a single
             // canonical length so the saved doc never has the desync that
@@ -935,61 +899,6 @@ export function TemplateForm({
             </FormItem>
           )}
         />
-
-        {mode === "edit" ? (
-          <FormField
-            control={form.control}
-            name="endsOn"
-            render={({ field }) => (
-              <FormItem className="max-w-md">
-                <FormLabel>{t("endsOnLabel")}</FormLabel>
-                <div className="flex flex-wrap gap-2">
-                  {END_DATE_PRESET_MONTHS.map((months) => {
-                    const active =
-                      selectedEndPresetMonths === months &&
-                      field.value === addCivilMonths(todayCivil, months);
-                    return (
-                      <Button
-                        key={months}
-                        type="button"
-                        variant={active ? "default" : "outline"}
-                        size="sm"
-                        className="rounded-full"
-                        aria-pressed={active}
-                        onClick={() => {
-                          setSelectedEndPresetMonths(months);
-                          field.onChange(addCivilMonths(todayCivil, months));
-                        }}
-                      >
-                        {t("endDatePreset", { months })}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <FormControl>
-                  <Input
-                    type="date"
-                    name={field.name}
-                    ref={field.ref}
-                    onBlur={field.onBlur}
-                    value={typeof field.value === "string" ? field.value : ""}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      field.onChange(next);
-                      setSelectedEndPresetMonths(
-                        next.length > 0
-                          ? inferEndDatePresetMonths(todayCivil, next)
-                          : null,
-                      );
-                    }}
-                  />
-                </FormControl>
-                <FormDescription>{t("endsOnHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : null}
 
         <div className="rounded-xl border bg-card/90 p-3">
           <div className="flex items-center justify-between">

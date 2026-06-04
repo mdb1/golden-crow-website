@@ -7,10 +7,9 @@
 //
 //   1. Name (EN primary, ES subtitle) — sortable
 //   2. Tag — Badge (push/pull/legs/full-body/upper/lower/custom)
-//   3. End date — compact badge when present
-//   4. Exercise count
-//   5. Updated — relative time via Intl.RelativeTimeFormat — sortable
-//   6. Actions — DropdownMenu (Edit + Delete)
+//   3. Exercise count
+//   4. Updated — relative time via Intl.RelativeTimeFormat — sortable
+//   5. Actions — DropdownMenu (Edit + Delete)
 //
 // Sortable columns use `column.toggleSorting(column.getIsSorted() === "asc")`
 // per RESEARCH §Pattern 6. Per-row handlers (`onEdit`, `onDelete`) are
@@ -42,8 +41,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
-
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 
 // List-only extension of WorkoutTemplateRow: the templates client merges in
@@ -97,17 +94,11 @@ const TAG_LABELS: Record<string, string> = {
   custom: "Custom",
 };
 
-function formatCivilDateBadge(civilDate?: string | null, locale?: string): string {
-  if (!civilDate) return "—";
-  return formatCivilDateLabel(civilDate, { month: "short", day: "numeric" }, locale);
-}
-
 type TFn = ReturnType<typeof useTranslations>;
 
 export function makeTemplateColumns(
   handlers: TemplateColumnHandlers,
   t: TFn,
-  locale: string,
 ): ColumnDef<TemplateListRow>[] {
   return [
     {
@@ -187,19 +178,6 @@ export function makeTemplateColumns(
           </div>
         );
       },
-      enableSorting: false,
-    },
-    {
-      accessorKey: "endsOn",
-      header: t("endDate"),
-      cell: ({ row }) => (
-        <Badge
-          variant={row.original.endsOn ? "outline" : "ghost"}
-          className={row.original.endsOn ? "font-mono tabular-nums" : "text-muted-foreground"}
-        >
-          {formatCivilDateBadge(row.original.endsOn, locale)}
-        </Badge>
-      ),
       enableSorting: false,
     },
     {

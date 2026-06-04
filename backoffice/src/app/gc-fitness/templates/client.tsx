@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import {
   flexRender,
   getCoreRowModel,
@@ -70,7 +70,6 @@ const DRAFT_STORAGE_KEY_NEW = "gc-fitness:template-draft:new";
 interface NewTemplateDraft {
   name?: { en?: string; es?: string };
   description?: { en?: string; es?: string };
-  endsOn?: string;
   tag?: string;
   tags?: string[];
   exercises?: Array<unknown>;
@@ -94,7 +93,6 @@ export interface TemplatesLibraryClientProps {
 
 export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientProps) {
   const router = useRouter();
-  const locale = useLocale();
   const t = useTranslations("templates.list");
   const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
@@ -146,7 +144,6 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
         es: newDraft.name?.es ?? "",
       },
       description: undefined,
-      endsOn: typeof newDraft.endsOn === "string" ? newDraft.endsOn : undefined,
       // Cast: the draft can hold any free-form tag the trainer typed; for list
       // rendering we only need the string. The Badge / filter logic tolerates
       // arbitrary strings already.
@@ -227,8 +224,8 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
 
   const columnsT = useTranslations("templates.columns");
   const columns = useMemo(
-    () => makeTemplateColumns(handlers, columnsT, locale),
-    [handlers, columnsT, locale],
+    () => makeTemplateColumns(handlers, columnsT),
+    [handlers, columnsT],
   );
 
   const table = useReactTable({
