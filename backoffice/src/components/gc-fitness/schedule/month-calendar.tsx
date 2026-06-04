@@ -794,7 +794,14 @@ export function MonthCalendar({
                             photoURL={client.photoURL}
                             size="sm"
                           />
-                          <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                          {/* Hard max-width so a long name TRUNCATES instead of
+                              widening the sticky column and eating the day cells
+                              on mobile (auto table-layout sizes to content, so
+                              `truncate` alone isn't enough without a width cap). */}
+                          <span
+                            className="block max-w-[5.5rem] truncate text-sm font-semibold text-foreground sm:max-w-[9rem]"
+                            title={client.displayName}
+                          >
                             {client.displayName}
                           </span>
                         </div>
