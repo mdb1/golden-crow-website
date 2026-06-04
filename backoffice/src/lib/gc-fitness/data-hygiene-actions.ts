@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { gcFitnessAuth, gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
+import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
@@ -113,24 +113,17 @@ async function hardDeleteQueryDocs(
 async function loadUserAnomalies(): Promise<DataHygieneRow[]> {
   const db = gcFitnessFirestore();
   const usersSnap = await db.collection(FirestoreCollections.users).limit(SCAN_LIMIT).get();
-  const authUsers = await Promise.all(
-    usersSnap.docs.map(async (doc) => {
-      const data = doc.data() as { role?: string };
-      const authUser = await gcFitnessAuth().getUser(doc.id).catch(() => null);
-      return { doc, data, authUser };
-    }),
-  );
-
   const liveByUid = new Map<string, { role: string | null; deleted: boolean } | null>();
-  for (const { doc, data } of authUsers) {
+  for (const doc of usersSnap.docs) {
     liveByUid.set(doc.id, {
-      role: safeString(data.role),
+      role: safeString((doc.data() as { role?: string }).role),
       deleted: doc.get("deleted") === true,
     });
   }
 
   const rows: DataHygieneRow[] = [];
-  for (const { doc, data, authUser } of authUsers) {
+  for (const doc of usersSnap.docs) {
+    const data = doc.data() as { role?: string };
     const role = safeString(data.role);
     const displayName = safeString(doc.get("displayName")) ?? "Unnamed user";
     const email = safeString(doc.get("email")) ?? "No email";
@@ -140,9 +133,6 @@ async function loadUserAnomalies(): Promise<DataHygieneRow[]> {
 
     if (!role || (role !== "client" && role !== "trainer")) {
       issues.push("Invalid role");
-    }
-    if (!authUser) {
-      issues.push("Auth account missing");
     }
     if (role === "client") {
       if (!coachId) {
