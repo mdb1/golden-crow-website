@@ -36,7 +36,6 @@ import {
   ChevronRightIcon,
   Circle,
   Dumbbell,
-  Loader2,
   PlusIcon,
   XCircle,
 } from "lucide-react";
@@ -676,20 +675,16 @@ export function MonthCalendar({
         // signal it just looks like "no data". Dim the grid + show a spinner
         // overlay whenever the query is fetching.
         <div className="relative">
+          {/* Non-blocking loading hint: a thin indeterminate bar across the top
+              of the calendar while the selection's assignments refetch. The grid
+              stays fully visible + interactive (placeholderData keeps the prior
+              data), so this never blocks. */}
           {isFetching ? (
-            <div className="pointer-events-none absolute inset-0 z-30 flex items-start justify-center pt-20">
-              <span className="inline-flex items-center gap-2 rounded-full bg-card/95 px-4 py-2 text-sm font-medium text-muted-foreground shadow-md ring-1 ring-border">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                {t("loading")}
-              </span>
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 overflow-hidden rounded-t-[1.25rem]">
+              <div className="gc-loading-bar h-full w-full" />
             </div>
           ) : null}
-          <div
-            className={cn(
-              "transition-opacity duration-200",
-              isFetching && "opacity-50",
-            )}
-          >
+          <div>
             {view === "month" ? (
               // ── Month view: classic calendar grid in a framed card ──────
               <Card className="min-w-0 max-w-full overflow-hidden p-0">

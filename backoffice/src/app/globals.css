@@ -739,3 +739,30 @@
     animation: none;
   }
 }
+
+/* Indeterminate loading bar (calendar refetch hint — non-blocking). A primary
+   gradient sweeps left→right across a clipped track. */
+@keyframes gc-loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.gc-fitness-theme .gc-loading-bar {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--primary),
+    transparent
+  );
+  animation: gc-loading-bar 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-fitness-theme .gc-loading-bar {
+    animation: none;
+    background: var(--primary);
+    opacity: 0.5;
+  }
+}
