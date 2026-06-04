@@ -83,6 +83,35 @@ function summarize(rows: DataHygieneRow[]): Record<DataHygieneKind, number> {
   return summary;
 }
 
+/**
+ * Run `task` over `items` with a bounded number of concurrent in-flight
+ * promises. Used to parallelize the per-photo Storage existence checks in the
+ * hygiene scan: doing them sequentially made the page-load scan grow O(n) in
+ * round-trips (~400ms each) and blow the Vercel serverless timeout once enough
+ * progress photos accumulated (260604 — a 23-photo scan took ~9s of storage
+ * round-trips alone → 504 on page open). A cap keeps us from firing hundreds of
+ * Storage requests at once when the photo count is large.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  task: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) break;
+      results[index] = await task(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 async function deleteStorageObjectIfPresent(storagePath?: string | null): Promise<void> {
   if (!storagePath) return;
   const path = storagePath.trim();
@@ -271,6 +300,30 @@ async function loadPhotoAnomalies(): Promise<DataHygieneRow[]> {
     userMap.set(doc.id, doc.data() as Record<string, unknown>);
   }
 
+  // Pre-resolve every photo's Storage existence IN PARALLEL (bounded) before
+  // building rows. Sequential `.exists()` calls dominated the scan wall-clock
+  // and timed the page out (see mapWithConcurrency). Each result is one of
+  // "ok" (exists), "missing", or "failed" (the check itself errored).
+  const bucket = gcFitnessStorage().bucket();
+  type StorageState = "ok" | "missing" | "failed";
+  const storageStateByPath = new Map<string, StorageState>();
+  const pathsToCheck = Array.from(
+    new Set(
+      photosSnap.docs
+        .map((doc) => safeString((doc.data() as Record<string, unknown>).storagePath))
+        .filter((p): p is string => p !== null),
+    ),
+  );
+  const states = await mapWithConcurrency(pathsToCheck, 12, async (path): Promise<StorageState> => {
+    try {
+      const [exists] = await bucket.file(path).exists();
+      return exists ? "ok" : "missing";
+    } catch {
+      return "failed";
+    }
+  });
+  pathsToCheck.forEach((path, index) => storageStateByPath.set(path, states[index]));
+
   const rows: DataHygieneRow[] = [];
   for (const doc of photosSnap.docs) {
     const data = doc.data() as Record<string, unknown>;
@@ -298,12 +351,10 @@ async function loadPhotoAnomalies(): Promise<DataHygieneRow[]> {
     if (!storagePath) {
       issues.push("Missing storagePath");
     } else {
-      try {
-        const [exists] = await gcFitnessStorage().bucket().file(storagePath).exists();
-        if (!exists) {
-          issues.push("Storage object missing");
-        }
-      } catch {
+      const state = storageStateByPath.get(storagePath);
+      if (state === "missing") {
+        issues.push("Storage object missing");
+      } else if (state === "failed") {
         issues.push("Storage object check failed");
       }
     }
