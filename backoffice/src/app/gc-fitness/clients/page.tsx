@@ -16,7 +16,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
-import { ProvisionClientForm } from "./_components/ProvisionClientForm";
+import { AddClientPanel } from "./_components/AddClientPanel";
 import { RosterTable } from "./_components/RosterTable";
 import { RosterQueryProvider } from "./providers";
 
@@ -46,14 +46,11 @@ export default async function ClientsPage() {
   const pendingSuffix =
     pendingCount > 0 ? t("subtitlePendingSuffix", { count: pendingCount }) : "";
 
+  const subtitle = `${activeText}${pendingSuffix}${t("subtitleSortNote")}`;
+
   return (
-    <div className="gc-page flex flex-col gap-4">
-      <p className="text-xs text-muted-foreground">
-        {activeText}
-        {pendingSuffix}
-        {t("subtitleSortNote")}
-      </p>
-      <ProvisionClientForm />
+    <div className="gc-page flex flex-col gap-6">
+      <AddClientPanel title={t("title")} subtitle={subtitle} />
       <RosterQueryProvider>
         <RosterTable rows={rows} trainerUid={trainer.uid} />
       </RosterQueryProvider>

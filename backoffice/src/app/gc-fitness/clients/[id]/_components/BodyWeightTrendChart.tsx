@@ -105,7 +105,7 @@ export async function BodyWeightTrendChart({
 
   if (points.length === 0) {
     return (
-      <section className="rounded-md border bg-card p-4">
+      <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-3 font-medium">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
       </section>
@@ -121,7 +121,7 @@ export async function BodyWeightTrendChart({
       : null;
 
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-1 font-medium">{t("title")}</h2>
       <p className="mb-3 text-xs text-muted-foreground">
         {t("latestPrefix")}{" "}

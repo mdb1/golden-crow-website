@@ -144,7 +144,7 @@ export default async function ClientDetailPage({
       : "previousWorkout";
 
   return (
-    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
+    <div className="gc-page flex w-full flex-col gap-6">
       <ClientHeader
         clientId={id}
         displayName={displayName}
@@ -183,7 +183,7 @@ export default async function ClientDetailPage({
         bodyWeightRequestedAt={client.bodyWeightRequestedAt ?? null}
       />
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
           <WorkoutTrendsWidget clientId={id} timezone={timezone} />
         </Suspense>
@@ -231,14 +231,14 @@ function ClientWorkoutPreferencesCard({
   description: string;
 }) {
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="section-eyebrow">{title}</p>
-          <h2 className="text-base font-semibold">{label}</h2>
+          <h2 className="text-lg font-semibold">{label}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
-        <span className="w-fit rounded-full border bg-muted px-3 py-1 text-sm font-medium">
+        <span className="w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm font-medium">
           {value}
         </span>
       </div>
@@ -248,7 +248,7 @@ function ClientWorkoutPreferencesCard({
 
 function WidgetSkeleton({ title }: { title: string }) {
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-medium">{title}</h2>
       <Skeleton className="h-32 w-full" />
     </section>
@@ -284,17 +284,17 @@ function PendingClientView({
   const displayName = mirror.displayName ?? mirror.email ?? normalizedEmail;
   const email = mirror.email ?? normalizedEmail;
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex w-full flex-col gap-6">
       <header className="flex flex-col gap-2">
         <p className="section-eyebrow">GC Fitness · Pending</p>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
+        <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
           {displayName}
         </h1>
         <p className="text-sm text-muted-foreground">{email}</p>
       </header>
 
-      <section className="rounded-md border bg-card p-6">
-        <h2 className="mb-2 text-base font-semibold">Pendiente de ingreso</h2>
+      <section className="rounded-[1.25rem] border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold">Pendiente de ingreso</h2>
         <p className="text-sm text-muted-foreground">
           Este cliente fue pre-invitado y todavía no inició sesión por
           primera vez. Cuando lo haga con la cuenta de Google asociada a{" "}

@@ -316,10 +316,10 @@ export function MessageInput({
         e.preventDefault();
         handleSubmit();
       }}
-      className="flex flex-col gap-1 border-t bg-background p-3"
+      className="flex flex-col gap-2 border-t border-border bg-card/80 p-3 backdrop-blur"
     >
       {replyingTo ? (
-        <div className="mb-1 flex items-center gap-2 rounded-md border-l-2 border-primary/60 bg-muted/60 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-xl border-l-2 border-primary/60 bg-muted/60 px-3 py-2">
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-semibold text-primary">
               {tc("reply.replyingTo", {
@@ -344,14 +344,13 @@ export function MessageInput({
           </button>
         </div>
       ) : null}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 rounded-3xl border border-border bg-background p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-ring/40">
         <label
-          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input px-2 py-2 text-xs"
+          className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           title={t("photoCta")}
           aria-label={t("photoCta")}
         >
           <span aria-hidden>📷</span>
-          <span className="hidden sm:inline">{t("photoLabel")}</span>
           <input
             type="file"
             accept="image/*,.jpg,.jpeg,.png,.webp,.heic"
@@ -365,10 +364,10 @@ export function MessageInput({
             }}
           />
         </label>
-        <div className="inline-flex items-center gap-1">
+        <div className="inline-flex items-center">
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             title={isRecording ? t("voiceStopCta") : t("voiceRecordCta")}
             aria-label={isRecording ? t("voiceStopCta") : t("voiceRecordCta")}
             disabled={uploading || disabled}
@@ -385,9 +384,6 @@ export function MessageInput({
             }}
           >
             <span aria-hidden>{isRecording ? "⏹️" : "🎤"}</span>
-            <span className="hidden sm:inline">
-              {isRecording ? t("voiceStopLabel") : t("voiceRecordLabel")}
-            </span>
           </button>
           <input
             ref={fallbackAudioInputRef}
@@ -444,12 +440,12 @@ export function MessageInput({
           rows={1}
           aria-label={t("messageAria")}
           disabled={uploading || disabled}
-          className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          className="max-h-40 flex-1 resize-none self-center border-0 bg-transparent px-2 py-2.5 text-[15px] text-foreground placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={!canSend}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-10 shrink-0 items-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {mutation.isPending || uploading ? t("sending") : t("send")}
         </button>

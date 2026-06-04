@@ -62,6 +62,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 
 import type { ClientRosterEntry } from "../client";
 import { MessageInput } from "./MessageInput";
@@ -96,10 +97,12 @@ export function ChatConversation({
   );
   const queryClient = useQueryClient();
 
-  const partnerName = useMemo(() => {
-    const entry = clientRoster.find((c) => c.uid === chatId);
-    return entry?.displayName ?? chatId;
-  }, [clientRoster, chatId]);
+  const partnerEntry = useMemo(
+    () => clientRoster.find((c) => c.uid === chatId) ?? null,
+    [clientRoster, chatId],
+  );
+  const partnerName = partnerEntry?.displayName ?? chatId;
+  const partnerPhotoURL = partnerEntry?.photoURL ?? null;
 
   // quick-260603-p1p — WhatsApp-style reply quote. The message the trainer
   // is replying to (staged via the per-bubble hover reply button), or null.
@@ -272,12 +275,17 @@ export function ChatConversation({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b bg-background px-4 py-3">
-        <div className="font-medium">{partnerName}</div>
+      <div className="flex items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
+        <ClientAvatar name={partnerName} photoURL={partnerPhotoURL} />
+        <div className="min-w-0">
+          <div className="truncate text-base font-semibold text-foreground">
+            {partnerName}
+          </div>
+        </div>
       </div>
       <div
         ref={scrollContainerRef}
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-background/40 px-4 py-5"
       >
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -327,7 +335,7 @@ export function ChatConversation({
           </>
         )}
       </div>
-      <div className="shrink-0 border-t bg-background">
+      <div className="shrink-0">
         <MessageInput
           chatId={chatId}
           disabled={isPendingClient}
@@ -389,8 +397,8 @@ function MessageBubble({
   const t = useTranslations("chat.conversation");
   const align = isOwn ? "justify-end" : "justify-start";
   const tone = isOwn
-    ? "bg-primary text-primary-foreground"
-    : "bg-muted text-foreground";
+    ? "bg-primary text-primary-foreground rounded-br-md"
+    : "bg-muted text-foreground rounded-bl-md ring-1 ring-foreground/5";
   const [confirmOpen, setConfirmOpen] = useState(false);
   const deleteMutation = useMutation({
     mutationFn: async () =>
@@ -416,7 +424,7 @@ function MessageBubble({
   let body: React.ReactNode;
   if (message.kind === "text") {
     body = (
-      <p className="whitespace-pre-wrap break-words text-sm">
+      <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
         {message.text ?? ""}
       </p>
     );
@@ -502,7 +510,7 @@ function MessageBubble({
           </button>
         </>
       ) : null}
-      <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${tone}`}>
+      <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm ${tone}`}>
         {quotedBlock}
         {body}
         {message.reactions && Object.keys(message.reactions).length > 0 ? (
@@ -778,7 +786,7 @@ function TimeStamp({
   const label = formatClientActivityTime(iso, timezone);
   return (
     <p
-      className={`mt-1 text-[10px] ${
+      className={`mt-1 text-[11px] ${
         isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
       }`}
     >

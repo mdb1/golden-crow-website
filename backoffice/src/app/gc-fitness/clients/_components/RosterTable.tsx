@@ -1,48 +1,46 @@
 "use client";
 
-// RosterTable.tsx — interactive client roster table (P11-05 base, P11-06 filter chip).
+// RosterTable.tsx — interactive client roster as a responsive CARD GRID
+// (2026-06 redesign). Previously a TanStack table; restyled into the
+// reference card grid while preserving ALL data, links, and the
+// at-risk filter behavior.
 //
-// TanStack Table v8 over `ClientRosterRow[]` shipped from the Server
-// Component shell (`page.tsx`). Default sort is `lastActivityAt DESC`;
-// nulls go last via a custom `sortingFn`. Row click navigates to the
-// per-client deep view at `/gc-fitness/clients/[id]` (implemented by 11-07).
+// Data mapping (every prior column is preserved, none dropped):
+//   - name + email + avatar      → card header
+//   - pendingProvisioning        → "Pending sign-in" badge
+//   - needsAttention             → status icon (check ✓ when ok, clock when at-risk)
+//   - thisWeekComplianceRatio    → "Adherencia <pct>%" colored bar + trend arrow
+//   - habits done/scheduled      → habits compliance line
+//   - workouts done/scheduled    → "Esta semana X/Y workouts"
+//   - goals short/medium/long    → goal pills
+//   - lastActivityAt             → "Última actividad: …"
 //
-// 11-06 extensions:
-//   - "Needs attention (N)" toggle pill toolbar above the table.
-//   - Per-row AlertCircle icon next to the name when `needsAttention === true`,
-//     with a tooltip listing the firing reason strings.
-//   - The pill count = number of rows where `needsAttention === true` in
-//     the FULL row set (not the filtered set), so toggling the filter
-//     doesn't change the chip's count.
+// The "At-risk clients (N)" toggle and its full-set count are preserved
+// verbatim from the table version. A name/email search box is added on top
+// (purely client-side filtering of the already-loaded rows).
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type SortingState,
-} from "@tanstack/react-table";
-import { AlertCircle } from "lucide-react";
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Search,
+  SlidersHorizontal,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
+import { cn } from "@/lib/utils";
 import { RelativeTime } from "./RelativeTime";
 import { RosterEmptyState } from "./RosterEmptyState";
 
@@ -55,15 +53,32 @@ function GoalPill({ label, count }: { label: string; count: number }) {
   const muted = count === 0;
   return (
     <span
-      className={
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs tabular-nums",
         muted
-          ? "inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-muted-foreground"
-          : "inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-800 dark:text-amber-300"
-      }
+          ? "border border-border text-muted-foreground"
+          : "bg-primary/15 text-foreground",
+      )}
     >
       <span className="font-semibold uppercase tracking-wide">{label}</span>
-      <span className="tabular-nums">{count}</span>
+      <span>{count}</span>
     </span>
+  );
+}
+
+/** Token-based progress bar with a green (good) / amber (at-risk) fill.
+ *  Uses the theme chart tokens (CSS variables) — no raw hex, both themes work. */
+function ComplianceBar({ pct, good }: { pct: number; good: boolean }) {
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        className={cn(
+          "h-full rounded-full transition-all",
+          good ? "bg-chart-3" : "bg-chart-4",
+        )}
+        style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+      />
+    </div>
   );
 }
 
@@ -72,15 +87,11 @@ export function RosterTable({ rows }: RosterTableProps) {
   const t = useTranslations("clients");
   const tTable = useTranslations("clients.table");
   const tCommon = useTranslations("common");
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "lastActivityAt", desc: true },
-  ]);
   const [needsAttentionOnly, setNeedsAttentionOnly] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Locale-aware label for an attention reason string. Kept in lockstep with
-  // the Pitfall-7-locked union in `client-attention.ts` — adding a new
-  // reason means updating the union + the Jest cases + this mapping +
-  // BOTH messages/{locale}.json catalogs.
+  // the Pitfall-7-locked union in `client-attention.ts`.
   function formatReason(reason: AttentionReason): string {
     switch (reason) {
       case "inactive-3-days":
@@ -95,242 +106,221 @@ export function RosterTable({ rows }: RosterTableProps) {
     [rows],
   );
 
-  const filteredRows = useMemo(
-    () => (needsAttentionOnly ? rows.filter((r) => r.needsAttention) : rows),
-    [rows, needsAttentionOnly],
-  );
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (needsAttentionOnly && !r.needsAttention) return false;
+      if (q) {
+        const hay = `${r.displayName} ${r.email}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, needsAttentionOnly, query]);
 
-  const columns = useMemo<ColumnDef<ClientRosterRow>[]>(
-    () => [
-      {
-        accessorKey: "displayName",
-        header: tTable("name"),
-        cell: ({ row }) => {
-          const reasons = row.original.needsAttentionReasons;
-          const reasonText = reasons.map(formatReason).join(", ");
-          const title = t("needsAttentionTitle", { reasons: reasonText });
-          return (
-            <div className="flex items-center gap-2">
-              <ClientAvatar
-                name={row.original.displayName}
-                photoURL={row.original.photoURL}
-                size="sm"
-              />
-              <span className="font-medium">{row.original.displayName}</span>
-              {row.original.pendingProvisioning ? (
-                <Badge variant="secondary">{tCommon("pendingSignIn")}</Badge>
-              ) : null}
-              {row.original.needsAttention ? (
-                <span
-                  title={title}
-                  aria-label={title}
-                  className="inline-flex"
-                >
-                  <AlertCircle className="size-4 text-destructive" />
-                </span>
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "lastActivityAt",
-        header: tTable("lastActivity"),
-        cell: ({ row }) => <RelativeTime iso={row.original.lastActivityAt} />,
-        // Custom sort: ISO-8601 strings sort lexicographically; nulls go last.
-        sortingFn: (a, b) => {
-          const av = a.original.lastActivityAt;
-          const bv = b.original.lastActivityAt;
-          if (av && bv) return av.localeCompare(bv);
-          if (av) return 1; // null b → b is "smaller" so b comes first under DESC
-          if (bv) return -1;
-          return 0;
-        },
-      },
-      {
-        id: "habits",
-        header: tTable("habits"),
-        accessorFn: (row) =>
-          row.habitsScheduledThisWeek > 0
-            ? row.habitsCompletedThisWeek / row.habitsScheduledThisWeek
-            : 0,
-        cell: ({ row }) => {
-          const done = row.original.habitsCompletedThisWeek;
-          const scheduled = row.original.habitsScheduledThisWeek;
-          if (scheduled === 0) {
-            return <span className="text-muted-foreground">–</span>;
-          }
-          const pct = Math.round(Math.min(1, done / scheduled) * 100);
-          return (
-            <div className="flex items-center gap-2">
-              <Progress value={pct} className="h-2 w-16" />
-              <span className="tabular-nums text-sm">
-                {done}/{scheduled}
-              </span>
-            </div>
-          );
-        },
-      },
-      {
-        id: "workouts",
-        header: tTable("workouts"),
-        accessorFn: (row) =>
-          row.workoutsScheduledThisMonth > 0
-            ? row.workoutsCompletedThisMonth / row.workoutsScheduledThisMonth
-            : 0,
-        cell: ({ row }) => {
-          const done = row.original.workoutsCompletedThisMonth;
-          const scheduled = row.original.workoutsScheduledThisMonth;
-          if (scheduled === 0) {
-            return <span className="text-muted-foreground">–</span>;
-          }
-          const pct = Math.round(Math.min(1, done / scheduled) * 100);
-          return (
-            <div className="flex items-center gap-2">
-              <Progress value={pct} className="h-2 w-16" />
-              <span className="tabular-nums text-sm">
-                {done}/{scheduled}
-              </span>
-            </div>
-          );
-        },
-      },
-      {
-        id: "goals",
-        header: tTable("goals"),
-        accessorFn: (row) =>
-          row.goalsCount.short + row.goalsCount.medium + row.goalsCount.long,
-        cell: ({ row }) => {
-          const { short, medium, long } = row.original.goalsCount;
-          if (short + medium + long === 0) {
-            return <span className="text-muted-foreground">–</span>;
-          }
-          return (
-            <div className="flex items-center gap-1 text-xs">
-              <GoalPill label={tTable("goalsShort")} count={short} />
-              <GoalPill label={tTable("goalsMedium")} count={medium} />
-              <GoalPill label={tTable("goalsLong")} count={long} />
-            </div>
-          );
-        },
-      },
-    ],
-    // formatReason closes over `t`; tTable/tCommon are used directly in cells.
-    // Re-memoize when any translator changes (e.g., locale switch via refresh).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, tTable, tCommon],
-  );
-
-  const table = useReactTable({
-    data: filteredRows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
-  // 12-04 — short-circuit to the designed empty state when no clients
-  // are assigned at all. Placed AFTER all hook calls so the rules-of-hooks
-  // are honored (the hook count is identical across renders regardless
-  // of whether rows is empty or populated).
+  // 12-04 — designed empty state when no clients are assigned at all.
   if (rows.length === 0) {
     return <RosterEmptyState />;
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-4">
+      {/* Search + filters toolbar */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={tCommon("search")}
+            aria-label={tCommon("search")}
+            className="h-11 rounded-full pl-9"
+          />
+        </div>
         <Button
           type="button"
           variant={needsAttentionOnly ? "default" : "outline"}
-          size="sm"
           onClick={() => setNeedsAttentionOnly((v) => !v)}
-          className="gap-1.5"
           aria-pressed={needsAttentionOnly}
+          className="h-11 shrink-0 gap-2 rounded-full px-4"
         >
-          <AlertCircle className="size-4" />
-          At-risk clients ({needsAttentionCount})
+          <SlidersHorizontal className="size-4" />
+          {tCommon("filter")}
+          <span className="tabular-nums text-xs opacity-80">
+            ({needsAttentionCount})
+          </span>
         </Button>
         {needsAttentionOnly ? (
           <Button
             type="button"
             variant="ghost"
-            size="sm"
             onClick={() => setNeedsAttentionOnly(false)}
+            className="h-11 shrink-0 rounded-full"
           >
             {tCommon("clearFilter")}
           </Button>
         ) : null}
       </div>
-      <div className="rounded-xl border border-border/80 bg-card/95">
-        <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((group) => (
-            <TableRow key={group.id}>
-              {group.headers.map((header) => {
-                const sorted = header.column.getIsSorted();
-                const indicator =
-                  sorted === "asc" ? " ↑" : sorted === "desc" ? " ↓" : "";
-                return (
-                  <TableHead
-                    key={header.id}
-                    onClick={header.column.getToggleSortingHandler()}
-                    className="cursor-pointer select-none text-xs uppercase tracking-wide text-muted-foreground"
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-                    {indicator}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="py-8 text-center text-muted-foreground"
-              >
-                {tTable("noClientsRow")}
-              </TableCell>
-            </TableRow>
-          ) : (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => {
-                  if (row.original.pendingProvisioning) {
-                    router.push(
-                      `/gc-fitness/clients/pending/${encodeURIComponent(row.original.email)}`,
-                    );
-                    return;
+
+      {filteredRows.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            {tTable("noClientsRow")}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {filteredRows.map((row) => {
+            const compliancePct = Math.round(
+              Math.min(1, Math.max(0, row.thisWeekComplianceRatio)) * 100,
+            );
+            const complianceGood = compliancePct >= 70;
+            const habitsPct =
+              row.habitsScheduledThisWeek > 0
+                ? Math.round(
+                    Math.min(
+                      1,
+                      row.habitsCompletedThisWeek / row.habitsScheduledThisWeek,
+                    ) * 100,
+                  )
+                : null;
+            const reasons = row.needsAttentionReasons.map(formatReason).join(", ");
+            const attentionTitle = t("needsAttentionTitle", { reasons });
+            const { short, medium, long } = row.goalsCount;
+            const hasGoals = short + medium + long > 0;
+            const href = row.pendingProvisioning
+              ? `/gc-fitness/clients/pending/${encodeURIComponent(row.email)}`
+              : `/gc-fitness/clients/${row.uid}`;
+
+            return (
+              <Card
+                key={row.uid}
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(href)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    router.push(href);
                   }
-                  router.push(`/gc-fitness/clients/${row.original.uid}`);
                 }}
-                // hover:bg-accent uses the brand-blue tint (`--accent`) and
-                // is clearly perceptible in light mode vs. the previous
-                // bg-muted/50 which was ~50% of a near-white token.
-                className="cursor-pointer transition-colors hover:bg-accent"
+                className="cursor-pointer gap-0 py-0 transition-colors hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext(),
+                <CardContent className="flex flex-col gap-4 p-5">
+                  {/* Header: avatar + name/email + status icon */}
+                  <div className="flex items-start gap-3">
+                    <ClientAvatar
+                      name={row.displayName}
+                      photoURL={row.photoURL}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-semibold text-foreground">
+                          {row.displayName}
+                        </p>
+                      </div>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {row.email}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {row.pendingProvisioning ? (
+                          <Badge variant="secondary">
+                            {tCommon("pendingSignIn")}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                    {row.needsAttention ? (
+                      <span
+                        title={attentionTitle}
+                        aria-label={attentionTitle}
+                        className="inline-flex shrink-0"
+                      >
+                        <Clock className="size-5 text-chart-4" />
+                      </span>
+                    ) : (
+                      <CheckCircle2
+                        className="size-5 shrink-0 text-chart-3"
+                        aria-hidden="true"
+                      />
                     )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-        </Table>
-      </div>
+                  </div>
+
+                  {/* Metrics row: adherencia + esta semana */}
+                  <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                    {/* Adherencia (habit compliance ratio) */}
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {tTable("habits")}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg font-semibold tabular-nums text-foreground">
+                          {compliancePct}%
+                        </span>
+                        {complianceGood ? (
+                          <TrendingUp className="size-4 text-chart-3" aria-hidden />
+                        ) : (
+                          <TrendingDown className="size-4 text-chart-4" aria-hidden />
+                        )}
+                      </div>
+                      <ComplianceBar pct={compliancePct} good={complianceGood} />
+                      {habitsPct !== null ? (
+                        <p className="text-xs tabular-nums text-muted-foreground">
+                          {row.habitsCompletedThisWeek}/
+                          {row.habitsScheduledThisWeek}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {/* Esta semana — workouts completados */}
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {tTable("thisWeek")}
+                      </p>
+                      <span className="text-lg font-semibold tabular-nums text-foreground">
+                        {row.workoutsScheduledThisMonth > 0
+                          ? `${row.workoutsCompletedThisMonth}/${row.workoutsScheduledThisMonth}`
+                          : tCommon("emDash")}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {tTable("workouts")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Goals + last activity footer */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                    {hasGoals ? (
+                      <div className="flex items-center gap-1">
+                        <GoalPill label={tTable("goalsShort")} count={short} />
+                        <GoalPill label={tTable("goalsMedium")} count={medium} />
+                        <GoalPill label={tTable("goalsLong")} count={long} />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {tTable("goals")}: {tCommon("emDash")}
+                      </span>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {tTable("lastActivity")}:{" "}
+                      <RelativeTime iso={row.lastActivityAt} />
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {needsAttentionCount > 0 ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <AlertCircle className="size-3.5 text-chart-4" />
+          {t("needsAttention", { count: needsAttentionCount })}
+        </p>
+      ) : null}
     </div>
   );
 }

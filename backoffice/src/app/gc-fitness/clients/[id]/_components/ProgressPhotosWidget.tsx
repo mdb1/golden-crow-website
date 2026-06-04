@@ -17,7 +17,7 @@ export async function ProgressPhotosWidget({
 }) {
   const t = await getTranslations("clients.detail.photos");
   return (
-    <section id="progress-photos" className="rounded-md border bg-card p-4">
+    <section id="progress-photos" className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <div className="mb-3">
         <h2 className="flex items-center gap-2 font-medium">
           <Camera className="size-4" />

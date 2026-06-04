@@ -45,7 +45,7 @@ export function ClientGoalsCard({
   const [isPending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-medium">

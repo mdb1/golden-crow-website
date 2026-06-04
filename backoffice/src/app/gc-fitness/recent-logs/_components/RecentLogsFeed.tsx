@@ -22,13 +22,8 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { PillTabs, type PillTabItem } from "@/components/gc-fitness/pill-tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -80,24 +75,6 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   photo: "badgePhoto",
   weight: "badgeWeight",
   signup: "badgeSignup",
-};
-
-// Subtle per-category tint for the type pill — colorful enough to scan at a
-// glance, restrained enough to fit the backoffice. Only the type pill is
-// colored; everything else stays neutral.
-const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
-  workout:
-    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  habit:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  reschedule:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
-  photo:
-    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
-  weight:
-    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
-  signup:
-    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
 };
 
 export function RecentLogsFeed({
@@ -171,25 +148,83 @@ export function RecentLogsFeed({
     [filtered, locale, t, trainerTimezone],
   );
 
+  // Counts come from currently-loaded rows (the feed is server-paginated, so a
+  // global per-category total isn't available without extra reads). They give a
+  // quick at-a-glance sense of what's in view.
+  const countFor = (category: RecentLogRow["category"] | "all") =>
+    category === "all"
+      ? rows.length
+      : rows.filter((r) => r.category === category).length;
+
+  // Category filter pills — wired 1:1 to the EXISTING single-category server
+  // filter (`typeFilter`). Each pill re-fetches page 1 scoped to that category.
+  const tabItems: PillTabItem[] = [
+    {
+      key: "all",
+      label: t("tabAll"),
+      count: countFor("all"),
+      onSelect: () => applyFilters(clientFilter, "all"),
+    },
+    {
+      key: "workout",
+      label: t("workoutsOption"),
+      icon: <Dumbbell />,
+      count: countFor("workout"),
+      onSelect: () => applyFilters(clientFilter, "workout"),
+    },
+    {
+      key: "habit",
+      label: t("habitsOption"),
+      icon: <ListChecks />,
+      count: countFor("habit"),
+      onSelect: () => applyFilters(clientFilter, "habit"),
+    },
+    {
+      key: "reschedule",
+      label: t("reschedulesOption"),
+      icon: <ArrowRightLeft />,
+      count: countFor("reschedule"),
+      onSelect: () => applyFilters(clientFilter, "reschedule"),
+    },
+    {
+      key: "photo",
+      label: t("photosOption"),
+      icon: <Camera />,
+      count: countFor("photo"),
+      onSelect: () => applyFilters(clientFilter, "photo"),
+    },
+    {
+      key: "weight",
+      label: t("weightOption"),
+      icon: <Scale />,
+      count: countFor("weight"),
+      onSelect: () => applyFilters(clientFilter, "weight"),
+    },
+    {
+      key: "signup",
+      label: t("signupOption"),
+      icon: <User />,
+      count: countFor("signup"),
+      onSelect: () => applyFilters(clientFilter, "signup"),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-4 w-4" />
-            {t("filtersTitle")}
-          </CardTitle>
-          <CardDescription>{t("filtersDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid max-w-2xl gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{t("clientLabel")}</p>
+        <CardContent className="flex flex-col gap-3 py-4">
+          <PillTabs activeKey={typeFilter} items={tabItems} />
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-sm text-muted-foreground">
+              {t("clientLabel")}
+            </span>
             <Select
               value={clientFilter}
               onValueChange={(v) => applyFilters(v, typeFilter)}
               disabled={loading}
             >
-              <SelectTrigger className="min-w-[14rem]">
+              <SelectTrigger className="h-10 min-w-[12rem]">
                 <SelectValue placeholder={t("allClients")} />
               </SelectTrigger>
               <SelectContent>
@@ -199,29 +234,6 @@ export function RecentLogsFeed({
                     {client.name}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{t("typeLabel")}</p>
-            <Select
-              value={typeFilter}
-              onValueChange={(v) => applyFilters(clientFilter, v)}
-              disabled={loading}
-            >
-              <SelectTrigger className="min-w-[14rem]">
-                <SelectValue placeholder={t("allActivity")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("allActivity")}</SelectItem>
-                <SelectItem value="habit">{t("habitsOption")}</SelectItem>
-                <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
-                <SelectItem value="reschedule">
-                  {t("reschedulesOption")}
-                </SelectItem>
-                <SelectItem value="photo">{t("photosOption")}</SelectItem>
-                <SelectItem value="weight">{t("weightOption")}</SelectItem>
-                <SelectItem value="signup">{t("signupOption")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -297,25 +309,28 @@ function RecentLogItem({
           openProfile();
         }
       }}
-      className="group flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:items-center"
+      className="group flex cursor-pointer items-start gap-3 rounded-[1.25rem] border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40"
     >
       <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="min-w-0 break-words text-sm font-semibold leading-snug text-foreground">
+            {row.clientName}
+          </span>
+          <span className="min-w-0 break-words text-sm text-muted-foreground sm:truncate">
+            {row.title}
+          </span>
+          <span
+            aria-hidden
+            className="inline-flex items-center text-muted-foreground [&>svg]:size-3.5"
+            title={t(CATEGORY_LABEL_KEY[row.category])}
           >
             {CatIcon ? <CatIcon /> : null}
-            {t(CATEGORY_LABEL_KEY[row.category])}
-          </Badge>
-          <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
-            {row.title}
           </span>
           {row.forCivilDate ? (
             <Badge
-              variant="outline"
-              className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+              variant="warning"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal [&>svg]:size-3"
             >
               <CalendarClock />
               {t("forDay", { date: formatCivilDate(row.forCivilDate, locale) })}
@@ -350,11 +365,15 @@ function RecentLogItem({
             </Badge>
           ) : null}
         </div>
-        <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-          {row.clientName} · {formatRecentLogTime(row.eventAt, timezone, locale)}
-          {row.detail ? ` · ${row.detail}` : ""}
-        </p>
+        {row.detail ? (
+          <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
+            {row.detail}
+          </p>
+        ) : null}
       </div>
+      <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+        {formatRecentLogTime(row.eventAt, timezone, locale)}
+      </span>
       <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
         <Button
           asChild

@@ -15,7 +15,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   clientActivityCivilDateKey,
@@ -75,34 +74,34 @@ const KIND_ICON = {
   chat: MessageSquare,
 } satisfies Record<CoachActivityKind, ComponentType<{ className?: string }>>;
 
-// Subtle per-kind tint for the type pill — mirrors RecentLogsFeed's
-// CATEGORY_TONE so the two activity surfaces read consistently. Only the
-// type pill is colored; everything else stays neutral.
-const KIND_TONE: Record<CoachActivityKind, string> = {
+// Per-kind circular icon chip — token-based so both themes work. Uses the
+// shared badge color tokens (success/brand/warning/violet/rose) as the chip
+// background + foreground, mirroring the reference design's colored action
+// icons (create=green, assign=blue, edit=amber, message=violet, delete=rose).
+const KIND_CHIP: Record<CoachActivityKind, string> = {
   workout_template:
-    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  workout_assignment:
-    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
-  workout_rest_edited:
-    "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300",
-  habit_assignment:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  progress_photo_request:
-    "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-900 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
-  weight_request:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-fg)]",
   exercise:
-    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-fg)]",
+  workout_assignment:
+    "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
+  habit_assignment:
+    "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
+  workout_rest_edited:
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
   note:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
   chat:
-    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
+    "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
+  progress_photo_request:
+    "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
+  weight_request:
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
 };
 
-// Distinct tone for deletion rows (coach removed something) so they stand out
-// from creates/assigns.
-const DELETED_TONE =
-  "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300";
+// Deletion rows (coach removed something) use the rose token so they stand out.
+const DELETED_CHIP =
+  "border-[color:var(--badge-rose-border)] bg-[color:var(--badge-rose-bg)] text-[color:var(--badge-rose-fg)]";
 
 export function MyActivityFeed({
   initialRows,
@@ -250,31 +249,35 @@ function ActivityRow({
   timezone: string;
 }) {
   const Icon = row.deleted ? Trash2 : KIND_ICON[row.kind];
-  const tone = row.deleted ? DELETED_TONE : KIND_TONE[row.kind];
+  const chip = row.deleted ? DELETED_CHIP : KIND_CHIP[row.kind];
   const label = row.deleted ? "Eliminado" : KIND_LABEL[row.kind];
   return (
-    <div className="flex items-start gap-3 px-4 py-3">
-      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+    <div className="flex items-start gap-3 px-4 py-3.5">
+      <div
+        className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border [&>svg]:size-4 ${chip}`}
+        aria-hidden
+        title={label}
+      >
+        <Icon />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            className={`gap-1 px-1.5 py-0 text-[11px] font-normal ${tone}`}
-          >
-            {label}
-          </Badge>
-          <span className="min-w-0 break-words text-sm font-medium leading-snug">
-            {row.title}
-          </span>
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatTime(row.occurredAt, timezone)}
-          {row.clientName ? ` · ${row.clientName}` : ""}
-          {row.detail ? ` · ${row.detail}` : ""}
+        <p className="break-words text-sm font-semibold leading-snug text-foreground">
+          {row.title}
         </p>
+        {row.clientName || row.detail ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {[
+              row.clientName ? `Para ${row.clientName}` : null,
+              row.detail,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
       </div>
+      <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+        {formatTime(row.occurredAt, timezone)}
+      </span>
     </div>
   );
 }

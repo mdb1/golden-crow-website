@@ -115,6 +115,7 @@
   "notifications": {
     "title": "Notifications",
     "description": "Recurring workout/habit renewals and recent client activations.",
+    "headerSubtitle": "Stay on top of your clients' activity",
     "renewalsTitle": "Renewals",
     "renewalsDescription": "Workout and habit series that are due soon or already expired.",
     "activationsTitle": "Recent activations",
@@ -1296,6 +1297,11 @@
     "workoutsTab": "Workouts",
     "habitsTab": "Habits",
     "feed": {
+      "title": "Recent Logs",
+      "headerSubtitle": "All your clients' activity in real time",
+      "tabAll": "All",
+      "tabMessages": "Messages",
+      "tabProgress": "Progress",
       "filtersTitle": "Filters",
       "filtersDescription": "Narrow activity by client and log type.",
       "clientLabel": "Client",

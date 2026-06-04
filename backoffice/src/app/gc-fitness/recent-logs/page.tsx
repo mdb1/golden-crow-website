@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Info } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import {
   getCurrentTrainer,
   type CurrentTrainer,
@@ -56,6 +57,7 @@ export default async function RecentLogsPage() {
 
   return (
     <div className="gc-page flex flex-col gap-6">
+      <PageHeader title={tRecent("title")} subtitle={tRecent("headerSubtitle")} />
       {loadFailed ? (
         <Card>
           <CardHeader>
