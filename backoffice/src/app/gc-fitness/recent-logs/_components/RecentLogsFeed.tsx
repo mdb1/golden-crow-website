@@ -154,63 +154,51 @@ export function RecentLogsFeed({
     [filtered, locale, t, trainerTimezone],
   );
 
-  // Counts come from currently-loaded rows (the feed is server-paginated, so a
-  // global per-category total isn't available without extra reads). They give a
-  // quick at-a-glance sense of what's in view.
-  const countFor = (category: RecentLogRow["category"] | "all") =>
-    category === "all"
-      ? rows.length
-      : rows.filter((r) => r.category === category).length;
-
   // Category filter pills — wired 1:1 to the EXISTING single-category server
   // filter (`typeFilter`). Each pill re-fetches page 1 scoped to that category.
+  // No count badges: the feed is server-paginated, so a count would only reflect
+  // the rows loaded SO FAR and jump as more pages load — misleading, so we drop
+  // it and keep the labels clean.
   const tabItems: PillTabItem[] = [
     {
       key: "all",
       label: t("tabAll"),
-      count: countFor("all"),
       onSelect: () => applyFilters(clientFilter, "all"),
     },
     {
       key: "workout",
       label: t("workoutsOption"),
       icon: <Dumbbell />,
-      count: countFor("workout"),
       onSelect: () => applyFilters(clientFilter, "workout"),
     },
     {
       key: "habit",
       label: t("habitsOption"),
       icon: <ListChecks />,
-      count: countFor("habit"),
       onSelect: () => applyFilters(clientFilter, "habit"),
     },
     {
       key: "reschedule",
       label: t("reschedulesOption"),
       icon: <ArrowRightLeft />,
-      count: countFor("reschedule"),
       onSelect: () => applyFilters(clientFilter, "reschedule"),
     },
     {
       key: "photo",
       label: t("photosOption"),
       icon: <Camera />,
-      count: countFor("photo"),
       onSelect: () => applyFilters(clientFilter, "photo"),
     },
     {
       key: "weight",
       label: t("weightOption"),
       icon: <Scale />,
-      count: countFor("weight"),
       onSelect: () => applyFilters(clientFilter, "weight"),
     },
     {
       key: "signup",
       label: t("signupOption"),
       icon: <User />,
-      count: countFor("signup"),
       onSelect: () => applyFilters(clientFilter, "signup"),
     },
   ];
