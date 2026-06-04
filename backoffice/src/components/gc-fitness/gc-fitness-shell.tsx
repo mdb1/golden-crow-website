@@ -220,7 +220,7 @@ export function GCFitnessShell({
 
             {resolvedSections.map((section) => (
               <SidebarGroup key={section.sectionKey} className="py-1">
-                <SidebarGroupLabel className="px-3 text-[0.7rem] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                <SidebarGroupLabel className="px-3 text-[0.7rem] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
                   {tNav(section.sectionKey)}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>

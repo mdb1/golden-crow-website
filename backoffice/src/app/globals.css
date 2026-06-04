@@ -270,23 +270,26 @@
     --secondary: #eef0f4;
     --secondary-foreground: #1b2336;
     --muted: #f1f2f5;
-    --muted-foreground: #8a93a3;
+    /* Secondary text. Darkened from #8a93a3 (~3:1 on white, below WCAG AA) to
+       ~4.9:1 so muted copy reads clearly on white across every screen. */
+    --muted-foreground: #5d6675;
     --accent: rgba(195, 152, 46, 0.12);
     --accent-foreground: #6b5210;
     --destructive: #e5484d;
-    --border: rgba(27, 35, 54, 0.08);
+    --border: rgba(27, 35, 54, 0.1);
     --input: #f4f5f7;
     --ring: rgba(195, 152, 46, 0.5);
     --chart-1: #c3982e;
     --sidebar: #ffffff;
-    --sidebar-foreground: #5c6573;
+    /* Inactive nav / labels: darkened a touch for legibility. */
+    --sidebar-foreground: #4d5667;
     --sidebar-primary: #c3982e;
     --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: rgba(27, 35, 54, 0.05);
     --sidebar-accent-foreground: #1b2336;
     --sidebar-border: rgba(27, 35, 54, 0.07);
     --sidebar-ring: rgba(195, 152, 46, 0.5);
-    --eyebrow: rgba(138, 147, 163, 0.9);
+    --eyebrow: rgba(77, 86, 103, 0.95);
     --ambient-glow-top-left: transparent;
     --ambient-glow-top-right: transparent;
     --ambient-glow-bottom: transparent;
