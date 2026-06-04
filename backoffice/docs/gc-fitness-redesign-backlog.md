@@ -29,12 +29,10 @@ Status: ☐ todo · ◐ in progress · ☑ done. Companion to
 - ☑ **B2** Habits Library: habit thumbnail + dropped Reminder column.
 - ☑ **B3** Habits Assignments: vertical list grouped by habit title.
 - ☑ **B4** New Exercise → modal over library (workout creator stays a route).
-- ☐ **B5** Hide/delete habits from the standard (GLOBAL) library. NOT a per-doc
-  `deleted` flip (globals are shared across all trainers). Needs a **per-trainer
-  hidden-set** (`habit_template_hidden/{trainerUid}` doc or subcollection) that
-  `listHabitTemplates` filters out + an unhide affordance + a NEW owner-scoped
-  firestore rule + a matching `firestore-tests` suite (happy + spoofed-owner
-  deny) per the mandatory rules gate.
+- ☑ **B5** Hide/unhide GLOBAL habits per-trainer via `habit_template_hidden/{uid}`
+  (owner-scoped rule + rules test, gate green); "Ocultar de mi biblioteca" +
+  "Mostrar ocultos / Restaurar". Rule lives in the gc-fitness repo on branch
+  `feat/habit-template-hidden-rule` (needs deploy/PR there).
 - ☑ **B6** Habit delete confirm shows assignment impact (informational; truthful
   that soft-delete does NOT cascade).
 
@@ -54,8 +52,18 @@ Status: ☐ todo · ◐ in progress · ☑ done. Companion to
   ejercicio" added to `ClientHeader`.
 
 ## D. i18n — deep forms (pre-existing debt)
-- ☐ **D1** Deep forms/dialogs still English-only (exercise/habit forms, schedule
-  dialogs, habit detail). Route through the catalog (es-first), incrementally.
+- ☑ **D1** Exercise/habit forms were already catalog-driven (the English seen was
+  the en locale). Routed the last English-only wrappers (New Exercise route +
+  modal). Catalogs synced (1376 keys each). Remaining: 4 Spanish-inline schedule
+  dialogs would still show Spanish if the portal is switched to English — optional
+  en-symmetry polish, not a Spanish-portal bug.
+
+## E. Polish (this round)
+- ☑ Light-theme contrast: muted text #8a93a3 (~3:1) → #5d6675 (~4.9:1), darker
+  sidebar/eyebrow/border, nav group labels /50→/70. Token-level, all screens.
+- ☑ Mobile usability pass (iPhone web ~390px): no horizontal page overflow,
+  grids→1col, tables/PillTabs scroll in-box, agenda toolbar wraps + grid scrolls,
+  dialogs/modals fit, rows wrap (time+actions to 2nd line), tap targets ≥44px.
 
 ## Notes / constraints
 - Tokens only (both themes). Preserve all data/logic/server-actions. Spanish-first.
