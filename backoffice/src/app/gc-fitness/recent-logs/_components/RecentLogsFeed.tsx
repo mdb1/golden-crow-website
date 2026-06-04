@@ -334,6 +334,14 @@ function RecentLogItem({
 }) {
   const CatIcon = CATEGORY_ICON[row.category];
   const openProfile = () => router.push(`/gc-fitness/clients/${row.clientId}`);
+  // The client name is already shown as the gold link, but row.title also
+  // embeds it (e.g. "Ezcurra - Workout completed: …"). Strip the leading name
+  // + separator so it isn't shown twice; fall back to the full title if it
+  // doesn't lead with the name (e.g. reschedule/system rows).
+  const actionTitle = row.title.startsWith(row.clientName)
+    ? row.title.slice(row.clientName.length).replace(/^[\s\-–—·:]+/, "") ||
+      row.title
+    : row.title;
   return (
     <div
       role="button"
@@ -363,8 +371,8 @@ function RecentLogItem({
               {row.clientName}
             </span>
           )}
-          <span className="min-w-0 break-words text-sm text-muted-foreground sm:truncate">
-            {row.title}
+          <span className="min-w-0 break-words text-sm text-foreground sm:truncate">
+            {actionTitle}
           </span>
           <span
             aria-hidden

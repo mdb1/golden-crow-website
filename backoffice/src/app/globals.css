@@ -270,9 +270,10 @@
     --secondary: #eef0f4;
     --secondary-foreground: #1b2336;
     --muted: #f1f2f5;
-    /* Secondary text. Darkened from #8a93a3 (~3:1 on white, below WCAG AA) to
-       ~4.9:1 so muted copy reads clearly on white across every screen. */
-    --muted-foreground: #5d6675;
+    /* Secondary text. Darkened further (operator feedback: still too light) —
+       #8a93a3 (~3:1) → #5d6675 (~4.9:1) → #4a5365 (~7:1 on white). Strong,
+       readable secondary copy across every screen. */
+    --muted-foreground: #4a5365;
     --accent: rgba(195, 152, 46, 0.12);
     --accent-foreground: #6b5210;
     --destructive: #e5484d;
