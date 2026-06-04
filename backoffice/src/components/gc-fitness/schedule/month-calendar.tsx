@@ -20,8 +20,8 @@
 // mutation invalidates it.
 
 import Link from "next/link";
-import { useCallback, useMemo, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   useMutation,
@@ -222,10 +222,8 @@ export function MonthCalendar({
 }: MonthCalendarProps) {
   const t = useTranslations("schedule.calendar");
   const tNav = useTranslations("nav");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [, startUrlTransition] = useTransition();
 
   const [monthFirst, setMonthFirst] = useState(initialMonthFirst);
   const [view, setView] = useState<CalendarView>("month");
@@ -298,11 +296,18 @@ export function MonthCalendar({
       // which collided with the new default-empty behavior.
       const ids = Array.from(nextSelected);
       params.set("clientIds", ids.join(","));
-      startUrlTransition(() => {
-        router.replace(`?${params.toString()}`, { scroll: false });
-      });
+      // Shallow URL update (Next.js-supported) instead of router.replace.
+      // router.replace re-ran the force-dynamic page.tsx — re-reading the
+      // whole selection's assignments + habits SERVER-side — on EVERY toggle,
+      // and that navigation raced with the client-side React Query call to the
+      // `listMonthForClients` server action: the nav could strand the
+      // in-flight call, leaving `isFetching` stuck `true` forever (the
+      // calendar "loading" that only cleared once you picked another client).
+      // history.replaceState keeps the URL bookmark/reload-safe with no
+      // navigation, no redundant server re-fetch, and no aborted query.
+      window.history.replaceState(null, "", `?${params.toString()}`);
     },
-    [searchParams, router],
+    [searchParams],
   );
 
   function setMonthAndSync(nextMonth: string) {
@@ -311,10 +316,9 @@ export function MonthCalendar({
   }
 
   function toggleClient(uid: string) {
-    // syncUrl() triggers router.replace + startTransition, which are side
-    // effects — must run in the event handler, NOT inside the setState updater
-    // (the updater runs during render → "Cannot update Router while rendering").
-    // Mirrors selectAll / clearAll below.
+    // syncUrl() updates the URL (history.replaceState) — a side effect, so it
+    // runs in the event handler, NOT inside the setState updater (the updater
+    // can re-run during render). Mirrors selectAll / clearAll below.
     const next = new Set(selectedIds);
     if (next.has(uid)) next.delete(uid);
     else next.add(uid);
@@ -1332,7 +1336,10 @@ function ClientDayCell({
               }}
               onClick={() => onClickChip(w)}
               className={cn(
-                "relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-lg border px-2 py-1.5 text-left text-[11px] leading-tight hover:brightness-95",
+                // Same chip styling as the month grid's DayCell so workouts
+                // read identically across all views (the trainer preferred the
+                // 30-day look): compact rectangle + status dog-ear.
+                "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
                 workoutChipClass(w.status),
               )}
               title={
@@ -1357,33 +1364,42 @@ function ClientDayCell({
         })}
 
         {/* Individual habit chips (one per habit) so the coach can see and open
-            each one — a collapsed "N hábitos" count hid them. Each opens its own
-            detail and carries its own completion status. */}
-        {habits.map((h) => (
-          <button
-            key={h.id}
-            type="button"
-            onClick={() => onClickHabit(h)}
-            className={cn(
-              "flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-full border px-2 py-1 text-left text-[11px] font-medium leading-tight hover:brightness-95",
-              habitChipClass(h.status),
-            )}
-            title={`${h.habitName} · ${h.status}`}
-          >
-            <HabitStatusGlyph status={h.status} />
-            <span className="min-w-0 flex-1 truncate">{h.habitName}</span>
-          </button>
-        ))}
-
-        {isEmpty ? (
-          <AddPopover
-            civil={civil}
-            onPick={onClickAdd}
-            showWorkouts={showWorkouts}
-            showHabits={showHabits}
-            variant="cell"
-          />
+            each one. Same compact, wrapping "pill" treatment as the month
+            grid's DayCell — visually distinct from the rectangular workout
+            chips (the trainer preferred the 30-day look across all views). */}
+        {habits.length > 0 ? (
+          <div className="flex min-w-0 flex-wrap gap-1">
+            {habits.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => onClickHabit(h)}
+                className={cn(
+                  "inline-flex max-w-full items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
+                  habitChipClass(h.status),
+                )}
+                title={`${h.habitName} · ${h.status}`}
+              >
+                <HabitStatusGlyph status={h.status} />
+                <span className="min-w-0 max-w-full truncate">
+                  {h.habitName}
+                </span>
+              </button>
+            ))}
+          </div>
         ) : null}
+
+        {/* The add affordance is ALWAYS present: a prominent dashed fill when
+            the cell is empty, and a slim "+" mini-row below the chips when it
+            already has content — so a day with a workout/habit can still take
+            another one (this was missing, the "+" only showed on empty cells). */}
+        <AddPopover
+          civil={civil}
+          onPick={onClickAdd}
+          showWorkouts={showWorkouts}
+          showHabits={showHabits}
+          variant={isEmpty ? "cell" : "row"}
+        />
       </div>
     </td>
   );
@@ -1483,8 +1499,10 @@ function AddPopover({
   showWorkouts: boolean;
   showHabits: boolean;
   /** "icon" = compact reveal-on-hover "+" (month grid header). "cell" = full
-   *  dashed add affordance filling an empty week/3-day cell (screenshot). */
-  variant?: "icon" | "cell";
+   *  dashed add affordance filling an empty week/3-day cell. "row" = slim
+   *  always-visible "+" mini-row appended below existing chips so a week/3-day
+   *  cell that already has content can still take another workout/habit. */
+  variant?: "icon" | "cell" | "row";
 }) {
   const [open, setOpen] = useState(false);
   const enabled: Array<"workout" | "habit"> = [
@@ -1501,7 +1519,14 @@ function AddPopover({
   );
   const cellTriggerClass =
     "flex min-h-[40px] w-full flex-1 items-center justify-center rounded-xl border border-dashed border-foreground/20 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
-  const triggerClass = variant === "cell" ? cellTriggerClass : iconTriggerClass;
+  const rowTriggerClass =
+    "flex h-6 w-full items-center justify-center rounded-md border border-dashed border-foreground/15 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
+  const triggerClass =
+    variant === "cell"
+      ? cellTriggerClass
+      : variant === "row"
+        ? rowTriggerClass
+        : iconTriggerClass;
   const plusClass = variant === "cell" ? "size-4" : "size-3.5";
 
   // Neither type shown → nothing to add.
