@@ -80,8 +80,9 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
   const t = useTranslations("recentLogs.workoutDetail");
   const groups = groupSetsByExercise(detail.sets);
   const restMap = restBySetLogId(detail.sets);
+  const completedAtForDisplay = resolveCompletedAtForDisplay(detail);
   const sessionDate = formatDateOnly(
-    detail.completedAt ?? detail.startedAt,
+    completedAtForDisplay ?? detail.startedAt,
     detail.clientTimezone,
   );
 
@@ -111,7 +112,10 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
             }
           />
           <Metric label={t("metricStarted")} value={formatDateTime(detail.startedAt, detail.clientTimezone)} />
-          <Metric label={t("metricCompleted")} value={formatDateTime(detail.completedAt, detail.clientTimezone)} />
+          <Metric
+            label={t("metricCompleted")}
+            value={formatDateTime(completedAtForDisplay, detail.clientTimezone)}
+          />
           <Metric label={t("metricExercises")} value={String(detail.exerciseCount)} />
           <Metric label={t("metricSetsLogged")} value={`${detail.completedSetCount}/${detail.setCount}`} />
           <Metric label={t("metricLogId")} value={detail.id} mono />
@@ -365,6 +369,25 @@ function formatDateOnly(iso: string | null, timeZone: string): string | null {
     day: "numeric",
     timeZone,
   });
+}
+
+function resolveCompletedAtForDisplay(detail: WorkoutLogDetail): string | null {
+  const startedAt = detail.startedAt;
+  const completedAt = detail.completedAt;
+  const durationSeconds = detail.durationSeconds;
+
+  if (completedAt && startedAt && completedAt !== startedAt) {
+    return completedAt;
+  }
+
+  if (durationSeconds !== null && durationSeconds > 0 && startedAt) {
+    const startMs = Date.parse(startedAt);
+    if (!Number.isNaN(startMs)) {
+      return new Date(startMs + durationSeconds * 1000).toISOString();
+    }
+  }
+
+  return completedAt ?? startedAt;
 }
 
 // Human rest gap between two consecutive set timestamps.

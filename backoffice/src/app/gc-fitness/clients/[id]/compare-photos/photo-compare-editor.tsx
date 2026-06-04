@@ -48,6 +48,7 @@ export function ProgressPhotoCompareEditor({
     ? buildCompareDownloadName({
         clientName,
         angle,
+        variant: mode === "slider" ? "slider" : "compare",
         before,
         after,
         timezone,
@@ -260,19 +261,19 @@ async function exportSideBySideJpg({
   ]);
   const logoImg = await loadInlineImage(GOLDENCROW_LOGO_DATA_URI);
 
-  const outerMargin = 96;
+  const outerMargin = 24;
   const panelWidth = 1320;
-  const panelHeight = 1760;
-  const gap = 56;
-  const labelHeight = 140;
-  const cornerRadius = 42;
+  const panelHeight = 1820;
+  const gap = 24;
+  const footerHeight = 220;
+  const cornerRadius = 40;
   const canvas = document.createElement("canvas");
   canvas.width = panelWidth * 2 + gap * 3 + outerMargin * 2;
   canvas.height = panelHeight + gap * 2 + outerMargin * 2;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawPanel({
@@ -284,8 +285,9 @@ async function exportSideBySideJpg({
     height: panelHeight,
     label: photoDisplayDate(before, timezone, locale),
     title: "Before",
-    labelHeight,
+    footerHeight,
     radius: cornerRadius,
+    logoImg,
   });
 
   drawPanel({
@@ -297,11 +299,10 @@ async function exportSideBySideJpg({
     height: panelHeight,
     label: photoDisplayDate(after, timezone, locale),
     title: "After",
-    labelHeight,
+    footerHeight,
     radius: cornerRadius,
+    logoImg,
   });
-
-  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
   if (!blob) return;
@@ -350,11 +351,11 @@ async function exportSliderSnapshotJpg({
   ]);
   const logoImg = await loadInlineImage(GOLDENCROW_LOGO_DATA_URI);
 
-  const outerMargin = 96;
-  const labelHeight = 140;
-  const cornerRadius = 42;
-  const targetPanelWidth = 1640;
-  const targetPanelHeight = Math.round(targetPanelWidth * (cssHeight / cssWidth));
+  const outerMargin = 16;
+  const labelHeight = 160;
+  const cornerRadius = 40;
+  const targetPanelWidth = 1080;
+  const targetPanelHeight = 1440;
   const dividerWidth = 4;
   const scaleRatio = targetPanelWidth / cssWidth;
 
@@ -364,7 +365,7 @@ async function exportSliderSnapshotJpg({
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const panelX = outerMargin;
@@ -414,18 +415,24 @@ async function exportSliderSnapshotJpg({
 
   ctx.restore();
 
-  // Bottom labels (Before — date | After — date) outside the rounded panel.
+  // Bottom labels sit in the black footer so they wrap to two lines and do
+  // not clash with the photo crop.
   const beforeLabel = photoDisplayDate(before, timezone, locale);
   const afterLabel = photoDisplayDate(after, timezone, locale);
-  ctx.fillStyle = "#111111";
-  ctx.font = "700 54px system-ui, -apple-system, sans-serif";
-  const labelY = panelY + panelH + 86;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 46px system-ui, -apple-system, sans-serif";
+  const labelY = panelY + panelH + 44;
   ctx.textAlign = "left";
-  ctx.fillText(`Before · ${beforeLabel}`, panelX, labelY);
+  ctx.fillText("Before", panelX, labelY);
+  ctx.font = "500 32px system-ui, -apple-system, sans-serif";
+  ctx.fillText(beforeLabel, panelX, labelY + 40);
   ctx.textAlign = "right";
-  ctx.fillText(`After · ${afterLabel}`, panelX + panelW, labelY);
+  ctx.font = "700 46px system-ui, -apple-system, sans-serif";
+  ctx.fillText("After", panelX + panelW, labelY);
+  ctx.font = "500 32px system-ui, -apple-system, sans-serif";
+  ctx.fillText(afterLabel, panelX + panelW, labelY + 40);
 
-  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height);
+  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height, true);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
   if (!blob) return;
@@ -475,31 +482,33 @@ function drawContainedWithTransform({
 function drawPanel({
   ctx,
   img,
+  logoImg,
   x,
   y,
   width,
   height,
   label,
   title,
-  labelHeight,
+  footerHeight,
   radius,
 }: {
   ctx: CanvasRenderingContext2D;
   img: HTMLImageElement;
+  logoImg: HTMLImageElement;
   x: number;
   y: number;
   width: number;
   height: number;
   label: string;
   title: string;
-  labelHeight: number;
+  footerHeight: number;
   radius: number;
 }) {
-  const framePadding = 38;
+  const framePadding = 20;
   const contentX = x + framePadding;
   const contentY = y + framePadding;
   const contentWidth = width - framePadding * 2;
-  const contentHeight = height - framePadding * 2 - labelHeight;
+  const contentHeight = height - framePadding * 2 - footerHeight;
 
   ctx.save();
   roundedRectPath(ctx, x, y, width, height, radius);
@@ -516,10 +525,20 @@ function drawPanel({
   ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 58px system-ui, -apple-system, sans-serif";
-  ctx.fillText(title, x + framePadding, height - labelHeight + 58);
-  ctx.font = "500 42px system-ui, -apple-system, sans-serif";
-  ctx.fillText(label, x + framePadding, height - labelHeight + 108);
+  ctx.font = "700 60px system-ui, -apple-system, sans-serif";
+  const footerTop = height - footerHeight + 56;
+  ctx.fillText(title, x + framePadding, footerTop);
+  ctx.font = "500 38px system-ui, -apple-system, sans-serif";
+  ctx.fillText(label, x + framePadding, footerTop + 50);
+
+  const logoSize = 160;
+  const logoMargin = 18;
+  const logoX = x + width - framePadding - logoSize;
+  const logoY = y + height - footerHeight + footerHeight - logoMargin - logoSize;
+  ctx.save();
+  ctx.globalAlpha = 0.98;
+  ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+  ctx.restore();
   ctx.restore();
 }
 
@@ -528,9 +547,10 @@ function drawWatermarkLogo(
   logoImg: HTMLImageElement,
   canvasWidth: number,
   canvasHeight: number,
+  anchoredBottomRight = false,
 ) {
-  const size = 116;
-  const margin = 48;
+  const size = anchoredBottomRight ? 170 : 128;
+  const margin = anchoredBottomRight ? 24 : 40;
 
   ctx.save();
   ctx.globalAlpha = 0.92;
@@ -555,6 +575,7 @@ async function loadInlineImage(src: string): Promise<HTMLImageElement> {
 function buildCompareDownloadName({
   clientName,
   angle,
+  variant,
   before,
   after,
   timezone,
@@ -562,6 +583,7 @@ function buildCompareDownloadName({
 }: {
   clientName: string;
   angle: Angle;
+  variant: "slider" | "compare";
   before: ProgressPhotoRow;
   after: ProgressPhotoRow;
   timezone: string;
@@ -570,7 +592,7 @@ function buildCompareDownloadName({
   const clientSlug = slugifyFilePart(clientName, "alumno");
   const beforeLabel = photoExportDate(before, timezone, locale);
   const afterLabel = photoExportDate(after, timezone, locale);
-  return `compare-${clientSlug}-${angle}-${beforeLabel}-vs${afterLabel}.jpg`;
+  return `${variant}-${clientSlug}-${angle}-${beforeLabel}-vs${afterLabel}.jpg`;
 }
 
 function formatFilenameFriendlyDate(isoOrCivil: string, timezone: string, locale: string): string {
