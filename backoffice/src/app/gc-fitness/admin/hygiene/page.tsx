@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { listDataHygienePage, type DataHygienePage } from "@/lib/gc-fitness/data-hygiene-actions";
 
@@ -54,27 +55,25 @@ export default async function DataHygienePage({
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Data hygiene</h1>
-          <p className="text-sm text-muted-foreground">
-            Inspect orphaned users, chats, images, workouts and other suspicious records before they pile up.
-          </p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/gc-fitness/admin">Back to admin</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Data hygiene"
+        subtitle="Inspect orphaned users, chats, images, workouts and other suspicious records before they pile up."
+        actions={
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link href="/gc-fitness/admin">Back to admin</Link>
+          </Button>
+        }
+      />
 
       {op && ok === "1" ? (
-        <div className="rounded-lg border border-emerald-400/45 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200">
+        <div className="rounded-2xl border border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] px-4 py-3 text-sm text-[color:var(--badge-success-fg)]">
           Action completed: {op}.
         </div>
       ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>What this page does</CardTitle>
+          <CardTitle className="text-xl">What this page does</CardTitle>
           <CardDescription>
             The scan is intentionally conservative: it only shows records that look orphaned or structurally odd in the current sample window.
           </CardDescription>

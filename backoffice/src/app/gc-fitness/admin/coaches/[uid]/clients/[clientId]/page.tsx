@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
 import { ProgressPhotosGridClient } from "@/app/gc-fitness/clients/[id]/_components/ProgressPhotosGridClient";
@@ -70,7 +71,7 @@ export default async function AdminCoachClientPage({
     typeof storedTimezone === "string" && storedTimezone ? storedTimezone : "UTC";
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
+    <div className="gc-page flex flex-col gap-6">
       <div>
         <Link
           href={`/gc-fitness/admin/coaches/${uid}`}
@@ -80,17 +81,19 @@ export default async function AdminCoachClientPage({
         </Link>
       </div>
 
-      <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">{clientName}</h1>
-          <Badge variant="secondary">Read-only</Badge>
-        </div>
-        <p className="text-xs text-muted-foreground">Client UID: {clientId}</p>
-      </header>
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {clientName}
+            <Badge variant="secondary">Read-only</Badge>
+          </span>
+        }
+        subtitle={`Client UID: ${clientId}`}
+      />
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Recent activity</CardTitle>
+          <CardTitle className="text-xl">Recent activity</CardTitle>
         </CardHeader>
         <CardContent>
           {/* showActions=false — admin is read-only and the chat / workout-detail
@@ -112,7 +115,7 @@ export default async function AdminCoachClientPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Progress photos</CardTitle>
+          <CardTitle className="text-xl">Progress photos</CardTitle>
         </CardHeader>
         <CardContent>
           {photos.length > 0 ? (

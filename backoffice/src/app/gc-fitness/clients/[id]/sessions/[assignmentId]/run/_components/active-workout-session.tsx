@@ -288,7 +288,7 @@ export function ActiveWorkoutSession({
       </div>
 
       <div className="px-1 pt-4">
-        <h1 className="font-heading text-2xl font-bold">{workoutName}</h1>
+        <h1 className="gc-page-title text-2xl sm:text-3xl">{workoutName}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {live.doneCount} / {live.totalPlanned} series completadas
         </p>
@@ -411,11 +411,15 @@ export function ActiveWorkoutSession({
       {/* Finalize bar */}
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-border/60 bg-background/90 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => setCancelOpen(true)}>
+          <Button
+            variant="outline"
+            className="h-12 flex-1 rounded-full text-base"
+            onClick={() => setCancelOpen(true)}
+          >
             Cancelar
           </Button>
           <Button
-            className="flex-1"
+            className="h-12 flex-1 rounded-full text-base"
             onClick={() => setFinalizeOpen(true)}
             disabled={finishing}
           >

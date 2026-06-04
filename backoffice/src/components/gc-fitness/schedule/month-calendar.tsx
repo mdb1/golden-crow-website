@@ -19,6 +19,7 @@
 // `["schedule-month", monthFirst, clientIds.sorted().joined(",")]`. Every
 // mutation invalidates it.
 
+import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -28,7 +29,6 @@ import {
 } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
-  CalendarCheck,
   Check as CheckIcon,
   CheckCircle2,
   ChevronLeftIcon,
@@ -41,6 +41,10 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
+import { PillTabs } from "@/components/gc-fitness/pill-tabs";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { cn } from "@/lib/utils";
 
 import {
@@ -67,6 +71,7 @@ interface ClientLite {
   uid: string;
   displayName: string;
   email: string;
+  photoURL?: string | null;
 }
 
 interface MonthCalendarProps {
@@ -457,10 +462,89 @@ export function MonthCalendar({
     setPickClientForDate({ date: civil, kind });
   }
 
+  function openHabitDetail(h: MonthHabitChip) {
+    const habitId = h.id.slice(0, h.id.length - h.civilDate.length - 1);
+    const c = clients.find((x) => x.uid === h.clientId);
+    setDetailHabit({
+      habitId,
+      civilDate: h.civilDate,
+      clientName: c?.displayName ?? h.clientId,
+    });
+  }
+
+  const viewSwitcher = (
+    <PillTabs
+      size="sm"
+      activeKey={view}
+      items={[
+        { key: "3day", label: "3 Días", onSelect: () => setView("3day") },
+        { key: "week", label: "Semana", onSelect: () => setView("week") },
+        { key: "month", label: "Mes", onSelect: () => setView("month") },
+      ]}
+    />
+  );
+
+  const rangeNav = (
+    <div className="inline-flex items-center gap-1 rounded-full border bg-card p-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 rounded-full"
+        onClick={goPrev}
+        aria-label="Anterior"
+      >
+        <ChevronLeftIcon className="h-4 w-4" />
+      </Button>
+      <span className="min-w-[10ch] px-1 text-center text-sm font-semibold tracking-tight">
+        {rangeTitle}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 rounded-full"
+        onClick={goNext}
+        aria-label="Siguiente"
+      >
+        <ChevronRightIcon className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Agenda"
+        subtitle="Planifica y asigna entrenamientos a tus clientes"
+        actions={
+          <>
+            {viewSwitcher}
+            {rangeNav}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={goToday}
+            >
+              Hoy
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              asChild
+            >
+              <Link href="/gc-fitness/schedule/bulk">Asignación masiva</Link>
+            </Button>
+            {isFetching ? (
+              <span className="text-xs text-muted-foreground">Cargando…</span>
+            ) : null}
+          </>
+        }
+      />
+
       {/* ── Client filter bar ─────────────────────────────────────────── */}
-      <section className="rounded-xl border bg-card/95 p-4">
+      <section className="rounded-[1.25rem] border bg-card/95 p-4 shadow-sm">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-medium">
@@ -550,154 +634,195 @@ export function MonthCalendar({
         </div>
       </section>
 
-      {/* ── Calendar nav + view switcher ──────────────────────────────── */}
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goPrev}
-            aria-label="Anterior"
-          >
-            <ChevronLeftIcon className="h-4 w-4" />
-          </Button>
-          <h2 className="min-w-[12ch] text-center text-2xl font-semibold tracking-tight">
-            {rangeTitle}
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goNext}
-            aria-label="Siguiente"
-          >
-            <ChevronRightIcon className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg border p-0.5">
-            {(
-              [
-                ["month", "Mes"],
-                ["week", "Semana"],
-                ["3day", "3 días"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setView(value)}
-                className={cn(
-                  "rounded-md px-3 py-1 text-xs font-medium transition",
-                  view === value
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={goToday}>
-            Hoy
-          </Button>
-          {isFetching ? (
-            <span className="text-xs text-muted-foreground">Cargando…</span>
-          ) : null}
-        </div>
-      </header>
-
-      {/* ── Weekday header row ─────────────────────────────────────────── */}
-      <div className="overflow-x-auto pb-1">
-        <div
-          className={cn(
-            "grid min-w-[760px] gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:min-w-0",
-            gridColsClass,
-          )}
-        >
-          {view === "month"
-            ? WEEKDAY_HEADERS.map((d) => (
-                <div key={d} className="text-center">
-                  {d}
-                </div>
-              ))
-            : cells.map(({ civil }) => (
-                <div key={civil} className="text-center">
-                  {WEEKDAY_HEADERS[mondayIndex(civil)]} {shortDateLabel(civil)}
-                </div>
-              ))}
-        </div>
-      </div>
-
-      {/* ── Calendar grid ──────────────────────────────────────────────── */}
+      {/* ── Calendar surface ───────────────────────────────────────────── */}
       {selectedIds.size === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+        <div className="rounded-[1.25rem] border border-dashed p-10 text-center text-sm text-muted-foreground">
           Elegí uno o más clientes arriba para ver su agenda.
         </div>
+      ) : view === "month" ? (
+        // ── Month view: classic calendar grid in a framed card ──────────
+        <Card className="overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <div className="min-w-[760px] p-3 md:min-w-0">
+              <div
+                className={cn(
+                  "grid gap-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+                  gridColsClass,
+                )}
+              >
+                {WEEKDAY_HEADERS.map((d) => (
+                  <div key={d} className="text-center">
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className={cn("grid gap-2", gridColsClass)}>
+                {cells.map(({ civil, inMonth }) => {
+                  const workouts = showWorkouts
+                    ? (payload.workoutsByDay[civil] ?? []).filter((w) =>
+                        selectedIds.has(w.clientId),
+                      )
+                    : [];
+                  const habits = showHabits
+                    ? (payload.habitsByDay[civil] ?? []).filter((h) =>
+                        selectedIds.has(h.clientId),
+                      )
+                    : [];
+                  const isToday = civil === todayCivil;
+                  const dayNumber = Number(civil.slice(8, 10));
+                  return (
+                    <DayCell
+                      key={civil}
+                      civil={civil}
+                      dayNumber={dayNumber}
+                      inMonth={inMonth}
+                      isToday={isToday}
+                      workouts={workouts}
+                      habits={habits}
+                      clients={clients}
+                      showWorkouts={showWorkouts}
+                      showHabits={showHabits}
+                      cellMinHClass={cellMinHClass}
+                      isDragOver={dragOverDay === civil}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverDay(civil);
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverDay === civil) setDragOverDay(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        onCellDrop(civil);
+                      }}
+                      onDragStartChip={(chip) => setDragChip(chip)}
+                      onClickChip={(chip) => setDetailAssignmentId(chip.id)}
+                      onClickHabit={openHabitDetail}
+                      onClickAdd={(kind) => onCellAddClicked(civil, kind)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Card>
       ) : (
-      <div className="overflow-x-auto pb-1">
-      <div className={cn("grid min-w-[760px] gap-2 md:min-w-0", gridColsClass)}>
-        {cells.map(({ civil, inMonth }) => {
-          const workouts = showWorkouts
-            ? (payload.workoutsByDay[civil] ?? []).filter((w) =>
-                selectedIds.has(w.clientId),
-              )
-            : [];
-          const habits = showHabits
-            ? (payload.habitsByDay[civil] ?? []).filter((h) =>
-                selectedIds.has(h.clientId),
-              )
-            : [];
-          const isToday = civil === todayCivil;
-          const dayNumber = Number(civil.slice(8, 10));
-          return (
-            <DayCell
-              key={civil}
-              civil={civil}
-              dayNumber={dayNumber}
-              inMonth={inMonth}
-              isToday={isToday}
-              workouts={workouts}
-              habits={habits}
-              clients={clients}
-              showWorkouts={showWorkouts}
-              showHabits={showHabits}
-              cellMinHClass={cellMinHClass}
-              isDragOver={dragOverDay === civil}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverDay(civil);
-              }}
-              onDragLeave={() => {
-                if (dragOverDay === civil) setDragOverDay(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                onCellDrop(civil);
-              }}
-              onDragStartChip={(chip) => setDragChip(chip)}
-              onClickChip={(chip) => setDetailAssignmentId(chip.id)}
-              onClickHabit={(h) => {
-                const habitId = h.id.slice(
-                  0,
-                  h.id.length - h.civilDate.length - 1,
-                );
-                const c = clients.find((x) => x.uid === h.clientId);
-                setDetailHabit({
-                  habitId,
-                  civilDate: h.civilDate,
-                  clientName: c?.displayName ?? h.clientId,
-                });
-              }}
-              onClickAdd={(kind) => onCellAddClicked(civil, kind)}
-            />
-          );
-        })}
-      </div>
-      </div>
+        // ── Week / 3-day view: clients as rows, days as columns ─────────
+        <Card className="overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-20 w-40 min-w-40 border-b bg-card px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Cliente
+                  </th>
+                  {cells.map(({ civil }) => {
+                    const isToday = civil === todayCivil;
+                    return (
+                      <th
+                        key={civil}
+                        className={cn(
+                          "border-b border-l px-2 py-3 text-center align-bottom",
+                          isToday && "bg-primary/10",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "text-xs font-semibold uppercase tracking-wide",
+                            isToday
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {WEEKDAY_HEADERS[mondayIndex(civil)]}
+                        </div>
+                        <div
+                          className={cn(
+                            "text-lg font-bold tabular-nums",
+                            isToday ? "text-primary" : "text-foreground",
+                          )}
+                        >
+                          {Number(civil.slice(8, 10))}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {clients
+                  .filter((c) => selectedIds.has(c.uid))
+                  .map((client) => (
+                    <tr key={client.uid} className="group/row">
+                      <th
+                        scope="row"
+                        className="sticky left-0 z-10 w-40 min-w-40 border-b bg-card px-4 py-3 text-left align-top"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <ClientAvatar
+                            name={client.displayName}
+                            photoURL={client.photoURL}
+                            size="sm"
+                          />
+                          <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                            {client.displayName}
+                          </span>
+                        </div>
+                      </th>
+                      {cells.map(({ civil }) => {
+                        const workouts = showWorkouts
+                          ? (payload.workoutsByDay[civil] ?? []).filter(
+                              (w) => w.clientId === client.uid,
+                            )
+                          : [];
+                        const habits = showHabits
+                          ? (payload.habitsByDay[civil] ?? []).filter(
+                              (h) => h.clientId === client.uid,
+                            )
+                          : [];
+                        const isToday = civil === todayCivil;
+                        return (
+                          <ClientDayCell
+                            key={civil}
+                            civil={civil}
+                            isToday={isToday}
+                            workouts={workouts}
+                            habits={habits}
+                            showWorkouts={showWorkouts}
+                            showHabits={showHabits}
+                            isDragOver={dragOverDay === civil}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDragOverDay(civil);
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverDay === civil) setDragOverDay(null);
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              onCellDrop(civil);
+                            }}
+                            onDragStartChip={(chip) => setDragChip(chip)}
+                            onClickChip={(chip) =>
+                              setDetailAssignmentId(chip.id)
+                            }
+                            onClickHabit={openHabitDetail}
+                            onClickAdd={(kind) =>
+                              onCellAddClicked(civil, kind)
+                            }
+                          />
+                        );
+                      })}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {/* ── Glossary footer (status colors at a glance) ───────────────── */}
-      <section className="rounded-xl border bg-card/95 p-3 text-xs">
+      <section className="rounded-[1.25rem] border bg-card/95 p-3 text-xs shadow-sm">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Referencia de colores
         </p>
@@ -730,7 +855,7 @@ export function MonthCalendar({
           onClick={() => setPickClientForDate(null)}
         >
           <div
-            className="m-4 max-w-md rounded-xl bg-background p-4 shadow-2xl"
+            className="m-4 max-w-md rounded-[1.25rem] border bg-background p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-2 text-sm font-medium">
@@ -879,7 +1004,7 @@ export function MonthCalendar({
       ) : null}
 
       {clients.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-[1.25rem] border border-dashed p-6 text-center text-sm text-muted-foreground">
           No tenés clientes activos todavía.
         </p>
       ) : null}
@@ -938,21 +1063,21 @@ function DayCell({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "group relative flex flex-col rounded-lg border bg-card p-2.5 transition-colors",
+        "group relative flex flex-col rounded-2xl border bg-card p-2.5 transition-colors",
         cellMinHClass,
         !inMonth && "bg-muted/20 opacity-60",
         // ring-inset so the today highlight draws INSIDE the rounded card —
         // an outset ring-2 gets clipped/doubled by the column/scroll container
         // (esp. in the tall week / 3-day columns on mobile).
-        isToday && "ring-2 ring-inset ring-amber-500",
-        isDragOver && "border-amber-500 bg-amber-50/50 dark:bg-amber-900/10",
+        isToday && "bg-primary/10 ring-2 ring-inset ring-primary/40",
+        isDragOver && "border-primary bg-primary/5",
       )}
     >
       <div className="mb-1 flex items-center justify-between">
         <span
           className={cn(
             "text-xs font-semibold",
-            isToday ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground",
+            isToday ? "text-primary" : "text-muted-foreground",
           )}
         >
           {dayNumber}
@@ -1082,6 +1207,136 @@ function DayCell({
   );
 }
 
+interface ClientDayCellProps {
+  civil: string;
+  isToday: boolean;
+  workouts: MonthWorkoutChip[];
+  habits: MonthHabitChip[];
+  showWorkouts: boolean;
+  showHabits: boolean;
+  isDragOver: boolean;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragStartChip: (chip: MonthWorkoutChip) => void;
+  onClickChip: (chip: MonthWorkoutChip) => void;
+  onClickHabit: (habit: MonthHabitChip) => void;
+  onClickAdd: (kind: "workout" | "habit") => void;
+}
+
+/**
+ * A single client × day cell for the week / 3-day "client rows" table layout
+ * (the screenshot reference). Holds that client's workout chips + a habit
+ * count chip, or a subtle dashed "+" add affordance when the day is empty.
+ * Shares all the same interactions (drag-to-move, click-to-detail, add) as the
+ * month grid's `DayCell`.
+ */
+function ClientDayCell({
+  civil,
+  isToday,
+  workouts,
+  habits,
+  showWorkouts,
+  showHabits,
+  isDragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragStartChip,
+  onClickChip,
+  onClickHabit,
+  onClickAdd,
+}: ClientDayCellProps) {
+  const isEmpty = workouts.length === 0 && habits.length === 0;
+  return (
+    <td
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={cn(
+        "group/cell border-b border-l p-1.5 align-top transition-colors",
+        isToday && "bg-primary/[0.06]",
+        isDragOver && "bg-primary/10",
+      )}
+    >
+      <div className="flex min-h-[88px] min-w-0 flex-col gap-1.5">
+        {workouts.map((w) => {
+          const movedFromLabel = w.originallyScheduledFor
+            ? formatMovedFromLabel(w.originallyScheduledFor, w.scheduledFor)
+            : null;
+          return (
+            <button
+              key={w.id}
+              type="button"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", w.id);
+                onDragStartChip(w);
+              }}
+              onClick={() => onClickChip(w)}
+              className={cn(
+                "relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-lg border px-2 py-1.5 text-left text-[11px] leading-tight hover:brightness-95",
+                workoutChipClass(w.status),
+              )}
+              title={
+                movedFromLabel
+                  ? `${w.templateName} — ${movedFromLabel}`
+                  : w.templateName
+              }
+            >
+              <Dumbbell className="size-3 shrink-0 opacity-80" />
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {w.templateName}
+              </span>
+              {movedFromLabel ? (
+                <ArrowRightLeft
+                  className="size-3 shrink-0 opacity-70"
+                  aria-label={movedFromLabel}
+                />
+              ) : null}
+              <StatusDogear status={w.status} />
+            </button>
+          );
+        })}
+
+        {habits.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onClickHabit(habits[0])}
+            className={cn(
+              "inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium hover:brightness-95",
+              habitChipClass(
+                habits.every((h) => h.status === "done")
+                  ? "done"
+                  : habits.some((h) => h.status === "missed")
+                    ? "missed"
+                    : "scheduled",
+              ),
+            )}
+            title={habits.map((h) => h.habitName).join(", ")}
+          >
+            <Circle className="size-2.5 opacity-70" />
+            {habits.length === 1
+              ? "1 hábito"
+              : `${habits.length} hábitos`}
+          </button>
+        ) : null}
+
+        {isEmpty ? (
+          <AddPopover
+            civil={civil}
+            onPick={onClickAdd}
+            showWorkouts={showWorkouts}
+            showHabits={showHabits}
+            variant="cell"
+          />
+        ) : null}
+      </div>
+    </td>
+  );
+}
+
 /**
  * Build the "originalmente <día>, el cliente lo movió a <día>" hint
  * surfaced in the chip's tooltip + the `ArrowRightLeft` icon's aria
@@ -1169,17 +1424,33 @@ function AddPopover({
   onPick,
   showWorkouts,
   showHabits,
+  variant = "icon",
 }: {
   civil: string;
   onPick: (kind: "workout" | "habit") => void;
   showWorkouts: boolean;
   showHabits: boolean;
+  /** "icon" = compact reveal-on-hover "+" (month grid header). "cell" = full
+   *  dashed add affordance filling an empty week/3-day cell (screenshot). */
+  variant?: "icon" | "cell";
 }) {
   const [open, setOpen] = useState(false);
   const enabled: Array<"workout" | "habit"> = [
     ...(showWorkouts ? (["workout"] as const) : []),
     ...(showHabits ? (["habit"] as const) : []),
   ];
+
+  const iconTriggerClass = cn(
+    "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
+    // Always visible on touch (no hover); reveal-on-hover only where hover exists.
+    open
+      ? "opacity-100"
+      : "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
+  );
+  const cellTriggerClass =
+    "flex min-h-[40px] w-full flex-1 items-center justify-center rounded-xl border border-dashed border-foreground/20 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
+  const triggerClass = variant === "cell" ? cellTriggerClass : iconTriggerClass;
+  const plusClass = variant === "cell" ? "size-4" : "size-3.5";
 
   // Neither type shown → nothing to add.
   if (enabled.length === 0) return null;
@@ -1190,15 +1461,11 @@ function AddPopover({
     return (
       <button
         type="button"
-        className={cn(
-          "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
-          // Always visible on touch (no hover); reveal-on-hover only where hover exists.
-          "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
-        )}
+        className={triggerClass}
         aria-label={`Asignar ${only === "workout" ? "workout" : "hábito"} el ${civil}`}
         onClick={() => onPick(only)}
       >
-        <PlusIcon className="size-3.5" />
+        <PlusIcon className={plusClass} />
       </button>
     );
   }
@@ -1208,16 +1475,10 @@ function AddPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={cn(
-            "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
-            // Always visible on touch (no hover); reveal-on-hover only where hover exists.
-            open
-              ? "opacity-100"
-              : "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
-          )}
+          className={triggerClass}
           aria-label={`Asignar el ${civil}`}
         >
-          <PlusIcon className="size-3.5" />
+          <PlusIcon className={plusClass} />
         </button>
       </PopoverTrigger>
       <PopoverContent

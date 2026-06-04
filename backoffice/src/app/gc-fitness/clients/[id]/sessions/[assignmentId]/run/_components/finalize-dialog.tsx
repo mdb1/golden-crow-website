@@ -73,7 +73,7 @@ export function FinalizeDialog({
                 onValueChange={(v) => setMode(v as FinalizeMode)}
                 className="gap-2"
               >
-                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/60 p-3">
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 p-3">
                   <RadioGroupItem value="session" id="mode-session" className="mt-0.5" />
                   <span>
                     <span className="block text-sm font-medium">Solo esta sesión</span>
@@ -82,7 +82,7 @@ export function FinalizeDialog({
                     </span>
                   </span>
                 </label>
-                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/60 p-3">
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 p-3">
                   <RadioGroupItem
                     value="session_and_future"
                     id="mode-future"
@@ -121,10 +121,11 @@ export function FinalizeDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={finishing}>
+          <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)} disabled={finishing}>
             Cancelar
           </Button>
           <Button
+            className="rounded-full"
             onClick={() =>
               onConfirm(
                 hasSeries ? mode : "session",

@@ -15,13 +15,12 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   MUSCLE_GROUPS,
   EQUIPMENT,
@@ -139,26 +138,62 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
   const showClear = activeCount > 0 || state.search.length > 0;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4">
-      {/* Search input — leading icon, full width on small screens */}
-      <div className="relative">
-        <Search
+    <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-3 shadow-sm">
+      {/* Search row — filter icon + rounded-full search + Todos / Creados por
+          mí pill toggle, matching the redesign reference. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <SlidersHorizontal
           aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="h-4 w-4 shrink-0 text-muted-foreground"
         />
-        <Input
-          type="search"
-          placeholder={t("searchPlaceholder")}
-          value={state.search}
-          onChange={(e) =>
-            setState((s) => ({ ...s, search: e.target.value }))
-          }
-          aria-label={t("searchAria")}
-          className="pl-9"
-        />
+        <div className="relative min-w-[180px] flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            type="search"
+            placeholder={t("searchPlaceholder")}
+            value={state.search}
+            onChange={(e) =>
+              setState((s) => ({ ...s, search: e.target.value }))
+            }
+            aria-label={t("searchAria")}
+            className="h-10 rounded-full pl-9"
+          />
+        </div>
+        <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted/70 p-1">
+          <button
+            type="button"
+            onClick={() => setState((s) => ({ ...s, mineOnly: false }))}
+            data-active={!state.mineOnly}
+            className={cn(
+              "min-h-9 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              !state.mineOnly
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {/* TODO i18n: no "allLabel" key in catalog yet */}
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setState((s) => ({ ...s, mineOnly: true }))}
+            data-active={state.mineOnly}
+            className={cn(
+              "min-h-9 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              state.mineOnly
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t("mineOnlyLabel")}
+          </button>
+        </div>
       </div>
 
-      {/* 3 combobox filters + clear button */}
+      {/* Advanced filters: muscle / equipment / source comboboxes + clear */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex-1 min-w-[180px]">
           <MultiSelectCombobox
@@ -210,21 +245,6 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             max={2}
             formatLabel={(s) => s}
           />
-        </div>
-        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-3 py-1.5">
-          <Checkbox
-            id="filter-mine-only"
-            checked={state.mineOnly}
-            onCheckedChange={(next) =>
-              setState((s) => ({ ...s, mineOnly: next === true }))
-            }
-          />
-          <Label
-            htmlFor="filter-mine-only"
-            className="cursor-pointer text-sm font-normal text-foreground"
-          >
-            {t("mineOnlyLabel")}
-          </Label>
         </div>
         {showClear && (
           <Button

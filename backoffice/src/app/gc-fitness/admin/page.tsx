@@ -16,6 +16,7 @@ import { AdminSubmitButton } from "./_components/admin-submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import {
   Table,
   TableBody,
@@ -99,16 +100,14 @@ export default async function AdminPage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-      <div className="space-y-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Admin Console</h1>
-        <p className="text-sm text-muted-foreground">
-          GC Fitness operator tools. Multi-role is enabled: a user can be trainer and admin at the same time.
-        </p>
-      </div>
+    <div className="gc-page flex flex-col gap-6">
+      <PageHeader
+        title="Admin Console"
+        subtitle="GC Fitness operator tools. Multi-role is enabled: a user can be trainer and admin at the same time."
+      />
 
       {actionMessage ? (
-        <div className="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200">
+        <div className="rounded-2xl border border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] px-4 py-3 text-sm text-[color:var(--badge-success-fg)]">
           {actionMessage}
         </div>
       ) : null}
@@ -116,7 +115,7 @@ export default async function AdminPage({
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Add coach email to allowlist</CardTitle>
+            <CardTitle className="text-xl">Add coach email to allowlist</CardTitle>
             <CardDescription>Store pending coach access emails in Firestore allowlist.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -129,7 +128,7 @@ export default async function AdminPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Promote existing user to admin</CardTitle>
+            <CardTitle className="text-xl">Promote existing user to admin</CardTitle>
             <CardDescription>Keeps trainer role and adds admin role (`trainer` + `admin`) in custom claims.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -143,7 +142,7 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Coach allowlist</CardTitle>
+          <CardTitle className="text-xl">Coach allowlist</CardTitle>
           <CardDescription>Pending allowlist emails (already-trainer emails are hidden).</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -191,7 +190,7 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Coaches</CardTitle>
+          <CardTitle className="text-xl">Coaches</CardTitle>
           <CardDescription>Email, roles, clients, custom workouts, custom exercises.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -223,7 +222,7 @@ export default async function AdminPage({
                     <TableCell>{coach.customWorkoutsCount}</TableCell>
                     <TableCell>{coach.customExercisesCount}</TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="outline" size="sm">
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
                         <Link href={`/gc-fitness/admin/coaches/${coach.uid}`}>View</Link>
                       </Button>
                     </TableCell>
@@ -237,11 +236,11 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent coach activity</CardTitle>
+          <CardTitle className="text-xl">Recent coach activity</CardTitle>
           <CardDescription>Open the dedicated activity view with recurrence grouping and event details.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="rounded-full">
             <Link href="/gc-fitness/admin/coach-activity">Open recent coach activity</Link>
           </Button>
         </CardContent>
@@ -249,11 +248,11 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Data hygiene</CardTitle>
+          <CardTitle className="text-xl">Data hygiene</CardTitle>
           <CardDescription>Scan for orphaned users, chats, images, workouts and other suspicious records.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="rounded-full">
             <Link href="/gc-fitness/admin/hygiene">Open hygiene dashboard</Link>
           </Button>
         </CardContent>
@@ -270,13 +269,13 @@ export default async function AdminPage({
           <form action="/gc-fitness/admin" method="get" className="space-y-3">
             <input type="hidden" name="deleteTarget" value="coach" />
             <Input name="targetUid" required placeholder="coach uid" defaultValue={targetUid} />
-            <Button type="submit" variant="outline">Preview deletion (dry run)</Button>
+            <Button type="submit" variant="outline" className="rounded-full">Preview deletion (dry run)</Button>
           </form>
 
           {coachPreview ? (
-            <div className="rounded-lg border border-amber-400/70 bg-amber-500/10 p-3 text-sm">
+            <div className="rounded-2xl border border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] p-4 text-sm text-[color:var(--badge-warning-fg)]">
               <p className="font-semibold">Preview result</p>
-              <p className="mt-1 text-xs text-muted-foreground">Total docs approx: {coachPreview.totalApprox}</p>
+              <p className="mt-1 text-xs opacity-80">Total docs approx: {coachPreview.totalApprox}</p>
             </div>
           ) : null}
 

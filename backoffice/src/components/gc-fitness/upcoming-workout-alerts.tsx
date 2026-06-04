@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, Pause, Play, Video } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   listUpcomingScheduledWorkouts,
@@ -124,14 +125,14 @@ export function UpcomingWorkoutAlerts() {
   if (visible.length === 0 && permission === "granted") return null;
 
   return (
-    <section className="rounded-xl border border-border/60 bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border/60 bg-card p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-heading text-sm font-semibold">Próximos entrenamientos</h2>
+        <h2 className="gc-page-title text-lg">Próximos entrenamientos</h2>
         {permission !== "granted" ? (
           <Button
             size="sm"
             variant="outline"
-            className="gap-1"
+            className="gap-1 rounded-full"
             onClick={async () => {
               if (typeof Notification === "undefined") return;
               const p = await Notification.requestPermission();
@@ -178,11 +179,11 @@ function UpcomingRow({
   const started = active !== null;
   return (
     <li
-      className={`flex items-center gap-3 rounded-lg border p-3 ${
+      className={`flex items-center gap-3 rounded-2xl border p-3 ${
         started
-          ? "border-sky-500/40 bg-sky-500/5"
+          ? "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)]"
           : imminent
-            ? "border-amber-500/40 bg-amber-500/5"
+            ? "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)]"
             : "border-border/60"
       }`}
     >
@@ -192,9 +193,9 @@ function UpcomingRow({
             {item.clientName} · {item.workoutName}
           </p>
           {started ? (
-            <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+            <Badge variant="brand" className="uppercase tracking-wide">
               En curso
-            </span>
+            </Badge>
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
@@ -202,7 +203,7 @@ function UpcomingRow({
           {started ? "en curso" : countdownLabel(minutes)}
         </p>
         {item.meetingNotes ? (
-          <span className="mt-1 inline-flex items-center gap-1 text-xs text-sky-600">
+          <span className="mt-1 inline-flex items-center gap-1 text-xs text-[color:var(--badge-brand-fg)]">
             <Video className="h-3 w-3" />
             {isUrl(item.meetingNotes) ? (
               <a
@@ -219,7 +220,7 @@ function UpcomingRow({
           </span>
         ) : null}
       </div>
-      <Button asChild size="sm" className="shrink-0 gap-1">
+      <Button asChild size="sm" className="shrink-0 gap-1 rounded-full">
         <Link
           href={`/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`}
         >

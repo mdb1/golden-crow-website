@@ -16,20 +16,22 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Users } from "lucide-react";
-import { useTranslations } from "next-intl";
 import {
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-} from "@tanstack/react-table";
+  Eye,
+  Pencil,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -38,14 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -68,9 +62,9 @@ import {
   type HabitRow,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
-import { makeHabitColumns } from "./columns";
 import { HabitLibraryTable } from "./_components/HabitLibraryTable";
 import { HabitTemplateDetailDialog } from "./_components/HabitTemplateDetailDialog";
+import { RecurrencePill } from "./_components/habit-pills";
 
 export const HABITS_BASE_KEY = ["gc-fitness", "habits"] as const;
 
@@ -108,9 +102,6 @@ export function HabitsLibraryClient({
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "updatedAt", desc: true },
-  ]);
   const [confirmDelete, setConfirmDelete] = useState<HabitRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] =
@@ -175,21 +166,7 @@ export function HabitsLibraryClient({
   );
 
   const columnsT = useTranslations("habits.columns");
-  const columns = useMemo(
-    () => makeHabitColumns(handlers, clientNameMap, columnsT),
-    [handlers, clientNameMap, columnsT],
-  );
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 25 } },
-  });
+  const tTypeLabels = useTranslations("habits.list.typeLabels");
 
   // Soft-delete the whole habit (hides it + its history from the client).
   const handleConfirmDelete = useCallback(async () => {
@@ -271,7 +248,7 @@ export function HabitsLibraryClient({
             type="button"
             variant="outline"
             onClick={() => setBulkAssignOpen(true)}
-            className="gap-2"
+            className="gap-2 rounded-full"
           >
             <Users className="h-4 w-4" />
             {t("bulkAssignCta")}
@@ -279,7 +256,7 @@ export function HabitsLibraryClient({
           <Button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="gap-2"
+            className="gap-2 rounded-full"
           >
             <Plus className="h-4 w-4" />
             {t("createHabitCta")}
@@ -288,7 +265,7 @@ export function HabitsLibraryClient({
       </div>
 
       {/* View toggle: per-client assignments vs reusable template library. */}
-      <div className="inline-flex w-fit rounded-lg border p-0.5 text-sm">
+      <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 p-1 text-sm">
         {(
           [
             ["assignments", t("tabAssignments")],
@@ -300,9 +277,9 @@ export function HabitsLibraryClient({
             type="button"
             onClick={() => setView(value as HabitsView)}
             className={cn(
-              "rounded-md px-4 py-1.5 font-medium transition",
+              "min-h-9 rounded-full px-4 py-1.5 font-medium transition-colors",
               view === value
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -311,18 +288,28 @@ export function HabitsLibraryClient({
         ))}
       </div>
 
-      {/* Filters (search + type apply to both views; client filter only makes
-          sense for assignments). */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          placeholder={t("searchPlaceholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+      {/* Filters (search applies to both views; client filter only makes sense
+          for assignments). Rounded search-row card matching the redesign. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-border bg-card px-3 py-2.5 shadow-sm">
+        <SlidersHorizontal
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-muted-foreground"
         />
+        <div className="relative min-w-[180px] flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder={t("searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-10 rounded-full pl-9"
+          />
+        </div>
         {view === "assignments" ? (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="h-10 w-56 rounded-full">
               <SelectValue placeholder={t("filterByClientPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
@@ -353,121 +340,98 @@ export function HabitsLibraryClient({
           loadingText={t("loading")}
           onRowClick={setSelectedTemplate}
         />
-      ) : (
-        <>
-          <div className="rounded-md border bg-card">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+      ) : isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-32 animate-pulse" />
+          ))}
+        </div>
+      ) : rows.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((row) => {
+            const clientName =
+              clientNameMap.get(row.clientId) ?? row.clientId;
+            const title = row.name.en || row.name.es || columnsT("untitled");
+            return (
+              <Card
+                key={row.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handlers.onView(row)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handlers.onView(row);
+                  }
+                }}
+                className="cursor-pointer transition-colors hover:border-foreground/20"
+              >
+                <CardContent className="flex flex-col gap-3 p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
+                      {title}
+                    </h3>
+                    <div
+                      className="flex shrink-0 items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={columnsT("edit")}
+                        className="-mt-1 h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => handlers.onEdit(row)}
                       >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      {t("loading")}
-                    </TableCell>
-                  </TableRow>
-                ) : table.getRowModel().rows.length > 0 ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      onClick={() => handlers.onView(row.original)}
-                      className="cursor-pointer"
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : isUnfilteredEmpty ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="font-medium">{t("emptyHeadline")}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {t("emptySubtitle")}
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : isFilteredEmpty ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="font-medium">
-                          {t("filteredEmptyHeadline")}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {t("filteredEmptySubtitle")}
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={columnsT("delete")}
+                        className="-mt-1 h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handlers.onDelete(row)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
 
-          {rows.length > 0 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t("pagination", {
-                  current: table.getState().pagination.pageIndex + 1,
-                  total: Math.max(1, table.getPageCount()),
-                })}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  {t("previous")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  {t("next")}
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="violet" className="font-medium">
+                      {tTypeLabels(row.type)}
+                    </Badge>
+                    <RecurrencePill rec={row} t={columnsT} />
+                  </div>
+
+                  {/* TODO i18n: no "assignedTo" key in catalog yet */}
+                  <p className="text-sm text-muted-foreground">
+                    Asignado a{" "}
+                    <span className="font-medium text-foreground">
+                      {clientName}
+                    </span>
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : isUnfilteredEmpty ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <p className="font-medium">{t("emptyHeadline")}</p>
+            <p className="text-sm text-muted-foreground">{t("emptySubtitle")}</p>
+          </CardContent>
+        </Card>
+      ) : isFilteredEmpty ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <p className="font-medium">{t("filteredEmptyHeadline")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("filteredEmptySubtitle")}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <NewHabitDialog
         open={createOpen}

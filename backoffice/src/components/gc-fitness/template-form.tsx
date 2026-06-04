@@ -933,7 +933,7 @@ export function TemplateForm({
 
         {/* Exercises — wrapped in a section card to match the HabitForm
             schedule/reminder visual hierarchy. */}
-        <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="font-heading text-base font-semibold tracking-tight">
               {t("exercises")}
@@ -2182,7 +2182,7 @@ export function TemplateForm({
           >
             {t("cancel")}
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="rounded-full">
             {pending ? t("saving") : mode === "create" ? t("createCta") : t("saveCta")}
           </Button>
         </div>

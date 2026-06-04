@@ -568,7 +568,7 @@ export function ExerciseForm({
               >
                 {t("cancel")}
               </Button>
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending} className="rounded-full">
                 {pending ? t("saving") : t("save")}
               </Button>
             </div>

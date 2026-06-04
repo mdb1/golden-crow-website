@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import {
   Table,
   TableBody,
@@ -93,21 +94,23 @@ export default async function CoachAdminDetailPage({
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Coach detail</h1>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        title="Coach detail"
+        subtitle={
+          <>
             {detail.coach.displayName || "—"} · {detail.coach.email}
-          </p>
-          <p className="font-mono text-xs text-muted-foreground">{detail.coach.uid}</p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/gc-fitness/admin">Back to admin</Link>
-        </Button>
-      </div>
+            <span className="mt-0.5 block font-mono text-xs">{detail.coach.uid}</span>
+          </>
+        }
+        actions={
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link href="/gc-fitness/admin">Back to admin</Link>
+          </Button>
+        }
+      />
 
       {actionMessage ? (
-        <div className="rounded-lg border border-emerald-400/45 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200">
+        <div className="rounded-2xl border border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] px-4 py-3 text-sm text-[color:var(--badge-success-fg)]">
           {actionMessage}
         </div>
       ) : null}
@@ -123,7 +126,7 @@ export default async function CoachAdminDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Linked clients</CardTitle>
+          <CardTitle className="text-xl">Linked clients</CardTitle>
           <CardDescription>Current coach-client relationship and quick actions.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -160,7 +163,7 @@ export default async function CoachAdminDetailPage({
                       </TableCell>
                       <TableCell className="font-mono text-xs">{client.uid}</TableCell>
                       <TableCell>
-                        {client.deleted ? <Badge variant="secondary">deleted</Badge> : <Badge>active</Badge>}
+                        {client.deleted ? <Badge variant="secondary">deleted</Badge> : <Badge variant="success">active</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -175,7 +178,7 @@ export default async function CoachAdminDetailPage({
                               />
                             </form>
                           ) : null}
-                          <Button asChild variant="outline" size="sm">
+                          <Button asChild variant="outline" size="sm" className="rounded-full">
                             <Link href={`/gc-fitness/admin/coaches/${detail.coach.uid}?clientUid=${encodeURIComponent(client.uid)}`}>
                               Use in delete
                             </Link>
@@ -215,8 +218,8 @@ export default async function CoachAdminDetailPage({
           </form>
 
           {clientPreview ? (
-            <div className="rounded-lg border border-amber-400/60 bg-amber-500/10 p-3 text-xs">
-              <p className="font-semibold text-amber-700 dark:text-amber-300">Preview result</p>
+            <div className="rounded-2xl border border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] p-4 text-xs">
+              <p className="font-semibold text-[color:var(--badge-warning-fg)]">Preview result</p>
               {targetInfo?.exists ? (
                 <p className="mt-1 text-muted-foreground">
                   Target: {targetInfo.role ?? "unknown"} · {targetInfo.displayName || targetInfo.email || "—"}
@@ -262,7 +265,7 @@ export default async function CoachAdminDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Pending clients</CardTitle>
+          <CardTitle className="text-xl">Pending clients</CardTitle>
           <CardDescription>Pre-provisioned clients in user_mirror for this coach.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -309,7 +312,7 @@ export default async function CoachAdminDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent admin operations (target coach)</CardTitle>
+          <CardTitle className="text-xl">Recent admin operations (target coach)</CardTitle>
           <CardDescription>From `admin_operations`.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">

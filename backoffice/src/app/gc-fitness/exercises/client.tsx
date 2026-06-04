@@ -244,7 +244,7 @@ export function ExerciseLibraryClient({
           </Alert>
         )}
 
-        <div className="rounded-md border bg-card">
+        <div className="overflow-x-auto rounded-[1.25rem] border border-border bg-card shadow-sm">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

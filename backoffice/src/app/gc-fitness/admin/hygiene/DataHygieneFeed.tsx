@@ -47,14 +47,19 @@ const KIND_ICON: Record<DataHygieneKind, ComponentType<{ className?: string }>> 
   exercise: ImageOff,
 };
 
-const KIND_TONE: Record<DataHygieneKind, string> = {
-  user: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300",
-  chat: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-900 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
-  photo: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
-  template: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  assignment: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
-  log: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
-  exercise: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300",
+// Category accents mapped to the design-system badge token variants so both
+// themes stay in sync (no hardcoded per-shade colors).
+const KIND_VARIANT: Record<
+  DataHygieneKind,
+  "rose" | "violet" | "brand" | "warning" | "secondary"
+> = {
+  user: "rose",
+  chat: "violet",
+  photo: "brand",
+  template: "violet",
+  assignment: "warning",
+  log: "warning",
+  exercise: "secondary",
 };
 
 export function DataHygieneFeed({
@@ -101,7 +106,7 @@ export function DataHygieneFeed({
 
       <Card>
         <CardHeader>
-          <CardTitle>Hygiene summary</CardTitle>
+          <CardTitle className="text-xl">Hygiene summary</CardTitle>
           <CardDescription>Preview of orphaned or suspicious GC Fitness records detected from recent scans.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -115,7 +120,7 @@ export function DataHygieneFeed({
 
       <Card>
         <CardHeader>
-          <CardTitle>Data issues</CardTitle>
+          <CardTitle className="text-xl">Data issues</CardTitle>
           <CardDescription>
             Delete actions are explicit and destructive. Each row points at a record that is either orphaned or in a suspicious state.
           </CardDescription>
@@ -134,7 +139,7 @@ export function DataHygieneFeed({
           )}
           {hasMore ? (
             <div className="border-t px-4 py-3">
-              <Button variant="outline" size="sm" onClick={loadMore} disabled={pending}>
+              <Button variant="outline" size="sm" className="rounded-full" onClick={loadMore} disabled={pending}>
                 {pending ? "Cargando..." : "Cargar más"}
               </Button>
             </div>
@@ -147,7 +152,7 @@ export function DataHygieneFeed({
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border bg-muted/20 px-4 py-3">
+    <div className="rounded-2xl border bg-muted/20 px-4 py-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
     </div>
@@ -161,14 +166,14 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
     <article className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <UiBadge variant="outline" className={`gap-1 px-1.5 py-0 text-[11px] font-normal ${KIND_TONE[row.kind]}`}>
+          <UiBadge variant={KIND_VARIANT[row.kind]} className="gap-1 px-1.5 py-0 text-[11px] font-normal">
             <Icon className="size-3.5" />
             {KIND_LABEL[row.kind]}
           </UiBadge>
           <span className="text-sm font-medium leading-tight">{row.title}</span>
         </div>
         <p className="text-xs text-muted-foreground">{row.detail}</p>
-        <p className="inline-flex items-start gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+        <p className="inline-flex items-start gap-1 rounded-lg border border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] px-2 py-1 text-xs text-[color:var(--badge-warning-fg)]">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
           {row.issue}
         </p>
@@ -195,7 +200,7 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
               event.preventDefault();
             }
           }}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-destructive/60 bg-transparent px-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+          className="inline-flex h-10 items-center justify-center rounded-full border border-destructive/60 bg-transparent px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
         >
           Delete from DB
         </button>

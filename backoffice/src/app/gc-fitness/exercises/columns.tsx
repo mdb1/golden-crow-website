@@ -17,17 +17,11 @@
 // stays free of router / state imports.
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Eye, Copy, Edit, Trash2 } from "lucide-react";
+import { Eye, Copy, Pencil, Trash2 } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -35,6 +29,27 @@ import {
 } from "@/components/ui/tooltip";
 import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
 import type { ExerciseRow } from "@/lib/gc-fitness/exercises-listener";
+
+// Difficulty level → semantic Badge variant per the redesign doc
+// (beginner → success, intermediate → brand, expert/advanced → violet).
+function levelBadgeVariant(
+  level: string | null | undefined,
+): "success" | "brand" | "violet" | "secondary" {
+  const v = (level ?? "").toLowerCase();
+  if (/(beginner|principiante)/.test(v)) return "success";
+  if (/(intermediate|intermedio)/.test(v)) return "brand";
+  if (/(expert|advanced|avanzado)/.test(v)) return "violet";
+  return "secondary";
+}
+
+// Localized-ish display labels for FEXD difficulty levels. The catalog has no
+// dedicated keys yet, so fall back to a humanized version of the raw value.
+const LEVEL_LABELS: Record<string, string> = {
+  beginner: "Principiante",
+  intermediate: "Intermedio",
+  expert: "Avanzado",
+  advanced: "Avanzado",
+};
 
 // Preview-source helpers — local duplicate of the picker pattern
 // (`exercise-picker-popover.tsx`). Lifting to a shared module is out of
@@ -71,28 +86,6 @@ export interface ExerciseColumnHandlers {
   onView: (row: ExerciseRow) => void;
   onDuplicate: (row: ExerciseRow) => void;
   onDelete: (row: ExerciseRow) => void;
-}
-
-const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-
-function formatRelative(iso: string | null): string {
-  if (!iso) return "—";
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "—";
-  const diffMs = then - Date.now();
-  const diffSec = Math.round(diffMs / 1000);
-  const absSec = Math.abs(diffSec);
-  if (absSec < 60) return rtf.format(diffSec, "second");
-  const diffMin = Math.round(diffSec / 60);
-  if (Math.abs(diffMin) < 60) return rtf.format(diffMin, "minute");
-  const diffHr = Math.round(diffMin / 60);
-  if (Math.abs(diffHr) < 24) return rtf.format(diffHr, "hour");
-  const diffDay = Math.round(diffHr / 24);
-  if (Math.abs(diffDay) < 30) return rtf.format(diffDay, "day");
-  const diffMon = Math.round(diffDay / 30);
-  if (Math.abs(diffMon) < 12) return rtf.format(diffMon, "month");
-  const diffYr = Math.round(diffMon / 12);
-  return rtf.format(diffYr, "year");
 }
 
 function formatLabel(s: string): string {
@@ -157,25 +150,21 @@ export function makeColumns(
       ),
     },
     {
-      id: "muscleGroups",
-      header: t("muscles"),
+      id: "category",
+      // TODO i18n: no dedicated "category" header key in the catalog yet.
+      header: "Categoría",
       cell: ({ row }) => {
-        const groups = row.original.muscleGroups;
-        const visible = groups.slice(0, 3);
-        const overflow = groups.length - visible.length;
+        // Prefer the FEXD `category`; fall back to the first muscle group so
+        // legacy / trainer rows that predate the category enrichment still
+        // show something meaningful in the column.
+        const raw = row.original.category ?? row.original.muscleGroups[0] ?? null;
+        if (!raw) {
+          return <span className="text-muted-foreground">—</span>;
+        }
         return (
-          <div className="flex flex-wrap gap-1">
-            {visible.map((m) => (
-              <Badge key={m} variant="secondary" className="font-normal">
-                {formatLabel(m)}
-              </Badge>
-            ))}
-            {overflow > 0 && (
-              <Badge variant="outline" className="font-normal">
-                +{overflow}
-              </Badge>
-            )}
-          </div>
+          <Badge variant="brand" className="font-medium">
+            {formatLabel(raw)}
+          </Badge>
         );
       },
     },
@@ -203,117 +192,104 @@ export function makeColumns(
       },
     },
     {
-      accessorKey: "source",
-      header: t("source"),
+      id: "level",
+      // TODO i18n: no dedicated "difficulty" header key in the catalog yet.
+      header: "Dificultad",
       cell: ({ row }) => {
-        const isLibrary =
-          row.original.source === "wger" ||
-          row.original.source === "free-exercise-db";
+        const level = row.original.level;
+        if (!level) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        const label = LEVEL_LABELS[level.toLowerCase()] ?? formatLabel(level);
         return (
-          <div className="flex flex-wrap gap-1">
-            <Badge variant={isLibrary ? "secondary" : "default"}>
-              {row.original.source === "wger" ? t("sourceWger") : t("sourceCustom")}
-            </Badge>
-            <Badge variant="outline">
-              {isLibrary ? t("ownershipLibrary") : t("ownershipMine")}
-            </Badge>
-          </div>
+          <Badge variant={levelBadgeVariant(level)} className="font-medium">
+            {label}
+          </Badge>
         );
       },
     },
     {
-      accessorKey: "updatedAt",
-      header: t("updated"),
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatRelative(row.original.updatedAt)}
-        </span>
-      ),
-    },
-    {
       id: "actions",
-      header: "",
+      // TODO i18n: no dedicated "actions" header key in the catalog yet.
+      header: "Acciones",
       cell: ({ row }) => {
         // Library exercises (wger + free-exercise-db) are read-only — they
         // canNOT be edited or deleted (the edit page redirects them to /view
         // and the Server Actions reject the write). They get View +
-        // Duplicate-to-customize. Trainer-owned exercises get View + Edit +
-        // Delete. NOTE: gating on `!== "trainer"` (not just `=== "wger"`) is
-        // the fix for the free-exercise-db rows that used to show Edit and
-        // 404'd on click.
+        // Duplicate-to-customize. Trainer-owned exercises get Edit + Delete.
+        // NOTE: gating on `!== "trainer"` (not just `=== "wger"`) is the fix
+        // for the free-exercise-db rows that used to show Edit and 404'd.
         const isLibrary = row.original.source !== "trainer";
 
-        const menu = (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t("actionsAria")}
-                className="h-8 w-8"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isLibrary ? (
-                // Library exercises are read-only: View (read-only detail) +
-                // Duplicate-to-customize.
-                <>
-                  <DropdownMenuItem
-                    onClick={() => handlers.onView(row.original)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    {t("view")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handlers.onDuplicate(row.original)}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    {t("duplicate")}
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                // Trainer-owned: there's no separate read-only "view" — opening
-                // your own exercise IS the editable form. Edit + Delete.
-                <>
-                  <DropdownMenuItem
-                    onClick={() => handlers.onEdit(row.original)}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    {t("edit")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handlers.onDelete(row.original)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    {t("delete")}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-
-        // Stop row-level click (view-on-click) from firing when the trainer
-        // interacts with the actions menu.
-        if (isLibrary) {
-          // Tooltip explaining the Duplicate-to-customize path on the
-          // read-only library rows.
-          return (
+        const buttons = isLibrary ? (
+          // Library: read-only detail + Duplicate-to-customize.
+          <>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div onClick={(e) => e.stopPropagation()}>{menu}</div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("view")}
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlers.onView(row.original);
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
               </TooltipTrigger>
               <TooltipContent>{t("wgerReadOnlyTooltip")}</TooltipContent>
             </Tooltip>
-          );
-        }
-        return <div onClick={(e) => e.stopPropagation()}>{menu}</div>;
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("duplicate")}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlers.onDuplicate(row.original);
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </>
+        ) : (
+          // Trainer-owned: Edit + Delete as direct icon buttons.
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("edit")}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlers.onEdit(row.original);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("delete")}
+              className="h-9 w-9 text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlers.onDelete(row.original);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        );
+
+        return (
+          <div className="flex items-center justify-end gap-1">{buttons}</div>
+        );
       },
       enableSorting: false,
-      size: 56,
+      size: 96,
     },
   ];
 }

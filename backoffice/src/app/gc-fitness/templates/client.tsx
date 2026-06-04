@@ -13,30 +13,36 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
 import {
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-} from "@tanstack/react-table";
+  AlertCircle,
+  Copy,
+  Dumbbell,
+  Pencil,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -59,10 +65,31 @@ import {
 } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
-import {
-  makeTemplateColumns,
-  type TemplateListRow,
-} from "@/components/gc-fitness/templates/columns";
+import type { TemplateListRow } from "@/components/gc-fitness/templates/columns";
+
+// Tag → human label (kept local — small, list-only).
+const TAG_LABELS: Record<string, string> = {
+  push: "Push",
+  pull: "Pull",
+  legs: "Legs",
+  upper: "Upper",
+  lower: "Lower",
+  "full-body": "Full body",
+  custom: "Custom",
+};
+
+// Difficulty-ish tag → semantic Badge variant per the redesign doc.
+// Principiante/beginner → success, Intermedio/intermediate → brand,
+// Avanzado/advanced → violet. Everything else falls back to secondary.
+function tagBadgeVariant(
+  raw: string,
+): "success" | "brand" | "violet" | "secondary" {
+  const v = raw.toLowerCase();
+  if (/(principiante|beginner|f[aá]cil|easy)/.test(v)) return "success";
+  if (/(intermedio|intermediate|medio)/.test(v)) return "brand";
+  if (/(avanzado|advanced|expert|dif[ií]cil|hard)/.test(v)) return "violet";
+  return "secondary";
+}
 
 // localStorage prefix used by template-form.tsx for autosaved drafts.
 // We only surface the "new" key here — edit drafts mutate an existing row.
@@ -105,9 +132,6 @@ export function TemplatesLibraryClient({
   const queryClient = useQueryClient();
   const [tagFilter, setTagFilter] = useState("");
   const [mineOnly, setMineOnly] = useState(false);
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "updatedAt", desc: true },
-  ]);
   const [confirmDelete, setConfirmDelete] =
     useState<WorkoutTemplateRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -233,21 +257,6 @@ export function TemplatesLibraryClient({
   );
 
   const columnsT = useTranslations("templates.columns");
-  const columns = useMemo(
-    () => makeTemplateColumns(handlers, columnsT),
-    [handlers, columnsT],
-  );
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 25 } },
-  });
 
   const handleConfirmDelete = useCallback(async () => {
     if (!confirmDelete) return;
@@ -297,25 +306,53 @@ export function TemplatesLibraryClient({
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          value={tagFilter}
-          onChange={(event) => setTagFilter(event.target.value)}
-          placeholder={t("filterPlaceholder")}
-          className="w-56"
+      {/* Search row — rounded input with leading icon + filter affordance +
+          Todos / Creados por mí pill toggle. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-border bg-card px-3 py-2.5 shadow-sm">
+        <SlidersHorizontal
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-muted-foreground"
         />
-        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/40 px-3 py-1.5">
-          <Checkbox
-            id="templates-mine-only"
-            checked={mineOnly}
-            onCheckedChange={(next) => setMineOnly(next === true)}
+        <div className="relative min-w-[180px] flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           />
-          <Label
-            htmlFor="templates-mine-only"
-            className="cursor-pointer text-sm font-normal text-foreground"
+          <Input
+            value={tagFilter}
+            onChange={(event) => setTagFilter(event.target.value)}
+            placeholder={t("filterPlaceholder")}
+            className="h-10 rounded-full pl-9"
+          />
+        </div>
+        <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted/70 p-1">
+          <button
+            type="button"
+            onClick={() => setMineOnly(false)}
+            data-active={!mineOnly}
+            className={cn(
+              "min-h-9 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              !mineOnly
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {/* TODO i18n: no "allLabel" key in catalog yet */}
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setMineOnly(true)}
+            data-active={mineOnly}
+            className={cn(
+              "min-h-9 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              mineOnly
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
             {tFilters("mineOnlyLabel")}
-          </Label>
+          </button>
         </div>
       </div>
 
@@ -326,126 +363,178 @@ export function TemplatesLibraryClient({
         </Alert>
       )}
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  {t("loading")}
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows.length > 0 ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={
-                    row.original.__isDraft
-                      ? "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-400/10 dark:hover:bg-amber-400/15"
-                      : undefined
-                  }
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : isUnfilteredEmpty ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-32 text-center"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">{t("emptyHeadline")}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("emptySubtitle")}
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => router.push("/gc-fitness/templates/new")}
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t("newTemplateCta")}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : isFilteredEmpty ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-32 text-center"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">{t("filteredEmptyHeadline")}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("filteredEmptySubtitle")}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
-      </div>
-
-      {rows.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {t("pagination", {
-              current: table.getState().pagination.pageIndex + 1,
-              total: Math.max(1, table.getPageCount()),
-            })}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              {t("previous")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              {t("next")}
-            </Button>
-          </div>
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="h-36 animate-pulse" />
+          ))}
         </div>
-      )}
+      ) : rows.length > 0 ? (
+        <TooltipProvider>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {rows.map((row) => {
+              const allTags =
+                row.tags && row.tags.length > 0
+                  ? row.tags
+                  : row.tag
+                    ? [row.tag]
+                    : [];
+              const title =
+                row.name.en ||
+                row.name.es ||
+                (row.__isDraft ? t("draftUntitled") : columnsT("untitled"));
+              const duration =
+                row.estimatedDurationMinutes > 0
+                  ? columnsT("durationValue", {
+                      minutes: row.estimatedDurationMinutes,
+                    })
+                  : null;
+              return (
+                <Card
+                  key={row.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    row.__isDraft
+                      ? handlers.onResumeDraft()
+                      : handlers.onEdit(row)
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      row.__isDraft
+                        ? handlers.onResumeDraft()
+                        : handlers.onEdit(row);
+                    }
+                  }}
+                  className={cn(
+                    "cursor-pointer transition-colors hover:border-foreground/20",
+                    row.__isDraft &&
+                      "border-amber-500/40 bg-amber-500/[0.06] dark:border-amber-400/40 dark:bg-amber-400/[0.06]",
+                  )}
+                >
+                  <CardContent className="flex flex-col gap-3 p-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {row.__isDraft ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                aria-label={columnsT("draftBadgeTooltip")}
+                                className="inline-flex shrink-0"
+                              >
+                                <AlertCircle className="h-4 w-4 text-amber-500" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {columnsT("draftBadgeTooltip")}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                        <h3 className="truncate text-base font-semibold text-foreground">
+                          {title}
+                        </h3>
+                      </div>
+                      {!row.__isDraft ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={columnsT("actionsAria")}
+                                className="-mr-1 -mt-1 h-8 w-8 shrink-0"
+                              >
+                                <SlidersHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handlers.onEdit(row)}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                {row.isStandard
+                                  ? columnsT("duplicate")
+                                  : columnsT("edit")}
+                              </DropdownMenuItem>
+                              {!row.isStandard ? (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => handlers.onDuplicate(row)}
+                                  >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    {columnsT("duplicate")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handlers.onDelete(row)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    {columnsT("delete")}
+                                  </DropdownMenuItem>
+                                </>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {row.isStandard ? (
+                        <Badge variant="outline" className="capitalize">
+                          Standard
+                        </Badge>
+                      ) : null}
+                      {allTags.map((raw) => (
+                        <Badge
+                          key={raw}
+                          variant={tagBadgeVariant(raw)}
+                          className="capitalize"
+                        >
+                          {TAG_LABELS[raw] ?? raw}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Dumbbell className="h-3.5 w-3.5" />
+                      {columnsT("exercises")}: {row.exerciseCount}
+                      {duration ? (
+                        <span aria-hidden="true">· {duration}</span>
+                      ) : null}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </TooltipProvider>
+      ) : isUnfilteredEmpty ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <p className="font-medium">{t("emptyHeadline")}</p>
+            <p className="text-sm text-muted-foreground">{t("emptySubtitle")}</p>
+            <Button
+              type="button"
+              onClick={() => router.push("/gc-fitness/templates/new")}
+              className="mt-2 gap-2 rounded-full"
+            >
+              <Plus className="h-4 w-4" />
+              {t("newTemplateCta")}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : isFilteredEmpty ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <p className="font-medium">{t("filteredEmptyHeadline")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("filteredEmptySubtitle")}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <AlertDialog
         open={confirmDelete !== null}

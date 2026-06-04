@@ -52,12 +52,12 @@ export default async function AdminClientPhotosPage({
 
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">Progress photos</h1>
+          <h1 className="gc-page-title text-2xl sm:text-3xl">Progress photos</h1>
           <Badge variant="secondary">Read-only</Badge>
         </div>
-        <Button asChild variant="outline" size="sm" className="gap-1">
+        <Button asChild variant="outline" size="sm" className="gap-1 rounded-full">
           <Link href={`/gc-fitness/admin/coaches/${uid}/clients/${clientId}`}>
             <ChevronLeft className="h-4 w-4" />
             Back to client
