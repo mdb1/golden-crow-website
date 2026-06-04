@@ -19,7 +19,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Calendar, MessagesSquare } from "lucide-react";
+import { ArrowLeft, Calendar, LineChart, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -92,6 +92,12 @@ export function ClientHeader({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild className="rounded-full">
+            <Link href={`/gc-fitness/clients/${clientId}/progress`}>
+              <LineChart className="size-4" />
+              {t("openExerciseProgress")}
+            </Link>
+          </Button>
           <Button variant="outline" asChild className="rounded-full">
             <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
               <MessagesSquare className="size-4" />

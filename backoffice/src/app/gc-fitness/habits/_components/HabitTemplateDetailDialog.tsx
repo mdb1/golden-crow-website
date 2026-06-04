@@ -9,7 +9,7 @@
 // absent — it's a per-assignment concern, not a template one.
 
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { EyeOff, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  hideGlobalHabitTemplate,
   listHabitTemplateAssignments,
   softDeleteHabitTemplate,
   updateHabitTemplate,
@@ -79,6 +80,8 @@ export function HabitTemplateDetailDialog({
   });
   const [pending, setPending] = useState(false);
   const [editing, setEditing] = useState(false);
+  // B5 — hide-from-library confirm (global templates only).
+  const [confirmHideOpen, setConfirmHideOpen] = useState(false);
 
   // Edit-form drafts (seeded from the template when entering edit mode).
   const [nameEn, setNameEn] = useState("");
@@ -156,6 +159,23 @@ export function HabitTemplateDetailDialog({
     } catch (err) {
       console.error("[habits] delete template failed", err);
       toast.error(err instanceof Error ? err.message : t("deleteFailedToast"));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleHide() {
+    if (!template) return;
+    setPending(true);
+    try {
+      await hideGlobalHabitTemplate(template.id);
+      toast.success(t("hiddenGlobalToast"));
+      setConfirmHideOpen(false);
+      onChanged();
+      closeDialog();
+    } catch (err) {
+      console.error("[habits] hide global template failed", err);
+      toast.error(err instanceof Error ? err.message : t("hideGlobalFailedToast"));
     } finally {
       setPending(false);
     }
@@ -348,7 +368,19 @@ export function HabitTemplateDetailDialog({
                       {tc("delete")}
                     </Button>
                   </>
-                ) : null}
+                ) : (
+                  // B5 — global templates are shared + read-only, so they can't
+                  // be deleted. Instead the trainer hides them from their own
+                  // library (reversible via "Mostrar ocultos" in the list view).
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmHideOpen(true)}
+                    className="gap-1"
+                  >
+                    <EyeOff className="size-4" />
+                    {t("hideGlobalCta")}
+                  </Button>
+                )}
               </>
             )}
           </DialogFooter>
@@ -420,6 +452,32 @@ export function HabitTemplateDetailDialog({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {pending ? t("deleting") : t("deleteDialogConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* B5 — confirm hiding a GLOBAL template from this trainer's library. */}
+      <AlertDialog open={confirmHideOpen} onOpenChange={setConfirmHideOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("hideGlobalConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("hideGlobalConfirmBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>
+              {t("deleteDialogCancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleHide();
+              }}
+              disabled={pending}
+            >
+              {pending ? t("deleting") : t("hideGlobalConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

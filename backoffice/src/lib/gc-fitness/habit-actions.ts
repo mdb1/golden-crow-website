@@ -56,6 +56,7 @@ import { normalizeMirrorEmail } from "./email-normalization";
 
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
+const TEMPLATE_HIDDEN_COLLECTION = FirestoreCollections.habitTemplateHidden;
 
 // Habit reference-photo upload constraints. Mirrors the exercise-thumbnail
 // pattern (exercise-server-actions.ts) — narrower than the 50 MB video cap
@@ -1061,12 +1062,34 @@ export async function listHabitsForTrainer(): Promise<HabitRow[]> {
   );
 }
 
+/**
+ * Reads the calling trainer's per-trainer hidden-set of GLOBAL habit-template
+ * ids (backlog B5). Doc id = trainer uid; shape `{ hiddenIds: string[] }`. One
+ * read; a missing doc means nothing is hidden (returns `[]`).
+ *
+ * Global templates are shared + read-only across all trainers, so hiding one
+ * cannot mutate the shared doc — instead the trainer records the id here and
+ * `listHabitTemplates` filters it out of their Biblioteca. Trainer-scoped
+ * templates are NOT affected by this set; those use the existing soft-delete.
+ */
+async function readHiddenGlobalTemplateIds(trainerUid: string): Promise<string[]> {
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(TEMPLATE_HIDDEN_COLLECTION)
+    .doc(trainerUid)
+    .get();
+  if (!snap.exists) return [];
+  const raw = (snap.data() as { hiddenIds?: unknown }).hiddenIds;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === "string");
+}
+
 export async function listHabitTemplates(): Promise<HabitTemplateRow[]> {
   const trainer = await getCurrentTrainer();
   await ensureGlobalHabitTemplates();
 
   const db = gcFitnessFirestore();
-  const [globalSnap, trainerSnap] = await Promise.all([
+  const [globalSnap, trainerSnap, hiddenIds] = await Promise.all([
     db
       .collection(TEMPLATE_COLLECTION)
       .where("scope", "==", "global")
@@ -1079,13 +1102,104 @@ export async function listHabitTemplates(): Promise<HabitTemplateRow[]> {
       .orderBy("updatedAt", "desc")
       .limit(100)
       .get(),
+    // 1 read for the per-trainer hidden-set (B5).
+    readHiddenGlobalTemplateIds(trainer.uid),
   ]);
+
+  const hidden = new Set(hiddenIds);
 
   return [...globalSnap.docs, ...trainerSnap.docs]
     .map((doc) =>
       projectHabitTemplateRow(doc.id, doc.data() as Record<string, unknown>),
     )
-    .filter((row) => !row.deleted);
+    .filter((row) => !row.deleted)
+    // B5 — drop GLOBAL templates this trainer has hidden. Trainer-scoped rows
+    // are unaffected (they soft-delete via `deleted` instead).
+    .filter((row) => !(row.scope === "global" && hidden.has(row.id)));
+}
+
+/**
+ * B5 — lists the ids of GLOBAL habit templates the calling trainer has hidden
+ * from their own Biblioteca. Backs the "Mostrar ocultos (N)" reveal toggle, so
+ * a hidden global can be restored. One read (the per-trainer hidden doc).
+ */
+export async function listHiddenGlobalTemplateIds(): Promise<string[]> {
+  const trainer = await getCurrentTrainer();
+  return readHiddenGlobalTemplateIds(trainer.uid);
+}
+
+/**
+ * B5 — hides a GLOBAL habit template from the calling trainer's Biblioteca.
+ *
+ * Global templates are shared + read-only, so this NEVER mutates the shared
+ * template doc; instead it records the id in the per-trainer hidden-set
+ * `habit_template_hidden/{uid}` (arrayUnion — idempotent). Validates that the
+ * target is actually a global template; trainer-scoped templates must keep
+ * using `softDeleteHabitTemplate` and are rejected here.
+ */
+export async function hideGlobalHabitTemplate(
+  templateId: string,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+  if (typeof templateId !== "string" || templateId.trim().length === 0) {
+    throw new Error("BadRequest: templateId is required.");
+  }
+
+  const db = gcFitnessFirestore();
+  const templateSnap = await db
+    .collection(TEMPLATE_COLLECTION)
+    .doc(templateId)
+    .get();
+  if (!templateSnap.exists) {
+    throw new Error("Template not found.");
+  }
+  const scope = (templateSnap.data() as { scope?: string }).scope;
+  if (scope !== "global") {
+    // Trainer-scoped templates are soft-deleted, not hidden. Routing one here
+    // would silently no-op the user's intent.
+    throw new Error("Only global templates can be hidden.");
+  }
+
+  await db
+    .collection(TEMPLATE_HIDDEN_COLLECTION)
+    .doc(trainer.uid)
+    .set(
+      {
+        hiddenIds: FieldValue.arrayUnion(templateId),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+  return { ok: true };
+}
+
+/**
+ * B5 — unhides a previously-hidden GLOBAL habit template (arrayRemove). Safe to
+ * call even if the id was never hidden. No scope check needed: removing a
+ * non-global id is a harmless no-op for the hidden-set.
+ */
+export async function unhideGlobalHabitTemplate(
+  templateId: string,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+  if (typeof templateId !== "string" || templateId.trim().length === 0) {
+    throw new Error("BadRequest: templateId is required.");
+  }
+
+  const db = gcFitnessFirestore();
+  await db
+    .collection(TEMPLATE_HIDDEN_COLLECTION)
+    .doc(trainer.uid)
+    .set(
+      {
+        hiddenIds: FieldValue.arrayRemove(templateId),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+  return { ok: true };
 }
 
 /**

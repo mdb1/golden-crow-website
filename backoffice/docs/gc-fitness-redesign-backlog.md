@@ -42,11 +42,16 @@ Status: ☐ todo · ◐ in progress · ☑ done. Companion to
 - ☑ **C1** "Pedidos al cliente": fulfilled/pending note (uploaded after request).
 - ☑ **C2** Body-weight "Último" by most-recent measurement DATE, not last-created.
 - ☑ **C3** Body-weight chart timeline range selector (All/90d/30d/7d).
-- ☐ **C4** NEW route + CTA: per-client per-exercise **progress charts** (e.g.
-  flat-bench weight over time), mirroring the iOS app. Needs: investigate how
-  workout logs store per-exercise set weights, an aggregation query (read-cost
-  aware), a chart route under `clients/[id]/...`, an exercise picker, and a CTA
-  from the client detail.
+- ☑ **C4** NEW route + CTA: per-client per-exercise **progress charts** (e.g.
+  flat-bench weight over time), mirroring the iOS app. Route
+  `clients/[id]/progress`: exercise picker (derived from the client's logged
+  history), metric toggle (top-set weight / est. 1RM Epley / volume), and the
+  shared All/90d/30d/7d range selector over a gold AreaChart. Server aggregates
+  ONE bounded read (`workout_logs where clientId==X and startedAt>=today-365
+  orderBy startedAt desc limit 300`, reusing the existing clientId+startedAt
+  index) into lightweight per-session points in
+  `lib/gc-fitness/exercise-progress-actions.ts`. CTA "Ver progreso por
+  ejercicio" added to `ClientHeader`.
 
 ## D. i18n — deep forms (pre-existing debt)
 - ☐ **D1** Deep forms/dialogs still English-only (exercise/habit forms, schedule

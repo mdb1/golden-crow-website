@@ -17,8 +17,11 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Eye,
+  EyeOff,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -58,7 +61,9 @@ import {
   deleteHabitRecurrenceFromDate,
   listHabitsForTrainer,
   listHabitTemplates,
+  listHiddenGlobalTemplateIds,
   softDeleteHabit,
+  unhideGlobalHabitTemplate,
   type HabitRow,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
@@ -111,6 +116,9 @@ export function HabitsLibraryClient({
   const [deletePending, setDeletePending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] =
     useState<HabitTemplateRow | null>(null);
+  // B5 — reveal toggle for the per-trainer hidden GLOBAL templates.
+  const [showHidden, setShowHidden] = useState(false);
+  const [restorePendingId, setRestorePendingId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: HABITS_BASE_KEY,
@@ -121,6 +129,13 @@ export function HabitsLibraryClient({
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: [...HABITS_BASE_KEY, "templates"],
     queryFn: () => listHabitTemplates(),
+    enabled: view === "library",
+  });
+  // B5 — ids of GLOBAL templates this trainer has hidden. Drives the
+  // "Mostrar ocultos (N)" toggle + the restore list. One read, library-only.
+  const { data: hiddenIds = [] } = useQuery({
+    queryKey: [...HABITS_BASE_KEY, "templates", "hidden"],
+    queryFn: () => listHiddenGlobalTemplateIds(),
     enabled: view === "library",
   });
 
@@ -195,6 +210,25 @@ export function HabitsLibraryClient({
     });
   }, [templates, search]);
 
+  // B5 — friendly labels for the hidden GLOBAL ids. `listHabitTemplates`
+  // excludes hidden globals from `templates`, so their names aren't in that
+  // list; map the known seed ids to a Spanish-first label, with a humanized
+  // fallback for any future global id.
+  const hiddenGlobals = useMemo(() => {
+    const labels: Record<string, string> = {
+      "global-water": "Beber agua",
+      "global-mobility": "Movilidad",
+      "global-walk": "Caminata de 30 minutos",
+      "global-food-log": "Registro de comidas",
+    };
+    return (hiddenIds as string[]).map((id) => ({
+      id,
+      name:
+        labels[id] ??
+        (id.replace(/^global-/, "").replace(/-/g, " ") || id),
+    }));
+  }, [hiddenIds]);
+
   const handlers = useMemo(
     () => ({
       onEdit: (row: HabitRow) =>
@@ -247,6 +281,29 @@ export function HabitsLibraryClient({
       setDeletePending(false);
     }
   }, [confirmDelete, queryClient, t]);
+
+  // B5 — restore (unhide) a hidden GLOBAL template back into the library.
+  const handleRestoreGlobal = useCallback(
+    async (templateId: string) => {
+      setRestorePendingId(templateId);
+      try {
+        await unhideGlobalHabitTemplate(templateId);
+        // Both the visible-templates list AND the hidden-ids list change.
+        await queryClient.invalidateQueries({
+          queryKey: [...HABITS_BASE_KEY, "templates"],
+        });
+        toast.success(t("restoredGlobalToast"));
+      } catch (err) {
+        console.error("[habits] restore global template failed", err);
+        toast.error(
+          err instanceof Error ? err.message : t("restoreGlobalFailedToast"),
+        );
+      } finally {
+        setRestorePendingId(null);
+      }
+    },
+    [queryClient, t],
+  );
 
   // Create flow shared with the calendar invalidates both the assignments
   // feed AND the templates cache (prefix match on HABITS_BASE_KEY).
@@ -399,14 +456,79 @@ export function HabitsLibraryClient({
       )}
 
       {view === "library" ? (
-        <HabitLibraryTable
-          templates={filteredTemplates}
-          isLoading={templatesLoading}
-          t={columnsT}
-          emptyText={t("libraryEmpty")}
-          loadingText={t("loading")}
-          onRowClick={setSelectedTemplate}
-        />
+        <div className="flex flex-col gap-4">
+          <HabitLibraryTable
+            templates={filteredTemplates}
+            isLoading={templatesLoading}
+            t={columnsT}
+            emptyText={t("libraryEmpty")}
+            loadingText={t("loading")}
+            onRowClick={setSelectedTemplate}
+          />
+
+          {/* B5 — reversible path: reveal + restore hidden GLOBAL templates so
+              hiding is never a trap. Only shown when there's something hidden. */}
+          {hiddenGlobals.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHidden((v) => !v)}
+                className="w-fit gap-2 text-muted-foreground"
+              >
+                {showHidden ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
+                {showHidden
+                  ? t("hideHiddenToggle")
+                  : t("showHiddenToggle", { count: hiddenGlobals.length })}
+              </Button>
+
+              {showHidden ? (
+                <Card className="overflow-hidden">
+                  <CardContent className="flex flex-col gap-0 p-0">
+                    <div className="border-b border-border bg-muted/40 px-4 py-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {t("hiddenSectionTitle")}
+                      </h3>
+                    </div>
+                    <ul className="divide-y divide-border">
+                      {hiddenGlobals.map((g) => (
+                        <li
+                          key={g.id}
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Badge variant="violet" className="shrink-0">
+                              {t("templateScopeGlobal")}
+                            </Badge>
+                            <span className="min-w-0 truncate font-medium text-foreground">
+                              {g.name}
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={restorePendingId === g.id}
+                            onClick={() => void handleRestoreGlobal(g.id)}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            {t("restoreGlobalCta")}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       ) : isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -548,6 +670,8 @@ export function HabitsLibraryClient({
         template={selectedTemplate}
         clientNames={clientNameMap}
         onChanged={() =>
+          // Prefix-match invalidates the assignments feed, the templates list,
+          // AND the hidden-ids list (B5 hide refreshes the library).
           queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY })
         }
       />
