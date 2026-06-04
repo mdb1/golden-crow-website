@@ -80,7 +80,7 @@ export function ChatInboxClient({
   );
 
   return (
-    <div className="grid h-[calc(100vh-9rem)] min-h-0 grid-cols-1 gap-0 overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-sm ring-1 ring-foreground/5 md:grid-cols-[320px_1fr]">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-0 overflow-hidden bg-card md:grid-cols-[320px_1fr]">
       <div
         className={[
           "min-h-0 flex-col overflow-hidden border-border md:flex md:border-r",

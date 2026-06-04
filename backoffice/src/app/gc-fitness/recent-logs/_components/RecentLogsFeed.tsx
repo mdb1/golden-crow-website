@@ -348,9 +348,19 @@ function RecentLogItem({
       <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="min-w-0 break-words text-sm font-semibold leading-snug text-foreground">
-            {row.clientName}
-          </span>
+          {row.clientId ? (
+            <Link
+              href={`/gc-fitness/clients/${row.clientId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="min-w-0 break-words rounded-sm text-sm font-semibold leading-snug text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {row.clientName}
+            </Link>
+          ) : (
+            <span className="min-w-0 break-words text-sm font-semibold leading-snug text-foreground">
+              {row.clientName}
+            </span>
+          )}
           <span className="min-w-0 break-words text-sm text-muted-foreground sm:truncate">
             {row.title}
           </span>

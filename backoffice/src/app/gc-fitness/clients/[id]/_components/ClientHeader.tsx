@@ -78,7 +78,7 @@ export function ClientHeader({
             <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
               {displayName}
             </h1>
-            {email ? (
+            {email && email !== displayName ? (
               <p className="text-sm text-muted-foreground">{email}</p>
             ) : null}
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">

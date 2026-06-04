@@ -7,7 +7,8 @@
 // Pure presentation + light client interactivity — NO behavior change to the
 // underlying controls. The real functional controls are reused as-is:
 //   - Idioma   → <LanguageForm> (the `updatePreferredLocale` Server Action)
-//   - Tema     → <GCFitnessAppearanceToggle> (localStorage + data-theme)
+//   - Tema     → <ThemeSegmentedControl> (Claro/Oscuro pill; localStorage +
+//                data-theme — reuses the appearance logic, current theme gold)
 //   - Respuestas rápidas → <QuickRepliesForm> (the `updateChatQuickReplies`
 //                          Server Action + useFieldArray editor)
 //
@@ -15,20 +16,111 @@
 // rotates, panel reveals the existing form). Rows are grouped under labelled
 // sections (CUENTA / SUSCRIPCIÓN / PREFERENCIAS) matching the reference design.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ChevronRight,
   Languages,
   MessageSquareText,
+  MoonStar,
+  SunMedium,
   SunMoon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
-import { GCFitnessAppearanceToggle } from "@/components/gc-fitness/gc-fitness-appearance-toggle";
 
 import { LanguageForm } from "./language-form";
 import { QuickRepliesForm } from "./quick-replies-form";
+
+type AppearanceMode = "light" | "dark";
+
+const APPEARANCE_STORAGE_KEY = "gc-fitness-appearance";
+
+function resolveAppearance(value: string | null | undefined): AppearanceMode {
+  return value === "dark" ? "dark" : "light";
+}
+
+function applyAppearance(mode: AppearanceMode) {
+  document.documentElement.dataset.theme = mode;
+  document.documentElement.style.colorScheme = mode;
+  document.documentElement.classList.toggle("dark", mode === "dark");
+  window.localStorage.setItem(APPEARANCE_STORAGE_KEY, mode);
+}
+
+/**
+ * Clear two-option segmented control (Claro / Oscuro). The CURRENTLY-ACTIVE
+ * theme is highlighted gold; selecting an option applies + persists it.
+ *
+ * Reuses the same appearance logic as the locked
+ * `gc-fitness-appearance-toggle.tsx` primitive (localStorage key
+ * `gc-fitness-appearance`, `document.documentElement.dataset.theme`,
+ * `classList.toggle("dark")`, `style.colorScheme`) so the flip is real and
+ * persistent. On mount it reads the REAL current theme (DOM/localStorage),
+ * never a hardcoded default.
+ */
+function ThemeSegmentedControl() {
+  const tTheme = useTranslations("settings.theme");
+  const [mounted, setMounted] = useState(false);
+  const [appearance, setAppearance] = useState<AppearanceMode>("light");
+
+  useEffect(() => {
+    const fromStorage =
+      typeof window === "undefined"
+        ? null
+        : window.localStorage.getItem(APPEARANCE_STORAGE_KEY);
+    const fromDOM = document.documentElement.dataset.theme;
+    const current = resolveAppearance(fromStorage ?? fromDOM);
+    applyAppearance(current);
+    setAppearance(current);
+    setMounted(true);
+  }, []);
+
+  function select(mode: AppearanceMode) {
+    if (mode === appearance) return;
+    applyAppearance(mode);
+    setAppearance(mode);
+  }
+
+  const options: Array<{
+    mode: AppearanceMode;
+    label: string;
+    icon: ReactNode;
+  }> = [
+    { mode: "light", label: tTheme("light"), icon: <SunMedium /> },
+    { mode: "dark", label: tTheme("dark"), icon: <MoonStar /> },
+  ];
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={tTheme("title")}
+      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-1"
+    >
+      {options.map((opt) => {
+        const active = appearance === opt.mode;
+        return (
+          <button
+            key={opt.mode}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={!mounted}
+            onClick={() => select(opt.mode)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 [&>svg]:size-3.5",
+              active
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {opt.icon}
+            <span>{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 type ChipTone = "brand" | "violet" | "success" | "warning";
 
@@ -192,7 +284,7 @@ export function SettingsSections({
             icon={<SunMoon />}
             title={tTheme("title")}
             value={tTheme("helper")}
-            trailing={<GCFitnessAppearanceToggle />}
+            trailing={<ThemeSegmentedControl />}
             last
           />
         </Section>

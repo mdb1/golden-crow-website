@@ -91,6 +91,7 @@ export default async function GCFitnessDashboardPage({
   }
 
   const tDashboard = await getTranslations("dashboard");
+  const tNav = await getTranslations("nav");
 
   const activeClients = roster.filter((client) => client.source === "active");
   const lastActionRows = activeClients
@@ -169,11 +170,20 @@ export default async function GCFitnessDashboardPage({
         title={tDashboard("title")}
         subtitle={tDashboard("headerSubtitle")}
         actions={
-          <Button asChild className="rounded-full">
-            <Link href="/gc-fitness/clients">
-              {tDashboard("addOrManageClients")}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-full min-h-10"
+            >
+              <Link href="/gc-fitness/schedule">{tNav("schedule")}</Link>
+            </Button>
+            <Button asChild className="rounded-full min-h-10">
+              <Link href="/gc-fitness/clients">
+                {tDashboard("addOrManageClients")}
+              </Link>
+            </Button>
+          </div>
         }
       />
 

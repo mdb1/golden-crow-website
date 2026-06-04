@@ -26,7 +26,6 @@ import {
   CheckCircle2,
   Clock,
   Search,
-  SlidersHorizontal,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -145,11 +144,8 @@ export function RosterTable({ rows }: RosterTableProps) {
           aria-pressed={needsAttentionOnly}
           className="h-11 shrink-0 gap-2 rounded-full px-4"
         >
-          <SlidersHorizontal className="size-4" />
-          {tCommon("filter")}
-          <span className="tabular-nums text-xs opacity-80">
-            ({needsAttentionCount})
-          </span>
+          <Clock className="size-4" />
+          {t("needsAttentionFilter", { count: needsAttentionCount })}
         </Button>
         {needsAttentionOnly ? (
           <Button

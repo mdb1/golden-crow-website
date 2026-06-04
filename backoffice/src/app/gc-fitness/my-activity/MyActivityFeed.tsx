@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { ComponentType } from "react";
+import Link from "next/link";
 import {
   ClipboardList,
   Camera,
@@ -266,12 +267,15 @@ function ActivityRow({
         </p>
         {row.clientName || row.detail ? (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {[
-              row.clientName ? t("forClient", { name: row.clientName }) : null,
-              row.detail,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+            {row.clientName ? (
+              <ClientNameLink
+                clientId={row.clientId}
+                clientName={row.clientName}
+                t={t}
+              />
+            ) : null}
+            {row.clientName && row.detail ? " · " : null}
+            {row.detail}
           </p>
         ) : null}
       </div>
@@ -279,6 +283,54 @@ function ActivityRow({
         {formatTime(row.occurredAt, timezone, t)}
       </span>
     </div>
+  );
+}
+
+// Renders the "For {name}" detail prefix, with the client name as a link to the
+// client's profile when a resolvable id exists. Reuses the existing localized
+// "For {name}" / "Para {name}" key and splits it around the name so only the
+// name becomes a link (the "For"/"Para" wrapper stays plain). Falls back to
+// plain text when there's no id (no broken link).
+function ClientNameLink({
+  clientId,
+  clientName,
+  t,
+}: {
+  clientId: string | null;
+  clientName: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const full = t("forClient", { name: clientName });
+  if (!clientId) {
+    return <>{full}</>;
+  }
+  const idx = full.indexOf(clientName);
+  const link = (
+    <Link
+      href={`/gc-fitness/clients/${clientId}`}
+      className="rounded-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {clientName}
+    </Link>
+  );
+  // If the name isn't found verbatim (defensive — shouldn't happen), link the
+  // whole label rather than dropping the affordance.
+  if (idx === -1) {
+    return (
+      <Link
+        href={`/gc-fitness/clients/${clientId}`}
+        className="rounded-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {full}
+      </Link>
+    );
+  }
+  return (
+    <>
+      {full.slice(0, idx)}
+      {link}
+      {full.slice(idx + clientName.length)}
+    </>
   );
 }
 

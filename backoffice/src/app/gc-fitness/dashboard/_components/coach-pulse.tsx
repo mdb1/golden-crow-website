@@ -303,9 +303,12 @@ export function TopPerformers({ performers, emptyLabel }: TopPerformersProps) {
 }
 
 // ActivityRow — a single row in the "Actividad Reciente de Clientes" list of the
-// redesigned dashboard. Avatar + name + last action, a green/amber adherence bar
-// with %, relative time, and a status icon (check when on-track, clock when the
-// client is stale / under-adhering). All copy comes from the server.
+// redesigned dashboard. Avatar + name (links to the client profile) + last
+// action, relative time, and a status icon (check when on-track, clock when the
+// client is stale / under-adhering). The adherence % + progress bar were dropped
+// (A1) because they shifted as more pages loaded and read as misleading; the
+// status icon stays as the only non-shifting signal. All copy comes from the
+// server.
 export interface ActivityRowData {
   uid: string;
   name: string;
@@ -321,44 +324,27 @@ export interface ActivityRowData {
 }
 
 export function ActivityRow({ row }: { row: ActivityRowData }) {
-  const pct = Math.round(Math.max(0, Math.min(1, row.ratio)) * 100);
-  const onTrack = !row.stale && pct >= 70;
+  // A1: status reflects only whether the client is stale/needs attention — no
+  // adherence % (it shifted across page loads and read as misleading).
+  const onTrack = !row.stale;
   const StatusIcon = onTrack ? CheckCircle2 : Clock;
   return (
     <Link
       href={`/gc-fitness/clients/${row.uid}`}
-      className="group flex items-center gap-4 rounded-2xl px-2 py-3 transition-colors hover:bg-muted/60 sm:px-3"
+      className="group flex min-h-12 items-center gap-4 rounded-2xl px-2 py-3 transition-colors hover:bg-muted/60 sm:px-3"
     >
       <ClientAvatar name={row.name} photoURL={row.photoURL} size="md" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground sm:text-base">
+        <p className="truncate text-sm font-semibold text-foreground underline-offset-4 group-hover:text-primary group-hover:underline sm:text-base">
           {row.name}
         </p>
         <p className="truncate text-xs text-muted-foreground sm:text-sm">
           {row.primary}
         </p>
       </div>
-      <div className="flex w-28 shrink-0 flex-col items-end gap-1 sm:w-40">
-        <div className="flex w-full items-center gap-2">
-          <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all",
-                onTrack
-                  ? "bg-[color:var(--badge-success-fg)]"
-                  : "bg-[color:var(--badge-warning-fg)]",
-              )}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
-            {pct}%
-          </span>
-        </div>
-        <span className="text-[11px] text-muted-foreground">
-          {row.timeLabel}
-        </span>
-      </div>
+      <span className="shrink-0 text-[11px] text-muted-foreground">
+        {row.timeLabel}
+      </span>
       <StatusIcon
         className={cn(
           "size-5 shrink-0",

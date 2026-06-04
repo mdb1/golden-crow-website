@@ -181,6 +181,7 @@
     "subtitlePendingSuffix": " + {count} pending sign-in",
     "subtitleSortNote": " — sorted by most recent activity.",
     "needsAttention": "Needs attention ({count})",
+    "needsAttentionFilter": "Needs attention ({count})",
     "needsAttentionTitle": "Needs attention: {reasons}",
     "missedWorkouts": "Missed workouts",
     "lowCompliance": "Low habit compliance",
@@ -1121,7 +1122,9 @@
     "chatGroup": "Chat",
     "theme": {
       "title": "Theme",
-      "helper": "Light or dark"
+      "helper": "Light or dark",
+      "light": "Light",
+      "dark": "Dark"
     },
     "quickReplies": {
       "title": "Quick replies",

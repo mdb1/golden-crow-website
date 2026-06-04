@@ -181,6 +181,7 @@
     "subtitlePendingSuffix": " + {count} pendiente(s) de ingreso",
     "subtitleSortNote": " — ordenados por actividad más reciente.",
     "needsAttention": "Necesita atención ({count})",
+    "needsAttentionFilter": "Necesitan atención ({count})",
     "needsAttentionTitle": "Necesita atención: {reasons}",
     "missedWorkouts": "Entrenamientos perdidos",
     "lowCompliance": "Baja adherencia a hábitos",
@@ -1121,7 +1122,9 @@
     "chatGroup": "Chat",
     "theme": {
       "title": "Tema",
-      "helper": "Claro u oscuro"
+      "helper": "Claro u oscuro",
+      "light": "Claro",
+      "dark": "Oscuro"
     },
     "quickReplies": {
       "title": "Respuestas rápidas",
