@@ -3,8 +3,13 @@
 import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useLocale } from "next-intl";
+import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
-import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
+import {
+  formatClientActivityFullDate,
+} from "@/lib/gc-fitness/client-activity-time";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 
 type Angle = "front" | "side" | "back";
 type Transform = { scale: number; x: number; y: number };
@@ -13,11 +18,14 @@ type CompareMode = "side-by-side" | "slider";
 export function ProgressPhotoCompareEditor({
   photos,
   timezone,
+  clientName,
 }: {
   photos: ProgressPhotoRow[];
   timezone: string;
+  clientName: string;
 }) {
   const params = useSearchParams();
+  const locale = useLocale();
   const initialAngle = (params.get("angle") as Angle) || "front";
   const [angle, setAngle] = useState<Angle>(initialAngle);
   const angled = useMemo(() => photos.filter((p) => (p.angle ?? "front") === angle && p.url), [photos, angle]);
@@ -36,6 +44,16 @@ export function ProgressPhotoCompareEditor({
 
   const before = angled.find((p) => p.id === beforeId);
   const after = angled.find((p) => p.id === afterId);
+  const downloadFileName = before && after
+    ? buildCompareDownloadName({
+        clientName,
+        angle,
+        before,
+        after,
+        timezone,
+        locale,
+      })
+    : "compare.jpg";
 
   function defaultsForAngle(nextAngle: Angle): { before: string; after: string } {
     const next = photos.filter((p) => (p.angle ?? "front") === nextAngle && p.url);
@@ -78,10 +96,10 @@ export function ProgressPhotoCompareEditor({
           <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option>
         </select>
         <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => setBeforeId(e.target.value)}>
-          <option value="">Before</option>{angled.map((p) => <option key={p.id} value={p.id}>{p.checkInDate ?? dateFromRow(p, timezone)}</option>)}
+          <option value="">Before</option>{angled.map((p) => <option key={p.id} value={p.id}>{photoDisplayDate(p, timezone, locale)}</option>)}
         </select>
         <select className="h-10 rounded-md border px-2" value={afterId} onChange={(e) => setAfterId(e.target.value)}>
-          <option value="">After</option>{angled.map((p) => <option key={p.id} value={p.id}>{p.checkInDate ?? dateFromRow(p, timezone)}</option>)}
+          <option value="">After</option>{angled.map((p) => <option key={p.id} value={p.id}>{photoDisplayDate(p, timezone, locale)}</option>)}
         </select>
       </div>
       {before?.url && after?.url ? (
@@ -112,15 +130,23 @@ export function ProgressPhotoCompareEditor({
                     await exportSliderSnapshotJpg({
                       before,
                       after,
+                      downloadFileName,
                       split,
                       beforeT,
                       afterT,
                       cssWidth: rect.width,
                       cssHeight: rect.height,
                       timezone,
+                      locale,
                     });
                   } else {
-                    await exportSideBySideJpg({ before, after, timezone });
+                    await exportSideBySideJpg({
+                      before,
+                      after,
+                      downloadFileName,
+                      timezone,
+                      locale,
+                    });
                   }
                 } catch (err) {
                   // eslint-disable-next-line no-console
@@ -157,12 +183,12 @@ export function ProgressPhotoCompareEditor({
                 <CompareStaticImage
                   url={before.url}
                   alt="before"
-                  date={before.checkInDate ?? dateFromRow(before, timezone)}
+                  date={photoDisplayDate(before, timezone, locale)}
                 />
                 <CompareStaticImage
                   url={after.url}
                   alt="after"
-                  date={after.checkInDate ?? dateFromRow(after, timezone)}
+                  date={photoDisplayDate(after, timezone, locale)}
                 />
               </div>
             </div>
@@ -187,19 +213,44 @@ function CompareStaticImage({ url, alt, date }: { url: string; alt: string; date
   );
 }
 
-function dateFromRow(photo: ProgressPhotoRow, timezone: string): string {
+function photoDisplayDate(photo: ProgressPhotoRow, timezone: string, locale: string): string {
+  if (photo.checkInDate) {
+    return formatCivilDateLabel(
+      photo.checkInDate,
+      {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      },
+      locale,
+    );
+  }
+
   const source = photo.takenAt ?? photo.createdAt;
-  return source ? formatClientActivityDate(source, timezone) : photo.id;
+  return source ? formatClientActivityFullDate(source, timezone, locale) : photo.id;
+}
+
+function photoExportDate(photo: ProgressPhotoRow, timezone: string, locale: string): string {
+  if (photo.checkInDate) {
+    return formatFilenameFriendlyDate(photo.checkInDate, "UTC", locale);
+  }
+
+  const source = photo.takenAt ?? photo.createdAt;
+  return source ? formatFilenameFriendlyDate(source, timezone, locale) : photo.id;
 }
 
 async function exportSideBySideJpg({
   before,
   after,
+  downloadFileName,
   timezone,
+  locale,
 }: {
   before: ProgressPhotoRow;
   after: ProgressPhotoRow;
+  downloadFileName: string;
   timezone: string;
+  locale: string;
 }) {
   if (!before.url || !after.url) return;
 
@@ -207,6 +258,7 @@ async function exportSideBySideJpg({
     loadImageViaProxy(before.id),
     loadImageViaProxy(after.id),
   ]);
+  const logoImg = await loadInlineImage(GOLDENCROW_LOGO_DATA_URI);
 
   const outerMargin = 96;
   const panelWidth = 1320;
@@ -230,7 +282,7 @@ async function exportSideBySideJpg({
     y: outerMargin + gap,
     width: panelWidth,
     height: panelHeight,
-    label: before.checkInDate ?? dateFromRow(before, timezone),
+    label: photoDisplayDate(before, timezone, locale),
     title: "Before",
     labelHeight,
     radius: cornerRadius,
@@ -243,18 +295,20 @@ async function exportSideBySideJpg({
     y: outerMargin + gap,
     width: panelWidth,
     height: panelHeight,
-    label: after.checkInDate ?? dateFromRow(after, timezone),
+    label: photoDisplayDate(after, timezone, locale),
     title: "After",
     labelHeight,
     radius: cornerRadius,
   });
+
+  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
   if (!blob) return;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `compare-${before.checkInDate ?? before.id}-vs-${after.checkInDate ?? after.id}.jpg`;
+  link.download = downloadFileName;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -270,18 +324,22 @@ async function exportSliderSnapshotJpg({
   split,
   beforeT,
   afterT,
+  downloadFileName,
   cssWidth,
   cssHeight,
   timezone,
+  locale,
 }: {
   before: ProgressPhotoRow;
   after: ProgressPhotoRow;
   split: number;
   beforeT: Transform;
   afterT: Transform;
+  downloadFileName: string;
   cssWidth: number;
   cssHeight: number;
   timezone: string;
+  locale: string;
 }) {
   if (!before.url || !after.url) return;
   if (cssWidth <= 0 || cssHeight <= 0) throw new Error("Empty slider bounds");
@@ -290,6 +348,7 @@ async function exportSliderSnapshotJpg({
     loadImageViaProxy(before.id),
     loadImageViaProxy(after.id),
   ]);
+  const logoImg = await loadInlineImage(GOLDENCROW_LOGO_DATA_URI);
 
   const outerMargin = 96;
   const labelHeight = 140;
@@ -356,8 +415,8 @@ async function exportSliderSnapshotJpg({
   ctx.restore();
 
   // Bottom labels (Before — date | After — date) outside the rounded panel.
-  const beforeLabel = before.checkInDate ?? dateFromRow(before, timezone);
-  const afterLabel = after.checkInDate ?? dateFromRow(after, timezone);
+  const beforeLabel = photoDisplayDate(before, timezone, locale);
+  const afterLabel = photoDisplayDate(after, timezone, locale);
   ctx.fillStyle = "#111111";
   ctx.font = "700 54px system-ui, -apple-system, sans-serif";
   const labelY = panelY + panelH + 86;
@@ -366,12 +425,14 @@ async function exportSliderSnapshotJpg({
   ctx.textAlign = "right";
   ctx.fillText(`After · ${afterLabel}`, panelX + panelW, labelY);
 
+  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height);
+
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
   if (!blob) return;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `compare-slider-${beforeLabel}-vs-${afterLabel}.jpg`;
+  link.download = downloadFileName;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -460,6 +521,89 @@ function drawPanel({
   ctx.font = "500 42px system-ui, -apple-system, sans-serif";
   ctx.fillText(label, x + framePadding, height - labelHeight + 108);
   ctx.restore();
+}
+
+function drawWatermarkLogo(
+  ctx: CanvasRenderingContext2D,
+  logoImg: HTMLImageElement,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const size = 116;
+  const margin = 48;
+
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.drawImage(logoImg, canvasWidth - margin - size, canvasHeight - margin - size, size, size);
+  ctx.restore();
+}
+
+async function loadInlineImage(src: string): Promise<HTMLImageElement> {
+  const img = new window.Image();
+  img.src = src;
+  try {
+    await img.decode();
+  } catch {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to decode inline image"));
+    });
+  }
+  return img;
+}
+
+function buildCompareDownloadName({
+  clientName,
+  angle,
+  before,
+  after,
+  timezone,
+  locale,
+}: {
+  clientName: string;
+  angle: Angle;
+  before: ProgressPhotoRow;
+  after: ProgressPhotoRow;
+  timezone: string;
+  locale: string;
+}): string {
+  const clientSlug = slugifyFilePart(clientName, "alumno");
+  const beforeLabel = photoExportDate(before, timezone, locale);
+  const afterLabel = photoExportDate(after, timezone, locale);
+  return `compare-${clientSlug}-${angle}-${beforeLabel}-vs${afterLabel}.jpg`;
+}
+
+function formatFilenameFriendlyDate(isoOrCivil: string, timezone: string, locale: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoOrCivil)) {
+    const [yearText, monthText, dayText] = isoOrCivil.split("-");
+    const year = Number.parseInt(yearText ?? "", 10);
+    const month = Number.parseInt(monthText ?? "", 10);
+    const day = Number.parseInt(dayText ?? "", 10);
+    if (!year || !month || !day) return "sin-fecha";
+    return formatFriendlyDateLabel(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)), "UTC", locale);
+  }
+
+  const date = new Date(isoOrCivil);
+  if (Number.isNaN(date.getTime())) return "sin-fecha";
+  return formatFriendlyDateLabel(date, timezone, locale);
+}
+
+function formatFriendlyDateLabel(date: Date, timezone: string, locale: string): string {
+  const day = new Intl.DateTimeFormat(locale, { day: "2-digit", timeZone: timezone }).format(date);
+  const year = new Intl.DateTimeFormat(locale, { year: "numeric", timeZone: timezone }).format(date);
+  let month = new Intl.DateTimeFormat(locale, { month: "long", timeZone: timezone }).format(date);
+  month = month.charAt(0).toLocaleUpperCase(locale) + month.slice(1);
+  return `${day}-${month}-${year}`;
+}
+
+function slugifyFilePart(value: string, fallback: string): string {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || fallback;
 }
 
 function roundedRectPath(

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
+import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
 import type { AssignmentDetail } from "@/lib/gc-fitness/schedule-month-actions";
 
@@ -102,8 +103,10 @@ export interface ShareCardModel {
   exercises: ExerciseRow[];
   /** Full-month date line ("29 de Mayo de 2026"); null = no footer date. */
   dateLine: string | null;
-  /** Date slug for the downloaded filename ("2026-05-29" or "workout"). */
+  /** Date slug for the downloaded filename in the user's timezone. */
   fileDate: string;
+  /** Full filename stem used by the PNG download button. */
+  downloadFileName: string;
   /** Title passed to navigator.share (the workout/template name). */
   shareTitle: string;
 }
@@ -420,6 +423,36 @@ function buildSubLine(
   return null;
 }
 
+function buildDownloadStem(
+  clientName: string | null | undefined,
+  dateValue: string | null | undefined,
+  timezone: string,
+): string {
+  const clientSlug = slugifyFilePart(clientName ?? "", "alumno");
+  const dateSlug = formatDownloadDateSlug(dateValue, timezone);
+  return `workout-${clientSlug}-${dateSlug}`;
+}
+
+function formatDownloadDateSlug(
+  dateValue: string | null | undefined,
+  timezone: string,
+): string {
+  if (!dateValue) return "workout";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "workout";
+  return civilDateFormat(date, timezone);
+}
+
+function slugifyFilePart(value: string, fallback: string): string {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || fallback;
+}
+
 // ---------------------------------------------------------------------------
 // SUCCESS model builder — logged actuals (recent-logs surface)
 // ---------------------------------------------------------------------------
@@ -526,8 +559,15 @@ function buildSuccessModel(
     detail.completedAt ?? detail.startedAt,
     detail.clientTimezone,
   );
-  const fileDate =
-    (detail.completedAt ?? detail.startedAt ?? "").slice(0, 10) || "workout";
+  const fileDate = formatDownloadDateSlug(
+    detail.completedAt ?? detail.startedAt,
+    detail.clientTimezone,
+  );
+  const downloadFileName = buildDownloadStem(
+    detail.clientName,
+    detail.completedAt ?? detail.startedAt,
+    detail.clientTimezone,
+  );
 
   return {
     eyebrow: t("shareEyebrow"),
@@ -539,6 +579,7 @@ function buildSuccessModel(
     exercises,
     dateLine,
     fileDate,
+    downloadFileName,
     shareTitle: detail.workoutName,
   };
 }
@@ -646,10 +687,12 @@ function buildAssignmentModel(
   // scheduledFor is a "YYYY-MM-DD" civil date — render UTC-anchored so the
   // labelled day is stable across server/client zones (mirrors the calendar).
   const dateLine = formatCivilFullMonthDate(assignment.scheduledFor);
-  const fileDate =
-    /^\d{4}-\d{2}-\d{2}/.test(assignment.scheduledFor)
-      ? assignment.scheduledFor.slice(0, 10)
-      : "workout";
+  const fileDate = formatDownloadDateSlug(assignment.scheduledFor, "UTC");
+  const downloadFileName = buildDownloadStem(
+    assignment.clientName,
+    assignment.scheduledFor,
+    "UTC",
+  );
 
   return {
     eyebrow: t("shareEyebrowPrescribed"),
@@ -661,6 +704,7 @@ function buildAssignmentModel(
     exercises,
     dateLine,
     fileDate,
+    downloadFileName,
     shareTitle: assignment.templateName,
   };
 }
@@ -763,7 +807,7 @@ function ShareCardRenderer({
       // branch is intentionally removed.
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `workout-${model.fileDate}.png`;
+      a.download = `${model.downloadFileName}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();

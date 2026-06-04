@@ -49,7 +49,11 @@ export default async function ComparePhotosPage({
           <Link href={`/gc-fitness/clients/${id}#progress-photos`}>Volver al perfil</Link>
         </Button>
       </div>
-      <ProgressPhotoCompareEditor photos={photos} timezone={timezone} />
+      <ProgressPhotoCompareEditor
+        photos={photos}
+        timezone={timezone}
+        clientName={client.displayName ?? client.email ?? id}
+      />
     </div>
   );
 }

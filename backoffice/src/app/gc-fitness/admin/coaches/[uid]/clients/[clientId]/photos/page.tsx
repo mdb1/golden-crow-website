@@ -45,6 +45,10 @@ export default async function AdminClientPhotosPage({
   const storedTimezone = clientSnap.get("timezone");
   const timezone =
     typeof storedTimezone === "string" && storedTimezone ? storedTimezone : "UTC";
+  const clientName =
+    (clientSnap.get("displayName") as string | undefined) ??
+    (clientSnap.get("email") as string | undefined) ??
+    clientId;
 
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">
@@ -61,7 +65,11 @@ export default async function AdminClientPhotosPage({
         </Button>
       </div>
       {photos.length > 0 ? (
-        <ProgressPhotoCompareEditor photos={photos} timezone={timezone} />
+        <ProgressPhotoCompareEditor
+          photos={photos}
+          timezone={timezone}
+          clientName={clientName}
+        />
       ) : (
         <p className="text-sm text-muted-foreground">No progress photos yet.</p>
       )}
