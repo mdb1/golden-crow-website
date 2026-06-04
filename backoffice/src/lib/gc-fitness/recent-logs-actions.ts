@@ -59,7 +59,7 @@ export interface RecentLogRow {
  */
 export interface RecentLogsResult {
   logs: RecentLogRow[];
-  clients: Array<{ id: string; name: string }>;
+  clients: Array<{ id: string; name: string; photoURL: string | null }>;
   /** ISO `eventAt` of the last returned row — pass back as the next page cursor. */
   nextCursor: string | null;
   /** True when another page may exist (caller can request more). */
@@ -304,7 +304,11 @@ async function buildRecentLogs(params: {
   const photoByClientId = new Map<string, string | null>(
     clients.map((c) => [c.uid, c.photoURL]),
   );
-  const clientList = clients.map((c) => ({ id: c.uid, name: c.displayName }));
+  const clientList = clients.map((c) => ({
+    id: c.uid,
+    name: c.displayName,
+    photoURL: c.photoURL,
+  }));
 
   const pageMode = params.page ?? null;
 
@@ -1254,7 +1258,11 @@ export async function listRecentLogsForTrainerPage(
   if (filterClientId && clients.length === 0) {
     return {
       logs: [],
-      clients: allClients.map((c) => ({ id: c.uid, name: c.displayName })),
+      clients: allClients.map((c) => ({
+        id: c.uid,
+        name: c.displayName,
+        photoURL: c.photoURL,
+      })),
       nextCursor: null,
       hasMore: false,
     };

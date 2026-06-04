@@ -17,6 +17,7 @@ import {
   Scale,
   StickyNote,
   User,
+  Users,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -47,7 +48,7 @@ const PAGE_SIZE = 20;
 
 interface Props {
   logs: RecentLogRow[];
-  clients: Array<{ id: string; name: string }>;
+  clients: Array<{ id: string; name: string; photoURL: string | null }>;
   trainerTimezone: string;
   /** Cursor for the next page (from the server). Null ⇒ nothing more to load. */
   initialCursor?: string | null;
@@ -139,6 +140,11 @@ export function RecentLogsFeed({
     }
   }
 
+  const selectedClient =
+    clientFilter === "all"
+      ? null
+      : (clients.find((c) => c.id === clientFilter) ?? null);
+
   const filtered = rows;
   // Flat rows grouped under day headings so the date moves out of every row
   // into a single per-day header. (Per-client grouping was removed — the Client
@@ -225,13 +231,41 @@ export function RecentLogsFeed({
               disabled={loading}
             >
               <SelectTrigger className="h-10 min-w-[12rem]">
-                <SelectValue placeholder={t("allClients")} />
+                <SelectValue placeholder={t("allClients")}>
+                  {selectedClient ? (
+                    <span className="flex items-center gap-2">
+                      <ClientAvatar
+                        name={selectedClient.name}
+                        photoURL={selectedClient.photoURL}
+                        size="sm"
+                      />
+                      <span className="truncate">{selectedClient.name}</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      {t("allClients")}
+                    </span>
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t("allClients")}</SelectItem>
+                <SelectItem value="all">
+                  <span className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    {t("allClients")}
+                  </span>
+                </SelectItem>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
-                    {client.name}
+                    <span className="flex items-center gap-2">
+                      <ClientAvatar
+                        name={client.name}
+                        photoURL={client.photoURL}
+                        size="sm"
+                      />
+                      <span className="truncate">{client.name}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -15,12 +15,12 @@ export default function ExercisesLoading() {
         <Skeleton className="h-10 w-36" />
       </div>
       <div className="flex flex-wrap gap-2">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-10 w-64 rounded-full" />
+        <Skeleton className="h-10 w-40 rounded-full" />
+        <Skeleton className="h-10 w-40 rounded-full" />
+        <Skeleton className="h-10 w-40 rounded-full" />
       </div>
-      <div className="flex flex-col gap-2 rounded-md border bg-card p-4">
+      <div className="flex flex-col gap-2 rounded-[1.25rem] border bg-card p-4 shadow-sm">
         {Array.from({ length: 6 }).map((_, idx) => (
           <Skeleton key={idx} className="h-12 w-full" />
         ))}

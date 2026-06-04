@@ -13,7 +13,7 @@ export default function ChatLoading() {
         <Skeleton className="h-7 w-40" />
         <Skeleton className="mt-1 h-4 w-72" />
       </div>
-      <div className="grid h-[calc(100vh-12rem)] min-h-0 grid-cols-12 gap-0 overflow-hidden rounded-md border bg-card">
+      <div className="grid h-[calc(100vh-12rem)] min-h-0 grid-cols-12 gap-0 overflow-hidden rounded-[1.25rem] border bg-card shadow-sm">
         <div className="col-span-12 overflow-y-auto border-b md:col-span-4 md:border-b-0 md:border-r">
           <ul className="flex flex-col gap-1 p-3">
             {Array.from({ length: 6 }).map((_, idx) => (

@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { NewHabitDialog } from "@/components/gc-fitness/schedule/new-habit-dialog";
 import { BulkAssignHabitDialog } from "@/components/gc-fitness/schedule/bulk-assign-habit-dialog";
 import {
@@ -72,6 +73,9 @@ export interface ClientNameEntry {
   uid: string;
   displayName: string;
   email: string;
+  /** Client profile photo (`users/{uid}.photoURL`) — Google photo or Storage
+   *  upload, or null. Rendered as a cached avatar in the client filter. */
+  photoURL: string | null;
   pendingProvisioning: boolean;
 }
 
@@ -128,6 +132,10 @@ export function HabitsLibraryClient({
     () => clientRoster.filter((c) => !c.pendingProvisioning),
     [clientRoster],
   );
+  const selectedClient =
+    clientFilter === "all"
+      ? null
+      : (activeClientRoster.find((c) => c.uid === clientFilter) ?? null);
 
   const rows = useMemo(() => {
     const all = (data ?? []) as HabitRow[];
@@ -310,13 +318,43 @@ export function HabitsLibraryClient({
         {view === "assignments" ? (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
             <SelectTrigger className="h-10 w-56 rounded-full">
-              <SelectValue placeholder={t("filterByClientPlaceholder")} />
+              <SelectValue placeholder={t("filterByClientPlaceholder")}>
+                {selectedClient ? (
+                  <span className="flex items-center gap-2">
+                    <ClientAvatar
+                      name={selectedClient.displayName}
+                      photoURL={selectedClient.photoURL}
+                      size="sm"
+                    />
+                    <span className="truncate">
+                      {selectedClient.displayName}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    {t("allClients")}
+                  </span>
+                )}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("allClients")}</SelectItem>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  {t("allClients")}
+                </span>
+              </SelectItem>
               {activeClientRoster.map((c) => (
                 <SelectItem key={c.uid} value={c.uid}>
-                  {c.displayName}
+                  <span className="flex items-center gap-2">
+                    <ClientAvatar
+                      name={c.displayName}
+                      photoURL={c.photoURL}
+                      size="sm"
+                    />
+                    <span className="truncate">{c.displayName}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

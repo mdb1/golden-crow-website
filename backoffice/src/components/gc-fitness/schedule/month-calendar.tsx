@@ -544,26 +544,25 @@ export function MonthCalendar({
       />
 
       {/* ── Client filter bar ─────────────────────────────────────────── */}
-      <section className="rounded-[1.25rem] border bg-card/95 p-4 shadow-sm">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-medium">
+            <p className="text-base font-semibold tracking-tight">
               Clientes en pantalla{" "}
               <span className="text-muted-foreground">
                 ({selectedIds.size}/{clients.length})
               </span>
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Marcá uno o varios. El calendario va a mostrar sus workouts y hábitos juntos.
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant={
-                selectedIds.size === clients.length ? "ghost" : "outline"
-              }
+              variant="outline"
               size="sm"
+              className="rounded-full"
               onClick={selectAll}
               disabled={selectedIds.size === clients.length}
             >
@@ -573,6 +572,7 @@ export function MonthCalendar({
               type="button"
               variant="ghost"
               size="sm"
+              className="rounded-full"
               onClick={clearAll}
               disabled={selectedIds.size === 0}
             >
@@ -580,7 +580,7 @@ export function MonthCalendar({
             </Button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mt-4 flex flex-wrap gap-2">
           {clients.map((c) => {
             const active = selectedIds.has(c.uid);
             const palette = paletteFor(clients, c.uid);
@@ -591,48 +591,63 @@ export function MonthCalendar({
                 onClick={() => toggleClient(c.uid)}
                 aria-pressed={active}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all",
+                  "group/chip inline-flex min-h-[40px] items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-sm font-medium transition-all",
                   active
-                    ? `${palette.chip} ring-1 ring-current/30`
-                    : "border-dashed border-foreground/30 bg-background text-foreground/70 hover:border-foreground/60 hover:bg-muted/40",
+                    ? "border-transparent bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                 )}
               >
-                {active ? (
-                  <CheckIcon className="size-3.5" strokeWidth={3} />
-                ) : (
-                  <PlusIcon className="size-3.5 opacity-70" strokeWidth={2.5} />
-                )}
-                {c.displayName}
+                <span className="relative inline-flex shrink-0">
+                  <ClientAvatar
+                    name={c.displayName}
+                    photoURL={c.photoURL}
+                    size="sm"
+                  />
+                  {active ? (
+                    <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-3.5 items-center justify-center rounded-full bg-primary-foreground text-primary ring-2 ring-primary">
+                      <CheckIcon className="size-2.5" strokeWidth={3.5} />
+                    </span>
+                  ) : null}
+                </span>
+                <span
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    palette.dot,
+                    active && "ring-1 ring-primary-foreground/60",
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="truncate">{c.displayName}</span>
               </button>
             );
           })}
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-4 border-t pt-3">
-          <span className="text-xs font-medium text-muted-foreground">
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
+          <span className="mr-1 text-sm font-medium text-muted-foreground">
             Mostrar
           </span>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+          <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-full px-2 text-sm">
             <input
               type="checkbox"
               checked={showWorkouts}
               onChange={(e) => setShowWorkouts(e.target.checked)}
-              className="size-4 rounded border"
+              className="size-4 rounded border accent-primary"
             />
             <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
             Workouts
           </label>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+          <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-full px-2 text-sm">
             <input
               type="checkbox"
               checked={showHabits}
               onChange={(e) => setShowHabits(e.target.checked)}
-              className="size-4 rounded border"
+              className="size-4 rounded border accent-primary"
             />
             <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
             Hábitos
           </label>
         </div>
-      </section>
+      </Card>
 
       {/* ── Calendar surface ───────────────────────────────────────────── */}
       {selectedIds.size === 0 ? (

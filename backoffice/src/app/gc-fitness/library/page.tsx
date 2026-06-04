@@ -108,6 +108,7 @@ async function HabitsTab({ trainerUid }: { trainerUid: string }) {
     uid: c.uid,
     displayName: c.displayName,
     email: c.email,
+    photoURL: c.photoURL,
     pendingProvisioning: c.pendingProvisioning,
   }));
   return (
