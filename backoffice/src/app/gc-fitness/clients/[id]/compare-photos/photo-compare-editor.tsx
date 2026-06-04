@@ -261,11 +261,11 @@ async function exportSideBySideJpg({
   ]);
   const logoImg = await loadInlineImage(GOLDENCROW_LOGO_DATA_URI);
 
-  const outerMargin = 24;
+  const outerMargin = 8;
   const panelWidth = 1320;
-  const panelHeight = 1820;
-  const gap = 24;
-  const footerHeight = 220;
+  const panelHeight = 1700;
+  const gap = 8;
+  const footerHeight = 96;
   const cornerRadius = 40;
   const canvas = document.createElement("canvas");
   canvas.width = panelWidth * 2 + gap * 3 + outerMargin * 2;
@@ -288,6 +288,7 @@ async function exportSideBySideJpg({
     footerHeight,
     radius: cornerRadius,
     logoImg,
+    showLogo: false,
   });
 
   drawPanel({
@@ -302,6 +303,7 @@ async function exportSideBySideJpg({
     footerHeight,
     radius: cornerRadius,
     logoImg,
+    showLogo: true,
   });
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
@@ -354,6 +356,7 @@ async function exportSliderSnapshotJpg({
   const outerMargin = 16;
   const labelHeight = 160;
   const cornerRadius = 40;
+  const gap = 12;
   const targetPanelWidth = 1080;
   const targetPanelHeight = 1440;
   const dividerWidth = 4;
@@ -419,20 +422,21 @@ async function exportSliderSnapshotJpg({
   // not clash with the photo crop.
   const beforeLabel = photoDisplayDate(before, timezone, locale);
   const afterLabel = photoDisplayDate(after, timezone, locale);
+  const afterEdgeX = panelX + panelW - 20;
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 46px system-ui, -apple-system, sans-serif";
-  const labelY = panelY + panelH + 44;
+  ctx.font = "700 40px system-ui, -apple-system, sans-serif";
+  const labelY = panelY + panelH + 30;
   ctx.textAlign = "left";
   ctx.fillText("Before", panelX, labelY);
-  ctx.font = "500 32px system-ui, -apple-system, sans-serif";
-  ctx.fillText(beforeLabel, panelX, labelY + 40);
+  ctx.font = "500 26px system-ui, -apple-system, sans-serif";
+  ctx.fillText(beforeLabel, panelX, labelY + 32);
   ctx.textAlign = "right";
-  ctx.font = "700 46px system-ui, -apple-system, sans-serif";
-  ctx.fillText("After", panelX + panelW, labelY);
-  ctx.font = "500 32px system-ui, -apple-system, sans-serif";
-  ctx.fillText(afterLabel, panelX + panelW, labelY + 40);
+  ctx.font = "700 40px system-ui, -apple-system, sans-serif";
+  ctx.fillText("After", afterEdgeX, labelY);
+  ctx.font = "500 26px system-ui, -apple-system, sans-serif";
+  ctx.fillText(afterLabel, afterEdgeX, labelY + 32);
 
-  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height, true);
+  drawWatermarkLogo(ctx, logoImg, canvas.width, canvas.height, "center");
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
   if (!blob) return;
@@ -483,6 +487,7 @@ function drawPanel({
   ctx,
   img,
   logoImg,
+  showLogo,
   x,
   y,
   width,
@@ -495,6 +500,7 @@ function drawPanel({
   ctx: CanvasRenderingContext2D;
   img: HTMLImageElement;
   logoImg: HTMLImageElement;
+  showLogo: boolean;
   x: number;
   y: number;
   width: number;
@@ -526,19 +532,21 @@ function drawPanel({
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 60px system-ui, -apple-system, sans-serif";
-  const footerTop = height - footerHeight + 56;
+  const footerTop = height - footerHeight + 42;
   ctx.fillText(title, x + framePadding, footerTop);
-  ctx.font = "500 38px system-ui, -apple-system, sans-serif";
-  ctx.fillText(label, x + framePadding, footerTop + 50);
+  ctx.font = "500 30px system-ui, -apple-system, sans-serif";
+  ctx.fillText(label, x + framePadding, footerTop + 34);
 
-  const logoSize = 160;
-  const logoMargin = 18;
-  const logoX = x + width - framePadding - logoSize;
-  const logoY = y + height - footerHeight + footerHeight - logoMargin - logoSize;
-  ctx.save();
-  ctx.globalAlpha = 0.98;
-  ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
-  ctx.restore();
+  if (showLogo) {
+    const logoSize = 160;
+    const logoMargin = 18;
+    const logoX = x + width - framePadding - logoSize;
+    const logoY = y + height - footerHeight + footerHeight - logoMargin - logoSize;
+    ctx.save();
+    ctx.globalAlpha = 0.98;
+    ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -547,14 +555,24 @@ function drawWatermarkLogo(
   logoImg: HTMLImageElement,
   canvasWidth: number,
   canvasHeight: number,
-  anchoredBottomRight = false,
+  placement: "corner" | "center" = "corner",
 ) {
-  const size = anchoredBottomRight ? 170 : 128;
-  const margin = anchoredBottomRight ? 24 : 40;
+  const size = placement === "corner" ? 170 : 154;
+  const margin = placement === "corner" ? 24 : 32;
 
   ctx.save();
   ctx.globalAlpha = 0.92;
-  ctx.drawImage(logoImg, canvasWidth - margin - size, canvasHeight - margin - size, size, size);
+  if (placement === "center") {
+    ctx.drawImage(
+      logoImg,
+      canvasWidth / 2 - size / 2,
+      canvasHeight - margin - size,
+      size,
+      size,
+    );
+  } else {
+    ctx.drawImage(logoImg, canvasWidth - margin - size, canvasHeight - margin - size, size, size);
+  }
   ctx.restore();
 }
 
