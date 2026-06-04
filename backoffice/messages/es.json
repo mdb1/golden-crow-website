@@ -978,6 +978,11 @@
       "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
     },
     "form": {
+      "newPageHeading": "Nuevo ejercicio",
+      "newPageSubtitle": "Guardá lo básico primero — podés agregar un video de demostración después de guardar.",
+      "newDialogTitle": "Nuevo ejercicio",
+      "newDialogDescription": "Guardá lo básico primero — podés agregar un video de demostración antes de guardar.",
+      "newDialogCta": "Nuevo ejercicio",
       "viewBannerTitle": "Detalles del ejercicio",
       "viewBannerBody": "Este ejercicio proviene de wger.de y es de solo lectura.",
       "duplicateCta": "Duplicar para personalizar",

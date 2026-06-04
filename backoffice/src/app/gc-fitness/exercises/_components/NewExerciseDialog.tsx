@@ -19,6 +19,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ interface NewExerciseDialogProps {
 }
 
 export function NewExerciseDialog({ trainerUid }: NewExerciseDialogProps) {
+  const t = useTranslations("exercises.form");
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -51,15 +53,13 @@ export function NewExerciseDialog({ trainerUid }: NewExerciseDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {/* TODO i18n — reuse exercises.list.newExerciseCta wording; the create
-          form copy is English-only debt tracked in backlog D1. */}
       <Button
         type="button"
         onClick={() => setOpen(true)}
         className="gap-2 rounded-full"
       >
         <Plus className="h-4 w-4" />
-        Nuevo ejercicio
+        {t("newDialogCta")}
       </Button>
 
       <DialogContent
@@ -70,12 +70,8 @@ export function NewExerciseDialog({ trainerUid }: NewExerciseDialogProps) {
         className="sm:max-w-2xl lg:max-w-3xl"
       >
         <DialogHeader>
-          {/* TODO i18n — Spanish-first inline; create-form copy is D1 debt. */}
-          <DialogTitle>Nuevo ejercicio</DialogTitle>
-          <DialogDescription>
-            Guardá lo básico primero — podés agregar un video de demostración
-            antes de guardar.
-          </DialogDescription>
+          <DialogTitle>{t("newDialogTitle")}</DialogTitle>
+          <DialogDescription>{t("newDialogDescription")}</DialogDescription>
         </DialogHeader>
 
         <ExerciseForm

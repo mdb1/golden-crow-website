@@ -978,6 +978,11 @@
       "clearFilters": "Clear filters"
     },
     "form": {
+      "newPageHeading": "New exercise",
+      "newPageSubtitle": "Save the basics first — you can add a demonstration video after the first save.",
+      "newDialogTitle": "New exercise",
+      "newDialogDescription": "Save the basics first — you can add a demonstration video before saving.",
+      "newDialogCta": "New exercise",
       "viewBannerTitle": "Exercise details",
       "viewBannerBody": "This exercise is sourced from wger.de and is read-only.",
       "duplicateCta": "Duplicate to customize",
