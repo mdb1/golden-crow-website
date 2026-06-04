@@ -1361,28 +1361,24 @@ function ClientDayCell({
           );
         })}
 
-        {habits.length > 0 ? (
+        {/* Individual habit chips (one per habit) so the coach can see and open
+            each one — a collapsed "N hábitos" count hid them. Each opens its own
+            detail and carries its own completion status. */}
+        {habits.map((h) => (
           <button
+            key={h.id}
             type="button"
-            onClick={() => onClickHabit(habits[0])}
+            onClick={() => onClickHabit(h)}
             className={cn(
-              "inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium hover:brightness-95",
-              habitChipClass(
-                habits.every((h) => h.status === "done")
-                  ? "done"
-                  : habits.some((h) => h.status === "missed")
-                    ? "missed"
-                    : "scheduled",
-              ),
+              "flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-full border px-2 py-1 text-left text-[11px] font-medium leading-tight hover:brightness-95",
+              habitChipClass(h.status),
             )}
-            title={habits.map((h) => h.habitName).join(", ")}
+            title={`${h.habitName} · ${h.status}`}
           >
-            <Circle className="size-2.5 opacity-70" />
-            {habits.length === 1
-              ? "1 hábito"
-              : `${habits.length} hábitos`}
+            <HabitStatusGlyph status={h.status} />
+            <span className="min-w-0 flex-1 truncate">{h.habitName}</span>
           </button>
-        ) : null}
+        ))}
 
         {isEmpty ? (
           <AddPopover
