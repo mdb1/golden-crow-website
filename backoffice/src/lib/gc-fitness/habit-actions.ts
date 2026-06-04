@@ -78,6 +78,10 @@ function getMediaBucketName(): string {
   );
 }
 
+function isDraftHabitId(habitId: string, trainerUid: string): boolean {
+  return habitId.startsWith(`habit-draft-${trainerUid}-`);
+}
+
 // Global habit templates are BINARY-ONLY (yes/no) now. The former numeric
 // (water/sleep/steps/protein) and multi-choice (energy) templates were
 // dropped when the product collapsed to binary habits; "Water intake" is kept

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
-import { listDataHygienePage } from "@/lib/gc-fitness/data-hygiene-actions";
+import { listDataHygienePage, type DataHygienePage } from "@/lib/gc-fitness/data-hygiene-actions";
 
 import { DataHygieneFeed } from "./DataHygieneFeed";
 
@@ -29,7 +29,28 @@ export default async function DataHygienePage({
   const op = typeof sp.op === "string" ? sp.op : null;
   const ok = typeof sp.ok === "string" ? sp.ok : null;
   const offset = typeof sp.offset === "string" ? Number.parseInt(sp.offset, 10) : 0;
-  const initialPage = await listDataHygienePage(Number.isFinite(offset) ? offset : 0, 20);
+  const emptyPage: DataHygienePage = {
+    rows: [],
+    nextOffset: null,
+    hasMore: false,
+    summary: {
+      user: 0,
+      chat: 0,
+      photo: 0,
+      template: 0,
+      assignment: 0,
+      log: 0,
+      exercise: 0,
+    },
+  };
+  let loadError: string | null = null;
+  let initialPage = emptyPage;
+  try {
+    initialPage = await listDataHygienePage(Number.isFinite(offset) ? offset : 0, 20);
+  } catch (err) {
+    console.error("[gc-fitness/admin/hygiene] failed to load initial scan", err);
+    loadError = err instanceof Error ? err.message : "Unable to load hygiene scan.";
+  }
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -63,7 +84,7 @@ export default async function DataHygienePage({
         </CardContent>
       </Card>
 
-      <DataHygieneFeed initialPage={initialPage} />
+      <DataHygieneFeed initialPage={initialPage} loadError={loadError} />
     </div>
   );
 }

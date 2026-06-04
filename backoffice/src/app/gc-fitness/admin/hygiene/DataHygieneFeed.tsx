@@ -59,8 +59,10 @@ const KIND_TONE: Record<DataHygieneKind, string> = {
 
 export function DataHygieneFeed({
   initialPage,
+  loadError,
 }: {
   initialPage: DataHygienePage;
+  loadError?: string | null;
 }) {
   const [rows, setRows] = useState(initialPage.rows);
   const [offset, setOffset] = useState<number | null>(initialPage.nextOffset);
@@ -83,6 +85,20 @@ export function DataHygieneFeed({
 
   return (
     <div className="flex flex-col gap-6">
+      {loadError ? (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="text-destructive">Hygiene scan could not load</CardTitle>
+            <CardDescription>
+              {loadError}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            The page is still usable, but the initial anomaly scan failed. Reloading after the underlying issue is fixed should restore the list.
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Hygiene summary</CardTitle>

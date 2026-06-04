@@ -142,6 +142,10 @@ export function NewHabitDialog({
     () => `habit-template-${trainerUid}-${draftSuffix}`,
     [draftSuffix, trainerUid],
   );
+  const habitDraftId = useMemo(
+    () => `habit-draft-${trainerUid}-${draftSuffix}`,
+    [draftSuffix, trainerUid],
+  );
   const effStartsOn = startsOn ?? todayCivilDate();
   const effClientId = clientId ?? "";
   const afterSubmit = () => {
@@ -226,6 +230,7 @@ export function NewHabitDialog({
                 key={prefillName || "blank"}
                 mode="create"
                 clientOptions={clientOptions}
+                habitId={habitDraftId}
                 defaultValues={
                   {
                     clientId: effClientId,
@@ -255,6 +260,7 @@ export function NewHabitDialog({
                 key={selected.id}
                 mode="create"
                 clientOptions={clientOptions}
+                habitId={habitDraftId}
                 defaultValues={templateToDefaults(
                   selected,
                   effClientId,

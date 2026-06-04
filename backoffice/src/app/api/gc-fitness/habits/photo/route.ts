@@ -27,6 +27,10 @@ function isDraftHabitTemplateId(habitId: string, trainerUid: string): boolean {
   return habitId.startsWith(`habit-template-${trainerUid}-`);
 }
 
+function isDraftHabitId(habitId: string, trainerUid: string): boolean {
+  return habitId.startsWith(`habit-draft-${trainerUid}-`);
+}
+
 async function assertOwnership(habitId: string, trainerUid: string): Promise<void> {
   const db = gcFitnessFirestore();
   const [habitSnap, templateSnap] = await Promise.all([
@@ -73,7 +77,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    await assertOwnership(habitId, trainerUid);
+    if (!isDraftHabitId(habitId, trainerUid)) {
+      await assertOwnership(habitId, trainerUid);
+    }
 
     const bucketName = getMediaBucketName();
     const objectPath = `habits/${habitId}/photo.${ext}`;

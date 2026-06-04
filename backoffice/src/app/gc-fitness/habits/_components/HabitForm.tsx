@@ -74,8 +74,9 @@ export interface HabitFormProps {
   defaultValues?: Partial<HabitCreateInput>;
   /**
    * For mode="edit": the existing habit's doc id (`hab-${uid}-${uuid}`), so the
-   * photo dropzone can mint an upload URL. Absent in create mode — the dropzone
-   * stays disabled until the habit is saved and has an id.
+   * photo dropzone can mint an upload URL. In create mode the host may still
+   * pass a temporary draft id so the trainer can upload the reference photo
+   * before the final habit doc exists.
    */
   habitId?: string;
   /**
