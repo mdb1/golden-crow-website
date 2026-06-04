@@ -45,6 +45,10 @@ import ClientRequestActionsCard from "./_components/ClientRequestActionsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
+import {
+  bodyWeightFulfillment,
+  progressPhotosFulfillment,
+} from "@/lib/gc-fitness/client-request-fulfillment";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 
@@ -131,11 +135,21 @@ export default async function ClientDetailPage({
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
   const todayCivil = civilDateToday(timezone);
-  const [notes, progressPhotos, goals] = await Promise.all([
+  const [notes, progressPhotos, goals, bodyWeightFulfilled] = await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
     listClientGoals(id),
+    // C1 — one bounded read-only query for body-weight fulfillment. Progress-
+    // photo fulfillment reuses the `progressPhotos` slice loaded above (no
+    // extra read). Both compare upload time against the request timestamp.
+    bodyWeightFulfillment(id, client.bodyWeightRequestedAt ?? null).catch(
+      () => ({ fulfilled: false, fulfilledAt: null }),
+    ),
   ]);
+  const progressPhotosFulfilled = progressPhotosFulfillment(
+    client.progressPhotosRequestedAt ?? null,
+    progressPhotos,
+  );
   const tSkeleton = await getTranslations("clients.detail.skeleton");
   const tPreferences = await getTranslations("clients.detail.preferences");
   const workoutPrefillSource =
@@ -181,6 +195,8 @@ export default async function ClientDetailPage({
         timezone={timezone}
         progressPhotosRequestedAt={client.progressPhotosRequestedAt ?? null}
         bodyWeightRequestedAt={client.bodyWeightRequestedAt ?? null}
+        progressPhotosFulfilled={progressPhotosFulfilled}
+        bodyWeightFulfilled={bodyWeightFulfilled}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

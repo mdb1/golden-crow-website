@@ -250,6 +250,11 @@
           "readyHelp": "You can request it again now.",
           "active": "Request is active for 3 days",
           "ready": "Ready to request"
+        },
+        "fulfillment": {
+          "photos": "Photos uploaded · {ago}",
+          "weight": "Weight logged · {ago}",
+          "pending": "Pending since the request"
         }
       },
       "skeleton": {
@@ -394,11 +399,16 @@
         "afterAlt": "After"
       },
       "bodyWeightChart": {
-        "title": "Body weight (30 days)",
-        "noLogs": "No weight logs in the last 30 days.",
+        "title": "Body weight",
+        "noLogs": "No weight logs in this range.",
         "latestPrefix": "Latest:",
         "logSingular": "{count} log",
         "logPlural": "{count} logs",
+        "weightTooltip": "Weight",
+        "rangeAll": "All",
+        "range90": "90d",
+        "range30": "30d",
+        "range7": "7d",
         "ariaLabel": "Body weight trend over {count} log points"
       },
       "summary": {

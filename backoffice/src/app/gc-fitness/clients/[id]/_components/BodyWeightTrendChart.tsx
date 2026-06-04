@@ -1,25 +1,25 @@
-// BodyWeightTrendChart.tsx — 30-day body-weight inline-SVG line chart.
-// Async React Server Component.
+// BodyWeightTrendChart.tsx — body-weight area chart with a time-range
+// selector (All time / 90d / 30d / 7d). Async React Server Component.
 //
-// Pattern D — inline-SVG chart precedent from ComplianceSparkline.tsx
-// (P06-08). NO recharts / @tanstack/react-charts — neither is in the
-// backoffice dependency graph and we explicitly avoid adding a chart
-// library for one widget. The 30-point dataset fits comfortably in
-// hand-rolled <path>/<line>/<circle> elements.
+// Charting uses recharts (already a backoffice dependency for the workout /
+// habit trend widgets); the interactive shell lives in
+// BodyWeightTrendChartClient so range-toggling stays instant on the client.
 //
 // Empty state mirrors the iOS P07-07 "Add a body-weight habit" CTA
-// but as a server-side redirect link instead of a button.
+// but as a server-side copy line.
 //
 // Query budget:
-//   1) users/{uid}/body_weight_logs orderBy recordedAt ASC, limit 180.
-// Body weight lives in its OWN dedicated collection; the legacy
-// `habits` (type == "weight") fallback was removed when habits became
-// binary-only.
+//   1) users/{uid}/body_weight_logs orderBy recordedAt ASC, limit 500.
+// A single 365-day window read feeds every range; the client filters by
+// civil date, so toggling ranges costs zero extra Firestore reads (matches
+// the WorkoutTrendsWidget / HabitTrendsWidget pattern). Body weight lives in
+// its OWN dedicated collection; the legacy `habits` (type == "weight")
+// fallback was removed when habits became binary-only.
 //
 // Trust: the parent page's ownership gate guarantees the trainer owns
 // this client; Firestore rules (P02-11) also enforce. The chart never
 // renders raw HTML from any user-controlled field — civil-date strings
-// land inside <title> elements (SVG title, React auto-escaped), so
+// land inside recharts axis/tooltip labels (React auto-escaped), so
 // T-11-07-CHART-INJECTION is closed by construction.
 
 import { getTranslations } from "next-intl/server";
@@ -27,6 +27,7 @@ import { getTranslations } from "next-intl/server";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { addCivilDays } from "./trend-range";
 import { BodyWeightTrendChartClient } from "./BodyWeightTrendChartClient";
 
 export interface BodyWeightTrendChartProps {
@@ -35,11 +36,13 @@ export interface BodyWeightTrendChartProps {
 }
 
 interface WeightPoint {
-  /** civilDate string YYYY-MM-DD */
+  /** civilDate string YYYY-MM-DD (the measurement date, not createdAt) */
   date: string;
   /** weight value (unit-agnostic — see note below) */
   weight: number;
 }
+
+const MAX_LOOKBACK_DAYS = 365;
 
 function isPlausibleWeightKg(weight: number): boolean {
   // Guardrail for corrupted entries (ex: 25kg accidental log in adult profile)
@@ -66,17 +69,20 @@ export async function BodyWeightTrendChart({
   const t = await getTranslations("clients.detail.bodyWeightChart");
   const db = gcFitnessFirestore();
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const today = civilDateFormat(new Date(), timezone);
+  const windowStartDate = new Date(
+    Date.now() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
 
   // SOLE source for this widget: /users/{uid}/body_weight_logs. Body weight
   // is no longer a habit type — there is no `habits (type == "weight")`
-  // fallback.
+  // fallback. One 365-day window read feeds all ranges.
   const directWeightLogsSnap = await db
     .collection(FirestoreCollections.users)
     .doc(clientId)
     .collection("body_weight_logs")
     .orderBy("recordedAt", "asc")
-    .limit(180)
+    .limit(500)
     .get()
     .catch(() => null);
 
@@ -91,12 +97,15 @@ export async function BodyWeightTrendChart({
       const date = toDate(data.recordedAt);
       if (weight === null || !date) return null;
       if (!isPlausibleWeightKg(weight)) return null;
-      if (date < thirtyDaysAgo) return null;
+      if (date < windowStartDate) return null;
       return { date: civilDateFormat(date, timezone), weight };
     })
     .filter((p): p is WeightPoint => p !== null);
 
-  // Keep one point per day (latest wins) to avoid overplot noise.
+  // Keep one point per measurement date (latest wins) to avoid overplot noise,
+  // then sort by the record's DATE so "latest" means the most recent
+  // measurement, not the last-created row (C2). A backfilled old entry sorts
+  // back into its real position instead of jumping to the front.
   const byDate = new Map<string, number>();
   for (const p of points) byDate.set(p.date, p.weight);
   points = Array.from(byDate.entries())
@@ -112,39 +121,34 @@ export async function BodyWeightTrendChart({
     );
   }
 
-  const latest = points[points.length - 1];
-  const delta =
-    points.length > 1 ? latest.weight - points[0].weight : null;
-  const deltaStr =
-    delta !== null
-      ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`
-      : null;
+  // Anchor every range to today so the client can filter by civil date.
+  const rangeStarts = {
+    all: addCivilDays(today, -(MAX_LOOKBACK_DAYS - 1)),
+    "90": addCivilDays(today, -89),
+    "30": addCivilDays(today, -29),
+    "7": addCivilDays(today, -6),
+  };
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
-      <h2 className="mb-1 font-medium">{t("title")}</h2>
-      <p className="mb-3 text-xs text-muted-foreground">
-        {t("latestPrefix")}{" "}
-        <span className="font-medium tabular-nums text-foreground">
-          {latest.weight} {unitLabel}
-        </span>
-        {deltaStr !== null ? (
-          <span
-            className={
-              (delta ?? 0) >= 0
-                ? "ml-2 text-amber-600"
-                : "ml-2 text-emerald-600"
-            }
-          >
-            ({deltaStr} {unitLabel})
-          </span>
-        ) : null}
-        {" · "}
-        {points.length === 1
-          ? t("logSingular", { count: points.length })
-          : t("logPlural", { count: points.length })}
-      </p>
-      <BodyWeightTrendChartClient data={points} unitLabel={unitLabel} />
-    </section>
+    <BodyWeightTrendChartClient
+      data={points}
+      today={today}
+      rangeStarts={rangeStarts}
+      unitLabel={unitLabel}
+      labels={{
+        title: t("title"),
+        noLogs: t("noLogs"),
+        latestPrefix: t("latestPrefix"),
+        logSingular: t("logSingular"),
+        logPlural: t("logPlural"),
+        weightTooltip: t("weightTooltip"),
+        ranges: {
+          all: t("rangeAll"),
+          "90": t("range90"),
+          "30": t("range30"),
+          "7": t("range7"),
+        },
+      }}
+    />
   );
 }

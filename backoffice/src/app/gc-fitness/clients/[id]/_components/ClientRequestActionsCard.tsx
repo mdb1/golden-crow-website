@@ -1,15 +1,23 @@
+import { Check } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { runClientRequest } from "@/lib/gc-fitness/client-request-actions";
 import { getClientRequestStatus } from "@/lib/gc-fitness/client-request-state";
+import type { RequestFulfillment } from "@/lib/gc-fitness/client-request-fulfillment";
 
 type RequestState = {
   statusText: string;
   helperText: string;
   isActive: boolean;
+};
+
+type FulfillmentNote = {
+  fulfilled: boolean;
+  text: string;
 };
 
 export default async function ClientRequestActionsCard({
@@ -18,18 +26,38 @@ export default async function ClientRequestActionsCard({
   timezone,
   progressPhotosRequestedAt,
   bodyWeightRequestedAt,
+  progressPhotosFulfilled,
+  bodyWeightFulfilled,
 }: {
   clientId: string;
   clientName: string;
   timezone: string;
   progressPhotosRequestedAt: unknown;
   bodyWeightRequestedAt: unknown;
+  progressPhotosFulfilled?: RequestFulfillment;
+  bodyWeightFulfilled?: RequestFulfillment;
 }) {
   const locale = await getLocale();
   const t = await getTranslations("clients.detail.requests");
   const now = new Date();
   const progressPhotos = requestState(progressPhotosRequestedAt, now, timezone, locale, t);
   const bodyWeight = requestState(bodyWeightRequestedAt, now, timezone, locale, t);
+  const progressPhotosNote = fulfillmentNote(
+    progressPhotosFulfilled,
+    progressPhotosRequestedAt,
+    "photos",
+    now,
+    locale,
+    t,
+  );
+  const bodyWeightNote = fulfillmentNote(
+    bodyWeightFulfilled,
+    bodyWeightRequestedAt,
+    "weight",
+    now,
+    locale,
+    t,
+  );
 
   async function requestProgressPhotos() {
     "use server";
@@ -56,6 +84,7 @@ export default async function ClientRequestActionsCard({
           title={t("progressPhotos.title")}
           description={t("progressPhotos.description", { clientName })}
           state={progressPhotos}
+          note={progressPhotosNote}
           action={requestProgressPhotos}
           submitLabel={t("request.cta")}
           activeLabel={t("status.active")}
@@ -65,6 +94,7 @@ export default async function ClientRequestActionsCard({
           title={t("weight.title")}
           description={t("weight.description", { clientName })}
           state={bodyWeight}
+          note={bodyWeightNote}
           action={requestWeight}
           submitLabel={t("request.cta")}
           activeLabel={t("status.active")}
@@ -112,6 +142,50 @@ function requestState(
   };
 }
 
+/**
+ * Build the fulfilled/pending note for a request row. Returns null when there
+ * is no active-or-past request (nothing to fulfill yet) so the row shows no
+ * note. When fulfilled, the label includes a relative "{ago}" string derived
+ * from the satisfying upload time.
+ */
+function fulfillmentNote(
+  fulfillment: RequestFulfillment | undefined,
+  requestedAt: unknown,
+  kind: "photos" | "weight",
+  now: Date,
+  locale: string,
+  t: Awaited<ReturnType<typeof getTranslations>>,
+): FulfillmentNote | null {
+  const status = getClientRequestStatus(requestedAt, now);
+  // No request ever made → nothing to fulfill, show no note.
+  if (!status.requestedAt) return null;
+
+  if (fulfillment?.fulfilled && fulfillment.fulfilledAt) {
+    const ago = relativeTime(new Date(fulfillment.fulfilledAt), now, locale);
+    return { fulfilled: true, text: t(`fulfillment.${kind}`, { ago }) };
+  }
+
+  return { fulfilled: false, text: t("fulfillment.pending") };
+}
+
+/**
+ * Compact relative-time string ("hace 2 días" / "2 days ago") for a past date,
+ * via `Intl.RelativeTimeFormat`. Picks the largest sensible unit.
+ */
+function relativeTime(value: Date, now: Date, locale: string): string {
+  const diffMs = value.getTime() - now.getTime();
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const minutes = Math.round(diffMs / 60000);
+  const absMinutes = Math.abs(minutes);
+  if (absMinutes < 60) return rtf.format(minutes, "minute");
+  const hours = Math.round(diffMs / 3600000);
+  if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+  const days = Math.round(diffMs / 86400000);
+  if (Math.abs(days) < 30) return rtf.format(days, "day");
+  const months = Math.round(diffMs / (30 * 86400000));
+  return rtf.format(months, "month");
+}
+
 function formatDate(
   value: Date,
   timezone: string,
@@ -140,6 +214,7 @@ function RequestRow({
   title,
   description,
   state,
+  note,
   action,
   submitLabel,
   activeLabel,
@@ -148,6 +223,7 @@ function RequestRow({
   title: string;
   description: string;
   state: RequestState;
+  note: FulfillmentNote | null;
   action: () => Promise<void>;
   submitLabel: string;
   activeLabel: string;
@@ -166,6 +242,18 @@ function RequestRow({
           </span>
           <span className="text-xs text-muted-foreground">{state.helperText}</span>
         </div>
+        {note ? (
+          note.fulfilled ? (
+            <Badge variant="success" className="h-auto gap-1 py-1">
+              <Check aria-hidden />
+              {note.text}
+            </Badge>
+          ) : (
+            <Badge variant="warning" className="h-auto py-1">
+              {note.text}
+            </Badge>
+          )
+        ) : null}
         <div className="mt-auto flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             {state.isActive ? activeLabel : readyLabel}
