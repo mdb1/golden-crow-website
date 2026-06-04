@@ -164,7 +164,7 @@ export function ClientDailyTimeline({
   }
 
   return (
-    <section className="rounded-md border bg-card p-4 lg:col-span-2">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm lg:col-span-2">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-medium">

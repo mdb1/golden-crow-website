@@ -4,6 +4,7 @@
 // the form itself redirects to `/[id]/edit`.
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { ExerciseForm } from "../_components/ExerciseForm";
@@ -11,6 +12,7 @@ import { ExerciseForm } from "../_components/ExerciseForm";
 export const dynamic = "force-dynamic";
 
 export default async function NewExercisePage() {
+  const t = await getTranslations("exercises.form");
   const trainer = await getCurrentTrainer().catch((err) => {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
@@ -20,14 +22,13 @@ export default async function NewExercisePage() {
   });
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          New exercise
+          {t("newPageHeading")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Save the basics first — you can add a demonstration video after the
-          first save.
+          {t("newPageSubtitle")}
         </p>
       </div>
       <ExerciseForm mode="create" trainerUid={trainer.uid} />

@@ -81,7 +81,7 @@ export function EngineeringAccessCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Engineering access</CardTitle>
+        <CardTitle className="text-xl">Engineering access</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
@@ -97,13 +97,14 @@ export function EngineeringAccessCard({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="trainer@example.com"
-              className="h-10 min-w-64 rounded-md border bg-background px-3 text-sm"
+              className="h-10 min-w-64 rounded-xl border bg-background px-3 text-sm"
               disabled={pending}
             />
           </label>
           <Button
             type="button"
             variant="default"
+            className="rounded-full"
             onClick={onGrant}
             disabled={pending || email.trim().length === 0}
           >
@@ -124,7 +125,7 @@ export function EngineeringAccessCard({
               return (
                 <li
                   key={user.uid}
-                  className="flex items-center gap-3 rounded-md border bg-card p-3 text-sm"
+                  className="flex items-center gap-3 rounded-2xl border bg-card p-3 text-sm"
                 >
                   <Badge variant="secondary" className="font-mono text-xs">
                     {user.uid.slice(0, 10)}…

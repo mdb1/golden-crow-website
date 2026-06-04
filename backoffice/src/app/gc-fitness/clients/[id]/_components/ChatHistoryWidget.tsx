@@ -123,7 +123,7 @@ export async function ChatHistoryWidget({
   }
 
   return (
-    <section className="flex flex-col rounded-md border bg-card p-3.5 sm:p-4">
+    <section className="flex flex-col rounded-[1.25rem] border border-border bg-card p-4 shadow-sm sm:p-5">
       <h2 className="mb-2.5 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>

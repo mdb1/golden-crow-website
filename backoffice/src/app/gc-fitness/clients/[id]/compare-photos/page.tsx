@@ -40,12 +40,12 @@ export default async function ComparePhotosPage({
 
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Comparador de fotos</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="gc-page-title text-2xl sm:text-3xl">Comparador de fotos</h1>
           <p className="text-sm text-muted-foreground">{client.displayName ?? client.email ?? id}</p>
         </div>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className="rounded-full">
           <Link href={`/gc-fitness/clients/${id}#progress-photos`}>Volver al perfil</Link>
         </Button>
       </div>

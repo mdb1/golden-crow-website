@@ -77,6 +77,7 @@ import {
   type ChatRow,
   type MessageRow,
 } from "./chat-schema";
+import { REACTION_EMOJI } from "./chat-reactions";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 
@@ -491,6 +492,60 @@ function timestampsEqual(a: unknown, b: unknown): boolean {
 // Mitigates T-08-04-03 (cross-trainer inbox leak — defense in depth
 // even if a future caller forgets to filter).
 // Mitigates T-08-04-05 (unbounded read — capped at 200).
+
+// ── setTrainerMessageReaction — coach emoji reaction on a message ──────────
+//
+// Writes the caller's OWN reaction slot (`reactions.{coachUid}`) on a message.
+// `reactions` is a `uid -> single-emoji` map already rendered by the inbox and
+// written by the iOS client; this is the backoffice write path so a coach can
+// react too. `emoji: null` (or "") removes the caller's reaction (toggle off).
+//
+// Auth: trainer must own the chat (`coachId == session.uid`). The Admin SDK
+// bypasses rules, so we only ever touch the caller's own uid slot by
+// construction — never another participant's. Emoji is restricted to a small
+// allow-list to keep the field clean. No chat-denorm (lastMessage) change —
+// reactions don't alter the inbox preview.
+export async function setTrainerMessageReaction(input: {
+  chatId: string;
+  messageId: string;
+  emoji: string | null;
+}): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const chatId = String(input.chatId ?? "").trim();
+  const messageId = String(input.messageId ?? "").trim();
+  if (!chatId || !messageId) {
+    throw new Error("chatId + messageId required.");
+  }
+  const emoji = input.emoji ? String(input.emoji) : null;
+  if (emoji !== null && !REACTION_EMOJI.includes(emoji as never)) {
+    throw new Error("Unsupported reaction.");
+  }
+
+  const db = gcFitnessFirestore();
+  const chatRef = db.collection(CHATS).doc(chatId);
+  const chatSnap = await chatRef.get();
+  if (!chatSnap.exists) {
+    throw new Error("Chat not found.");
+  }
+  const chatData = chatSnap.data() as Record<string, unknown>;
+  if (chatData.coachId !== session.uid) {
+    throw new Error("Forbidden");
+  }
+
+  const msgRef = chatRef.collection(MESSAGES).doc(messageId);
+  const msgSnap = await msgRef.get();
+  if (!msgSnap.exists) {
+    // Idempotent — message may have been deleted in another tab.
+    return { ok: true };
+  }
+
+  const slot = `reactions.${session.uid}`;
+  await msgRef.update({
+    [slot]: emoji === null ? FieldValue.delete() : emoji,
+  });
+  return { ok: true };
+}
+
 export async function listChatsForTrainer(): Promise<ChatRow[]> {
   const session = await getCurrentTrainer();
   const db = gcFitnessFirestore();

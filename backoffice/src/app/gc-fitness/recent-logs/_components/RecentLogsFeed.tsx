@@ -17,18 +17,14 @@ import {
   Scale,
   StickyNote,
   User,
+  Users,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { PillTabs, type PillTabItem } from "@/components/gc-fitness/pill-tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -52,7 +48,7 @@ const PAGE_SIZE = 20;
 
 interface Props {
   logs: RecentLogRow[];
-  clients: Array<{ id: string; name: string }>;
+  clients: Array<{ id: string; name: string; photoURL: string | null }>;
   trainerTimezone: string;
   /** Cursor for the next page (from the server). Null ⇒ nothing more to load. */
   initialCursor?: string | null;
@@ -80,24 +76,6 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   photo: "badgePhoto",
   weight: "badgeWeight",
   signup: "badgeSignup",
-};
-
-// Subtle per-category tint for the type pill — colorful enough to scan at a
-// glance, restrained enough to fit the backoffice. Only the type pill is
-// colored; everything else stays neutral.
-const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
-  workout:
-    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  habit:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  reschedule:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
-  photo:
-    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
-  weight:
-    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
-  signup:
-    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
 };
 
 export function RecentLogsFeed({
@@ -162,6 +140,11 @@ export function RecentLogsFeed({
     }
   }
 
+  const selectedClient =
+    clientFilter === "all"
+      ? null
+      : (clients.find((c) => c.id === clientFilter) ?? null);
+
   const filtered = rows;
   // Flat rows grouped under day headings so the date moves out of every row
   // into a single per-day header. (Per-client grouping was removed — the Client
@@ -171,57 +154,122 @@ export function RecentLogsFeed({
     [filtered, locale, t, trainerTimezone],
   );
 
+  // Counts come from currently-loaded rows (the feed is server-paginated, so a
+  // global per-category total isn't available without extra reads). They give a
+  // quick at-a-glance sense of what's in view.
+  const countFor = (category: RecentLogRow["category"] | "all") =>
+    category === "all"
+      ? rows.length
+      : rows.filter((r) => r.category === category).length;
+
+  // Category filter pills — wired 1:1 to the EXISTING single-category server
+  // filter (`typeFilter`). Each pill re-fetches page 1 scoped to that category.
+  const tabItems: PillTabItem[] = [
+    {
+      key: "all",
+      label: t("tabAll"),
+      count: countFor("all"),
+      onSelect: () => applyFilters(clientFilter, "all"),
+    },
+    {
+      key: "workout",
+      label: t("workoutsOption"),
+      icon: <Dumbbell />,
+      count: countFor("workout"),
+      onSelect: () => applyFilters(clientFilter, "workout"),
+    },
+    {
+      key: "habit",
+      label: t("habitsOption"),
+      icon: <ListChecks />,
+      count: countFor("habit"),
+      onSelect: () => applyFilters(clientFilter, "habit"),
+    },
+    {
+      key: "reschedule",
+      label: t("reschedulesOption"),
+      icon: <ArrowRightLeft />,
+      count: countFor("reschedule"),
+      onSelect: () => applyFilters(clientFilter, "reschedule"),
+    },
+    {
+      key: "photo",
+      label: t("photosOption"),
+      icon: <Camera />,
+      count: countFor("photo"),
+      onSelect: () => applyFilters(clientFilter, "photo"),
+    },
+    {
+      key: "weight",
+      label: t("weightOption"),
+      icon: <Scale />,
+      count: countFor("weight"),
+      onSelect: () => applyFilters(clientFilter, "weight"),
+    },
+    {
+      key: "signup",
+      label: t("signupOption"),
+      icon: <User />,
+      count: countFor("signup"),
+      onSelect: () => applyFilters(clientFilter, "signup"),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-4 w-4" />
-            {t("filtersTitle")}
-          </CardTitle>
-          <CardDescription>{t("filtersDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid max-w-2xl gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{t("clientLabel")}</p>
+        <CardContent className="flex flex-col gap-3 py-4">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <PillTabs activeKey={typeFilter} items={tabItems} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-sm text-muted-foreground">
+              {t("clientLabel")}
+            </span>
             <Select
               value={clientFilter}
               onValueChange={(v) => applyFilters(v, typeFilter)}
               disabled={loading}
             >
-              <SelectTrigger className="min-w-[14rem]">
-                <SelectValue placeholder={t("allClients")} />
+              <SelectTrigger className="h-10 w-full min-w-0 sm:w-auto sm:min-w-[12rem]">
+                <SelectValue placeholder={t("allClients")}>
+                  {selectedClient ? (
+                    <span className="flex items-center gap-2">
+                      <ClientAvatar
+                        name={selectedClient.name}
+                        photoURL={selectedClient.photoURL}
+                        size="sm"
+                      />
+                      <span className="truncate">{selectedClient.name}</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      {t("allClients")}
+                    </span>
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t("allClients")}</SelectItem>
+                <SelectItem value="all">
+                  <span className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    {t("allClients")}
+                  </span>
+                </SelectItem>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
-                    {client.name}
+                    <span className="flex items-center gap-2">
+                      <ClientAvatar
+                        name={client.name}
+                        photoURL={client.photoURL}
+                        size="sm"
+                      />
+                      <span className="truncate">{client.name}</span>
+                    </span>
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{t("typeLabel")}</p>
-            <Select
-              value={typeFilter}
-              onValueChange={(v) => applyFilters(clientFilter, v)}
-              disabled={loading}
-            >
-              <SelectTrigger className="min-w-[14rem]">
-                <SelectValue placeholder={t("allActivity")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("allActivity")}</SelectItem>
-                <SelectItem value="habit">{t("habitsOption")}</SelectItem>
-                <SelectItem value="workout">{t("workoutsOption")}</SelectItem>
-                <SelectItem value="reschedule">
-                  {t("reschedulesOption")}
-                </SelectItem>
-                <SelectItem value="photo">{t("photosOption")}</SelectItem>
-                <SelectItem value="weight">{t("weightOption")}</SelectItem>
-                <SelectItem value="signup">{t("signupOption")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -286,6 +334,14 @@ function RecentLogItem({
 }) {
   const CatIcon = CATEGORY_ICON[row.category];
   const openProfile = () => router.push(`/gc-fitness/clients/${row.clientId}`);
+  // The client name is already shown as the gold link, but row.title also
+  // embeds it (e.g. "Ezcurra - Workout completed: …"). Strip the leading name
+  // + separator so it isn't shown twice; fall back to the full title if it
+  // doesn't lead with the name (e.g. reschedule/system rows).
+  const actionTitle = row.title.startsWith(row.clientName)
+    ? row.title.slice(row.clientName.length).replace(/^[\s\-–—·:]+/, "") ||
+      row.title
+    : row.title;
   return (
     <div
       role="button"
@@ -297,25 +353,38 @@ function RecentLogItem({
           openProfile();
         }
       }}
-      className="group flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:items-center"
+      className="group flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 rounded-[1.25rem] border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:flex-nowrap"
     >
       <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            className={`gap-1 px-1.5 py-0 text-[11px] font-normal [&>svg]:size-3 ${CATEGORY_TONE[row.category]}`}
+      <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] sm:basis-auto">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          {row.clientId ? (
+            <Link
+              href={`/gc-fitness/clients/${row.clientId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="min-w-0 break-words rounded-sm text-sm font-semibold leading-snug text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {row.clientName}
+            </Link>
+          ) : (
+            <span className="min-w-0 break-words text-sm font-semibold leading-snug text-foreground">
+              {row.clientName}
+            </span>
+          )}
+          <span className="min-w-0 break-words text-sm text-foreground sm:truncate">
+            {actionTitle}
+          </span>
+          <span
+            aria-hidden
+            className="inline-flex items-center text-muted-foreground [&>svg]:size-3.5"
+            title={t(CATEGORY_LABEL_KEY[row.category])}
           >
             {CatIcon ? <CatIcon /> : null}
-            {t(CATEGORY_LABEL_KEY[row.category])}
-          </Badge>
-          <span className="min-w-0 flex-[1_1_12rem] break-words text-sm font-medium leading-snug sm:truncate">
-            {row.title}
           </span>
           {row.forCivilDate ? (
             <Badge
-              variant="outline"
-              className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+              variant="warning"
+              className="gap-1 px-1.5 py-0 text-[10px] font-normal [&>svg]:size-3"
             >
               <CalendarClock />
               {t("forDay", { date: formatCivilDate(row.forCivilDate, locale) })}
@@ -350,32 +419,38 @@ function RecentLogItem({
             </Badge>
           ) : null}
         </div>
-        <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
-          {row.clientName} · {formatRecentLogTime(row.eventAt, timezone, locale)}
-          {row.detail ? ` · ${row.detail}` : ""}
-        </p>
+        {row.detail ? (
+          <p className="mt-0.5 break-words text-xs text-muted-foreground sm:truncate">
+            {row.detail}
+          </p>
+        ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground"
-          title={t("openChat")}
-        >
-          <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
-            <MessageCircle className="h-4 w-4" />
-            <span className="sr-only">{t("openChat")}</span>
-          </Link>
-        </Button>
-        {row.workoutLogId ? (
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 px-2.5">
-            <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
-              <Eye className="h-4 w-4" />
-              {t("viewWorkout")}
+      <div className="flex w-full shrink-0 basis-full items-center justify-between gap-2 sm:w-auto sm:basis-auto sm:justify-end">
+        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:mt-0.5">
+          {formatRecentLogTime(row.eventAt, timezone, locale)}
+        </span>
+        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="size-11 text-muted-foreground sm:size-9"
+            title={t("openChat")}
+          >
+            <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
+              <MessageCircle className="h-4 w-4" />
+              <span className="sr-only">{t("openChat")}</span>
             </Link>
           </Button>
-        ) : null}
+          {row.workoutLogId ? (
+            <Button asChild variant="outline" size="sm" className="h-11 gap-1.5 px-3 sm:h-9 sm:px-2.5">
+              <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
+                <Eye className="h-4 w-4" />
+                {t("viewWorkout")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

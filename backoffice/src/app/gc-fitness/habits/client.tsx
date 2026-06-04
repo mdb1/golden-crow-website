@@ -16,20 +16,24 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Users } from "lucide-react";
-import { useTranslations } from "next-intl";
 import {
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-} from "@tanstack/react-table";
+  Eye,
+  EyeOff,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -38,14 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -58,19 +54,22 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { NewHabitDialog } from "@/components/gc-fitness/schedule/new-habit-dialog";
 import { BulkAssignHabitDialog } from "@/components/gc-fitness/schedule/bulk-assign-habit-dialog";
 import {
   deleteHabitRecurrenceFromDate,
   listHabitsForTrainer,
   listHabitTemplates,
+  listHiddenGlobalTemplateIds,
   softDeleteHabit,
+  unhideGlobalHabitTemplate,
   type HabitRow,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
-import { makeHabitColumns } from "./columns";
 import { HabitLibraryTable } from "./_components/HabitLibraryTable";
 import { HabitTemplateDetailDialog } from "./_components/HabitTemplateDetailDialog";
+import { RecurrencePill, ReminderCell } from "./_components/habit-pills";
 
 export const HABITS_BASE_KEY = ["gc-fitness", "habits"] as const;
 
@@ -78,6 +77,9 @@ export interface ClientNameEntry {
   uid: string;
   displayName: string;
   email: string;
+  /** Client profile photo (`users/{uid}.photoURL`) — Google photo or Storage
+   *  upload, or null. Rendered as a cached avatar in the client filter. */
+  photoURL: string | null;
   pendingProvisioning: boolean;
 }
 
@@ -89,6 +91,8 @@ export interface HabitsLibraryClientProps {
    */
   clientRoster: ClientNameEntry[];
   trainerUid: string;
+  /** Suppress own heading when rendered inside the Biblioteca shell. */
+  embedded?: boolean;
 }
 
 type HabitsView = "assignments" | "library";
@@ -96,22 +100,25 @@ type HabitsView = "assignments" | "library";
 export function HabitsLibraryClient({
   clientRoster,
   trainerUid,
+  embedded = false,
 }: HabitsLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("habits.list");
+  const columnsT = useTranslations("habits.columns");
+  const tTypeLabels = useTranslations("habits.list.typeLabels");
   const queryClient = useQueryClient();
   const [view, setView] = useState<HabitsView>("assignments");
   const [createOpen, setCreateOpen] = useState(false);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "updatedAt", desc: true },
-  ]);
   const [confirmDelete, setConfirmDelete] = useState<HabitRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] =
     useState<HabitTemplateRow | null>(null);
+  // B5 — reveal toggle for the per-trainer hidden GLOBAL templates.
+  const [showHidden, setShowHidden] = useState(false);
+  const [restorePendingId, setRestorePendingId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: HABITS_BASE_KEY,
@@ -124,21 +131,53 @@ export function HabitsLibraryClient({
     queryFn: () => listHabitTemplates(),
     enabled: view === "library",
   });
+  // B5 — ids of GLOBAL templates this trainer has hidden. Drives the
+  // "Mostrar ocultos (N)" toggle + the restore list. One read, library-only.
+  const { data: hiddenIds = [] } = useQuery({
+    queryKey: [...HABITS_BASE_KEY, "templates", "hidden"],
+    queryFn: () => listHiddenGlobalTemplateIds(),
+    enabled: view === "library",
+  });
 
   const clientNameMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of clientRoster) m.set(c.uid, c.displayName);
     return m;
   }, [clientRoster]);
+  const clientById = useMemo(() => {
+    const m = new Map<string, ClientNameEntry>();
+    for (const c of clientRoster) m.set(c.uid, c);
+    return m;
+  }, [clientRoster]);
   const activeClientRoster = useMemo(
     () => clientRoster.filter((c) => !c.pendingProvisioning),
     [clientRoster],
   );
+  const selectedClient =
+    clientFilter === "all"
+      ? null
+      : (activeClientRoster.find((c) => c.uid === clientFilter) ?? null);
+
+  // Local "today" as a civil date (YYYY-MM-DD) — mirrors the end-from-today
+  // delete handler so an assignment ended "from today onward" (which caps
+  // endsOn to YESTERDAY) is consistently treated as no-longer-current here.
+  const todayCivil = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }, []);
 
   const rows = useMemo(() => {
     const all = (data ?? []) as HabitRow[];
     const needle = search.trim().toLowerCase();
     return all.filter((r) => {
+      if (r.deleted) return false;
+      // Assignments = current/future commitments only. Hide anything whose
+      // recurrence has already ENDED before today (endsOn < today). For a
+      // one-time habit the single occurrence is endsOn ?? startsOn; for a
+      // recurring habit a missing endsOn means "never ends" (always current).
+      const lastActive =
+        r.scheduleType === "one-time" ? r.endsOn ?? r.startsOn : r.endsOn;
+      if (lastActive != null && lastActive < todayCivil) return false;
       if (clientFilter !== "all" && r.clientId !== clientFilter) return false;
       if (needle.length > 0) {
         const hay =
@@ -147,7 +186,33 @@ export function HabitsLibraryClient({
       }
       return true;
     });
-  }, [data, clientFilter, search, clientNameMap]);
+  }, [data, clientFilter, search, clientNameMap, todayCivil]);
+
+  // B3 — group the filtered assignments by habit title so the coach can scan
+  // "who has habit X". Title is the display name (EN ?? ES). Groups are sorted
+  // alphabetically; assignments within a group keep the server order (updatedAt
+  // DESC). The grouping is purely presentational — every row is still an
+  // individual assignment with its own recurrence / reminder / actions.
+  const assignmentGroups = useMemo(() => {
+    const untitledLabel = columnsT("untitled");
+    const map = new Map<
+      string,
+      { title: string; rows: HabitRow[] }
+    >();
+    for (const row of rows) {
+      const title = row.name.en || row.name.es || untitledLabel;
+      const key = title.toLowerCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.rows.push(row);
+      } else {
+        map.set(key, { title, rows: [row] });
+      }
+    }
+    return [...map.values()].sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+    );
+  }, [rows, columnsT]);
 
   const filteredTemplates = useMemo(() => {
     const all = templates as HabitTemplateRow[];
@@ -161,6 +226,25 @@ export function HabitsLibraryClient({
     });
   }, [templates, search]);
 
+  // B5 — friendly labels for the hidden GLOBAL ids. `listHabitTemplates`
+  // excludes hidden globals from `templates`, so their names aren't in that
+  // list; map the known seed ids to a Spanish-first label, with a humanized
+  // fallback for any future global id.
+  const hiddenGlobals = useMemo(() => {
+    const labels: Record<string, string> = {
+      "global-water": "Beber agua",
+      "global-mobility": "Movilidad",
+      "global-walk": "Caminata de 30 minutos",
+      "global-food-log": "Registro de comidas",
+    };
+    return (hiddenIds as string[]).map((id) => ({
+      id,
+      name:
+        labels[id] ??
+        (id.replace(/^global-/, "").replace(/-/g, " ") || id),
+    }));
+  }, [hiddenIds]);
+
   const handlers = useMemo(
     () => ({
       onEdit: (row: HabitRow) =>
@@ -170,23 +254,6 @@ export function HabitsLibraryClient({
     }),
     [router],
   );
-
-  const columnsT = useTranslations("habits.columns");
-  const columns = useMemo(
-    () => makeHabitColumns(handlers, clientNameMap, columnsT),
-    [handlers, clientNameMap, columnsT],
-  );
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 25 } },
-  });
 
   // Soft-delete the whole habit (hides it + its history from the client).
   const handleConfirmDelete = useCallback(async () => {
@@ -231,6 +298,29 @@ export function HabitsLibraryClient({
     }
   }, [confirmDelete, queryClient, t]);
 
+  // B5 — restore (unhide) a hidden GLOBAL template back into the library.
+  const handleRestoreGlobal = useCallback(
+    async (templateId: string) => {
+      setRestorePendingId(templateId);
+      try {
+        await unhideGlobalHabitTemplate(templateId);
+        // Both the visible-templates list AND the hidden-ids list change.
+        await queryClient.invalidateQueries({
+          queryKey: [...HABITS_BASE_KEY, "templates"],
+        });
+        toast.success(t("restoredGlobalToast"));
+      } catch (err) {
+        console.error("[habits] restore global template failed", err);
+        toast.error(
+          err instanceof Error ? err.message : t("restoreGlobalFailedToast"),
+        );
+      } finally {
+        setRestorePendingId(null);
+      }
+    },
+    [queryClient, t],
+  );
+
   // Create flow shared with the calendar invalidates both the assignments
   // feed AND the templates cache (prefix match on HABITS_BASE_KEY).
   const handleHabitCreated = useCallback(() => {
@@ -251,20 +341,24 @@ export function HabitsLibraryClient({
     !isLoading && totalFromServer > 0 && rows.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            {t("pageHeading")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
-        </div>
+        {embedded ? (
+          <span />
+        ) : (
+          <div className="flex flex-col gap-1">
+            <h1 className="gc-page-title text-2xl tracking-tight">
+              {t("pageHeading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={() => setBulkAssignOpen(true)}
-            className="gap-2"
+            className="gap-2 rounded-full"
           >
             <Users className="h-4 w-4" />
             {t("bulkAssignCta")}
@@ -272,7 +366,7 @@ export function HabitsLibraryClient({
           <Button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="gap-2"
+            className="gap-2 rounded-full"
           >
             <Plus className="h-4 w-4" />
             {t("createHabitCta")}
@@ -281,7 +375,7 @@ export function HabitsLibraryClient({
       </div>
 
       {/* View toggle: per-client assignments vs reusable template library. */}
-      <div className="inline-flex w-fit rounded-lg border p-0.5 text-sm">
+      <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 p-1 text-sm">
         {(
           [
             ["assignments", t("tabAssignments")],
@@ -293,9 +387,9 @@ export function HabitsLibraryClient({
             type="button"
             onClick={() => setView(value as HabitsView)}
             className={cn(
-              "rounded-md px-4 py-1.5 font-medium transition",
+              "min-h-9 rounded-full px-4 py-1.5 font-medium transition-colors",
               view === value
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -304,25 +398,65 @@ export function HabitsLibraryClient({
         ))}
       </div>
 
-      {/* Filters (search + type apply to both views; client filter only makes
-          sense for assignments). */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          placeholder={t("searchPlaceholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+      {/* Filters (search applies to both views; client filter only makes sense
+          for assignments). Rounded search-row card matching the redesign. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-border bg-card px-3 py-2.5 shadow-sm">
+        <SlidersHorizontal
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-muted-foreground"
         />
+        <div className="relative min-w-[180px] flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder={t("searchPlaceholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-10 rounded-full pl-9"
+          />
+        </div>
         {view === "assignments" ? (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
-            <SelectTrigger className="w-56">
-              <SelectValue placeholder={t("filterByClientPlaceholder")} />
+            <SelectTrigger className="h-10 w-full rounded-full sm:w-56">
+              <SelectValue placeholder={t("filterByClientPlaceholder")}>
+                {selectedClient ? (
+                  <span className="flex items-center gap-2">
+                    <ClientAvatar
+                      name={selectedClient.displayName}
+                      photoURL={selectedClient.photoURL}
+                      size="sm"
+                    />
+                    <span className="truncate">
+                      {selectedClient.displayName}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    {t("allClients")}
+                  </span>
+                )}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("allClients")}</SelectItem>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  {t("allClients")}
+                </span>
+              </SelectItem>
               {activeClientRoster.map((c) => (
                 <SelectItem key={c.uid} value={c.uid}>
-                  {c.displayName}
+                  <span className="flex items-center gap-2">
+                    <ClientAvatar
+                      name={c.displayName}
+                      photoURL={c.photoURL}
+                      size="sm"
+                    />
+                    <span className="truncate">{c.displayName}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -338,129 +472,190 @@ export function HabitsLibraryClient({
       )}
 
       {view === "library" ? (
-        <HabitLibraryTable
-          templates={filteredTemplates}
-          isLoading={templatesLoading}
-          t={columnsT}
-          emptyText={t("libraryEmpty")}
-          loadingText={t("loading")}
-          onRowClick={setSelectedTemplate}
-        />
-      ) : (
-        <>
-          <div className="rounded-md border bg-card">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      {t("loading")}
-                    </TableCell>
-                  </TableRow>
-                ) : table.getRowModel().rows.length > 0 ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      onClick={() => handlers.onView(row.original)}
-                      className="cursor-pointer"
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : isUnfilteredEmpty ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="font-medium">{t("emptyHeadline")}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {t("emptySubtitle")}
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : isFilteredEmpty ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="font-medium">
-                          {t("filteredEmptyHeadline")}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {t("filteredEmptySubtitle")}
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
+        <div className="flex flex-col gap-4">
+          <HabitLibraryTable
+            templates={filteredTemplates}
+            isLoading={templatesLoading}
+            t={columnsT}
+            emptyText={t("libraryEmpty")}
+            loadingText={t("loading")}
+            onRowClick={setSelectedTemplate}
+          />
 
-          {rows.length > 0 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t("pagination", {
-                  current: table.getState().pagination.pageIndex + 1,
-                  total: Math.max(1, table.getPageCount()),
-                })}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  {t("previous")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  {t("next")}
-                </Button>
-              </div>
+          {/* B5 — reversible path: reveal + restore hidden GLOBAL templates so
+              hiding is never a trap. Only shown when there's something hidden. */}
+          {hiddenGlobals.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHidden((v) => !v)}
+                className="w-fit gap-2 text-muted-foreground"
+              >
+                {showHidden ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
+                {showHidden
+                  ? t("hideHiddenToggle")
+                  : t("showHiddenToggle", { count: hiddenGlobals.length })}
+              </Button>
+
+              {showHidden ? (
+                <Card className="overflow-hidden">
+                  <CardContent className="flex flex-col gap-0 p-0">
+                    <div className="border-b border-border bg-muted/40 px-4 py-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {t("hiddenSectionTitle")}
+                      </h3>
+                    </div>
+                    <ul className="divide-y divide-border">
+                      {hiddenGlobals.map((g) => (
+                        <li
+                          key={g.id}
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Badge variant="violet" className="shrink-0">
+                              {t("templateScopeGlobal")}
+                            </Badge>
+                            <span className="min-w-0 truncate font-medium text-foreground">
+                              {g.name}
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={restorePendingId === g.id}
+                            onClick={() => void handleRestoreGlobal(g.id)}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            {t("restoreGlobalCta")}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
-          )}
-        </>
-      )}
+          ) : null}
+        </div>
+      ) : isLoading ? (
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="h-24 animate-pulse" />
+          ))}
+        </div>
+      ) : rows.length > 0 ? (
+        // B3 — vertical list grouped by habit title. Each group lists every
+        // assignment (one per client) with its own recurrence + reminder +
+        // edit/delete, so the coach can scan "who has habit X".
+        <div className="flex flex-col gap-4">
+          {assignmentGroups.map((group) => (
+            <Card key={group.title} className="overflow-hidden">
+              <CardContent className="flex flex-col gap-0 p-0">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
+                  <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
+                    {group.title}
+                  </h3>
+                  <Badge variant="violet" className="shrink-0 font-medium">
+                    {tTypeLabels(group.rows[0].type)}
+                  </Badge>
+                </div>
+                <ul className="divide-y divide-border">
+                  {group.rows.map((row) => {
+                    const client =
+                      row.clientId.length > 0
+                        ? clientById.get(row.clientId)
+                        : undefined;
+                    const clientName =
+                      client?.displayName ??
+                      clientNameMap.get(row.clientId) ??
+                      row.clientId;
+                    return (
+                      <li
+                        key={row.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handlers.onView(row)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handlers.onView(row);
+                          }
+                        }}
+                        className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-muted/40"
+                      >
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                          <ClientAvatar
+                            name={clientName}
+                            photoURL={client?.photoURL ?? null}
+                            size="sm"
+                          />
+                          <span className="min-w-0 truncate font-medium text-foreground">
+                            {clientName}
+                          </span>
+                        </span>
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <RecurrencePill rec={row} t={columnsT} />
+                          <ReminderCell
+                            reminderEnabled={row.reminderEnabled}
+                            reminderTime={row.reminderTime}
+                          />
+                        </span>
+                        <span
+                          className="flex shrink-0 items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={columnsT("edit")}
+                            className="h-11 w-11 text-muted-foreground hover:text-foreground"
+                            onClick={() => handlers.onEdit(row)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={columnsT("delete")}
+                            className="h-11 w-11 text-destructive hover:text-destructive"
+                            onClick={() => handlers.onDelete(row)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : isUnfilteredEmpty ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <p className="font-medium">{t("emptyHeadline")}</p>
+            <p className="text-sm text-muted-foreground">{t("emptySubtitle")}</p>
+          </CardContent>
+        </Card>
+      ) : isFilteredEmpty ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <p className="font-medium">{t("filteredEmptyHeadline")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("filteredEmptySubtitle")}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <NewHabitDialog
         open={createOpen}
@@ -489,7 +684,10 @@ export function HabitsLibraryClient({
           if (!o) setSelectedTemplate(null);
         }}
         template={selectedTemplate}
+        clientNames={clientNameMap}
         onChanged={() =>
+          // Prefix-match invalidates the assignments feed, the templates list,
+          // AND the hidden-ids list (B5 hide refreshes the library).
           queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY })
         }
       />

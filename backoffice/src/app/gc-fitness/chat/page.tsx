@@ -75,8 +75,16 @@ export default async function ChatPage() {
   // window-focus refetch (felt slow). Both `useTrainerChats` and
   // `useChatMessages` pin their own refetchInterval on the hook, so no
   // per-route provider defaults are needed here.
+  // NOTE: the chat surface intentionally does NOT use the `.gc-page` wrapper
+  // (max-width + responsive padding). Chat is a full-bleed, edge-to-edge
+  // surface that fills the entire content area under the shell. We pin the
+  // height to the viewport minus the shell's mobile top bar (h-14 = 3.5rem)
+  // so the conversation thread + composer fill the remaining space; on desktop
+  // there is no top bar, so the slim header simply isn't rendered and the
+  // surface uses the full viewport height. `min-h-0` lets the inner flex/grid
+  // panes scroll instead of overflowing the page.
   return (
-    <div className="gc-page flex flex-col gap-4">
+    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:h-screen">
       <ChatInboxClient
         trainerUid={trainer.uid}
         clientRoster={clientRoster}

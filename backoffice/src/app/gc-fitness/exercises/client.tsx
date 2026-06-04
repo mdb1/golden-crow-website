@@ -7,7 +7,8 @@
 //   - `useExercisesQuery()` — Firestore listener-backed React-Query feed
 //   - `<ExerciseFilters>` — search + 3 combobox filters + localStorage persist
 //   - `<DataTable>` — TanStack Table (reuses the shared shadcn primitive)
-//   - "+ New exercise" CTA → `/gc-fitness/exercises/new`
+//   - "+ Nuevo" CTA → opens <NewExerciseDialog> (modal create form, B4).
+//     The `/gc-fitness/exercises/new` route stays live as a deep-link fallback.
 //
 // Filtering happens client-side via memoized derivations from the cached
 // row list. The list is bounded (~150 wger + custom — Pitfall 5 was the
@@ -16,7 +17,6 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,7 @@ import {
   ExerciseFilters,
   type ExerciseFiltersState,
 } from "./_components/ExerciseFilters";
+import { NewExerciseDialog } from "./_components/NewExerciseDialog";
 import { makeColumns } from "./columns";
 
 const EMPTY_FILTERS: ExerciseFiltersState = {
@@ -74,6 +75,8 @@ const EMPTY_FILTERS: ExerciseFiltersState = {
 
 interface ExerciseLibraryClientProps {
   trainerUid: string;
+  /** Suppress own heading when rendered inside the Biblioteca shell. */
+  embedded?: boolean;
 }
 
 function matchesFilters(
@@ -124,7 +127,10 @@ function matchesFilters(
   return true;
 }
 
-export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps) {
+export function ExerciseLibraryClient({
+  trainerUid,
+  embedded = false,
+}: ExerciseLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("exercises.list");
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery(trainerUid);
@@ -205,23 +211,25 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-6">
         {/* Heading row — title + primary CTA */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              {t("pageHeading")}
-            </h1>
-            <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => router.push("/gc-fitness/exercises/new")}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            {t("newExerciseCta")}
-          </Button>
+          {embedded ? (
+            <span />
+          ) : (
+            <div className="flex flex-col gap-1">
+              <h1 className="gc-page-title text-2xl tracking-tight">
+                {t("pageHeading")}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {t("pageSubtitle")}
+              </p>
+            </div>
+          )}
+          {/* B4 — "+ Nuevo" opens the create form in a modal over the
+              library instead of routing to /gc-fitness/exercises/new (that
+              route stays live as a deep-link fallback). */}
+          <NewExerciseDialog trainerUid={trainerUid} />
         </div>
 
         <ExerciseFilters onChange={setFilters} />
@@ -233,7 +241,7 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
           </Alert>
         )}
 
-        <div className="rounded-md border bg-card">
+        <div className="min-w-0 overflow-x-auto rounded-[1.25rem] border border-border bg-card shadow-sm">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -299,14 +307,7 @@ export function ExerciseLibraryClient({ trainerUid }: ExerciseLibraryClientProps
                       <p className="text-sm text-muted-foreground">
                         {t("emptySubtitle")}
                       </p>
-                      <Button
-                        type="button"
-                        onClick={() => router.push("/gc-fitness/exercises/new")}
-                        className="gap-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        {t("newExerciseCta")}
-                      </Button>
+                      <NewExerciseDialog trainerUid={trainerUid} />
                     </div>
                   </TableCell>
                 </TableRow>

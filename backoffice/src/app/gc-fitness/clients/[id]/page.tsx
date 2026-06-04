@@ -45,6 +45,10 @@ import ClientRequestActionsCard from "./_components/ClientRequestActionsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
+import {
+  bodyWeightFulfillment,
+  progressPhotosFulfillment,
+} from "@/lib/gc-fitness/client-request-fulfillment";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 
@@ -131,11 +135,21 @@ export default async function ClientDetailPage({
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
   const todayCivil = civilDateToday(timezone);
-  const [notes, progressPhotos, goals] = await Promise.all([
+  const [notes, progressPhotos, goals, bodyWeightFulfilled] = await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
     listClientGoals(id),
+    // C1 — one bounded read-only query for body-weight fulfillment. Progress-
+    // photo fulfillment reuses the `progressPhotos` slice loaded above (no
+    // extra read). Both compare upload time against the request timestamp.
+    bodyWeightFulfillment(id, client.bodyWeightRequestedAt ?? null).catch(
+      () => ({ fulfilled: false, fulfilledAt: null }),
+    ),
   ]);
+  const progressPhotosFulfilled = progressPhotosFulfillment(
+    client.progressPhotosRequestedAt ?? null,
+    progressPhotos,
+  );
   const tSkeleton = await getTranslations("clients.detail.skeleton");
   const tPreferences = await getTranslations("clients.detail.preferences");
   const workoutPrefillSource =
@@ -144,7 +158,7 @@ export default async function ClientDetailPage({
       : "previousWorkout";
 
   return (
-    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
+    <div className="gc-page flex w-full flex-col gap-6">
       <ClientHeader
         clientId={id}
         displayName={displayName}
@@ -181,9 +195,11 @@ export default async function ClientDetailPage({
         timezone={timezone}
         progressPhotosRequestedAt={client.progressPhotosRequestedAt ?? null}
         bodyWeightRequestedAt={client.bodyWeightRequestedAt ?? null}
+        progressPhotosFulfilled={progressPhotosFulfilled}
+        bodyWeightFulfilled={bodyWeightFulfilled}
       />
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("workoutTrends")} />}>
           <WorkoutTrendsWidget clientId={id} timezone={timezone} />
         </Suspense>
@@ -231,14 +247,14 @@ function ClientWorkoutPreferencesCard({
   description: string;
 }) {
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="section-eyebrow">{title}</p>
-          <h2 className="text-base font-semibold">{label}</h2>
+          <h2 className="text-lg font-semibold">{label}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
-        <span className="w-fit rounded-full border bg-muted px-3 py-1 text-sm font-medium">
+        <span className="w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm font-medium">
           {value}
         </span>
       </div>
@@ -248,7 +264,7 @@ function ClientWorkoutPreferencesCard({
 
 function WidgetSkeleton({ title }: { title: string }) {
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-medium">{title}</h2>
       <Skeleton className="h-32 w-full" />
     </section>
@@ -284,17 +300,17 @@ function PendingClientView({
   const displayName = mirror.displayName ?? mirror.email ?? normalizedEmail;
   const email = mirror.email ?? normalizedEmail;
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex w-full flex-col gap-6">
       <header className="flex flex-col gap-2">
         <p className="section-eyebrow">GC Fitness · Pending</p>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
+        <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
           {displayName}
         </h1>
         <p className="text-sm text-muted-foreground">{email}</p>
       </header>
 
-      <section className="rounded-md border bg-card p-6">
-        <h2 className="mb-2 text-base font-semibold">Pendiente de ingreso</h2>
+      <section className="rounded-[1.25rem] border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold">Pendiente de ingreso</h2>
         <p className="text-sm text-muted-foreground">
           Este cliente fue pre-invitado y todavía no inició sesión por
           primera vez. Cuando lo haga con la cuenta de Google asociada a{" "}

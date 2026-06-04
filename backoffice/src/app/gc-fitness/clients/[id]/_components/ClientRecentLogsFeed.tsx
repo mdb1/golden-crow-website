@@ -217,7 +217,7 @@ export function ClientRecentLogsFeed({
                     {CatIcon ? <CatIcon /> : null}
                     {tf(CATEGORY_LABEL_KEY[row.category])}
                   </Badge>
-                  <span className="truncate text-sm font-medium">
+                  <span className="min-w-0 max-w-full truncate text-sm font-medium">
                     {row.title}
                   </span>
                   {row.forCivilDate ? (

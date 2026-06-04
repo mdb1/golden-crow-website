@@ -8,10 +8,8 @@
 //   3. Hydrates the calendar with the first batch of month data computed
 //      server-side; further navigation is React-Query–driven on the client.
 
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
@@ -77,18 +75,13 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <div className="flex items-center justify-end">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/gc-fitness/schedule/bulk">Asignación masiva</Link>
-        </Button>
-      </div>
-
       <ScheduleQueryProvider>
         <MonthCalendar
           clients={clients.map((c) => ({
             uid: c.uid,
             displayName: c.displayName,
             email: c.email,
+            photoURL: c.photoURL,
           }))}
           initialMonthFirst={monthFirstCivil}
           initialClientIds={selectedClientIds}

@@ -29,10 +29,10 @@ export function RouteErrorBoundary({
   }, [routeName, error]);
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <div className="gc-page flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t("errorGeneric")}</CardTitle>
+          <CardTitle className="text-xl">{t("errorGeneric")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {error.digest ? (
@@ -42,7 +42,7 @@ export function RouteErrorBoundary({
               </code>
             </p>
           ) : null}
-          <Button onClick={reset} variant="default" className="w-fit">
+          <Button onClick={reset} variant="default" className="w-fit rounded-full">
             {t("retry")}
           </Button>
         </CardContent>

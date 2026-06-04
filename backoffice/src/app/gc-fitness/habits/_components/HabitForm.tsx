@@ -504,7 +504,7 @@ export function HabitForm({
         </div>
 
         {/* Reminder block */}
-        <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
           <h2 className="font-heading text-base font-semibold tracking-tight">
             {t("scheduleHeading")}
           </h2>
@@ -747,7 +747,7 @@ export function HabitForm({
           )}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
           <Controller
             control={form.control}
             name="reminderEnabled"
@@ -822,7 +822,7 @@ export function HabitForm({
                 {t("cancel")}
               </Button>
             )}
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending} className="rounded-full">
               {pending
                 ? t("saving")
                 : mode === "create"

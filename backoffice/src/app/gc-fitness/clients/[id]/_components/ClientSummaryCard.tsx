@@ -101,7 +101,7 @@ export async function ClientSummaryCard({
   return (
     <section className="rounded-xl border bg-card p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="font-medium">{t("title")}</h2>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>

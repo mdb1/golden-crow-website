@@ -78,6 +78,22 @@ export interface ExerciseFormProps {
   exerciseId?: string;
   defaultValues?: Partial<ExerciseInput>;
   trainerUid?: string;
+  /**
+   * Modal hook (B4). When the form is rendered inside the "+ Nuevo" Dialog
+   * over the library, the parent passes `onCreated` so a successful CREATE
+   * does NOT route away (which would unmount the modal mid-flow). Instead the
+   * form invalidates + fires this callback with the new id and the parent
+   * closes the dialog. When absent (the `/exercises/new` route), the form
+   * keeps its original `router.push("/gc-fitness/exercises")` behavior.
+   *
+   * The demonstration-media step is preserved WITHOUT a route round-trip:
+   * the thumbnail/GIF dropzone is already unlocked in create mode via the
+   * deterministic `draftExerciseId`, so trainers add media before the first
+   * save, inside the modal — no data is lost.
+   */
+  onCreated?: (id: string) => void;
+  /** Modal hook (B4): cancel closes the dialog instead of `router.back()`. */
+  onCancel?: () => void;
 }
 
 // Build a fully-typed default-values object covering every Zod field. The
@@ -125,6 +141,8 @@ export function ExerciseForm({
   exerciseId,
   defaultValues,
   trainerUid,
+  onCreated,
+  onCancel,
 }: ExerciseFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -168,15 +186,25 @@ export function ExerciseForm({
     startTransition(async () => {
       try {
         if (mode === "create") {
-          await createExercise(
+          const { id } = await createExercise(
             draftExerciseId ? { ...values, id: draftExerciseId } : values,
           );
           await invalidateExercises();
           toast.success(t("savedToast"));
-          // Push to the library so the trainer lands on the list they
-          // were curating — router.back() used to bounce them to whatever
-          // screen referred them in (sometimes the workout-template
-          // editor), which made it feel like the save didn't take.
+          // B4 — modal mode: hand control back to the Dialog parent (which
+          // closes the popup) instead of routing. Routing here would unmount
+          // the modal and bounce the trainer off the library tab. The media
+          // step is unaffected: the dropzone was already unlocked pre-save
+          // via draftExerciseId, so any demo thumbnail is part of this save.
+          if (onCreated) {
+            onCreated(id);
+            return;
+          }
+          // Route mode (`/exercises/new`): push to the library so the trainer
+          // lands on the list they were curating — router.back() used to
+          // bounce them to whatever screen referred them in (sometimes the
+          // workout-template editor), which made it feel like the save
+          // didn't take.
           router.push("/gc-fitness/exercises");
           return;
         }
@@ -563,12 +591,12 @@ export function ExerciseForm({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => router.back()}
+                onClick={() => (onCancel ? onCancel() : router.back())}
                 disabled={pending}
               >
                 {t("cancel")}
               </Button>
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending} className="rounded-full">
                 {pending ? t("saving") : t("save")}
               </Button>
             </div>

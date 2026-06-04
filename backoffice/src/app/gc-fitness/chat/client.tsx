@@ -80,11 +80,11 @@ export function ChatInboxClient({
   );
 
   return (
-    <div className="grid h-[calc(100vh-12rem)] min-h-0 grid-cols-12 gap-0 overflow-hidden rounded-md border bg-card">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-0 overflow-hidden bg-card md:grid-cols-[320px_1fr]">
       <div
         className={[
-          "col-span-12 overflow-y-auto border-b md:col-span-4 md:border-b-0 md:border-r",
-          activeChatId ? "hidden md:block" : "block",
+          "min-h-0 flex-col overflow-hidden border-border md:flex md:border-r",
+          activeChatId ? "hidden md:flex" : "flex",
         ].join(" ")}
       >
         <ChatThreadList
@@ -97,14 +97,19 @@ export function ChatInboxClient({
       </div>
       <div
         className={[
-          "col-span-12 min-h-0 flex-col md:col-span-8 md:flex",
+          "min-h-0 flex-col md:flex",
           activeChatId ? "flex" : "hidden md:flex",
         ].join(" ")}
       >
         {activeChatId ? (
           <>
-            <div className="flex items-center gap-2 border-b px-3 py-2 md:hidden">
-              <Button variant="ghost" size="sm" onClick={() => setActiveChatId(null)}>
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-h-10 rounded-full"
+                onClick={() => setActiveChatId(null)}
+              >
                 <ArrowLeft className="mr-1 h-4 w-4" />
                 {t("backToThreads")}
               </Button>
@@ -118,7 +123,7 @@ export function ChatInboxClient({
             />
           </>
         ) : (
-          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center p-8 text-center text-base text-muted-foreground">
             {t("selectThread")}
           </div>
         )}

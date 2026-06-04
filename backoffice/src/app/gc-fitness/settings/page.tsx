@@ -2,10 +2,13 @@
 //
 // Closes CHAT-11 (the trainer-side surface for chatQuickReplies templates).
 //
-// First section: Quick replies — the editor for `users.chatQuickReplies`
-// (writer shipped in P08-05; this is the UI half). V1 only ships the
-// quick-replies editor; future sections (notifications, profile, etc.) hang
-// off this same route as additional <section> blocks.
+// 2026-06 restyle: the page now opens with a coach profile card (square gold
+// initials avatar + derived name + email) and then groups the real, functional
+// settings controls into rounded list-rows with colored icon chips — matching
+// the reference design. NO behavior changed: the Idioma, Tema, and Respuestas
+// rápidas rows host the exact same controls (LanguageForm /
+// GCFitnessAppearanceToggle / QuickRepliesForm) that shipped before, just
+// reorganized into the grouped look. See `settings-sections.tsx`.
 //
 // Auth gate mirrors `/gc-fitness/chat/page.tsx` (P08-11) + the rest of the
 // gc-fitness route tree:
@@ -28,15 +31,42 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { getCurrentTrainerProfile } from "@/lib/gc-fitness/user-actions";
+import { PageHeader } from "@/components/gc-fitness/page-header";
+import { Badge } from "@/components/ui/badge";
 
-import { QuickRepliesForm } from "./quick-replies-form";
-import { LanguageForm } from "./language-form";
+import { SettingsSections } from "./settings-sections";
 
 export const dynamic = "force-dynamic";
 
+/** Derive a friendly coach name from the email local-part (no extra read). */
+function deriveName(email: string): string {
+  const local = email.split("@")[0] ?? "coach";
+  return (
+    local
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ") || "Coach"
+  );
+}
+
+function initials(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "·"
+  );
+}
+
 export default async function SettingsPage() {
+  let trainer: { uid: string; email: string };
   try {
-    await getCurrentTrainer();
+    trainer = await getCurrentTrainer();
   } catch (err) {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
@@ -47,34 +77,43 @@ export default async function SettingsPage() {
 
   const profile = await getCurrentTrainerProfile();
   const t = await getTranslations("settings");
-  const tQuick = await getTranslations("settings.quickReplies");
   const tLang = await getTranslations("settings.language");
   const currentLocale = (await getLocale()) as "en" | "es";
 
+  const name =
+    profile.displayName.trim().length > 0
+      ? profile.displayName.trim()
+      : deriveName(trainer.email);
+  const localeLabel =
+    currentLocale === "es" ? tLang("spanish") : tLang("english");
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+    <div className="gc-page flex flex-col gap-6">
+      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+
+      {/* Coach profile card — square gold initials avatar + identity. */}
+      <div className="flex flex-col gap-4 rounded-[1.25rem] border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:gap-5">
+        <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground">
+          {initials(name)}
+        </span>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="truncate font-heading text-xl font-semibold text-foreground">
+            {name}
+          </p>
+          <p className="truncate text-sm text-muted-foreground">
+            {trainer.email}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <Badge variant="success">{t("verifiedBadge")}</Badge>
+          </div>
+        </div>
       </div>
 
-      <section className="rounded-lg border bg-card p-6 shadow-xs">
-        <div className="mb-4 flex flex-col gap-1">
-          <h2 className="text-lg font-medium">{tQuick("title")}</h2>
-          <p className="text-sm text-muted-foreground">{tQuick("description")}</p>
-        </div>
-        <QuickRepliesForm initialReplies={profile.chatQuickReplies} />
-      </section>
-
-      <section className="rounded-lg border bg-card p-6 shadow-xs">
-        <div className="mb-4 flex flex-col gap-1">
-          <h2 className="text-lg font-medium">{tLang("title")}</h2>
-          <p className="text-sm text-muted-foreground">{tLang("subtitle")}</p>
-        </div>
-        <LanguageForm currentLocale={currentLocale} />
-      </section>
+      <SettingsSections
+        currentLocale={currentLocale}
+        localeLabel={localeLabel}
+        initialReplies={profile.chatQuickReplies}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import {
   Table,
   TableBody,
@@ -31,21 +32,19 @@ export default async function CoachActivityPage() {
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Recent coach activity</h1>
-          <p className="text-sm text-muted-foreground">
-            High-level usage events with recurring workout assignments collapsed into single rows.
-          </p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/gc-fitness/admin">Back to admin</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Recent coach activity"
+        subtitle="High-level usage events with recurring workout assignments collapsed into single rows."
+        actions={
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link href="/gc-fitness/admin">Back to admin</Link>
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle>Activity stream</CardTitle>
+          <CardTitle className="text-xl">Activity stream</CardTitle>
           <CardDescription>
             Events include coach actions, client first logins and recurrence summaries.
           </CardDescription>

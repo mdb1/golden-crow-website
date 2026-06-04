@@ -175,7 +175,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                 return (
                   <div
                     key={group.exerciseId}
-                    className={`rounded-lg border bg-card p-4 ring-1 ${palette.ring}`}
+                    className={`rounded-2xl border bg-card p-4 ring-1 ${palette.ring}`}
                   >
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -302,7 +302,7 @@ function Metric({
   mono?: boolean;
 }) {
   return (
-    <div className="rounded-lg border p-3">
+    <div className="rounded-2xl border p-3">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={`mt-1 ${mono ? "font-mono text-xs" : "font-medium"}`}>{value}</p>
     </div>

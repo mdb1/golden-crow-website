@@ -30,13 +30,16 @@ export default async function GCFitnessLayout({
   const locale = await getLocale();
   const messages = await getMessages();
   let trainerUid: string | null = null;
+  let trainerEmail: string | null = null;
   let isAdmin = false;
   try {
     const user = await getCurrentGCFitnessUser();
     trainerUid = user.uid;
+    trainerEmail = user.email;
     isAdmin = user.isAdmin;
   } catch {
     trainerUid = null;
+    trainerEmail = null;
     isAdmin = false;
   }
 
@@ -48,7 +51,11 @@ export default async function GCFitnessLayout({
       <div className="gc-fitness-theme">
         <GCFitnessShellProviders>
           <ChatNotificationListener trainerUid={trainerUid} />
-          <GCFitnessShell trainerUid={trainerUid} isAdmin={isAdmin}>
+          <GCFitnessShell
+            trainerUid={trainerUid}
+            trainerEmail={trainerEmail}
+            isAdmin={isAdmin}
+          >
             {children}
           </GCFitnessShell>
         </GCFitnessShellProviders>

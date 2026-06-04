@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { ComponentType } from "react";
+import Link from "next/link";
 import {
   ClipboardList,
   Camera,
@@ -15,7 +16,8 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { useTranslations } from "next-intl";
+
 import { Button } from "@/components/ui/button";
 import {
   clientActivityCivilDateKey,
@@ -36,32 +38,20 @@ import {
   type MyCoachActivityRow,
 } from "@/lib/gc-fitness/coach-activity-actions";
 
-const TYPE_OPTIONS: Array<[string, string]> = [
-  ["all", "Toda la actividad"],
-  ["workout_assignment", "Asignaciones"],
-  ["workout_rest_edited", "Descansos editados"],
-  ["habit_assignment", "Hábitos"],
-  ["progress_photo_request", "Fotos pedidas"],
-  ["weight_request", "Peso pedido"],
-  ["workout_template", "Workouts"],
-  ["exercise", "Ejercicios"],
-  ["note", "Notas"],
-  ["chat", "Chat"],
+const TYPE_OPTION_KEYS: string[] = [
+  "all",
+  "workout_assignment",
+  "workout_rest_edited",
+  "habit_assignment",
+  "progress_photo_request",
+  "weight_request",
+  "workout_template",
+  "exercise",
+  "note",
+  "chat",
 ];
 
 const PAGE_SIZE = 50;
-
-const KIND_LABEL: Record<CoachActivityKind, string> = {
-  workout_template: "Workout",
-  exercise: "Ejercicio",
-  workout_assignment: "Asignación",
-  workout_rest_edited: "Descanso",
-  habit_assignment: "Hábito",
-  progress_photo_request: "Fotos",
-  weight_request: "Peso",
-  note: "Nota",
-  chat: "Chat",
-};
 
 const KIND_ICON = {
   workout_template: Dumbbell,
@@ -75,34 +65,34 @@ const KIND_ICON = {
   chat: MessageSquare,
 } satisfies Record<CoachActivityKind, ComponentType<{ className?: string }>>;
 
-// Subtle per-kind tint for the type pill — mirrors RecentLogsFeed's
-// CATEGORY_TONE so the two activity surfaces read consistently. Only the
-// type pill is colored; everything else stays neutral.
-const KIND_TONE: Record<CoachActivityKind, string> = {
+// Per-kind circular icon chip — token-based so both themes work. Uses the
+// shared badge color tokens (success/brand/warning/violet/rose) as the chip
+// background + foreground, mirroring the reference design's colored action
+// icons (create=green, assign=blue, edit=amber, message=violet, delete=rose).
+const KIND_CHIP: Record<CoachActivityKind, string> = {
   workout_template:
-    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
-  workout_assignment:
-    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
-  workout_rest_edited:
-    "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300",
-  habit_assignment:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  progress_photo_request:
-    "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-900 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
-  weight_request:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-fg)]",
   exercise:
-    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-fg)]",
+  workout_assignment:
+    "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
+  habit_assignment:
+    "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
+  workout_rest_edited:
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
   note:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
   chat:
-    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
+    "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
+  progress_photo_request:
+    "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
+  weight_request:
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
 };
 
-// Distinct tone for deletion rows (coach removed something) so they stand out
-// from creates/assigns.
-const DELETED_TONE =
-  "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300";
+// Deletion rows (coach removed something) use the rose token so they stand out.
+const DELETED_CHIP =
+  "border-[color:var(--badge-rose-border)] bg-[color:var(--badge-rose-bg)] text-[color:var(--badge-rose-fg)]";
 
 export function MyActivityFeed({
   initialRows,
@@ -117,6 +107,7 @@ export function MyActivityFeed({
   clients: MyActivityClientOption[];
   timezone: string;
 }) {
+  const t = useTranslations("myActivity");
   const [rows, setRows] = useState(initialRows);
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -162,23 +153,28 @@ export function MyActivityFeed({
   // Group the flat row list into day sections so the date isn't repeated on
   // every row — the day is shown once as a section heading and each row only
   // carries its time.
-  const dayGroups = useMemo(() => groupRowsByDay(rows, timezone), [rows, timezone]);
+  const dayGroups = useMemo(
+    () => groupRowsByDay(rows, timezone, t),
+    [rows, timezone, t],
+  );
 
   return (
     <div className="flex flex-col">
       <div className="grid gap-3 border-b px-4 py-3 sm:grid-cols-2 sm:max-w-xl">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Cliente</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {t("clientLabel")}
+          </p>
           <Select
             value={clientFilter}
             onValueChange={(v) => applyFilters(v, typeFilter)}
             disabled={pending}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Todos los clientes" />
+              <SelectValue placeholder={t("allClients")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los clientes</SelectItem>
+              <SelectItem value="all">{t("allClients")}</SelectItem>
               {clients.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -188,19 +184,21 @@ export function MyActivityFeed({
           </Select>
         </div>
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Tipo</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {t("typeLabel")}
+          </p>
           <Select
             value={typeFilter}
             onValueChange={(v) => applyFilters(clientFilter, v)}
             disabled={pending}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Toda la actividad" />
+              <SelectValue placeholder={t("allActivity")} />
             </SelectTrigger>
             <SelectContent>
-              {TYPE_OPTIONS.map(([value, label]) => (
+              {TYPE_OPTION_KEYS.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {label}
+                  {t(`typeOptions.${value}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -211,8 +209,8 @@ export function MyActivityFeed({
       {rows.length === 0 ? (
         <div className="px-4 py-10 text-center text-sm text-muted-foreground">
           {clientFilter !== "all" || typeFilter !== "all"
-            ? "No hay actividad para este filtro."
-            : "Todavía no hay acciones recientes."}
+            ? t("emptyFiltered")
+            : t("emptyAll")}
         </div>
       ) : (
         <div className="flex flex-col">
@@ -223,7 +221,7 @@ export function MyActivityFeed({
               </h3>
               <div className="divide-y">
                 {group.rows.map((row) => (
-                  <ActivityRow key={row.id} row={row} timezone={timezone} />
+                  <ActivityRow key={row.id} row={row} timezone={timezone} t={t} />
                 ))}
               </div>
             </section>
@@ -234,7 +232,7 @@ export function MyActivityFeed({
       {hasMore ? (
         <div className="flex justify-center border-t px-4 py-3">
           <Button variant="outline" size="sm" onClick={loadMore} disabled={pending}>
-            {pending ? "Cargando..." : "Cargar más"}
+            {pending ? t("loading") : t("loadMore")}
           </Button>
         </div>
       ) : null}
@@ -245,43 +243,103 @@ export function MyActivityFeed({
 function ActivityRow({
   row,
   timezone,
+  t,
 }: {
   row: MyCoachActivityRow;
   timezone: string;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const Icon = row.deleted ? Trash2 : KIND_ICON[row.kind];
-  const tone = row.deleted ? DELETED_TONE : KIND_TONE[row.kind];
-  const label = row.deleted ? "Eliminado" : KIND_LABEL[row.kind];
+  const chip = row.deleted ? DELETED_CHIP : KIND_CHIP[row.kind];
+  const label = row.deleted ? t("deleted") : t(`kindLabels.${row.kind}`);
   return (
-    <div className="flex items-start gap-3 px-4 py-3">
-      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+    <div className="flex items-start gap-3 px-4 py-3.5">
+      <div
+        className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border [&>svg]:size-4 ${chip}`}
+        aria-hidden
+        title={label}
+      >
+        <Icon />
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            className={`gap-1 px-1.5 py-0 text-[11px] font-normal ${tone}`}
-          >
-            {label}
-          </Badge>
-          <span className="min-w-0 break-words text-sm font-medium leading-snug">
+      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-0.5">
+        <div className="min-w-0 flex-1 basis-[10rem]">
+          <p className="break-words text-sm font-semibold leading-snug text-foreground">
             {row.title}
-          </span>
+          </p>
+          {row.clientName || row.detail ? (
+            <p className="mt-0.5 break-words text-xs text-muted-foreground">
+              {row.clientName ? (
+                <ClientNameLink
+                  clientId={row.clientId}
+                  clientName={row.clientName}
+                  t={t}
+                />
+              ) : null}
+              {row.clientName && row.detail ? " · " : null}
+              {row.detail}
+            </p>
+          ) : null}
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatTime(row.occurredAt, timezone)}
-          {row.clientName ? ` · ${row.clientName}` : ""}
-          {row.detail ? ` · ${row.detail}` : ""}
-        </p>
+        <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+          {formatTime(row.occurredAt, timezone, t)}
+        </span>
       </div>
     </div>
+  );
+}
+
+// Renders the "For {name}" detail prefix, with the client name as a link to the
+// client's profile when a resolvable id exists. Reuses the existing localized
+// "For {name}" / "Para {name}" key and splits it around the name so only the
+// name becomes a link (the "For"/"Para" wrapper stays plain). Falls back to
+// plain text when there's no id (no broken link).
+function ClientNameLink({
+  clientId,
+  clientName,
+  t,
+}: {
+  clientId: string | null;
+  clientName: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const full = t("forClient", { name: clientName });
+  if (!clientId) {
+    return <>{full}</>;
+  }
+  const idx = full.indexOf(clientName);
+  const link = (
+    <Link
+      href={`/gc-fitness/clients/${clientId}`}
+      className="rounded-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {clientName}
+    </Link>
+  );
+  // If the name isn't found verbatim (defensive — shouldn't happen), link the
+  // whole label rather than dropping the affordance.
+  if (idx === -1) {
+    return (
+      <Link
+        href={`/gc-fitness/clients/${clientId}`}
+        className="rounded-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {full}
+      </Link>
+    );
+  }
+  return (
+    <>
+      {full.slice(0, idx)}
+      {link}
+      {full.slice(idx + clientName.length)}
+    </>
   );
 }
 
 function groupRowsByDay(
   rows: MyCoachActivityRow[],
   timezone: string,
+  t: ReturnType<typeof useTranslations>,
 ): Array<{ key: string; label: string; rows: MyCoachActivityRow[] }> {
   const groups = new Map<
     string,
@@ -294,23 +352,37 @@ function groupRowsByDay(
       existing.rows.push(row);
       continue;
     }
-    groups.set(key, { key, label: formatDayHeading(row.occurredAt, timezone), rows: [row] });
+    groups.set(key, {
+      key,
+      label: formatDayHeading(row.occurredAt, timezone, t),
+      rows: [row],
+    });
   }
   return Array.from(groups.values());
 }
 
-function formatDayHeading(iso: string | null, timezone: string): string {
-  if (!iso) return "Sin fecha";
+function formatDayHeading(
+  iso: string | null,
+  timezone: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  if (!iso) return t("noDate");
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
   const key = clientActivityCivilDateKey(iso, timezone);
-  if (key === clientActivityCivilDateKey(today.toISOString(), timezone)) return "Hoy";
-  if (key === clientActivityCivilDateKey(yesterday.toISOString(), timezone)) return "Ayer";
+  if (key === clientActivityCivilDateKey(today.toISOString(), timezone))
+    return t("today");
+  if (key === clientActivityCivilDateKey(yesterday.toISOString(), timezone))
+    return t("yesterday");
   return formatClientActivityDate(iso, timezone);
 }
 
-function formatTime(iso: string | null, timezone: string): string {
-  if (!iso) return "Sin fecha";
+function formatTime(
+  iso: string | null,
+  timezone: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  if (!iso) return t("noDate");
   return formatClientActivityTime(iso, timezone);
 }

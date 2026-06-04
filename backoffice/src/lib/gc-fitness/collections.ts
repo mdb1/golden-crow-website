@@ -88,6 +88,16 @@ export const FirestoreCollections = {
   habitLogs: "habit_logs",
 
   /**
+   * Per-trainer hidden-set for GLOBAL habit templates (backlog B5). Doc id =
+   * trainer uid; shape `{ hiddenIds: string[], updatedAt }`. Global templates
+   * are shared + read-only, so a trainer "hides" one from their own Biblioteca
+   * by adding its id here (the shared doc is never mutated). `listHabitTemplates`
+   * filters out global templates whose id is in this set. Owner-scoped rule:
+   * only the trainer whose uid is the doc id can read/write it.
+   */
+  habitTemplateHidden: "habit_template_hidden",
+
+  /**
    * Coach-authored short/medium/long-term goals visible to clients.
    */
   clientGoals: "client_goals",

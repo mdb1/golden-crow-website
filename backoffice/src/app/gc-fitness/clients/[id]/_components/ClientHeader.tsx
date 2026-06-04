@@ -19,10 +19,11 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, MessagesSquare } from "lucide-react";
+import { ArrowLeft, Calendar, LineChart, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export interface ClientHeaderProps {
@@ -43,6 +44,7 @@ export function ClientHeader({
   bodyWeightKg,
 }: ClientHeaderProps) {
   const t = useTranslations("clients.detail");
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const heightValue =
     typeof heightCm === "number" ? `${heightCm.toFixed(1)} cm` : tCommon("emDash");
@@ -58,38 +60,57 @@ export function ClientHeader({
     .join("");
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-16">
-          {photoURL ? <AvatarImage src={photoURL} alt={displayName} /> : null}
-          <AvatarFallback>{initials || "?"}</AvatarFallback>
-        </Avatar>
-        <div className="flex flex-col gap-0.5">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            {displayName}
-          </h1>
-          {email ? (
-            <p className="text-sm text-muted-foreground">{email}</p>
-          ) : null}
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>{t("heightLabel", { value: heightValue })}</span>
-            <span>{t("weightLabel", { value: weightValue })}</span>
+    <div className="flex flex-col gap-4">
+      <Link
+        href="/gc-fitness/clients"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        {tNav("clients")}
+      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="size-16">
+            {photoURL ? <AvatarImage src={photoURL} alt={displayName} /> : null}
+            <AvatarFallback>{initials || "?"}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
+              {displayName}
+            </h1>
+            {email && email !== displayName ? (
+              <p className="text-sm text-muted-foreground">{email}</p>
+            ) : null}
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline">
+                {t("heightLabel", { value: heightValue })}
+              </Badge>
+              <Badge variant="outline">
+                {t("weightLabel", { value: weightValue })}
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
-            <MessagesSquare className="size-4" />
-            {t("openChat")}
-          </Link>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/gc-fitness/schedule?clientIds=${clientId}`}>
-            <Calendar className="size-4" />
-            Abrir en calendario
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild className="rounded-full">
+            <Link href={`/gc-fitness/clients/${clientId}/progress`}>
+              <LineChart className="size-4" />
+              {t("openExerciseProgress")}
+            </Link>
+          </Button>
+          <Button variant="outline" asChild className="rounded-full">
+            <Link href={`/gc-fitness/chat?clientId=${clientId}`}>
+              <MessagesSquare className="size-4" />
+              {t("openChat")}
+            </Link>
+          </Button>
+          <Button variant="outline" asChild className="rounded-full">
+            <Link href={`/gc-fitness/schedule?clientIds=${clientId}`}>
+              <Calendar className="size-4" />
+              {t("openInCalendar")}
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   );

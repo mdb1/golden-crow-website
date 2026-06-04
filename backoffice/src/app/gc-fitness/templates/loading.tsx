@@ -14,8 +14,8 @@ export default function TemplatesLoading() {
         </div>
         <Skeleton className="h-10 w-36" />
       </div>
-      <Skeleton className="h-10 w-56" />
-      <div className="flex flex-col gap-2 rounded-md border bg-card p-4">
+      <Skeleton className="h-10 w-56 rounded-full" />
+      <div className="flex flex-col gap-2 rounded-[1.25rem] border bg-card p-4 shadow-sm">
         {Array.from({ length: 6 }).map((_, idx) => (
           <Skeleton key={idx} className="h-12 w-full" />
         ))}

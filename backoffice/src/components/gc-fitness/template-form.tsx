@@ -777,7 +777,7 @@ export function TemplateForm({
           console.log("[template-form] form onSubmit event fired");
           return submit(e);
         }}
-        className="flex flex-col gap-6"
+        className="flex min-w-0 flex-col gap-6"
         noValidate
       >
         {draftRestored ? (
@@ -933,7 +933,7 @@ export function TemplateForm({
 
         {/* Exercises — wrapped in a section card to match the HabitForm
             schedule/reminder visual hierarchy. */}
-        <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="font-heading text-base font-semibold tracking-tight">
               {t("exercises")}
@@ -1462,7 +1462,7 @@ export function TemplateForm({
                       <div className="sm:col-span-2">
                         <FormLabel>{t("setRowsTitle")}</FormLabel>
                         <div className="mt-2 flex flex-col gap-2">
-                          <div className="grid grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)] items-center gap-2 px-1">
+                          <div className="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 px-1 sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)]">
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {t("setHeader")}
                             </span>
@@ -1507,7 +1507,7 @@ export function TemplateForm({
                                 key={`${field.id}-set-${setIdx + 1}`}
                                 data-set-row={setKey}
                                 data-set-idx={setIdx}
-                                className="grid grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2"
+                                className="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_28px] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px]"
                               >
                                 <span className="text-xs text-muted-foreground">
                                   {t("setNumber", { count: setIdx + 1 })}
@@ -2182,7 +2182,7 @@ export function TemplateForm({
           >
             {t("cancel")}
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="rounded-full">
             {pending ? t("saving") : mode === "create" ? t("createCta") : t("saveCta")}
           </Button>
         </div>

@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
@@ -130,30 +131,26 @@ export default async function NotificationsPage() {
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            {t("description")}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <Link href="/gc-fitness/recent-logs">
-              <ArrowUpRight className="h-4 w-4" />
-              {t("openRecentLogs")}
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <Link href="/gc-fitness/my-activity">
-              <ArrowUpRight className="h-4 w-4" />
-              {t("openMyActivity")}
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("title")}
+        subtitle={t("headerSubtitle")}
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href="/gc-fitness/recent-logs">
+                <ArrowUpRight className="h-4 w-4" />
+                {t("openRecentLogs")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href="/gc-fitness/my-activity">
+                <ArrowUpRight className="h-4 w-4" />
+                {t("openMyActivity")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {activeWorkouts.length > 0 ? (
         <div className="space-y-4">
@@ -178,7 +175,7 @@ export default async function NotificationsPage() {
             <EmptyState label={t("noRenewals")} />
           ) : (
             renewalNotifications.map((item) => (
-              <NotificationRow key={item.id} title={item.title} detail={item.detail} meta={formatMeta(item.occurredAtISO, item.clientName, item.dueLabel, locale, trainerTimezone)} actionHref={item.actionHref} actionLabel={item.actionLabel} icon={<CalendarClock className="h-4 w-4" />} />
+              <NotificationRow key={item.id} tone="warning" title={item.title} detail={item.detail} meta={formatMeta(item.occurredAtISO, item.clientName, item.dueLabel, locale, trainerTimezone)} actionHref={item.actionHref} actionLabel={item.actionLabel} icon={<CalendarClock />} />
             ))
           )}
         </CardContent>
@@ -199,12 +196,13 @@ export default async function NotificationsPage() {
             activationNotifications.map((item) => (
               <NotificationRow
                 key={item.id}
+                tone="brand"
                 title={t("clientActivated")}
                 detail={item.detail}
                 meta={formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone)}
                 actionHref={item.actionHref}
                 actionLabel={item.actionLabel}
-                icon={<Bell className="h-4 w-4" />}
+                icon={<Bell />}
               />
             ))
           )}
@@ -224,23 +222,23 @@ function ActiveWorkoutCard({
   const elapsedLabel = formatWorkoutElapsed(item.elapsedSeconds);
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-amber-300/60 bg-gradient-to-br from-amber-50/85 via-card to-card p-5 shadow-sm dark:from-amber-500/10 dark:via-card dark:to-card">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
+    <section className="overflow-hidden rounded-[1.25rem] border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
             <Activity className="h-3.5 w-3.5" />
             {t("activeWorkoutBadge")}
           </div>
           <div className="space-y-1">
-            <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+            <h2 className="font-heading text-2xl font-semibold tracking-tight text-foreground break-words sm:text-3xl">
               {item.clientName}
             </h2>
-            <p className="text-lg font-medium text-muted-foreground">
+            <p className="text-lg font-medium text-muted-foreground break-words">
               {item.workoutName}
             </p>
           </div>
         </div>
-        <div className="shrink-0 rounded-full border border-border/60 bg-background px-4 py-2 shadow-sm">
+        <div className="shrink-0 rounded-full border border-border bg-background px-4 py-2 shadow-sm">
           <span className="inline-flex items-center gap-2 font-mono text-xl font-semibold tabular-nums text-foreground">
             <Clock3 className="h-4 w-4 text-muted-foreground" />
             {elapsedLabel}
@@ -249,15 +247,15 @@ function ActiveWorkoutCard({
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
+        <div className="rounded-2xl border border-border bg-background/75 p-4">
           <p className="text-sm font-medium text-muted-foreground">
             {t("currentExercise")}
           </p>
-          <p className="mt-1 text-xl font-semibold text-foreground">
+          <p className="mt-1 break-words text-xl font-semibold text-foreground">
             {item.currentExerciseName}
           </p>
         </div>
-        <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
+        <div className="rounded-2xl border border-border bg-background/75 p-4">
           <p className="text-sm font-medium text-muted-foreground">
             {t("currentSet")}
           </p>
@@ -265,7 +263,7 @@ function ActiveWorkoutCard({
             {item.currentSet} / {item.totalSets}
           </p>
         </div>
-        <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
+        <div className="rounded-2xl border border-border bg-background/75 p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-muted-foreground">
               {t("progress")}
@@ -276,7 +274,7 @@ function ActiveWorkoutCard({
           </div>
           <div className="mt-3 h-3 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-amber-500 transition-[width]"
+              className="h-full rounded-full bg-primary transition-[width]"
               style={{ width: `${Math.max(4, item.progress * 100)}%` }}
             />
           </div>
@@ -284,13 +282,13 @@ function ActiveWorkoutCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <Button asChild className="flex-1 gap-2 bg-amber-500 text-foreground hover:bg-amber-500/90">
+        <Button asChild className="h-11 flex-1 gap-2 rounded-full">
           <Link href={`/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`}>
             <Pause className="h-4 w-4" />
             {t("pauseWorkout")}
           </Link>
         </Button>
-        <Button asChild variant="outline" className="flex-1 gap-2">
+        <Button asChild variant="outline" className="h-11 flex-1 gap-2 rounded-full">
           <Link href={`/gc-fitness/clients/${item.clientId}`}>
             <ArrowUpRight className="h-4 w-4" />
             {t("viewDetails")}
@@ -311,29 +309,58 @@ function formatWorkoutElapsed(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+// Token-based colored chip for the leading notification icon. Both themes work
+// via the shared badge color tokens.
+const NOTIFICATION_CHIP = {
+  warning:
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-fg)]",
+  brand:
+    "border-[color:var(--badge-brand-border)] bg-[color:var(--badge-brand-bg)] text-[color:var(--badge-brand-fg)]",
+  success:
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-fg)]",
+  violet:
+    "border-[color:var(--badge-violet-border)] bg-[color:var(--badge-violet-bg)] text-[color:var(--badge-violet-fg)]",
+} as const;
+
 function NotificationRow({
   icon,
+  tone,
   title,
   detail,
   meta,
   actionHref,
   actionLabel,
+  unread = false,
 }: {
   icon: ReactNode;
+  tone: keyof typeof NOTIFICATION_CHIP;
   title: string;
   detail: string;
   meta: string;
   actionHref: string;
   actionLabel: string;
+  unread?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-4 transition-colors hover:bg-accent/40 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-3">
-        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <div
+          className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border [&>svg]:size-4 ${NOTIFICATION_CHIP[tone]}`}
+        >
           {icon}
         </div>
         <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium leading-tight">{title}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold leading-tight text-foreground">
+              {title}
+            </p>
+            {unread ? (
+              <span
+                className="size-2 shrink-0 rounded-full bg-primary"
+                aria-hidden
+              />
+            ) : null}
+          </div>
           <p className="text-xs text-muted-foreground">{meta}</p>
           <p className="text-sm text-muted-foreground">{detail}</p>
         </div>

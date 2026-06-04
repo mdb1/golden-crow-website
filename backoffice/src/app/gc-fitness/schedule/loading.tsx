@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function ScheduleLoading() {
   return (
     <div className="gc-page flex flex-col gap-5">
-      <div className="rounded-xl border bg-card p-4">
+      <div className="rounded-[1.25rem] border bg-card p-4 shadow-sm">
         <Skeleton className="mb-3 h-4 w-40" />
         <div className="flex flex-wrap gap-2">
           {Array.from({ length: 8 }).map((_, idx) => (

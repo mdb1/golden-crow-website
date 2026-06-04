@@ -23,11 +23,13 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
+import { Search } from "lucide-react";
 
 import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import type { ChatRow } from "@/lib/gc-fitness/chat-schema";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
+import { Input } from "@/components/ui/input";
 
 import type { ClientRosterEntry } from "../client";
 
@@ -52,7 +54,9 @@ export function ChatThreadList({
   clientRoster,
 }: Props) {
   const t = useTranslations("chat.threadList");
+  const tCommon = useTranslations("common");
   const { data, isLoading, error } = useTrainerChats();
+  const [query, setQuery] = useState("");
 
   // uid → displayName lookup — bounded to the trainer's client roster.
   const nameByUid = useMemo(() => {
@@ -108,41 +112,68 @@ export function ChatThreadList({
     return rows;
   }, [clientRoster, data, trainerUid]);
 
-  if (isLoading) {
-    return (
-      <div className="p-4 text-sm text-muted-foreground">{t("loading")}</div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="p-4 text-sm text-destructive">{t("loadError")}</div>
-    );
-  }
-  if (sorted.length === 0) {
-    return (
-      <div className="p-6 text-center text-sm text-muted-foreground">
-        {t("noConversations")}
-        <br />
-        <span className="mt-2 block">{t("firstMessagesHere")}</span>
-      </div>
-    );
-  }
+  // Search filter — match on the resolved display name (the only human-facing
+  // identifier in a thread row). Case-insensitive, trimmed.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((chat) => {
+      const name = nameByUid.get(chat.clientId) ?? chat.clientId;
+      return name.toLowerCase().includes(q);
+    });
+  }, [sorted, query, nameByUid]);
 
   return (
-    <ul className="divide-y">
-      {sorted.map((chat) => (
-        <ChatThreadRow
-          key={chat.id}
-          chat={chat}
-          trainerUid={trainerUid}
-          timezone={timezone}
-          displayName={nameByUid.get(chat.clientId) ?? chat.clientId}
-          photoURL={photoByUid.get(chat.clientId) ?? null}
-          isActive={chat.id === activeChatId}
-          onSelect={onSelect}
-        />
-      ))}
-    </ul>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border bg-card/80 p-3 backdrop-blur">
+        <div className="relative">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={tCommon("search")}
+            aria-label={tCommon("search")}
+            className="h-10 rounded-full pl-9"
+          />
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="p-4 text-sm text-muted-foreground">{t("loading")}</div>
+        ) : error ? (
+          <div className="p-4 text-sm text-destructive">{t("loadError")}</div>
+        ) : sorted.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            {t("noConversations")}
+            <br />
+            <span className="mt-2 block">{t("firstMessagesHere")}</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            {t("noConversations")}
+          </div>
+        ) : (
+          <ul className="space-y-1 p-2">
+            {filtered.map((chat) => (
+              <ChatThreadRow
+                key={chat.id}
+                chat={chat}
+                trainerUid={trainerUid}
+                timezone={timezone}
+                displayName={nameByUid.get(chat.clientId) ?? chat.clientId}
+                photoURL={photoByUid.get(chat.clientId) ?? null}
+                isActive={chat.id === activeChatId}
+                onSelect={onSelect}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -178,18 +209,24 @@ function ChatThreadRow({
       <button
         type="button"
         onClick={() => onSelect(chat.id)}
-        className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent ${
-          isActive ? "bg-accent" : ""
+        className={`flex min-h-16 w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-muted ${
+          isActive ? "bg-muted" : ""
         }`}
       >
-        <Avatar name={displayName} photoURL={photoURL} />
+        <ClientAvatar name={displayName} photoURL={photoURL} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <div className="truncate font-medium">{displayName}</div>
+            <div className="truncate font-semibold text-foreground">
+              {displayName}
+            </div>
             <RelativeTime iso={previewIso} timezone={timezone} />
           </div>
-          <div className="mt-1 flex items-center gap-2">
-            <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-2">
+            <p
+              className={`min-w-0 flex-1 truncate text-sm ${
+                unread > 0 ? "font-medium text-foreground" : "text-muted-foreground"
+              }`}
+            >
               {previewText}
             </p>
             {unread > 0 && <UnreadBadge count={unread} />}
@@ -201,41 +238,6 @@ function ChatThreadRow({
 }
 
 // ── Inline helpers (kept local; V2 may hoist to a shared module) ───────
-
-function Avatar({ name, photoURL }: { name: string; photoURL?: string | null }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-  // If photoURL is set but fails to load (404, expired Storage signature,
-  // CORS, etc.), fall back to initials instead of leaving a broken-image
-  // icon. Tracked per render via local state.
-  const [failed, setFailed] = useState(false);
-  const showImage = !!photoURL && !failed;
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary"
-    >
-      {showImage ? (
-        <Image
-          src={photoURL!}
-          alt=""
-          width={40}
-          height={40}
-          className="h-10 w-10 rounded-full object-cover"
-          unoptimized
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        initials || "·"
-      )}
-    </div>
-  );
-}
 
 function RelativeTime({
   iso,
@@ -267,7 +269,7 @@ function RelativeTime({
 
 function UnreadBadge({ count }: { count: number }) {
   return (
-    <span className="flex-shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+    <span className="inline-flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
       {count}
     </span>
   );

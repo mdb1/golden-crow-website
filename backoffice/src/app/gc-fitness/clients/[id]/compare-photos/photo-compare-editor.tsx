@@ -81,7 +81,7 @@ export function ProgressPhotoCompareEditor({
   }
 
   return (
-    <section className="rounded-md border bg-card p-4">
+    <section className="rounded-[1.25rem] border bg-card p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap gap-2">
         <select
           className="h-10 rounded-md border px-2"

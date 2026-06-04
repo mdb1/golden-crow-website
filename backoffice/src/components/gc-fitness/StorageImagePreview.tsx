@@ -59,7 +59,7 @@ export function StorageImagePreview({
       alt={alt}
       onError={() => setFailed(true)}
       className={cn(
-        "max-h-40 w-auto rounded-md border border-border bg-muted/40 object-contain",
+        "max-h-40 w-auto rounded-xl border border-border bg-muted/40 object-contain",
         className,
       )}
     />

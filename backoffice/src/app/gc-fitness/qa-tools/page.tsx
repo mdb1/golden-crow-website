@@ -35,6 +35,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PageHeader } from "@/components/gc-fitness/page-header";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import {
   getCurrentTrainer,
@@ -203,20 +204,14 @@ export default async function GCFitnessQAToolsPage() {
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <p className="section-eyebrow">GC Fitness · Engineering</p>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          QA Tools
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Engineering-only view. Surfaces recent trainer-scoped Firestore
-          writes for fast "did my last action hit the database?" debugging.
-        </p>
-      </header>
+      <PageHeader
+        title="QA Tools"
+        subtitle='Engineering-only view. Surfaces recent trainer-scoped Firestore writes for fast "did my last action hit the database?" debugging.'
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent trainer writes</CardTitle>
+          <CardTitle className="text-xl">Recent trainer writes</CardTitle>
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
@@ -230,7 +225,7 @@ export default async function GCFitnessQAToolsPage() {
               {activity.map((row, idx) => (
                 <li
                   key={`${row.collection}-${row.docId}-${idx}`}
-                  className="flex items-start gap-3 rounded-md border bg-card p-3 text-sm"
+                  className="flex items-start gap-3 rounded-2xl border bg-card p-3 text-sm"
                 >
                   <Badge variant="secondary" className="font-mono text-xs">
                     {row.collection}
@@ -258,7 +253,7 @@ export default async function GCFitnessQAToolsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Cloud Functions invocations</CardTitle>
+          <CardTitle className="text-xl">Cloud Functions invocations</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -281,7 +276,7 @@ export default async function GCFitnessQAToolsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Mirror re-link runbook (P22)</CardTitle>
+          <CardTitle className="text-xl">Mirror re-link runbook (P22)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
@@ -308,7 +303,7 @@ export default async function GCFitnessQAToolsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Firestore rule denials</CardTitle>
+          <CardTitle className="text-xl">Firestore rule denials</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
