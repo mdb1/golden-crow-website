@@ -58,6 +58,7 @@ import {
   duplicateWorkoutTemplate,
 } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
+import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
 import {
   makeTemplateColumns,
   type TemplateListRow,
@@ -154,6 +155,9 @@ export function TemplatesLibraryClient({ trainerUid }: TemplatesLibraryClientPro
           ? [newDraft.tag]
           : [],
       exerciseCount,
+      estimatedDurationMinutes: estimateTemplateDurationMinutesFromRaw(
+        newDraft.exercises,
+      ),
       trainerId: trainerUid,
       isStandard: false,
       deleted: false,

@@ -191,6 +191,20 @@ export function makeTemplateColumns(
       enableSorting: false,
     },
     {
+      accessorKey: "estimatedDurationMinutes",
+      header: t("duration"),
+      // Estimated whole-minutes from the iOS-twin estimator (work + rest +
+      // per-set setup overhead + transitions). 0 → "—" (no exercises yet).
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {row.original.estimatedDurationMinutes > 0
+            ? t("durationValue", { minutes: row.original.estimatedDurationMinutes })
+            : "—"}
+        </span>
+      ),
+      enableSorting: false,
+    },
+    {
       accessorKey: "updatedAt",
       header: ({ column }) => (
         <button
