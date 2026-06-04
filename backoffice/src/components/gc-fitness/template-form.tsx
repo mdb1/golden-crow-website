@@ -102,6 +102,7 @@ import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener
 // ExercisePickerPopover above, so this is a shared-cache hook call (no
 // extra Firestore reads).
 import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
+import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
 
 export type TemplateFormMode = "create" | "edit";
 
@@ -324,6 +325,12 @@ export function TemplateForm({
   const watchedExercises = form.watch("exercises") ?? [];
   const supersetGroupOptions = useMemo(
     () => listSupersetGroupOptions(watchedExercises),
+    [watchedExercises],
+  );
+  // Live estimated duration (work + rest + per-set setup overhead + transitions),
+  // matching the iOS-twin estimator. 0 while no exercises are configured.
+  const estimatedDurationMinutes = useMemo(
+    () => estimateTemplateDurationMinutesFromRaw(watchedExercises),
     [watchedExercises],
   );
 
@@ -933,6 +940,9 @@ export function TemplateForm({
             </h2>
             <span className="text-xs text-muted-foreground">
               {t("exercisesCount", { count: fields.length })}
+              {estimatedDurationMinutes > 0
+                ? ` · ${t("estimatedDuration", { minutes: estimatedDurationMinutes })}`
+                : ""}
             </span>
           </div>
 

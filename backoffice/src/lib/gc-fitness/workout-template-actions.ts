@@ -38,6 +38,7 @@ import {
   templateCreatedEvent,
 } from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
+import { estimateTemplateDurationMinutesFromRaw } from "./workout-duration-estimate";
 
 const COLLECTION = FirestoreCollections.workoutTemplates;
 
@@ -85,6 +86,10 @@ export interface WorkoutTemplateRow {
    *  back to `[tag]` in that case. */
   tags: WorkoutTag[];
   exerciseCount: number;
+  /** Estimated whole-minutes duration of the prescription (work + rest +
+   *  per-set setup overhead + transitions). 0 when there are no exercises.
+   *  Computed via the iOS-twin estimator — see workout-duration-estimate.ts. */
+  estimatedDurationMinutes: number;
   trainerId: string;
   isStandard: boolean;
   deleted: boolean;
@@ -414,6 +419,7 @@ export async function listWorkoutTemplates(opts?: {
       tag: (data.tag as WorkoutTag) ?? tags[0] ?? "custom",
       tags,
       exerciseCount: exercises.length,
+      estimatedDurationMinutes: estimateTemplateDurationMinutesFromRaw(exercises),
       trainerId: (data.trainerId as string) ?? "",
       isStandard: data.isStandard === true,
       deleted: data.deleted === true,
