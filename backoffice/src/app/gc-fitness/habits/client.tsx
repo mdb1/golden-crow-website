@@ -325,7 +325,7 @@ export function HabitsLibraryClient({
     !isLoading && totalFromServer > 0 && rows.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         {embedded ? (
           <span />
@@ -403,7 +403,7 @@ export function HabitsLibraryClient({
         </div>
         {view === "assignments" ? (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
-            <SelectTrigger className="h-10 w-56 rounded-full">
+            <SelectTrigger className="h-10 w-full rounded-full sm:w-56">
               <SelectValue placeholder={t("filterByClientPlaceholder")}>
                 {selectedClient ? (
                   <span className="flex items-center gap-2">
@@ -600,7 +600,7 @@ export function HabitsLibraryClient({
                             variant="ghost"
                             size="icon"
                             aria-label={columnsT("edit")}
-                            className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                            className="h-11 w-11 text-muted-foreground hover:text-foreground"
                             onClick={() => handlers.onEdit(row)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -609,7 +609,7 @@ export function HabitsLibraryClient({
                             variant="ghost"
                             size="icon"
                             aria-label={columnsT("delete")}
-                            className="h-10 w-10 text-destructive hover:text-destructive"
+                            className="h-11 w-11 text-destructive hover:text-destructive"
                             onClick={() => handlers.onDelete(row)}
                           >
                             <Trash2 className="h-4 w-4" />

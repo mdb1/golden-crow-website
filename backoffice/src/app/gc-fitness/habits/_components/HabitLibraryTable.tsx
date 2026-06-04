@@ -57,7 +57,7 @@ export function HabitLibraryTable({
   onRowClick: (template: HabitTemplateRow) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
+    <div className="min-w-0 overflow-x-auto rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>

@@ -48,14 +48,14 @@ export default async function BulkAssignPage() {
 
   return (
     <div className="gc-page flex flex-col gap-6">
-      <header className="flex items-start justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
+      <header className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button variant="ghost" asChild>
+        <Button variant="ghost" asChild className="shrink-0">
           <Link href="/gc-fitness/schedule">{t("backToSchedule")}</Link>
         </Button>
       </header>

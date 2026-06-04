@@ -421,6 +421,10 @@ export function MonthCalendar({
   const gridColsClass = view === "3day" ? "grid-cols-3" : "grid-cols-7";
   // Week / 3-day cells are roomier (fewer rows on screen).
   const cellMinHClass = view === "month" ? "min-h-[120px]" : "min-h-[420px]";
+  // 3-day is the comfortable phone view: a narrower min-width lets sticky
+  // "Cliente" + 3 day columns nearly fit a 390px screen, so only a small
+  // horizontal nudge is needed. Week (7 cols) keeps the wider 760px floor.
+  const gridMinWClass = view === "3day" ? "min-w-[560px]" : "min-w-[760px]";
 
   // Prev / next + "Hoy" behave per view (shift month vs shift the anchor).
   function goPrev() {
@@ -488,23 +492,23 @@ export function MonthCalendar({
   );
 
   const rangeNav = (
-    <div className="inline-flex items-center gap-1 rounded-full border bg-card p-1">
+    <div className="inline-flex min-w-0 items-center gap-1 rounded-full border bg-card p-1">
       <Button
         variant="ghost"
         size="icon"
-        className="size-8 rounded-full"
+        className="size-8 shrink-0 rounded-full"
         onClick={goPrev}
         aria-label={t("previousAria")}
       >
         <ChevronLeftIcon className="h-4 w-4" />
       </Button>
-      <span className="min-w-[10ch] px-1 text-center text-sm font-semibold tracking-tight">
+      <span className="min-w-0 flex-1 truncate px-1 text-center text-sm font-semibold tracking-tight sm:min-w-[10ch] sm:flex-none">
         {rangeTitle}
       </span>
       <Button
         variant="ghost"
         size="icon"
-        className="size-8 rounded-full"
+        className="size-8 shrink-0 rounded-full"
         onClick={goNext}
         aria-label={t("nextAria")}
       >
@@ -514,37 +518,45 @@ export function MonthCalendar({
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title={tNav("schedule")}
         subtitle={t("headerSubtitle")}
         actions={
-          <>
-            {viewSwitcher}
-            {rangeNav}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              onClick={goToday}
-            >
-              {t("today")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              asChild
-            >
-              <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
-            </Button>
-            {isFetching ? (
-              <span className="text-xs text-muted-foreground">{t("loading")}</span>
-            ) : null}
-          </>
+          isFetching ? (
+            <span className="text-xs text-muted-foreground">{t("loading")}</span>
+          ) : null
         }
       />
+
+      {/* ── Calendar toolbar ──────────────────────────────────────────────
+          Restructured for mobile (~390px): the view switcher, month nav,
+          "Hoy" and "Asignación masiva" controls live in their own wrapping
+          toolbar instead of the PageHeader actions row, so they stack/wrap
+          cleanly on a phone instead of overflowing horizontally. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="w-full overflow-x-auto sm:w-auto sm:overflow-visible">
+          {viewSwitcher}
+        </div>
+        <div className="min-w-0 flex-1 sm:flex-none">{rangeNav}</div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-[40px] rounded-full"
+          onClick={goToday}
+        >
+          {t("today")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-[40px] rounded-full"
+          asChild
+        >
+          <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
+        </Button>
+      </div>
 
       {/* ── Client filter bar ─────────────────────────────────────────── */}
       <Card className="p-5">
@@ -560,12 +572,12 @@ export function MonthCalendar({
               {t("clientsOnScreenHint")}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full"
+              className="min-h-[44px] rounded-full"
               onClick={selectAll}
               disabled={selectedIds.size === clients.length}
             >
@@ -575,7 +587,7 @@ export function MonthCalendar({
               type="button"
               variant="ghost"
               size="sm"
-              className="rounded-full"
+              className="min-h-[44px] rounded-full"
               onClick={clearAll}
               disabled={selectedIds.size === 0}
             >
@@ -594,7 +606,7 @@ export function MonthCalendar({
                 onClick={() => toggleClient(c.uid)}
                 aria-pressed={active}
                 className={cn(
-                  "group/chip inline-flex min-h-[40px] items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-sm font-medium transition-all",
+                  "group/chip inline-flex min-h-[44px] max-w-full items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-sm font-medium transition-all",
                   active
                     ? "border-transparent bg-primary text-primary-foreground shadow-sm"
                     : "border-border bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
@@ -620,7 +632,7 @@ export function MonthCalendar({
                   )}
                   aria-hidden="true"
                 />
-                <span className="truncate">{c.displayName}</span>
+                <span className="min-w-0 truncate">{c.displayName}</span>
               </button>
             );
           })}
@@ -629,7 +641,7 @@ export function MonthCalendar({
           <span className="mr-1 text-sm font-medium text-muted-foreground">
             {t("show")}
           </span>
-          <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-full px-2 text-sm">
+          <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full px-3 text-sm">
             <input
               type="checkbox"
               checked={showWorkouts}
@@ -639,7 +651,7 @@ export function MonthCalendar({
             <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
             {t("workouts")}
           </label>
-          <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-full px-2 text-sm">
+          <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full px-3 text-sm">
             <input
               type="checkbox"
               checked={showHabits}
@@ -659,7 +671,7 @@ export function MonthCalendar({
         </div>
       ) : view === "month" ? (
         // ── Month view: classic calendar grid in a framed card ──────────
-        <Card className="overflow-hidden p-0">
+        <Card className="min-w-0 max-w-full overflow-hidden p-0">
           <div className="overflow-x-auto">
             <div className="min-w-[760px] p-3 md:min-w-0">
               <div
@@ -726,12 +738,12 @@ export function MonthCalendar({
         </Card>
       ) : (
         // ── Week / 3-day view: clients as rows, days as columns ─────────
-        <Card className="overflow-hidden p-0">
+        <Card className="min-w-0 max-w-full overflow-hidden p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-separate border-spacing-0">
+            <table className={cn("w-full border-separate border-spacing-0", gridMinWClass)}>
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 w-40 min-w-40 border-b bg-card px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <th className="sticky left-0 z-20 w-28 min-w-28 border-b bg-card px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:w-40 sm:min-w-40 sm:px-4">
                     Cliente
                   </th>
                   {cells.map(({ civil }) => {
@@ -774,9 +786,9 @@ export function MonthCalendar({
                     <tr key={client.uid} className="group/row">
                       <th
                         scope="row"
-                        className="sticky left-0 z-10 w-40 min-w-40 border-b bg-card px-4 py-3 text-left align-top"
+                        className="sticky left-0 z-10 w-28 min-w-28 border-b bg-card px-3 py-3 text-left align-top sm:w-40 sm:min-w-40 sm:px-4"
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2 sm:gap-2.5">
                           <ClientAvatar
                             name={client.displayName}
                             photoURL={client.photoURL}
@@ -869,11 +881,11 @@ export function MonthCalendar({
       {/* ── Pick-client picker (when adding from a cell w/ multi-select) ── */}
       {pickClientForDate ? (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setPickClientForDate(null)}
         >
           <div
-            className="m-4 max-w-md rounded-[1.25rem] border bg-background p-4 shadow-2xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.25rem] border bg-background p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-2 text-sm font-medium">

@@ -240,7 +240,7 @@ export function BulkAssignForm({
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle>{t("clientsHeading", { count: selectedUids.size })}</CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={selectAll}>
@@ -255,8 +255,8 @@ export function BulkAssignForm({
           {clients.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noClients")}</p>
           ) : (
-            <div className="max-h-96 overflow-y-auto rounded border">
-              <table className="w-full text-sm">
+            <div className="max-h-96 overflow-auto rounded border">
+              <table className="w-full min-w-[28rem] text-sm">
                 <thead className="border-b bg-muted/50 text-left text-xs">
                   <tr>
                     <th className="w-10 p-2"></th>

@@ -261,27 +261,29 @@ function ActivityRow({
       >
         <Icon />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="break-words text-sm font-semibold leading-snug text-foreground">
-          {row.title}
-        </p>
-        {row.clientName || row.detail ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {row.clientName ? (
-              <ClientNameLink
-                clientId={row.clientId}
-                clientName={row.clientName}
-                t={t}
-              />
-            ) : null}
-            {row.clientName && row.detail ? " · " : null}
-            {row.detail}
+      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-3 gap-y-0.5">
+        <div className="min-w-0 flex-1 basis-[10rem]">
+          <p className="break-words text-sm font-semibold leading-snug text-foreground">
+            {row.title}
           </p>
-        ) : null}
+          {row.clientName || row.detail ? (
+            <p className="mt-0.5 break-words text-xs text-muted-foreground">
+              {row.clientName ? (
+                <ClientNameLink
+                  clientId={row.clientId}
+                  clientName={row.clientName}
+                  t={t}
+                />
+              ) : null}
+              {row.clientName && row.detail ? " · " : null}
+              {row.detail}
+            </p>
+          ) : null}
+        </div>
+        <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+          {formatTime(row.occurredAt, timezone, t)}
+        </span>
       </div>
-      <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-        {formatTime(row.occurredAt, timezone, t)}
-      </span>
     </div>
   );
 }

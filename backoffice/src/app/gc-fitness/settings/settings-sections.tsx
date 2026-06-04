@@ -183,18 +183,20 @@ function InfoRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-3.5",
+        "flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3.5 sm:flex-nowrap",
         !last && "border-b border-border",
       )}
     >
       <IconChip tone={tone} icon={icon} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-[calc(100%-3.25rem)] sm:basis-auto">
         <p className="truncate text-sm font-semibold text-foreground">{title}</p>
         {value ? (
           <p className="truncate text-sm text-muted-foreground">{value}</p>
         ) : null}
       </div>
-      {trailing ? <div className="shrink-0">{trailing}</div> : null}
+      {trailing ? (
+        <div className="w-full shrink-0 sm:w-auto">{trailing}</div>
+      ) : null}
     </div>
   );
 }

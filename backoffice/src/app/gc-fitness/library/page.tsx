@@ -55,7 +55,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const tNav = await getTranslations("nav");
 
   return (
-    <div className="gc-page flex flex-col gap-6">
+    <div className="gc-page flex min-w-0 flex-col gap-6">
       <PageHeader
         title={tNav("library")}
         subtitle={tNav("contentSectionDescription")}

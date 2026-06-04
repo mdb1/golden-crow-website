@@ -284,7 +284,7 @@ export function TemplatesLibraryClient({
   const isFilteredEmpty = !isLoading && hasFilter && rows.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {embedded ? (
           <span />
@@ -482,7 +482,7 @@ export function TemplatesLibraryClient({
                               variant="ghost"
                               size="icon"
                               aria-label={columnsT("actionsAria")}
-                              className="h-10 w-10 shrink-0"
+                              className="h-11 w-11 shrink-0"
                             >
                               <SlidersHorizontal className="h-4 w-4" />
                             </Button>

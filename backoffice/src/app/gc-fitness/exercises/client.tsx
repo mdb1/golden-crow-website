@@ -211,7 +211,7 @@ export function ExerciseLibraryClient({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-6">
         {/* Heading row — title + primary CTA */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {embedded ? (
@@ -241,7 +241,7 @@ export function ExerciseLibraryClient({
           </Alert>
         )}
 
-        <div className="overflow-x-auto rounded-[1.25rem] border border-border bg-card shadow-sm">
+        <div className="min-w-0 overflow-x-auto rounded-[1.25rem] border border-border bg-card shadow-sm">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

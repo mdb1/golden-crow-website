@@ -219,8 +219,10 @@ export function RecentLogsFeed({
     <div className="flex flex-col gap-4">
       <Card>
         <CardContent className="flex flex-col gap-3 py-4">
-          <PillTabs activeKey={typeFilter} items={tabItems} />
-          <div className="flex items-center gap-2">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <PillTabs activeKey={typeFilter} items={tabItems} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="shrink-0 text-sm text-muted-foreground">
               {t("clientLabel")}
@@ -230,7 +232,7 @@ export function RecentLogsFeed({
               onValueChange={(v) => applyFilters(v, typeFilter)}
               disabled={loading}
             >
-              <SelectTrigger className="h-10 min-w-[12rem]">
+              <SelectTrigger className="h-10 w-full min-w-0 sm:w-auto sm:min-w-[12rem]">
                 <SelectValue placeholder={t("allClients")}>
                   {selectedClient ? (
                     <span className="flex items-center gap-2">
@@ -343,10 +345,10 @@ function RecentLogItem({
           openProfile();
         }
       }}
-      className="group flex cursor-pointer items-start gap-3 rounded-[1.25rem] border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40"
+      className="group flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 rounded-[1.25rem] border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:flex-nowrap"
     >
       <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] sm:basis-auto">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {row.clientId ? (
             <Link
@@ -415,30 +417,32 @@ function RecentLogItem({
           </p>
         ) : null}
       </div>
-      <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-        {formatRecentLogTime(row.eventAt, timezone, locale)}
-      </span>
-      <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground"
-          title={t("openChat")}
-        >
-          <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
-            <MessageCircle className="h-4 w-4" />
-            <span className="sr-only">{t("openChat")}</span>
-          </Link>
-        </Button>
-        {row.workoutLogId ? (
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 px-2.5">
-            <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
-              <Eye className="h-4 w-4" />
-              {t("viewWorkout")}
+      <div className="flex w-full shrink-0 basis-full items-center justify-between gap-2 sm:w-auto sm:basis-auto sm:justify-end">
+        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:mt-0.5">
+          {formatRecentLogTime(row.eventAt, timezone, locale)}
+        </span>
+        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="size-11 text-muted-foreground sm:size-9"
+            title={t("openChat")}
+          >
+            <Link href={`/gc-fitness/chat?chatId=${row.clientId}`}>
+              <MessageCircle className="h-4 w-4" />
+              <span className="sr-only">{t("openChat")}</span>
             </Link>
           </Button>
-        ) : null}
+          {row.workoutLogId ? (
+            <Button asChild variant="outline" size="sm" className="h-11 gap-1.5 px-3 sm:h-9 sm:px-2.5">
+              <Link href={`/gc-fitness/recent-logs/workouts/${row.workoutLogId}`}>
+                <Eye className="h-4 w-4" />
+                {t("viewWorkout")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -47,7 +47,7 @@ export function HabitTrendsClient({ rows, labels }: HabitTrendsClientProps) {
   return (
     <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{labels.title}</h2>
+        <h2 className="min-w-0 truncate font-medium">{labels.title}</h2>
         <TrendRangeSelector value={range} onChange={setRange} labels={labels.ranges} />
       </div>
       {rows.length === 0 ? (

@@ -223,17 +223,17 @@ function ActiveWorkoutCard({
 
   return (
     <section className="overflow-hidden rounded-[1.25rem] border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="space-y-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
             <Activity className="h-3.5 w-3.5" />
             {t("activeWorkoutBadge")}
           </div>
           <div className="space-y-1">
-            <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+            <h2 className="font-heading text-2xl font-semibold tracking-tight text-foreground break-words sm:text-3xl">
               {item.clientName}
             </h2>
-            <p className="text-lg font-medium text-muted-foreground">
+            <p className="text-lg font-medium text-muted-foreground break-words">
               {item.workoutName}
             </p>
           </div>
@@ -251,7 +251,7 @@ function ActiveWorkoutCard({
           <p className="text-sm font-medium text-muted-foreground">
             {t("currentExercise")}
           </p>
-          <p className="mt-1 text-xl font-semibold text-foreground">
+          <p className="mt-1 break-words text-xl font-semibold text-foreground">
             {item.currentExerciseName}
           </p>
         </div>
