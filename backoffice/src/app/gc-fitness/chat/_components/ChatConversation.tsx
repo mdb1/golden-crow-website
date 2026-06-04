@@ -35,7 +35,7 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useMutation } from "@tanstack/react-query";
-import { Trash2, CornerUpLeft } from "lucide-react";
+import { Trash2, CornerUpLeft, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -49,8 +49,15 @@ import {
   getChatAttachmentUrl,
   markChatReadForTrainer,
   setReadReceiptForTrainer,
+  setTrainerMessageReaction,
 } from "@/lib/gc-fitness/chat-server-actions";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { ChatRow, MessageRow } from "@/lib/gc-fitness/chat-schema";
+import { REACTION_EMOJI } from "@/lib/gc-fitness/chat-reactions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -329,6 +336,11 @@ export function ChatConversation({
                     });
                     void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
                   }}
+                  onReacted={() => {
+                    void queryClient.invalidateQueries({
+                      queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
+                    });
+                  }}
                 />
               ),
             )}
@@ -381,6 +393,8 @@ interface MessageBubbleProps {
   onReply?: (m: MessageRow) => void;
   onAttachmentLoaded?: () => void;
   onDeleted?: () => void;
+  /** Refetch messages after a reaction write (mirrors onDeleted). */
+  onReacted?: () => void;
 }
 
 function MessageBubble({
@@ -393,6 +407,7 @@ function MessageBubble({
   onReply,
   onAttachmentLoaded,
   onDeleted,
+  onReacted,
 }: MessageBubbleProps) {
   const t = useTranslations("chat.conversation");
   const align = isOwn ? "justify-end" : "justify-start";
@@ -400,6 +415,7 @@ function MessageBubble({
     ? "bg-primary text-primary-foreground rounded-br-md"
     : "bg-muted text-foreground rounded-bl-md ring-1 ring-foreground/5";
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reactOpen, setReactOpen] = useState(false);
   const deleteMutation = useMutation({
     mutationFn: async () =>
       deleteTrainerChatMessage({ chatId, messageId: message.id }),
@@ -413,6 +429,60 @@ function MessageBubble({
       toast.error(msg);
     },
   });
+
+  // My current reaction on this message (the trainer's own uid slot), if any.
+  const myReaction = message.reactions?.[trainerUid] ?? null;
+  const reactionMutation = useMutation({
+    mutationFn: async (emoji: string | null) =>
+      setTrainerMessageReaction({ chatId, messageId: message.id, emoji }),
+    onSuccess: () => {
+      setReactOpen(false);
+      onReacted?.();
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : t("reactionFailed");
+      toast.error(msg);
+    },
+  });
+  // Toggle: tapping my current emoji clears it; tapping another sets it.
+  const toggleReaction = (emoji: string) =>
+    reactionMutation.mutate(myReaction === emoji ? null : emoji);
+
+  const reactButton = (
+    <Popover open={reactOpen} onOpenChange={setReactOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={t("reactionAdd")}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100 data-[state=open]:opacity-100 aria-expanded:opacity-100"
+        >
+          <SmilePlus className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="center"
+        className="w-auto rounded-full p-1.5"
+        sideOffset={6}
+      >
+        <div className="flex items-center gap-0.5">
+          {REACTION_EMOJI.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => toggleReaction(emoji)}
+              disabled={reactionMutation.isPending}
+              aria-pressed={myReaction === emoji}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-lg transition-colors hover:bg-muted ${
+                myReaction === emoji ? "bg-primary/15 ring-1 ring-primary/40" : ""
+              }`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 
   // 260524 — render real photos + voice notes via signed Storage URLs.
   // Previous V1 carry-forward shipped italic placeholders ("📷 Foto"
@@ -499,6 +569,7 @@ function MessageBubble({
           side (mirrored relative to alignment). */}
       {isOwn ? (
         <>
+          {reactButton}
           {replyButton}
           <button
             type="button"
@@ -514,7 +585,11 @@ function MessageBubble({
         {quotedBlock}
         {body}
         {message.reactions && Object.keys(message.reactions).length > 0 ? (
-          <ReactionRow reactions={message.reactions} />
+          <ReactionRow
+            reactions={message.reactions}
+            myReaction={myReaction}
+            onToggle={toggleReaction}
+          />
         ) : null}
         <TimeStamp iso={message.createdAt} isOwn={isOwn} timezone={timezone} />
       </div>
@@ -529,6 +604,7 @@ function MessageBubble({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
           {replyButton}
+          {reactButton}
         </>
       ) : null}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -748,7 +824,15 @@ function useSignedAttachmentUrl(
   return state;
 }
 
-function ReactionRow({ reactions }: { reactions: Record<string, string> }) {
+function ReactionRow({
+  reactions,
+  myReaction,
+  onToggle,
+}: {
+  reactions: Record<string, string>;
+  myReaction: string | null;
+  onToggle: (emoji: string) => void;
+}) {
   const grouped = Object.values(reactions).reduce<Record<string, number>>(
     (acc, emoji) => {
       acc[emoji] = (acc[emoji] ?? 0) + 1;
@@ -758,15 +842,25 @@ function ReactionRow({ reactions }: { reactions: Record<string, string> }) {
   );
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      {Object.entries(grouped).map(([emoji, count]) => (
-        <span
-          key={emoji}
-          className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm"
-        >
-          <span>{emoji}</span>
-          <span className="text-muted-foreground">{count}</span>
-        </span>
-      ))}
+      {Object.entries(grouped).map(([emoji, count]) => {
+        const mine = myReaction === emoji;
+        return (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => onToggle(emoji)}
+            aria-pressed={mine}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium shadow-sm transition-colors ${
+              mine
+                ? "bg-primary/15 text-foreground ring-1 ring-primary/45"
+                : "bg-background/80 text-foreground hover:bg-background"
+            }`}
+          >
+            <span>{emoji}</span>
+            <span className="text-muted-foreground">{count}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
