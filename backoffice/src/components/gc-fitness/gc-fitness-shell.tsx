@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
-  Bird,
   CalendarDays,
   Home,
   Library,
@@ -16,6 +15,8 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+
+import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
 
 import {
   Sidebar,
@@ -54,8 +55,8 @@ const LIBRARY_PATHS = [
   "/gc-fitness/habits",
 ];
 
-// Flat nav — mirrors the reference design: a single, generously-spaced list of
-// destinations (no section headers).
+// Grouped nav — destinations split into sensible sections with small section
+// headers, each a generously-spaced row (active = solid gold pill).
 type NavLeaf = {
   labelKey: string;
   href: string;
@@ -63,22 +64,45 @@ type NavLeaf = {
   /** Extra paths that should also light up this item. */
   matchPaths?: string[];
 };
+type NavSection = { sectionKey: string; items: NavLeaf[] };
 
-const NAV_ITEMS: NavLeaf[] = [
-  { labelKey: "dashboard", href: "/gc-fitness/dashboard", icon: Home },
-  { labelKey: "schedule", href: "/gc-fitness/schedule", icon: CalendarDays },
-  { labelKey: "myActivity", href: "/gc-fitness/my-activity", icon: Activity },
-  { labelKey: "notifications", href: "/gc-fitness/notifications", icon: Bell },
-  { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
-  { labelKey: "recentLogs", href: "/gc-fitness/recent-logs", icon: ScrollText },
-  { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
+const NAV_SECTIONS: NavSection[] = [
   {
-    labelKey: "library",
-    href: "/gc-fitness/library",
-    icon: Library,
-    matchPaths: LIBRARY_PATHS,
+    sectionKey: "overview",
+    items: [
+      { labelKey: "dashboard", href: "/gc-fitness/dashboard", icon: Home },
+      { labelKey: "schedule", href: "/gc-fitness/schedule", icon: CalendarDays },
+      { labelKey: "myActivity", href: "/gc-fitness/my-activity", icon: Activity },
+      { labelKey: "notifications", href: "/gc-fitness/notifications", icon: Bell },
+    ],
   },
-  { labelKey: "settings", href: "/gc-fitness/settings", icon: Settings },
+  {
+    sectionKey: "clientsGroup",
+    items: [
+      { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
+      {
+        labelKey: "recentLogs",
+        href: "/gc-fitness/recent-logs",
+        icon: ScrollText,
+      },
+      { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
+    ],
+  },
+  {
+    sectionKey: "libraryGroup",
+    items: [
+      {
+        labelKey: "library",
+        href: "/gc-fitness/library",
+        icon: Library,
+        matchPaths: LIBRARY_PATHS,
+      },
+    ],
+  },
+  {
+    sectionKey: "accountGroup",
+    items: [{ labelKey: "settings", href: "/gc-fitness/settings", icon: Settings }],
+  },
 ];
 
 export function GCFitnessShell({
@@ -111,12 +135,23 @@ export function GCFitnessShell({
     return children;
   }
 
-  const navItems: NavLeaf[] = isAdmin
-    ? [
-        ...NAV_ITEMS,
-        { labelKey: "adminPanel", href: "/gc-fitness/admin", icon: Shield },
-      ]
-    : NAV_ITEMS;
+  const resolvedSections: NavSection[] = isAdmin
+    ? NAV_SECTIONS.map((section) =>
+        section.sectionKey === "accountGroup"
+          ? {
+              ...section,
+              items: [
+                ...section.items,
+                {
+                  labelKey: "adminPanel",
+                  href: "/gc-fitness/admin",
+                  icon: Shield,
+                },
+              ],
+            }
+          : section,
+      )
+    : NAV_SECTIONS;
 
   function isItemActive(item: NavLeaf): boolean {
     if (inLiveWorkout) return false;
@@ -137,8 +172,13 @@ export function GCFitnessShell({
               href="/gc-fitness/dashboard"
               className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-colors hover:bg-sidebar-accent/60 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground text-primary shadow-sm">
-                <Bird className="h-5 w-5" />
+              <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-foreground shadow-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={GOLDENCROW_LOGO_DATA_URI}
+                  alt=""
+                  className="h-6 w-6 object-contain"
+                />
               </span>
               <span className="min-w-0 group-data-[collapsible=icon]:hidden">
                 <span className="block truncate font-heading text-base font-bold leading-tight text-sidebar-foreground">
@@ -178,28 +218,33 @@ export function GCFitnessShell({
               </SidebarGroup>
             ) : null}
 
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-1">
-                  {navItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarNavLink
-                        href={item.href}
-                        label={tNav(item.labelKey)}
-                        isActive={isItemActive(item)}
-                        icon={<item.icon className="h-4 w-4" />}
-                        badge={
-                          item.href === "/gc-fitness/chat" &&
-                          unreadChatTotal > 0
-                            ? unreadChatTotal
-                            : null
-                        }
-                      />
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            {resolvedSections.map((section) => (
+              <SidebarGroup key={section.sectionKey} className="py-1">
+                <SidebarGroupLabel className="px-3 text-[0.7rem] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                  {tNav(section.sectionKey)}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-1">
+                    {section.items.map((item) => (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarNavLink
+                          href={item.href}
+                          label={tNav(item.labelKey)}
+                          isActive={isItemActive(item)}
+                          icon={<item.icon className="h-4 w-4" />}
+                          badge={
+                            item.href === "/gc-fitness/chat" &&
+                            unreadChatTotal > 0
+                              ? unreadChatTotal
+                              : null
+                          }
+                        />
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
 
           <SidebarFooter className="px-3 pb-4 pt-2 group-data-[collapsible=icon]:px-2">

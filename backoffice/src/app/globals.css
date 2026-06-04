@@ -365,34 +365,10 @@
      /gc-fitness inherits the new look without per-page edits.
      =================================================================== */
 
-  /* Sidebar nav: bigger, friendlier rows; solid gold pill when active. */
-  .gc-fitness-theme [data-slot="sidebar-menu-button"] {
-    height: 2.6rem;
-    border-radius: 0.85rem;
-    padding-inline: 0.85rem;
-    gap: 0.7rem;
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--sidebar-foreground);
-  }
-  .gc-fitness-theme [data-slot="sidebar-menu-button"] > svg {
-    width: 1.15rem;
-    height: 1.15rem;
-  }
-  .gc-fitness-theme [data-slot="sidebar-menu-button"]:hover {
-    background: var(--sidebar-accent);
-    color: var(--sidebar-accent-foreground);
-  }
-  .gc-fitness-theme [data-slot="sidebar-menu-button"][data-active="true"],
-  .gc-fitness-theme [data-slot="sidebar-menu-button"][data-active="true"]:hover {
-    background: var(--sidebar-primary);
-    color: var(--sidebar-primary-foreground);
-    font-weight: 600;
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--sidebar-primary) 32%, transparent);
-  }
-  .gc-fitness-theme [data-slot="sidebar-menu-button"][data-active="true"] > svg {
-    color: var(--sidebar-primary-foreground);
-  }
+  /* Sidebar nav row styling (active gold pill, sizing) is UNLAYERED at the
+     bottom of this file — it must beat Tailwind utility classes
+     (bg-sidebar-accent / font-medium) that the shadcn sidebar sets on the
+     active button, which would otherwise win over @layer components. */
 
   /* Cards: rounder corners, softer hairline ring, gentle lift. */
   .gc-fitness-theme [data-slot="card"] {
@@ -698,4 +674,42 @@
       transform: translate3d(0, 12rem, 0) rotate(220deg) scale(1.08);
     }
   }
+}
+
+/* ===================================================================
+   GC Fitness — UNLAYERED overrides (2026-06 redesign).
+   These intentionally sit OUTSIDE @layer so they win over Tailwind
+   utility classes (which live in the `utilities` cascade layer and
+   otherwise beat @layer components regardless of specificity).
+   Scope is locked to .gc-fitness-theme so other surfaces are untouched.
+   =================================================================== */
+
+/* Sidebar nav rows: larger type, generous height; SOLID gold pill when
+   active (no shadow, per design). */
+.gc-fitness-theme [data-slot="sidebar-menu-button"] {
+  height: 2.85rem;
+  border-radius: 0.9rem;
+  padding-inline: 0.9rem;
+  gap: 0.8rem;
+  font-size: 1.02rem;
+  font-weight: 500;
+  color: var(--sidebar-foreground);
+}
+.gc-fitness-theme [data-slot="sidebar-menu-button"] > svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.gc-fitness-theme [data-slot="sidebar-menu-button"]:hover {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+.gc-fitness-theme [data-slot="sidebar-menu-button"][data-active="true"],
+.gc-fitness-theme [data-slot="sidebar-menu-button"][data-active="true"]:hover {
+  background: var(--sidebar-primary);
+  color: var(--sidebar-primary-foreground);
+  font-weight: 600;
+  box-shadow: none;
+}
+.gc-fitness-theme [data-slot="sidebar-menu-button"][data-active="true"] > svg {
+  color: var(--sidebar-primary-foreground);
 }
