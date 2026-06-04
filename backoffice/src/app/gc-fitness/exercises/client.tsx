@@ -7,7 +7,8 @@
 //   - `useExercisesQuery()` — Firestore listener-backed React-Query feed
 //   - `<ExerciseFilters>` — search + 3 combobox filters + localStorage persist
 //   - `<DataTable>` — TanStack Table (reuses the shared shadcn primitive)
-//   - "+ New exercise" CTA → `/gc-fitness/exercises/new`
+//   - "+ Nuevo" CTA → opens <NewExerciseDialog> (modal create form, B4).
+//     The `/gc-fitness/exercises/new` route stays live as a deep-link fallback.
 //
 // Filtering happens client-side via memoized derivations from the cached
 // row list. The list is bounded (~150 wger + custom — Pitfall 5 was the
@@ -16,7 +17,6 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,7 @@ import {
   ExerciseFilters,
   type ExerciseFiltersState,
 } from "./_components/ExerciseFilters";
+import { NewExerciseDialog } from "./_components/NewExerciseDialog";
 import { makeColumns } from "./columns";
 
 const EMPTY_FILTERS: ExerciseFiltersState = {
@@ -225,14 +226,10 @@ export function ExerciseLibraryClient({
               </p>
             </div>
           )}
-          <Button
-            type="button"
-            onClick={() => router.push("/gc-fitness/exercises/new")}
-            className="gap-2 rounded-full"
-          >
-            <Plus className="h-4 w-4" />
-            {t("newExerciseCta")}
-          </Button>
+          {/* B4 — "+ Nuevo" opens the create form in a modal over the
+              library instead of routing to /gc-fitness/exercises/new (that
+              route stays live as a deep-link fallback). */}
+          <NewExerciseDialog trainerUid={trainerUid} />
         </div>
 
         <ExerciseFilters onChange={setFilters} />
@@ -310,14 +307,7 @@ export function ExerciseLibraryClient({
                       <p className="text-sm text-muted-foreground">
                         {t("emptySubtitle")}
                       </p>
-                      <Button
-                        type="button"
-                        onClick={() => router.push("/gc-fitness/exercises/new")}
-                        className="gap-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        {t("newExerciseCta")}
-                      </Button>
+                      <NewExerciseDialog trainerUid={trainerUid} />
                     </div>
                   </TableCell>
                 </TableRow>

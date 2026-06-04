@@ -363,151 +363,163 @@ export function TemplatesLibraryClient({
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="h-36 animate-pulse" />
-          ))}
-        </div>
+        <Card>
+          <CardContent className="divide-y divide-border p-0">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-4 py-3.5 sm:px-5"
+              >
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div className="h-4 w-40 animate-pulse rounded-full bg-muted" />
+                  <div className="h-3 w-28 animate-pulse rounded-full bg-muted" />
+                </div>
+                <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       ) : rows.length > 0 ? (
         <TooltipProvider>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {rows.map((row) => {
-              const allTags =
-                row.tags && row.tags.length > 0
-                  ? row.tags
-                  : row.tag
-                    ? [row.tag]
-                    : [];
-              const title =
-                row.name.en ||
-                row.name.es ||
-                (row.__isDraft ? t("draftUntitled") : columnsT("untitled"));
-              const duration =
-                row.estimatedDurationMinutes > 0
-                  ? columnsT("durationValue", {
-                      minutes: row.estimatedDurationMinutes,
-                    })
-                  : null;
-              return (
-                <Card
-                  key={row.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() =>
-                    row.__isDraft
-                      ? handlers.onResumeDraft()
-                      : handlers.onEdit(row)
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
+          <Card>
+            <CardContent className="divide-y divide-border p-0">
+              {rows.map((row) => {
+                const allTags =
+                  row.tags && row.tags.length > 0
+                    ? row.tags
+                    : row.tag
+                      ? [row.tag]
+                      : [];
+                const title =
+                  row.name.en ||
+                  row.name.es ||
+                  (row.__isDraft ? t("draftUntitled") : columnsT("untitled"));
+                const duration =
+                  row.estimatedDurationMinutes > 0
+                    ? columnsT("durationValue", {
+                        minutes: row.estimatedDurationMinutes,
+                      })
+                    : null;
+                return (
+                  <div
+                    key={row.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
                       row.__isDraft
                         ? handlers.onResumeDraft()
-                        : handlers.onEdit(row);
+                        : handlers.onEdit(row)
                     }
-                  }}
-                  className={cn(
-                    "cursor-pointer transition-colors hover:border-foreground/20",
-                    row.__isDraft &&
-                      "border-amber-500/40 bg-amber-500/[0.06] dark:border-amber-400/40 dark:bg-amber-400/[0.06]",
-                  )}
-                >
-                  <CardContent className="flex flex-col gap-3 p-5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {row.__isDraft ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span
-                                aria-label={columnsT("draftBadgeTooltip")}
-                                className="inline-flex shrink-0"
-                              >
-                                <AlertCircle className="h-4 w-4 text-amber-500" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {columnsT("draftBadgeTooltip")}
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : null}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        row.__isDraft
+                          ? handlers.onResumeDraft()
+                          : handlers.onEdit(row);
+                      }
+                    }}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors first:rounded-t-[1.25rem] last:rounded-b-[1.25rem] hover:bg-muted/50 sm:px-5",
+                      row.__isDraft &&
+                        "bg-amber-500/[0.06] hover:bg-amber-500/[0.1] dark:bg-amber-400/[0.06] dark:hover:bg-amber-400/[0.1]",
+                    )}
+                  >
+                    {row.__isDraft ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            aria-label={columnsT("draftBadgeTooltip")}
+                            className="inline-flex shrink-0"
+                          >
+                            <AlertCircle className="h-4 w-4 text-amber-500" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {columnsT("draftBadgeTooltip")}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <h3 className="truncate text-base font-semibold text-foreground">
                           {title}
                         </h3>
-                      </div>
-                      {!row.__isDraft ? (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={columnsT("actionsAria")}
-                                className="-mr-1 -mt-1 h-8 w-8 shrink-0"
-                              >
-                                <SlidersHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handlers.onEdit(row)}
-                              >
-                                <Pencil className="mr-2 h-4 w-4" />
-                                {row.isStandard
-                                  ? columnsT("duplicate")
-                                  : columnsT("edit")}
-                              </DropdownMenuItem>
-                              {!row.isStandard ? (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() => handlers.onDuplicate(row)}
-                                  >
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    {columnsT("duplicate")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handlers.onDelete(row)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    {columnsT("delete")}
-                                  </DropdownMenuItem>
-                                </>
-                              ) : null}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <div className="flex flex-wrap gap-1.5">
+                          {row.isStandard ? (
+                            <Badge variant="outline" className="capitalize">
+                              Standard
+                            </Badge>
+                          ) : null}
+                          {allTags.map((raw) => (
+                            <Badge
+                              key={raw}
+                              variant={tagBadgeVariant(raw)}
+                              className="capitalize"
+                            >
+                              {TAG_LABELS[raw] ?? raw}
+                            </Badge>
+                          ))}
                         </div>
-                      ) : null}
+                      </div>
+                      <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Dumbbell className="h-3.5 w-3.5 shrink-0" />
+                        {columnsT("exerciseCount", {
+                          count: row.exerciseCount,
+                        })}
+                        {duration ? <span>· {duration}</span> : null}
+                      </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {row.isStandard ? (
-                        <Badge variant="outline" className="capitalize">
-                          Standard
-                        </Badge>
-                      ) : null}
-                      {allTags.map((raw) => (
-                        <Badge
-                          key={raw}
-                          variant={tagBadgeVariant(raw)}
-                          className="capitalize"
-                        >
-                          {TAG_LABELS[raw] ?? raw}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Dumbbell className="h-3.5 w-3.5" />
-                      {columnsT("exercises")}: {row.exerciseCount}
-                      {duration ? (
-                        <span aria-hidden="true">· {duration}</span>
-                      ) : null}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    {!row.__isDraft ? (
+                      <div
+                        className="shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={columnsT("actionsAria")}
+                              className="h-10 w-10 shrink-0"
+                            >
+                              <SlidersHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handlers.onEdit(row)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              {row.isStandard
+                                ? columnsT("duplicate")
+                                : columnsT("edit")}
+                            </DropdownMenuItem>
+                            {!row.isStandard ? (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => handlers.onDuplicate(row)}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  {columnsT("duplicate")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handlers.onDelete(row)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  {columnsT("delete")}
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </TooltipProvider>
       ) : isUnfilteredEmpty ? (
         <Card>

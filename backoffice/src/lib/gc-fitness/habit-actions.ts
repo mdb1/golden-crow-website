@@ -1088,6 +1088,79 @@ export async function listHabitTemplates(): Promise<HabitTemplateRow[]> {
     .filter((row) => !row.deleted);
 }
 
+/**
+ * READ-ONLY impact projection for the habit-template delete confirm dialog
+ * (backlog B6). Lists the live (non-deleted) per-client assignments that were
+ * created from a given template — i.e. the assignment docs carrying
+ * `sourceTemplateId == templateId` and owned by the calling trainer.
+ *
+ * This is informational ONLY: it does NOT mutate anything and is decoupled from
+ * the delete behavior. Deleting the template (`softDeleteHabitTemplate`) does
+ * NOT cascade to these assignments — they keep running on each client. The
+ * dialog uses this list to tell the trainer truthfully who still has the habit.
+ *
+ * NOTE: only assignments created through the template-assignment path (which
+ * stamps `sourceTemplateId`) are reached. Unlinked / hand-created habits with
+ * the same name are not counted.
+ */
+export interface HabitTemplateAssignmentImpact {
+  habitId: string;
+  clientId: string | null;
+  pendingEmail: string | null;
+  scheduleType: HabitScheduleType;
+  scheduleCadence?: "daily" | "weekly" | "monthly";
+  scheduleWeekdays?: number[];
+  scheduleDayOfMonth?: number;
+  scheduleMonthDays?: number[];
+}
+
+export async function listHabitTemplateAssignments(
+  templateId: string,
+): Promise<HabitTemplateAssignmentImpact[]> {
+  const trainer = await getCurrentTrainer();
+  if (typeof templateId !== "string" || templateId.trim().length === 0) {
+    return [];
+  }
+
+  const db = gcFitnessFirestore();
+  // Single-field equality query — no composite index required (mirrors the
+  // cascade query in updateHabitTemplate).
+  const snap = await db
+    .collection(COLLECTION)
+    .where("sourceTemplateId", "==", templateId)
+    .get();
+
+  const impacts: HabitTemplateAssignmentImpact[] = [];
+  for (const doc of snap.docs) {
+    const data = doc.data() as Record<string, unknown>;
+    // Defense-in-depth: Admin SDK bypasses rules; scope to caller + live.
+    if (data.trainerId !== trainer.uid) continue;
+    if (data.deleted === true) continue;
+    const row = projectHabitRow(doc.id, data);
+    const pendingEmail =
+      typeof data.pendingEmail === "string" && data.pendingEmail.length > 0
+        ? data.pendingEmail
+        : null;
+    // projectHabitRow synthesizes `mirror:<email>` for pending assignments;
+    // only surface a real client uid here so name lookups don't get a mirror id.
+    const realClientId =
+      typeof data.clientId === "string" && data.clientId.trim().length > 0
+        ? data.clientId.trim()
+        : null;
+    impacts.push({
+      habitId: row.id,
+      clientId: realClientId,
+      pendingEmail,
+      scheduleType: row.scheduleType,
+      scheduleCadence: row.scheduleCadence,
+      scheduleWeekdays: row.scheduleWeekdays,
+      scheduleDayOfMonth: row.scheduleDayOfMonth,
+      scheduleMonthDays: row.scheduleMonthDays,
+    });
+  }
+  return impacts;
+}
+
 export async function createHabitTemplate(
   input: unknown,
 ): Promise<{ id: string }> {

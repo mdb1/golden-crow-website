@@ -17,7 +17,6 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Eye,
   Pencil,
   Plus,
   Search,
@@ -65,7 +64,7 @@ import {
 } from "@/lib/gc-fitness/habit-actions";
 import { HabitLibraryTable } from "./_components/HabitLibraryTable";
 import { HabitTemplateDetailDialog } from "./_components/HabitTemplateDetailDialog";
-import { RecurrencePill } from "./_components/habit-pills";
+import { RecurrencePill, ReminderCell } from "./_components/habit-pills";
 
 export const HABITS_BASE_KEY = ["gc-fitness", "habits"] as const;
 
@@ -100,6 +99,8 @@ export function HabitsLibraryClient({
 }: HabitsLibraryClientProps) {
   const router = useRouter();
   const t = useTranslations("habits.list");
+  const columnsT = useTranslations("habits.columns");
+  const tTypeLabels = useTranslations("habits.list.typeLabels");
   const queryClient = useQueryClient();
   const [view, setView] = useState<HabitsView>("assignments");
   const [createOpen, setCreateOpen] = useState(false);
@@ -128,6 +129,11 @@ export function HabitsLibraryClient({
     for (const c of clientRoster) m.set(c.uid, c.displayName);
     return m;
   }, [clientRoster]);
+  const clientById = useMemo(() => {
+    const m = new Map<string, ClientNameEntry>();
+    for (const c of clientRoster) m.set(c.uid, c);
+    return m;
+  }, [clientRoster]);
   const activeClientRoster = useMemo(
     () => clientRoster.filter((c) => !c.pendingProvisioning),
     [clientRoster],
@@ -151,6 +157,32 @@ export function HabitsLibraryClient({
     });
   }, [data, clientFilter, search, clientNameMap]);
 
+  // B3 — group the filtered assignments by habit title so the coach can scan
+  // "who has habit X". Title is the display name (EN ?? ES). Groups are sorted
+  // alphabetically; assignments within a group keep the server order (updatedAt
+  // DESC). The grouping is purely presentational — every row is still an
+  // individual assignment with its own recurrence / reminder / actions.
+  const assignmentGroups = useMemo(() => {
+    const untitledLabel = columnsT("untitled");
+    const map = new Map<
+      string,
+      { title: string; rows: HabitRow[] }
+    >();
+    for (const row of rows) {
+      const title = row.name.en || row.name.es || untitledLabel;
+      const key = title.toLowerCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.rows.push(row);
+      } else {
+        map.set(key, { title, rows: [row] });
+      }
+    }
+    return [...map.values()].sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+    );
+  }, [rows, columnsT]);
+
   const filteredTemplates = useMemo(() => {
     const all = templates as HabitTemplateRow[];
     const needle = search.trim().toLowerCase();
@@ -172,9 +204,6 @@ export function HabitsLibraryClient({
     }),
     [router],
   );
-
-  const columnsT = useTranslations("habits.columns");
-  const tTypeLabels = useTranslations("habits.list.typeLabels");
 
   // Soft-delete the whole habit (hides it + its history from the client).
   const handleConfirmDelete = useCallback(async () => {
@@ -379,82 +408,98 @@ export function HabitsLibraryClient({
           onRowClick={setSelectedTemplate}
         />
       ) : isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="h-32 animate-pulse" />
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="h-24 animate-pulse" />
           ))}
         </div>
       ) : rows.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map((row) => {
-            const clientName =
-              clientNameMap.get(row.clientId) ?? row.clientId;
-            const title = row.name.en || row.name.es || columnsT("untitled");
-            return (
-              <Card
-                key={row.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => handlers.onView(row)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handlers.onView(row);
-                  }
-                }}
-                className="cursor-pointer transition-colors hover:border-foreground/20"
-              >
-                <CardContent className="flex flex-col gap-3 p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
-                      {title}
-                    </h3>
-                    <div
-                      className="flex shrink-0 items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={columnsT("edit")}
-                        className="-mt-1 h-8 w-8 text-muted-foreground hover:text-foreground"
-                        onClick={() => handlers.onEdit(row)}
+        // B3 — vertical list grouped by habit title. Each group lists every
+        // assignment (one per client) with its own recurrence + reminder +
+        // edit/delete, so the coach can scan "who has habit X".
+        <div className="flex flex-col gap-4">
+          {assignmentGroups.map((group) => (
+            <Card key={group.title} className="overflow-hidden">
+              <CardContent className="flex flex-col gap-0 p-0">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
+                  <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
+                    {group.title}
+                  </h3>
+                  <Badge variant="violet" className="shrink-0 font-medium">
+                    {tTypeLabels(group.rows[0].type)}
+                  </Badge>
+                </div>
+                <ul className="divide-y divide-border">
+                  {group.rows.map((row) => {
+                    const client =
+                      row.clientId.length > 0
+                        ? clientById.get(row.clientId)
+                        : undefined;
+                    const clientName =
+                      client?.displayName ??
+                      clientNameMap.get(row.clientId) ??
+                      row.clientId;
+                    return (
+                      <li
+                        key={row.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handlers.onView(row)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handlers.onView(row);
+                          }
+                        }}
+                        className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-muted/40"
                       >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={columnsT("delete")}
-                        className="-mt-1 h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handlers.onDelete(row)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge variant="violet" className="font-medium">
-                      {tTypeLabels(row.type)}
-                    </Badge>
-                    <RecurrencePill rec={row} t={columnsT} />
-                  </div>
-
-                  <p className="text-sm text-muted-foreground">
-                    {t.rich("assignedTo", {
-                      name: clientName,
-                      client: (chunks) => (
-                        <span className="font-medium text-foreground">
-                          {chunks}
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                          <ClientAvatar
+                            name={clientName}
+                            photoURL={client?.photoURL ?? null}
+                            size="sm"
+                          />
+                          <span className="min-w-0 truncate font-medium text-foreground">
+                            {clientName}
+                          </span>
                         </span>
-                      ),
-                    })}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <RecurrencePill rec={row} t={columnsT} />
+                          <ReminderCell
+                            reminderEnabled={row.reminderEnabled}
+                            reminderTime={row.reminderTime}
+                          />
+                        </span>
+                        <span
+                          className="flex shrink-0 items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={columnsT("edit")}
+                            className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                            onClick={() => handlers.onEdit(row)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={columnsT("delete")}
+                            className="h-10 w-10 text-destructive hover:text-destructive"
+                            onClick={() => handlers.onDelete(row)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : isUnfilteredEmpty ? (
         <Card>
@@ -501,6 +546,7 @@ export function HabitsLibraryClient({
           if (!o) setSelectedTemplate(null);
         }}
         template={selectedTemplate}
+        clientNames={clientNameMap}
         onChanged={() =>
           queryClient.invalidateQueries({ queryKey: HABITS_BASE_KEY })
         }

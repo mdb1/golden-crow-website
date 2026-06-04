@@ -5,7 +5,13 @@
 // Read-only view of the trainer's reusable habit LIBRARY (global + own
 // templates) — the habit definitions WITHOUT any per-client assignment. Shares
 // the same pills/recurrence rendering as the assignments table (habit-pills).
+//
+// Columns: a small habit photo/thumbnail (when the template has one), the name
+// (+ ES subtitle), and the scope (Global / Mine). The "Reminder" column is
+// intentionally absent — reminders are a per-ASSIGNMENT concern, not a library
+// /template one (backlog B2).
 
+import { ImageIcon } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
 import {
@@ -16,10 +22,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StorageImagePreview } from "@/components/gc-fitness/StorageImagePreview";
 import type { HabitTemplateRow } from "@/lib/gc-fitness/habit-actions";
-import { ReminderCell, ScopePill } from "./habit-pills";
+import { ScopePill } from "./habit-pills";
 
 type TFn = ReturnType<typeof useTranslations>;
+
+const THUMB_CLASS = "size-11 max-h-none rounded-lg object-cover";
+
+function HabitThumb({ photoUrl }: { photoUrl?: string }) {
+  if (photoUrl && photoUrl.trim().length > 0) {
+    return <StorageImagePreview value={photoUrl} className={THUMB_CLASS} />;
+  }
+  return (
+    <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground">
+      <ImageIcon className="size-4" aria-hidden="true" />
+    </span>
+  );
+}
 
 export function HabitLibraryTable({
   templates,
@@ -37,11 +57,14 @@ export function HabitLibraryTable({
   onRowClick: (template: HabitTemplateRow) => void;
 }) {
   return (
-    <div className="rounded-md border bg-card">
+    <div className="overflow-x-auto rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            {[t("name"), t("reminder"), t("scope")].map((h, i) => (
+            <TableHead className="w-16">
+              <span className="sr-only">{t("photo")}</span>
+            </TableHead>
+            {[t("name"), t("scope")].map((h, i) => (
               <TableHead
                 key={i}
                 className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
@@ -63,7 +86,7 @@ export function HabitLibraryTable({
             </TableRow>
           ) : templates.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="h-32 text-center">
+              <TableCell colSpan={3} className="h-32 text-center">
                 <p className="text-sm text-muted-foreground">{emptyText}</p>
               </TableCell>
             </TableRow>
@@ -78,6 +101,9 @@ export function HabitLibraryTable({
                   onClick={() => onRowClick(tpl)}
                   className="cursor-pointer"
                 >
+                  <TableCell className="py-2">
+                    <HabitThumb photoUrl={tpl.photoUrl} />
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1.5">
                       <span className="font-medium">
@@ -91,12 +117,6 @@ export function HabitLibraryTable({
                         </span>
                       ) : null}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <ReminderCell
-                      reminderEnabled={tpl.reminderEnabled}
-                      reminderTime={tpl.reminderTime}
-                    />
                   </TableCell>
                   <TableCell>
                     <ScopePill isGlobal={isGlobal} t={t} />

@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   Dialog,
@@ -37,11 +38,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  listHabitTemplateAssignments,
   softDeleteHabitTemplate,
   updateHabitTemplate,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
-import { ReminderCell, ScopePill } from "./habit-pills";
+import { recurrenceLabel, ReminderCell, ScopePill } from "./habit-pills";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
 
 export function HabitTemplateDetailDialog({
@@ -49,17 +51,32 @@ export function HabitTemplateDetailDialog({
   onOpenChange,
   template,
   onChanged,
+  clientNames,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template: HabitTemplateRow | null;
   /** Fires after a successful edit or delete so the parent can invalidate caches. */
   onChanged: () => void;
+  /** clientId → displayName, used to name the assignments in the delete-impact list (B6). */
+  clientNames?: Map<string, string>;
 }) {
   const t = useTranslations("habits.list");
   const tc = useTranslations("habits.columns");
   const tf = useTranslations("habits.form");
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // B6 — READ-ONLY impact lookup for the delete confirm dialog: which clients
+  // still have this library habit assigned (linked via sourceTemplateId).
+  // Lazily fetched only when the confirm dialog is open. Informational only —
+  // deleting the template does NOT cascade to these assignments.
+  const templateId = template?.id ?? null;
+  const { data: impact = [], isLoading: impactLoading } = useQuery({
+    queryKey: ["gc-fitness", "habits", "template-impact", templateId],
+    queryFn: () => listHabitTemplateAssignments(templateId as string),
+    enabled: confirmOpen && templateId !== null,
+    staleTime: 30_000,
+  });
   const [pending, setPending] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -341,11 +358,55 @@ export function HabitTemplateDetailDialog({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteTemplateTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("deleteDialogBody")}
+              {t("deleteTemplateBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* B6 — assignment impact. READ-ONLY: lists who still has this habit
+              and states truthfully that deleting the library template does NOT
+              cascade to those assignments. */}
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            {impactLoading ? (
+              <p className="text-muted-foreground">{t("deleteImpactLoading")}</p>
+            ) : impact.length === 0 ? (
+              <p className="text-muted-foreground">{t("deleteImpactNone")}</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="font-medium text-foreground">
+                  {t("deleteImpactHeading", { count: impact.length })}
+                </p>
+                <ul className="flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+                  {impact.map((a) => {
+                    const name = a.pendingEmail
+                      ? a.pendingEmail
+                      : a.clientId
+                        ? (clientNames?.get(a.clientId) ?? a.clientId)
+                        : t("deleteImpactPending");
+                    const { label } = recurrenceLabel(a, tc);
+                    return (
+                      <li
+                        key={a.habitId}
+                        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5"
+                      >
+                        <span className="min-w-0 truncate font-medium text-foreground">
+                          {name}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {label}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-xs text-muted-foreground">
+                  {t("deleteImpactNote")}
+                </p>
+              </div>
+            )}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
               {t("deleteDialogCancel")}
