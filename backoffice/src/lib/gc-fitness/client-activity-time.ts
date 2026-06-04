@@ -4,18 +4,19 @@ function formatInZone(
   iso: string | null,
   timezone: string,
   options: Intl.DateTimeFormatOptions,
+  locale?: string,
 ): string {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
 
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(locale, {
       ...options,
       timeZone: timezone,
     }).format(date);
   } catch {
-    return new Intl.DateTimeFormat(undefined, options).format(date);
+    return new Intl.DateTimeFormat(locale, options).format(date);
   }
 }
 
@@ -49,6 +50,23 @@ export function formatClientActivityDate(
     month: "short",
     day: "numeric",
   });
+}
+
+export function formatClientActivityFullDate(
+  iso: string | null,
+  timezone: string,
+  locale?: string,
+): string {
+  return formatInZone(
+    iso,
+    timezone,
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+    locale,
+  );
 }
 
 export function formatClientActivityDayHeader(

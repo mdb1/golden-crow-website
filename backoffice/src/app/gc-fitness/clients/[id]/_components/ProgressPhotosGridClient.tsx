@@ -2,12 +2,15 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
-import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
+import {
+  formatClientActivityFullDate,
+} from "@/lib/gc-fitness/client-activity-time";
+import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 
 const PAGE_GROUPS = 3;
 const ANGLE_ORDER: Record<string, number> = { front: 0, side: 1, back: 2 };
@@ -21,6 +24,7 @@ export function ProgressPhotosGridClient({
 }) {
   const t = useTranslations("clients.detail.photos");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [visibleGroups, setVisibleGroups] = useState(PAGE_GROUPS);
 
   const grouped = useMemo(() => {
@@ -75,9 +79,21 @@ export function ProgressPhotosGridClient({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {photo.checkInDate
-                      ? photo.checkInDate
+                      ? formatCivilDateLabel(
+                          photo.checkInDate,
+                          {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          },
+                          locale,
+                        )
                       : photo.takenAt || photo.createdAt
-                        ? formatClientActivityDate(photo.takenAt ?? photo.createdAt ?? null, timezone)
+                        ? formatClientActivityFullDate(
+                            photo.takenAt ?? photo.createdAt ?? null,
+                            timezone,
+                            locale,
+                          )
                         : tCommon("noDate")}
                   </p>
                 </div>
