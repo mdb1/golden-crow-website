@@ -82,6 +82,50 @@ function isDraftHabitId(habitId: string, trainerUid: string): boolean {
   return habitId.startsWith(`habit-draft-${trainerUid}-`);
 }
 
+function parseGsStoragePath(raw: string): { bucket: string; object: string } | null {
+  if (!raw.startsWith("gs://")) return null;
+  const rest = raw.slice("gs://".length);
+  const slash = rest.indexOf("/");
+  if (slash <= 0) return null;
+  const bucket = rest.slice(0, slash);
+  const object = rest.slice(slash + 1);
+  if (!bucket || !object) return null;
+  return { bucket, object };
+}
+
+async function rehomeDraftHabitPhotoIfNeeded(input: {
+  finalHabitId: string;
+  trainerUid: string;
+  photoUrl?: string;
+}): Promise<string | undefined> {
+  const { finalHabitId, trainerUid, photoUrl } = input;
+  if (!photoUrl) return undefined;
+
+  const parsed = parseGsStoragePath(photoUrl);
+  if (!parsed) return undefined;
+
+  const draftPrefix = `habits/habit-draft-${trainerUid}-`;
+  if (!parsed.object.startsWith(draftPrefix)) return undefined;
+
+  const extensionMatch = parsed.object.match(/\.([a-z0-9]+)$/i);
+  if (!extensionMatch) return undefined;
+
+  const finalObject = `habits/${finalHabitId}/photo.${extensionMatch[1].toLowerCase()}`;
+  const bucket = gcFitnessStorage().bucket(parsed.bucket);
+  const sourceFile = bucket.file(parsed.object);
+  const destFile = bucket.file(finalObject);
+
+  await sourceFile.copy(destFile);
+  try {
+    await sourceFile.delete();
+  } catch {
+    // Best-effort cleanup; the important part is that the canonical path now
+    // lives under the final habit id and the doc can point at it.
+  }
+
+  return `gs://${parsed.bucket}/${finalObject}`;
+}
+
 // Global habit templates are BINARY-ONLY (yes/no) now. The former numeric
 // (water/sleep/steps/protein) and multi-choice (energy) templates were
 // dropped when the product collapsed to binary habits; "Water intake" is kept
@@ -485,6 +529,20 @@ export async function createHabit(
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }));
+
+  if (typeof data.photoUrl === "string" && data.photoUrl.length > 0) {
+    const rehomedPhotoUrl = await rehomeDraftHabitPhotoIfNeeded({
+      finalHabitId: docId,
+      trainerUid: trainer.uid,
+      photoUrl: data.photoUrl,
+    });
+    if (rehomedPhotoUrl) {
+      await docRef.update({
+        photoUrl: rehomedPhotoUrl,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  }
 
   await recordCoachActivityEvent(
     db,
