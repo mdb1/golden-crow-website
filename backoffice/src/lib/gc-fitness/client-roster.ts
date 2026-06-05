@@ -65,6 +65,10 @@ export interface ClientRosterEntry {
   timezone: string | null;
   photoURL: string | null;
   pendingProvisioning: boolean;
+  /** True when this client signed up WITHOUT a trainer-authored user_mirror and
+   *  was auto-attached to the default coach (functions DEFAULT_FALLBACK_COACH_ID).
+   *  Drives the "NEW" roster badge + the new-clients notification. */
+  autoAssignedCoach: boolean;
 }
 
 /**
@@ -90,6 +94,9 @@ export interface ClientRosterRow {
   timezone: string | null;
   source: "active" | "pending";
   pendingProvisioning: boolean;
+  /** True when this client was auto-attached to the default coach at sign-up
+   *  (no user_mirror). Drives the "NEW" roster badge + new-clients notification. */
+  autoAssignedCoach: boolean;
   /** ISO-8601 of the most recent activity across workout/habit/chat — or null if no activity. */
   lastActivityAt: string | null;
   /** Compliance ratio in [0, 1] averaged across this client's habits over the last 7 days. */
@@ -163,6 +170,7 @@ async function _fetchClientsForTrainer(
       displayName?: string;
       timezone?: string;
       photoURL?: string;
+      autoAssignedCoach?: boolean;
     };
     return {
       uid: d.id,
@@ -171,6 +179,7 @@ async function _fetchClientsForTrainer(
       timezone: typeof data.timezone === "string" ? data.timezone : null,
       photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       pendingProvisioning: false,
+      autoAssignedCoach: data.autoAssignedCoach === true,
     };
   });
 
@@ -197,6 +206,7 @@ async function _fetchClientsForTrainer(
         timezone: null,
         photoURL: null,
         pendingProvisioning: true,
+        autoAssignedCoach: false,
       });
       return rows;
     }, []);
@@ -335,6 +345,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         timezone: null,
         photoURL: null,
         pendingProvisioning: true,
+        autoAssignedCoach: false,
       });
       return rows;
     }, []);
@@ -770,6 +781,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         timezone: c.timezone,
         source: isPending ? "pending" : "active",
         pendingProvisioning: isPending,
+        autoAssignedCoach: isPending ? false : c.autoAssignedCoach,
         lastActivityAt: lastActivity?.toISOString() ?? null,
         thisWeekComplianceRatio,
         unreadChatCount,

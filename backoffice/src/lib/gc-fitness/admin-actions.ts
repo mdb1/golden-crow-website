@@ -1056,6 +1056,9 @@ export async function transferClientToCoach(
     coachId: parsed.newCoachUid,
     coachDisplayName: newCoachDisplayName,
     coachPhotoURL: newCoachPhotoURL,
+    // Transferring counts as triage — drop the "NEW" auto-assigned flag so the
+    // destination coach's roster doesn't keep flagging it.
+    autoAssignedCoach: FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
   });
   if (chatSnap.exists) {

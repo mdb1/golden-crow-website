@@ -1209,6 +1209,7 @@ async function loadClientRosterEntry(
       timezone: typeof data.timezone === "string" ? data.timezone : null,
       photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       pendingProvisioning: false,
+      autoAssignedCoach: data.autoAssignedCoach === true,
     },
     coachId,
   };
