@@ -21,8 +21,10 @@ import {
   deactivateClientForCoach,
   getDeletionTargetInfo,
   getCoachAdminDetail,
+  listCoachesForAdmin,
   previewClientCascade,
   removePendingClientForCoach,
+  transferClientToCoach,
 } from "@/lib/gc-fitness/admin-actions";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 
@@ -54,6 +56,10 @@ export default async function CoachAdminDetailPage({
   if (!detail) notFound();
   const actionMessage = op && ok === "1" ? `Action completed: ${op}.` : null;
 
+  // Destination coaches for the transfer control — every coach except this one.
+  const allCoaches = await listCoachesForAdmin();
+  const otherCoaches = allCoaches.filter((coach) => coach.uid !== detail.coach.uid);
+
   let clientPreview: Awaited<ReturnType<typeof previewClientCascade>> | null = null;
   let targetInfo: Awaited<ReturnType<typeof getDeletionTargetInfo>> | null = null;
   if (previewClientUid.length > 0) {
@@ -72,6 +78,16 @@ export default async function CoachAdminDetailPage({
     const clientUid = String(formData.get("clientUid") ?? "");
     await deactivateClientForCoach({ coachUid, clientUid });
     revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
+  }
+
+  async function transferClientAction(formData: FormData) {
+    "use server";
+    const coachUid = String(formData.get("coachUid") ?? "");
+    const clientUid = String(formData.get("clientUid") ?? "");
+    const newCoachUid = String(formData.get("newCoachUid") ?? "");
+    await transferClientToCoach({ clientUid, newCoachUid });
+    revalidatePath(`/gc-fitness/admin/coaches/${coachUid}`);
+    redirect(`/gc-fitness/admin/coaches/${coachUid}?op=transfer_client&ok=1`);
   }
 
   async function removePendingAction(formData: FormData) {
@@ -166,7 +182,34 @@ export default async function CoachAdminDetailPage({
                         {client.deleted ? <Badge variant="secondary">deleted</Badge> : <Badge variant="success">active</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {!client.deleted && otherCoaches.length > 0 ? (
+                            <form action={transferClientAction} className="flex items-center gap-1">
+                              <input type="hidden" name="coachUid" value={detail.coach.uid} />
+                              <input type="hidden" name="clientUid" value={client.uid} />
+                              <select
+                                name="newCoachUid"
+                                required
+                                defaultValue=""
+                                aria-label={`Transfer ${client.displayName || client.email} to coach`}
+                                className="h-8 max-w-[12rem] rounded-md border bg-background px-2 text-xs"
+                              >
+                                <option value="" disabled>
+                                  Transfer to…
+                                </option>
+                                {otherCoaches.map((coach) => (
+                                  <option key={coach.uid} value={coach.uid}>
+                                    {coach.displayName || coach.email}
+                                  </option>
+                                ))}
+                              </select>
+                              <AdminSubmitButton
+                                idleLabel="Transfer"
+                                pendingLabel="Transferring..."
+                                className="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                              />
+                            </form>
+                          ) : null}
                           {!client.deleted ? (
                             <form action={deactivateClientAction}>
                               <input type="hidden" name="coachUid" value={detail.coach.uid} />

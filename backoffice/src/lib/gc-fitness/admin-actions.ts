@@ -613,7 +613,7 @@ export async function promoteUserToAdmin(input: unknown): Promise<{ ok: true; ui
 
 async function writeAdminOperationLog(args: {
   actorUid: string;
-  kind: "delete_client_cascade" | "delete_coach_cascade";
+  kind: "delete_client_cascade" | "delete_coach_cascade" | "transfer_client";
   mode: OperationMode;
   targetUid: string;
   status: "success" | "failed";
@@ -990,6 +990,111 @@ export async function deactivateClientForCoach(input: unknown): Promise<{ ok: tr
     summary: { action: "deactivate_client", coachUid: parsed.coachUid },
   });
   return { ok: true };
+}
+
+const transferClientSchema = z.object({
+  clientUid: z.string().trim().min(6).max(128),
+  newCoachUid: z.string().trim().min(6).max(128),
+});
+
+/**
+ * Move a client from their current coach to a different one. Built for the
+ * App Store review fallback: brand-new sign-ups with no mirror are auto-attached
+ * to a default coach (see DEFAULT_FALLBACK_COACH_ID in the functions repo), and
+ * an admin uses this to re-home them onto the correct coach.
+ *
+ * Re-points the canonical client doc (coachId + denormalized coachDisplayName /
+ * coachPhotoURL), moves the 1:1 chat doc to the new coach, and resyncs the
+ * client's `coachId` custom claim (fail-soft — the Firestore doc is the source
+ * of truth; the claim catches up on the client's next token refresh).
+ *
+ * NOTE: historical content authored by the OLD coach (workout_assignments /
+ * habits tagged with the old trainerId) is intentionally left in place — the
+ * client keeps seeing it, the new coach authors fresh content going forward.
+ */
+export async function transferClientToCoach(
+  input: unknown,
+): Promise<{ ok: true; clientUid: string; newCoachUid: string }> {
+  const admin = await getCurrentAdmin();
+  const parsed = transferClientSchema.parse(input);
+  const db = gcFitnessFirestore();
+
+  const clientRef = db.collection(FirestoreCollections.users).doc(parsed.clientUid);
+  const clientSnap = await clientRef.get();
+  if (!clientSnap.exists) {
+    throw new Error("Client not found.");
+  }
+  if (clientSnap.get("role") === "trainer") {
+    throw new Error("That user is a coach, not a client — cannot transfer.");
+  }
+  const currentCoachId = (clientSnap.get("coachId") as string | undefined) ?? null;
+  if (currentCoachId === parsed.newCoachUid) {
+    throw new Error("Client is already linked to this coach.");
+  }
+
+  const newCoachRef = db.collection(FirestoreCollections.users).doc(parsed.newCoachUid);
+  const newCoachSnap = await newCoachRef.get();
+  if (!newCoachSnap.exists) {
+    throw new Error("Destination coach not found.");
+  }
+  if (newCoachSnap.get("role") !== "trainer") {
+    throw new Error("Destination user is not a coach.");
+  }
+
+  const newCoachDisplayName =
+    (newCoachSnap.get("displayName") as string | undefined)?.trim() ||
+    ((newCoachSnap.get("email") as string | undefined) ?? "").split("@")[0] ||
+    "";
+  const newCoachPhotoURL =
+    (newCoachSnap.get("photoURL") as string | undefined) ?? null;
+
+  const chatRef = db.collection(FirestoreCollections.chats).doc(parsed.clientUid);
+  const chatSnap = await chatRef.get();
+
+  const batch = db.batch();
+  batch.update(clientRef, {
+    coachId: parsed.newCoachUid,
+    coachDisplayName: newCoachDisplayName,
+    coachPhotoURL: newCoachPhotoURL,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  if (chatSnap.exists) {
+    batch.update(chatRef, {
+      coachId: parsed.newCoachUid,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  await batch.commit();
+
+  // Keep the custom claim in sync (firestore.rules compare
+  // request.auth.token.coachId). Fail-soft — the doc write above already
+  // re-homed the client; the claim resyncs on the client's next token refresh.
+  try {
+    const authUser = await gcFitnessAuth().getUser(parsed.clientUid);
+    const current = (authUser.customClaims ?? {}) as Record<string, unknown>;
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
+      ...current,
+      role: "client",
+      coachId: parsed.newCoachUid,
+    });
+  } catch {
+    // fail-soft
+  }
+
+  await writeAdminOperationLog({
+    actorUid: admin.uid,
+    kind: "transfer_client",
+    mode: "execute",
+    targetUid: parsed.clientUid,
+    status: "success",
+    summary: {
+      action: "transfer_client",
+      fromCoachId: currentCoachId,
+      toCoachId: parsed.newCoachUid,
+    },
+  });
+
+  return { ok: true, clientUid: parsed.clientUid, newCoachUid: parsed.newCoachUid };
 }
 
 const removePendingSchema = z.object({
