@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import {
@@ -9,7 +10,9 @@ import {
   ChevronDown,
   ChevronUp,
   Pencil,
+  Repeat,
   Trash2,
+  User,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -28,11 +31,28 @@ import {
 } from "@/lib/gc-fitness/coach-checklist-actions";
 import { cn } from "@/lib/utils";
 
-interface Props {
-  items: CoachChecklistItem[];
+export interface ChecklistClientOption {
+  uid: string;
+  displayName: string;
 }
 
-export function CoachChecklistClient({ items }: Props) {
+interface Props {
+  items: CoachChecklistItem[];
+  clients: ChecklistClientOption[];
+}
+
+// Native-select styling matching the shadcn Input look (the create/edit forms
+// are uncontrolled FormData forms, so we use native <select> not Radix Select).
+const SELECT_CLASS =
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+const RECURRENCE_LABEL: Record<string, string> = {
+  daily: "Diaria",
+  weekly: "Semanal",
+  monthly: "Mensual",
+};
+
+export function CoachChecklistClient({ items, clients }: Props) {
   const t = useTranslations("coachChecklist");
   const locale = useLocale();
   const router = useRouter();
@@ -63,6 +83,8 @@ export function CoachChecklistClient({ items }: Props) {
         notes: String(formData.get("notes") ?? ""),
         dueDate: String(formData.get("dueDate") ?? ""),
         dueTime: String(formData.get("dueTime") ?? ""),
+        clientId: String(formData.get("clientId") ?? ""),
+        recurrence: String(formData.get("recurrence") ?? "none"),
       });
       form.reset();
       router.refresh();
@@ -90,28 +112,60 @@ export function CoachChecklistClient({ items }: Props) {
           <CardTitle className="gc-page-title text-xl">{t("newTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]" onSubmit={handleSubmit}>
-            <div className="grid gap-2 xl:col-span-1">
-              <Label htmlFor="checklist-title">{t("titleLabel")}</Label>
-              <Input
-                id="checklist-title"
-                name="title"
-                required
-                maxLength={160}
-                placeholder={t("titlePlaceholder")}
-              />
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="checklist-title">{t("titleLabel")}</Label>
+                <Input
+                  id="checklist-title"
+                  name="title"
+                  required
+                  maxLength={160}
+                  placeholder={t("titlePlaceholder")}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="checklist-notes">{t("notesLabel")}</Label>
+                <Textarea
+                  id="checklist-notes"
+                  name="notes"
+                  maxLength={500}
+                  placeholder={t("notesPlaceholder")}
+                  className="min-h-11"
+                />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="checklist-notes">{t("notesLabel")}</Label>
-              <Textarea
-                id="checklist-notes"
-                name="notes"
-                maxLength={500}
-                placeholder={t("notesPlaceholder")}
-                className="min-h-11 xl:min-h-10"
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] xl:col-span-1">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-2">
+                <Label htmlFor="checklist-client">Cliente</Label>
+                <select
+                  id="checklist-client"
+                  name="clientId"
+                  defaultValue=""
+                  className={SELECT_CLASS}
+                >
+                  <option value="">Sin cliente</option>
+                  {clients.map((c) => (
+                    <option key={c.uid} value={c.uid}>
+                      {c.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="checklist-recurrence">Recurrencia</Label>
+                <select
+                  id="checklist-recurrence"
+                  name="recurrence"
+                  defaultValue="none"
+                  className={SELECT_CLASS}
+                >
+                  <option value="none">Única</option>
+                  <option value="daily">Diaria</option>
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensual</option>
+                </select>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="checklist-date">{t("dateLabel")}</Label>
                 <Input id="checklist-date" name="dueDate" type="date" className="h-11" />
@@ -124,7 +178,7 @@ export function CoachChecklistClient({ items }: Props) {
             <Button
               type="submit"
               disabled={pending}
-              className="h-11 self-end rounded-full px-6"
+              className="h-11 justify-self-start rounded-full px-6"
             >
               {pending ? t("saving") : t("addCta")}
             </Button>
@@ -225,7 +279,22 @@ export function CoachChecklistClient({ items }: Props) {
                                 {t("overdueBadge")}
                               </span>
                             ) : null}
+                            {item.recurrence !== "none" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                <Repeat className="size-3" />
+                                {RECURRENCE_LABEL[item.recurrence] ?? item.recurrence}
+                              </span>
+                            ) : null}
                           </div>
+                          {item.clientId ? (
+                            <Link
+                              href={`/gc-fitness/clients/${item.clientId}`}
+                              className="mt-1 inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            >
+                              <User className="size-3.5" />
+                              {item.clientName ?? "Ver cliente"}
+                            </Link>
+                          ) : null}
                           {item.notes ? (
                             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                               {item.notes}
@@ -246,6 +315,7 @@ export function CoachChecklistClient({ items }: Props) {
                         <div className="flex shrink-0 items-center gap-1">
                           <ChecklistEditDialog
                             item={item}
+                            clients={clients}
                             trigger={
                               <Button
                                 type="button"

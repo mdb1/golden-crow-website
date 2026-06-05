@@ -24,7 +24,12 @@ interface Props {
   item: CoachChecklistItem;
   /** The element that opens the dialog (e.g. a pencil icon button). */
   trigger: ReactNode;
+  /** Linkable clients. When empty (e.g. the dashboard widget) the picker is hidden. */
+  clients?: Array<{ uid: string; displayName: string }>;
 }
+
+const SELECT_CLASS =
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // Split a stored ISO `dueAt` into the local date/time strings the
 // <input type="date"|"time"> controls expect. Empty when there's no due date.
@@ -44,7 +49,7 @@ function splitDueAt(iso: string | null): { date: string; time: string } {
  * checklist page and the dashboard "Pendientes" widget. Uncontrolled form
  * whose defaults are reset on every open via a `key` tied to open state.
  */
-export function ChecklistEditDialog({ item, trigger }: Props) {
+export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
   const t = useTranslations("coachChecklist");
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -60,6 +65,8 @@ export function ChecklistEditDialog({ item, trigger }: Props) {
         notes: String(formData.get("notes") ?? ""),
         dueDate: String(formData.get("dueDate") ?? ""),
         dueTime: String(formData.get("dueTime") ?? ""),
+        clientId: String(formData.get("clientId") ?? ""),
+        recurrence: String(formData.get("recurrence") ?? "none"),
       });
       setOpen(false);
       router.refresh();
@@ -99,6 +106,40 @@ export function ChecklistEditDialog({ item, trigger }: Props) {
               placeholder={t("notesPlaceholder")}
               className="min-h-20"
             />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {clients.length > 0 ? (
+              <div className="grid gap-2">
+                <Label htmlFor={`edit-client-${item.id}`}>Cliente</Label>
+                <select
+                  id={`edit-client-${item.id}`}
+                  name="clientId"
+                  defaultValue={item.clientId ?? ""}
+                  className={SELECT_CLASS}
+                >
+                  <option value="">Sin cliente</option>
+                  {clients.map((c) => (
+                    <option key={c.uid} value={c.uid}>
+                      {c.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="grid gap-2">
+              <Label htmlFor={`edit-recurrence-${item.id}`}>Recurrencia</Label>
+              <select
+                id={`edit-recurrence-${item.id}`}
+                name="recurrence"
+                defaultValue={item.recurrence ?? "none"}
+                className={SELECT_CLASS}
+              >
+                <option value="none">Única</option>
+                <option value="daily">Diaria</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+              </select>
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">

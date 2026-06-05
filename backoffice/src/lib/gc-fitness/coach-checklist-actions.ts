@@ -7,11 +7,15 @@ import { z } from "zod";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
+import { listClients } from "./client-roster";
 import { FirestoreCollections } from "./collections";
 import { getTrainerTimezone } from "./trainer-timezone";
 
 const CHECKLIST_COLLECTION = "coach_checklist";
 const MAX_CHECKLIST_ITEMS = 50;
+
+/** Reminder recurrence — "none" is a one-off (default). */
+export type ChecklistRecurrence = "none" | "daily" | "weekly" | "monthly";
 
 export interface CoachChecklistItem {
   id: string;
@@ -20,6 +24,11 @@ export interface CoachChecklistItem {
   dueAt: string | null;
   completed: boolean;
   createdAt: string | null;
+  /** Optional client this reminder is about (links to /gc-fitness/clients/[id]). */
+  clientId: string | null;
+  /** Resolved display name for `clientId` (null if unknown / no client). */
+  clientName: string | null;
+  recurrence: ChecklistRecurrence;
 }
 
 const createChecklistItemSchema = z.object({
@@ -27,7 +36,30 @@ const createChecklistItemSchema = z.object({
   notes: z.string().trim().max(500).optional(),
   dueDate: z.string().trim().optional(),
   dueTime: z.string().trim().optional(),
+  clientId: z.string().trim().max(128).optional(),
+  recurrence: z.enum(["none", "daily", "weekly", "monthly"]).optional(),
 });
+
+function normalizeRecurrence(value: unknown): ChecklistRecurrence {
+  return value === "daily" || value === "weekly" || value === "monthly"
+    ? value
+    : "none";
+}
+
+/** Roll a due date forward by one recurrence step. Null for "none"/invalid. */
+function advanceDueDate(
+  iso: string,
+  recurrence: ChecklistRecurrence,
+): Date | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const next = new Date(d);
+  if (recurrence === "daily") next.setDate(next.getDate() + 1);
+  else if (recurrence === "weekly") next.setDate(next.getDate() + 7);
+  else if (recurrence === "monthly") next.setMonth(next.getMonth() + 1);
+  else return null;
+  return next;
+}
 
 const itemIdSchema = z.string().trim().min(1).max(160);
 
@@ -46,22 +78,44 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
     .limit(MAX_CHECKLIST_ITEMS)
     .get();
 
-  return snap.docs
-    .map((doc) => {
-      const data = doc.data() as Record<string, unknown>;
-      return {
-        id: doc.id,
-        title: typeof data.title === "string" ? data.title : "Reminder",
-        notes:
-          typeof data.notes === "string" && data.notes.trim().length > 0
-            ? data.notes
-            : null,
-        dueAt: toIso(data.dueAt),
-        completed: data.completed === true,
-        createdAt: toIso(data.createdAt),
-      };
-    })
-    .sort((a, b) => Number(a.completed) - Number(b.completed));
+  const rows: CoachChecklistItem[] = snap.docs.map((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    return {
+      id: doc.id,
+      title: typeof data.title === "string" ? data.title : "Reminder",
+      notes:
+        typeof data.notes === "string" && data.notes.trim().length > 0
+          ? data.notes
+          : null,
+      dueAt: toIso(data.dueAt),
+      completed: data.completed === true,
+      createdAt: toIso(data.createdAt),
+      clientId:
+        typeof data.clientId === "string" && data.clientId.length > 0
+          ? data.clientId
+          : null,
+      clientName: null,
+      recurrence: normalizeRecurrence(data.recurrence),
+    };
+  });
+
+  // Resolve display names for the linked clients (one cached roster read).
+  const linkedClientIds = new Set(
+    rows.map((r) => r.clientId).filter((v): v is string => v !== null),
+  );
+  if (linkedClientIds.size > 0) {
+    try {
+      const roster = await listClients();
+      const nameByUid = new Map(roster.map((c) => [c.uid, c.displayName]));
+      for (const row of rows) {
+        if (row.clientId) row.clientName = nameByUid.get(row.clientId) ?? null;
+      }
+    } catch {
+      // Best-effort — leave names null if the roster read fails.
+    }
+  }
+
+  return rows.sort((a, b) => Number(a.completed) - Number(b.completed));
 }
 
 export type PendingChecklistBucket = "overdue" | "today";
@@ -118,6 +172,8 @@ export async function createCoachChecklistItem(
   await checklistCollection(trainer.uid).add({
     title: parsed.title,
     ...(parsed.notes ? { notes: parsed.notes } : {}),
+    ...(parsed.clientId ? { clientId: parsed.clientId } : {}),
+    recurrence: parsed.recurrence ?? "none",
     dueAt,
     completed: false,
     createdAt: FieldValue.serverTimestamp(),
@@ -145,6 +201,8 @@ export async function updateCoachChecklistItem(
     .update({
       title: parsed.title,
       notes: parsed.notes ? parsed.notes : FieldValue.delete(),
+      clientId: parsed.clientId ? parsed.clientId : FieldValue.delete(),
+      recurrence: parsed.recurrence ?? "none",
       dueAt,
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -159,8 +217,31 @@ export async function setCoachChecklistItemCompleted(
 ): Promise<{ ok: true }> {
   const trainer = await getCurrentTrainer();
   const parsedItemId = itemIdSchema.parse(itemId);
+  const ref = checklistCollection(trainer.uid).doc(parsedItemId);
 
-  await checklistCollection(trainer.uid).doc(parsedItemId).update({
+  // For a RECURRING reminder, "completing" an occurrence rolls its due date
+  // forward to the next one and keeps it active, instead of marking it done.
+  if (completed) {
+    const snap = await ref.get();
+    const data = (snap.data() ?? {}) as Record<string, unknown>;
+    const recurrence = normalizeRecurrence(data.recurrence);
+    const dueIso = toIso(data.dueAt);
+    if (recurrence !== "none" && dueIso) {
+      const next = advanceDueDate(dueIso, recurrence);
+      if (next) {
+        await ref.update({
+          dueAt: next,
+          completed: false,
+          completedAt: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        revalidateChecklistSurfaces();
+        return { ok: true };
+      }
+    }
+  }
+
+  await ref.update({
     completed,
     completedAt: completed ? FieldValue.serverTimestamp() : FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
