@@ -16,8 +16,9 @@
 // footer). Each destructive action requires an inline confirm tap.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bell, CalendarDays, CalendarOff, Repeat, Trash2, User } from "lucide-react";
+import { Bell, CalendarDays, CalendarOff, Pencil, Repeat, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StorageImagePreview } from "@/components/gc-fitness/StorageImagePreview";
 import {
   getHabit,
   skipHabitOccurrence,
@@ -172,6 +174,15 @@ export function HabitDetailDialog({
                 : "No se pudo cargar el hábito."}
             </p>
           ) : data ? (
+            <>
+            {data.photoUrl ? (
+              <div className="flex justify-center rounded-lg border bg-muted/40 p-3">
+                <StorageImagePreview
+                  value={data.photoUrl}
+                  alt={data.name.es || data.name.en}
+                />
+              </div>
+            ) : null}
             <section className="grid gap-3 rounded-lg border bg-muted/40 p-3 text-sm sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <User className="size-4 text-muted-foreground" />
@@ -225,6 +236,7 @@ export function HabitDetailDialog({
                 </p>
               </div>
             </section>
+            </>
           ) : null}
         </div>
 
@@ -247,6 +259,17 @@ export function HabitDetailDialog({
             />
           ) : (
             <div className="flex flex-col gap-2">
+              <Button
+                asChild
+                variant="outline"
+                className="gap-1"
+                disabled={!data || pending}
+              >
+                <Link href={`/gc-fitness/habits/${habitId}/edit`}>
+                  <Pencil className="size-4" />
+                  Editar hábito
+                </Link>
+              </Button>
               {isRecurring ? (
                 <Button
                   variant="outline"
