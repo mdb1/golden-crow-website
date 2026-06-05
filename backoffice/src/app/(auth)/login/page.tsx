@@ -17,6 +17,7 @@ import {
   Building2,
   CheckCircle2,
   ChevronRight,
+  XCircle,
   Dna,
   Dumbbell,
   Eye,
@@ -57,6 +58,18 @@ type LoadingState =
   | null;
 
 type NoticeTone = "error" | "info" | "success";
+type PasswordResetCheck = {
+  label: string;
+  passed: boolean;
+  detail: string;
+};
+
+type PasswordResetResult = {
+  tone: "success" | "error";
+  title: string;
+  message: string;
+  checks: PasswordResetCheck[];
+} | null;
 
 type AuthNotice = {
   tone: NoticeTone;
@@ -110,6 +123,110 @@ const ROLE_LABELS: Record<NonNullable<SignupEligibility["role"]>, string> = {
 const LEGACY_PROJECT_KEYS = new Set<ProjectKey>(["mydnamap", "pocket-gyms"]);
 const GOOGLE_SIGN_IN_METHOD = "google.com";
 const PASSWORD_SIGN_IN_METHOD = "password";
+
+function normalizeAuthEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function passwordResetSuccessResult(email: string): PasswordResetResult {
+  return {
+    tone: "success",
+    title: "Password reset email sent",
+    message: `Firebase sent the reset email to ${email}.`,
+    checks: [
+      {
+        label: "Firebase Auth account exists",
+        passed: true,
+        detail: "The legacy SDK found this exact email in Firebase Auth.",
+      },
+      {
+        label: "Email/password provider exists",
+        passed: true,
+        detail: "This account is configured for password sign-in.",
+      },
+      {
+        label: "Firebase reset email sent",
+        passed: true,
+        detail: "Firebase accepted the password reset email request.",
+      },
+    ],
+  };
+}
+
+function passwordResetAccountMissingResult(email: string): PasswordResetResult {
+  return {
+    tone: "error",
+    title: "Firebase Auth account not found",
+    message: `No Firebase Auth account exists for ${email}.`,
+    checks: [
+      {
+        label: "Firebase Auth account exists",
+        passed: false,
+        detail: "The legacy SDK did not find this email in Firebase Auth.",
+      },
+      {
+        label: "Email/password provider exists",
+        passed: false,
+        detail: "Skipped because there is no matching Firebase Auth account.",
+      },
+      {
+        label: "Firebase reset email sent",
+        passed: false,
+        detail: "Not attempted because there is no matching account.",
+      },
+    ],
+  };
+}
+
+function passwordResetPasswordProviderMissingResult(email: string): PasswordResetResult {
+  return {
+    tone: "error",
+    title: "Password sign-in is not enabled",
+    message: `${email} exists, but it does not have an email/password provider.`,
+    checks: [
+      {
+        label: "Firebase Auth account exists",
+        passed: true,
+        detail: "The legacy SDK found this exact email in Firebase Auth.",
+      },
+      {
+        label: "Email/password provider exists",
+        passed: false,
+        detail: "Firebase Auth does not list the password provider for this account.",
+      },
+      {
+        label: "Firebase reset email sent",
+        passed: false,
+        detail: "Not attempted because password reset only applies to password accounts.",
+      },
+    ],
+  };
+}
+
+function passwordResetSendFailedResult(email: string): PasswordResetResult {
+  return {
+    tone: "error",
+    title: "Firebase could not send the reset email",
+    message: `${email} exists and has password sign-in, but Firebase rejected the reset email request.`,
+    checks: [
+      {
+        label: "Firebase Auth account exists",
+        passed: true,
+        detail: "The legacy SDK found this exact email in Firebase Auth.",
+      },
+      {
+        label: "Email/password provider exists",
+        passed: true,
+        detail: "This account is configured for password sign-in.",
+      },
+      {
+        label: "Firebase reset email sent",
+        passed: false,
+        detail: "Firebase returned an error while sending the reset email.",
+      },
+    ],
+  };
+}
 
 function getLegacyProjectAccess(value: unknown): ProjectKey[] {
   if (!Array.isArray(value)) return [];
@@ -377,7 +494,7 @@ async function googleOnlyPasswordNotice(
 ): Promise<AuthNotice | null> {
   if (!isCredentialMismatch(error)) return null;
 
-  const normalizedEmail = attemptedEmail.trim();
+  const normalizedEmail = normalizeAuthEmail(attemptedEmail);
   if (!normalizedEmail) return null;
 
   try {
@@ -455,13 +572,17 @@ async function googleOnlyPasswordNotice(
   }
 }
 
-function emailNotice(error: unknown): AuthNotice {
+function emailNotice(
+  error: unknown,
+  context?: Record<string, unknown>
+): AuthNotice {
   const code = getErrorCode(error);
   const log = authErrorLog({
     source: "firebase-web-sdk",
     event: "email-sign-in",
     message: "Email sign-in failed before the legacy SDK session could be created.",
     error,
+    context,
   });
 
   if (code === "auth/invalid-email") {
@@ -620,17 +741,43 @@ function AuthLogDialog({
   );
 }
 
+function PasswordResetChecklist({ checks }: { checks: PasswordResetCheck[] }) {
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-900/10 bg-white/55 p-3">
+      {checks.map((check) => (
+        <div key={check.label} className="flex gap-3">
+          {check.passed ? (
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+          ) : (
+            <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" />
+          )}
+          <div className="min-w-0">
+            <p
+              className={`text-sm font-semibold ${
+                check.passed ? "text-emerald-800" : "text-red-800"
+              }`}
+            >
+              {check.label}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-slate-600">{check.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PasswordResetDialog({
   email,
   open,
-  sent,
+  result,
   sending,
   onOpenChange,
   onConfirm,
 }: {
   email: string;
   open: boolean;
-  sent: boolean;
+  result: PasswordResetResult;
   sending: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
@@ -638,27 +785,44 @@ function PasswordResetDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-white/70 bg-white/92 text-slate-950 shadow-[0_30px_90px_rgba(47,28,70,0.28)] backdrop-blur-2xl sm:max-w-md">
-        {sent ? (
+        {result ? (
           <>
             <DialogHeader>
-              <div className="mb-1 flex size-11 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-                <CheckCircle2 className="size-5" />
+              <div
+                className={`mb-1 flex size-11 items-center justify-center rounded-full border ${
+                  result.tone === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}
+              >
+                {result.tone === "success" ? (
+                  <CheckCircle2 className="size-5" />
+                ) : (
+                  <XCircle className="size-5" />
+                )}
               </div>
-              <DialogTitle>Password reset email sent</DialogTitle>
+              <DialogTitle>{result.title}</DialogTitle>
               <DialogDescription className="text-slate-600">
-                Congratulations. Firebase sent the reset email to{" "}
-                <span className="font-semibold text-slate-900">{email}</span>.
+                {result.message}
               </DialogDescription>
             </DialogHeader>
-            <p className="text-sm leading-6 text-slate-600">
-              Open that email and follow the link to choose a new password, then
-              return here to sign in.
-            </p>
+            <PasswordResetChecklist checks={result.checks} />
+            {result.tone === "success" ? (
+              <p className="text-sm leading-6 text-slate-600">
+                Open that email and follow the link to choose a new password,
+                then return here to sign in.
+              </p>
+            ) : null}
             <DialogFooter className="border-slate-900/10 bg-white/45">
               <DialogClose asChild>
                 <Button
                   type="button"
-                  className="h-10 rounded-xl"
+                  variant={result.tone === "success" ? "default" : "outline"}
+                  className={`h-10 rounded-xl ${
+                    result.tone === "success"
+                      ? ""
+                      : "border-slate-900/10 bg-white/70 text-slate-800 hover:bg-white hover:text-slate-950"
+                  }`}
                   onClick={() => onOpenChange(false)}
                 >
                   Done
@@ -902,7 +1066,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
-  const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [passwordResetResult, setPasswordResetResult] =
+    useState<PasswordResetResult>(null);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [showSignupPassword, setShowSignupPassword] = useState(false);
@@ -1106,15 +1271,17 @@ export default function LoginPage() {
 
   async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const loginEmail = normalizeAuthEmail(email);
     setLoading("email");
     setNotice(null);
+    setEmail(loginEmail);
 
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, loginEmail, password);
       await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
         name: result.user.displayName ?? "",
-        email: result.user.email ?? email,
+        email: result.user.email ?? loginEmail,
         image: result.user.photoURL ?? "",
       });
     } catch (err) {
@@ -1122,7 +1289,16 @@ export default function LoginPage() {
         setNotice(err);
       } else {
         console.error("Email login error:", err);
-        setNotice((await googleOnlyPasswordNotice(err, email)) ?? emailNotice(err));
+        const logContext = {
+          email: loginEmail,
+          emailWasNormalized: email !== loginEmail,
+          firebaseProjectId: auth.app.options.projectId,
+          firebaseAuthDomain: auth.app.options.authDomain,
+        };
+        setNotice(
+          (await googleOnlyPasswordNotice(err, loginEmail)) ??
+            emailNotice(err, logContext)
+        );
       }
     } finally {
       setLoading(null);
@@ -1130,7 +1306,7 @@ export default function LoginPage() {
   }
 
   function handlePasswordResetRequest() {
-    const resetEmail = email.trim();
+    const resetEmail = normalizeAuthEmail(email);
     if (!resetEmail) {
       setNotice({
         tone: "info",
@@ -1141,8 +1317,9 @@ export default function LoginPage() {
       return;
     }
 
+    setEmail(resetEmail);
     setPasswordResetEmail(resetEmail);
-    setPasswordResetSent(false);
+    setPasswordResetResult(null);
     setNotice(null);
     setPasswordResetDialogOpen(true);
   }
@@ -1151,20 +1328,68 @@ export default function LoginPage() {
     if (loading === "password-reset") return;
     setPasswordResetDialogOpen(open);
     if (!open) {
-      setPasswordResetSent(false);
+      setPasswordResetResult(null);
     }
   }
 
   async function handleSendPasswordResetEmail() {
-    const resetEmail = passwordResetEmail.trim();
+    const resetEmail = normalizeAuthEmail(passwordResetEmail);
     if (!resetEmail) return;
 
     setLoading("password-reset");
     setNotice(null);
 
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
-      setPasswordResetSent(true);
+      const response = await fetch("/api/sdk/auth/email-signup/eligibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail }),
+      });
+      const data = (await readJson(response)) as Partial<SignupEligibility>;
+
+      if (!response.ok) {
+        const message = serverMessage(
+          data,
+          "The backoffice could not verify whether this email exists."
+        );
+        setPasswordResetDialogOpen(false);
+        setNotice({
+          tone: "error",
+          title: "Password reset check failed",
+          message,
+          log: authResponseLog({
+            source: "legacy-sdk",
+            event: "password-reset-email-lookup",
+            message,
+            method: "POST",
+            path: "/api/sdk/auth/email-signup/eligibility",
+            response,
+            body: data,
+            context: { email: resetEmail },
+          }),
+        });
+        return;
+      }
+
+      if (data.accountExists !== true) {
+        setPasswordResetResult(passwordResetAccountMissingResult(resetEmail));
+        return;
+      }
+
+      if (data.accountHasPassword !== true) {
+        setPasswordResetResult(
+          passwordResetPasswordProviderMissingResult(resetEmail)
+        );
+        return;
+      }
+
+      try {
+        await sendPasswordResetEmail(auth, resetEmail);
+        setPasswordResetResult(passwordResetSuccessResult(resetEmail));
+      } catch (sendError) {
+        console.error("Password reset email send error:", sendError);
+        setPasswordResetResult(passwordResetSendFailedResult(resetEmail));
+      }
     } catch (err) {
       console.error("Password reset email error:", err);
       const message =
@@ -1786,7 +2011,7 @@ export default function LoginPage() {
       <PasswordResetDialog
         email={passwordResetEmail}
         open={passwordResetDialogOpen}
-        sent={passwordResetSent}
+        result={passwordResetResult}
         sending={loading === "password-reset"}
         onOpenChange={handlePasswordResetDialogOpenChange}
         onConfirm={handleSendPasswordResetEmail}
