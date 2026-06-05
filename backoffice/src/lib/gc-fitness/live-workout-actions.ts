@@ -279,7 +279,27 @@ async function buildActiveSession(
     // existed (coachUpdatedSinceLastLog then keeps remembering, no false nag).
     prescriptionUpdatedAt:
       toIso(assignment.prescriptionUpdatedAt) ?? toIso(assignment.createdAt),
+    // Per-exercise overrides (exerciseId → ISO). Each entry, when newer than
+    // the doc-level anchor, makes ONLY that exercise show the routine once.
+    prescriptionUpdatedAtByExerciseId: prescriptionMapToIso(
+      assignment.prescriptionUpdatedAtByExerciseId,
+    ),
   };
+}
+
+/** Coerce a Firestore `prescriptionUpdatedAtByExerciseId` map (exerciseId →
+ *  Timestamp) into `exerciseId → ISO-8601`. Non-map / unparseable entries are
+ *  dropped so the resolver cleanly falls back to the doc-level anchor. */
+function prescriptionMapToIso(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [exerciseId, ts] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    const iso = toIso(ts);
+    if (iso) out[exerciseId] = iso;
+  }
+  return out;
 }
 
 function workoutNameToString(value: LocalizedString): string {

@@ -1,15 +1,22 @@
 // __tests__/workout-assignment-actions.prescription-anchor.test.ts
 //
-// Behavior tests for the REFINED `prescriptionUpdatedAt` bump rules
-// (feat/simplify-weight-prefill):
+// Behavior tests for the PER-EXERCISE `prescriptionUpdatedAtByExerciseId` stamp
+// rules (feat/simplify-weight-prefill):
 //
-//   1. editAssignmentExercises bumps the freshness anchor ONLY when the WEIGHTS
-//      changed vs the assignment's current snapshot — notes-only edits must NOT
-//      bump (each client keeps their own weights).
+//   1. editAssignmentExercises stamps the per-exercise anchor ONLY for the
+//      exercises whose WEIGHTS changed vs the assignment's current snapshot —
+//      notes-only edits must stamp nothing (each client keeps their own
+//      weights). The doc-level `prescriptionUpdatedAt` is NO LONGER bumped on
+//      edits; the per-exercise stamp is written via a dotted field-path key
+//      `prescriptionUpdatedAtByExerciseId.<exId>`.
 //   2. propagateTemplateToFutureAssignments takes a `pushWeights` option:
-//        - false (default): preserve each client's weights, NEVER bump.
-//        - true: replace weights from the template, bump ONLY where a weight
-//          genuinely changed.
+//        - false (default): preserve each client's weights, stamp NOTHING.
+//        - true: replace weights from the template, stamp ONLY the exercises
+//          whose weight genuinely changed.
+
+// The dotted per-exercise field-path key for exercise "ex-1" (the only exercise
+// in the test snapshot).
+const STAMP_KEY = "prescriptionUpdatedAtByExerciseId.ex-1";
 //
 // Mirrors the Admin-SDK mock harness from workout-assignment-actions.test.ts.
 
@@ -162,8 +169,8 @@ beforeEach(() => {
 // editAssignmentExercises — bump only on weight change
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("editAssignmentExercises — prescription anchor bump decision", () => {
-  it("notes-only edit (same weights) → does NOT bump prescriptionUpdatedAt", async () => {
+describe("editAssignmentExercises — per-exercise prescription stamp decision", () => {
+  it("notes-only edit (same weights) → stamps nothing", async () => {
     mockGet.mockResolvedValue(
       assignmentSnap({ templateSnapshot: snapshot([20, 20], "old note") }),
     );
@@ -184,12 +191,16 @@ describe("editAssignmentExercises — prescription anchor bump decision", () => 
     expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
     const patch = mockBatchUpdate.mock.calls[0][1];
     expect(patch.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+    // Doc-level anchor is NEVER bumped on edits anymore, and no per-exercise
+    // stamp is written when nothing weight-bearing changed.
     expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
+    expect(patch).not.toHaveProperty(STAMP_KEY);
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAtByExerciseId");
     // The note still gets written.
     expect(patch.templateSnapshot.exercises[0].notes).toBe("a brand new note");
   });
 
-  it("weight change → DOES bump prescriptionUpdatedAt", async () => {
+  it("weight change → stamps the changed exercise's per-exercise anchor (NOT doc-level)", async () => {
     mockGet.mockResolvedValue(
       assignmentSnap({ templateSnapshot: snapshot([20, 20]) }),
     );
@@ -208,10 +219,12 @@ describe("editAssignmentExercises — prescription anchor bump decision", () => 
     });
 
     const patch = mockBatchUpdate.mock.calls[0][1];
-    expect(patch.prescriptionUpdatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+    expect(patch[STAMP_KEY]).toBe("SERVER_TIMESTAMP_SENTINEL");
+    // Doc-level anchor stays the create baseline — not bumped on edits.
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
   });
 
-  it("added a set → DOES bump (more weight entries)", async () => {
+  it("added a set → stamps the per-exercise anchor (more weight entries)", async () => {
     mockGet.mockResolvedValue(
       assignmentSnap({ templateSnapshot: snapshot([20, 20]) }),
     );
@@ -230,10 +243,11 @@ describe("editAssignmentExercises — prescription anchor bump decision", () => 
     });
 
     const patch = mockBatchUpdate.mock.calls[0][1];
-    expect(patch.prescriptionUpdatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+    expect(patch[STAMP_KEY]).toBe("SERVER_TIMESTAMP_SENTINEL");
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
   });
 
-  it("reps/rest-only edit (same weights) → does NOT bump", async () => {
+  it("reps/rest-only edit (same weights) → stamps nothing", async () => {
     mockGet.mockResolvedValue(
       assignmentSnap({ templateSnapshot: snapshot([40, 40]) }),
     );
@@ -253,6 +267,8 @@ describe("editAssignmentExercises — prescription anchor bump decision", () => 
 
     const patch = mockBatchUpdate.mock.calls[0][1];
     expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
+    expect(patch).not.toHaveProperty(STAMP_KEY);
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAtByExerciseId");
   });
 });
 
@@ -308,12 +324,14 @@ describe("propagateTemplateToFutureAssignments — pushWeights option", () => {
     const patch = mockBatchUpdate.mock.calls[0][1];
     // Client's own weights preserved (NOT replaced with the template's 50s).
     expect(patch.templateSnapshot.exercises[0].weightBySetKg).toEqual([30, 30]);
-    // Anchor untouched.
+    // No anchor touched (neither doc-level nor per-exercise).
     expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
+    expect(patch).not.toHaveProperty(STAMP_KEY);
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAtByExerciseId");
     expect(patch.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
   });
 
-  it("pushWeights:false explicit → same as default (preserve + no bump)", async () => {
+  it("pushWeights:false explicit → same as default (preserve + no stamp)", async () => {
     setupTemplateAndTarget({
       templateWeights: [50, 50],
       assignmentWeights: [30, 30],
@@ -326,9 +344,10 @@ describe("propagateTemplateToFutureAssignments — pushWeights option", () => {
     const patch = mockBatchUpdate.mock.calls[0][1];
     expect(patch.templateSnapshot.exercises[0].weightBySetKg).toEqual([30, 30]);
     expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
+    expect(patch).not.toHaveProperty(STAMP_KEY);
   });
 
-  it("pushWeights:true with a genuine weight change → replaces weights + bumps", async () => {
+  it("pushWeights:true with a genuine weight change → replaces weights + stamps per-exercise", async () => {
     setupTemplateAndTarget({
       templateWeights: [50, 50],
       assignmentWeights: [30, 30],
@@ -341,11 +360,13 @@ describe("propagateTemplateToFutureAssignments — pushWeights option", () => {
     const patch = mockBatchUpdate.mock.calls[0][1];
     // Template weights pushed through.
     expect(patch.templateSnapshot.exercises[0].weightBySetKg).toEqual([50, 50]);
-    // Weight genuinely changed (30→50) → anchor bumped.
-    expect(patch.prescriptionUpdatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
+    // Weight genuinely changed (30→50) → per-exercise anchor stamped, doc-level
+    // anchor left as the create baseline.
+    expect(patch[STAMP_KEY]).toBe("SERVER_TIMESTAMP_SENTINEL");
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
   });
 
-  it("pushWeights:true but weights already identical → replaces but does NOT bump", async () => {
+  it("pushWeights:true but weights already identical → replaces but stamps nothing", async () => {
     setupTemplateAndTarget({
       templateWeights: [50, 50],
       assignmentWeights: [50, 50], // already matches the template
@@ -358,8 +379,10 @@ describe("propagateTemplateToFutureAssignments — pushWeights option", () => {
 
     const patch = mockBatchUpdate.mock.calls[0][1];
     expect(patch.templateSnapshot.exercises[0].weightBySetKg).toEqual([50, 50]);
-    // No weight delta → no spurious alert.
+    // No weight delta → no spurious alert (no doc-level NOR per-exercise stamp).
     expect(patch).not.toHaveProperty("prescriptionUpdatedAt");
+    expect(patch).not.toHaveProperty(STAMP_KEY);
+    expect(patch).not.toHaveProperty("prescriptionUpdatedAtByExerciseId");
   });
 
   it("default → structure/notes still flow through even though weights are preserved", async () => {

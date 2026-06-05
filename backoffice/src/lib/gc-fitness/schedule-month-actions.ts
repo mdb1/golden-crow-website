@@ -245,6 +245,17 @@ export interface AssignmentDetail {
   seriesId: string | null;
   recurrence: Record<string, unknown> | null;
   exercises: AssignmentExercise[];
+  /**
+   * The client's MOST RECENT completed set values, per exerciseId — used by the
+   * edit dialog to show the coach a "Último: 50kg × 10" hint next to each set
+   * row. Per exercise, the array is the non-warmup sets of the latest completed
+   * `workout_logs` doc that logged that exercise, sorted by setIndex. Absent
+   * when the client has no logged history for the exercise.
+   */
+  lastLoggedSetsByExerciseId?: Record<
+    string,
+    Array<{ weightKg: number; reps: number }>
+  >;
 }
 
 export async function getAssignmentDetail(id: string): Promise<AssignmentDetail> {
@@ -299,6 +310,13 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
   const templateTag =
     typeof snapshot.tag === "string" ? snapshot.tag : null;
   const exercises = Array.isArray(snapshot.exercises) ? snapshot.exercises : [];
+
+  // Q2 — the client's most recent logged set values per exercise, so the edit
+  // dialog can hint "Último: 50kg × 10" beside each set. The trainer reads
+  // their own client's logs (same access the live session uses).
+  const lastLoggedSetsByExerciseId = clientId
+    ? await fetchLastLoggedSetsByExercise(db, trainer.uid, clientId)
+    : {};
 
   return {
     id: snap.id,
@@ -380,7 +398,80 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
             : null,
       };
     }),
+    lastLoggedSetsByExerciseId,
   };
+}
+
+/**
+ * Build `exerciseId → [{ weightKg, reps }]` from the client's MOST RECENT
+ * completed `workout_logs`. For each exercise the first (newest) log we see
+ * that logged it wins; within that log we keep the non-warmup sets sorted by
+ * `set_index`. Ordered by `startedAt DESC` to reuse the existing
+ * `(clientId, status, startedAt DESC)` composite index (no new index). Trainer
+ * ownership is filtered in memory (trainer-of-record is denormalized on logs).
+ */
+async function fetchLastLoggedSetsByExercise(
+  db: FirebaseFirestore.Firestore,
+  trainerUid: string,
+  clientId: string,
+): Promise<Record<string, Array<{ weightKg: number; reps: number }>>> {
+  const HISTORY_LIMIT = 20;
+  const out: Record<string, Array<{ weightKg: number; reps: number }>> = {};
+  try {
+    const snap = await db
+      .collection(LOGS)
+      .where("clientId", "==", clientId)
+      .where("status", "==", "completed")
+      .orderBy("startedAt", "desc")
+      .limit(HISTORY_LIMIT)
+      .get();
+    for (const doc of snap.docs) {
+      const data = doc.data() as Record<string, unknown>;
+      if (data.trainerId !== trainerUid) continue;
+      const sets = Array.isArray(data.sets)
+        ? (data.sets as Array<Record<string, unknown>>)
+        : [];
+      // Group this log's working sets by exerciseId. Logs are newest-first, so
+      // the FIRST log that has an exercise wins (skip if already populated).
+      const byExercise = new Map<
+        string,
+        Array<{ setIndex: number; weightKg: number; reps: number }>
+      >();
+      for (const raw of sets) {
+        if (raw.is_warmup === true) continue;
+        const exerciseId =
+          typeof raw.exerciseId === "string" ? raw.exerciseId : "";
+        if (!exerciseId) continue;
+        const setIndex =
+          typeof raw.set_index === "number" && Number.isFinite(raw.set_index)
+            ? raw.set_index
+            : 0;
+        const weightKg =
+          typeof raw.weight_kg === "number" && Number.isFinite(raw.weight_kg)
+            ? raw.weight_kg
+            : 0;
+        const reps =
+          typeof raw.reps === "number" && Number.isFinite(raw.reps)
+            ? raw.reps
+            : 0;
+        (byExercise.get(exerciseId) ?? byExercise.set(exerciseId, []).get(exerciseId))!.push(
+          { setIndex, weightKg, reps },
+        );
+      }
+      for (const [exerciseId, rows] of byExercise.entries()) {
+        if (out[exerciseId]) continue; // an earlier (newer) log already set it
+        rows.sort((a, b) => a.setIndex - b.setIndex);
+        out[exerciseId] = rows.map((r) => ({
+          weightKg: r.weightKg,
+          reps: r.reps,
+        }));
+      }
+    }
+  } catch {
+    // Missing index / rule error — degrade to no history (the hint just won't
+    // render). Never block the dialog from loading the prescription itself.
+  }
+  return out;
 }
 
 export async function listMonthForClients(input: {

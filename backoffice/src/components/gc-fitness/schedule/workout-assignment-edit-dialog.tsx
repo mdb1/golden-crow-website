@@ -296,12 +296,17 @@ export function WorkoutAssignmentEditDialog({
                     <span>Kg</span>
                     <span />
                   </div>
-                  {draft.setRows.map((row, rowIdx) => (
+                  {draft.setRows.map((row, rowIdx) => {
+                    const lastLogged =
+                      data.lastLoggedSetsByExerciseId?.[ex.exerciseId]?.[
+                        rowIdx
+                      ];
+                    return (
                     <div
                       key={rowIdx}
-                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2"
+                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-start gap-2"
                     >
-                      <span className="text-xs text-muted-foreground">
+                      <span className="pt-2 text-xs text-muted-foreground">
                         {rowIdx + 1}
                       </span>
                       <input
@@ -313,17 +318,24 @@ export function WorkoutAssignmentEditDialog({
                         }
                         className="h-9 rounded-md border bg-background px-2 text-sm"
                       />
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={row.kg}
-                        placeholder="Kg"
-                        onChange={(e) =>
-                          patchRow(ex.index, rowIdx, { kg: e.target.value })
-                        }
-                        className="h-9 rounded-md border bg-background px-2 text-sm"
-                      />
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-col gap-0.5">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={row.kg}
+                          placeholder="Kg"
+                          onChange={(e) =>
+                            patchRow(ex.index, rowIdx, { kg: e.target.value })
+                          }
+                          className="h-9 rounded-md border bg-background px-2 text-sm"
+                        />
+                        {lastLogged ? (
+                          <span className="px-0.5 text-[10px] text-muted-foreground">
+                            Último: {lastLogged.weightKg}kg × {lastLogged.reps}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center justify-end gap-1 pt-1">
                         {rowIdx === 0 ? (
                           <button
                             type="button"
@@ -353,7 +365,8 @@ export function WorkoutAssignmentEditDialog({
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   <button
                     type="button"
                     tabIndex={-1}

@@ -107,6 +107,16 @@ export interface ActiveSession {
    * client's remembered weights. Null only on the rare doc with neither stamp.
    */
   prescriptionUpdatedAt?: string | null;
+  /**
+   * Per-exercise weight-prefill freshness anchor: `exerciseId → ISO-8601`. The
+   * coach stamps an entry here only for an exercise whose weights genuinely
+   * changed, so a plan edit pushes the routine for THAT exercise once while the
+   * client keeps their own weights on every untouched exercise. The resolver
+   * uses, per exercise, `prescriptionUpdatedAtByExerciseId[exerciseId] ??
+   * prescriptionUpdatedAt ?? createdAt`. Empty/absent on docs written before
+   * this field existed (then the doc-level anchor is the only signal).
+   */
+  prescriptionUpdatedAtByExerciseId?: Record<string, string>;
 }
 
 /** Compact summary for notifications/sidebar surfaces. */

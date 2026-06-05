@@ -93,6 +93,44 @@ export function weightsDifferBetweenSnapshots(
   return false;
 }
 
+/**
+ * The exerciseIds whose `weightBySetKg` differs between two snapshots' exercise
+ * lists, matched by `exerciseId` — the PER-EXERCISE granular twin of
+ * `weightsDifferBetweenSnapshots`. An id is returned when:
+ *   - it appears in both lists with a different `weightBySetKg` (changed value
+ *     OR a set added/removed), OR
+ *   - it carried weight in one list and is gone (or weight-stripped) in the
+ *     other — i.e. an added/removed WEIGHTED exercise.
+ * A new/removed BODYWEIGHT exercise (no/empty weights) is NOT returned (nothing
+ * weight-bearing changed). Reorders with identical weights → []. Notes/reps/rest
+ * changes → []. The result preserves no particular order and contains no
+ * duplicates.
+ *
+ * Used by callers that stamp `prescriptionUpdatedAtByExerciseId.<exId>` so ONLY
+ * the exercises whose weights genuinely changed get pushed to the client.
+ * Positional `__idx_<n>` keys (from weightsById) are intentionally excluded —
+ * a per-exercise stamp is only meaningful for a real exerciseId.
+ */
+export function changedWeightExerciseIds(
+  oldExercises: ReadonlyArray<WeightComparableExercise> | undefined,
+  newExercises: ReadonlyArray<WeightComparableExercise> | undefined,
+): string[] {
+  const oldMap = weightsById(oldExercises);
+  const newMap = weightsById(newExercises);
+
+  const out: string[] = [];
+  const allIds = new Set<string>([...oldMap.keys(), ...newMap.keys()]);
+  for (const id of allIds) {
+    // Only a real exerciseId can carry a per-exercise stamp; skip positional
+    // placeholders for id-less exercises.
+    if (id.startsWith("__idx_")) continue;
+    const oldW = oldMap.get(id) ?? [];
+    const newW = newMap.get(id) ?? [];
+    if (!weightArraysEqual(oldW, newW)) out.push(id);
+  }
+  return out;
+}
+
 /** Extract the `exercises` array from a loosely-typed snapshot value. */
 export function exercisesOf(
   snapshot: unknown,

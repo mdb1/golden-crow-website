@@ -6,6 +6,7 @@
 
 import {
   weightsDifferBetweenSnapshots,
+  changedWeightExerciseIds,
   exercisesOf,
   type WeightComparableExercise,
 } from "../weight-diff";
@@ -103,6 +104,101 @@ describe("weightsDifferBetweenSnapshots", () => {
     const before = [{ exerciseId: "a", weightBySetKg: [Number.NaN] }];
     const after = [{ exerciseId: "a", weightBySetKg: [0] }];
     expect(weightsDifferBetweenSnapshots(before, after)).toBe(false);
+  });
+});
+
+describe("changedWeightExerciseIds", () => {
+  // Mirrors the boolean helper's cases, asserting WHICH exerciseIds changed.
+  it("notes-only change → []", () => {
+    const before = [ex("a", [20, 20], { notes: "old" })];
+    const after = [ex("a", [20, 20], { notes: "totally different note" })];
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("identical weights with reps/rest changes → []", () => {
+    const before = [ex("a", [40, 40], { reps: 8, rest_seconds: 90 })];
+    const after = [ex("a", [40, 40], { reps: 12, rest_seconds: 120 })];
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("changed weight value → [the changed id]", () => {
+    const before = [ex("a", [20, 20])];
+    const after = [ex("a", [20, 25])];
+    expect(changedWeightExerciseIds(before, after)).toEqual(["a"]);
+  });
+
+  it("added a set (extra weight entry) → [id]", () => {
+    const before = [ex("a", [20, 20])];
+    const after = [ex("a", [20, 20, 20])];
+    expect(changedWeightExerciseIds(before, after)).toEqual(["a"]);
+  });
+
+  it("removed a set (fewer weight entries) → [id]", () => {
+    const before = [ex("a", [20, 20, 20])];
+    const after = [ex("a", [20, 20])];
+    expect(changedWeightExerciseIds(before, after)).toEqual(["a"]);
+  });
+
+  it("added a NEW weighted exercise → [the new id only]", () => {
+    const before = [ex("a", [20])];
+    const after = [ex("a", [20]), ex("b", [30])];
+    expect(changedWeightExerciseIds(before, after)).toEqual(["b"]);
+  });
+
+  it("added a new BODYWEIGHT exercise (no/empty weights) → []", () => {
+    const before = [ex("a", [20])];
+    const after = [ex("a", [20]), ex("b", [])];
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("removed a weighted exercise → [the removed id]", () => {
+    const before = [ex("a", [20]), ex("b", [30])];
+    const after = [ex("a", [20])];
+    expect(changedWeightExerciseIds(before, after)).toEqual(["b"]);
+  });
+
+  it("reordering exercises with identical weights → [] (matched by id)", () => {
+    const before = [ex("a", [20]), ex("b", [30])];
+    const after = [ex("b", [30]), ex("a", [20])];
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("missing weightBySetKg ↔ empty array are equivalent → []", () => {
+    const before = [ex("a", undefined)];
+    const after = [ex("a", [])];
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("missing weightBySetKg → non-empty weights → [id]", () => {
+    const before = [ex("a", undefined)];
+    const after = [ex("a", [20])];
+    expect(changedWeightExerciseIds(before, after)).toEqual(["a"]);
+  });
+
+  it("both empty exercise lists → []", () => {
+    expect(changedWeightExerciseIds([], [])).toEqual([]);
+    expect(changedWeightExerciseIds(undefined, undefined)).toEqual([]);
+  });
+
+  it("id-less exercises change positionally but yield NO stampable ids", () => {
+    // weightsDifferBetweenSnapshots returns true here, but a positional
+    // __idx_ placeholder cannot carry a per-exercise stamp, so we return [].
+    const before = [ex("", [10]), ex("", [20])];
+    const after = [ex("", [10]), ex("", [99])];
+    expect(weightsDifferBetweenSnapshots(before, after)).toBe(true);
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("non-finite weight entries are normalized to 0 (no spurious id)", () => {
+    const before = [{ exerciseId: "a", weightBySetKg: [Number.NaN] }];
+    const after = [{ exerciseId: "a", weightBySetKg: [0] }];
+    expect(changedWeightExerciseIds(before, after)).toEqual([]);
+  });
+
+  it("multiple changed exercises → all their ids (order-insensitive)", () => {
+    const before = [ex("a", [20]), ex("b", [30]), ex("c", [40])];
+    const after = [ex("a", [25]), ex("b", [30]), ex("c", [45])];
+    expect(changedWeightExerciseIds(before, after).sort()).toEqual(["a", "c"]);
   });
 });
 

@@ -42,7 +42,7 @@ import {
 } from "./workout-assignment-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import {
-  weightsDifferBetweenSnapshots,
+  changedWeightExerciseIds,
   exercisesOf,
 } from "./weight-diff";
 import {
@@ -290,6 +290,59 @@ function nextCivilForWeekdayOnOrAfter(civilDate: string, weekday: number): strin
   const currentWeekday = dayOfWeekFromCivil(civilDate);
   const delta = (weekday - currentWeekday + 7) % 7;
   return addCivilDays(civilDate, delta);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-exercise weight-prefill freshness anchor (prescriptionUpdatedAtByExerciseId)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// simplify-weight-prefill: instead of bumping the doc-level
+// `prescriptionUpdatedAt` (which resets the WHOLE workout for the client), we
+// stamp ONLY the exerciseIds whose weights actually changed into the
+// `prescriptionUpdatedAtByExerciseId` map. The resolver reads, per exercise,
+// `prescriptionUpdatedAtByExerciseId[exId] ?? prescriptionUpdatedAt ?? createdAt`.
+//
+// We write each entry via a dotted field-path key (`prescriptionUpdatedAtByExerciseId.<exId>`)
+// so an update touches only that entry, not the whole map. exerciseIds are slugs
+// like "wger-123" (no dots/spaces), but Firestore field paths treat `.` `~` `/`
+// `*` `[` `]` specially, so we GUARD: any id with one of those characters is
+// merged via a read-modify-write of the whole map instead of a dotted path.
+
+/** Firestore field-path-unsafe characters: `.` `~` `/` `*` `[` `]`. */
+const UNSAFE_FIELD_PATH_RE = /[.~/*[\]]/;
+
+/**
+ * Build a Firestore update object that stamps `serverTimestamp()` for each
+ * changed exerciseId into `prescriptionUpdatedAtByExerciseId`. Safe ids use a
+ * dotted field-path key (single-entry merge); any id containing a field-path
+ * special char falls back to merging the whole map (read from `existingMap`).
+ * Returns `{}` when there are no changed ids (caller must not touch the map).
+ */
+function buildPerExerciseStampUpdate(
+  changedIds: string[],
+  existingMap: unknown,
+): Record<string, unknown> {
+  if (changedIds.length === 0) return {};
+  const safe: string[] = [];
+  const unsafe: string[] = [];
+  for (const id of changedIds) {
+    (UNSAFE_FIELD_PATH_RE.test(id) ? unsafe : safe).push(id);
+  }
+  const update: Record<string, unknown> = {};
+  for (const id of safe) {
+    update[`prescriptionUpdatedAtByExerciseId.${id}`] =
+      FieldValue.serverTimestamp();
+  }
+  if (unsafe.length > 0) {
+    // Merge the whole map (preserve existing entries) for the rare unsafe id.
+    const merged: Record<string, unknown> =
+      existingMap && typeof existingMap === "object"
+        ? { ...(existingMap as Record<string, unknown>) }
+        : {};
+    for (const id of unsafe) merged[id] = FieldValue.serverTimestamp();
+    update.prescriptionUpdatedAtByExerciseId = merged;
+  }
+  return update;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1419,27 +1472,32 @@ export async function propagateTemplateToFutureAssignments(
   for (let i = 0; i < targets.length; i += CHUNK) {
     const batch = db.batch();
     for (const doc of targets.slice(i, i + CHUNK)) {
-      const existing = (doc.data() as { templateSnapshot?: unknown })
-        .templateSnapshot;
+      const docData = doc.data() as {
+        templateSnapshot?: unknown;
+        prescriptionUpdatedAtByExerciseId?: unknown;
+      };
+      const existing = docData.templateSnapshot;
       const nextSnapshot = snapshotForAssignment(existing);
-      // Bump the freshness anchor ONLY when the coach opted to push weights AND
-      // this assignment's weights genuinely changed vs its prior snapshot. With
-      // pushWeights off the client keeps their own weights, so the anchor is
-      // left untouched and nothing surfaces a "coach updated" alert. With it on,
-      // we still skip the bump for assignments whose weights happen to be
-      // identical to the template's — no point nagging an unchanged client.
-      const bump =
-        pushWeights &&
-        weightsDifferBetweenSnapshots(
-          exercisesOf(existing),
-          exercisesOf(nextSnapshot),
-        );
+      // Stamp the freshness anchor PER EXERCISE — only when the coach opted to
+      // push weights AND only for the exercises whose weights genuinely changed
+      // vs this assignment's prior snapshot. With pushWeights off the client
+      // keeps their own weights, so nothing is stamped and no "coach updated"
+      // alert fires. With it on, an exercise whose weight happens to already
+      // match the template is skipped too — no point nagging on an unchanged
+      // exercise. We no longer bump the doc-level `prescriptionUpdatedAt`.
+      const changedIds = pushWeights
+        ? changedWeightExerciseIds(
+            exercisesOf(existing),
+            exercisesOf(nextSnapshot),
+          )
+        : [];
       batch.update(doc.ref, {
         templateSnapshot: nextSnapshot,
         updatedAt: FieldValue.serverTimestamp(),
-        ...(bump
-          ? { prescriptionUpdatedAt: FieldValue.serverTimestamp() }
-          : {}),
+        ...buildPerExerciseStampUpdate(
+          changedIds,
+          docData.prescriptionUpdatedAtByExerciseId,
+        ),
       });
     }
     await batch.commit();
@@ -1523,6 +1581,7 @@ export async function editAssignmentExercises(
   const targets: Array<{
     ref: FirebaseFirestore.DocumentReference;
     snapshot: unknown;
+    existingMap: unknown;
   }> = [];
   if (input.scope === "series" && typeof data.seriesId === "string" && data.seriesId) {
     const today = civilDateFormat(new Date(), await getTrainerTimezone());
@@ -1536,48 +1595,61 @@ export async function editAssignmentExercises(
         scheduledFor?: string;
         status?: string;
         templateSnapshot?: unknown;
+        prescriptionUpdatedAtByExerciseId?: unknown;
       };
       if (
         typeof dd.scheduledFor === "string" &&
         dd.scheduledFor >= today &&
         (!dd.status || dd.status === "scheduled")
       ) {
-        targets.push({ ref: d.ref, snapshot: dd.templateSnapshot });
+        targets.push({
+          ref: d.ref,
+          snapshot: dd.templateSnapshot,
+          existingMap: dd.prescriptionUpdatedAtByExerciseId,
+        });
       }
     }
     if (targets.length === 0) {
+      const cur = snap.data() as {
+        templateSnapshot?: unknown;
+        prescriptionUpdatedAtByExerciseId?: unknown;
+      };
       targets.push({
         ref,
-        snapshot: (snap.data() as { templateSnapshot?: unknown })
-          .templateSnapshot,
+        snapshot: cur.templateSnapshot,
+        existingMap: cur.prescriptionUpdatedAtByExerciseId,
       });
     }
   } else {
+    const cur = snap.data() as {
+      templateSnapshot?: unknown;
+      prescriptionUpdatedAtByExerciseId?: unknown;
+    };
     targets.push({
       ref,
-      snapshot: (snap.data() as { templateSnapshot?: unknown })
-        .templateSnapshot,
+      snapshot: cur.templateSnapshot,
+      existingMap: cur.prescriptionUpdatedAtByExerciseId,
     });
   }
 
   const batch = db.batch();
   for (const tgt of targets) {
     const nextSnapshot = applyEdits(tgt.snapshot);
-    // Bump the weight-prefill freshness anchor ONLY when the WEIGHTS actually
-    // changed vs the current snapshot. Each client can hold their own weights,
-    // so a notes-only (or reps/rest-only) edit must NOT reset them — bumping
-    // would make the apps surface the routine weights once and nag the client
-    // spuriously. Editing a client's weights specifically SHOULD push (bump).
-    const weightsChanged = weightsDifferBetweenSnapshots(
+    // Stamp the weight-prefill freshness anchor PER EXERCISE — only for the
+    // exercises whose WEIGHTS actually changed vs the current snapshot. Each
+    // client holds their own weights per exercise, so a notes-only (or
+    // reps/rest-only) edit stamps nothing and leaves the rest untouched; the
+    // client keeps their own weights on every exercise the coach didn't change.
+    // We no longer bump the doc-level `prescriptionUpdatedAt` on edits — it
+    // stays as the create baseline + legacy fallback.
+    const changedIds = changedWeightExerciseIds(
       exercisesOf(tgt.snapshot),
       exercisesOf(nextSnapshot),
     );
     batch.update(tgt.ref, {
       templateSnapshot: nextSnapshot,
       updatedAt: FieldValue.serverTimestamp(),
-      ...(weightsChanged
-        ? { prescriptionUpdatedAt: FieldValue.serverTimestamp() }
-        : {}),
+      ...buildPerExerciseStampUpdate(changedIds, tgt.existingMap),
     });
   }
   await batch.commit();
