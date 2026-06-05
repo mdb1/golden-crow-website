@@ -18,6 +18,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ChecklistEditDialog } from "@/components/gc-fitness/ChecklistEditDialog";
+import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,25 @@ const RECURRENCE_LABEL: Record<string, string> = {
   monthly: "Mensual",
 };
 
+// 1=Mon … 7=Sun → short labels for the list pill.
+const WEEKDAY_LETTER = ["", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function recurrenceSummary(item: CoachChecklistItem): string {
+  const base = RECURRENCE_LABEL[item.recurrence] ?? item.recurrence;
+  if (item.recurrence === "weekly" && item.recurrenceWeekdays.length > 0) {
+    const days = [...item.recurrenceWeekdays]
+      .sort((a, b) => a - b)
+      .map((d) => WEEKDAY_LETTER[d] ?? d)
+      .join(", ");
+    return `${base} · ${days}`;
+  }
+  if (item.recurrence === "monthly" && item.recurrenceMonthDays.length > 0) {
+    const days = [...item.recurrenceMonthDays].sort((a, b) => a - b).join(", ");
+    return `${base} · día ${days}`;
+  }
+  return base;
+}
+
 export function CoachChecklistClient({ items, clients }: Props) {
   const t = useTranslations("coachChecklist");
   const locale = useLocale();
@@ -85,6 +105,15 @@ export function CoachChecklistClient({ items, clients }: Props) {
         dueTime: String(formData.get("dueTime") ?? ""),
         clientId: String(formData.get("clientId") ?? ""),
         recurrence: String(formData.get("recurrence") ?? "none"),
+        recurrenceEndsOn: String(formData.get("recurrenceEndsOn") ?? ""),
+        recurrenceWeekdays: formData
+          .getAll("recurrenceWeekdays")
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n)),
+        recurrenceMonthDays: formData
+          .getAll("recurrenceMonthDays")
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n)),
       });
       form.reset();
       router.refresh();
@@ -135,7 +164,7 @@ export function CoachChecklistClient({ items, clients }: Props) {
                 />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="grid gap-2">
                 <Label htmlFor="checklist-client">Cliente</Label>
                 <select
@@ -153,20 +182,6 @@ export function CoachChecklistClient({ items, clients }: Props) {
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="checklist-recurrence">Recurrencia</Label>
-                <select
-                  id="checklist-recurrence"
-                  name="recurrence"
-                  defaultValue="none"
-                  className={SELECT_CLASS}
-                >
-                  <option value="none">Única</option>
-                  <option value="daily">Diaria</option>
-                  <option value="weekly">Semanal</option>
-                  <option value="monthly">Mensual</option>
-                </select>
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="checklist-date">{t("dateLabel")}</Label>
                 <Input id="checklist-date" name="dueDate" type="date" className="h-11" />
               </div>
@@ -175,6 +190,7 @@ export function CoachChecklistClient({ items, clients }: Props) {
                 <Input id="checklist-time" name="dueTime" type="time" className="h-11" />
               </div>
             </div>
+            <ChecklistRecurrenceFields idPrefix="checklist-create" />
             <Button
               type="submit"
               disabled={pending}
@@ -282,7 +298,10 @@ export function CoachChecklistClient({ items, clients }: Props) {
                             {item.recurrence !== "none" ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
                                 <Repeat className="size-3" />
-                                {RECURRENCE_LABEL[item.recurrence] ?? item.recurrence}
+                                {recurrenceSummary(item)}
+                                {item.recurrenceEndsOn
+                                  ? ` · hasta ${item.recurrenceEndsOn}`
+                                  : ""}
                               </span>
                             ) : null}
                           </div>

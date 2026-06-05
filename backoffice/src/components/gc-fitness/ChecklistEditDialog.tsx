@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import type { CoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
 import { updateCoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
 
@@ -67,6 +68,15 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
         dueTime: String(formData.get("dueTime") ?? ""),
         clientId: String(formData.get("clientId") ?? ""),
         recurrence: String(formData.get("recurrence") ?? "none"),
+        recurrenceEndsOn: String(formData.get("recurrenceEndsOn") ?? ""),
+        recurrenceWeekdays: formData
+          .getAll("recurrenceWeekdays")
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n)),
+        recurrenceMonthDays: formData
+          .getAll("recurrenceMonthDays")
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n)),
       });
       setOpen(false);
       router.refresh();
@@ -107,40 +117,33 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
               className="min-h-20"
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {clients.length > 0 ? (
-              <div className="grid gap-2">
-                <Label htmlFor={`edit-client-${item.id}`}>Cliente</Label>
-                <select
-                  id={`edit-client-${item.id}`}
-                  name="clientId"
-                  defaultValue={item.clientId ?? ""}
-                  className={SELECT_CLASS}
-                >
-                  <option value="">Sin cliente</option>
-                  {clients.map((c) => (
-                    <option key={c.uid} value={c.uid}>
-                      {c.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
+          {clients.length > 0 ? (
             <div className="grid gap-2">
-              <Label htmlFor={`edit-recurrence-${item.id}`}>Recurrencia</Label>
+              <Label htmlFor={`edit-client-${item.id}`}>Cliente</Label>
               <select
-                id={`edit-recurrence-${item.id}`}
-                name="recurrence"
-                defaultValue={item.recurrence ?? "none"}
+                id={`edit-client-${item.id}`}
+                name="clientId"
+                defaultValue={item.clientId ?? ""}
                 className={SELECT_CLASS}
               >
-                <option value="none">Única</option>
-                <option value="daily">Diaria</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensual</option>
+                <option value="">Sin cliente</option>
+                {clients.map((c) => (
+                  <option key={c.uid} value={c.uid}>
+                    {c.displayName}
+                  </option>
+                ))}
               </select>
             </div>
-          </div>
+          ) : null}
+          <ChecklistRecurrenceFields
+            idPrefix={`edit-${item.id}`}
+            defaults={{
+              recurrence: item.recurrence,
+              endsOn: item.recurrenceEndsOn,
+              weekdays: item.recurrenceWeekdays,
+              monthDays: item.recurrenceMonthDays,
+            }}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor={`edit-date-${item.id}`}>{t("dateLabel")}</Label>
