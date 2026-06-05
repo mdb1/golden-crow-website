@@ -24,10 +24,9 @@ export interface CoachChecklistItem {
   dueAt: string | null;
   completed: boolean;
   createdAt: string | null;
-  /** Optional client this reminder is about (links to /gc-fitness/clients/[id]). */
-  clientId: string | null;
-  /** Resolved display name for `clientId` (null if unknown / no client). */
-  clientName: string | null;
+  /** Clients this reminder is about (each links to /gc-fitness/clients/[id]).
+   *  Empty when the reminder isn't tied to anyone. */
+  clients: Array<{ id: string; name: string }>;
   recurrence: ChecklistRecurrence;
   /** Recurrence end date (YYYY-MM-DD) or null for "no end". */
   recurrenceEndsOn: string | null;
@@ -42,7 +41,7 @@ const createChecklistItemSchema = z.object({
   notes: z.string().trim().max(500).optional(),
   dueDate: z.string().trim().optional(),
   dueTime: z.string().trim().optional(),
-  clientId: z.string().trim().max(128).optional(),
+  clientIds: z.array(z.string().trim().min(1).max(128)).max(50).optional(),
   recurrence: z.enum(["none", "daily", "weekly", "monthly"]).optional(),
   recurrenceEndsOn: z.string().trim().optional(),
   recurrenceWeekdays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
@@ -147,47 +146,60 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
     .limit(MAX_CHECKLIST_ITEMS)
     .get();
 
-  const rows: CoachChecklistItem[] = snap.docs.map((doc) => {
+  // Each row carries its linked client UIDs; names are resolved below.
+  const rows = snap.docs.map((doc) => {
     const data = doc.data() as Record<string, unknown>;
+    // New docs store `clientIds: string[]`; legacy docs stored a single
+    // `clientId` — read both so old reminders keep their link.
+    const ids = Array.isArray(data.clientIds)
+      ? data.clientIds.filter(
+          (v): v is string => typeof v === "string" && v.length > 0,
+        )
+      : typeof data.clientId === "string" && data.clientId.length > 0
+        ? [data.clientId]
+        : [];
     return {
-      id: doc.id,
-      title: typeof data.title === "string" ? data.title : "Reminder",
-      notes:
-        typeof data.notes === "string" && data.notes.trim().length > 0
-          ? data.notes
-          : null,
-      dueAt: toIso(data.dueAt),
-      completed: data.completed === true,
-      createdAt: toIso(data.createdAt),
-      clientId:
-        typeof data.clientId === "string" && data.clientId.length > 0
-          ? data.clientId
-          : null,
-      clientName: null,
-      recurrence: normalizeRecurrence(data.recurrence),
-      recurrenceEndsOn: toCivilDate(data.recurrenceEndsAt),
-      recurrenceWeekdays: sanitizeIntArray(data.recurrenceWeekdays, 1, 7),
-      recurrenceMonthDays: sanitizeIntArray(data.recurrenceMonthDays, 1, 31),
+      item: {
+        id: doc.id,
+        title: typeof data.title === "string" ? data.title : "Reminder",
+        notes:
+          typeof data.notes === "string" && data.notes.trim().length > 0
+            ? data.notes
+            : null,
+        dueAt: toIso(data.dueAt),
+        completed: data.completed === true,
+        createdAt: toIso(data.createdAt),
+        clients: [] as Array<{ id: string; name: string }>,
+        recurrence: normalizeRecurrence(data.recurrence),
+        recurrenceEndsOn: toCivilDate(data.recurrenceEndsAt),
+        recurrenceWeekdays: sanitizeIntArray(data.recurrenceWeekdays, 1, 7),
+        recurrenceMonthDays: sanitizeIntArray(data.recurrenceMonthDays, 1, 31),
+      } satisfies CoachChecklistItem,
+      clientIds: ids,
     };
   });
 
-  // Resolve display names for the linked clients (one cached roster read).
-  const linkedClientIds = new Set(
-    rows.map((r) => r.clientId).filter((v): v is string => v !== null),
-  );
-  if (linkedClientIds.size > 0) {
+  // Resolve display names for every linked client (one cached roster read).
+  const allClientIds = new Set(rows.flatMap((r) => r.clientIds));
+  let nameByUid = new Map<string, string>();
+  if (allClientIds.size > 0) {
     try {
       const roster = await listClients();
-      const nameByUid = new Map(roster.map((c) => [c.uid, c.displayName]));
-      for (const row of rows) {
-        if (row.clientId) row.clientName = nameByUid.get(row.clientId) ?? null;
-      }
+      nameByUid = new Map(roster.map((c) => [c.uid, c.displayName]));
     } catch {
-      // Best-effort — leave names null if the roster read fails.
+      // Best-effort — fall back to the raw uid if the roster read fails.
     }
   }
+  for (const row of rows) {
+    row.item.clients = row.clientIds.map((id) => ({
+      id,
+      name: nameByUid.get(id) ?? id,
+    }));
+  }
 
-  return rows.sort((a, b) => Number(a.completed) - Number(b.completed));
+  return rows
+    .map((r) => r.item)
+    .sort((a, b) => Number(a.completed) - Number(b.completed));
 }
 
 export type PendingChecklistBucket = "overdue" | "today";
@@ -248,7 +260,9 @@ export async function createCoachChecklistItem(
   await checklistCollection(trainer.uid).add({
     title: parsed.title,
     ...(parsed.notes ? { notes: parsed.notes } : {}),
-    ...(parsed.clientId ? { clientId: parsed.clientId } : {}),
+    ...(parsed.clientIds && parsed.clientIds.length > 0
+      ? { clientIds: parsed.clientIds }
+      : {}),
     recurrence,
     ...(recurrenceEndsAt ? { recurrenceEndsAt } : {}),
     ...(recurrence === "weekly" && parsed.recurrenceWeekdays?.length
@@ -292,7 +306,12 @@ export async function updateCoachChecklistItem(
     .update({
       title: parsed.title,
       notes: parsed.notes ? parsed.notes : FieldValue.delete(),
-      clientId: parsed.clientId ? parsed.clientId : FieldValue.delete(),
+      clientIds:
+        parsed.clientIds && parsed.clientIds.length > 0
+          ? parsed.clientIds
+          : FieldValue.delete(),
+      // Drop the legacy single-client field on any edit.
+      clientId: FieldValue.delete(),
       recurrence,
       // Cleared / inapplicable recurrence sub-fields are removed, not left stale.
       recurrenceEndsAt: recurrenceEndsAt ?? FieldValue.delete(),

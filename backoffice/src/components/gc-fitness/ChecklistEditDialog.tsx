@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ChecklistClientPicker } from "@/components/gc-fitness/ChecklistClientPicker";
 import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import type { CoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
 import { updateCoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
@@ -28,9 +29,6 @@ interface Props {
   /** Linkable clients. When empty (e.g. the dashboard widget) the picker is hidden. */
   clients?: Array<{ uid: string; displayName: string }>;
 }
-
-const SELECT_CLASS =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // Split a stored ISO `dueAt` into the local date/time strings the
 // <input type="date"|"time"> controls expect. Empty when there's no due date.
@@ -67,7 +65,7 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
         notes: String(formData.get("notes") ?? ""),
         dueDate: String(formData.get("dueDate") ?? ""),
         dueTime: String(formData.get("dueTime") ?? ""),
-        clientId: String(formData.get("clientId") ?? ""),
+        clientIds: formData.getAll("clientIds").map((v) => String(v)),
         recurrence: String(formData.get("recurrence") ?? "none"),
         recurrenceEndsOn: String(formData.get("recurrenceEndsOn") ?? ""),
         recurrenceWeekdays: formData
@@ -120,20 +118,11 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
           </div>
           {clients.length > 0 ? (
             <div className="grid gap-2">
-              <Label htmlFor={`edit-client-${item.id}`}>Cliente</Label>
-              <select
-                id={`edit-client-${item.id}`}
-                name="clientId"
-                defaultValue={item.clientId ?? ""}
-                className={SELECT_CLASS}
-              >
-                <option value="">Sin cliente</option>
-                {clients.map((c) => (
-                  <option key={c.uid} value={c.uid}>
-                    {c.displayName}
-                  </option>
-                ))}
-              </select>
+              <Label>Clientes</Label>
+              <ChecklistClientPicker
+                clients={clients}
+                defaultSelected={item.clients.map((c) => c.id)}
+              />
             </div>
           ) : null}
           <ChecklistRecurrenceFields

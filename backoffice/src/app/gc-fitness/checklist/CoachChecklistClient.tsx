@@ -18,6 +18,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ChecklistEditDialog } from "@/components/gc-fitness/ChecklistEditDialog";
+import { ChecklistClientPicker } from "@/components/gc-fitness/ChecklistClientPicker";
 import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,11 +42,6 @@ interface Props {
   items: CoachChecklistItem[];
   clients: ChecklistClientOption[];
 }
-
-// Native-select styling matching the shadcn Input look (the create/edit forms
-// are uncontrolled FormData forms, so we use native <select> not Radix Select).
-const SELECT_CLASS =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 const RECURRENCE_LABEL: Record<string, string> = {
   daily: "Diaria",
@@ -107,7 +103,7 @@ export function CoachChecklistClient({ items, clients }: Props) {
         notes: String(formData.get("notes") ?? ""),
         dueDate: String(formData.get("dueDate") ?? ""),
         dueTime: String(formData.get("dueTime") ?? ""),
-        clientId: String(formData.get("clientId") ?? ""),
+        clientIds: formData.getAll("clientIds").map((v) => String(v)),
         recurrence: String(formData.get("recurrence") ?? "none"),
         recurrenceEndsOn: String(formData.get("recurrenceEndsOn") ?? ""),
         recurrenceWeekdays: formData
@@ -169,23 +165,11 @@ export function CoachChecklistClient({ items, clients }: Props) {
                 />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="grid gap-2">
-                <Label htmlFor="checklist-client">Cliente</Label>
-                <select
-                  id="checklist-client"
-                  name="clientId"
-                  defaultValue=""
-                  className={SELECT_CLASS}
-                >
-                  <option value="">Sin cliente</option>
-                  {clients.map((c) => (
-                    <option key={c.uid} value={c.uid}>
-                      {c.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="grid gap-2">
+              <Label>Clientes</Label>
+              <ChecklistClientPicker clients={clients} />
+            </div>
+            <div className="grid gap-3 sm:max-w-md sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="checklist-date">{t("dateLabel")}</Label>
                 <Input id="checklist-date" name="dueDate" type="date" className="h-11" />
@@ -314,14 +298,19 @@ export function CoachChecklistClient({ items, clients }: Props) {
                               </span>
                             ) : null}
                           </div>
-                          {item.clientId ? (
-                            <Link
-                              href={`/gc-fitness/clients/${item.clientId}`}
-                              className="mt-1 inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
-                            >
-                              <User className="size-3.5" />
-                              {item.clientName ?? "Ver cliente"}
-                            </Link>
+                          {item.clients.length > 0 ? (
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {item.clients.map((c) => (
+                                <Link
+                                  key={c.id}
+                                  href={`/gc-fitness/clients/${c.id}`}
+                                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-primary hover:underline"
+                                >
+                                  <User className="size-3" />
+                                  {c.name}
+                                </Link>
+                              ))}
+                            </div>
                           ) : null}
                           {item.notes ? (
                             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
