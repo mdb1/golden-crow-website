@@ -26,13 +26,7 @@ import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { PillTabs, type PillTabItem } from "@/components/gc-fitness/pill-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import {
   listRecentLogsForTrainerPage,
@@ -86,9 +80,12 @@ export function RecentLogsFeed({
   initialHasMore = false,
 }: Props) {
   const t = useTranslations("recentLogs.feed");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
-  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [typeFilter, setTypeFilter] = useState<string>("all");
   // 260531-fwc — server-paginated. Filters refetch page 1 server-side (the
   // feed is no longer fully in memory); "Cargar más" appends the next window.
@@ -99,15 +96,21 @@ export function RecentLogsFeed({
 
   // Re-fetch page 1 whenever a filter changes (translates the filter to the
   // server-side client / type scope so pagination + filtering compose).
-  async function applyFilters(nextClient: string, nextType: string) {
-    setClientFilter(nextClient);
+  async function applyFilters(nextClientIds: Set<string>, nextType: string) {
+    setSelectedClientIds(new Set(nextClientIds));
     setTypeFilter(nextType);
+    if (nextClientIds.size === 0) {
+      setRows([]);
+      setCursor(null);
+      setHasMore(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await listRecentLogsForTrainerPage(
         null,
         PAGE_SIZE,
-        nextClient === "all" ? null : nextClient,
+        Array.from(nextClientIds),
         nextType === "all" ? null : (nextType as RecentLogRow["category"]),
       );
       setRows(res.logs);
@@ -125,7 +128,7 @@ export function RecentLogsFeed({
       const res = await listRecentLogsForTrainerPage(
         cursor,
         PAGE_SIZE,
-        clientFilter === "all" ? null : clientFilter,
+        Array.from(selectedClientIds),
         typeFilter === "all" ? null : (typeFilter as RecentLogRow["category"]),
       );
       setRows((prev) => {
@@ -140,10 +143,20 @@ export function RecentLogsFeed({
     }
   }
 
-  const selectedClient =
-    clientFilter === "all"
-      ? null
-      : (clients.find((c) => c.id === clientFilter) ?? null);
+  function toggleClient(clientId: string) {
+    const next = new Set(selectedClientIds);
+    if (next.has(clientId)) next.delete(clientId);
+    else next.add(clientId);
+    void applyFilters(next, typeFilter);
+  }
+
+  function selectAllClients() {
+    void applyFilters(new Set(clients.map((client) => client.id)), typeFilter);
+  }
+
+  function clearClients() {
+    void applyFilters(new Set(), typeFilter);
+  }
 
   const filtered = rows;
   // Flat rows grouped under day headings so the date moves out of every row
@@ -163,43 +176,43 @@ export function RecentLogsFeed({
     {
       key: "all",
       label: t("tabAll"),
-      onSelect: () => applyFilters(clientFilter, "all"),
+      onSelect: () => applyFilters(selectedClientIds, "all"),
     },
     {
       key: "workout",
       label: t("workoutsOption"),
       icon: <Dumbbell />,
-      onSelect: () => applyFilters(clientFilter, "workout"),
+      onSelect: () => applyFilters(selectedClientIds, "workout"),
     },
     {
       key: "habit",
       label: t("habitsOption"),
       icon: <ListChecks />,
-      onSelect: () => applyFilters(clientFilter, "habit"),
+      onSelect: () => applyFilters(selectedClientIds, "habit"),
     },
     {
       key: "reschedule",
       label: t("reschedulesOption"),
       icon: <ArrowRightLeft />,
-      onSelect: () => applyFilters(clientFilter, "reschedule"),
+      onSelect: () => applyFilters(selectedClientIds, "reschedule"),
     },
     {
       key: "photo",
       label: t("photosOption"),
       icon: <Camera />,
-      onSelect: () => applyFilters(clientFilter, "photo"),
+      onSelect: () => applyFilters(selectedClientIds, "photo"),
     },
     {
       key: "weight",
       label: t("weightOption"),
       icon: <Scale />,
-      onSelect: () => applyFilters(clientFilter, "weight"),
+      onSelect: () => applyFilters(selectedClientIds, "weight"),
     },
     {
       key: "signup",
       label: t("signupOption"),
       icon: <User />,
-      onSelect: () => applyFilters(clientFilter, "signup"),
+      onSelect: () => applyFilters(selectedClientIds, "signup"),
     },
   ];
 
@@ -210,56 +223,71 @@ export function RecentLogsFeed({
           <div className="min-w-0 max-w-full overflow-x-auto">
             <PillTabs activeKey={typeFilter} items={tabItems} />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-sm text-muted-foreground">
-              {t("clientLabel")}
-            </span>
-            <Select
-              value={clientFilter}
-              onValueChange={(v) => applyFilters(v, typeFilter)}
-              disabled={loading}
-            >
-              <SelectTrigger className="h-10 w-full min-w-0 sm:w-auto sm:min-w-[12rem]">
-                <SelectValue placeholder={t("allClients")}>
-                  {selectedClient ? (
-                    <span className="flex items-center gap-2">
-                      <ClientAvatar
-                        name={selectedClient.name}
-                        photoURL={selectedClient.photoURL}
-                        size="sm"
-                      />
-                      <span className="truncate">{selectedClient.name}</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      {t("allClients")}
-                    </span>
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <span className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    {t("allClients")}
-                  </span>
-                </SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    <span className="flex items-center gap-2">
-                      <ClientAvatar
-                        name={client.name}
-                        photoURL={client.photoURL}
-                        size="sm"
-                      />
-                      <span className="truncate">{client.name}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="shrink-0 text-sm text-muted-foreground">
+                  {t("clientLabel")}
+                </span>
+                <span className="text-sm font-medium tabular-nums">
+                  {t("selectedClients", {
+                    selected: selectedClientIds.size,
+                    total: clients.length,
+                  })}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={selectAllClients}
+                  disabled={loading || selectedClientIds.size === clients.length}
+                >
+                  <Users className="size-4" />
+                  {tCommon("selectAll")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={clearClients}
+                  disabled={loading || selectedClientIds.size === 0}
+                >
+                  {tCommon("clear")}
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {clients.map((client) => {
+                const active = selectedClientIds.has(client.id);
+                return (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => toggleClient(client.id)}
+                    disabled={loading}
+                    aria-pressed={active}
+                    className={cn(
+                      "inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm font-medium transition-colors disabled:opacity-60",
+                      active
+                        ? "border-transparent bg-primary text-primary-foreground"
+                        : "border-border bg-muted text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <ClientAvatar
+                      name={client.name}
+                      photoURL={client.photoURL}
+                      size="sm"
+                    />
+                    <span className="truncate">{client.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -268,7 +296,7 @@ export function RecentLogsFeed({
         {filtered.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              {t("noLogs")}
+              {selectedClientIds.size === 0 ? t("pickClients") : t("noLogs")}
             </CardContent>
           </Card>
         ) : null}

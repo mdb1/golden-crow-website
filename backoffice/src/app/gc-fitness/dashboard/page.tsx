@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  Activity,
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Gauge,
+  ScrollText,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -26,8 +29,8 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
-import { listRecentLogsForTrainer } from "@/lib/gc-fitness/recent-logs-actions";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
+import { listPendingChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { safe } from "@/lib/gc-fitness/safe-load";
 import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "@/lib/gc-fitness/client-attention";
 
@@ -37,16 +40,16 @@ import {
   DailyLineChart,
   TopPerformers,
 } from "./_components/coach-pulse";
+import { ChecklistPending } from "./_components/checklist-pending";
 
 export const dynamic = "force-dynamic";
-const RECENT_ACTIONS_PAGE_SIZE = 10;
 const ATTENTION_PAGE_SIZE = 10;
 const ATTENTION_INACTIVITY_THRESHOLD_DAYS = Math.round(
   NEEDS_ATTENTION_INACTIVITY_HOURS / 24,
 );
 
 interface DashboardPageProps {
-  searchParams: Promise<{ recentPage?: string; attentionPage?: string }>;
+  searchParams: Promise<{ attentionPage?: string }>;
 }
 
 export default async function GCFitnessDashboardPage({
@@ -67,9 +70,6 @@ export default async function GCFitnessDashboardPage({
   // query (e.g. a composite index still BUILDING) degrades only that card
   // instead of 500ing the whole dashboard. See safe-load.ts for the why.
   const roster = (await safe("client roster", () => listClientsForRoster())) ?? [];
-  const recentLogs = (await safe("recent logs", () =>
-    listRecentLogsForTrainer(),
-  )) ?? { logs: [], clients: [] };
   // Full zeroed fallback so a failed pulse load degrades to empty cards
   // (never null-derefs in the JSX below).
   const pulse = (await safe("coach pulse", () => getCoachPulse())) ?? {
@@ -81,14 +81,10 @@ export default async function GCFitnessDashboardPage({
     topPerformersToday: [],
     customExerciseCount: 0,
   };
-
-  const latestLogByClient = new Map<string, (typeof recentLogs.logs)[number]>();
-  for (const row of recentLogs.logs) {
-    const existing = latestLogByClient.get(row.clientId);
-    if (!existing || Date.parse(row.eventAt) > Date.parse(existing.eventAt)) {
-      latestLogByClient.set(row.clientId, row);
-    }
-  }
+  // Overdue + due-today checklist items for the dashboard widget. Behind
+  // `safe()` so a checklist read failure degrades to no widget, never a 500.
+  const pendingChecklist =
+    (await safe("coach checklist", () => listPendingChecklistItems())) ?? [];
 
   const tDashboard = await getTranslations("dashboard");
   const tNav = await getTranslations("nav");
@@ -96,16 +92,12 @@ export default async function GCFitnessDashboardPage({
   const activeClients = roster.filter((client) => client.source === "active");
   const lastActionRows = activeClients
     .map((client) => {
-      const latestLog = latestLogByClient.get(client.uid);
       return {
         uid: client.uid,
         name: client.displayName,
         photoURL: client.photoURL,
         lastActivityAt: client.lastActivityAt,
-        lastActionTitle: latestLog?.title ?? tDashboard("noActivity"),
-        lastActionDetail: latestLog?.detail ?? tDashboard("noRecords"),
-        category: latestLog?.category ?? null,
-        rpe: latestLog?.workout?.rpe ?? null,
+        lastActionTitle: tDashboard("noActivity"),
         // % adherence over the last 7 days — drives the activity progress bar.
         ratio: client.thisWeekComplianceRatio ?? 0,
       };
@@ -130,22 +122,12 @@ export default async function GCFitnessDashboardPage({
     });
 
   const params = await searchParams;
-  const requestedRecentPage = parsePage(params.recentPage);
   const requestedAttentionPage = parsePage(params.attentionPage);
-  const recentTotalPages = Math.max(
-    1,
-    Math.ceil(lastActionRows.length / RECENT_ACTIONS_PAGE_SIZE),
-  );
   const attentionTotalPages = Math.max(
     1,
     Math.ceil(staleRows.length / ATTENTION_PAGE_SIZE),
   );
-  const recentPage = Math.min(recentTotalPages, requestedRecentPage);
   const attentionPage = Math.min(attentionTotalPages, requestedAttentionPage);
-  const recentPageRows = lastActionRows.slice(
-    (recentPage - 1) * RECENT_ACTIONS_PAGE_SIZE,
-    recentPage * RECENT_ACTIONS_PAGE_SIZE,
-  );
   const attentionPageRows = staleRows.slice(
     (attentionPage - 1) * ATTENTION_PAGE_SIZE,
     attentionPage * ATTENTION_PAGE_SIZE,
@@ -154,7 +136,6 @@ export default async function GCFitnessDashboardPage({
   const activeClientCount = activeClients.length;
   const atRiskCount = staleRows.length;
   const attentionDays = ATTENTION_INACTIVITY_THRESHOLD_DAYS;
-  const staleUids = new Set(staleRows.map((row) => row.uid));
 
   // Headline adherence KPI: prefer this-week habit %, fall back to workout %.
   const adherencePct = pulse?.weekHabitPct || pulse?.weekWorkoutPct || 0;
@@ -181,6 +162,24 @@ export default async function GCFitnessDashboardPage({
             <Button asChild className="rounded-full min-h-10">
               <Link href="/gc-fitness/clients">
                 {tDashboard("addOrManageClients")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full min-h-10">
+              <Link href="/gc-fitness/checklist">
+                <ClipboardCheck className="size-4" />
+                {tDashboard("openChecklist")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full min-h-10">
+              <Link href="/gc-fitness/recent-logs">
+                <ScrollText className="size-4" />
+                {tNav("recentLogs")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full min-h-10">
+              <Link href="/gc-fitness/my-activity">
+                <Activity className="size-4" />
+                {tNav("myActivity")}
               </Link>
             </Button>
           </div>
@@ -218,6 +217,9 @@ export default async function GCFitnessDashboardPage({
         />
       </div>
 
+      {/* Pending checklist (overdue + due today) */}
+      <ChecklistPending items={pendingChecklist} />
+
       {/* Charts: workouts (gold bars) + habits (line) */}
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
@@ -250,50 +252,14 @@ export default async function GCFitnessDashboardPage({
         </Card>
       </div>
 
-      {/* Recent client activity */}
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="gc-page-title text-xl">
-              {tDashboard("recentActivityTitle")}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {tDashboard("recentActivitySubtitle")}
-            </p>
-          </div>
-          <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link href="/gc-fitness/recent-logs">{tDashboard("viewAll")}</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y divide-border">
-          {recentPageRows.length === 0 ? (
-            <EmptyRow>{tDashboard("noRecentActivity")}</EmptyRow>
-          ) : (
-            recentPageRows.map((row) => (
-              <ActivityRow
-                key={row.uid}
-                row={{
-                  uid: row.uid,
-                  name: row.name,
-                  photoURL: row.photoURL,
-                  primary: row.lastActionTitle,
-                  timeLabel: row.lastActivityAt
-                    ? formatRelative(row.lastActivityAt, tDashboard)
-                    : tDashboard("noActivity"),
-                  ratio: row.ratio,
-                  stale: staleUids.has(row.uid),
-                }}
-              />
-            ))
-          )}
-          <Pager
-            page={recentPage}
-            total={recentTotalPages}
-            buildHref={(p) => `?recentPage=${p}&attentionPage=${attentionPage}`}
-            t={tDashboard}
-          />
-        </CardContent>
-      </Card>
+      <div className="flex justify-end">
+        <Button asChild variant="outline" className="rounded-full">
+          <Link href="/gc-fitness/recent-logs">
+            <ScrollText className="size-4" />
+            {tDashboard("openRecentClientActivity")}
+          </Link>
+        </Button>
+      </div>
 
       {/* Top performers */}
       <div className="grid gap-4 xl:grid-cols-2">
@@ -365,7 +331,7 @@ export default async function GCFitnessDashboardPage({
           <Pager
             page={attentionPage}
             total={attentionTotalPages}
-            buildHref={(p) => `?recentPage=${recentPage}&attentionPage=${p}`}
+            buildHref={(p) => `?attentionPage=${p}`}
             t={tDashboard}
           />
         </CardContent>

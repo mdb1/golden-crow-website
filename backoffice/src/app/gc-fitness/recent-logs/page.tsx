@@ -9,7 +9,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
-import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
+import { listClients } from "@/lib/gc-fitness/client-roster";
 import { RecentLogsFeed } from "./_components/RecentLogsFeed";
 
 export const dynamic = "force-dynamic";
@@ -32,24 +32,20 @@ export default async function RecentLogsPage() {
   const tRecent = await getTranslations("recentLogs.feed");
   const trainerTimezone = await getTrainerTimezone();
 
-  // Plan 20-06: catch Server-Action failures (Firestore unavailable, index
-  // missing, transient network) so the trainer sees a tasteful recovery card
-  // instead of Next.js's default 500 page.
-  type PageResult = Awaited<ReturnType<typeof listRecentLogsForTrainerPage>>;
-  let logs: PageResult["logs"] = [];
-  let clients: PageResult["clients"] = [];
-  let nextCursor: PageResult["nextCursor"] = null;
-  let hasMore = false;
+  let clients: Array<{ id: string; name: string; photoURL: string | null }> = [];
   let loadFailed = false;
   try {
-    const result = await listRecentLogsForTrainerPage();
-    logs = result.logs;
-    clients = result.clients;
-    nextCursor = result.nextCursor;
-    hasMore = result.hasMore;
+    const roster = await listClients();
+    clients = roster
+      .filter((client) => !client.pendingProvisioning)
+      .map((client) => ({
+        id: client.uid,
+        name: client.displayName,
+        photoURL: client.photoURL,
+      }));
   } catch (err) {
     console.error(
-      `[gc-fitness/recent-logs] listRecentLogsForTrainerPage failed for trainer ${trainer.uid}`,
+      `[gc-fitness/recent-logs] listClients failed for trainer ${trainer.uid}`,
       err,
     );
     loadFailed = true;
@@ -85,11 +81,11 @@ export default async function RecentLogsPage() {
             </CardContent>
           </Card>
           <RecentLogsFeed
-            logs={logs}
+            logs={[]}
             clients={clients}
             trainerTimezone={trainerTimezone}
-            initialCursor={nextCursor}
-            initialHasMore={hasMore}
+            initialCursor={null}
+            initialHasMore={false}
           />
         </div>
       )}

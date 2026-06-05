@@ -22,7 +22,11 @@ import { RosterQueryProvider } from "./providers";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
   let trainer: CurrentTrainer;
   try {
     trainer = await getCurrentTrainer();
@@ -36,6 +40,8 @@ export default async function ClientsPage() {
 
   const rows = await listClientsForRoster();
   const t = await getTranslations("clients");
+  const params = await searchParams;
+  const initialNeedsAttentionOnly = params.filter === "attention";
 
   const activeCount = rows.filter((row) => !row.pendingProvisioning).length;
   const pendingCount = rows.filter((row) => row.pendingProvisioning).length;
@@ -52,7 +58,11 @@ export default async function ClientsPage() {
     <div className="gc-page flex flex-col gap-6">
       <AddClientPanel title={t("title")} subtitle={subtitle} />
       <RosterQueryProvider>
-        <RosterTable rows={rows} trainerUid={trainer.uid} />
+        <RosterTable
+          rows={rows}
+          trainerUid={trainer.uid}
+          initialNeedsAttentionOnly={initialNeedsAttentionOnly}
+        />
       </RosterQueryProvider>
     </div>
   );

@@ -6,10 +6,10 @@ import {
   Activity,
   Bell,
   CalendarDays,
+  ClipboardCheck,
   Home,
   Library,
   MessagesSquare,
-  ScrollText,
   Settings,
   Shield,
   Users,
@@ -72,7 +72,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { labelKey: "dashboard", href: "/gc-fitness/dashboard", icon: Home },
       { labelKey: "schedule", href: "/gc-fitness/schedule", icon: CalendarDays },
-      { labelKey: "myActivity", href: "/gc-fitness/my-activity", icon: Activity },
+      { labelKey: "checklist", href: "/gc-fitness/checklist", icon: ClipboardCheck },
       { labelKey: "notifications", href: "/gc-fitness/notifications", icon: Bell },
     ],
   },
@@ -80,11 +80,6 @@ const NAV_SECTIONS: NavSection[] = [
     sectionKey: "clientsGroup",
     items: [
       { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
-      {
-        labelKey: "recentLogs",
-        href: "/gc-fitness/recent-logs",
-        icon: ScrollText,
-      },
       { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
     ],
   },

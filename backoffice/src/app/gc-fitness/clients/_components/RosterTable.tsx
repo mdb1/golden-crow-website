@@ -46,6 +46,7 @@ import { RosterEmptyState } from "./RosterEmptyState";
 export interface RosterTableProps {
   rows: ClientRosterRow[];
   trainerUid: string;
+  initialNeedsAttentionOnly?: boolean;
 }
 
 function GoalPill({ label, count }: { label: string; count: number }) {
@@ -81,12 +82,17 @@ function ComplianceBar({ pct, good }: { pct: number; good: boolean }) {
   );
 }
 
-export function RosterTable({ rows }: RosterTableProps) {
+export function RosterTable({
+  rows,
+  initialNeedsAttentionOnly = false,
+}: RosterTableProps) {
   const router = useRouter();
   const t = useTranslations("clients");
   const tTable = useTranslations("clients.table");
   const tCommon = useTranslations("common");
-  const [needsAttentionOnly, setNeedsAttentionOnly] = useState(false);
+  const [needsAttentionOnly, setNeedsAttentionOnly] = useState(
+    initialNeedsAttentionOnly,
+  );
   const [query, setQuery] = useState("");
 
   // Locale-aware label for an attention reason string. Kept in lockstep with
@@ -270,10 +276,11 @@ export function RosterTable({ rows }: RosterTableProps) {
                       ) : null}
                     </div>
 
-                    {/* Esta semana — workouts completados */}
+                    {/* Este mes — workouts completados (los números son
+                        mensuales: completados/programados del mes en curso) */}
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs font-medium text-muted-foreground">
-                        {tTable("thisWeek")}
+                        {tTable("thisMonth")}
                       </p>
                       <span className="text-lg font-semibold tabular-nums text-foreground">
                         {row.workoutsScheduledThisMonth > 0

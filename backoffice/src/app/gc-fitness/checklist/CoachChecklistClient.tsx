@@ -1,0 +1,390 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { FormEvent, useMemo, useState, useTransition } from "react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+} from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { CoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
+import {
+  createCoachChecklistItem,
+  deleteCoachChecklistItem,
+  setCoachChecklistItemCompleted,
+} from "@/lib/gc-fitness/coach-checklist-actions";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  items: CoachChecklistItem[];
+}
+
+export function CoachChecklistClient({ items }: Props) {
+  const t = useTranslations("coachChecklist");
+  const locale = useLocale();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [showCompleted, setShowCompleted] = useState(false);
+  const now = useMemo(() => new Date(), []);
+  const activeItems = useMemo(
+    () => items.filter((item) => !item.completed),
+    [items],
+  );
+  const completedItems = useMemo(
+    () => items.filter((item) => item.completed),
+    [items],
+  );
+  const visibleItems = showCompleted ? items : activeItems;
+  const groups = useMemo(
+    () => groupItemsByDate(visibleItems, now, locale, t),
+    [locale, now, t, visibleItems],
+  );
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    startTransition(async () => {
+      await createCoachChecklistItem({
+        title: String(formData.get("title") ?? ""),
+        notes: String(formData.get("notes") ?? ""),
+        dueDate: String(formData.get("dueDate") ?? ""),
+        dueTime: String(formData.get("dueTime") ?? ""),
+      });
+      form.reset();
+      router.refresh();
+    });
+  }
+
+  function toggleItem(item: CoachChecklistItem) {
+    startTransition(async () => {
+      await setCoachChecklistItemCompleted(item.id, !item.completed);
+      router.refresh();
+    });
+  }
+
+  function deleteItem(item: CoachChecklistItem) {
+    startTransition(async () => {
+      await deleteCoachChecklistItem(item.id);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <Card>
+        <CardHeader>
+          <CardTitle className="gc-page-title text-xl">{t("newTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]" onSubmit={handleSubmit}>
+            <div className="grid gap-2 xl:col-span-1">
+              <Label htmlFor="checklist-title">{t("titleLabel")}</Label>
+              <Input
+                id="checklist-title"
+                name="title"
+                required
+                maxLength={160}
+                placeholder={t("titlePlaceholder")}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="checklist-notes">{t("notesLabel")}</Label>
+              <Textarea
+                id="checklist-notes"
+                name="notes"
+                maxLength={500}
+                placeholder={t("notesPlaceholder")}
+                className="min-h-11 xl:min-h-10"
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] xl:col-span-1">
+              <div className="grid gap-2">
+                <Label htmlFor="checklist-date">{t("dateLabel")}</Label>
+                <Input id="checklist-date" name="dueDate" type="date" className="h-11" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="checklist-time">{t("timeLabel")}</Label>
+                <Input id="checklist-time" name="dueTime" type="time" className="h-11" />
+              </div>
+            </div>
+            <Button
+              type="submit"
+              disabled={pending}
+              className="h-11 self-end rounded-full px-6"
+            >
+              {pending ? t("saving") : t("addCta")}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="gc-page-title text-xl">{t("listTitle")}</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("activeCount", { count: activeItems.length })}
+            </p>
+          </div>
+          {completedItems.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 rounded-full"
+              onClick={() => setShowCompleted((value) => !value)}
+            >
+              {showCompleted ? (
+                <ChevronUp className="size-4" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
+              {showCompleted
+                ? t("hideCompleted")
+                : t("showCompleted", { count: completedItems.length })}
+            </Button>
+          ) : null}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          {visibleItems.length === 0 ? (
+            <div className="rounded-md border border-dashed bg-background/40 px-3 py-10 text-center text-sm text-muted-foreground">
+              {items.length === 0 ? t("empty") : t("emptyActive")}
+            </div>
+          ) : (
+            groups.map((group) => (
+              <section key={group.key} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  {group.overdue ? (
+                    <AlertTriangle className="size-4 text-destructive" />
+                  ) : group.completed ? (
+                    <CheckCircle2 className="size-4 text-chart-3" />
+                  ) : (
+                    <CalendarClock className="size-4 text-muted-foreground" />
+                  )}
+                  <h3
+                    className={cn(
+                      "text-xs font-semibold uppercase tracking-wide",
+                      group.overdue ? "text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {group.label}
+                  </h3>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {group.items.length}
+                  </span>
+                </div>
+                <div className="grid gap-2">
+                  {group.items.map((item) => {
+                    const overdue = isOverdue(item, now);
+                    return (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "flex items-start gap-3 rounded-lg border bg-background p-3 transition-colors",
+                          item.completed && "opacity-65",
+                          overdue &&
+                            "border-destructive/35 bg-destructive/[0.04] shadow-sm",
+                        )}
+                      >
+                        <Checkbox
+                          checked={item.completed}
+                          onCheckedChange={() => toggleItem(item)}
+                          disabled={pending}
+                          aria-label={t("toggleAria", { title: item.title })}
+                          className={cn(
+                            "mt-1",
+                            overdue && "border-destructive data-[state=checked]:bg-destructive",
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p
+                              className={cn(
+                                "font-medium text-foreground",
+                                item.completed && "line-through",
+                              )}
+                            >
+                              {item.title}
+                            </p>
+                            {overdue ? (
+                              <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+                                {t("overdueBadge")}
+                              </span>
+                            ) : null}
+                          </div>
+                          {item.notes ? (
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                              {item.notes}
+                            </p>
+                          ) : null}
+                          <p
+                            className={cn(
+                              "mt-2 inline-flex items-center gap-1.5 text-xs",
+                              overdue ? "text-destructive" : "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarClock className="size-3.5" />
+                            {item.dueAt
+                              ? formatDateTime(item.dueAt, locale)
+                              : t("noDueAt")}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteItem(item)}
+                          disabled={pending}
+                          aria-label={t("deleteAria", { title: item.title })}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface ChecklistGroup {
+  key: string;
+  label: string;
+  items: CoachChecklistItem[];
+  overdue: boolean;
+  completed: boolean;
+}
+
+function groupItemsByDate(
+  items: CoachChecklistItem[],
+  now: Date,
+  locale: string,
+  t: ReturnType<typeof useTranslations>,
+): ChecklistGroup[] {
+  const sorted = [...items].sort(compareItems);
+  const groups = new Map<string, ChecklistGroup>();
+  for (const item of sorted) {
+    const groupMeta = groupForItem(item, now, locale, t);
+    const existing = groups.get(groupMeta.key);
+    if (existing) existing.items.push(item);
+    else groups.set(groupMeta.key, { ...groupMeta, items: [item] });
+  }
+  return Array.from(groups.values());
+}
+
+function groupForItem(
+  item: CoachChecklistItem,
+  now: Date,
+  locale: string,
+  t: ReturnType<typeof useTranslations>,
+): Omit<ChecklistGroup, "items"> {
+  if (item.completed) {
+    return {
+      key: "completed",
+      label: t("completedTitle"),
+      overdue: false,
+      completed: true,
+    };
+  }
+  if (!item.dueAt) {
+    return {
+      key: "no-date",
+      label: t("noDateTitle"),
+      overdue: false,
+      completed: false,
+    };
+  }
+  if (isOverdue(item, now)) {
+    return {
+      key: "overdue",
+      label: t("overdueTitle"),
+      overdue: true,
+      completed: false,
+    };
+  }
+
+  const dateKey = civilDateKey(item.dueAt);
+  return {
+    key: dateKey,
+    label: formatDateHeading(item.dueAt, now, locale, t),
+    overdue: false,
+    completed: false,
+  };
+}
+
+function compareItems(a: CoachChecklistItem, b: CoachChecklistItem): number {
+  if (a.completed !== b.completed) return Number(a.completed) - Number(b.completed);
+  const aDue = dueSortValue(a);
+  const bDue = dueSortValue(b);
+  if (aDue !== bDue) return aDue - bDue;
+  return (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
+}
+
+function dueSortValue(item: CoachChecklistItem): number {
+  if (!item.dueAt) return Number.MAX_SAFE_INTEGER;
+  const ms = Date.parse(item.dueAt);
+  return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms;
+}
+
+function isOverdue(item: CoachChecklistItem, now: Date): boolean {
+  if (item.completed || !item.dueAt) return false;
+  const dueMs = Date.parse(item.dueAt);
+  return Number.isFinite(dueMs) && dueMs < now.getTime();
+}
+
+function civilDateKey(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateHeading(
+  iso: string,
+  now: Date,
+  locale: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const itemKey = civilDateKey(iso);
+  const todayKey = civilDateKey(now.toISOString());
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = civilDateKey(tomorrow.toISOString());
+  if (itemKey === todayKey) return t("todayTitle");
+  if (itemKey === tomorrowKey) return t("tomorrowTitle");
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+function formatDateTime(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
