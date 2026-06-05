@@ -139,8 +139,7 @@ export async function BodyWeightTrendChart({
         title: t("title"),
         noLogs: t("noLogs"),
         latestPrefix: t("latestPrefix"),
-        logSingular: t("logSingular"),
-        logPlural: t("logPlural"),
+        logCount: t("logCount", { count: points.length }),
         weightTooltip: t("weightTooltip"),
         ranges: {
           all: t("rangeAll"),
