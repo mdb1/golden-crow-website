@@ -17,6 +17,10 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listRecentLogsForClientAsAdmin } from "@/lib/gc-fitness/recent-logs-actions";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
+import {
+  listClientAssignmentsForAdmin,
+  listClientHabitsForAdmin,
+} from "@/lib/gc-fitness/admin-actions";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +29,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
@@ -51,10 +63,14 @@ export default async function AdminCoachClientPage({
 
   let logs: Awaited<ReturnType<typeof listRecentLogsForClientAsAdmin>>;
   let photos: Awaited<ReturnType<typeof listProgressPhotosForClientAsAdmin>>;
+  let assignments: Awaited<ReturnType<typeof listClientAssignmentsForAdmin>>;
+  let habits: Awaited<ReturnType<typeof listClientHabitsForAdmin>>;
   try {
-    [logs, photos] = await Promise.all([
+    [logs, photos, assignments, habits] = await Promise.all([
       listRecentLogsForClientAsAdmin(uid, clientId),
       listProgressPhotosForClientAsAdmin(uid, clientId),
+      listClientAssignmentsForAdmin(uid, clientId),
+      listClientHabitsForAdmin(uid, clientId),
     ]);
   } catch {
     // Client doesn't exist or doesn't belong to this coach.
@@ -115,6 +131,102 @@ export default async function AdminCoachClientPage({
 
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Workout assignments</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {assignments.length === 0 ? (
+            <p className="px-6 pb-6 text-sm text-muted-foreground">
+              No workout assignments yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Workout</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assignments.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="whitespace-nowrap font-mono text-xs">
+                        {a.scheduledFor || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {a.scheduledTime ?? "—"}
+                      </TableCell>
+                      <TableCell>{a.title}</TableCell>
+                      <TableCell>
+                        <Badge variant={assignmentStatusVariant(a.status)}>
+                          {a.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {assignments.length >= 80 ? (
+                <p className="px-6 py-2 text-xs text-muted-foreground">
+                  Showing the latest 80 assignments.
+                </p>
+              ) : null}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Habits</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {habits.length === 0 ? (
+            <p className="px-6 pb-6 text-sm text-muted-foreground">
+              No habits assigned yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Habit</TableHead>
+                    <TableHead>Cadence</TableHead>
+                    <TableHead>Reminder</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {habits.map((h) => (
+                    <TableRow key={h.id}>
+                      <TableCell>{h.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {[h.scheduleType, h.cadence].filter(Boolean).join(" · ") ||
+                          "—"}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {h.reminderEnabled ? "On" : "Off"}
+                      </TableCell>
+                      <TableCell>
+                        {h.deleted ? (
+                          <Badge variant="secondary">deleted</Badge>
+                        ) : (
+                          <Badge variant="success">active</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-xl">Progress photos</CardTitle>
         </CardHeader>
         <CardContent>
@@ -129,4 +241,19 @@ export default async function AdminCoachClientPage({
       </Card>
     </div>
   );
+}
+
+function assignmentStatusVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "success" {
+  switch (status) {
+    case "completed":
+      return "success";
+    case "missed":
+      return "destructive";
+    case "started":
+      return "default";
+    default:
+      return "secondary";
+  }
 }

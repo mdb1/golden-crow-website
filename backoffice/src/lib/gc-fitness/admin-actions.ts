@@ -952,6 +952,117 @@ export async function getDeletionTargetInfo(uid: string): Promise<DeletionTarget
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin god-mode (READ-ONLY): a client's workout assignments + habits.
+// Verifies the client belongs to {coachUid} so the URL can't be edited to read
+// a client outside the coach being inspected (same gate as the recent-logs /
+// progress-photo admin readers).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AdminClientAssignmentRow {
+  id: string;
+  title: string;
+  scheduledFor: string;
+  scheduledTime: string | null;
+  status: string;
+}
+
+export interface AdminClientHabitRow {
+  id: string;
+  name: string;
+  cadence: string | null;
+  scheduleType: string | null;
+  reminderEnabled: boolean;
+  deleted: boolean;
+}
+
+async function assertClientBelongsToCoach(
+  db: FirebaseFirestore.Firestore,
+  coachUid: string,
+  clientId: string,
+): Promise<void> {
+  const snap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  if (!snap.exists || snap.get("coachId") !== coachUid) {
+    throw new Error("Not found");
+  }
+}
+
+/** Latest ~80 workout assignments for a client (recurring schedules explode into
+ *  one doc per date, so this is capped — most recent / furthest-future first). */
+export async function listClientAssignmentsForAdmin(
+  coachUid: string,
+  clientId: string,
+): Promise<AdminClientAssignmentRow[]> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  await assertClientBelongsToCoach(db, coachUid, clientId);
+
+  const snap = await db
+    .collection(FirestoreCollections.workoutAssignments)
+    .where("clientId", "==", clientId)
+    .orderBy("scheduledFor", "desc")
+    .limit(80)
+    .get();
+
+  return snap.docs.map((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    const snapshot = data.templateSnapshot as { title?: unknown } | undefined;
+    const title =
+      typeof snapshot?.title === "string" && snapshot.title.trim().length > 0
+        ? snapshot.title
+        : "—";
+    return {
+      id: doc.id,
+      title,
+      scheduledFor:
+        typeof data.scheduledFor === "string" ? data.scheduledFor : "",
+      scheduledTime:
+        typeof data.scheduledTime === "string" ? data.scheduledTime : null,
+      status: typeof data.status === "string" ? data.status : "scheduled",
+    };
+  });
+}
+
+/** All of a client's habits (active first, soft-deleted shown for context). */
+export async function listClientHabitsForAdmin(
+  coachUid: string,
+  clientId: string,
+): Promise<AdminClientHabitRow[]> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  await assertClientBelongsToCoach(db, coachUid, clientId);
+
+  const snap = await db
+    .collection(FirestoreCollections.habits)
+    .where("clientId", "==", clientId)
+    .limit(100)
+    .get();
+
+  return snap.docs
+    .map((doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      const name = data.name as { en?: unknown; es?: unknown } | undefined;
+      const es = typeof name?.es === "string" ? name.es : "";
+      const en = typeof name?.en === "string" ? name.en : "";
+      return {
+        id: doc.id,
+        name: es || en || "—",
+        cadence:
+          typeof data.scheduleCadence === "string"
+            ? data.scheduleCadence
+            : null,
+        scheduleType:
+          typeof data.scheduleType === "string" ? data.scheduleType : null,
+        reminderEnabled: data.reminderEnabled === true,
+        deleted: data.deleted === true,
+      };
+    })
+    .sort((a, b) => Number(a.deleted) - Number(b.deleted));
+}
+
 const deactivateClientSchema = z.object({
   coachUid: z.string().trim().min(6).max(128),
   clientUid: z.string().trim().min(6).max(128),
