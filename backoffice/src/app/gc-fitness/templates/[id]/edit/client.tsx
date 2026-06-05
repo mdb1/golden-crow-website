@@ -119,11 +119,13 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("title")}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm text-muted-foreground">
+            <AlertDialogTitle className="text-left leading-snug">
+              {t("title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild className="text-left">
+              <div className="min-w-0 space-y-3 text-left text-sm text-muted-foreground">
                 <p>
                   {t.rich("summary", {
                     sessions: preview?.assignmentCount ?? 0,
@@ -136,7 +138,7 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
                 {preview && preview.clients.length > 0 ? (
                   <ul className="max-h-48 list-disc space-y-1 overflow-y-auto rounded-md border border-border/70 bg-background/40 px-4 py-2 text-xs text-foreground">
                     {preview.clients.map((client) => (
-                      <li key={client.uid}>
+                      <li key={client.uid} className="break-words">
                         {t("clientLine", {
                           name: client.name,
                           sessions: client.sessions,
@@ -156,11 +158,11 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
                     disabled={propagating}
                     className="mt-0.5"
                   />
-                  <span className="space-y-1">
-                    <span className="block text-sm font-medium">
+                  <span className="min-w-0 space-y-1">
+                    <span className="block break-words text-sm font-medium">
                       {t("pushWeightsLabel")}
                     </span>
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="block break-words text-xs text-muted-foreground">
                       {t("pushWeightsHelp")}
                     </span>
                   </span>
@@ -168,11 +170,19 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleKeep} disabled={propagating}>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:flex-wrap">
+            <AlertDialogCancel
+              onClick={handleKeep}
+              disabled={propagating}
+              className="h-auto min-h-9 whitespace-normal text-center"
+            >
               {t("keepCta")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handlePropagate} disabled={propagating}>
+            <AlertDialogAction
+              onClick={handlePropagate}
+              disabled={propagating}
+              className="h-auto min-h-9 whitespace-normal text-center"
+            >
               {propagating
                 ? t("updating")
                 : t("updateCta", { count: preview?.assignmentCount ?? 0 })}
