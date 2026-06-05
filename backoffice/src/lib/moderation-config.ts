@@ -867,6 +867,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     icon: KeyRound,
     visibleRoles: AREA_ROLES,
   },
+  {
+    section: "access",
+    label: "My account",
+    href: "/my-account",
+    description: "Current operator role and Firebase Auth details",
+    icon: UserRoundCog,
+    visibleRoles: AREA_ROLES,
+  },
 ];
 
 export const GYM_SECTIONS: SectionDescriptor[] = [
@@ -1257,6 +1265,14 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
       eyebrow: "Access",
       title: "Role detail",
       description: "Inspect and update a single email-based role assignment.",
+    };
+  }
+
+  if (pathname === "/my-account") {
+    return {
+      eyebrow: "Access",
+      title: "My account",
+      description: "Current operator role assignment, permissions, and Firebase Auth details.",
     };
   }
 

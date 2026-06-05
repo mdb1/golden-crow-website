@@ -1,7 +1,10 @@
+import Link from "next/link";
+import { ArrowRight, UserRoundCog } from "lucide-react";
 import { AreaAccessEntry } from "@/components/area-access-entry";
 import { HelperBanner } from "@/components/helper-banner";
 import { RolesBrowser } from "@/components/areas/roles-browser";
 import { PageHero } from "@/components/page-hero";
+import { Button } from "@/components/ui/button";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { getAssignableRoleOptions } from "@/lib/admin-areas";
 import type { RoleManagementRecord } from "@/lib/admin-areas";
@@ -30,6 +33,28 @@ export default async function RolesPage() {
         createDisabledTitle="The current role cannot create role assignments on this screen."
         description="Open the role-by-role capabilities guide or jump directly into the role creation flow."
       />
+      <section className="glass-panel flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <UserRoundCog className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="section-eyebrow">Self-service</p>
+            <h2 className="font-heading text-xl font-semibold text-foreground">
+              My account
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Review your own role, permissions, and Firebase Auth details without opening another user&apos;s role assignment.
+            </p>
+          </div>
+        </div>
+        <Button size="lg" className="justify-between md:min-w-[12rem]" asChild>
+          <Link href="/my-account">
+            My account
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      </section>
       <RolesBrowser initialRoles={roles} />
     </div>
   );

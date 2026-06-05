@@ -13,6 +13,12 @@ import {
   getAdminCapabilities,
   resolveAdminContext,
 } from "../repositories/roles.repository.js";
+import { isAdminRepositoryError } from "../repositories/admin-errors.js";
+import {
+  changeMyAccountEmailForContext,
+  getMyAccountForContext,
+  updateMyAccountRoleProfileForContext,
+} from "../repositories/my-account.repository.js";
 import {
   completeProfileSetup,
   createEligibleEmailAccount,
@@ -45,6 +51,16 @@ const CompleteProfileSchema = z.object({
   ownerBio: z.string().max(600).optional(),
   gender: z.string().max(50).optional(),
   condition: z.string().max(120).optional(),
+});
+
+const MyAccountRoleProfileSchema = z.object({
+  displayName: z.string().trim().max(100).optional(),
+  contactPhone: z.string().trim().max(30).optional(),
+  notes: z.string().trim().max(600).optional(),
+});
+
+const MyAccountEmailSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
 });
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
@@ -142,6 +158,79 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       capabilities: getAdminCapabilities(request.adminContext),
     });
   });
+
+  f.get("/auth/my-account", async (request, reply) => {
+    if (!request.adminContext || !request.user?.uid) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const account = await getMyAccountForContext(request.adminContext);
+      return reply.send({ account });
+    } catch (error) {
+      if (isAdminRepositoryError(error)) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+  f.put(
+    "/auth/my-account/role",
+    {
+      schema: {
+        body: MyAccountRoleProfileSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext || !request.user?.uid) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const account = await updateMyAccountRoleProfileForContext(
+          request.adminContext,
+          request.body
+        );
+        return reply.send({ account });
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  f.put(
+    "/auth/my-account/email",
+    {
+      schema: {
+        body: MyAccountEmailSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext || !request.user?.uid) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const result = await changeMyAccountEmailForContext(
+          request.adminContext,
+          request.body.email
+        );
+        return reply.send(result);
+      } catch (error) {
+        if (isAdminRepositoryError(error)) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        throw error;
+      }
+    }
+  );
 
   f.get("/auth/profile-setup", async (request, reply) => {
     if (!request.adminContext || !request.user?.uid) {

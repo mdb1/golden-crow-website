@@ -127,6 +127,7 @@ function toUserRoleRecord(email: string, data: Record<string, unknown>): UserRol
     patientId: normalizeOptionalString(data.patientId),
     isActive: normalizeBoolean(data.isActive, true),
     displayName: normalizeOptionalString(data.displayName),
+    contactPhone: normalizeOptionalString(data.contactPhone),
     notes: normalizeOptionalString(data.notes),
     createdAt: normalizeDateString(data.createdAt),
     updatedAt: normalizeDateString(data.updatedAt),
@@ -256,6 +257,39 @@ function toRoleManagementRecord(
     patientName: extras?.patientName,
     bootstrap: extras?.bootstrap,
   };
+}
+
+async function hydrateRoleManagementRecord(
+  record: UserRoleRecord
+): Promise<RoleManagementRecord> {
+  const [institutionSnap, doctorSnap, patientSnap] = await Promise.all([
+    record.institutionId
+      ? adminDb.collection("institutions").doc(record.institutionId).get()
+      : Promise.resolve(null),
+    record.doctorId ? adminDb.collection("doctors").doc(record.doctorId).get() : Promise.resolve(null),
+    record.patientId
+      ? adminDb.collection("patients").doc(record.patientId).get()
+      : Promise.resolve(null),
+  ]);
+
+  return toRoleManagementRecord(record, {
+    institutionName:
+      institutionSnap && institutionSnap.exists
+        ? normalizeOptionalString((institutionSnap.data() as Record<string, unknown>).name) ??
+          institutionSnap.id
+        : undefined,
+    doctorName:
+      doctorSnap && doctorSnap.exists
+        ? normalizeOptionalString((doctorSnap.data() as Record<string, unknown>).fullName) ??
+          doctorSnap.id
+        : undefined,
+    patientName:
+      patientSnap && patientSnap.exists
+        ? normalizeOptionalString((patientSnap.data() as Record<string, unknown>).fullName) ??
+          patientSnap.id
+        : undefined,
+    bootstrap: record.createdAt === BOOTSTRAP_TIMESTAMP,
+  });
 }
 
 export async function resolveAdminContext(input: {
@@ -668,34 +702,116 @@ export async function getUserRoleForContext(
     return null;
   }
 
-  const [institutionSnap, doctorSnap, patientSnap] = await Promise.all([
-    record.institutionId
-      ? adminDb.collection("institutions").doc(record.institutionId).get()
-      : Promise.resolve(null),
-    record.doctorId ? adminDb.collection("doctors").doc(record.doctorId).get() : Promise.resolve(null),
-    record.patientId
-      ? adminDb.collection("patients").doc(record.patientId).get()
-      : Promise.resolve(null),
-  ]);
+  return hydrateRoleManagementRecord(record);
+}
 
-  return toRoleManagementRecord(record, {
-    institutionName:
-      institutionSnap && institutionSnap.exists
-        ? normalizeOptionalString((institutionSnap.data() as Record<string, unknown>).name) ??
-          institutionSnap.id
-        : undefined,
-    doctorName:
-      doctorSnap && doctorSnap.exists
-        ? normalizeOptionalString((doctorSnap.data() as Record<string, unknown>).fullName) ??
-          doctorSnap.id
-        : undefined,
-    patientName:
-      patientSnap && patientSnap.exists
-        ? normalizeOptionalString((patientSnap.data() as Record<string, unknown>).fullName) ??
-          patientSnap.id
-        : undefined,
-    bootstrap: record.createdAt === BOOTSTRAP_TIMESTAMP,
+export async function getOwnRoleForContext(
+  context: AdminContext
+): Promise<RoleManagementRecord | null> {
+  const normalizedEmail = normalizeRoleEmail(context.email);
+  const record =
+    (await getUserRoleByEmail(normalizedEmail)) ??
+    (context.isBootstrap || TEAM_ALLOWLIST.has(normalizedEmail)
+      ? toBootstrapRoleRecord(normalizedEmail)
+      : null);
+
+  return record ? hydrateRoleManagementRecord(record) : null;
+}
+
+export async function updateOwnRoleProfileForContext(
+  context: AdminContext,
+  payload: Pick<UserRoleRecord, "displayName" | "contactPhone" | "notes">
+): Promise<RoleManagementRecord> {
+  const normalizedEmail = normalizeRoleEmail(context.email);
+  if (context.isBootstrap || TEAM_ALLOWLIST.has(normalizedEmail)) {
+    throw new AdminRepositoryError(
+      "Bootstrap allowlist accounts are managed by environment configuration and cannot edit their role assignment metadata here.",
+      403
+    );
+  }
+
+  const existing = await getUserRoleByEmail(normalizedEmail);
+  if (!existing) {
+    throw new AdminRepositoryError("Role assignment not found for the current user.", 404);
+  }
+
+  const now = new Date().toISOString();
+  const displayName = normalizeOptionalString(payload.displayName);
+  const contactPhone = normalizeOptionalString(payload.contactPhone);
+  const notes = normalizeOptionalString(payload.notes);
+  await adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail).set(
+    {
+      displayName: displayName ?? null,
+      contactPhone: contactPhone ?? null,
+      notes: notes ?? null,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+
+  return hydrateRoleManagementRecord({
+    ...existing,
+    displayName,
+    contactPhone,
+    notes,
+    updatedAt: now,
   });
+}
+
+export async function moveOwnRoleEmailForContext(
+  context: AdminContext,
+  nextEmail: string
+): Promise<RoleManagementRecord> {
+  const currentEmail = normalizeRoleEmail(context.email);
+  const normalizedNextEmail = normalizeRoleEmail(nextEmail);
+
+  if (!normalizedNextEmail) {
+    throw new AdminRepositoryError("New email is required.", 400);
+  }
+
+  if (context.isBootstrap || TEAM_ALLOWLIST.has(currentEmail)) {
+    throw new AdminRepositoryError(
+      "Bootstrap allowlist account emails are managed by environment configuration and cannot be changed here.",
+      403
+    );
+  }
+
+  const currentRef = adminDb.collection(USER_ROLES_COLLECTION).doc(currentEmail);
+  const currentSnapshot = await currentRef.get();
+  if (!currentSnapshot.exists) {
+    throw new AdminRepositoryError("Role assignment not found for the current user.", 404);
+  }
+
+  if (normalizedNextEmail === currentEmail) {
+    const record = toUserRoleRecord(
+      currentEmail,
+      currentSnapshot.data() as Record<string, unknown>
+    );
+    return hydrateRoleManagementRecord(record);
+  }
+
+  const nextRef = adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedNextEmail);
+  const nextSnapshot = await nextRef.get();
+  if (nextSnapshot.exists) {
+    throw new AdminRepositoryError(
+      "A role assignment already exists for the requested email.",
+      409
+    );
+  }
+
+  const now = new Date().toISOString();
+  const currentData = currentSnapshot.data() as Record<string, unknown>;
+  const nextData = {
+    ...currentData,
+    email: normalizedNextEmail,
+    updatedAt: now,
+  };
+  const batch = adminDb.batch();
+  batch.set(nextRef, nextData);
+  batch.delete(currentRef);
+  await batch.commit();
+
+  return hydrateRoleManagementRecord(toUserRoleRecord(normalizedNextEmail, nextData));
 }
 
 export async function upsertUserRoleForContext(
@@ -734,6 +850,7 @@ export async function upsertUserRoleForContext(
     patientId: payload.role === "patient" ? payload.patientId ?? null : null,
     isActive: payload.isActive,
     displayName: payload.displayName ?? null,
+    contactPhone: payload.contactPhone ?? existing?.contactPhone ?? null,
     notes: payload.notes ?? null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,

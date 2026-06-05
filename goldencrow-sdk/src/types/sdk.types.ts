@@ -71,6 +71,7 @@ export interface UserRoleRecord {
   patientId?: string;
   isActive: boolean;
   displayName?: string;
+  contactPhone?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -182,6 +183,55 @@ export interface RoleManagementRecord extends UserRoleRecord {
   doctorName?: string;
   patientName?: string;
   bootstrap?: boolean;
+}
+
+export interface MyAccountProviderInfo {
+  providerId: string;
+  uid: string;
+  displayName?: string;
+  email?: string;
+  phoneNumber?: string;
+  photoURL?: string;
+}
+
+export interface MyAccountAuthRecord {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+  disabled: boolean;
+  displayName?: string;
+  phoneNumber?: string;
+  photoURL?: string;
+  tenantId?: string;
+  customClaims: Record<string, unknown>;
+  providerData: MyAccountProviderInfo[];
+  metadata: {
+    creationTime?: string;
+    lastSignInTime?: string;
+    lastRefreshTime?: string;
+  };
+  tokensValidAfterTime?: string;
+}
+
+export interface MyAccountProfileSummary {
+  username?: string;
+  fullName?: string;
+  onboardingCompleted: boolean;
+  needsCompletion: boolean;
+  docs: {
+    profile: boolean;
+    publicProfile: boolean;
+    communityUser: boolean;
+    reportOwner: boolean;
+  };
+}
+
+export interface MyAccountRecord {
+  context: AdminContext;
+  role: RoleManagementRecord | null;
+  capabilities: string[];
+  auth: MyAccountAuthRecord;
+  profile: MyAccountProfileSummary | null;
 }
 
 export interface InstitutionDetailRecord {

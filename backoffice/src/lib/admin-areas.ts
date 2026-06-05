@@ -116,6 +116,7 @@ export interface RoleManagementRecord {
   patientId?: string;
   isActive: boolean;
   displayName?: string;
+  contactPhone?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -144,6 +145,62 @@ export interface PatientDetailRecord {
   institution: InstitutionRecord | null;
   doctor: DoctorListItem | null;
   roleRecord: RoleManagementRecord | null;
+}
+
+export interface MyAccountProviderInfo {
+  providerId: string;
+  uid: string;
+  displayName?: string;
+  email?: string;
+  phoneNumber?: string;
+  photoURL?: string;
+}
+
+export interface MyAccountAuthRecord {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+  disabled: boolean;
+  displayName?: string;
+  phoneNumber?: string;
+  photoURL?: string;
+  tenantId?: string;
+  customClaims: Record<string, unknown>;
+  providerData: MyAccountProviderInfo[];
+  metadata: {
+    creationTime?: string;
+    lastSignInTime?: string;
+    lastRefreshTime?: string;
+  };
+  tokensValidAfterTime?: string;
+}
+
+export interface MyAccountProfileSummary {
+  username?: string;
+  fullName?: string;
+  onboardingCompleted: boolean;
+  needsCompletion: boolean;
+  docs: {
+    profile: boolean;
+    publicProfile: boolean;
+    communityUser: boolean;
+    reportOwner: boolean;
+  };
+}
+
+export interface MyAccountRecord {
+  context: AdminContextRecord;
+  role: RoleManagementRecord | null;
+  capabilities: string[];
+  auth: MyAccountAuthRecord;
+  profile: MyAccountProfileSummary | null;
+}
+
+export interface ChangeMyAccountEmailResponse {
+  account: MyAccountRecord;
+  previousEmail: string;
+  newEmail: string;
+  requiresSignIn: boolean;
 }
 
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {

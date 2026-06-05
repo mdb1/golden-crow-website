@@ -107,6 +107,11 @@ const SPANISH_TEXT: Record<string, string> = {
   Doctors: "Médicos",
   Patients: "Pacientes",
   "Roles & Permissions": "Roles y permisos",
+  "My account": "Mi cuenta",
+  "Current operator role and Firebase Auth details":
+    "Rol actual del operador y detalles de Firebase Auth",
+  "Current operator role assignment, permissions, and Firebase Auth details.":
+    "Asignación de rol, permisos y detalles de Firebase Auth del operador actual.",
   Dashboard: "Dashboard",
   "Coach Console": "Consola del coach",
   "Coach Dashboard": "Dashboard del coach",
