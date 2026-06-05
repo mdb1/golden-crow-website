@@ -10,10 +10,13 @@
 //   - weekday checkboxes name="recurrenceWeekdays" value 1..7 (Mon..Sun) — weekly
 //   - month-day checkboxes name="recurrenceMonthDays" value 1..31 — monthly
 //
-// Only the currently-selected recurrence's sub-fields are mounted, so the host
-// reads exactly the relevant arrays via formData.getAll(...).
+// The day chips are CONTROLLED so we can (a) auto-select today's weekday/day when
+// the trainer switches to weekly/monthly with nothing selected, and (b) report
+// validity to the host (a weekly/monthly reminder needs ≥1 day) so it can
+// disable the submit button. Only the active recurrence's sub-fields are
+// mounted, so the host reads exactly the relevant arrays via formData.getAll().
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,23 +37,32 @@ const WEEKDAYS: Array<{ value: number; label: string }> = [
 ];
 const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
+type Recurrence = "none" | "daily" | "weekly" | "monthly";
+
 export interface ChecklistRecurrenceDefaults {
-  recurrence?: "none" | "daily" | "weekly" | "monthly";
+  recurrence?: Recurrence;
   endsOn?: string | null;
   weekdays?: number[];
   monthDays?: number[];
 }
 
-function Chip({
+function isoWeekdayToday(): number {
+  const g = new Date().getDay(); // 0=Sun … 6=Sat
+  return g === 0 ? 7 : g; // → 1=Mon … 7=Sun
+}
+
+function ToggleChip({
   name,
   value,
   label,
-  defaultChecked,
+  checked,
+  onToggle,
 }: {
   name: string;
   value: number;
   label: string;
-  defaultChecked: boolean;
+  checked: boolean;
+  onToggle: () => void;
 }) {
   return (
     <label className="cursor-pointer">
@@ -58,7 +70,8 @@ function Chip({
         type="checkbox"
         name={name}
         value={value}
-        defaultChecked={defaultChecked}
+        checked={checked}
+        onChange={onToggle}
         className="peer sr-only"
       />
       <span
@@ -76,13 +89,53 @@ function Chip({
 export function ChecklistRecurrenceFields({
   idPrefix,
   defaults = {},
+  onValidityChange,
 }: {
   idPrefix: string;
   defaults?: ChecklistRecurrenceDefaults;
+  /** Reports whether the current recurrence selection is complete (weekly /
+   *  monthly need ≥1 day). The host disables submit when false. */
+  onValidityChange?: (valid: boolean) => void;
 }) {
-  const [recurrence, setRecurrence] = useState(defaults.recurrence ?? "none");
-  const weekdaySet = new Set(defaults.weekdays ?? []);
-  const monthDaySet = new Set(defaults.monthDays ?? []);
+  const [recurrence, setRecurrence] = useState<Recurrence>(
+    defaults.recurrence ?? "none",
+  );
+  const [weekdays, setWeekdays] = useState<Set<number>>(
+    new Set(defaults.weekdays ?? []),
+  );
+  const [monthDays, setMonthDays] = useState<Set<number>>(
+    new Set(defaults.monthDays ?? []),
+  );
+
+  const valid =
+    recurrence === "weekly"
+      ? weekdays.size > 0
+      : recurrence === "monthly"
+        ? monthDays.size > 0
+        : true;
+
+  useEffect(() => {
+    onValidityChange?.(valid);
+  }, [valid, onValidityChange]);
+
+  function changeRecurrence(next: Recurrence) {
+    setRecurrence(next);
+    // Auto-select today's weekday / day-of-month when there's nothing chosen yet
+    // so the reminder is immediately submittable (and the button stays enabled).
+    if (next === "weekly" && weekdays.size === 0) {
+      setWeekdays(new Set([isoWeekdayToday()]));
+    }
+    if (next === "monthly" && monthDays.size === 0) {
+      setMonthDays(new Set([new Date().getDate()]));
+    }
+  }
+
+  function toggle(set: Set<number>, value: number): Set<number> {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  }
 
   return (
     <div className="grid gap-3">
@@ -92,9 +145,7 @@ export function ChecklistRecurrenceFields({
           id={`${idPrefix}-recurrence`}
           name="recurrence"
           value={recurrence}
-          onChange={(e) =>
-            setRecurrence(e.target.value as ChecklistRecurrenceDefaults["recurrence"] & string)
-          }
+          onChange={(e) => changeRecurrence(e.target.value as Recurrence)}
           className={SELECT_CLASS}
         >
           <option value="none">Única</option>
@@ -125,15 +176,21 @@ export function ChecklistRecurrenceFields({
               <Label>Días de la semana</Label>
               <div className="flex flex-wrap gap-1.5">
                 {WEEKDAYS.map((d) => (
-                  <Chip
+                  <ToggleChip
                     key={d.value}
                     name="recurrenceWeekdays"
                     value={d.value}
                     label={d.label}
-                    defaultChecked={weekdaySet.has(d.value)}
+                    checked={weekdays.has(d.value)}
+                    onToggle={() => setWeekdays((s) => toggle(s, d.value))}
                   />
                 ))}
               </div>
+              {!valid ? (
+                <p className="text-xs text-destructive">
+                  Elegí al menos un día.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -142,15 +199,21 @@ export function ChecklistRecurrenceFields({
               <Label>Días del mes</Label>
               <div className="flex flex-wrap gap-1.5">
                 {MONTH_DAYS.map((d) => (
-                  <Chip
+                  <ToggleChip
                     key={d}
                     name="recurrenceMonthDays"
                     value={d}
                     label={String(d)}
-                    defaultChecked={monthDaySet.has(d)}
+                    checked={monthDays.has(d)}
+                    onToggle={() => setMonthDays((s) => toggle(s, d))}
                   />
                 ))}
               </div>
+              {!valid ? (
+                <p className="text-xs text-destructive">
+                  Elegí al menos un día.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>

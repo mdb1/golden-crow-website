@@ -55,6 +55,7 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [recurrenceValid, setRecurrenceValid] = useState(true);
   const initial = splitDueAt(item.dueAt);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -137,6 +138,7 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
           ) : null}
           <ChecklistRecurrenceFields
             idPrefix={`edit-${item.id}`}
+            onValidityChange={setRecurrenceValid}
             defaults={{
               recurrence: item.recurrence,
               endsOn: item.recurrenceEndsOn,
@@ -174,7 +176,7 @@ export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
             </DialogClose>
             <Button
               type="submit"
-              disabled={pending}
+              disabled={pending || !recurrenceValid}
               className="rounded-full"
             >
               {pending ? t("saving") : t("saveCta")}

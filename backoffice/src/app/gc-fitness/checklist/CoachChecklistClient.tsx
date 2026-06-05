@@ -78,6 +78,10 @@ export function CoachChecklistClient({ items, clients }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showCompleted, setShowCompleted] = useState(false);
+  // Recurrence validity (weekly/monthly need ≥1 day) gates the submit button.
+  const [recurrenceValid, setRecurrenceValid] = useState(true);
+  // Bumped after a successful create so the recurrence fields remount/reset.
+  const [recurrenceKey, setRecurrenceKey] = useState(0);
   const now = useMemo(() => new Date(), []);
   const activeItems = useMemo(
     () => items.filter((item) => !item.completed),
@@ -116,6 +120,7 @@ export function CoachChecklistClient({ items, clients }: Props) {
           .filter((n) => Number.isInteger(n)),
       });
       form.reset();
+      setRecurrenceKey((k) => k + 1);
       router.refresh();
     });
   }
@@ -190,10 +195,14 @@ export function CoachChecklistClient({ items, clients }: Props) {
                 <Input id="checklist-time" name="dueTime" type="time" className="h-11" />
               </div>
             </div>
-            <ChecklistRecurrenceFields idPrefix="checklist-create" />
+            <ChecklistRecurrenceFields
+              key={recurrenceKey}
+              idPrefix="checklist-create"
+              onValidityChange={setRecurrenceValid}
+            />
             <Button
               type="submit"
-              disabled={pending}
+              disabled={pending || !recurrenceValid}
               className="h-11 justify-self-start rounded-full px-6"
             >
               {pending ? t("saving") : t("addCta")}
