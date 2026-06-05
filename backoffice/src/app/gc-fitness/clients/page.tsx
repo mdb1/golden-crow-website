@@ -9,6 +9,7 @@
 // breakdown uses ICU pluralization on `subtitleOne`/`subtitleOther`.
 
 import { redirect } from "next/navigation";
+import { Bell } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import {
@@ -54,9 +55,32 @@ export default async function ClientsPage({
 
   const subtitle = `${activeText}${pendingSuffix}${t("subtitleSortNote")}`;
 
+  // New clients that signed up WITHOUT a coach pre-assignment (no user_mirror)
+  // and were auto-attached to this coach by the sign-up fallback. Surface them
+  // as a notification so they get triaged (kept or transferred via admin).
+  const newAutoAssigned = rows.filter((row) => row.autoAssignedCoach);
+
   return (
     <div className="gc-page flex flex-col gap-6">
       <AddClientPanel title={t("title")} subtitle={subtitle} />
+      {newAutoAssigned.length > 0 ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+          <Bell className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <div className="flex flex-col gap-0.5">
+            <p className="font-medium text-foreground">
+              {newAutoAssigned.length === 1
+                ? "1 cliente nuevo se registró sin coach y quedó asignado a vos"
+                : `${newAutoAssigned.length} clientes nuevos se registraron sin coach y quedaron asignados a vos`}
+            </p>
+            <p className="text-muted-foreground">
+              Están marcados con{" "}
+              <span className="font-semibold text-foreground">NEW</span> abajo.
+              Revisalos y, si corresponden a otro coach, transferilos desde el
+              panel de admin.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <RosterQueryProvider>
         <RosterTable
           rows={rows}

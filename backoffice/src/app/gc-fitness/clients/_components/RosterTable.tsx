@@ -227,6 +227,14 @@ export function RosterTable({
                         {row.email}
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {row.autoAssignedCoach ? (
+                          <Badge
+                            variant="default"
+                            title="Se registró sin pre-asignación y quedó asignado a vos. Revisalo o transferilo desde el panel de admin."
+                          >
+                            NEW
+                          </Badge>
+                        ) : null}
                         {row.pendingProvisioning ? (
                           <Badge variant="secondary">
                             {tCommon("pendingSignIn")}
