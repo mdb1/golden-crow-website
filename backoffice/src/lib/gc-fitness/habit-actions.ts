@@ -511,25 +511,65 @@ export async function createHabit(
   const docId = `hab-${trainer.uid}-${randomUUID()}`;
   const docRef = db.collection(COLLECTION).doc(docId);
 
+  const reminderDayOfMonth =
+    data.reminderDayOfMonth ??
+    (Array.isArray(data.reminderMonthDays) && data.reminderMonthDays.length > 0
+      ? data.reminderMonthDays[0]
+      : undefined);
+  const scheduleDayOfMonth =
+    data.scheduleDayOfMonth ??
+    (Array.isArray(data.scheduleMonthDays) && data.scheduleMonthDays.length > 0
+      ? data.scheduleMonthDays[0]
+      : undefined);
+
+  // Reusability (BO habit "Crear nuevo"): a habit authored from scratch ALSO
+  // gets saved as a reusable trainer template so it shows up under "Asignar
+  // existente" for OTHER clients. A habit assigned FROM an existing template
+  // already carries `sourceTemplateId` and must NOT spawn a duplicate template.
+  const existingSourceTemplateId =
+    typeof data.sourceTemplateId === "string" && data.sourceTemplateId.length > 0
+      ? data.sourceTemplateId
+      : undefined;
+  const newTemplateId = existingSourceTemplateId
+    ? undefined
+    : `habit-template-${trainer.uid}-${randomUUID()}`;
+  const sourceTemplateId = existingSourceTemplateId ?? newTemplateId;
+
   await docRef.set(withoutUndefined({
     ...data,
-    reminderDayOfMonth:
-      data.reminderDayOfMonth ??
-      (Array.isArray(data.reminderMonthDays) && data.reminderMonthDays.length > 0
-        ? data.reminderMonthDays[0]
-        : undefined),
-    scheduleDayOfMonth:
-      data.scheduleDayOfMonth ??
-      (Array.isArray(data.scheduleMonthDays) && data.scheduleMonthDays.length > 0
-        ? data.scheduleMonthDays[0]
-        : undefined),
+    reminderDayOfMonth,
+    scheduleDayOfMonth,
     startsOn: normalizeStartsOn(data.startsOn),
+    sourceTemplateId, // links the assignment to its (existing or new) template
     id: docId,
     trainerId: trainer.uid, // T-06-05-01: ALWAYS from session, NEVER from input.
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }));
+
+  // Persist the reusable template (content only — strip per-assignment fields:
+  // clientId, startsOn, and the sourceTemplateId back-link itself).
+  if (newTemplateId) {
+    const templatePayload: Record<string, unknown> = {
+      ...data,
+      reminderDayOfMonth,
+      scheduleDayOfMonth,
+      id: newTemplateId,
+      scope: "trainer",
+      trainerId: trainer.uid,
+      deleted: false,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    delete templatePayload.clientId;
+    delete templatePayload.startsOn;
+    delete templatePayload.sourceTemplateId;
+    await db
+      .collection(TEMPLATE_COLLECTION)
+      .doc(newTemplateId)
+      .set(withoutUndefined(templatePayload));
+  }
 
   if (typeof data.photoUrl === "string" && data.photoUrl.length > 0) {
     const rehomedPhotoUrl = await rehomeDraftHabitPhotoIfNeeded({
@@ -542,6 +582,16 @@ export async function createHabit(
         photoUrl: rehomedPhotoUrl,
         updatedAt: FieldValue.serverTimestamp(),
       });
+      // Keep the just-created template's photo in sync with the rehomed URL.
+      if (newTemplateId) {
+        await db
+          .collection(TEMPLATE_COLLECTION)
+          .doc(newTemplateId)
+          .update({
+            photoUrl: rehomedPhotoUrl,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+      }
     }
   }
 
