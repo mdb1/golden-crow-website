@@ -252,15 +252,6 @@ export default async function GCFitnessDashboardPage({
         </Card>
       </div>
 
-      <div className="flex justify-end">
-        <Button asChild variant="outline" className="rounded-full">
-          <Link href="/gc-fitness/recent-logs">
-            <ScrollText className="size-4" />
-            {tDashboard("openRecentClientActivity")}
-          </Link>
-        </Button>
-      </div>
-
       {/* Top performers */}
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
