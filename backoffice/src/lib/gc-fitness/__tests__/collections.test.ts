@@ -50,6 +50,10 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
     );
   });
 
+  it("appConfig is 'app_config' (force-update gate — same-commit invariant w/ Collections.swift)", () => {
+    expect(FirestoreCollections.appConfig).toBe("app_config");
+  });
+
   it("every value is lowercase snake_case", () => {
     for (const [key, value] of Object.entries(FirestoreCollections)) {
       expect(value).toBe(value.toLowerCase());
