@@ -177,6 +177,13 @@ export function NewHabitDialog({
               <>
                 Cliente: <span className="font-medium">{clientName}</span> ·
                 Empieza el <span className="font-medium">{startsOn}</span>.
+                {tab === "new" ? (
+                  <>
+                    {" "}
+                    Se guarda también como plantilla reutilizable para asignarlo
+                    a otros clientes.
+                  </>
+                ) : null}
               </>
             )}
           </DialogDescription>

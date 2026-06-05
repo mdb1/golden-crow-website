@@ -245,6 +245,54 @@ describe("createHabit", () => {
     expect(payload.trainerId).toBe(ALLOWED_UID);
     expect(payload.trainerId).not.toBe("victim-trainer-uid");
   });
+
+  // T04b — reusability: a habit authored from scratch ALSO writes a reusable
+  // trainer template, and the assignment back-links to it via sourceTemplateId.
+  it("T04b — also creates a reusable template and links the assignment to it", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockSet.mockResolvedValue(undefined);
+
+    await createHabit(VALID_BINARY_HABIT_INPUT);
+
+    // The template collection is written to.
+    expect(mockCollection).toHaveBeenCalledWith("habit_templates");
+
+    // The habit (first set) links to the new template.
+    const habitPayload = mockSet.mock.calls[0][0] as Record<string, unknown>;
+    expect(typeof habitPayload.sourceTemplateId).toBe("string");
+    expect(habitPayload.sourceTemplateId as string).toMatch(
+      new RegExp(`^habit-template-${ALLOWED_UID}-`),
+    );
+
+    // The template (second set) is a trainer-scoped, client-less copy.
+    const templatePayload = mockSet.mock.calls[1][0] as Record<string, unknown>;
+    expect(templatePayload.scope).toBe("trainer");
+    expect(templatePayload.trainerId).toBe(ALLOWED_UID);
+    expect(templatePayload.clientId).toBeUndefined();
+    expect(templatePayload.id).toBe(habitPayload.sourceTemplateId);
+  });
+
+  // T04c — a habit assigned FROM an existing template does NOT spawn a
+  // duplicate template; it just reuses the provided sourceTemplateId.
+  it("T04c — does not create a template when sourceTemplateId is provided", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockSet.mockResolvedValue(undefined);
+
+    await createHabit({
+      ...VALID_BINARY_HABIT_INPUT,
+      sourceTemplateId: "habit-template-trainer-A-existing",
+    });
+
+    expect(mockCollection).not.toHaveBeenCalledWith("habit_templates");
+    const habitPayload = mockSet.mock.calls[0][0] as Record<string, unknown>;
+    expect(habitPayload.sourceTemplateId).toBe(
+      "habit-template-trainer-A-existing",
+    );
+    // No trainer-scoped template doc among the writes.
+    for (const call of mockSet.mock.calls) {
+      expect((call[0] as Record<string, unknown>).scope).not.toBe("trainer");
+    }
+  });
 });
 
 describe("updateHabit", () => {
