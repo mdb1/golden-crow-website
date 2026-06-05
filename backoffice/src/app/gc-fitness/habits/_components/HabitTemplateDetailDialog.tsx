@@ -8,7 +8,7 @@
 // or soft-deleted. Global templates are read-only. Recurrence is intentionally
 // absent — it's a per-assignment concern, not a template one.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { EyeOff, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -40,8 +40,10 @@ import {
 import {
   hideGlobalHabitTemplate,
   listHabitTemplateAssignments,
+  propagateHabitTemplateContent,
   softDeleteHabitTemplate,
   updateHabitTemplate,
+  type HabitTemplateAssignmentImpact,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
 import { recurrenceLabel, ReminderCell, ScopePill } from "./habit-pills";
@@ -82,6 +84,32 @@ export function HabitTemplateDetailDialog({
   const [editing, setEditing] = useState(false);
   // B5 — hide-from-library confirm (global templates only).
   const [confirmHideOpen, setConfirmHideOpen] = useState(false);
+
+  // Post-save cascade: after editing a template, ask whether to push the
+  // content (description / photo / video) to the clients who have it assigned.
+  // Non-null = the propagation confirm dialog is open with this impact list.
+  const [propagateImpact, setPropagateImpact] = useState<
+    HabitTemplateAssignmentImpact[] | null
+  >(null);
+  const [propagating, setPropagating] = useState(false);
+
+  // Group the per-assignment impact list into per-client rows (name + count)
+  // for the propagation confirm dialog.
+  const affectedClients = useMemo(() => {
+    if (!propagateImpact) return [];
+    const byClient = new Map<string, { name: string; count: number }>();
+    for (const imp of propagateImpact) {
+      const key =
+        imp.clientId ?? (imp.pendingEmail ? `pending:${imp.pendingEmail}` : "?");
+      const name = imp.clientId
+        ? clientNames?.get(imp.clientId) ?? imp.clientId
+        : imp.pendingEmail ?? "Cliente pendiente";
+      const existing = byClient.get(key);
+      if (existing) existing.count += 1;
+      else byClient.set(key, { name, count: 1 });
+    }
+    return Array.from(byClient.values());
+  }, [propagateImpact, clientNames]);
 
   // Edit-form drafts (seeded from the template when entering edit mode).
   const [nameEn, setNameEn] = useState("");
@@ -136,14 +164,50 @@ export function HabitTemplateDetailDialog({
         reminderEnabled,
         reminderTime: reminderEnabled ? reminderTime || undefined : undefined,
       });
-      toast.success(tf("savedToast"));
       onChanged();
-      closeDialog();
+
+      // The template is saved. If clients have it assigned, ASK whether to push
+      // the content edit to them (instead of cascading silently).
+      let affected: HabitTemplateAssignmentImpact[] = [];
+      try {
+        affected = await listHabitTemplateAssignments(template.id);
+      } catch (previewErr) {
+        console.error("[habits] template impact preview failed", previewErr);
+      }
+      if (affected.length > 0) {
+        toast.success(tf("savedToast"));
+        setEditing(false);
+        setPropagateImpact(affected); // opens the cascade confirm dialog
+      } else {
+        toast.success(tf("savedToast"));
+        closeDialog();
+      }
     } catch (err) {
       console.error("[habits] update template failed", err);
       toast.error(err instanceof Error ? err.message : tf("saveFailed"));
     } finally {
       setPending(false);
+    }
+  }
+
+  async function handlePropagate() {
+    if (!template) return;
+    setPropagating(true);
+    try {
+      const res = await propagateHabitTemplateContent(template.id);
+      toast.success(
+        res.updated === 1
+          ? "Actualizado en 1 cliente"
+          : `Actualizado en ${res.updated} clientes`,
+      );
+      onChanged();
+      setPropagateImpact(null);
+      closeDialog();
+    } catch (err) {
+      console.error("[habits] propagate template failed", err);
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar");
+    } finally {
+      setPropagating(false);
     }
   }
 
@@ -478,6 +542,81 @@ export function HabitTemplateDetailDialog({
               disabled={pending}
             >
               {pending ? t("deleting") : t("hideGlobalConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Post-save cascade: push the content edit to the clients who have this
+          template assigned. Opt-in — dismissing keeps the template saved but
+          leaves each client's assignment untouched. */}
+      <AlertDialog
+        open={propagateImpact !== null}
+        onOpenChange={(o) => {
+          if (!o && !propagating) {
+            setPropagateImpact(null);
+            closeDialog();
+          }
+        }}
+      >
+        <AlertDialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Actualizar a los clientes?</AlertDialogTitle>
+            <AlertDialogDescription asChild className="text-left">
+              <div className="space-y-3 text-left text-sm text-muted-foreground">
+                <p>
+                  Guardaste la plantilla.{" "}
+                  <strong className="text-foreground">
+                    {affectedClients.length}
+                  </strong>{" "}
+                  {affectedClients.length === 1
+                    ? "cliente la tiene asignada"
+                    : "clientes la tienen asignada"}
+                  . ¿Querés actualizarles la{" "}
+                  <strong className="text-foreground">
+                    descripción, foto y video
+                  </strong>
+                  ?
+                </p>
+                {affectedClients.length > 0 ? (
+                  <ul className="max-h-48 list-disc space-y-1 overflow-y-auto rounded-md border border-border/70 bg-background/40 px-4 py-2 text-xs text-foreground">
+                    {affectedClients.map((c) => (
+                      <li key={c.name} className="break-words">
+                        {c.name}
+                        {c.count > 1 ? ` (${c.count})` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <p className="text-xs">
+                  No se tocan el nombre, la recurrencia ni el recordatorio de
+                  cada cliente.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel
+              onClick={() => {
+                setPropagateImpact(null);
+                closeDialog();
+              }}
+              disabled={propagating}
+            >
+              No actualizar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handlePropagate();
+              }}
+              disabled={propagating}
+            >
+              {propagating
+                ? "Actualizando…"
+                : `Actualizar a ${affectedClients.length} ${
+                    affectedClients.length === 1 ? "cliente" : "clientes"
+                  }`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

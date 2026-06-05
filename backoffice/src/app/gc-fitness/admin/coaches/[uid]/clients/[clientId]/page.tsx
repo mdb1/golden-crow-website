@@ -153,26 +153,38 @@ export default async function AdminCoachClientPage({
                   {assignments.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell className="whitespace-nowrap font-mono text-xs">
-                        {a.scheduledFor || "—"}
+                        {a.recurrenceLabel && a.lastDate !== a.firstDate
+                          ? `${a.firstDate} → ${a.lastDate}`
+                          : a.firstDate || "—"}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {a.scheduledTime ?? "—"}
                       </TableCell>
-                      <TableCell>{a.title}</TableCell>
                       <TableCell>
-                        <Badge variant={assignmentStatusVariant(a.status)}>
-                          {a.status}
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>{a.title}</span>
+                          {a.recurrenceLabel ? (
+                            <Badge variant="secondary" className="font-normal">
+                              {a.recurrenceLabel} · ×{a.occurrences}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {a.recurrenceLabel ? (
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {a.completedCount}/{a.occurrences} completados
+                          </span>
+                        ) : (
+                          <Badge variant={assignmentStatusVariant(a.status)}>
+                            {a.status}
+                          </Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {assignments.length >= 80 ? (
-                <p className="px-6 py-2 text-xs text-muted-foreground">
-                  Showing the latest 80 assignments.
-                </p>
-              ) : null}
             </div>
           )}
         </CardContent>
