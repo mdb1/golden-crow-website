@@ -151,6 +151,16 @@ export const FirestoreCollections = {
    * this TS twin in P11 long after Collections.swift).
    */
   clientExerciseNotes: "client_exercise_notes",
+
+  /**
+   * Global, single-document mobile app configuration (`/app_config/mobile`).
+   * Holds the per-platform minimum supported build + store URLs that drive the
+   * iOS/Android force-update gate. Written EXCLUSIVELY by this backoffice via
+   * the Admin SDK (firestore.rules denies every client-SDK write); read
+   * publicly by the apps so the gate works before sign-in. Swift twin:
+   * `FirestoreCollections.appConfig` (same-commit invariant, Pitfall 7).
+   */
+  appConfig: "app_config",
 } as const;
 
 /**

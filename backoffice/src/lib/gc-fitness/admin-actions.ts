@@ -1018,3 +1018,153 @@ export async function removePendingClientForCoach(input: unknown): Promise<{ ok:
   });
   return { ok: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App version config (force-update gate)
+//
+// Single doc `/app_config/mobile` holding the per-platform minimum supported
+// native build + store URLs that the iOS/Android apps read at launch to force
+// out-of-date clients to update. This backoffice is the SOLE writer (the
+// firestore.rules `/app_config/{docId}` block denies every client-SDK write);
+// these Admin-SDK writes bypass the rules. Read is public on the doc so the
+// app gate works pre-sign-in.
+//
+// `minBuild` is the gate the app actually compares against (native
+// CFBundleVersion / versionCode — a monotonic integer, unambiguous). The
+// `latestVersion` marketing string is display-only (shown in the "please
+// update" copy). The Swift consumer is `AppConfig` / `ForceUpdatePolicy` in
+// GCFitnessCore.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AppVersionPlatformConfig {
+  /** Minimum acceptable native build. `0` disables the gate for the platform. */
+  minBuild: number;
+  /** Marketing version of the minimum release (display-only), e.g. "1.2.0". */
+  latestVersion: string;
+  /** Store listing URL the app's update button opens. */
+  storeUrl: string;
+}
+
+export interface AppVersionConfig {
+  ios: AppVersionPlatformConfig;
+  android: AppVersionPlatformConfig;
+  updatedAtISO: string | null;
+  updatedBy: string | null;
+}
+
+const APP_CONFIG_DOC_ID = "mobile";
+
+const EMPTY_PLATFORM_CONFIG: AppVersionPlatformConfig = {
+  minBuild: 0,
+  latestVersion: "",
+  storeUrl: "",
+};
+
+// storeUrl: empty (gate not yet published) OR an http(s) URL. latestVersion:
+// empty OR a dotted version (1, 1.2, 1.2.0). minBuild: non-negative int.
+const platformConfigSchema = z.object({
+  minBuild: z.coerce.number().int().min(0).max(2_147_483_647),
+  latestVersion: z
+    .string()
+    .trim()
+    .max(20)
+    .refine((v) => v === "" || /^\d+(\.\d+){0,3}$/.test(v), {
+      message: "Use a dotted version like 1.2.0 (or leave blank).",
+    }),
+  storeUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .refine((v) => v === "" || /^https?:\/\//i.test(v), {
+      message: "Must be an http(s) URL (or leave blank).",
+    }),
+});
+
+const updateAppVersionConfigSchema = z.object({
+  ios: platformConfigSchema,
+  android: platformConfigSchema,
+});
+
+export type UpdateAppVersionConfigInput = z.input<
+  typeof updateAppVersionConfigSchema
+>;
+
+function coercePlatform(raw: unknown): AppVersionPlatformConfig {
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  const minBuildRaw = obj.minBuild;
+  const minBuild =
+    typeof minBuildRaw === "number" && Number.isFinite(minBuildRaw)
+      ? Math.max(0, Math.trunc(minBuildRaw))
+      : 0;
+  return {
+    minBuild,
+    latestVersion: typeof obj.latestVersion === "string" ? obj.latestVersion : "",
+    storeUrl: typeof obj.storeUrl === "string" ? obj.storeUrl : "",
+  };
+}
+
+/**
+ * Reads the current `/app_config/mobile` document. Admin-gated. Returns
+ * zeroed defaults when the doc has never been written so the form renders a
+ * disabled gate (minBuild 0) instead of throwing.
+ */
+export async function getAppVersionConfig(): Promise<AppVersionConfig> {
+  await getCurrentAdmin();
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(FirestoreCollections.appConfig)
+    .doc(APP_CONFIG_DOC_ID)
+    .get();
+
+  if (!snap.exists) {
+    return {
+      ios: { ...EMPTY_PLATFORM_CONFIG },
+      android: { ...EMPTY_PLATFORM_CONFIG },
+      updatedAtISO: null,
+      updatedBy: null,
+    };
+  }
+
+  const updatedAt = snap.get("updatedAt");
+  const updatedAtISO =
+    updatedAt && typeof updatedAt.toDate === "function"
+      ? updatedAt.toDate().toISOString()
+      : null;
+  const updatedBy = snap.get("updatedBy");
+
+  return {
+    ios: coercePlatform(snap.get("ios")),
+    android: coercePlatform(snap.get("android")),
+    updatedAtISO,
+    updatedBy: typeof updatedBy === "string" ? updatedBy : null,
+  };
+}
+
+/**
+ * Writes the `/app_config/mobile` document. Admin-gated + Zod-validated BEFORE
+ * any write (defense in depth — the rules already deny client writes, but the
+ * Admin SDK bypasses them, so validation here is the real guard). Records the
+ * acting admin email + server timestamp for the audit trail.
+ */
+export async function updateAppVersionConfig(
+  input: unknown,
+): Promise<{ ok: true }> {
+  const admin = await getCurrentAdmin();
+  const parsed = updateAppVersionConfigSchema.parse(input);
+
+  const db = gcFitnessFirestore();
+  await db
+    .collection(FirestoreCollections.appConfig)
+    .doc(APP_CONFIG_DOC_ID)
+    .set(
+      {
+        ios: parsed.ios,
+        android: parsed.android,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: admin.email,
+      },
+      { merge: true },
+    );
+
+  return { ok: true };
+}

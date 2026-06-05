@@ -112,6 +112,21 @@ export default async function AdminPage({
         </div>
       ) : null}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">App version (force update)</CardTitle>
+          <CardDescription>
+            Set the minimum supported app build per platform. Clients on an
+            older build are forced to update before they can use the app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/gc-fitness/admin/app-config">Manage app version</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
