@@ -24,6 +24,7 @@ import type {
   SessionExercise,
   SessionSetLog,
 } from "@/lib/gc-fitness/live-workout-types";
+import { resolveSetPrefill } from "@/lib/gc-fitness/weight-prefill";
 
 export interface SetRowState {
   /** Stable lowercased UUID — the SetLog id (arrayUnion dedup key). */
@@ -61,31 +62,83 @@ function isTimeMetric(ex: SessionExercise): boolean {
   return ex.metric === "time";
 }
 
-/** Build the initial rows for an exercise, prefilling from the template
- *  prescription, then the previous-session map, then zeros. */
+/** Parse an ISO string to a Date, or null when absent/unparseable. */
+function parseIsoDate(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** The assignment's DOC-LEVEL prescription-freshness anchor as a Date (or
+ *  null). The Server Action surfaces `prescriptionUpdatedAt ?? createdAt`
+ *  already, so a null here only happens on the rare doc with neither stamp.
+ *  This is the per-exercise resolver's FALLBACK when no per-exercise override
+ *  exists. */
+function parsePrescriptionUpdatedAt(session: ActiveSession): Date | null {
+  return parseIsoDate(session.prescriptionUpdatedAt);
+}
+
+/** The per-exercise prescription anchor for `exerciseId`:
+ *  `prescriptionUpdatedAtByExerciseId[exerciseId] ?? prescriptionUpdatedAt
+ *  (?? createdAt, already folded into docLevel)`. Lets a coach push the routine
+ *  for ONE exercise without resetting the others. */
+function prescriptionUpdatedAtForExercise(
+  session: ActiveSession,
+  exerciseId: string,
+  docLevel: Date | null,
+): Date | null {
+  const perExercise = parseIsoDate(
+    session.prescriptionUpdatedAtByExerciseId?.[exerciseId],
+  );
+  return perExercise ?? docLevel;
+}
+
+/** Build the initial rows for an exercise via the SHARED weight-prefill rule
+ *  (`resolveSetPrefill` — the TS twin of Swift `WeightPrefillResolver`):
+ *  "most recent intent wins". First time → coach's routine; after the client
+ *  logged → their last value; coach changed the plan after that → routine once.
+ *
+ *  Per-set-index history is not available on the backoffice side — the
+ *  PreviousSessionMap carries ONE representative (heaviest) prior value per
+ *  exercise plus its `lastLoggedAt`, so we feed that same `previous` to every
+ *  set index (matching the column the coach already sees in "ANTERIOR"). */
 function initialRows(
   ex: SessionExercise,
   previous: PreviousSessionMap,
+  /** The PER-EXERCISE prescription anchor for `ex`
+   *  (`prescriptionUpdatedAtByExerciseId[ex.exerciseId] ?? doc-level`).
+   *  Resolved by the caller via `prescriptionUpdatedAtForExercise`. */
+  prescriptionUpdatedAt: Date | null,
 ): SetRowState[] {
   const count = Math.max(1, ex.sets);
   const prev = previous[ex.exerciseId];
   const time = isTimeMetric(ex);
+  const lastLoggedAt = prev?.lastLoggedAt ? new Date(prev.lastLoggedAt) : null;
+  const previousValue = prev
+    ? {
+        weightKg: prev.weightKg,
+        reps: prev.reps,
+        durationSeconds: prev.durationSeconds ?? null,
+      }
+    : null;
   return Array.from({ length: count }, (_, idx) => {
-    const weightKg =
-      ex.weightBySetKg?.[idx] ?? prev?.weightKg ?? 0;
-    const reps =
-      ex.repsBySet?.[idx] ?? (ex.reps || prev?.reps || 0);
-    const durationSeconds = time
-      ? ex.durationBySetSeconds?.[idx] ??
-        ex.durationSeconds ??
-        prev?.durationSeconds ??
-        null
-      : null;
+    const resolved = resolveSetPrefill({
+      templateWeightKg: ex.weightBySetKg?.[idx] ?? null,
+      templateReps: ex.repsBySet?.[idx] ?? (ex.reps || null),
+      templateDurationSeconds: time
+        ? ex.durationBySetSeconds?.[idx] ?? ex.durationSeconds ?? null
+        : null,
+      exerciseDefaultReps: ex.reps || 0,
+      exerciseDefaultDurationSeconds: time ? ex.durationSeconds ?? null : null,
+      previous: previousValue,
+      prescriptionUpdatedAt,
+      lastLoggedAt,
+    });
     return {
       id: newId(),
-      weightKg,
-      reps,
-      durationSeconds,
+      weightKg: resolved.weightKg,
+      reps: resolved.reps,
+      durationSeconds: time ? resolved.durationSeconds : null,
       isWarmup: false,
       done: false,
       completedAt: null,
@@ -159,8 +212,17 @@ export function useLiveSession(
     () => {
       if (!bootstrapSession) return {};
       const base: Record<string, SetRowState[]> = {};
+      const docLevel = parsePrescriptionUpdatedAt(bootstrapSession);
       for (const ex of bootstrapSession.exercises) {
-        base[ex.exerciseId] = initialRows(ex, previousRef.current);
+        base[ex.exerciseId] = initialRows(
+          ex,
+          previousRef.current,
+          prescriptionUpdatedAtForExercise(
+            bootstrapSession,
+            ex.exerciseId,
+            docLevel,
+          ),
+        );
       }
       return hydrateLoggedSets(base, bootstrapSession.sets);
     },
@@ -181,7 +243,13 @@ export function useLiveSession(
         const s = await startWorkoutSession({ assignmentId });
         if (cancelled) return;
         const base: Record<string, SetRowState[]> = {};
-        for (const ex of s.exercises) base[ex.exerciseId] = initialRows(ex, previousRef.current);
+        const docLevel = parsePrescriptionUpdatedAt(s);
+        for (const ex of s.exercises)
+          base[ex.exerciseId] = initialRows(
+            ex,
+            previousRef.current,
+            prescriptionUpdatedAtForExercise(s, ex.exerciseId, docLevel),
+          );
         setSession(s);
         setExercises(s.exercises);
         setRowsByExercise(hydrateLoggedSets(base, s.sets));

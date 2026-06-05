@@ -1954,8 +1954,8 @@ export function TemplateForm({
                                     className={cn(
                                       "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors",
                                       active
-                                        ? "border-amber-400 bg-amber-400/15 text-amber-100"
-                                        : "border-border/70 bg-background text-foreground hover:border-amber-400/60 hover:text-amber-100",
+                                        ? "border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-100"
+                                        : "border-border/70 bg-background text-foreground hover:border-amber-400/60 hover:text-amber-700 dark:text-amber-100",
                                     )}
                                   >
                                     {group}
@@ -2004,7 +2004,7 @@ export function TemplateForm({
                     />
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
                       <div className="flex items-center gap-2">
-                        <FormLabel className="text-amber-100">
+                        <FormLabel className="text-amber-700 dark:text-amber-100">
                           {t("transitionRestSeconds")}
                         </FormLabel>
                         <InfoTooltip

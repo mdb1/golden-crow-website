@@ -100,6 +100,23 @@ export interface ActiveSession {
   scheduledFor: string;
   /** Shared id across a recurring series (drives the finalize "future" option). */
   seriesId?: string | null;
+  /**
+   * ISO-8601 of when the coach last set/changed this assignment's prescription
+   * (`prescriptionUpdatedAt ?? createdAt`). Feeds the shared weight-prefill
+   * rule so a coach plan change shows the routine once before reverting to the
+   * client's remembered weights. Null only on the rare doc with neither stamp.
+   */
+  prescriptionUpdatedAt?: string | null;
+  /**
+   * Per-exercise weight-prefill freshness anchor: `exerciseId → ISO-8601`. The
+   * coach stamps an entry here only for an exercise whose weights genuinely
+   * changed, so a plan edit pushes the routine for THAT exercise once while the
+   * client keeps their own weights on every untouched exercise. The resolver
+   * uses, per exercise, `prescriptionUpdatedAtByExerciseId[exerciseId] ??
+   * prescriptionUpdatedAt ?? createdAt`. Empty/absent on docs written before
+   * this field existed (then the doc-level anchor is the only signal).
+   */
+  prescriptionUpdatedAtByExerciseId?: Record<string, string>;
 }
 
 /** Compact summary for notifications/sidebar surfaces. */
@@ -123,6 +140,13 @@ export interface PreviousSetSummary {
   weightKg: number;
   reps: number;
   durationSeconds?: number | null;
+  /**
+   * ISO-8601 `completedAt` of the client's most recent COMPLETED log of this
+   * exercise — the `lastLoggedAt` input to the shared weight-prefill rule
+   * (resolveSetPrefill / WeightPrefillResolver). Null/absent when the exercise
+   * was never logged. Additive: existing "ANTERIOR" column consumers ignore it.
+   */
+  lastLoggedAt?: string | null;
 }
 
 /** exerciseId → most-recent completed performance. */

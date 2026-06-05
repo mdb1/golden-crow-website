@@ -224,8 +224,18 @@ export function WorkoutAssignmentEditDialog({
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
+          <div className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Si cambiás los <strong className="font-medium text-foreground">pesos</strong>, el
+              alumno verá los nuevos la próxima vez que haga esta rutina y después
+              vuelve a usar los suyos. Cambiar solo notas o descanso{" "}
+              <strong className="font-medium text-foreground">no toca</strong> los pesos
+              que ya viene usando.
+            </span>
+          </div>
           {isSeries ? (
-            <div className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
+            <div className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-100">
               Esta asignación pertenece a una recurrencia. Elegí abajo si los
               cambios aplican solo a esta fecha o también a las siguientes
               ocurrencias antes de guardar.
@@ -262,7 +272,7 @@ export function WorkoutAssignmentEditDialog({
                           className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
                         />
                       </label>
-                      <label className="flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/5 px-2 py-1 text-xs text-amber-100">
+                      <label className="flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/5 px-2 py-1 text-xs text-amber-700 dark:text-amber-100">
                         Descanso entre ejercicios (s)
                         <InfoTooltip
                           text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
@@ -286,12 +296,17 @@ export function WorkoutAssignmentEditDialog({
                     <span>Kg</span>
                     <span />
                   </div>
-                  {draft.setRows.map((row, rowIdx) => (
+                  {draft.setRows.map((row, rowIdx) => {
+                    const lastLogged =
+                      data.lastLoggedSetsByExerciseId?.[ex.exerciseId]?.[
+                        rowIdx
+                      ];
+                    return (
                     <div
                       key={rowIdx}
-                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2"
+                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-start gap-2"
                     >
-                      <span className="text-xs text-muted-foreground">
+                      <span className="pt-2 text-xs text-muted-foreground">
                         {rowIdx + 1}
                       </span>
                       <input
@@ -303,17 +318,24 @@ export function WorkoutAssignmentEditDialog({
                         }
                         className="h-9 rounded-md border bg-background px-2 text-sm"
                       />
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={row.kg}
-                        placeholder="Kg"
-                        onChange={(e) =>
-                          patchRow(ex.index, rowIdx, { kg: e.target.value })
-                        }
-                        className="h-9 rounded-md border bg-background px-2 text-sm"
-                      />
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-col gap-0.5">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={row.kg}
+                          placeholder="Kg"
+                          onChange={(e) =>
+                            patchRow(ex.index, rowIdx, { kg: e.target.value })
+                          }
+                          className="h-9 rounded-md border bg-background px-2 text-sm"
+                        />
+                        {lastLogged ? (
+                          <span className="px-0.5 text-[10px] text-muted-foreground">
+                            Último: {lastLogged.weightKg}kg × {lastLogged.reps}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center justify-end gap-1 pt-1">
                         {rowIdx === 0 ? (
                           <button
                             type="button"
@@ -343,7 +365,8 @@ export function WorkoutAssignmentEditDialog({
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   <button
                     type="button"
                     tabIndex={-1}

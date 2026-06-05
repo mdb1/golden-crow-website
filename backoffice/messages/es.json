@@ -468,14 +468,6 @@
         "loading": "Cargando…",
         "previous": "Anterior",
         "next": "Siguiente"
-      },
-      "preferences": {
-        "title": "Preferencias del cliente",
-        "workoutPrefillLabel": "Pesos iniciales en la app",
-        "workoutPrefillPrevious": "Entrenamiento anterior",
-        "workoutPrefillPreviousDescription": "La app empieza cada serie con los últimos pesos/reps registrados cuando hay historial. El cliente puede cambiarlo en Ajustes.",
-        "workoutPrefillTemplate": "Rutina del coach",
-        "workoutPrefillTemplateDescription": "La app empieza cada serie con los pesos/reps planificados en la rutina. El cliente igual puede tocar Anterior para copiar el último registro."
       }
     }
   },
@@ -514,7 +506,20 @@
       "title": "Editar plantilla",
       "subtitlePrefix": "Los cambios se guardan al tocar ",
       "subtitleCta": "Guardar",
-      "subtitleSuffix": ". Si la plantilla ya está agendada, te preguntamos si querés aplicar los cambios a esas sesiones."
+      "subtitleSuffix": ". Si la plantilla ya está agendada, te preguntamos si querés aplicar los cambios a esas sesiones.",
+      "propagateDialog": {
+        "title": "¿Aplicar los cambios a las sesiones agendadas?",
+        "summary": "La plantilla se guardó. Actualmente está agendada en {sessions, plural, one {<strong># sesión próxima</strong>} other {<strong># sesiones próximas</strong>}} para {clients, plural, one {<strong># cliente</strong>} other {<strong># clientes</strong>}}.",
+        "explainer": "Las notas y la estructura (series, repeticiones, descanso, orden) siempre se actualizan en esos días. Las sesiones completadas o en curso nunca se modifican.",
+        "clientLine": "{name} — {sessions, plural, one {# sesión} other {# sesiones}} (próxima {next})",
+        "pushWeightsLabel": "Actualizar también los pesos de los clientes",
+        "pushWeightsHelp": "Desactivado: cada cliente conserva sus pesos actuales. Activado: los clientes ven los pesos del nuevo plan una vez y luego vuelven a los suyos.",
+        "keepCta": "Mantener las sesiones agendadas",
+        "updateCta": "{count, plural, one {Actualizar # sesión agendada} other {Actualizar # sesiones agendadas}}",
+        "updating": "Actualizando…",
+        "updatedToast": "{count, plural, one {Se actualizó # sesión agendada.} other {Se actualizaron # sesiones agendadas.}}",
+        "updateFailedToast": "No se pudieron actualizar las sesiones agendadas."
+      }
     },
     "list": {
       "pageHeading": "Plantillas de entrenamiento",
@@ -1215,6 +1220,10 @@
     },
     "preferences": {
       "title": "Preferencias"
+    },
+    "weightPrefill": {
+      "title": "Cómo funciona el pre-llenado de pesos",
+      "body": "Los clientes ven los pesos que planificaste la primera vez. Después de registrar un entrenamiento, ven sus propios últimos pesos. Cuando cambiás los pesos de un entrenamiento (editar + 'actualizar ocurrencias', o un ajuste por asignación), el cliente ve el nuevo plan una vez y luego vuelve a recordar los suyos."
     },
     "language": {
       "title": "Idioma",

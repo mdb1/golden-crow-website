@@ -19,6 +19,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ChevronRight,
+  Dumbbell,
   Languages,
   MessageSquareText,
   MoonStar,
@@ -267,6 +268,7 @@ export function SettingsSections({
   const tLang = useTranslations("settings.language");
   const tPrefs = useTranslations("settings.preferences");
   const tTheme = useTranslations("settings.theme");
+  const tWeight = useTranslations("settings.weightPrefill");
 
   return (
     <div className="flex flex-col gap-6">
@@ -289,6 +291,27 @@ export function SettingsSections({
             trailing={<ThemeSegmentedControl />}
             last
           />
+        </Section>
+      </div>
+
+      {/* How client weight pre-fill behaves — the "most recent intent wins"
+          rule shared with the iOS/watch apps (resolveSetPrefill twin). A
+          static explainer so coaches understand why a client sometimes sees
+          their own last weights and sometimes the freshly-planned ones. */}
+      <div className="flex flex-col gap-2">
+        <SectionLabel>{tSettings("preferencesGroup")}</SectionLabel>
+        <Section>
+          <div className="flex items-start gap-3 px-4 py-3.5">
+            <IconChip tone="success" icon={<Dumbbell />} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                {tWeight("title")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {tWeight("body")}
+              </p>
+            </div>
+          </div>
         </Section>
       </div>
 

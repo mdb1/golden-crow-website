@@ -468,14 +468,6 @@
         "loading": "Loading…",
         "previous": "Previous",
         "next": "Next"
-      },
-      "preferences": {
-        "title": "Client preferences",
-        "workoutPrefillLabel": "Starting weights in the app",
-        "workoutPrefillPrevious": "Previous workout",
-        "workoutPrefillPreviousDescription": "The app starts each set from the last logged weights/reps when history exists. The client can change this in Settings.",
-        "workoutPrefillTemplate": "Trainer plan",
-        "workoutPrefillTemplateDescription": "The app starts each set from the workout plan weights/reps. The client can still tap Previous to copy the last log."
       }
     }
   },
@@ -514,7 +506,20 @@
       "title": "Edit template",
       "subtitlePrefix": "Changes save when you click ",
       "subtitleCta": "Save",
-      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions."
+      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions.",
+      "propagateDialog": {
+        "title": "Apply changes to existing schedules?",
+        "summary": "The template was saved. It's currently scheduled for {sessions, plural, one {<strong># upcoming session</strong>} other {<strong># upcoming sessions</strong>}} across {clients, plural, one {<strong># client</strong>} other {<strong># clients</strong>}}.",
+        "explainer": "Notes and structure (sets, reps, rest, order) always update on those days. Completed and in-progress sessions are never modified.",
+        "clientLine": "{name} — {sessions, plural, one {# session} other {# sessions}} (next {next})",
+        "pushWeightsLabel": "Also update clients' weights",
+        "pushWeightsHelp": "Off: each client keeps their current weights. On: clients see the new plan weights once, then their own again.",
+        "keepCta": "Keep existing schedules",
+        "updateCta": "{count, plural, one {Update # scheduled session} other {Update # scheduled sessions}}",
+        "updating": "Updating…",
+        "updatedToast": "{count, plural, one {Updated # scheduled session.} other {Updated # scheduled sessions.}}",
+        "updateFailedToast": "Could not update scheduled sessions."
+      }
     },
     "list": {
       "pageHeading": "Workout Templates",
@@ -1215,6 +1220,10 @@
     },
     "preferences": {
       "title": "Preferences"
+    },
+    "weightPrefill": {
+      "title": "How weight pre-fill works",
+      "body": "Clients see your planned weights the first time. After they log a workout, they see their own last weights. When you change a workout's weights (edit + 'update occurrences', or a per-assignment override), the client sees the new plan once, then it goes back to remembering theirs."
     },
     "language": {
       "title": "Language",
