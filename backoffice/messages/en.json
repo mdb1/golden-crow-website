@@ -1611,7 +1611,11 @@
     "showCompleted": "Show completed ({count})",
     "hideCompleted": "Hide completed",
     "toggleAria": "Toggle {title}",
-    "deleteAria": "Delete {title}"
+    "deleteAria": "Delete {title}",
+    "editAria": "Edit {title}",
+    "editTitle": "Edit reminder",
+    "saveCta": "Save changes",
+    "cancel": "Cancel"
   },
   "login": {
     "eyebrow": "GC Fitness",

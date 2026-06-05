@@ -31,6 +31,14 @@ const createChecklistItemSchema = z.object({
 
 const itemIdSchema = z.string().trim().min(1).max(160);
 
+// The dashboard "Pendientes de tu checklist" widget reads the same
+// coach_checklist subcollection, so every mutation must revalidate both routes
+// or the widget shows stale items after a toggle/edit/delete from either page.
+function revalidateChecklistSurfaces() {
+  revalidatePath("/gc-fitness/checklist");
+  revalidatePath("/gc-fitness/dashboard");
+}
+
 export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
   const trainer = await getCurrentTrainer();
   const snap = await checklistCollection(trainer.uid)
@@ -116,7 +124,32 @@ export async function createCoachChecklistItem(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  revalidatePath("/gc-fitness/checklist");
+  revalidateChecklistSurfaces();
+  return { ok: true };
+}
+
+export async function updateCoachChecklistItem(
+  itemId: unknown,
+  input: unknown,
+): Promise<{ ok: true }> {
+  const trainer = await getCurrentTrainer();
+  const parsedItemId = itemIdSchema.parse(itemId);
+  const parsed = createChecklistItemSchema.parse(input);
+  const dueAt = parseDueAt(parsed.dueDate, parsed.dueTime);
+
+  // Empty notes / cleared date are intentional removals, not "leave as-is":
+  // delete the notes field and null out dueAt so the item drops back to the
+  // "Sin fecha" group. `completed`/`createdAt` are left untouched.
+  await checklistCollection(trainer.uid)
+    .doc(parsedItemId)
+    .update({
+      title: parsed.title,
+      notes: parsed.notes ? parsed.notes : FieldValue.delete(),
+      dueAt,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  revalidateChecklistSurfaces();
   return { ok: true };
 }
 
@@ -133,7 +166,7 @@ export async function setCoachChecklistItemCompleted(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  revalidatePath("/gc-fitness/checklist");
+  revalidateChecklistSurfaces();
   return { ok: true };
 }
 
@@ -145,7 +178,7 @@ export async function deleteCoachChecklistItem(
 
   await checklistCollection(trainer.uid).doc(parsedItemId).delete();
 
-  revalidatePath("/gc-fitness/checklist");
+  revalidateChecklistSurfaces();
   return { ok: true };
 }
 

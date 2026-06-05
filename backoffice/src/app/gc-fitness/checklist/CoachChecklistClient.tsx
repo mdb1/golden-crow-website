@@ -8,11 +8,13 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Pencil,
   Trash2,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { ChecklistEditDialog } from "@/components/gc-fitness/ChecklistEditDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -241,16 +243,31 @@ export function CoachChecklistClient({ items }: Props) {
                               : t("noDueAt")}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteItem(item)}
-                          disabled={pending}
-                          aria-label={t("deleteAria", { title: item.title })}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <ChecklistEditDialog
+                            item={item}
+                            trigger={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={t("editAria", { title: item.title })}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteItem(item)}
+                            disabled={pending}
+                            aria-label={t("deleteAria", { title: item.title })}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}

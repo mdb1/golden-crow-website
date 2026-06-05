@@ -1611,7 +1611,11 @@
     "showCompleted": "Ver completados ({count})",
     "hideCompleted": "Ocultar completados",
     "toggleAria": "Marcar {title}",
-    "deleteAria": "Eliminar {title}"
+    "deleteAria": "Eliminar {title}",
+    "editAria": "Editar {title}",
+    "editTitle": "Editar reminder",
+    "saveCta": "Guardar cambios",
+    "cancel": "Cancelar"
   },
   "login": {
     "eyebrow": "GC Fitness",
