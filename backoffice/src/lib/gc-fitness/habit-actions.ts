@@ -1438,46 +1438,85 @@ export async function updateHabitTemplate(
     }),
   );
 
-  // Cascade the CONTENT fields (description / photo / video) onto every live
-  // assignment created from this template (linked via `sourceTemplateId`). The
-  // iOS app reads the per-client assignment doc, not the template — without
-  // this, a library edit would never reach the client. We intentionally do NOT
-  // cascade name / schedule / reminder: those are commonly customised per
-  // assignment, whereas the description/photo/video are intrinsic "what is this
-  // habit" context the trainer expects to edit once.
-  //
-  // LIMITATION: only assignments carrying `sourceTemplateId` are reached.
-  // Assignments created before this link existed (or by any unlinked path) are
-  // NOT updated — edit those directly from the Assignments tab.
-  const contentPatch = withoutUndefined({
-    description: parsed.description,
-    photoUrl: parsed.photoUrl,
-    youtubeUrl: parsed.youtubeUrl,
-  });
-  if (Object.keys(contentPatch).length > 0) {
-    // Single-field equality query — no composite index required.
-    const linked = await db
-      .collection(COLLECTION)
-      .where("sourceTemplateId", "==", id)
-      .get();
-    const mine = linked.docs.filter((d) => {
-      const data = d.data() as { trainerId?: string; deleted?: boolean };
-      return data.trainerId === trainer.uid && data.deleted !== true;
-    });
-    // Firestore batches cap at 500 writes; chunk defensively.
-    for (let i = 0; i < mine.length; i += 450) {
-      const batch = db.batch();
-      for (const d of mine.slice(i, i + 450)) {
-        batch.update(d.ref, {
-          ...contentPatch,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      }
-      await batch.commit();
-    }
+  // NOTE: cascading the content fields (description / photo / video) onto the
+  // linked client assignments is now an EXPLICIT, opt-in step — the UI shows
+  // which clients would be affected and asks before pushing. See
+  // `propagateHabitTemplateContent` (called from the template edit dialog after
+  // the trainer confirms). Editing the template alone no longer silently
+  // rewrites every client's assignment.
+  return { ok: true };
+}
+
+/**
+ * Opt-in cascade: push the template's CURRENT content fields (description /
+ * photo / video) onto every live per-client assignment linked via
+ * `sourceTemplateId`. The iOS app reads the per-client assignment doc (not the
+ * template), so this is how a library edit reaches clients. Name / schedule /
+ * reminder are deliberately NOT cascaded — those are commonly customised per
+ * assignment.
+ *
+ * LIMITATION: only assignments carrying `sourceTemplateId` are reached.
+ */
+export async function propagateHabitTemplateContent(
+  templateId: string,
+): Promise<{ updated: number }> {
+  const trainer = await getCurrentTrainer();
+  if (typeof templateId !== "string" || templateId.trim().length === 0) {
+    return { updated: 0 };
   }
 
-  return { ok: true };
+  const db = gcFitnessFirestore();
+  const tplSnap = await db.collection(TEMPLATE_COLLECTION).doc(templateId).get();
+  if (!tplSnap.exists) throw new Error("Not found");
+  const tpl = tplSnap.data() as {
+    scope?: string;
+    trainerId?: string;
+    description?: unknown;
+    photoUrl?: unknown;
+    youtubeUrl?: unknown;
+  };
+  if (tpl.scope === "global") throw new Error("Global templates can't be edited.");
+  if (tpl.trainerId !== trainer.uid) throw new Error("Not your template.");
+
+  // Push only fields that are set on the template (matches the prior cascade —
+  // clearing a field on the template does not clear it on assignments).
+  const contentPatch = withoutUndefined({
+    description: tpl.description,
+    photoUrl:
+      typeof tpl.photoUrl === "string" && tpl.photoUrl.length > 0
+        ? tpl.photoUrl
+        : undefined,
+    youtubeUrl:
+      typeof tpl.youtubeUrl === "string" && tpl.youtubeUrl.length > 0
+        ? tpl.youtubeUrl
+        : undefined,
+  });
+  if (Object.keys(contentPatch).length === 0) return { updated: 0 };
+
+  // Single-field equality query — no composite index required.
+  const linked = await db
+    .collection(COLLECTION)
+    .where("sourceTemplateId", "==", templateId)
+    .get();
+  const mine = linked.docs.filter((d) => {
+    const data = d.data() as { trainerId?: string; deleted?: boolean };
+    return data.trainerId === trainer.uid && data.deleted !== true;
+  });
+
+  let updated = 0;
+  // Firestore batches cap at 500 writes; chunk defensively.
+  for (let i = 0; i < mine.length; i += 450) {
+    const batch = db.batch();
+    for (const d of mine.slice(i, i + 450)) {
+      batch.update(d.ref, {
+        ...contentPatch,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      updated += 1;
+    }
+    await batch.commit();
+  }
+  return { updated };
 }
 
 export async function assignHabitTemplate(input: unknown): Promise<{
