@@ -274,6 +274,11 @@ async function buildActiveSession(
         : null,
     scheduledFor: String(assignment.scheduledFor ?? ""),
     seriesId: typeof assignment.seriesId === "string" ? assignment.seriesId : null,
+    // Prescription freshness anchor for the weight-prefill rule. Fall back to
+    // createdAt for legacy assignments written before prescriptionUpdatedAt
+    // existed (coachUpdatedSinceLastLog then keeps remembering, no false nag).
+    prescriptionUpdatedAt:
+      toIso(assignment.prescriptionUpdatedAt) ?? toIso(assignment.createdAt),
   };
 }
 
@@ -710,6 +715,10 @@ async function propagateToFutureRecurrence(opts: {
     batch.update(doc.ref, {
       templateSnapshot: { ...existingSnapshot, exercises: enriched },
       updatedAt: FieldValue.serverTimestamp(),
+      // Future occurrences just had their prescription rewritten to match the
+      // performed structure — bump the weight-prefill freshness anchor so the
+      // apps treat it as a fresh coach plan (see weight-prefill.ts).
+      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
     });
     count += 1;
     if (count >= MAX_FUTURE_PROPAGATION) break;
@@ -829,6 +838,11 @@ export async function getPreviousSessionForClient(
     const sets = Array.isArray(data.sets)
       ? (data.sets as Array<Record<string, unknown>>)
       : [];
+    // `lastLoggedAt` for the weight-prefill rule: completion instant of THIS
+    // log. Logs are ordered by startedAt DESC, so the first log we see for an
+    // exercise is its most recent — its completion time is the exercise's
+    // lastLoggedAt. Fall back to startedAt when completed_at is absent.
+    const logCompletedAt = toIso(data.completed_at) ?? toIso(data.startedAt);
     // Logs are newest-first; first time we see an exercise wins. Within a log
     // keep the heaviest working set as the representative "last time".
     for (const raw of sets) {
@@ -849,6 +863,7 @@ export async function getPreviousSessionForClient(
           typeof best.duration_seconds === "number"
             ? best.duration_seconds
             : null,
+        lastLoggedAt: logCompletedAt,
       };
     }
   }

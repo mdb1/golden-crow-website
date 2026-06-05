@@ -1216,6 +1216,10 @@
     "preferences": {
       "title": "Preferencias"
     },
+    "weightPrefill": {
+      "title": "Cómo funciona el pre-llenado de pesos",
+      "body": "Los clientes ven los pesos que planificaste la primera vez. Después de registrar un entrenamiento, ven sus propios últimos pesos. Cuando cambiás los pesos de un entrenamiento (editar + 'actualizar ocurrencias', o un ajuste por asignación), el cliente ve el nuevo plan una vez y luego vuelve a recordar los suyos."
+    },
     "language": {
       "title": "Idioma",
       "subtitle": "Elegí el idioma del backoffice. Persiste entre dispositivos.",

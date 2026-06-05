@@ -100,6 +100,24 @@ export const assignTemplateSchema = z.object({
   exerciseOverrides: z.array(assignmentExerciseOverrideSchema).max(50).optional(),
 });
 
+/**
+ * `prescriptionUpdatedAt` — camelCase wire timestamp (like `createdAt` /
+ * `updatedAt`) recording when the coach last SET or REWROTE this assignment's
+ * prescription (templateSnapshot). Drives the shared weight-prefill rule
+ * (`resolveSetPrefill` / Swift `WeightPrefillResolver`): when this is strictly
+ * newer than the client's last log of an exercise, the apps show the routine
+ * once with a "coach updated" notice, then fall back to remembering the
+ * client's own weights.
+ *
+ * It is written by the SERVER (Admin SDK, `FieldValue.serverTimestamp()`) at
+ * every site that establishes or rewrites the prescription — never by client
+ * input — so this schema entry is OPTIONAL and exists only for documentation /
+ * forward-compat on any future shape that round-trips the value. A dedicated
+ * field (NOT `updatedAt`) avoids the false "coach updated" notice that a
+ * reschedule / status flip would otherwise trigger.
+ */
+export const prescriptionUpdatedAtSchema = z.unknown().optional();
+
 export type AssignTemplateInput = z.infer<typeof assignTemplateSchema>;
 
 /**

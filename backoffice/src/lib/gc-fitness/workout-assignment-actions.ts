@@ -349,6 +349,10 @@ export async function assignTemplate(
     status: "scheduled" as const,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
+    // The coach is establishing the prescription right now — stamp it so the
+    // shared weight-prefill rule can detect future plan changes (see
+    // weight-prefill.ts / WeightPrefillResolver.swift).
+    prescriptionUpdatedAt: FieldValue.serverTimestamp(),
   });
 
   await recordCoachActivityEvent(
@@ -426,6 +430,8 @@ export async function assignTemplateToPending(input: {
     status: "scheduled" as const,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
+    // Prescription established now — weight-prefill freshness anchor.
+    prescriptionUpdatedAt: FieldValue.serverTimestamp(),
   });
 
   await recordCoachActivityEvent(
@@ -576,6 +582,8 @@ export async function bulkAssignTemplate(
       status: "scheduled" as const,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      // Prescription established now — weight-prefill freshness anchor.
+      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
     });
     ids.push(docId);
   }
@@ -728,6 +736,8 @@ export async function assignTemplateRecurring(
       status: "scheduled" as const,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      // Prescription established now — weight-prefill freshness anchor.
+      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
       recurrence: recurrencePayload,
       seriesId,
     });
@@ -898,6 +908,8 @@ export async function assignTemplateRecurringToPending(input: {
       status: "scheduled" as const,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      // Prescription established now — weight-prefill freshness anchor.
+      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
       recurrence: recurrencePayload,
       seriesId,
     });
@@ -1370,6 +1382,10 @@ export async function propagateTemplateToFutureAssignments(
       batch.update(doc.ref, {
         templateSnapshot: snapshotForAssignment(existing),
         updatedAt: FieldValue.serverTimestamp(),
+        // The prescription was just rewritten from the edited template — bump
+        // the freshness anchor so the apps show the new plan once (origin
+        // "routineUpdated") before falling back to the client's own weights.
+        prescriptionUpdatedAt: FieldValue.serverTimestamp(),
       });
     }
     await batch.commit();
@@ -1495,6 +1511,10 @@ export async function editAssignmentExercises(
     batch.update(tgt.ref, {
       templateSnapshot: applyEdits(tgt.snapshot),
       updatedAt: FieldValue.serverTimestamp(),
+      // The coach just rewrote this assignment's per-exercise prescription —
+      // bump the freshness anchor so the apps surface the new plan once before
+      // reverting to the client's remembered weights (weight-prefill rule).
+      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
     });
   }
   await batch.commit();

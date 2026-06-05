@@ -1216,6 +1216,10 @@
     "preferences": {
       "title": "Preferences"
     },
+    "weightPrefill": {
+      "title": "How weight pre-fill works",
+      "body": "Clients see your planned weights the first time. After they log a workout, they see their own last weights. When you change a workout's weights (edit + 'update occurrences', or a per-assignment override), the client sees the new plan once, then it goes back to remembering theirs."
+    },
     "language": {
       "title": "Language",
       "subtitle": "Choose the language for the backoffice. Persists across devices.",
