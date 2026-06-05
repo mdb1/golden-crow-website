@@ -2,10 +2,11 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import {
   fetchSignInMethodsForEmail,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -18,6 +19,8 @@ import {
   ChevronRight,
   Dna,
   Dumbbell,
+  Eye,
+  EyeOff,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -47,6 +50,7 @@ type Phase = "auth" | "select" | "signup-email" | "signup-password";
 type LoadingState =
   | "google"
   | "email"
+  | "password-reset"
   | "signup-email"
   | "signup-password"
   | "project"
@@ -616,6 +620,93 @@ function AuthLogDialog({
   );
 }
 
+function PasswordResetDialog({
+  email,
+  open,
+  sent,
+  sending,
+  onOpenChange,
+  onConfirm,
+}: {
+  email: string;
+  open: boolean;
+  sent: boolean;
+  sending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-white/70 bg-white/92 text-slate-950 shadow-[0_30px_90px_rgba(47,28,70,0.28)] backdrop-blur-2xl sm:max-w-md">
+        {sent ? (
+          <>
+            <DialogHeader>
+              <div className="mb-1 flex size-11 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+                <CheckCircle2 className="size-5" />
+              </div>
+              <DialogTitle>Password reset email sent</DialogTitle>
+              <DialogDescription className="text-slate-600">
+                Congratulations. Firebase sent the reset email to{" "}
+                <span className="font-semibold text-slate-900">{email}</span>.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm leading-6 text-slate-600">
+              Open that email and follow the link to choose a new password, then
+              return here to sign in.
+            </p>
+            <DialogFooter className="border-slate-900/10 bg-white/45">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  className="h-10 rounded-xl"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Done
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Reset password?</DialogTitle>
+              <DialogDescription className="text-slate-600">
+                Firebase will send a password reset link to{" "}
+                <span className="font-semibold text-slate-900">{email}</span>.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm leading-6 text-slate-600">
+              Confirm the email address is correct before sending. The current
+              sign-in attempt will stay on this screen.
+            </p>
+            <DialogFooter className="border-slate-900/10 bg-white/45">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={sending}
+                  className="h-10 rounded-xl border-slate-900/10 bg-white/70 text-slate-800 hover:bg-white hover:text-slate-950"
+                >
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                type="button"
+                disabled={sending}
+                className="h-10 rounded-xl"
+                onClick={onConfirm}
+              >
+                {sending ? <LoadingIcon /> : <Mail className="size-4" />}
+                {sending ? "Sending..." : "Send reset email"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => void }) {
   const [logsOpen, setLogsOpen] = useState(false);
   const toneClasses = {
@@ -706,6 +797,57 @@ function FieldShell({
   );
 }
 
+function PasswordInput({
+  id,
+  autoComplete,
+  value,
+  onChange,
+  placeholder,
+  describedBy,
+  minLength,
+  visible,
+  onToggleVisibility,
+}: {
+  id: string;
+  autoComplete: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  placeholder: string;
+  describedBy: string;
+  minLength?: number;
+  visible: boolean;
+  onToggleVisibility: () => void;
+}) {
+  const label = visible ? "Hide password" : "Show password";
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        minLength={minLength}
+        aria-describedby={describedBy}
+        required
+        className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 pr-12 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
+      />
+      <button
+        type="button"
+        onClick={onToggleVisibility}
+        aria-label={label}
+        aria-pressed={visible}
+        title={label}
+        className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-900/5 hover:text-slate-900 focus:outline-none focus:ring-3 focus:ring-cyan-300/45"
+      >
+        {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </div>
+  );
+}
+
 function VersionPill() {
   return (
     <span className="inline-flex w-fit rounded-full border border-slate-900/10 bg-white/55 px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
@@ -757,8 +899,13 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordResetEmail, setPasswordResetEmail] = useState("");
+  const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [signupEligibility, setSignupEligibility] =
     useState<SignupEligibility | null>(null);
 
@@ -982,6 +1129,64 @@ export default function LoginPage() {
     }
   }
 
+  function handlePasswordResetRequest() {
+    const resetEmail = email.trim();
+    if (!resetEmail) {
+      setNotice({
+        tone: "info",
+        title: "Enter the account email first",
+        message:
+          "Add the email address that should receive the Firebase password reset link.",
+      });
+      return;
+    }
+
+    setPasswordResetEmail(resetEmail);
+    setPasswordResetSent(false);
+    setNotice(null);
+    setPasswordResetDialogOpen(true);
+  }
+
+  function handlePasswordResetDialogOpenChange(open: boolean) {
+    if (loading === "password-reset") return;
+    setPasswordResetDialogOpen(open);
+    if (!open) {
+      setPasswordResetSent(false);
+    }
+  }
+
+  async function handleSendPasswordResetEmail() {
+    const resetEmail = passwordResetEmail.trim();
+    if (!resetEmail) return;
+
+    setLoading("password-reset");
+    setNotice(null);
+
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setPasswordResetSent(true);
+    } catch (err) {
+      console.error("Password reset email error:", err);
+      const message =
+        "Firebase could not send the password reset email. Confirm the email and try again.";
+      setPasswordResetDialogOpen(false);
+      setNotice({
+        tone: "error",
+        title: "Password reset email was not sent",
+        message,
+        log: authErrorLog({
+          source: "firebase-web-sdk",
+          event: "password-reset-email",
+          message,
+          error: err,
+          context: { email: resetEmail },
+        }),
+      });
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function handleSignupEligibility(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading("signup-email");
@@ -1051,6 +1256,7 @@ export default function LoginPage() {
       setSignupEmail(data.email);
       setSignupEligibility(data as SignupEligibility);
       setSignupPassword("");
+      setShowSignupPassword(false);
       setPhase("signup-password");
       setNotice({
         tone: "success",
@@ -1198,6 +1404,7 @@ export default function LoginPage() {
     setNotice(null);
     setSignupEligibility(null);
     setSignupPassword("");
+    setShowSignupPassword(false);
   }
 
   const signupAccessLabel = signupEligibility?.viaRoleAssignment
@@ -1380,18 +1587,34 @@ export default function LoginPage() {
                   helper="For existing email accounts. New users should use the account creation flow below."
                   icon={<LockKeyhole className="size-4" />}
                 >
-                  <Input
+                  <PasswordInput
                     id="login-password"
-                    type="password"
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Password"
-                    aria-describedby="login-password-helper"
-                    required
-                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
+                    describedBy="login-password-helper"
+                    visible={showPassword}
+                    onToggleVisibility={() => setShowPassword((current) => !current)}
                   />
                 </FieldShell>
+
+                <div className="-mt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={loading !== null}
+                    onClick={handlePasswordResetRequest}
+                    className="h-8 rounded-lg px-2 text-xs font-semibold text-slate-600 hover:bg-white/60 hover:text-slate-950"
+                  >
+                    {loading === "password-reset" ? (
+                      <LoadingIcon />
+                    ) : (
+                      <Mail className="size-3.5" />
+                    )}
+                    Forgot password?
+                  </Button>
+                </div>
 
                 <Button
                   type="submit"
@@ -1422,6 +1645,7 @@ export default function LoginPage() {
                       onClick={() => {
                         setSignupEmail(email);
                         setNotice(null);
+                        setShowSignupPassword(false);
                         setPhase("signup-email");
                       }}
                     >
@@ -1511,17 +1735,18 @@ export default function LoginPage() {
                   helper="Use at least 6 characters. You will be signed in after the account is created."
                   icon={<KeyRound className="size-4" />}
                 >
-                  <Input
+                  <PasswordInput
                     id="signup-password"
-                    type="password"
                     autoComplete="new-password"
                     value={signupPassword}
                     onChange={(event) => setSignupPassword(event.target.value)}
                     placeholder="Choose a password"
                     minLength={6}
-                    aria-describedby="signup-password-helper"
-                    required
-                    className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
+                    describedBy="signup-password-helper"
+                    visible={showSignupPassword}
+                    onToggleVisibility={() =>
+                      setShowSignupPassword((current) => !current)
+                    }
                   />
                 </FieldShell>
 
@@ -1532,6 +1757,7 @@ export default function LoginPage() {
                     onClick={() => {
                       setPhase("signup-email");
                       setNotice(null);
+                      setShowSignupPassword(false);
                     }}
                     className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
                   >
@@ -1557,6 +1783,14 @@ export default function LoginPage() {
           </section>
         </section>
       </div>
+      <PasswordResetDialog
+        email={passwordResetEmail}
+        open={passwordResetDialogOpen}
+        sent={passwordResetSent}
+        sending={loading === "password-reset"}
+        onOpenChange={handlePasswordResetDialogOpenChange}
+        onConfirm={handleSendPasswordResetEmail}
+      />
     </main>
   );
 }
