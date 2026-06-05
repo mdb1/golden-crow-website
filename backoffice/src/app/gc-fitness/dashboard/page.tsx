@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  ClipboardCheck,
   Gauge,
   ScrollText,
   TrendingUp,
@@ -152,22 +151,9 @@ export default async function GCFitnessDashboardPage({
         subtitle={tDashboard("headerSubtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-full min-h-10"
-            >
-              <Link href="/gc-fitness/schedule">{tNav("schedule")}</Link>
-            </Button>
             <Button asChild className="rounded-full min-h-10">
               <Link href="/gc-fitness/clients">
                 {tDashboard("addOrManageClients")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-full min-h-10">
-              <Link href="/gc-fitness/checklist">
-                <ClipboardCheck className="size-4" />
-                {tDashboard("openChecklist")}
               </Link>
             </Button>
             <Button asChild variant="outline" className="rounded-full min-h-10">
