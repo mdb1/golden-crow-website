@@ -42,6 +42,10 @@ import {
 } from "./workout-assignment-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import {
+  weightsDifferBetweenSnapshots,
+  exercisesOf,
+} from "./weight-diff";
+import {
   recordCoachActivityEvent,
   markCoachActivityDeleted,
   singleAssignmentEvent,
@@ -1274,12 +1278,21 @@ export async function listFutureAssignmentsForTemplate(
  * are left untouched — they remain a frozen record of what the client was
  * actually asked to do.
  *
- * Per-assignment prescription overrides (reps/kg/sets/rest) are intentionally
- * replaced with the new template values — that's the whole point of "update
- * all occurrences". The ONE thing we preserve is the per-client per-exercise
- * NOTE the trainer wrote for that student: that note is personal annotation,
- * not template content, and silently wiping it on a template edit was a bug.
- * Merge rule (per exercise, matched by exerciseId then index):
+ * Notes/structure (reps/sets/rest/order/etc.) always flow through from the
+ * template. WEIGHTS are governed by the `pushWeights` option:
+ *   - pushWeights === false (DEFAULT): each assignment KEEPS its existing
+ *     per-exercise `weightBySetKg` (matched by exerciseId); new exercises with
+ *     no prior match take the template's weights. The `prescriptionUpdatedAt`
+ *     freshness anchor is NOT bumped — clients keep their own weights, no
+ *     "coach updated" alert.
+ *   - pushWeights === true: weights are replaced from the template too, and the
+ *     anchor is bumped — BUT only for assignments where a weight genuinely
+ *     changed vs the prior snapshot (avoid spuriously alerting clients whose
+ *     weights already match).
+ *
+ * The per-client per-exercise NOTE the trainer wrote for that student is always
+ * preserved (personal annotation, not template content). Merge rule (per
+ * exercise, matched by exerciseId then index):
  *   - client note only           → keep it
  *   - new template note only      → use it
  *   - both                        → "<client note> * <template note>"
@@ -1299,7 +1312,14 @@ function mergeExerciseNote(
 }
 export async function propagateTemplateToFutureAssignments(
   templateId: string,
+  options?: { pushWeights?: boolean },
 ): Promise<{ updatedCount: number }> {
+  // pushWeights defaults to FALSE: notes/structure/reps/rest flow through, but
+  // each client KEEPS their own per-exercise weights and the freshness anchor
+  // is left alone. Opting in (true) replaces weights from the template AND
+  // bumps the anchor — but only for assignments whose weights genuinely
+  // changed, so identical-weight clients aren't spuriously alerted.
+  const pushWeights = options?.pushWeights === true;
   const trainer = await getCurrentTrainer();
 
   const db = gcFitnessFirestore();
@@ -1346,24 +1366,46 @@ export async function propagateTemplateToFutureAssignments(
         : [];
     // exerciseId → first existing note, for reordered/added template exercises.
     const noteById = new Map<string, unknown>();
+    // exerciseId → first existing weightBySetKg, so we can PRESERVE each
+    // client's own weights when pushWeights is off (the default).
+    const weightById = new Map<string, unknown>();
     for (const ex of existingExercises) {
       const id = typeof ex.exerciseId === "string" ? ex.exerciseId : "";
       if (id && !noteById.has(id)) noteById.set(id, ex.notes);
+      if (id && !weightById.has(id)) weightById.set(id, ex.weightBySetKg);
     }
     const exercises = freshExercises.map((fresh, i) => {
       const byIndex = existingExercises[i];
-      const clientNote =
-        byIndex && byIndex.exerciseId === fresh.exerciseId
-          ? byIndex.notes
-          : noteById.get(
-              typeof fresh.exerciseId === "string" ? fresh.exerciseId : "",
-            );
+      const matchesById = byIndex && byIndex.exerciseId === fresh.exerciseId;
+      const freshId =
+        typeof fresh.exerciseId === "string" ? fresh.exerciseId : "";
+      const clientNote = matchesById
+        ? byIndex.notes
+        : noteById.get(freshId);
       const merged = mergeExerciseNote(clientNote, fresh.notes);
       const next = { ...fresh };
       if (merged !== undefined) {
         next.notes = merged;
       } else {
         delete next.notes;
+      }
+      // pushWeights OFF (default): keep the client's own weights for any
+      // exercise that already existed on this assignment (matched by
+      // exerciseId). New exercises with no prior match fall through to the
+      // template's weights (already in `fresh`). pushWeights ON: leave the
+      // template's weights in place (replace the client's).
+      if (!pushWeights) {
+        const matched = matchesById || weightById.has(freshId);
+        if (matched) {
+          const priorWeight = matchesById
+            ? byIndex.weightBySetKg
+            : weightById.get(freshId);
+          if (priorWeight !== undefined) {
+            next.weightBySetKg = priorWeight;
+          } else {
+            delete next.weightBySetKg;
+          }
+        }
       }
       return next;
     });
@@ -1379,13 +1421,25 @@ export async function propagateTemplateToFutureAssignments(
     for (const doc of targets.slice(i, i + CHUNK)) {
       const existing = (doc.data() as { templateSnapshot?: unknown })
         .templateSnapshot;
+      const nextSnapshot = snapshotForAssignment(existing);
+      // Bump the freshness anchor ONLY when the coach opted to push weights AND
+      // this assignment's weights genuinely changed vs its prior snapshot. With
+      // pushWeights off the client keeps their own weights, so the anchor is
+      // left untouched and nothing surfaces a "coach updated" alert. With it on,
+      // we still skip the bump for assignments whose weights happen to be
+      // identical to the template's — no point nagging an unchanged client.
+      const bump =
+        pushWeights &&
+        weightsDifferBetweenSnapshots(
+          exercisesOf(existing),
+          exercisesOf(nextSnapshot),
+        );
       batch.update(doc.ref, {
-        templateSnapshot: snapshotForAssignment(existing),
+        templateSnapshot: nextSnapshot,
         updatedAt: FieldValue.serverTimestamp(),
-        // The prescription was just rewritten from the edited template — bump
-        // the freshness anchor so the apps show the new plan once (origin
-        // "routineUpdated") before falling back to the client's own weights.
-        prescriptionUpdatedAt: FieldValue.serverTimestamp(),
+        ...(bump
+          ? { prescriptionUpdatedAt: FieldValue.serverTimestamp() }
+          : {}),
       });
     }
     await batch.commit();
@@ -1508,13 +1562,22 @@ export async function editAssignmentExercises(
 
   const batch = db.batch();
   for (const tgt of targets) {
+    const nextSnapshot = applyEdits(tgt.snapshot);
+    // Bump the weight-prefill freshness anchor ONLY when the WEIGHTS actually
+    // changed vs the current snapshot. Each client can hold their own weights,
+    // so a notes-only (or reps/rest-only) edit must NOT reset them — bumping
+    // would make the apps surface the routine weights once and nag the client
+    // spuriously. Editing a client's weights specifically SHOULD push (bump).
+    const weightsChanged = weightsDifferBetweenSnapshots(
+      exercisesOf(tgt.snapshot),
+      exercisesOf(nextSnapshot),
+    );
     batch.update(tgt.ref, {
-      templateSnapshot: applyEdits(tgt.snapshot),
+      templateSnapshot: nextSnapshot,
       updatedAt: FieldValue.serverTimestamp(),
-      // The coach just rewrote this assignment's per-exercise prescription —
-      // bump the freshness anchor so the apps surface the new plan once before
-      // reverting to the client's remembered weights (weight-prefill rule).
-      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
+      ...(weightsChanged
+        ? { prescriptionUpdatedAt: FieldValue.serverTimestamp() }
+        : {}),
     });
   }
   await batch.commit();

@@ -514,7 +514,20 @@
       "title": "Edit template",
       "subtitlePrefix": "Changes save when you click ",
       "subtitleCta": "Save",
-      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions."
+      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions.",
+      "propagateDialog": {
+        "title": "Apply changes to existing schedules?",
+        "summary": "The template was saved. It's currently scheduled for {sessions, plural, one {<strong># upcoming session</strong>} other {<strong># upcoming sessions</strong>}} across {clients, plural, one {<strong># client</strong>} other {<strong># clients</strong>}}.",
+        "explainer": "Notes and structure (sets, reps, rest, order) always update on those days. Completed and in-progress sessions are never modified.",
+        "clientLine": "{name} — {sessions, plural, one {# session} other {# sessions}} (next {next})",
+        "pushWeightsLabel": "Also update clients' weights",
+        "pushWeightsHelp": "Off: each client keeps their current weights. On: clients see the new plan weights once, then their own again.",
+        "keepCta": "Keep existing schedules",
+        "updateCta": "{count, plural, one {Update # scheduled session} other {Update # scheduled sessions}}",
+        "updating": "Updating…",
+        "updatedToast": "{count, plural, one {Updated # scheduled session.} other {Updated # scheduled sessions.}}",
+        "updateFailedToast": "Could not update scheduled sessions."
+      }
     },
     "list": {
       "pageHeading": "Workout Templates",

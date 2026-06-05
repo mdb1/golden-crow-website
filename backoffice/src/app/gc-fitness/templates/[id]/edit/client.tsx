@@ -9,9 +9,16 @@
 //
 // Existing snapshots are deliberately preserved by default (Plan 04-05's
 // WTPL-07 immutability decision). The propagation path is opt-in.
+//
+// Weight handling within the propagation: notes + structure (sets/reps/rest)
+// ALWAYS flow through, but each client's own per-exercise WEIGHTS are preserved
+// unless the trainer opts in via the "Also update clients' weights" toggle
+// (default OFF). Off keeps each client's remembered weights and avoids a
+// spurious "coach updated" alert; on replaces them with the plan weights once.
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import {
@@ -24,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TemplateForm } from "@/components/gc-fitness/template-form";
 import { updateWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
 import {
@@ -40,8 +48,12 @@ export interface EditTemplateClientProps {
 
 export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
   const router = useRouter();
+  const t = useTranslations("templates.editPage.propagateDialog");
   const [preview, setPreview] = useState<TemplatePropagationPreview | null>(null);
   const [propagating, setPropagating] = useState(false);
+  // Default OFF: preserve each client's own weights. Reset whenever a new
+  // preview opens so the choice never leaks across template saves.
+  const [pushWeights, setPushWeights] = useState(false);
 
   const handleSubmit = useCallback(
     async (input: WorkoutTemplateInput) => {
@@ -55,6 +67,7 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
         console.error("[template-edit] preview failed", err);
       }
       if (nextPreview && nextPreview.assignmentCount > 0) {
+        setPushWeights(false);
         setPreview(nextPreview);
         return { ok: true as const, deferNavigation: true };
       }
@@ -71,25 +84,21 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
   const handlePropagate = useCallback(async () => {
     setPropagating(true);
     try {
-      const result = await propagateTemplateToFutureAssignments(id);
-      toast.success(
-        result.updatedCount === 1
-          ? "Updated 1 scheduled session."
-          : `Updated ${result.updatedCount} scheduled sessions.`,
-      );
+      const result = await propagateTemplateToFutureAssignments(id, {
+        pushWeights,
+      });
+      toast.success(t("updatedToast", { count: result.updatedCount }));
       setPreview(null);
       router.back();
     } catch (err) {
       console.error("[template-edit] propagate failed", err);
       const message =
-        err instanceof Error
-          ? err.message
-          : "Could not update scheduled sessions.";
+        err instanceof Error ? err.message : t("updateFailedToast");
       toast.error(message);
     } finally {
       setPropagating(false);
     }
-  }, [id, router]);
+  }, [id, pushWeights, router, t]);
 
   return (
     <>
@@ -112,56 +121,61 @@ export function EditTemplateClient({ id, defaults }: EditTemplateClientProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Apply changes to existing schedules?</AlertDialogTitle>
+            <AlertDialogTitle>{t("title")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-muted-foreground">
                 <p>
-                  The template was saved. It’s currently scheduled for{" "}
-                  <strong className="text-foreground">
-                    {preview?.assignmentCount ?? 0} upcoming session
-                    {preview?.assignmentCount === 1 ? "" : "s"}
-                  </strong>{" "}
-                  across{" "}
-                  <strong className="text-foreground">
-                    {preview?.clients.length ?? 0} client
-                    {preview?.clients.length === 1 ? "" : "s"}
-                  </strong>
-                  . By default those sessions keep the version your clients
-                  were originally given.
+                  {t.rich("summary", {
+                    sessions: preview?.assignmentCount ?? 0,
+                    clients: preview?.clients.length ?? 0,
+                    strong: (chunks) => (
+                      <strong className="text-foreground">{chunks}</strong>
+                    ),
+                  })}
                 </p>
                 {preview && preview.clients.length > 0 ? (
                   <ul className="max-h-48 list-disc space-y-1 overflow-y-auto rounded-md border border-border/70 bg-background/40 px-4 py-2 text-xs text-foreground">
                     {preview.clients.map((client) => (
                       <li key={client.uid}>
-                        <span className="font-medium">{client.name}</span>
-                        <span className="text-muted-foreground">
-                          {" "}
-                          — {client.sessions} session
-                          {client.sessions === 1 ? "" : "s"} (next{" "}
-                          {client.nextScheduledFor})
-                        </span>
+                        {t("clientLine", {
+                          name: client.name,
+                          sessions: client.sessions,
+                          next: client.nextScheduledFor,
+                        })}
                       </li>
                     ))}
                   </ul>
                 ) : null}
-                <p className="text-xs">
-                  Updating will replace the workout the client sees on those
-                  days with the new version. Completed and in-progress sessions
-                  are never modified.
-                </p>
+                <p className="text-xs">{t("explainer")}</p>
+                <label className="flex items-start gap-3 rounded-md border border-border/70 bg-background/40 px-4 py-3 text-foreground">
+                  <Checkbox
+                    checked={pushWeights}
+                    onCheckedChange={(checked) =>
+                      setPushWeights(checked === true)
+                    }
+                    disabled={propagating}
+                    className="mt-0.5"
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-sm font-medium">
+                      {t("pushWeightsLabel")}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {t("pushWeightsHelp")}
+                    </span>
+                  </span>
+                </label>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleKeep} disabled={propagating}>
-              Keep existing schedules
+              {t("keepCta")}
             </AlertDialogCancel>
             <AlertDialogAction onClick={handlePropagate} disabled={propagating}>
               {propagating
-                ? "Updating…"
-                : `Update ${preview?.assignmentCount ?? 0} scheduled session${
-                    preview?.assignmentCount === 1 ? "" : "s"
-                  }`}
+                ? t("updating")
+                : t("updateCta", { count: preview?.assignmentCount ?? 0 })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

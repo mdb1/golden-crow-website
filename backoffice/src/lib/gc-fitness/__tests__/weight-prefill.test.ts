@@ -5,6 +5,7 @@
 
 import {
   coachUpdatedSinceLastLog,
+  isCoachUpdate,
   resolveSetPrefill,
   type ResolveSetPrefillInput,
 } from "../weight-prefill";
@@ -184,5 +185,73 @@ describe("resolveSetPrefill — edge cases", () => {
     expect(coachUpdatedSinceLastLog(t0, t1)).toBe(false);
     expect(coachUpdatedSinceLastLog(t1, null)).toBe(false);
     expect(coachUpdatedSinceLastLog(null, t1)).toBe(false);
+  });
+
+  it("isCoachUpdate predicate", () => {
+    expect(isCoachUpdate(t1, t0, 45)).toBe(true);
+    expect(isCoachUpdate(t1, t0, null)).toBe(false);
+    expect(isCoachUpdate(t0, t1, 45)).toBe(false);
+    expect(isCoachUpdate(t1, null, 45)).toBe(false);
+  });
+});
+
+describe("resolveSetPrefill — use-my-previous override", () => {
+  it("override keeps previous on a coach-updated set; alert still fires", () => {
+    const r = resolveSetPrefill(
+      input({
+        templateWeightKg: 45,
+        templateReps: 8,
+        previous: { weightKg: 50, reps: 12 },
+        prescriptionUpdatedAt: t1,
+        lastLoggedAt: t0,
+        preferPreviousWhenCoachUpdated: true,
+      }),
+    );
+    expect(r.origin).toBe("previous");
+    expect(r.weightKg).toBe(50);
+    expect(isCoachUpdate(t1, t0, 45)).toBe(true);
+  });
+
+  it("default (no override) keeps the coach update", () => {
+    const r = resolveSetPrefill(
+      input({
+        templateWeightKg: 45,
+        templateReps: 8,
+        previous: { weightKg: 50, reps: 12 },
+        prescriptionUpdatedAt: t1,
+        lastLoggedAt: t0,
+        preferPreviousWhenCoachUpdated: false,
+      }),
+    );
+    expect(r.origin).toBe("routineUpdated");
+    expect(r.weightKg).toBe(45);
+  });
+
+  it("override is a no-op when the set isn't a coach update", () => {
+    const r = resolveSetPrefill(
+      input({
+        templateWeightKg: 45,
+        previous: { weightKg: 50, reps: 12 },
+        prescriptionUpdatedAt: t0,
+        lastLoggedAt: t1,
+        preferPreviousWhenCoachUpdated: true,
+      }),
+    );
+    expect(r.origin).toBe("previous");
+    expect(r.weightKg).toBe(50);
+  });
+
+  it("override falls to routine when there is no prior value for the set", () => {
+    const r = resolveSetPrefill(
+      input({
+        templateWeightKg: 45,
+        previous: null,
+        prescriptionUpdatedAt: t1,
+        lastLoggedAt: t0,
+        preferPreviousWhenCoachUpdated: true,
+      }),
+    );
+    expect(r.origin).toBe("routineUpdated");
+    expect(r.weightKg).toBe(45);
   });
 });

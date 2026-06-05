@@ -70,6 +70,11 @@ export interface ResolveSetPrefillInput {
   /** `completedAt` of the most recent completed log of THIS exercise (null if
    *  the exercise was never logged). */
   lastLoggedAt: Date | null;
+  /** Client's per-session escape hatch ("use my previous weights"). When true
+   *  and the set would otherwise be a coach update, the client's remembered
+   *  value wins instead (origin "previous"). The alert still shows (driven by
+   *  `isCoachUpdate`); this only changes the seeded values. Synced phone↔watch. */
+  preferPreviousWhenCoachUpdated?: boolean;
 }
 
 /**
@@ -94,6 +99,23 @@ export function coachUpdatedSinceLastLog(
   return prescriptionUpdatedAt.getTime() > lastLoggedAt.getTime();
 }
 
+/**
+ * Workout-/exercise-level signal: the coach changed this assignment's weight
+ * prescription after the client's last log AND a routine weight is actually
+ * prescribed. Drives the "your coach updated this workout" alert — independent
+ * of whether the client then keeps their own weights.
+ */
+export function isCoachUpdate(
+  prescriptionUpdatedAt: Date | null,
+  lastLoggedAt: Date | null,
+  templateWeightKg: number | null,
+): boolean {
+  return (
+    coachUpdatedSinceLastLog(prescriptionUpdatedAt, lastLoggedAt) &&
+    templateWeightKg !== null
+  );
+}
+
 /** Resolve the seed value for ONE set. See the file header for the rule. */
 export function resolveSetPrefill(input: ResolveSetPrefillInput): ResolvedPrefill {
   const {
@@ -105,6 +127,7 @@ export function resolveSetPrefill(input: ResolveSetPrefillInput): ResolvedPrefil
     previous,
     prescriptionUpdatedAt,
     lastLoggedAt,
+    preferPreviousWhenCoachUpdated = false,
   } = input;
 
   const resolvedReps = templateReps ?? exerciseDefaultReps;
@@ -116,6 +139,16 @@ export function resolveSetPrefill(input: ResolveSetPrefillInput): ResolvedPrefil
     durationSeconds: resolvedDuration,
     origin,
   });
+
+  const previousPrefill = (): ResolvedPrefill | null =>
+    previous === null
+      ? null
+      : {
+          weightKg: previous.weightKg,
+          reps: previous.reps,
+          durationSeconds: previous.durationSeconds ?? null,
+          origin: "previous",
+        };
 
   // Case 1 — never logged this exercise → the coach's routine.
   if (lastLoggedAt === null) {
@@ -129,6 +162,12 @@ export function resolveSetPrefill(input: ResolveSetPrefillInput): ResolvedPrefil
     coachUpdatedSinceLastLog(prescriptionUpdatedAt, lastLoggedAt) &&
     templateWeightKg !== null
   ) {
+    // Client tapped "use my previous weights" — keep their remembered value for
+    // this set (if any) even though the coach changed the plan.
+    if (preferPreviousWhenCoachUpdated) {
+      const prev = previousPrefill();
+      if (prev !== null) return prev;
+    }
     return {
       weightKg: templateWeightKg,
       reps: resolvedReps,
@@ -138,13 +177,9 @@ export function resolveSetPrefill(input: ResolveSetPrefillInput): ResolvedPrefil
   }
 
   // Case 3 — remember the user's last logged value for this set.
-  if (previous !== null) {
-    return {
-      weightKg: previous.weightKg,
-      reps: previous.reps,
-      durationSeconds: previous.durationSeconds ?? null,
-      origin: "previous",
-    };
+  const prev = previousPrefill();
+  if (prev !== null) {
+    return prev;
   }
 
   // Exercise was logged before, but not at this set index (e.g. the coach added
