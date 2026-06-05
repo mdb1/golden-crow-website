@@ -6,6 +6,7 @@ import { z } from "zod";
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
 
 export interface CoachAdminRow {
   uid: string;
@@ -962,9 +963,19 @@ export async function getDeletionTargetInfo(uid: string): Promise<DeletionTarget
 export interface AdminClientAssignmentRow {
   id: string;
   title: string;
-  scheduledFor: string;
+  /** First scheduled date in the (possibly recurring) series. */
+  firstDate: string;
+  /** Last scheduled date — equals firstDate for a one-off. */
+  lastDate: string;
   scheduledTime: string | null;
+  /** Status for a one-off; for a series the UI shows completedCount/occurrences. */
   status: string;
+  /** Spanish recurrence label (e.g. "cada 2 días"); null for a one-off. */
+  recurrenceLabel: string | null;
+  /** Scheduled dates collapsed into this row (1 for a one-off). */
+  occurrences: number;
+  /** How many of those dates are completed. */
+  completedCount: number;
 }
 
 export interface AdminClientHabitRow {
@@ -990,8 +1001,9 @@ async function assertClientBelongsToCoach(
   }
 }
 
-/** Latest ~80 workout assignments for a client (recurring schedules explode into
- *  one doc per date, so this is capped — most recent / furthest-future first). */
+/** Workout assignments for a client, with recurring series COLLAPSED into a
+ *  single row (one row per `seriesId`, with a recurrence label + occurrence
+ *  count) instead of one row per generated date. */
 export async function listClientAssignmentsForAdmin(
   coachUid: string,
   clientId: string,
@@ -1000,30 +1012,90 @@ export async function listClientAssignmentsForAdmin(
   const db = gcFitnessFirestore();
   await assertClientBelongsToCoach(db, coachUid, clientId);
 
+  // Fetch the full window: a recurring schedule explodes into one doc per date,
+  // so a tight limit would split a series. Collapse by seriesId below.
   const snap = await db
     .collection(FirestoreCollections.workoutAssignments)
     .where("clientId", "==", clientId)
     .orderBy("scheduledFor", "desc")
-    .limit(80)
+    .limit(1000)
     .get();
 
-  return snap.docs.map((doc) => {
+  // The workout title lives on the denormalized templateSnapshot.name, which is
+  // a bilingual { en, es } object (or a bare string on older docs).
+  const resolveTitle = (data: Record<string, unknown>): string => {
+    const snapshot = data.templateSnapshot as { name?: unknown } | undefined;
+    const rawName = snapshot?.name;
+    if (typeof rawName === "string" && rawName.trim().length > 0) return rawName;
+    const obj = rawName as { en?: unknown; es?: unknown } | undefined;
+    const es = typeof obj?.es === "string" ? obj.es : "";
+    const en = typeof obj?.en === "string" ? obj.en : "";
+    return es || en || "Workout";
+  };
+
+  interface Group {
+    title: string;
+    dates: string[];
+    times: Array<string | null>;
+    statuses: string[];
+    recurrence: unknown;
+  }
+  const groups = new Map<string, Group>();
+  for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
-    const snapshot = data.templateSnapshot as { title?: unknown } | undefined;
-    const title =
-      typeof snapshot?.title === "string" && snapshot.title.trim().length > 0
-        ? snapshot.title
-        : "—";
-    return {
-      id: doc.id,
-      title,
-      scheduledFor:
-        typeof data.scheduledFor === "string" ? data.scheduledFor : "",
-      scheduledTime:
-        typeof data.scheduledTime === "string" ? data.scheduledTime : null,
-      status: typeof data.status === "string" ? data.status : "scheduled",
-    };
-  });
+    const seriesId = typeof data.seriesId === "string" ? data.seriesId : null;
+    const key = seriesId ?? doc.id;
+    const scheduledFor =
+      typeof data.scheduledFor === "string" ? data.scheduledFor : "";
+    const time =
+      typeof data.scheduledTime === "string" ? data.scheduledTime : null;
+    const status = typeof data.status === "string" ? data.status : "scheduled";
+
+    const existing = groups.get(key);
+    if (existing) {
+      existing.dates.push(scheduledFor);
+      existing.times.push(time);
+      existing.statuses.push(status);
+      if (!existing.recurrence && data.recurrence) {
+        existing.recurrence = data.recurrence;
+      }
+    } else {
+      groups.set(key, {
+        title: resolveTitle(data),
+        dates: [scheduledFor],
+        times: [time],
+        statuses: [status],
+        recurrence: data.recurrence ?? null,
+      });
+    }
+  }
+
+  const rows: AdminClientAssignmentRow[] = Array.from(groups.entries()).map(
+    ([key, g]) => {
+      const dates = g.dates.filter((d) => d.length > 0).sort();
+      const firstDate = dates[0] ?? "";
+      const lastDate = dates[dates.length - 1] ?? firstDate;
+      const occurrences = g.dates.length;
+      const label = recurrenceLabel(g.recurrence);
+      return {
+        id: key,
+        title: g.title,
+        firstDate,
+        lastDate,
+        scheduledTime: g.times.find((t) => t != null) ?? null,
+        status: g.statuses[0] ?? "scheduled",
+        // A series shows a recurrence pill; fall back to "recurrente" if the
+        // recurrence object is missing but multiple dates share a seriesId.
+        recurrenceLabel: occurrences > 1 ? label ?? "recurrente" : label,
+        occurrences,
+        completedCount: g.statuses.filter((s) => s === "completed").length,
+      };
+    },
+  );
+
+  // Most recent series / one-off first.
+  rows.sort((a, b) => (b.lastDate || "").localeCompare(a.lastDate || ""));
+  return rows;
 }
 
 /** All of a client's habits (active first, soft-deleted shown for context). */
