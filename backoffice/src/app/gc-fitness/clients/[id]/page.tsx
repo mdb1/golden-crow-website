@@ -124,9 +124,6 @@ export default async function ClientDetailPage({
     bodyWeightKg?: number;
     progressPhotosRequestedAt?: unknown;
     bodyWeightRequestedAt?: unknown;
-    preferences?: {
-      workoutPrefillSource?: string;
-    };
   };
   if (client.coachId !== trainer.uid) notFound();
 
@@ -151,11 +148,6 @@ export default async function ClientDetailPage({
     progressPhotos,
   );
   const tSkeleton = await getTranslations("clients.detail.skeleton");
-  const tPreferences = await getTranslations("clients.detail.preferences");
-  const workoutPrefillSource =
-    client.preferences?.workoutPrefillSource === "template"
-      ? "template"
-      : "previousWorkout";
 
   return (
     <div className="gc-page flex w-full flex-col gap-6">
@@ -167,21 +159,6 @@ export default async function ClientDetailPage({
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={typeof client.bodyWeightKg === "number" ? client.bodyWeightKg : null}
       />
-      <ClientWorkoutPreferencesCard
-        title={tPreferences("title")}
-        label={tPreferences("workoutPrefillLabel")}
-        value={
-          workoutPrefillSource === "template"
-            ? tPreferences("workoutPrefillTemplate")
-            : tPreferences("workoutPrefillPrevious")
-        }
-        description={
-          workoutPrefillSource === "template"
-            ? tPreferences("workoutPrefillTemplateDescription")
-            : tPreferences("workoutPrefillPreviousDescription")
-        }
-      />
-
       <ClientSummaryCard
         clientId={id}
         clientName={displayName}
@@ -232,33 +209,6 @@ export default async function ClientDetailPage({
         </Suspense>
       </div>
     </div>
-  );
-}
-
-function ClientWorkoutPreferencesCard({
-  title,
-  label,
-  value,
-  description,
-}: {
-  title: string;
-  label: string;
-  value: string;
-  description: string;
-}) {
-  return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="section-eyebrow">{title}</p>
-          <h2 className="text-lg font-semibold">{label}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
-        <span className="w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm font-medium">
-          {value}
-        </span>
-      </div>
-    </section>
   );
 }
 

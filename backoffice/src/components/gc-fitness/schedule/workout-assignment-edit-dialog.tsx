@@ -224,8 +224,18 @@ export function WorkoutAssignmentEditDialog({
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
+          <div className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Si cambiás los <strong className="font-medium text-foreground">pesos</strong>, el
+              alumno verá los nuevos la próxima vez que haga esta rutina y después
+              vuelve a usar los suyos. Cambiar solo notas o descanso{" "}
+              <strong className="font-medium text-foreground">no toca</strong> los pesos
+              que ya viene usando.
+            </span>
+          </div>
           {isSeries ? (
-            <div className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
+            <div className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-100">
               Esta asignación pertenece a una recurrencia. Elegí abajo si los
               cambios aplican solo a esta fecha o también a las siguientes
               ocurrencias antes de guardar.
@@ -262,7 +272,7 @@ export function WorkoutAssignmentEditDialog({
                           className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
                         />
                       </label>
-                      <label className="flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/5 px-2 py-1 text-xs text-amber-100">
+                      <label className="flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/5 px-2 py-1 text-xs text-amber-700 dark:text-amber-100">
                         Descanso entre ejercicios (s)
                         <InfoTooltip
                           text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
