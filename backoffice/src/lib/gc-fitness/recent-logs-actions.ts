@@ -1242,7 +1242,7 @@ export async function listRecentLogsForTrainer(): Promise<RecentLogsResult> {
 export async function listRecentLogsForTrainerPage(
   cursor: string | null = null,
   pageSize: number = RECENT_LOGS_PAGE_SIZE,
-  filterClientId: string | null = null,
+  filterClientId: string | string[] | null = null,
   typeFilter: RecentLogCategory | null = null,
 ): Promise<RecentLogsResult> {
   const trainer = await getCurrentTrainer();
@@ -1250,12 +1250,19 @@ export async function listRecentLogsForTrainerPage(
     listClients(),
     getTrainerTimezone(),
   ]);
-  const clients = filterClientId
-    ? allClients.filter((c) => c.uid === filterClientId)
+  const filterClientIds =
+    filterClientId === null
+      ? null
+      : Array.isArray(filterClientId)
+        ? filterClientId
+        : [filterClientId];
+  const filterClientSet = filterClientIds ? new Set(filterClientIds) : null;
+  const clients = filterClientSet
+    ? allClients.filter((c) => filterClientSet.has(c.uid))
     : allClients;
   // A client filter that matches nobody on this roster ⇒ empty feed (the URL/
   // dropdown can't read a client outside the trainer's roster).
-  if (filterClientId && clients.length === 0) {
+  if (filterClientSet && clients.length === 0) {
     return {
       logs: [],
       clients: allClients.map((c) => ({

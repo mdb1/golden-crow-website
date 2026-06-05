@@ -143,6 +143,12 @@ export default async function ClientDetailPage({
       () => ({ fulfilled: false, fulfilledAt: null }),
     ),
   ]);
+  // Header "Peso" = the client's most recent weigh-in BY MEASUREMENT DATE.
+  // On a transient read error fall back to NULL (em dash), never to the
+  // denormalized `users.bodyWeightKg` — that field tracks WRITE order and is
+  // exactly the stale value this fix removes (it showed an Oct-dated 63.5kg
+  // entry logged after a newer one).
+  const latestBodyWeightKg = await getLatestBodyWeightKg(id).catch(() => null);
   const progressPhotosFulfilled = progressPhotosFulfillment(
     client.progressPhotosRequestedAt ?? null,
     progressPhotos,
@@ -157,7 +163,7 @@ export default async function ClientDetailPage({
         email={client.email ?? ""}
         photoURL={client.photoURL ?? null}
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
-        bodyWeightKg={typeof client.bodyWeightKg === "number" ? client.bodyWeightKg : null}
+        bodyWeightKg={latestBodyWeightKg}
       />
       <ClientSummaryCard
         clientId={id}
@@ -210,6 +216,47 @@ export default async function ClientDetailPage({
       </div>
     </div>
   );
+}
+
+// The client's most recent body-weight measurement BY MEASUREMENT DATE
+// (`recordedAt`), NOT by write order. A coach/client can backfill an old date
+// AFTER logging a newer one (log today's 57kg, then add a 63.5kg entry dated
+// last October); the header must still show today's 57kg. This mirrors the
+// BodyWeightTrendChart "Último" value (its last point) so the header and the
+// chart never disagree. `recordedAt` is the measurement timestamp; `createdAt`
+// and the denormalized `users.bodyWeightKg` field reflect write order and are
+// deliberately NOT used here. Since the query is `recordedAt`-descending, the
+// first doc carrying a numeric `valueKg` is the latest measurement.
+async function getLatestBodyWeightKg(
+  clientId: string,
+): Promise<number | null> {
+  const snap = await gcFitnessFirestore()
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .collection("body_weight_logs")
+    .orderBy("recordedAt", "desc")
+    .limit(50)
+    .get();
+
+  for (const doc of snap.docs) {
+    const data = doc.data() as { valueKg?: unknown; recordedAt?: unknown };
+    if (typeof data.valueKg !== "number") continue;
+    if (!toDate(data.recordedAt)) continue;
+    return data.valueKg;
+  }
+  return null;
+}
+
+function toDate(value: unknown): Date | null {
+  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
 }
 
 function WidgetSkeleton({ title }: { title: string }) {

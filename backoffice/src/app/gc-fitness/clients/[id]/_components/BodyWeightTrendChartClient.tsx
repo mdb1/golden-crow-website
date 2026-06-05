@@ -42,8 +42,7 @@ export interface BodyWeightTrendChartClientProps {
     title: string;
     noLogs: string;
     latestPrefix: string;
-    logSingular: string;
-    logPlural: string;
+    logCount: string;
     weightTooltip: string;
     ranges: Record<TrendRangeKey, string>;
   };
@@ -102,9 +101,7 @@ export function BodyWeightTrendChartClient({
               </span>
             ) : null}
             {" · "}
-            {points.length === 1
-              ? labels.logSingular.replace("{count}", String(points.length))
-              : labels.logPlural.replace("{count}", String(points.length))}
+            {labels.logCount}
           </p>
 
           <div className="h-60 w-full rounded-md border bg-muted/20 p-2 sm:p-3">
