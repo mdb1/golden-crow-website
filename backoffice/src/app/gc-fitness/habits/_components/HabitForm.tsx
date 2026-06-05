@@ -98,6 +98,12 @@ export interface HabitFormProps {
    * (e.g. a dialog with its own close affordance).
    */
   hideCancelButton?: boolean;
+  /**
+   * Overrides the submit button label. Used by the "assign existing habit"
+   * flow so the CTA reads "Asignar" instead of the default "Crear" — that
+   * flow reuses this create-mode form but is semantically an assignment.
+   */
+  submitLabel?: string;
 }
 
 const WEEKDAY_KEYS = [
@@ -169,6 +175,7 @@ export function HabitForm({
   onSubmit,
   onAfterSubmit,
   hideCancelButton,
+  submitLabel,
 }: HabitFormProps) {
   const router = useRouter();
   const t = useTranslations("habits.form");
@@ -825,6 +832,8 @@ export function HabitForm({
             <Button type="submit" disabled={pending} className="rounded-full">
               {pending
                 ? t("saving")
+                : submitLabel
+                ? submitLabel
                 : mode === "create"
                 ? t("createCta")
                 : t("saveCta")}
