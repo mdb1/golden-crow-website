@@ -11,7 +11,7 @@
 // shared All/90d/30d/7d range selector. Chart styling mirrors
 // BodyWeightTrendChartClient (gold AreaChart, recharts, token colors).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -21,7 +21,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
@@ -57,8 +57,6 @@ export interface ExerciseProgressClientProps {
     weightUnit: string;
     volumeUnit: string;
     latestPrefix: string;
-    sessionSingular: string;
-    sessionPlural: string;
     emptyNoExercises: string;
     emptyNoData: string;
     tooltipTopSet: string;
@@ -73,6 +71,13 @@ interface ChartPoint {
   value: number;
 }
 
+// "pull_up_bar" → "Pull up bar". Mirrors the exercise-library filter's
+// title-casing (MultiSelectCombobox.defaultFormat) so muscle-group labels read
+// the same across surfaces. No per-group i18n map exists yet.
+function formatMuscleGroup(group: string): string {
+  return group.replace(/_/g, " ").replace(/^[a-z]/, (c) => c.toUpperCase());
+}
+
 export function ExerciseProgressClient({
   exercises,
   points,
@@ -81,11 +86,39 @@ export function ExerciseProgressClient({
   labels,
 }: ExerciseProgressClientProps) {
   const locale = useLocale();
+  const t = useTranslations("clients.exerciseProgress");
+  const [muscleGroup, setMuscleGroup] = useState<string>("all");
   const [exerciseId, setExerciseId] = useState<string>(
     exercises[0]?.exerciseId ?? "",
   );
   const [metric, setMetric] = useState<MetricKey>("topSet");
   const [range, setRange] = useState<TrendRangeKey>(DEFAULT_TREND_RANGE);
+
+  // Distinct muscle groups present across the client's logged exercises.
+  const muscleGroups = useMemo(() => {
+    const set = new Set<string>();
+    for (const ex of exercises) for (const g of ex.muscleGroups) set.add(g);
+    return Array.from(set).sort((a, b) =>
+      formatMuscleGroup(a).localeCompare(formatMuscleGroup(b)),
+    );
+  }, [exercises]);
+
+  // Exercises shown in the picker after applying the muscle-group filter.
+  const visibleExercises = useMemo(
+    () =>
+      muscleGroup === "all"
+        ? exercises
+        : exercises.filter((ex) => ex.muscleGroups.includes(muscleGroup)),
+    [exercises, muscleGroup],
+  );
+
+  // Keep the selected exercise valid when the filter narrows the list.
+  useEffect(() => {
+    if (visibleExercises.length === 0) return;
+    if (!visibleExercises.some((ex) => ex.exerciseId === exerciseId)) {
+      setExerciseId(visibleExercises[0].exerciseId);
+    }
+  }, [visibleExercises, exerciseId]);
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
     { key: "topSet", label: labels.metricTopSet },
@@ -148,28 +181,53 @@ export function ExerciseProgressClient({
   return (
     <section className="flex flex-col gap-4 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="exercise-progress-picker"
-            className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-          >
-            {labels.exercisePickerLabel}
-          </label>
-          <Select value={exerciseId} onValueChange={setExerciseId}>
-            <SelectTrigger
-              id="exercise-progress-picker"
-              className="w-full sm:max-w-sm"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          {muscleGroups.length >= 2 ? (
+            <div className="flex flex-col gap-1.5 sm:w-48">
+              <label
+                htmlFor="exercise-progress-muscle"
+                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                {t("muscleGroupLabel")}
+              </label>
+              <Select value={muscleGroup} onValueChange={setMuscleGroup}>
+                <SelectTrigger id="exercise-progress-muscle" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("muscleGroupAll")}</SelectItem>
+                  {muscleGroups.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {formatMuscleGroup(g)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <div className="flex flex-1 flex-col gap-1.5">
+            <label
+              htmlFor="exercise-progress-picker"
+              className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {exercises.map((ex) => (
-                <SelectItem key={ex.exerciseId} value={ex.exerciseId}>
-                  {ex.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              {labels.exercisePickerLabel}
+            </label>
+            <Select value={exerciseId} onValueChange={setExerciseId}>
+              <SelectTrigger
+                id="exercise-progress-picker"
+                className="w-full sm:max-w-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {visibleExercises.map((ex) => (
+                  <SelectItem key={ex.exerciseId} value={ex.exerciseId}>
+                    {ex.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -218,15 +276,7 @@ export function ExerciseProgressClient({
               {formatValue(latest.value)} {unit}
             </span>
             {" · "}
-            {chartPoints.length === 1
-              ? labels.sessionSingular.replace(
-                  "{count}",
-                  String(chartPoints.length),
-                )
-              : labels.sessionPlural.replace(
-                  "{count}",
-                  String(chartPoints.length),
-                )}
+            {t("sessionCount", { count: chartPoints.length })}
           </p>
 
           <div className="h-64 w-full rounded-md border bg-muted/20 p-2 sm:p-3">

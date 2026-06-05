@@ -107,8 +107,6 @@ export default async function ClientExerciseProgressPage({
           weightUnit: t("weightUnit"),
           volumeUnit: t("volumeUnit"),
           latestPrefix: t("latestPrefix"),
-          sessionSingular: t("sessionSingular"),
-          sessionPlural: t("sessionPlural"),
           emptyNoExercises: t("emptyNoExercises"),
           emptyNoData: t("emptyNoData"),
           tooltipTopSet: t("tooltipTopSet"),

@@ -35,6 +35,12 @@ export interface LoggedExerciseOption {
   name: string;
   /** How many sessions logged this exercise (helps order the picker). */
   sessionCount: number;
+  /**
+   * Canonical muscle groups for this exercise (from the `exercises` doc), used
+   * by the coach's muscle-group filter. Empty when the exercise doc is missing
+   * (e.g. deleted) or carries no groups.
+   */
+  muscleGroups: string[];
 }
 
 /** One session's aggregated metrics for a single exercise. */
@@ -125,7 +131,10 @@ export async function getClientExerciseProgress(
     .get();
 
   const points: ExerciseSessionPoint[] = [];
-  const exerciseMeta = new Map<string, { name: string; sessionCount: number }>();
+  const exerciseMeta = new Map<
+    string,
+    { name: string; sessionCount: number; hasData: boolean }
+  >();
 
   for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
@@ -195,15 +204,19 @@ export async function getClientExerciseProgress(
 
     for (const [exId, acc] of byExercise) {
       if (!acc.hasCompleted) continue;
-      // Track every exercise the client actually logged (even bodyweight ones)
-      // so the picker lists it; the chart's empty-state covers no-weight cases.
+      // `hasData` = this session produced a chartable value (≥1 weighted working
+      // set → topWeight non-null, which also implies e1RM/volume are available).
+      // Bodyweight/warmup-only exercises (e.g. "Warm Up") never set it, so the
+      // filter below drops them from the picker — only exercises WITH data show.
+      const sessionHasData = acc.topWeight !== null;
       const meta = exerciseMeta.get(exId);
       const name = nameById.get(exId) ?? exId;
       if (meta) {
         meta.sessionCount += 1;
+        meta.hasData = meta.hasData || sessionHasData;
         if (meta.name === exId && name !== exId) meta.name = name;
       } else {
-        exerciseMeta.set(exId, { name, sessionCount: 1 });
+        exerciseMeta.set(exId, { name, sessionCount: 1, hasData: sessionHasData });
       }
 
       points.push({
@@ -217,17 +230,52 @@ export async function getClientExerciseProgress(
     }
   }
 
+  // Only surface exercises that actually have chartable data (drops "Warm Up"
+  // and other bodyweight/warmup-only entries the coach can't plot).
+  const withData = Array.from(exerciseMeta.entries()).filter(
+    ([, m]) => m.hasData,
+  );
+  const withDataIds = new Set(withData.map(([exId]) => exId));
+
+  // Muscle groups for the muscle-group filter. The logs don't carry them, so
+  // read the `exercises` docs for the (small, distinct) set of logged-with-data
+  // exercises in ONE batched getAll — bounded by the client's training variety
+  // (typically tens of docs), once per page load. Missing/deleted exercises
+  // resolve to no groups and simply won't match any group filter.
+  const muscleById = new Map<string, string[]>();
+  if (withData.length > 0) {
+    const refs = withData.map(([exId]) =>
+      db.collection(FirestoreCollections.exercises).doc(exId),
+    );
+    const exerciseDocs = await db.getAll(...refs);
+    for (const exDoc of exerciseDocs) {
+      if (!exDoc.exists) continue;
+      const mg = exDoc.get("muscleGroups");
+      if (Array.isArray(mg)) {
+        muscleById.set(
+          exDoc.id,
+          mg.filter((v): v is string => typeof v === "string"),
+        );
+      }
+    }
+  }
+
   // Order exercises by how often they appear (most-trained first), then name.
-  const exercises: LoggedExerciseOption[] = Array.from(exerciseMeta.entries())
+  const exercises: LoggedExerciseOption[] = withData
     .map(([exerciseId, m]) => ({
       exerciseId,
       name: m.name,
       sessionCount: m.sessionCount,
+      muscleGroups: muscleById.get(exerciseId) ?? [],
     }))
     .sort(
       (a, b) =>
         b.sessionCount - a.sessionCount || a.name.localeCompare(b.name),
     );
 
-  return { clientId, exercises, points };
+  // Drop points for exercises that didn't make the cut so the client payload
+  // stays lean (those exercises can never be selected anyway).
+  const leanPoints = points.filter((p) => withDataIds.has(p.exerciseId));
+
+  return { clientId, exercises, points: leanPoints };
 }
