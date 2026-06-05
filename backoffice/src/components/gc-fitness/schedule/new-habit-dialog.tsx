@@ -274,8 +274,15 @@ export function NewHabitDialog({
                   effStartsOn,
                 )}
                 hideCancelButton
+                submitLabel="Asignar"
                 onAfterSubmit={afterSubmit}
-                onSubmit={async (input) => createHabit(input)}
+                // Pass sourceTemplateId EXPLICITLY: HabitForm's payload drops it,
+                // and without it createHabit would treat this as a brand-new
+                // habit and spawn a DUPLICATE library template. With it, the
+                // assignment just links back to the existing template.
+                onSubmit={async (input) =>
+                  createHabit({ ...input, sourceTemplateId: selected.id })
+                }
               />
             </div>
           ) : (
