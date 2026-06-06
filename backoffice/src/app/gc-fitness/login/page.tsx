@@ -59,6 +59,12 @@ export default function GCFitnessLoginPage() {
     window.location.href = "/gc-fitness/dashboard";
   }
 
+  // Resume a redirect-based sign-in if we got here via signInWithRedirect.
+  // Redirect is now ONLY the popup-blocked fallback (see handleGoogleSignIn) —
+  // on mobile the primary path is signInWithPopup, because getRedirectResult
+  // returns null when the browser blocks third-party storage for the
+  // cross-origin authDomain (gcfitness-3476b.firebaseapp.com), which silently
+  // dropped the session and bounced trainers back to /login.
   useEffect(() => {
     let cancelled = false;
     async function resumeRedirectSignIn() {
@@ -76,11 +82,6 @@ export default function GCFitnessLoginPage() {
     };
   }, [t]);
 
-  function shouldPreferRedirectFlow() {
-    const ua = navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod|android/.test(ua);
-  }
-
   async function readError(res: Response): Promise<string> {
     try {
       const data = (await res.json()) as { error?: string };
@@ -97,10 +98,11 @@ export default function GCFitnessLoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       const auth = getGCFitnessAuth();
-      if (shouldPreferRedirectFlow()) {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
+      // Popup on every platform (desktop AND mobile). signInWithPopup returns
+      // the credential via postMessage and does not rely on the third-party
+      // storage round-trip that signInWithRedirect needs — which mobile Safari
+      // and Chrome block for the cross-origin firebaseapp.com authDomain,
+      // breaking getRedirectResult and the whole mobile sign-in.
       const result = await signInWithPopup(auth, provider);
       await completeBackofficeSession(result);
     } catch (err) {
