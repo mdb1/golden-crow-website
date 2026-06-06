@@ -17,6 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ChecklistClientPicker } from "@/components/gc-fitness/ChecklistClientPicker";
+import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 import type { CoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
 import { updateCoachChecklistItem } from "@/lib/gc-fitness/coach-checklist-actions";
 
@@ -24,6 +26,8 @@ interface Props {
   item: CoachChecklistItem;
   /** The element that opens the dialog (e.g. a pencil icon button). */
   trigger: ReactNode;
+  /** Linkable clients. When empty (e.g. the dashboard widget) the picker is hidden. */
+  clients?: Array<{ uid: string; displayName: string }>;
 }
 
 // Split a stored ISO `dueAt` into the local date/time strings the
@@ -44,11 +48,12 @@ function splitDueAt(iso: string | null): { date: string; time: string } {
  * checklist page and the dashboard "Pendientes" widget. Uncontrolled form
  * whose defaults are reset on every open via a `key` tied to open state.
  */
-export function ChecklistEditDialog({ item, trigger }: Props) {
+export function ChecklistEditDialog({ item, trigger, clients = [] }: Props) {
   const t = useTranslations("coachChecklist");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [recurrenceValid, setRecurrenceValid] = useState(true);
   const initial = splitDueAt(item.dueAt);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -60,6 +65,17 @@ export function ChecklistEditDialog({ item, trigger }: Props) {
         notes: String(formData.get("notes") ?? ""),
         dueDate: String(formData.get("dueDate") ?? ""),
         dueTime: String(formData.get("dueTime") ?? ""),
+        clientIds: formData.getAll("clientIds").map((v) => String(v)),
+        recurrence: String(formData.get("recurrence") ?? "none"),
+        recurrenceEndsOn: String(formData.get("recurrenceEndsOn") ?? ""),
+        recurrenceWeekdays: formData
+          .getAll("recurrenceWeekdays")
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n)),
+        recurrenceMonthDays: formData
+          .getAll("recurrenceMonthDays")
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n)),
       });
       setOpen(false);
       router.refresh();
@@ -100,6 +116,25 @@ export function ChecklistEditDialog({ item, trigger }: Props) {
               className="min-h-20"
             />
           </div>
+          {clients.length > 0 ? (
+            <div className="grid gap-2">
+              <Label>Clientes</Label>
+              <ChecklistClientPicker
+                clients={clients}
+                defaultSelected={item.clients.map((c) => c.id)}
+              />
+            </div>
+          ) : null}
+          <ChecklistRecurrenceFields
+            idPrefix={`edit-${item.id}`}
+            onValidityChange={setRecurrenceValid}
+            defaults={{
+              recurrence: item.recurrence,
+              endsOn: item.recurrenceEndsOn,
+              weekdays: item.recurrenceWeekdays,
+              monthDays: item.recurrenceMonthDays,
+            }}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor={`edit-date-${item.id}`}>{t("dateLabel")}</Label>
@@ -130,7 +165,7 @@ export function ChecklistEditDialog({ item, trigger }: Props) {
             </DialogClose>
             <Button
               type="submit"
-              disabled={pending}
+              disabled={pending || !recurrenceValid}
               className="rounded-full"
             >
               {pending ? t("saving") : t("saveCta")}

@@ -7,11 +7,15 @@ import { z } from "zod";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
+import { listClients } from "./client-roster";
 import { FirestoreCollections } from "./collections";
 import { getTrainerTimezone } from "./trainer-timezone";
 
 const CHECKLIST_COLLECTION = "coach_checklist";
 const MAX_CHECKLIST_ITEMS = 50;
+
+/** Reminder recurrence — "none" is a one-off (default). */
+export type ChecklistRecurrence = "none" | "daily" | "weekly" | "monthly";
 
 export interface CoachChecklistItem {
   id: string;
@@ -20,6 +24,16 @@ export interface CoachChecklistItem {
   dueAt: string | null;
   completed: boolean;
   createdAt: string | null;
+  /** Clients this reminder is about (each links to /gc-fitness/clients/[id]).
+   *  Empty when the reminder isn't tied to anyone. */
+  clients: Array<{ id: string; name: string }>;
+  recurrence: ChecklistRecurrence;
+  /** Recurrence end date (YYYY-MM-DD) or null for "no end". */
+  recurrenceEndsOn: string | null;
+  /** Selected weekdays (1=Mon … 7=Sun) for weekly recurrence. */
+  recurrenceWeekdays: number[];
+  /** Selected days of month (1..31) for monthly recurrence. */
+  recurrenceMonthDays: number[];
 }
 
 const createChecklistItemSchema = z.object({
@@ -27,7 +41,93 @@ const createChecklistItemSchema = z.object({
   notes: z.string().trim().max(500).optional(),
   dueDate: z.string().trim().optional(),
   dueTime: z.string().trim().optional(),
+  clientIds: z.array(z.string().trim().min(1).max(128)).max(50).optional(),
+  recurrence: z.enum(["none", "daily", "weekly", "monthly"]).optional(),
+  recurrenceEndsOn: z.string().trim().optional(),
+  recurrenceWeekdays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
+  recurrenceMonthDays: z.array(z.number().int().min(1).max(31)).max(31).optional(),
 });
+
+function normalizeRecurrence(value: unknown): ChecklistRecurrence {
+  return value === "daily" || value === "weekly" || value === "monthly"
+    ? value
+    : "none";
+}
+
+function isoWeekday(d: Date): number {
+  const g = d.getDay(); // 0=Sun … 6=Sat
+  return g === 0 ? 7 : g; // → 1=Mon … 7=Sun
+}
+
+function sanitizeIntArray(value: unknown, min: number, max: number): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && n >= min && n <= max);
+}
+
+/**
+ * Roll a due date forward to the NEXT occurrence, preserving the time of day.
+ * - daily: +1 day
+ * - weekly: next day whose ISO weekday is in `weekdays` (fallback +7)
+ * - monthly: next date whose day-of-month is in `monthDays` (fallback +1 month)
+ * Returns null for "none"/invalid.
+ */
+function advanceDueDate(
+  iso: string,
+  recurrence: ChecklistRecurrence,
+  weekdays: number[] = [],
+  monthDays: number[] = [],
+): Date | null {
+  const current = new Date(iso);
+  if (Number.isNaN(current.getTime())) return null;
+
+  if (recurrence === "daily") {
+    const next = new Date(current);
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
+  if (recurrence === "weekly") {
+    const set = weekdays.length > 0 ? new Set(weekdays) : null;
+    for (let i = 1; i <= 7; i += 1) {
+      const cand = new Date(current);
+      cand.setDate(cand.getDate() + i);
+      if (!set || set.has(isoWeekday(cand))) return cand;
+    }
+    const fallback = new Date(current);
+    fallback.setDate(fallback.getDate() + 7);
+    return fallback;
+  }
+  if (recurrence === "monthly") {
+    const set = monthDays.length > 0 ? new Set(monthDays) : null;
+    for (let i = 1; i <= 62; i += 1) {
+      const cand = new Date(current);
+      cand.setDate(cand.getDate() + i);
+      if (!set || set.has(cand.getDate())) return cand;
+    }
+    const fallback = new Date(current);
+    fallback.setMonth(fallback.getMonth() + 1);
+    return fallback;
+  }
+  return null;
+}
+
+/** Parse a "YYYY-MM-DD" end date into an end-of-day Date, or null. */
+function parseRecurrenceEnd(endsOn?: string): Date | null {
+  if (!endsOn || !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return null;
+  const d = new Date(`${endsOn}T23:59:59`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Render a stored Timestamp/Date back to a civil "YYYY-MM-DD" string. */
+function toCivilDate(value: unknown): string | null {
+  const iso = toIso(value);
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 const itemIdSchema = z.string().trim().min(1).max(160);
 
@@ -46,10 +146,20 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
     .limit(MAX_CHECKLIST_ITEMS)
     .get();
 
-  return snap.docs
-    .map((doc) => {
-      const data = doc.data() as Record<string, unknown>;
-      return {
+  // Each row carries its linked client UIDs; names are resolved below.
+  const rows = snap.docs.map((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    // New docs store `clientIds: string[]`; legacy docs stored a single
+    // `clientId` — read both so old reminders keep their link.
+    const ids = Array.isArray(data.clientIds)
+      ? data.clientIds.filter(
+          (v): v is string => typeof v === "string" && v.length > 0,
+        )
+      : typeof data.clientId === "string" && data.clientId.length > 0
+        ? [data.clientId]
+        : [];
+    return {
+      item: {
         id: doc.id,
         title: typeof data.title === "string" ? data.title : "Reminder",
         notes:
@@ -59,8 +169,36 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
         dueAt: toIso(data.dueAt),
         completed: data.completed === true,
         createdAt: toIso(data.createdAt),
-      };
-    })
+        clients: [] as Array<{ id: string; name: string }>,
+        recurrence: normalizeRecurrence(data.recurrence),
+        recurrenceEndsOn: toCivilDate(data.recurrenceEndsAt),
+        recurrenceWeekdays: sanitizeIntArray(data.recurrenceWeekdays, 1, 7),
+        recurrenceMonthDays: sanitizeIntArray(data.recurrenceMonthDays, 1, 31),
+      } satisfies CoachChecklistItem,
+      clientIds: ids,
+    };
+  });
+
+  // Resolve display names for every linked client (one cached roster read).
+  const allClientIds = new Set(rows.flatMap((r) => r.clientIds));
+  let nameByUid = new Map<string, string>();
+  if (allClientIds.size > 0) {
+    try {
+      const roster = await listClients();
+      nameByUid = new Map(roster.map((c) => [c.uid, c.displayName]));
+    } catch {
+      // Best-effort — fall back to the raw uid if the roster read fails.
+    }
+  }
+  for (const row of rows) {
+    row.item.clients = row.clientIds.map((id) => ({
+      id,
+      name: nameByUid.get(id) ?? id,
+    }));
+  }
+
+  return rows
+    .map((r) => r.item)
     .sort((a, b) => Number(a.completed) - Number(b.completed));
 }
 
@@ -115,9 +253,24 @@ export async function createCoachChecklistItem(
   const parsed = createChecklistItemSchema.parse(input);
   const dueAt = parseDueAt(parsed.dueDate, parsed.dueTime);
 
+  const recurrence = parsed.recurrence ?? "none";
+  const recurrenceEndsAt =
+    recurrence !== "none" ? parseRecurrenceEnd(parsed.recurrenceEndsOn) : null;
+
   await checklistCollection(trainer.uid).add({
     title: parsed.title,
     ...(parsed.notes ? { notes: parsed.notes } : {}),
+    ...(parsed.clientIds && parsed.clientIds.length > 0
+      ? { clientIds: parsed.clientIds }
+      : {}),
+    recurrence,
+    ...(recurrenceEndsAt ? { recurrenceEndsAt } : {}),
+    ...(recurrence === "weekly" && parsed.recurrenceWeekdays?.length
+      ? { recurrenceWeekdays: parsed.recurrenceWeekdays }
+      : {}),
+    ...(recurrence === "monthly" && parsed.recurrenceMonthDays?.length
+      ? { recurrenceMonthDays: parsed.recurrenceMonthDays }
+      : {}),
     dueAt,
     completed: false,
     createdAt: FieldValue.serverTimestamp(),
@@ -140,11 +293,32 @@ export async function updateCoachChecklistItem(
   // Empty notes / cleared date are intentional removals, not "leave as-is":
   // delete the notes field and null out dueAt so the item drops back to the
   // "Sin fecha" group. `completed`/`createdAt` are left untouched.
+  const recurrence = parsed.recurrence ?? "none";
+  const recurrenceEndsAt =
+    recurrence !== "none" ? parseRecurrenceEnd(parsed.recurrenceEndsOn) : null;
+  const weekdays =
+    recurrence === "weekly" ? parsed.recurrenceWeekdays ?? [] : [];
+  const monthDays =
+    recurrence === "monthly" ? parsed.recurrenceMonthDays ?? [] : [];
+
   await checklistCollection(trainer.uid)
     .doc(parsedItemId)
     .update({
       title: parsed.title,
       notes: parsed.notes ? parsed.notes : FieldValue.delete(),
+      clientIds:
+        parsed.clientIds && parsed.clientIds.length > 0
+          ? parsed.clientIds
+          : FieldValue.delete(),
+      // Drop the legacy single-client field on any edit.
+      clientId: FieldValue.delete(),
+      recurrence,
+      // Cleared / inapplicable recurrence sub-fields are removed, not left stale.
+      recurrenceEndsAt: recurrenceEndsAt ?? FieldValue.delete(),
+      recurrenceWeekdays:
+        weekdays.length > 0 ? weekdays : FieldValue.delete(),
+      recurrenceMonthDays:
+        monthDays.length > 0 ? monthDays : FieldValue.delete(),
       dueAt,
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -159,8 +333,43 @@ export async function setCoachChecklistItemCompleted(
 ): Promise<{ ok: true }> {
   const trainer = await getCurrentTrainer();
   const parsedItemId = itemIdSchema.parse(itemId);
+  const ref = checklistCollection(trainer.uid).doc(parsedItemId);
 
-  await checklistCollection(trainer.uid).doc(parsedItemId).update({
+  // For a RECURRING reminder, "completing" an occurrence rolls its due date
+  // forward to the next one and keeps it active, instead of marking it done.
+  if (completed) {
+    const snap = await ref.get();
+    const data = (snap.data() ?? {}) as Record<string, unknown>;
+    const recurrence = normalizeRecurrence(data.recurrence);
+    const dueIso = toIso(data.dueAt);
+    if (recurrence !== "none" && dueIso) {
+      const next = advanceDueDate(
+        dueIso,
+        recurrence,
+        sanitizeIntArray(data.recurrenceWeekdays, 1, 7),
+        sanitizeIntArray(data.recurrenceMonthDays, 1, 31),
+      );
+      const endsAtIso = toIso(data.recurrenceEndsAt);
+      const pastEnd =
+        next !== null &&
+        endsAtIso !== null &&
+        next.getTime() > new Date(endsAtIso).getTime();
+      // Roll forward to the next occurrence UNLESS we've passed the end date —
+      // then fall through and mark the reminder completed for good.
+      if (next && !pastEnd) {
+        await ref.update({
+          dueAt: next,
+          completed: false,
+          completedAt: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        revalidateChecklistSurfaces();
+        return { ok: true };
+      }
+    }
+  }
+
+  await ref.update({
     completed,
     completedAt: completed ? FieldValue.serverTimestamp() : FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
