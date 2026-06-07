@@ -69,7 +69,7 @@ export async function listMyCoachActivityPage(
   // tight per-source limit would let one series crowd out everything else and
   // drop the rest of the day. A generous window guarantees a full day's worth
   // of activity is present in the merge before we slice to the page.
-  const queryLimit = Math.max(safePageSize + 1, 250);
+  const queryLimit = Math.max(safePageSize + 1, 75);
   const before = cursorDate(cursor);
   const kindFilter = kind && kind !== "all" ? kind : null;
   const wantChat = !kindFilter || kindFilter === "chat";

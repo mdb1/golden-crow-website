@@ -361,7 +361,18 @@ export async function listActiveWorkoutSessionsForTrainer(): Promise<
 > {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
-  const snap = await db.collection(LOGS).where("status", "==", "active").get();
+  const snap = await db
+    .collection(LOGS)
+    .where("trainerId", "==", trainer.uid)
+    .where("status", "==", "active")
+    .get()
+    .catch((error) => {
+      console.warn(
+        "[gc-fitness/live-workout] trainer-scoped active log query failed; falling back while index builds",
+        error,
+      );
+      return db.collection(LOGS).where("status", "==", "active").get();
+    });
 
   const summaries = new Map<string, ActiveWorkoutSummary>();
   for (const doc of snap.docs) {

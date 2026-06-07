@@ -450,12 +450,12 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         // Nico Rey show "no activity" and Nico Carba show stale 19h-ago
         // despite habit_logs written today. We mirror the recent-logs
         // pattern: broad-fetch, compute max(updatedAt, createdAt, loggedAt)
-        // per doc in memory. `limit(50)` is safely above any single client's
-        // recent-window log count.
+        // per doc in memory. The cap is safely above a normal single-client
+        // recent window while keeping roster first load bounded.
         db
           .collection(FirestoreCollections.habitLogs)
           .where("clientId", "==", c.uid)
-          .limit(50)
+          .limit(30)
           .get(),
         // Progress photos are a separate client surface — counts here too.
         db
@@ -476,9 +476,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .where("deleted", "==", false)
           // 260529 cost backstop: a roster row never needs more than a
           // sane ceiling of habits; the compliance math below tolerates the
-          // cap (no real client carries >100 active habits). Bounds the
+          // cap (no real client carries >60 active habits). Bounds the
           // worst-case read on the (clientId, deleted, updatedAt) index.
-          .limit(100)
+          .limit(60)
           .get(),
         // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
         // is a "YYYY-MM-DD" string — lexicographic comparison is correct
@@ -500,7 +500,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .collection(FirestoreCollections.workoutLogs)
           .where("clientId", "==", c.uid)
           .orderBy("startedAt", "desc")
-          .limit(50)
+          .limit(30)
           .get(),
         // 260528: assignments scheduled IN this calendar month (string range).
         // BOTH month-workout numbers derive from THIS single snapshot — see
@@ -525,7 +525,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .where("clientId", "==", c.uid)
           .where("civilDate", ">=", windowStartCivil)
           .orderBy("civilDate", "desc")
-          .limit(500)
+          .limit(150)
           .get()
           .catch(() =>
             db

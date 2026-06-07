@@ -527,7 +527,7 @@ export async function listMonthForClients(input: {
       .collection(LOGS)
       .where("clientId", "in", clientIds)
       .orderBy("startedAt", "desc")
-      .limit(500)
+      .limit(200)
       .get(),
     db
       .collection(HABITS)

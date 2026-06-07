@@ -283,7 +283,7 @@ async function buildRecentLogs(params: {
   timezone: string;
   /**
    * 260531-fwc — time-cursor pagination. When present, every source switches
-   * from the trainer-wide `limit(600)` scans to index-safe `where(clientId==)`
+   * from the trainer-wide scans to index-safe `where(clientId==)`
    * per-client cursor queries bounded to `pageSize` (fanned out across the
    * roster — works for one client OR many). Absent ⇒ the legacy trainer-wide
    * load-everything path (still used by the dashboard), unchanged.
@@ -516,7 +516,7 @@ async function buildRecentLogs(params: {
     const workoutLogsPromise = db
       .collection(FirestoreCollections.workoutLogs)
       .where("trainerId", "==", params.trainerId)
-      .limit(600)
+      .limit(150)
       .get();
     // Trainer-scoped assignments — used to surface the "client moved
     // workout from X to Y" reschedule activity. No orderBy keeps this on
@@ -525,7 +525,7 @@ async function buildRecentLogs(params: {
     const trainerAssignmentsPromise = db
       .collection(FirestoreCollections.workoutAssignments)
       .where("trainerId", "==", params.trainerId)
-      .limit(600)
+      .limit(150)
       .get();
     const usersSnapPromise = db
       .collection(FirestoreCollections.users)
