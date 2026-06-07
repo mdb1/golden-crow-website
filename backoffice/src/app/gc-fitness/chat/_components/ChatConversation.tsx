@@ -98,10 +98,19 @@ export function ChatConversation({
     fetchNextPage,
     isFetchingNextPage,
   } = useChatMessages(chatId);
-  const messages = useMemo(
-    () => (data?.pages ?? []).flatMap((page) => page),
-    [data],
-  );
+  const messages = useMemo(() => {
+    // useInfiniteQuery APPENDS each older page, so the flattened array is
+    // [newest-page, older-page, …]. Sort ascending by createdAt so prepended
+    // older messages render above the newer ones (oldest at top, newest at
+    // bottom); pending sends (no createdAt) sort to the very bottom.
+    const flat = (data?.pages ?? []).flatMap((page) => page);
+    return [...flat].sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : Number.POSITIVE_INFINITY;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : Number.POSITIVE_INFINITY;
+      return ta - tb;
+    });
+  }, [data]);
+  const newestMessageId = messages.length ? messages[messages.length - 1].id : null;
   const queryClient = useQueryClient();
 
   const partnerEntry = useMemo(
@@ -227,11 +236,22 @@ export function ChatConversation({
     nearBottomRef.current = true;
   }, []);
 
-  // Initial enter / new-message scroll stays instant ("auto") — the user
-  // expects the thread to LAND at the bottom, not glide into place.
+  // Scroll to the bottom on conversation switch, or when a genuinely NEW message
+  // arrives at the tail while the user is near the bottom. Keyed on the newest
+  // message id (NOT messages.length) so a "load older" prepend — which also grows
+  // the length — does not yank the user back down (that bug made scroll-up paging
+  // look broken: older messages loaded but the view snapped straight to bottom).
+  const prevChatIdRef = useRef<string | null>(null);
+  const prevNewestIdRef = useRef<string | null>(null);
   useEffect(() => {
-    requestAnimationFrame(() => scrollToBottom("auto"));
-  }, [chatId, messages.length, scrollToBottom]);
+    const chatChanged = prevChatIdRef.current !== chatId;
+    const newestChanged = prevNewestIdRef.current !== newestMessageId;
+    prevChatIdRef.current = chatId;
+    prevNewestIdRef.current = newestMessageId;
+    if (chatChanged || (newestChanged && nearBottomRef.current)) {
+      requestAnimationFrame(() => scrollToBottom("auto"));
+    }
+  }, [chatId, newestMessageId, scrollToBottom]);
 
   useEffect(() => {
     const node = scrollContainerRef.current;
