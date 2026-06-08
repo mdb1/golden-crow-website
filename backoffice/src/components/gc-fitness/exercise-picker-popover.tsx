@@ -736,7 +736,7 @@ function ExercisePickerFilters({
   );
 }
 
-function ChipRow({
+export function ChipRow({
   label,
   testId,
   children,
@@ -755,7 +755,7 @@ function ChipRow({
   );
 }
 
-function FilterChip({
+export function FilterChip({
   active,
   onClick,
   testId,
