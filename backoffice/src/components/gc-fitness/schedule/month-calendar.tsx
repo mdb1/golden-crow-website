@@ -1573,7 +1573,7 @@ function AddPopover({
           }}
         >
           <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
-          Workout
+          Entrenamiento
         </button>
         <button
           type="button"
