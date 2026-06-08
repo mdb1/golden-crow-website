@@ -69,6 +69,7 @@ type PrNotification = {
   workoutName: string;
   prCount: number;
   detail: string;
+  detailItems?: string[];
   workoutHref: string;
   chatHref: string;
 };
@@ -80,6 +81,7 @@ type UnifiedNotification = {
   icon: ReactNode;
   title: string;
   detail: string;
+  detailItems?: string[];
   meta: string;
   actionHref: string;
   actionLabel: string;
@@ -177,6 +179,7 @@ export default async function NotificationsPage() {
         count: item.prCount,
       }),
       detail: item.detail,
+      detailItems: item.detailItems,
       meta: formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone),
       actionHref: item.workoutHref,
       actionLabel: t("openWorkout"),
@@ -260,6 +263,7 @@ export default async function NotificationsPage() {
                 tone={item.tone}
                 title={item.title}
                 detail={item.detail}
+                detailItems={item.detailItems}
                 meta={item.meta}
                 actionHref={item.actionHref}
                 actionLabel={item.actionLabel}
@@ -392,6 +396,7 @@ function NotificationRow({
   tone,
   title,
   detail,
+  detailItems,
   meta,
   actionHref,
   actionLabel,
@@ -404,6 +409,7 @@ function NotificationRow({
   tone: keyof typeof NOTIFICATION_CHIP;
   title: string;
   detail: string;
+  detailItems?: string[];
   meta: string;
   actionHref: string;
   actionLabel: string;
@@ -433,7 +439,20 @@ function NotificationRow({
             ) : null}
           </div>
           <p className="text-xs text-muted-foreground">{meta}</p>
-          <p className="text-sm text-muted-foreground">{detail}</p>
+          {detailItems && detailItems.length > 0 ? (
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>{detail}</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {detailItems.map((item, index) => (
+                  <li key={`${index}-${item}`} className="break-words">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{detail}</p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
@@ -491,7 +510,8 @@ async function listRecentPrWorkoutNotifications(
         clientName,
         workoutName,
         prCount: prs.length,
-        detail: `${workoutName} · ${prDetails.join(" · ")}`,
+        detail: workoutName,
+        detailItems: prDetails,
         workoutHref: `/gc-fitness/recent-logs/workouts/${doc.id}`,
         chatHref: `/gc-fitness/chat?chatId=${clientId}`,
       };
