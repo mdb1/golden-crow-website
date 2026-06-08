@@ -106,6 +106,18 @@ describe("applyFilters (Phase 24-06 Task 2)", () => {
     expect(out.map((r) => r.id).sort()).toEqual(["back", "chest"]);
   });
 
+  it("Case 3b: legs filter also matches specific lower-body muscle tags", () => {
+    const quads = row({ id: "quads", muscleGroups: ["quadriceps"] });
+    const hamstrings = row({ id: "hamstrings", primaryMuscles: ["hamstrings"] });
+    const calves = row({ id: "calves", muscleGroups: ["calves"] });
+    const chest = row({ id: "chest", muscleGroups: ["chest"] });
+    const out = applyFilters([quads, hamstrings, calves, chest], {
+      ...EMPTY_FILTERS,
+      muscles: new Set(["legs"]),
+    });
+    expect(out.map((r) => r.id).sort()).toEqual(["calves", "hamstrings", "quads"]);
+  });
+
   // Case 4 — equipment filter requires at least one matching item.
   it("Case 4: equipment filter requires at least one matching item", () => {
     const barbell = row({ id: "bb", equipment: ["barbell", "bench"] });

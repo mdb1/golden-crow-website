@@ -10,6 +10,8 @@ import {
   Pause,
   UserCheck,
   ArrowUpRight,
+  Trophy,
+  MessageCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -17,7 +19,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { listClients } from "@/lib/gc-fitness/client-roster";
+import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
@@ -58,13 +62,25 @@ type ActivationNotification = {
   actionLabel: string;
 };
 
+type PrNotification = {
+  id: string;
+  occurredAtISO: string | null;
+  clientId: string;
+  clientName: string;
+  workoutName: string;
+  prCount: number;
+  workoutHref: string;
+  chatHref: string;
+};
+
 type ActiveWorkoutCardData = ActiveWorkoutSummary & {
   clientName: string;
 };
 
 export default async function NotificationsPage() {
+  let trainer: Awaited<ReturnType<typeof getCurrentTrainer>>;
   try {
-    await getCurrentTrainer();
+    trainer = await getCurrentTrainer();
   } catch (err) {
     const message = err instanceof Error ? err.message : "Forbidden";
     if (message === "Forbidden") {
@@ -79,13 +95,14 @@ export default async function NotificationsPage() {
   const todayCivil = civilDateToday(trainerTimezone);
   const renewalWindowEnd = addCivilDays(todayCivil, 14);
 
-  const [activeWorkoutSummaries, workoutActivity, habits, activations, clients] =
+  const [activeWorkoutSummaries, workoutActivity, habits, activations, clients, prNotificationsRaw] =
     await Promise.all([
     listActiveWorkoutSessionsForTrainer(),
     listMyCoachActivityPage(null, 100, null, "workout_assignment"),
     listHabitsForTrainer(),
     listRecentLogsForTrainerPage(null, 20, null, "signup"),
     listClients(),
+    listRecentPrWorkoutNotifications(trainer.uid),
   ]);
 
   const clientNameById = new Map(
@@ -94,6 +111,10 @@ export default async function NotificationsPage() {
   const activeWorkouts: ActiveWorkoutCardData[] = activeWorkoutSummaries.map((item) => ({
     ...item,
     clientName: clientNameById.get(item.clientId) ?? item.clientId,
+  }));
+  const prNotifications = prNotificationsRaw.map((item) => ({
+    ...item,
+    clientName: clientNameById.get(item.clientId) ?? item.clientName,
   }));
 
   const renewalNotifications = [
@@ -161,6 +182,44 @@ export default async function NotificationsPage() {
       ) : null}
 
       <UpcomingWorkoutAlerts />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            {t("prsTitle")}
+          </CardTitle>
+          <CardDescription>{t("prsDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {prNotifications.length === 0 ? (
+            <EmptyState label={t("noPrs")} />
+          ) : (
+            prNotifications.map((item) => (
+              <NotificationRow
+                key={item.id}
+                tone="success"
+                title={t("prsCardTitle", {
+                  client: item.clientName,
+                  count: item.prCount,
+                })}
+                detail={t("prsCardDetail", {
+                  workout: item.workoutName,
+                  count: item.prCount,
+                })}
+                meta={formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone)}
+                actionHref={item.workoutHref}
+                actionLabel={t("openWorkout")}
+                secondaryActionHref={item.chatHref}
+                secondaryActionLabel={t("openChat")}
+                secondaryActionIcon={<MessageCircle />}
+                icon={<Trophy />}
+                unread
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -330,6 +389,9 @@ function NotificationRow({
   meta,
   actionHref,
   actionLabel,
+  secondaryActionHref,
+  secondaryActionLabel,
+  secondaryActionIcon,
   unread = false,
 }: {
   icon: ReactNode;
@@ -339,6 +401,9 @@ function NotificationRow({
   meta: string;
   actionHref: string;
   actionLabel: string;
+  secondaryActionHref?: string;
+  secondaryActionLabel?: string;
+  secondaryActionIcon?: ReactNode;
   unread?: boolean;
 }) {
   return (
@@ -366,12 +431,103 @@ function NotificationRow({
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
+        {secondaryActionHref && secondaryActionLabel ? (
+          <Button asChild size="sm" variant="outline" className="gap-1">
+            <Link href={secondaryActionHref}>
+              {secondaryActionIcon}
+              {secondaryActionLabel}
+            </Link>
+          </Button>
+        ) : null}
         <Button asChild size="sm" variant="outline">
           <Link href={actionHref}>{actionLabel}</Link>
         </Button>
       </div>
     </div>
   );
+}
+
+async function listRecentPrWorkoutNotifications(
+  trainerUid: string,
+): Promise<PrNotification[]> {
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(FirestoreCollections.workoutLogs)
+    .where("trainerId", "==", trainerUid)
+    .limit(150)
+    .get();
+
+  return snap.docs
+    .map((doc): PrNotification | null => {
+      const data = doc.data() as Record<string, unknown>;
+      if (data.deleted === true) return null;
+      const completedAt = toIso(data.completedAt);
+      if (data.status !== "completed" && !completedAt) return null;
+      const prs = Array.isArray(data.prs)
+        ? (data.prs as Array<Record<string, unknown>>)
+        : [];
+      if (prs.length === 0) return null;
+      const clientId = typeof data.clientId === "string" ? data.clientId : "";
+      if (!clientId) return null;
+      const workoutName = localizedValue(
+        (data.templateSnapshot as { name?: unknown } | undefined)?.name,
+        "Workout",
+      );
+      const clientName =
+        typeof data.clientName === "string" && data.clientName.trim()
+          ? data.clientName.trim()
+          : clientId;
+      return {
+        id: `pr:${doc.id}`,
+        occurredAtISO: completedAt ?? toIso(data.updatedAt) ?? toIso(data.startedAt),
+        clientId,
+        clientName,
+        workoutName,
+        prCount: prs.length,
+        workoutHref: `/gc-fitness/recent-logs/workouts/${doc.id}`,
+        chatHref: `/gc-fitness/chat?chatId=${clientId}`,
+      };
+    })
+    .filter((item): item is PrNotification => item !== null)
+    .sort((a, b) => isoMs(b.occurredAtISO) - isoMs(a.occurredAtISO))
+    .slice(0, 10);
+}
+
+function toIso(value: unknown): string | null {
+  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  if (typeof value === "number") {
+    const normalized = value < 1_000_000_000_000 ? value * 1000 : value;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return null;
+}
+
+function localizedValue(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object") {
+    const localized = value as { en?: unknown; es?: unknown };
+    if (typeof localized.es === "string" && localized.es.trim()) {
+      return localized.es.trim();
+    }
+    if (typeof localized.en === "string" && localized.en.trim()) {
+      return localized.en.trim();
+    }
+  }
+  return fallback;
+}
+
+function isoMs(iso: string | null): number {
+  if (!iso) return 0;
+  const ms = new Date(iso).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 function EmptyState({ label }: { label: string }) {

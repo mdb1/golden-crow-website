@@ -11,7 +11,9 @@ import {
 export function ThemeBootstrap() {
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(APPEARANCE_STORAGE_KEY);
+      const stored =
+        window.localStorage.getItem("gc-fitness-appearance") ??
+        window.localStorage.getItem(APPEARANCE_STORAGE_KEY);
       const theme = stored === "light" || stored === "dark" ? stored : "light";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
