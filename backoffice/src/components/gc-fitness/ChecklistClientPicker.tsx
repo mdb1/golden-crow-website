@@ -21,22 +21,6 @@ export interface ChecklistClientOption {
   photoURL?: string | null;
 }
 
-const CLIENT_PALETTE = [
-  { dot: "bg-amber-500" },
-  { dot: "bg-sky-500" },
-  { dot: "bg-emerald-500" },
-  { dot: "bg-violet-500" },
-  { dot: "bg-rose-500" },
-  { dot: "bg-orange-500" },
-  { dot: "bg-cyan-500" },
-  { dot: "bg-indigo-500" },
-];
-
-function dotClass(clients: ChecklistClientOption[], uid: string): string {
-  const index = clients.findIndex((client) => client.uid === uid);
-  return CLIENT_PALETTE[Math.max(0, index) % CLIENT_PALETTE.length].dot;
-}
-
 export function ChecklistClientPicker({
   clients,
   defaultSelected = [],
@@ -148,14 +132,6 @@ export function ChecklistClientPicker({
                       </span>
                     ) : null}
                   </span>
-                  <span
-                    className={cn(
-                      "size-2 shrink-0 rounded-full",
-                      dotClass(clients, c.uid),
-                      checked && "ring-1 ring-primary-foreground/60",
-                    )}
-                    aria-hidden="true"
-                  />
                   <span className="min-w-0 truncate">{c.displayName}</span>
                 </button>
               );
