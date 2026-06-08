@@ -911,21 +911,21 @@ export function TemplateForm({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Workout builder
+                {t("builderEyebrow")}
               </p>
               <h2 className="font-heading text-base font-semibold">
-                {step === 1 ? "Step 1 · Select exercises" : "Step 2 · Configure sets, reps, kg and notes"}
+                {step === 1 ? t("builderStepExercises") : t("builderStepDetails")}
               </h2>
               {step === 1 && fields.length > 0 && hasUnselectedExercises ? (
-                <p className="mt-1 text-xs text-amber-700">Select one exercise in each row before continuing.</p>
+                <p className="mt-1 text-xs text-amber-700">{t("builderSelectAllHint")}</p>
               ) : null}
             </div>
             <div className="flex items-center gap-2">
               <Button type="button" variant={step === 1 ? "default" : "outline"} size="sm" onClick={() => setStep(1)}>
-                1. Exercises
+                {t("builderStepExercisesShort")}
               </Button>
               <Button type="button" variant={step === 2 ? "default" : "outline"} size="sm" onClick={() => setStep(2)} disabled={!canContinueToDetails}>
-                2. Details
+                {t("builderStepDetailsShort")}
               </Button>
             </div>
           </div>
@@ -957,9 +957,9 @@ export function TemplateForm({
           {step === 1 ? (
             <ul className="flex flex-col gap-2">
               {fields.map((field, index) => (
-                <li key={field.id} className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Exercise #{index + 1}</p>
+                <li key={field.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">{t("exerciseNumber", { index: index + 1 })}</p>
                     <div className="mt-1">
                       <ExercisePickerPopover
                         value={form.getValues(`exercises.${index}.exerciseId` as const) ?? ""}
@@ -970,7 +970,7 @@ export function TemplateForm({
                       />
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
                     <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
                       <ArrowUp className="h-4 w-4" />
                     </Button>
@@ -1166,9 +1166,9 @@ export function TemplateForm({
                       ) : null}
                     </div>
 
-                    {/* Sets / Rest / Transition rest. Reps is defined per-set
+                    {/* Sets / Rest. Reps is defined per-set
                         below to avoid double source of truth. */}
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <Controller
                         control={form.control}
                         name={`exercises.${index}.sets` as const}
@@ -1317,65 +1317,6 @@ export function TemplateForm({
                           </FormItem>
                         )}
                       />
-                      <Controller
-                        control={form.control}
-                        name={`exercises.${index}.transition_rest_seconds` as const}
-                        render={({
-                          field: numField,
-                          fieldState,
-                        }) => (
-                          <FormItem>
-                            <FormLabel>{t("transitionRestSeconds")}</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={transitionRestSecondsDraft[field.id] ?? (numField.value ?? "")}
-                                onChange={(e) => {
-                                  if (e.target.value === "") {
-                                    setTransitionRestSecondsDraft((prev) => ({ ...prev, [field.id]: "" }));
-                                    return;
-                                  }
-                                  const parsed = Number(e.target.value);
-                                  if (!Number.isFinite(parsed)) return;
-                                  setTransitionRestSecondsDraft((prev) => ({ ...prev, [field.id]: e.target.value }));
-                                }}
-                                onBlur={() => {
-                                  const raw = transitionRestSecondsDraft[field.id];
-                                  if (raw === "") {
-                                    setTransitionRestSecondsDraft((prev) => {
-                                      const next = { ...prev };
-                                      delete next[field.id];
-                                      return next;
-                                    });
-                                    numField.onChange(60);
-                                    numField.onBlur();
-                                    return;
-                                  }
-                                  if (raw !== undefined) {
-                                    const parsed = Number(raw);
-                                    if (Number.isFinite(parsed)) {
-                                      numField.onChange(parsed);
-                                    }
-                                  }
-                                  setTransitionRestSecondsDraft((prev) => {
-                                    const next = { ...prev };
-                                    delete next[field.id];
-                                    return next;
-                                  });
-                                  numField.onBlur();
-                                }}
-                              />
-                            </FormControl>
-                            {fieldState.error && (
-                              <FormMessage>
-                                {fieldState.error.message}
-                              </FormMessage>
-                            )}
-                          </FormItem>
-                        )}
-                      />
                     </div>
 
                     {/* 26-03 — Exercise-level duration fallback. Visible only
@@ -1458,8 +1399,8 @@ export function TemplateForm({
                       </div>
                     ) : null}
 
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="sm:col-span-2">
+                    <div className="flex flex-col gap-3">
+                      <div>
                         <FormLabel>{t("setRowsTitle")}</FormLabel>
                         <div className="mt-2 flex flex-col gap-2">
                           <div className="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 px-1 sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)]">
@@ -2103,7 +2044,7 @@ export function TemplateForm({
             />
             {step === 1 ? (
               <Button type="button" onClick={() => setStep(2)} disabled={!canContinueToDetails} className="ml-auto">
-                Continue to details
+                {t("continueToDetails")}
               </Button>
             ) : null}
           </div>

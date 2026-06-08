@@ -6,7 +6,6 @@ import {
   Bell,
   CalendarClock,
   Clock3,
-  RefreshCw,
   Pause,
   UserCheck,
   ArrowUpRight,
@@ -69,8 +68,25 @@ type PrNotification = {
   clientName: string;
   workoutName: string;
   prCount: number;
+  detail: string;
   workoutHref: string;
   chatHref: string;
+};
+
+type UnifiedNotification = {
+  id: string;
+  sortAtISO: string | null;
+  tone: keyof typeof NOTIFICATION_CHIP;
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  meta: string;
+  actionHref: string;
+  actionLabel: string;
+  secondaryActionHref?: string;
+  secondaryActionLabel?: string;
+  secondaryActionIcon?: ReactNode;
+  unread?: boolean;
 };
 
 type ActiveWorkoutCardData = ActiveWorkoutSummary & {
@@ -150,6 +166,49 @@ export default async function NotificationsPage() {
       actionLabel: t("openClient"),
     }));
 
+  const allNotifications: UnifiedNotification[] = [
+    ...prNotifications.map((item): UnifiedNotification => ({
+      id: item.id,
+      sortAtISO: item.occurredAtISO,
+      tone: "success",
+      icon: <Trophy />,
+      title: t("prsCardTitle", {
+        client: item.clientName,
+        count: item.prCount,
+      }),
+      detail: item.detail,
+      meta: formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone),
+      actionHref: item.workoutHref,
+      actionLabel: t("openWorkout"),
+      secondaryActionHref: item.chatHref,
+      secondaryActionLabel: t("openChat"),
+      secondaryActionIcon: <MessageCircle />,
+      unread: true,
+    })),
+    ...renewalNotifications.map((item): UnifiedNotification => ({
+      id: item.id,
+      sortAtISO: item.occurredAtISO ?? `${item.dueDate}T12:00:00.000Z`,
+      tone: "warning",
+      icon: <CalendarClock />,
+      title: item.title,
+      detail: item.detail,
+      meta: formatMeta(item.occurredAtISO, item.clientName, item.dueLabel, locale, trainerTimezone),
+      actionHref: item.actionHref,
+      actionLabel: item.actionLabel,
+    })),
+    ...activationNotifications.map((item): UnifiedNotification => ({
+      id: item.id,
+      sortAtISO: item.occurredAtISO,
+      tone: "brand",
+      icon: <UserCheck />,
+      title: t("clientActivated"),
+      detail: item.detail,
+      meta: formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone),
+      actionHref: item.actionHref,
+      actionLabel: item.actionLabel,
+    })),
+  ].sort((a, b) => isoMs(b.sortAtISO) - isoMs(a.sortAtISO));
+
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
@@ -186,82 +245,29 @@ export default async function NotificationsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-4 w-4" />
-            {t("prsTitle")}
+            <Bell className="h-4 w-4" />
+            {t("allTitle")}
           </CardTitle>
-          <CardDescription>{t("prsDescription")}</CardDescription>
+          <CardDescription>{t("allDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {prNotifications.length === 0 ? (
-            <EmptyState label={t("noPrs")} />
+          {allNotifications.length === 0 ? (
+            <EmptyState label={t("noNotifications")} />
           ) : (
-            prNotifications.map((item) => (
+            allNotifications.map((item) => (
               <NotificationRow
                 key={item.id}
-                tone="success"
-                title={t("prsCardTitle", {
-                  client: item.clientName,
-                  count: item.prCount,
-                })}
-                detail={t("prsCardDetail", {
-                  workout: item.workoutName,
-                  count: item.prCount,
-                })}
-                meta={formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone)}
-                actionHref={item.workoutHref}
-                actionLabel={t("openWorkout")}
-                secondaryActionHref={item.chatHref}
-                secondaryActionLabel={t("openChat")}
-                secondaryActionIcon={<MessageCircle />}
-                icon={<Trophy />}
-                unread
-              />
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            {t("renewalsTitle")}
-          </CardTitle>
-          <CardDescription>{t("renewalsDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {renewalNotifications.length === 0 ? (
-            <EmptyState label={t("noRenewals")} />
-          ) : (
-            renewalNotifications.map((item) => (
-              <NotificationRow key={item.id} tone="warning" title={item.title} detail={item.detail} meta={formatMeta(item.occurredAtISO, item.clientName, item.dueLabel, locale, trainerTimezone)} actionHref={item.actionHref} actionLabel={item.actionLabel} icon={<CalendarClock />} />
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck className="h-4 w-4" />
-            {t("activationsTitle")}
-          </CardTitle>
-          <CardDescription>{t("activationsDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {activationNotifications.length === 0 ? (
-            <EmptyState label={t("noActivations")} />
-          ) : (
-            activationNotifications.map((item) => (
-              <NotificationRow
-                key={item.id}
-                tone="brand"
-                title={t("clientActivated")}
+                tone={item.tone}
+                title={item.title}
                 detail={item.detail}
-                meta={formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone)}
+                meta={item.meta}
                 actionHref={item.actionHref}
                 actionLabel={item.actionLabel}
-                icon={<Bell />}
+                secondaryActionHref={item.secondaryActionHref}
+                secondaryActionLabel={item.secondaryActionLabel}
+                secondaryActionIcon={item.secondaryActionIcon}
+                icon={item.icon}
+                unread={item.unread}
               />
             ))
           )}
@@ -473,6 +479,7 @@ async function listRecentPrWorkoutNotifications(
         (data.templateSnapshot as { name?: unknown } | undefined)?.name,
         "Workout",
       );
+      const prDetails = formatPrDetails(data, prs);
       const clientName =
         typeof data.clientName === "string" && data.clientName.trim()
           ? data.clientName.trim()
@@ -484,6 +491,7 @@ async function listRecentPrWorkoutNotifications(
         clientName,
         workoutName,
         prCount: prs.length,
+        detail: `${workoutName} · ${prDetails.join(" · ")}`,
         workoutHref: `/gc-fitness/recent-logs/workouts/${doc.id}`,
         chatHref: `/gc-fitness/chat?chatId=${clientId}`,
       };
@@ -491,6 +499,93 @@ async function listRecentPrWorkoutNotifications(
     .filter((item): item is PrNotification => item !== null)
     .sort((a, b) => isoMs(b.occurredAtISO) - isoMs(a.occurredAtISO))
     .slice(0, 10);
+}
+
+function formatPrDetails(
+  data: Record<string, unknown>,
+  prs: Array<Record<string, unknown>>,
+): string[] {
+  const templateExercises =
+    (data.templateSnapshot as { exercises?: Array<Record<string, unknown>> } | undefined)
+      ?.exercises ?? [];
+  const exerciseNameById = new Map<string, string>();
+  for (const exercise of templateExercises) {
+    const exerciseId = typeof exercise.exerciseId === "string" ? exercise.exerciseId : "";
+    if (!exerciseId) continue;
+    exerciseNameById.set(exerciseId, localizedValue(exercise.name, exerciseId));
+  }
+  const sets = Array.isArray(data.sets)
+    ? (data.sets as Array<Record<string, unknown>>)
+    : [];
+  const setById = new Map<string, Record<string, unknown>>();
+  for (const set of sets) {
+    const id = typeof set.id === "string" ? set.id : "";
+    if (id) setById.set(id, set);
+  }
+
+  const details = prs.slice(0, 4).map((pr) => {
+    const exerciseId = typeof pr.exerciseId === "string" ? pr.exerciseId : "";
+    const setLogId =
+      typeof pr.set_log_id === "string"
+        ? pr.set_log_id
+        : typeof pr.setLogId === "string"
+          ? pr.setLogId
+          : "";
+    const set = setLogId ? setById.get(setLogId) : undefined;
+    const name =
+      exerciseNameById.get(exerciseId) ??
+      (set && typeof set.exerciseId === "string"
+        ? exerciseNameById.get(set.exerciseId)
+        : undefined) ??
+      (exerciseId || "PR");
+    const durationSeconds = numeric(pr.duration_seconds ?? pr.durationSeconds);
+    if (durationSeconds !== null && durationSeconds > 0) {
+      return `${name}: ${formatDuration(durationSeconds)}`;
+    }
+    const weight = numeric(pr.weight_kg ?? pr.weightKg ?? set?.weight_kg ?? set?.weight);
+    const reps = numeric(pr.reps ?? set?.reps);
+    const estimatedOneRM = numeric(pr.estimated_one_rm ?? pr.estimatedOneRM);
+    const performance =
+      weight !== null && reps !== null
+        ? `${formatKg(weight)} x ${Math.round(reps)}`
+        : weight !== null
+          ? formatKg(weight)
+          : reps !== null
+            ? `${Math.round(reps)} reps`
+            : "";
+    const oneRm = estimatedOneRM !== null && estimatedOneRM > 0
+      ? ` (${formatKg(estimatedOneRM)} 1RM)`
+      : "";
+    return `${name}${performance ? `: ${performance}` : ""}${oneRm}`;
+  });
+  const remaining = prs.length - details.length;
+  if (remaining > 0) {
+    details.push(`+${remaining} PRs`);
+  }
+  return details;
+}
+
+function formatKg(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)} kg`;
+}
+
+function numeric(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function formatDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (minutes === 0) return `${rest}s`;
+  if (rest === 0) return `${minutes}m`;
+  return `${minutes}m ${rest}s`;
 }
 
 function toIso(value: unknown): string | null {
@@ -662,6 +757,8 @@ function formatClock(iso: string | null, locale: Locale, timezone: string): stri
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return locale === "es" ? "Sin hora" : "No time";
   return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : "en-US", {
+    day: "2-digit",
+    month: "short",
     hour: "2-digit",
     minute: "2-digit",
     timeZone: timezone,

@@ -975,7 +975,7 @@ export function AssignTemplateModal({
                           {restMinutesHint(draft.rest_seconds)}
                         </span>
                       </label>
-                      <label className="min-w-0 text-[11px] font-medium text-muted-foreground">
+                      <label className="min-w-0 rounded-md border border-amber-400/50 bg-amber-50/60 p-2 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
                         <span className="block truncate">{t("exerciseOverridesTransitionRest")}</span>
                         <input
                           type="text"
@@ -992,9 +992,9 @@ export function AssignTemplateModal({
                               },
                             }));
                           }}
-                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+                          className="mt-1 h-8 w-full rounded-md border border-amber-300/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 dark:border-amber-300/40"
                         />
-                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
+                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-amber-700/80 dark:text-amber-200/80">
                           {restMinutesHint(draft.transition_rest_seconds)}
                         </span>
                       </label>
