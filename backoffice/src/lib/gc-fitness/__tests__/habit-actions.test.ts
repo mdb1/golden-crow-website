@@ -92,6 +92,7 @@ import {
   updateHabit,
   softDeleteHabit,
   deleteHabitRecurrenceFromDate,
+  getHabit,
   listHabitsForTrainer,
   listHabitsForClient,
 } from "../habit-actions";
@@ -136,6 +137,24 @@ function fakeHabitSnapshot(opts: {
       deleted: false,
       ...(opts.startsOn ? { startsOn: opts.startsOn } : {}),
     }),
+    get: (field: string) =>
+      ({
+        trainerId: opts.trainerId,
+        type: opts.type ?? "binary",
+        clientId: "uid-client-abc",
+        name: { en: "Test", es: "Prueba" },
+        reminderEnabled: false,
+        deleted: false,
+        ...(opts.startsOn ? { startsOn: opts.startsOn } : {}),
+      })[field],
+  } as unknown as DocumentSnapshot;
+}
+
+function fakeUserSnapshot(opts: { exists: boolean; coachId?: string }) {
+  return {
+    exists: opts.exists,
+    get: (field: string) => (field === "coachId" ? opts.coachId : undefined),
+    data: () => ({ coachId: opts.coachId }),
   } as unknown as DocumentSnapshot;
 }
 
@@ -540,5 +559,21 @@ describe("listHabitsForClient", () => {
     expect(mockWhere).toHaveBeenCalledWith("clientId", "==", "uid-X");
     expect(mockWhere).toHaveBeenCalledWith("deleted", "==", false);
     expect(mockLimit).toHaveBeenCalledWith(200);
+  });
+});
+
+describe("getHabit", () => {
+  it("allows the current coach to open an old-coach habit for their transferred client", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet
+      .mockResolvedValueOnce(
+        fakeHabitSnapshot({ exists: true, trainerId: "previous-coach" }),
+      )
+      .mockResolvedValueOnce(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
+
+    const result = await getHabit("hab-transfer-old");
+
+    expect(result.id).toBe("hab-abc");
+    expect(result.trainerId).toBe("previous-coach");
   });
 });

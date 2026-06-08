@@ -466,6 +466,9 @@
         "nextDate": "Próxima",
         "noDate": "Sin fecha",
         "showPastWorkouts": "Ver workouts pasados ({count})",
+        "showPastHabits": "Ver hábitos pasados ({count})",
+        "removedFrom": "Eliminado desde {date}",
+        "activeThenRemoved": "Activo desde {startsOn} · eliminado desde {removedFrom}",
         "workoutStreakLabel": "{count} seguidos",
         "workoutStreakTooltip": "{count} entrenamientos completados sin faltar."
       },

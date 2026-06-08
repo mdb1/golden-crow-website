@@ -57,6 +57,8 @@ interface ClientSummaryListsProps {
   };
   /** Past-workouts <details> block — rendered as-is from the server card. */
   pastWorkoutsSlot?: ReactNode;
+  /** Past-habits <details> block — rendered as-is from the server card. */
+  pastHabitsSlot?: ReactNode;
 }
 
 export function ClientSummaryLists({
@@ -66,6 +68,7 @@ export function ClientSummaryLists({
   habits,
   labels,
   pastWorkoutsSlot,
+  pastHabitsSlot,
 }: ClientSummaryListsProps) {
   // Local query cache — the detail dialogs' `useQuery` needs a provider and the
   // detail route doesn't ship one. Mirrors RosterQueryProvider's defaults.
@@ -157,6 +160,7 @@ export function ClientSummaryLists({
             ))}
           </ul>
         )}
+        {pastHabitsSlot}
       </div>
 
       {detailAssignmentId ? (
