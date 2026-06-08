@@ -36,6 +36,7 @@ import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-
 export const dynamic = "force-dynamic";
 
 type Locale = "en" | "es";
+type NotificationFilter = "all" | "prs" | "renewals" | "activations";
 
 type RenewalNotification = {
   id: string;
@@ -76,6 +77,7 @@ type PrNotification = {
 
 type UnifiedNotification = {
   id: string;
+  kind: Exclude<NotificationFilter, "all">;
   sortAtISO: string | null;
   tone: keyof typeof NOTIFICATION_CHIP;
   icon: ReactNode;
@@ -89,13 +91,23 @@ type UnifiedNotification = {
   secondaryActionLabel?: string;
   secondaryActionIcon?: ReactNode;
   unread?: boolean;
+  featured?: boolean;
 };
 
 type ActiveWorkoutCardData = ActiveWorkoutSummary & {
   clientName: string;
 };
 
-export default async function NotificationsPage() {
+function resolveNotificationFilter(raw: string | undefined): NotificationFilter {
+  if (raw === "prs" || raw === "renewals" || raw === "activations") return raw;
+  return "all";
+}
+
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
   let trainer: Awaited<ReturnType<typeof getCurrentTrainer>>;
   try {
     trainer = await getCurrentTrainer();
@@ -109,6 +121,8 @@ export default async function NotificationsPage() {
 
   const locale = (await getLocale()) as Locale;
   const t = await getTranslations("notifications");
+  const { type: rawType } = await searchParams;
+  const activeFilter = resolveNotificationFilter(rawType);
   const trainerTimezone = await getTrainerTimezone();
   const todayCivil = civilDateToday(trainerTimezone);
   const renewalWindowEnd = addCivilDays(todayCivil, 14);
@@ -171,6 +185,7 @@ export default async function NotificationsPage() {
   const allNotifications: UnifiedNotification[] = [
     ...prNotifications.map((item): UnifiedNotification => ({
       id: item.id,
+      kind: "prs",
       sortAtISO: item.occurredAtISO,
       tone: "success",
       icon: <Trophy />,
@@ -190,6 +205,7 @@ export default async function NotificationsPage() {
     })),
     ...renewalNotifications.map((item): UnifiedNotification => ({
       id: item.id,
+      kind: "renewals",
       sortAtISO: item.occurredAtISO ?? `${item.dueDate}T12:00:00.000Z`,
       tone: "warning",
       icon: <CalendarClock />,
@@ -201,6 +217,7 @@ export default async function NotificationsPage() {
     })),
     ...activationNotifications.map((item): UnifiedNotification => ({
       id: item.id,
+      kind: "activations",
       sortAtISO: item.occurredAtISO,
       tone: "brand",
       icon: <UserCheck />,
@@ -209,8 +226,44 @@ export default async function NotificationsPage() {
       meta: formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone),
       actionHref: item.actionHref,
       actionLabel: item.actionLabel,
+      featured: true,
     })),
   ].sort((a, b) => isoMs(b.sortAtISO) - isoMs(a.sortAtISO));
+  const visibleNotifications =
+    activeFilter === "all"
+      ? allNotifications
+      : allNotifications.filter((item) => item.kind === activeFilter);
+  const filterItems: Array<{
+    key: NotificationFilter;
+    label: string;
+    count: number;
+    href: string;
+  }> = [
+    {
+      key: "all",
+      label: t("filterAll"),
+      count: allNotifications.length,
+      href: "/gc-fitness/notifications",
+    },
+    {
+      key: "prs",
+      label: t("filterPrs"),
+      count: prNotifications.length,
+      href: "/gc-fitness/notifications?type=prs",
+    },
+    {
+      key: "renewals",
+      label: t("filterRenewals"),
+      count: renewalNotifications.length,
+      href: "/gc-fitness/notifications?type=renewals",
+    },
+    {
+      key: "activations",
+      label: t("filterActivations"),
+      count: activationNotifications.length,
+      href: "/gc-fitness/notifications?type=activations",
+    },
+  ];
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -254,10 +307,29 @@ export default async function NotificationsPage() {
           <CardDescription>{t("allDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {allNotifications.length === 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {filterItems.map((item) => {
+              const isActive = item.key === activeFilter;
+              return (
+                <Button
+                  key={item.key}
+                  asChild
+                  size="sm"
+                  variant={isActive ? "default" : "outline"}
+                  className="rounded-full"
+                >
+                  <Link href={item.href}>
+                    {item.label}
+                    <span className="ml-1 text-xs opacity-75">{item.count}</span>
+                  </Link>
+                </Button>
+              );
+            })}
+          </div>
+          {visibleNotifications.length === 0 ? (
             <EmptyState label={t("noNotifications")} />
           ) : (
-            allNotifications.map((item) => (
+            visibleNotifications.map((item) => (
               <NotificationRow
                 key={item.id}
                 tone={item.tone}
@@ -272,6 +344,7 @@ export default async function NotificationsPage() {
                 secondaryActionIcon={item.secondaryActionIcon}
                 icon={item.icon}
                 unread={item.unread}
+                featured={item.featured}
               />
             ))
           )}
@@ -404,6 +477,7 @@ function NotificationRow({
   secondaryActionLabel,
   secondaryActionIcon,
   unread = false,
+  featured = false,
 }: {
   icon: ReactNode;
   tone: keyof typeof NOTIFICATION_CHIP;
@@ -417,9 +491,16 @@ function NotificationRow({
   secondaryActionLabel?: string;
   secondaryActionIcon?: ReactNode;
   unread?: boolean;
+  featured?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-4 transition-colors hover:bg-accent/40 sm:flex-row sm:items-start sm:justify-between">
+    <div
+      className={`flex flex-col gap-3 rounded-[1.25rem] border bg-card p-4 transition-colors hover:bg-accent/40 sm:flex-row sm:items-start sm:justify-between ${
+        featured
+          ? "border-primary/70 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)]"
+          : "border-border"
+      }`}
+    >
       <div className="flex min-w-0 gap-3">
         <div
           className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border [&>svg]:size-4 ${NOTIFICATION_CHIP[tone]}`}
