@@ -1190,6 +1190,7 @@
       "messageAria": "Texto del mensaje",
       "photoCta": "Adjuntar foto",
       "photoLabel": "Foto",
+      "removeAttachment": "Quitar foto",
       "voiceCta": "Adjuntar audio",
       "voiceLabel": "Audio",
       "voiceRecordCta": "Grabar audio",
