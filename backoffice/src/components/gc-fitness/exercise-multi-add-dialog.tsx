@@ -12,7 +12,7 @@
 // with that exercise's values for one-tweak duplication.
 
 import { useMemo, useState } from "react";
-import { Copy, Plus, Search } from "lucide-react";
+import { Copy, Plus, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ import {
 } from "@/lib/gc-fitness/exercises-listener";
 
 import {
+  ChipRow,
+  FilterChip,
   displayEs,
   fuzzyTokenMatch,
 } from "./exercise-picker-popover";
@@ -42,6 +44,11 @@ import {
   type QuickCreateSeed,
 } from "./exercise-quick-create";
 import { ExercisePreviewThumb } from "./exercise-preview-thumb";
+import {
+  applyFilters,
+  useExerciseFilters,
+} from "@/lib/gc-fitness/exercise-filter-state";
+import { EQUIPMENT, MUSCLE_GROUPS } from "@/lib/gc-fitness/exercise-vocabulary";
 
 function exerciseDisplayName(row: ExerciseRow): string {
   return row.name.en || row.name.es || "(untitled)";
@@ -102,6 +109,27 @@ export function ExerciseMultiAddDialog({
   const [forceQuickCreate, setForceQuickCreate] = useState(false);
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
   const queryClient = useQueryClient();
+  // Muscle-group + equipment filters — reuse the same state + matching logic
+  // as the single-add picker so both surfaces behave identically.
+  const { filters, setFilters, isEmpty: filtersEmpty, clear: clearFilters } =
+    useExerciseFilters();
+
+  function toggleMuscle(value: string) {
+    setFilters((prev) => {
+      const next = new Set(prev.muscles);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, muscles: next };
+    });
+  }
+  function toggleEquipment(value: string) {
+    setFilters((prev) => {
+      const next = new Set(prev.equipment);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, equipment: next };
+    });
+  }
 
   const exercises = useMemo(
     () => (data ?? []).filter((r) => r.deleted !== true),
@@ -110,12 +138,14 @@ export function ExerciseMultiAddDialog({
 
   const filtered = useMemo(() => {
     const needle = search.trim();
-    if (!needle) return exercises;
-    return exercises.filter((ex) => {
-      const haystack = [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" ");
-      return fuzzyTokenMatch(needle, haystack);
-    });
-  }, [exercises, search]);
+    const bySearch = needle
+      ? exercises.filter((ex) => {
+          const haystack = [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" ");
+          return fuzzyTokenMatch(needle, haystack);
+        })
+      : exercises;
+    return applyFilters(bySearch, filters);
+  }, [exercises, search, filters]);
 
   function toggle(id: string) {
     setPicked((prev) => {
@@ -136,6 +166,7 @@ export function ExerciseMultiAddDialog({
       setPicked(new Set());
       setSeed(null);
       setForceQuickCreate(false);
+      clearFilters();
     }
   }
 
@@ -173,6 +204,52 @@ export function ExerciseMultiAddDialog({
             placeholder={t("searchPlaceholder")}
             className="h-10 flex-1 bg-transparent text-sm outline-none"
           />
+        </div>
+        {/* Muscle-group + equipment filters — mirror the single-add picker. */}
+        <div className="rounded-md border p-2">
+          <ChipRow
+            testId="exercise-multi-add-chip-group-muscles"
+            label={t("filterMuscles")}
+          >
+            {MUSCLE_GROUPS.map((m) => (
+              <FilterChip
+                key={m}
+                active={filters.muscles.has(m)}
+                onClick={() => toggleMuscle(m)}
+                testId={`exercise-multi-add-chip-muscles-${m}`}
+                label={formatLabel(m)}
+              />
+            ))}
+          </ChipRow>
+          <ChipRow
+            testId="exercise-multi-add-chip-group-equipment"
+            label={t("filterEquipment")}
+          >
+            {EQUIPMENT.map((e) => (
+              <FilterChip
+                key={e}
+                active={filters.equipment.has(e)}
+                onClick={() => toggleEquipment(e)}
+                testId={`exercise-multi-add-chip-equipment-${e}`}
+                label={formatLabel(e)}
+              />
+            ))}
+          </ChipRow>
+          {!filtersEmpty ? (
+            <div className="mt-2 flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-7 gap-1 px-2 text-xs"
+                data-testid="exercise-multi-add-clear-filters"
+              >
+                <X className="h-3 w-3" />
+                {t("filterClearAll")}
+              </Button>
+            </div>
+          ) : null}
         </div>
         <ul className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto rounded-md border p-2">
           {isLoading || !hasSnapshot ? (
