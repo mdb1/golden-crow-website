@@ -51,7 +51,10 @@ import {
 import {
   addCivilMonths,
   END_DATE_PRESET_MONTHS,
+  END_DATE_PRESET_WEEKS,
+  endDateForWeeks,
   inferEndDatePresetMonths,
+  inferEndDatePresetWeeks,
   localDateToCivil,
 } from "@/lib/gc-fitness/end-date-presets";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
@@ -224,19 +227,34 @@ export function HabitForm({
     typeof initialDefaults.startsOn === "string" ? initialDefaults.startsOn : "";
   const initialEndsOn =
     typeof initialDefaults.endsOn === "string" ? initialDefaults.endsOn : undefined;
+  // End-date duration is expressed as EITHER a month preset OR a week preset
+  // (mutually exclusive), or a custom date (both null). Whichever is set is
+  // re-anchored to startsOn whenever startsOn changes — the end date is ALWAYS
+  // derived from the start, never from "today".
   const [selectedEndPresetMonths, setSelectedEndPresetMonths] = useState<
     number | null
-  >(() =>
-    inferEndDatePresetMonths(initialStartsOn, initialEndsOn),
-  );
+  >(() => inferEndDatePresetMonths(initialStartsOn, initialEndsOn));
+  const [selectedEndPresetWeeks, setSelectedEndPresetWeeks] = useState<
+    number | null
+  >(() => inferEndDatePresetWeeks(initialStartsOn, initialEndsOn));
 
   useEffect(() => {
-    if (selectedEndPresetMonths == null) return;
     if (watchedStartsOn.length === 0) return;
-    const nextEndsOn = addCivilMonths(watchedStartsOn, selectedEndPresetMonths);
-    if (watchedEndsOn === nextEndsOn) return;
+    const nextEndsOn =
+      selectedEndPresetWeeks != null
+        ? endDateForWeeks(watchedStartsOn, selectedEndPresetWeeks)
+        : selectedEndPresetMonths != null
+          ? addCivilMonths(watchedStartsOn, selectedEndPresetMonths)
+          : null;
+    if (nextEndsOn == null || watchedEndsOn === nextEndsOn) return;
     form.setValue("endsOn", nextEndsOn, { shouldDirty: true });
-  }, [form, selectedEndPresetMonths, watchedEndsOn, watchedStartsOn]);
+  }, [
+    form,
+    selectedEndPresetMonths,
+    selectedEndPresetWeeks,
+    watchedEndsOn,
+    watchedStartsOn,
+  ]);
 
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
@@ -574,7 +592,12 @@ export function HabitForm({
                       onChange={(event) => {
                         const next = event.target.value;
                         field.onChange(next);
-                        if (selectedEndPresetMonths != null && next.length > 0) {
+                        if (next.length === 0) return;
+                        if (selectedEndPresetWeeks != null) {
+                          form.setValue("endsOn", endDateForWeeks(next, selectedEndPresetWeeks), {
+                            shouldDirty: true,
+                          });
+                        } else if (selectedEndPresetMonths != null) {
                           form.setValue("endsOn", addCivilMonths(next, selectedEndPresetMonths), {
                             shouldDirty: true,
                           });
@@ -594,6 +617,29 @@ export function HabitForm({
                 <FormItem>
                   <FormLabel>{t("scheduleEndLabel")}</FormLabel>
                   <div className="flex flex-wrap gap-2">
+                    {END_DATE_PRESET_WEEKS.map((weeks) => {
+                      const active =
+                        selectedEndPresetWeeks === weeks &&
+                        typeof watchedStartsOn === "string" &&
+                        watchedEndsOn === endDateForWeeks(watchedStartsOn, weeks);
+                      return (
+                        <Button
+                          key={`w-${weeks}`}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          className="rounded-full"
+                          aria-pressed={active}
+                          onClick={() => {
+                            setSelectedEndPresetWeeks(weeks);
+                            setSelectedEndPresetMonths(null);
+                            field.onChange(endDateForWeeks(watchedStartsOn, weeks));
+                          }}
+                        >
+                          {t("scheduleEndPresetWeeks", { weeks })}
+                        </Button>
+                      );
+                    })}
                     {END_DATE_PRESET_MONTHS.map((months) => {
                       const active =
                         selectedEndPresetMonths === months &&
@@ -601,7 +647,7 @@ export function HabitForm({
                         watchedEndsOn === addCivilMonths(watchedStartsOn, months);
                       return (
                         <Button
-                          key={months}
+                          key={`m-${months}`}
                           type="button"
                           variant={active ? "default" : "outline"}
                           size="sm"
@@ -609,6 +655,7 @@ export function HabitForm({
                           aria-pressed={active}
                           onClick={() => {
                             setSelectedEndPresetMonths(months);
+                            setSelectedEndPresetWeeks(null);
                             const next = addCivilMonths(watchedStartsOn, months);
                             field.onChange(next);
                           }}
@@ -632,6 +679,11 @@ export function HabitForm({
                         setSelectedEndPresetMonths(
                           next.length > 0
                             ? inferEndDatePresetMonths(watchedStartsOn, next)
+                            : null,
+                        );
+                        setSelectedEndPresetWeeks(
+                          next.length > 0
+                            ? inferEndDatePresetWeeks(watchedStartsOn, next)
                             : null,
                         );
                       }}
