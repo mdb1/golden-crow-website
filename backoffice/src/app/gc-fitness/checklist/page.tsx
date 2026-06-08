@@ -28,7 +28,11 @@ export default async function CoachChecklistPage() {
   // synthetic `mirror:` uid that isn't a valid client route.
   const clients = roster
     .filter((c) => !c.pendingProvisioning)
-    .map((c) => ({ uid: c.uid, displayName: c.displayName }));
+    .map((c) => ({
+      uid: c.uid,
+      displayName: c.displayName,
+      photoURL: c.photoURL,
+    }));
 
   return (
     <div className="gc-page flex flex-col gap-6">
