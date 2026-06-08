@@ -1874,75 +1874,8 @@ export function TemplateForm({
                       />
                     </div>
 
-                    {/* Superset group — shared across all matching exercises.
-                        Chips let the trainer reuse existing group letters
-                        without retyping them. */}
-                    <FormField
-                      control={form.control}
-                      name={`exercises.${index}.supersetGroup` as const}
-                      render={({ field: supersetField }) => (
-                        <FormItem>
-                          <FormLabel>{t("supersetGroup")}</FormLabel>
-                          {supersetGroupOptions.length > 0 ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {supersetGroupOptions.map((group) => {
-                                const active = supersetField.value?.trim() === group;
-                                return (
-                                  <button
-                                    key={group}
-                                    type="button"
-                                    onClick={() => applySupersetGroup(index, group)}
-                                    className={cn(
-                                      "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors",
-                                      active
-                                        ? "border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-100"
-                                        : "border-border/70 bg-background text-foreground hover:border-amber-400/60 hover:text-amber-700 dark:text-amber-100",
-                                    )}
-                                  >
-                                    {group}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                          <FormControl>
-                            <Input
-                              placeholder={t("supersetGroupPlaceholder")}
-                              data-field-superset
-                              data-exercise-card={index}
-                              onKeyDown={(e) => {
-                                if (e.key === "Tab" && !e.shiftKey) {
-                                  // Skip exercise-name inputs / drag handles /
-                                  // helper buttons and land directly on the
-                                  // NEXT exercise card's Sets field.
-                                  const root = (e.currentTarget.closest(
-                                    "form",
-                                  ) ?? document) as ParentNode;
-                                  const target = root.querySelector<HTMLInputElement>(
-                                    `[data-field-sets="${index + 1}"]`,
-                                  );
-                                  if (target) {
-                                    e.preventDefault();
-                                    target.focus();
-                                    target.select();
-                                  }
-                                }
-                              }}
-                              value={supersetField.value ?? ""}
-                              onChange={(e) => {
-                                const nextGroup = e.target.value;
-                                supersetField.onChange(nextGroup);
-                              }}
-                              onBlur={() => {
-                                supersetField.onBlur();
-                                applySupersetGroup(index, supersetField.value ?? "");
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>{t("supersetGroupHint")}</FormDescription>
-                        </FormItem>
-                      )}
-                    />
+                    {/* Transition rest sits below the coach notes — the client
+                        sees it after finishing this exercise. */}
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
                       <div className="flex items-center gap-2">
                         <FormLabel className="text-amber-700 dark:text-amber-100">
@@ -2012,6 +1945,76 @@ export function TemplateForm({
                         )}
                       />
                     </div>
+
+                    {/* Superset group — shared across all matching exercises.
+                        Chips let the trainer reuse existing group letters
+                        without retyping them. */}
+                    <FormField
+                      control={form.control}
+                      name={`exercises.${index}.supersetGroup` as const}
+                      render={({ field: supersetField }) => (
+                        <FormItem>
+                          <FormLabel>{t("supersetGroup")}</FormLabel>
+                          {supersetGroupOptions.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {supersetGroupOptions.map((group) => {
+                                const active = supersetField.value?.trim() === group;
+                                return (
+                                  <button
+                                    key={group}
+                                    type="button"
+                                    onClick={() => applySupersetGroup(index, group)}
+                                    className={cn(
+                                      "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors",
+                                      active
+                                        ? "border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-100"
+                                        : "border-border/70 bg-background text-foreground hover:border-amber-400/60 hover:text-amber-700 dark:text-amber-100",
+                                    )}
+                                  >
+                                    {group}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                          <FormControl>
+                            <Input
+                              placeholder={t("supersetGroupPlaceholder")}
+                              data-field-superset
+                              data-exercise-card={index}
+                              onKeyDown={(e) => {
+                                if (e.key === "Tab" && !e.shiftKey) {
+                                  // Skip exercise-name inputs / drag handles /
+                                  // helper buttons and land directly on the
+                                  // NEXT exercise card's Sets field.
+                                  const root = (e.currentTarget.closest(
+                                    "form",
+                                  ) ?? document) as ParentNode;
+                                  const target = root.querySelector<HTMLInputElement>(
+                                    `[data-field-sets="${index + 1}"]`,
+                                  );
+                                  if (target) {
+                                    e.preventDefault();
+                                    target.focus();
+                                    target.select();
+                                  }
+                                }
+                              }}
+                              value={supersetField.value ?? ""}
+                              onChange={(e) => {
+                                const nextGroup = e.target.value;
+                                supersetField.onChange(nextGroup);
+                              }}
+                              onBlur={() => {
+                                supersetField.onBlur();
+                                applySupersetGroup(index, supersetField.value ?? "");
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>{t("supersetGroupHint")}</FormDescription>
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
                     )}

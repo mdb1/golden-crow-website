@@ -977,29 +977,6 @@ export function AssignTemplateModal({
                       </label>
                     </div>
                   </div>
-                  <label className="mt-3 block rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
-                    <span className="block">{t("exerciseOverridesTransitionRest")}</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={draft.transition_rest_seconds}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setOverrideDrafts((prev) => ({
-                          ...prev,
-                          [exercise.index]: {
-                            ...prev[exercise.index],
-                            transition_rest_seconds: value,
-                          },
-                        }));
-                      }}
-                      className="mt-1 h-9 w-full rounded-md border border-amber-300/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 dark:border-amber-300/40"
-                    />
-                    <span className="mt-1 block text-[10px] font-normal text-amber-700/80 dark:text-amber-200/80">
-                      {restMinutesHint(draft.transition_rest_seconds)}
-                    </span>
-                  </label>
                   {/* Per-set table — one row per prescribed set. Mirrors the
                       authoring form so the trainer assigns by editing the
                       exact (reps × kg) prescription set-by-set rather than
@@ -1180,6 +1157,31 @@ export function AssignTemplateModal({
                     placeholder={t("exerciseOverridesNotesPlaceholder")}
                     className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
                   />
+                  {/* Transition rest sits below the coach notes — the client
+                      sees it after finishing this exercise. */}
+                  <label className="mt-3 block rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
+                    <span className="block">{t("exerciseOverridesTransitionRest")}</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={draft.transition_rest_seconds}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setOverrideDrafts((prev) => ({
+                          ...prev,
+                          [exercise.index]: {
+                            ...prev[exercise.index],
+                            transition_rest_seconds: value,
+                          },
+                        }));
+                      }}
+                      className="mt-1 h-9 w-full rounded-md border border-amber-300/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 dark:border-amber-300/40"
+                    />
+                    <span className="mt-1 block text-[10px] font-normal text-amber-700/80 dark:text-amber-200/80">
+                      {restMinutesHint(draft.transition_rest_seconds)}
+                    </span>
+                  </label>
                 </div>
               );
             })}
