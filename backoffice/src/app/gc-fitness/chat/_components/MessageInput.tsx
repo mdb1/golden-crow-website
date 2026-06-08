@@ -74,6 +74,16 @@ export function MessageInput({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Staged photo awaiting Send (WhatsApp-style). The upload is DEFERRED to
+  // submit time so cancelling never leaves an orphaned Storage object. The
+  // preview uses an object URL off the local File (instant, no signed-URL
+  // round-trip). `text`, when present, rides along as the image caption.
+  const [pendingImage, setPendingImage] = useState<{
+    file: File;
+    previewUrl: string;
+    fileName: string;
+  } | null>(null);
+  const pendingImageRef = useRef(pendingImage);
   const [isRecording, setIsRecording] = useState(false);
   const [supportsRecording, setSupportsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -91,13 +101,67 @@ export function MessageInput({
     setSupportsRecording(canRecord);
   }, []);
 
+  const clearPendingImage = useCallback(() => {
+    setPendingImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+  }, []);
+
+  const stageImage = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setSubmitError(null);
+    setPendingImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl);
+      return {
+        file,
+        previewUrl: URL.createObjectURL(file),
+        fileName: file.name,
+      };
+    });
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
+
+  // Keep a ref mirror so the unmount cleanup can revoke the last preview URL
+  // without re-running on every staged image.
+  useEffect(() => {
+    pendingImageRef.current = pendingImage;
+  }, [pendingImage]);
+  useEffect(() => {
+    return () => {
+      if (pendingImageRef.current) {
+        URL.revokeObjectURL(pendingImageRef.current.previewUrl);
+      }
+    };
+  }, []);
+
   const mutation = useMutation({
-    mutationFn: async (textPayload: string) => {
-      // quick-260603-p1p — thread the reply quote (if any) onto the text
+    mutationFn: async (payload: { text: string; file?: File }) => {
+      // quick-260603-p1p — thread the reply quote (if any) onto the
       // message. buildReplyQuote returns null when no reply is staged or
       // the quoted message has no id; pass undefined in that case.
       const replyTo = replyingTo ? buildReplyQuote(replyingTo) ?? undefined : undefined;
-      await sendTrainerMessage({ chatId, kind: "text", text: textPayload, replyTo });
+      if (payload.file) {
+        // Photo path — upload now (deferred from staging time), then send a
+        // single image message carrying the typed text as an optional caption.
+        const base64Data = await fileToBase64(payload.file);
+        const uploaded = await uploadTrainerChatAttachment({
+          chatId,
+          kind: "image",
+          fileName: payload.file.name,
+          mimeType: payload.file.type,
+          base64Data,
+        });
+        await sendTrainerMessage({
+          chatId,
+          kind: "image",
+          imagePath: uploaded.storagePath,
+          text: payload.text.length > 0 ? payload.text : undefined,
+          replyTo,
+        });
+        return;
+      }
+      await sendTrainerMessage({ chatId, kind: "text", text: payload.text, replyTo });
     },
     onMutate: () => {
       setSubmitError(null);
@@ -109,6 +173,7 @@ export function MessageInput({
       });
       void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
       setText("");
+      clearPendingImage();
       onCancelReply?.();
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
@@ -119,13 +184,21 @@ export function MessageInput({
   });
 
   const canSend =
-    text.trim().length > 0 && !mutation.isPending && !uploading && !disabled;
+    (text.trim().length > 0 || pendingImage !== null) &&
+    !mutation.isPending &&
+    !uploading &&
+    !disabled;
 
   const handleSubmit = useCallback(() => {
+    if (mutation.isPending || uploading) return;
     const trimmed = text.trim();
-    if (!trimmed || mutation.isPending) return;
-    mutation.mutate(trimmed);
-  }, [text, mutation]);
+    if (pendingImage) {
+      mutation.mutate({ text: trimmed, file: pendingImage.file });
+      return;
+    }
+    if (!trimmed) return;
+    mutation.mutate({ text: trimmed });
+  }, [text, pendingImage, mutation, uploading]);
 
   const handleQuickReplySelect = useCallback((reply: string) => {
     // Append the template into the textarea; insert a newline if the
@@ -165,53 +238,46 @@ export function MessageInput({
     });
   }, []);
 
-  const handleAttachment = useCallback(
-    async (file: File, kind: "image" | "voice") => {
+  // Voice notes still send immediately on stop/select — that's the intended
+  // record-and-send UX. Photos, by contrast, stage via stageImage() and only
+  // send on the Send button (see mutation + handleSubmit).
+  const handleVoiceAttachment = useCallback(
+    async (file: File) => {
       try {
-        if (kind === "voice") {
-          const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-          const isAudioMime = file.type.startsWith("audio/");
-          const knownAudioExt = ["m4a", "mp3", "wav", "aac", "mp4"];
-          const isIOSFriendlyMime =
-            file.type === "" ||
-            file.type.includes("mp4") ||
-            file.type.includes("mpeg") ||
-            file.type.includes("wav") ||
-            file.type.includes("aac");
-          if (!isAudioMime && !knownAudioExt.includes(ext)) {
-            setSubmitError(t("voiceUnsupported"));
-            return;
-          }
-          if (!isIOSFriendlyMime && !knownAudioExt.includes(ext)) {
-            setSubmitError(t("voiceUnsupportedIOS"));
-            return;
-          }
+        const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+        const isAudioMime = file.type.startsWith("audio/");
+        const knownAudioExt = ["m4a", "mp3", "wav", "aac", "mp4"];
+        const isIOSFriendlyMime =
+          file.type === "" ||
+          file.type.includes("mp4") ||
+          file.type.includes("mpeg") ||
+          file.type.includes("wav") ||
+          file.type.includes("aac");
+        if (!isAudioMime && !knownAudioExt.includes(ext)) {
+          setSubmitError(t("voiceUnsupported"));
+          return;
+        }
+        if (!isIOSFriendlyMime && !knownAudioExt.includes(ext)) {
+          setSubmitError(t("voiceUnsupportedIOS"));
+          return;
         }
         setSubmitError(null);
         setUploading(true);
         const base64Data = await fileToBase64(file);
         const uploaded = await uploadTrainerChatAttachment({
           chatId,
-          kind,
+          kind: "voice",
           fileName: file.name,
           mimeType: file.type,
           base64Data,
         });
-        if (kind === "image") {
-          await sendTrainerMessage({
-            chatId,
-            kind: "image",
-            imagePath: uploaded.storagePath,
-          });
-        } else {
-          const duration = await getAudioDurationMs(file);
-          await sendTrainerMessage({
-            chatId,
-            kind: "voice",
-            voicePath: uploaded.storagePath,
-            voiceDurationMs: duration,
-          });
-        }
+        const duration = await getAudioDurationMs(file);
+        await sendTrainerMessage({
+          chatId,
+          kind: "voice",
+          voicePath: uploaded.storagePath,
+          voiceDurationMs: duration,
+        });
         void queryClient.invalidateQueries({
           queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
         });
@@ -281,7 +347,7 @@ export function MessageInput({
         const file = new File([blob], `recording-${Date.now()}.${ext}`, {
           type: blob.type || "audio/mp4",
         });
-        void handleAttachment(file, "voice");
+        void handleVoiceAttachment(file);
         stopMediaTracks();
         setIsRecording(false);
         mediaRecorderRef.current = null;
@@ -299,7 +365,7 @@ export function MessageInput({
       setIsRecording(false);
       stopMediaTracks();
     }
-  }, [handleAttachment, stopMediaTracks, t]);
+  }, [handleVoiceAttachment, stopMediaTracks, t]);
 
   useEffect(() => {
     return () => {
@@ -344,6 +410,29 @@ export function MessageInput({
           </button>
         </div>
       ) : null}
+      {pendingImage ? (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
+          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL, not optimizable */}
+          <img
+            src={pendingImage.previewUrl}
+            alt={pendingImage.fileName}
+            className="h-14 w-14 shrink-0 rounded-md border border-border object-cover"
+          />
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            {pendingImage.fileName}
+          </span>
+          <button
+            type="button"
+            onClick={clearPendingImage}
+            disabled={mutation.isPending}
+            aria-label={t("removeAttachment")}
+            title={t("removeAttachment")}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
       <div className="flex items-end gap-2 rounded-3xl border border-border bg-background p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-ring/40">
         <label
           className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -360,7 +449,7 @@ export function MessageInput({
               const file = e.target.files?.[0];
               e.currentTarget.value = "";
               if (!file) return;
-              void handleAttachment(file, "image");
+              stageImage(file);
             }}
           />
         </label>
@@ -395,7 +484,7 @@ export function MessageInput({
               const file = e.target.files?.[0];
               e.currentTarget.value = "";
               if (!file) return;
-              void handleAttachment(file, "voice");
+              void handleVoiceAttachment(file);
             }}
           />
         </div>
@@ -415,10 +504,10 @@ export function MessageInput({
             }
           }}
           onPaste={(e) => {
-            // 260527-fwr — Cmd/Ctrl+V with an image in the clipboard
-            // uploads + sends it as an image message, same path as the
-            // file-picker affordance. Text-only paste falls through to
-            // the native behaviour (no preventDefault).
+            // 260527-fwr — Cmd/Ctrl+V with an image in the clipboard STAGES
+            // it as a pending attachment (preview + Send), same path as the
+            // file-picker affordance. Text-only paste falls through to the
+            // native behaviour (no preventDefault).
             const items = e.clipboardData?.items;
             if (!items || items.length === 0) return;
             for (const item of items) {
@@ -427,12 +516,12 @@ export function MessageInput({
               if (!file) continue;
               e.preventDefault();
               // Give the pasted blob a sensible name + extension so the
-              // Storage path generator produces a valid object key.
+              // Storage path generator produces a valid object key at send time.
               const ext = file.type.split("/")[1]?.split("+")[0] ?? "png";
               const stamped = new File([file], `pasted-${Date.now()}.${ext}`, {
                 type: file.type,
               });
-              void handleAttachment(stamped, "image");
+              stageImage(stamped);
               return;
             }
           }}
