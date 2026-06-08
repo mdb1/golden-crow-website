@@ -902,6 +902,7 @@
       "scheduleStartLabel": "Start date",
       "scheduleEndLabel": "End date (optional)",
       "scheduleEndPreset": "{months, plural, one {# month} other {# months}}",
+      "scheduleEndPresetWeeks": "{weeks, plural, one {# week} other {# weeks}}",
       "scheduleEndHint": "Leave empty for no end date.",
       "cadenceLabel": "Cadence",
       "cadenceDaily": "Daily",
