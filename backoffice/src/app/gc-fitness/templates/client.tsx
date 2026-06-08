@@ -393,7 +393,9 @@ export function TemplatesLibraryClient({
                 const title =
                   row.name.en ||
                   row.name.es ||
-                  (row.__isDraft ? t("draftUntitled") : columnsT("untitled"));
+                  (row.__isDraft
+                    ? columnsT("draftUntitled")
+                    : columnsT("untitled"));
                 const duration =
                   row.estimatedDurationMinutes > 0
                     ? columnsT("durationValue", {
