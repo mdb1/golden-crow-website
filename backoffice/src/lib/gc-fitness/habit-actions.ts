@@ -294,6 +294,40 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
   ) as T;
 }
 
+async function currentTrainerCanManageHabit(
+  db: FirebaseFirestore.Firestore,
+  trainerUid: string,
+  habit: { trainerId?: string; clientId?: string | null; pendingEmail?: string | null },
+): Promise<boolean> {
+  if (habit.trainerId === trainerUid) return true;
+
+  const clientId =
+    typeof habit.clientId === "string" && habit.clientId.trim().length > 0
+      ? habit.clientId.trim()
+      : null;
+  if (clientId) {
+    const clientSnap = await db
+      .collection(FirestoreCollections.users)
+      .doc(clientId)
+      .get();
+    return clientSnap.exists && clientSnap.get("coachId") === trainerUid;
+  }
+
+  const pendingEmail =
+    typeof habit.pendingEmail === "string" && habit.pendingEmail.trim().length > 0
+      ? normalizeMirrorEmail(habit.pendingEmail)
+      : null;
+  if (pendingEmail) {
+    const mirrorSnap = await db
+      .collection(FirestoreCollections.userMirror)
+      .doc(pendingEmail)
+      .get();
+    return mirrorSnap.exists && mirrorSnap.get("coachId") === trainerUid;
+  }
+
+  return false;
+}
+
 /**
  * Projects a raw Firestore doc to the serializable `HabitRow` shape.
  * Centralized so list + future single-doc reads stay consistent.
@@ -774,9 +808,11 @@ export async function updateHabit(
   }
   const existing = snap.data() as {
     trainerId?: string;
+    clientId?: string | null;
+    pendingEmail?: string | null;
     type?: HabitType;
   };
-  if (existing.trainerId !== trainer.uid) {
+  if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
 
@@ -870,8 +906,12 @@ export async function softDeleteHabit(
   if (!snap.exists) {
     throw new Error("Not found");
   }
-  const existing = snap.data() as { trainerId?: string };
-  if (existing.trainerId !== trainer.uid) {
+  const existing = snap.data() as {
+    trainerId?: string;
+    clientId?: string | null;
+    pendingEmail?: string | null;
+  };
+  if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
 
@@ -918,8 +958,13 @@ export async function deleteHabitRecurrenceFromDate(
   if (!snap.exists) {
     throw new Error("Not found");
   }
-  const existing = snap.data() as { trainerId?: string; startsOn?: string };
-  if (existing.trainerId !== trainer.uid) {
+  const existing = snap.data() as {
+    trainerId?: string;
+    clientId?: string | null;
+    pendingEmail?: string | null;
+    startsOn?: string;
+  };
+  if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
 
@@ -952,7 +997,9 @@ export async function getHabit(id: string): Promise<HabitRow> {
   const snap = await db.collection(COLLECTION).doc(id).get();
   if (!snap.exists) throw new Error("Not found");
   const data = snap.data() as Record<string, unknown>;
-  if (data.trainerId !== trainer.uid) throw new Error("Not your habit.");
+  if (!(await currentTrainerCanManageHabit(db, trainer.uid, data))) {
+    throw new Error("Not your habit.");
+  }
   return projectHabitRow(snap.id, data);
 }
 
@@ -1072,8 +1119,14 @@ export async function skipHabitOccurrence(input: {
   const docRef = db.collection(COLLECTION).doc(input.habitId);
   const snap = await docRef.get();
   if (!snap.exists) throw new Error("Not found");
-  const existing = snap.data() as { trainerId?: string };
-  if (existing.trainerId !== trainer.uid) throw new Error("Not your habit.");
+  const existing = snap.data() as {
+    trainerId?: string;
+    clientId?: string | null;
+    pendingEmail?: string | null;
+  };
+  if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
+    throw new Error("Not your habit.");
+  }
 
   await docRef.update({
     skippedDates: FieldValue.arrayUnion(input.civilDate),

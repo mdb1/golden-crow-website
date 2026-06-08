@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 export interface ChecklistClientOption {
   uid: string;
   displayName: string;
+  photoURL?: string | null;
 }
 
 interface Props {

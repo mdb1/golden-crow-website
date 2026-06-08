@@ -16,6 +16,7 @@
 //     NEVER `toISOString().slice(0,10)` — that would UTC-shift the day.
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -28,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Copy, Plus } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -81,6 +82,19 @@ function formatLocalDateToCivil(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function restMinutesHint(rawSeconds: string): string {
+  const seconds = Number(rawSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes} min`;
+  }
+  if (seconds > 60) {
+    return `${Math.round((seconds / 60) * 10) / 10} min`;
+  }
+  return "";
 }
 
 const WEEKDAY_KEYS = [
@@ -540,7 +554,7 @@ export function AssignTemplateModal({
           so the WHOLE modal no longer scrolls. The inner body div below owns
           the scroll, which keeps the DialogFooter anchored at the bottom of
           the dialog box (no sticky/overlap weirdness 260528). */}
-      <DialogContent className="sm:max-w-3xl overflow-hidden">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden p-4 sm:max-w-3xl sm:p-6">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -548,7 +562,15 @@ export function AssignTemplateModal({
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">{t("templateLabel")}</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">{t("templateLabel")}</label>
+              <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1 rounded-full px-2.5 text-xs">
+                <Link href="/gc-fitness/templates/new">
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("createTemplate")}
+                </Link>
+              </Button>
+            </div>
             {/* 260529 scroll fix — the template/routine picker now renders
                 INLINE in the dialog body instead of a portaled Popover.
                 Radix Popover portals its content to document.body, which
@@ -914,71 +936,76 @@ export function AssignTemplateModal({
                       {t("supersetLabel", { group })}
                     </p>
                   ) : null}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-2">
                       <ExercisePreviewThumb
                         src={exercise.previewUrl}
                         alt={exercise.exerciseName}
                         width={32}
                         height={32}
                       />
-                      <p className="text-sm font-medium">{exercise.exerciseName}</p>
+                      <p className="min-w-0 break-words text-sm font-medium">{exercise.exerciseName}</p>
                       {group ? (
                         <span className="inline-flex h-5 items-center rounded-full bg-amber-500/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
                           {group}
                         </span>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground">
-                        {t("exerciseOverridesRest")}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={draft.rest_seconds}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setOverrideDrafts((prev) => ({
-                            ...prev,
-                            [exercise.index]: {
-                              ...prev[exercise.index],
-                              rest_seconds: value,
-                            },
-                          }));
-                        }}
-                        className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
+                    <div className="grid min-w-0 grid-cols-1 gap-2 sm:w-[18rem] sm:grid-cols-2">
+                      <label className="min-w-0 text-[11px] font-medium text-muted-foreground">
+                        <span className="block truncate">{t("exerciseOverridesRest")}</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={draft.rest_seconds}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setOverrideDrafts((prev) => ({
+                              ...prev,
+                              [exercise.index]: {
+                                ...prev[exercise.index],
+                                rest_seconds: value,
+                              },
+                            }));
+                          }}
+                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
                         />
-                      </div>
-                    <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <span>{t("exerciseOverridesTransitionRest")}:</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={draft.transition_rest_seconds}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setOverrideDrafts((prev) => ({
-                            ...prev,
-                            [exercise.index]: {
-                              ...prev[exercise.index],
-                              transition_rest_seconds: value,
-                            },
-                          }));
-                        }}
-                        className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
-                      />
-                      <span>s</span>
-                    </p>
+                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
+                          {restMinutesHint(draft.rest_seconds)}
+                        </span>
+                      </label>
+                      <label className="min-w-0 rounded-md border border-amber-400/50 bg-amber-50/60 p-2 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
+                        <span className="block truncate">{t("exerciseOverridesTransitionRest")}</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={draft.transition_rest_seconds}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setOverrideDrafts((prev) => ({
+                              ...prev,
+                              [exercise.index]: {
+                                ...prev[exercise.index],
+                                transition_rest_seconds: value,
+                              },
+                            }));
+                          }}
+                          className="mt-1 h-8 w-full rounded-md border border-amber-300/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 dark:border-amber-300/40"
+                        />
+                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-amber-700/80 dark:text-amber-200/80">
+                          {restMinutesHint(draft.transition_rest_seconds)}
+                        </span>
+                      </label>
+                    </div>
                   </div>
                   {/* Per-set table — one row per prescribed set. Mirrors the
                       authoring form so the trainer assigns by editing the
                       exact (reps × kg) prescription set-by-set rather than
                       typing a comma-joined string. */}
                   <div className="mt-2 flex flex-col gap-1.5">
-                    <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]">
                       <span>{t("exerciseOverridesSetHeader")}</span>
                       <span>
                         {effectiveMetric === "time"
@@ -991,7 +1018,7 @@ export function AssignTemplateModal({
                     {draft.setRows.map((row, setIdx) => (
                       <div
                         key={`${exercise.exerciseId}-set-${setIdx + 1}`}
-                        className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2"
+                        className="grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
                       >
                         <span className="text-xs text-muted-foreground">{setIdx + 1}</span>
                         {/* 26-03 — Primary input branches on effectiveMetric.
@@ -1070,9 +1097,13 @@ export function AssignTemplateModal({
                               onClick={() => copyFirstSetToAll(exercise.index, effectiveMetric)}
                               disabled={draft.setRows.length <= 1}
                               tabIndex={-1}
-                              className="inline-flex h-7 items-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex h-7 w-9 items-center justify-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:justify-start"
+                              title={t("exerciseOverridesCopyToAll")}
                             >
-                              {t("exerciseOverridesCopyToAll")}
+                              <Copy className="h-3.5 w-3.5 sm:hidden" />
+                              <span className="hidden sm:inline">
+                                {t("exerciseOverridesCopyToAll")}
+                              </span>
                             </button>
                           ) : null}
                           <button

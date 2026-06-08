@@ -60,6 +60,10 @@ const EMPTY: ExerciseFilters = {
   mechanic: null,
 };
 
+const MUSCLE_FILTER_ALIASES: Record<string, string[]> = {
+  legs: ["legs", "quadriceps", "hamstrings", "glutes", "calves"],
+};
+
 /**
  * React hook returning the filter state and a setter. The setter accepts
  * either a next-state object or a `(prev) => next` updater — callers MUST
@@ -125,7 +129,8 @@ export function applyFilters(
       ]);
       let hit = false;
       for (const m of f.muscles) {
-        if (exMuscles.has(m)) {
+        const aliases = MUSCLE_FILTER_ALIASES[m] ?? [m];
+        if (aliases.some((alias) => exMuscles.has(alias))) {
           hit = true;
           break;
         }

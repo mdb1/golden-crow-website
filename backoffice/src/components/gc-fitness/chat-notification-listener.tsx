@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
@@ -14,6 +15,7 @@ export function ChatNotificationListener({
 }: {
   trainerUid: string | null;
 }) {
+  const router = useRouter();
   const enabled = Boolean(trainerUid);
   const { data } = useTrainerChats(enabled);
   const initialized = useRef(false);
@@ -81,12 +83,12 @@ export function ChatNotificationListener({
           action: {
             label: "Abrir chat",
             onClick: () => {
-              window.location.href = `/gc-fitness/chat?chatId=${chat.clientId}`;
+              router.push(`/gc-fitness/chat?chatId=${chat.clientId}`);
             },
           },
         });
         if (document.hidden) {
-          showSystemNotification(chat.clientId, previewText(chat.lastMessage));
+          showSystemNotification(chat.clientId, previewText(chat.lastMessage), router.push);
         }
         playNotificationSound(audioRef, audioContextRef);
       }
@@ -106,7 +108,11 @@ function previewText(message: { kind?: string; text?: string } | null | undefine
   return message.text || "Tenés un nuevo mensaje.";
 }
 
-function showSystemNotification(chatId: string, body: string) {
+function showSystemNotification(
+  chatId: string,
+  body: string,
+  navigate: (href: string) => void,
+) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   const notification = new Notification("Nuevo mensaje", {
     body,
@@ -115,7 +121,7 @@ function showSystemNotification(chatId: string, body: string) {
   });
   notification.onclick = () => {
     window.focus();
-    window.location.href = `/gc-fitness/chat?chatId=${chatId}`;
+    navigate(`/gc-fitness/chat?chatId=${chatId}`);
   };
 }
 

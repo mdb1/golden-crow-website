@@ -563,6 +563,7 @@ export async function listMonthForClients(input: {
   const workoutsByDay: Record<string, MonthWorkoutChip[]> = {};
   for (const doc of assignSnap.docs) {
     const data = doc.data() as {
+      trainerId?: string;
       clientId?: string;
       scheduledFor?: string;
       originallyScheduledFor?: string;
@@ -571,6 +572,7 @@ export async function listMonthForClients(input: {
       recurrence?: { kind?: string };
       status?: string;
     };
+    if (data.trainerId !== trainer.uid) continue;
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     const civil = typeof data.scheduledFor === "string" ? data.scheduledFor : "";
     if (!clientId || !civil) continue;

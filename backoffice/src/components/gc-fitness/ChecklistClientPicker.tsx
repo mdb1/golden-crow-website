@@ -10,12 +10,15 @@
 import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { cn } from "@/lib/utils";
 
 export interface ChecklistClientOption {
   uid: string;
   displayName: string;
+  photoURL?: string | null;
 }
 
 export function ChecklistClientPicker({
@@ -45,21 +48,53 @@ export function ChecklistClientPicker({
     });
   }
 
+  function selectAll() {
+    setSelected(new Set(clients.map((client) => client.uid)));
+  }
+
+  function clearAll() {
+    setSelected(new Set());
+  }
+
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       {/* Carries the selection through the uncontrolled FormData submit,
           independent of the search filter. */}
       {[...selected].map((uid) => (
         <input key={uid} type="hidden" name="clientIds" value={uid} />
       ))}
 
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar cliente…"
-        className="h-9"
-      />
-      <div className="max-h-44 overflow-y-auto rounded-md border border-input">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar cliente…"
+          className="h-11 sm:max-w-sm"
+        />
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={selectAll}
+            disabled={selected.size === clients.length}
+          >
+            Marcar todos
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="rounded-full"
+            onClick={clearAll}
+            disabled={selected.size === 0}
+          >
+            Limpiar
+          </Button>
+        </div>
+      </div>
+      <div className="max-h-56 overflow-y-auto rounded-[1.25rem] border border-border bg-card p-3">
         {clients.length === 0 ? (
           <p className="px-3 py-2 text-sm text-muted-foreground">
             No hay clientes.
@@ -69,33 +104,39 @@ export function ChecklistClientPicker({
             Sin resultados.
           </p>
         ) : (
-          filtered.map((c) => {
-            const checked = selected.has(c.uid);
-            return (
-              <button
-                type="button"
-                key={c.uid}
-                onClick={() => toggle(c.uid)}
-                aria-pressed={checked}
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
-                  checked && "bg-accent/50",
-                )}
-              >
-                <span
+          <div className="flex flex-wrap gap-2">
+            {filtered.map((c) => {
+              const checked = selected.has(c.uid);
+              return (
+                <button
+                  type="button"
+                  key={c.uid}
+                  onClick={() => toggle(c.uid)}
+                  aria-pressed={checked}
                   className={cn(
-                    "flex size-4 shrink-0 items-center justify-center rounded border",
+                    "group/chip inline-flex min-h-[44px] max-w-full items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-sm font-medium transition-all",
                     checked
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input",
+                      ? "border-transparent bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                   )}
                 >
-                  {checked ? <Check className="size-3" /> : null}
-                </span>
-                <span className="truncate">{c.displayName}</span>
-              </button>
-            );
-          })
+                  <span className="relative inline-flex shrink-0">
+                    <ClientAvatar
+                      name={c.displayName}
+                      photoURL={c.photoURL}
+                      size="sm"
+                    />
+                    {checked ? (
+                      <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-3.5 items-center justify-center rounded-full bg-primary-foreground text-primary ring-2 ring-primary">
+                        <Check className="size-2.5" strokeWidth={3.5} />
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="min-w-0 truncate">{c.displayName}</span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
