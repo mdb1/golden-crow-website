@@ -142,8 +142,8 @@ export function QuickCreateExercise({
   async function onCreate() {
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
-    if (!trimmedName || !trimmedDescription) {
-      setError("Name and description are required.");
+    if (!trimmedName) {
+      setError("Name is required.");
       return;
     }
     setCreating(true);
@@ -192,8 +192,8 @@ export function QuickCreateExercise({
     gifUrl,
   };
   const isDuplicate = !!seed && seedEquals(seed, currentValues);
-  const requiredMissing =
-    name.trim().length === 0 || description.trim().length === 0;
+  // Description is optional — only the name gates Create.
+  const requiredMissing = name.trim().length === 0;
   const disabled = creating || requiredMissing || isDuplicate;
   // Keep the locale read so future copy can branch per-locale without
   // adding another import; not used today but cheap.
@@ -246,7 +246,7 @@ export function QuickCreateExercise({
           <Input
             id="quick-create-description"
             value={description}
-            placeholder="Description"
+            placeholder="Description (optional)"
             onChange={(event) => setDescription(event.target.value)}
           />
         </div>

@@ -138,7 +138,8 @@ const equipmentListSchema = z.preprocess(
 //    the trainer's perspective (wger seed has both, but a custom exercise
 //    may start English-only — trainer fills ES later). Both share the
 //    120-char ceiling.
-//  - `description.en` is REQUIRED (UI-SPEC). `description.es` is optional.
+//  - `description.en` / `description.es` are BOTH optional (trainers can
+//    quick-create an exercise with no description and fill it in later).
 //    Both share a 4,000-char ceiling (matches the 4000 cap in the iOS
 //    `ExerciseModel.swift` Codable validation from 03-01).
 //  - `muscleGroups` requires at least one entry (UI-SPEC), with a defensive
@@ -172,8 +173,8 @@ export const exerciseSchema = z.object({
   description: z.object({
     en: z
       .string()
-      .min(1, "Add a short description so clients know what to do.")
-      .max(4000, "Description must be under 4,000 characters."),
+      .max(4000, "Description must be under 4,000 characters.")
+      .default(""),
     es: z
       .string()
       .max(4000, "Description must be under 4,000 characters.")

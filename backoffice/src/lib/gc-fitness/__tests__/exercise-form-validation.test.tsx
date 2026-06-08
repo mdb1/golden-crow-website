@@ -156,9 +156,10 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
         screen.getByText("Name in English is required."),
       ).toBeInTheDocument();
     });
+    // Description is now optional — no description-required error surfaces.
     expect(
-      screen.getByText("Add a short description so clients know what to do."),
-    ).toBeInTheDocument();
+      screen.queryByText("Add a short description so clients know what to do."),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText("Pick at least one muscle group."),
     ).toBeInTheDocument();

@@ -59,14 +59,13 @@ describe("exerciseSchema", () => {
     ).toBe("Keep the name under 120 characters.");
   });
 
-  // T4: descriptionEn empty → verbatim UI-SPEC copy
-  it("rejects empty description.en with the exact UI-SPEC copy", () => {
-    expect(
-      firstError({
-        ...VALID_INPUT,
-        description: { en: "", es: "x" },
-      }),
-    ).toBe("Add a short description so clients know what to do.");
+  // T4: descriptionEn is optional — trainers can quick-create without one.
+  it("accepts an empty description.en", () => {
+    const parsed = exerciseSchema.parse({
+      ...VALID_INPUT,
+      description: { en: "", es: "" },
+    });
+    expect(parsed.description.en).toBe("");
   });
 
   // T5: muscleGroups: [] → verbatim UI-SPEC copy
