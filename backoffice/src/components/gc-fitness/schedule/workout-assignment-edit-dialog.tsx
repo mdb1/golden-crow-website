@@ -272,22 +272,6 @@ export function WorkoutAssignmentEditDialog({
                           className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
                         />
                       </label>
-                      <label className="flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-amber-500/5 px-2 py-1 text-xs text-amber-700 dark:text-amber-100">
-                        Descanso entre ejercicios (s)
-                        <InfoTooltip
-                          text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
-                          label="Explicar descanso entre ejercicios"
-                        />
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={draft.transitionRest}
-                          onChange={(e) =>
-                            patch(ex.index, { transitionRest: e.target.value })
-                          }
-                          className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
-                        />
-                      </label>
                     </div>
                   </div>
                   <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -390,6 +374,24 @@ export function WorkoutAssignmentEditDialog({
                     placeholder="Notas específicas para este cliente en este ejercicio"
                     className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
                   />
+                  {/* Transition rest sits below the coach notes — the client
+                      sees it after finishing this exercise. */}
+                  <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-100">
+                    Descanso entre ejercicios (s)
+                    <InfoTooltip
+                      text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
+                      label="Explicar descanso entre ejercicios"
+                    />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={draft.transitionRest}
+                      onChange={(e) =>
+                        patch(ex.index, { transitionRest: e.target.value })
+                      }
+                      className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
+                    />
+                  </label>
                 </div>
               );
             })

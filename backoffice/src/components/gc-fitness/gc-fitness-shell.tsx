@@ -37,6 +37,7 @@ import {
 import { CoachCard } from "@/components/gc-fitness/coach-card";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import { useActiveWorkoutSummaries } from "@/lib/gc-fitness/live-workout-listener";
+import { useNewClientActivationBadges } from "@/lib/gc-fitness/new-client-activation-listener";
 import { Badge } from "@/components/ui/badge";
 
 const HIDDEN_SHELL_PATHS = new Set([
@@ -119,12 +120,22 @@ export function GCFitnessShell({
   const activeWorkoutQuery = useActiveWorkoutSummaries(
     !shellHidden && !!trainerUid,
   );
+  const newClientBadges = useNewClientActivationBadges({
+    enabled: !shellHidden && !!trainerUid,
+    pathname,
+    trainerUid,
+  });
   const inLiveWorkout =
     pathname.includes("/sessions/") && pathname.endsWith("/run");
   const unreadChatTotal = (chatsQuery.data ?? []).reduce((sum, chat) => {
     if (!trainerUid) return sum;
     return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
   }, 0);
+  const navBadges: Record<string, number> = {
+    "/gc-fitness/chat": unreadChatTotal,
+    "/gc-fitness/notifications": newClientBadges.notifications,
+    "/gc-fitness/clients": newClientBadges.clients,
+  };
 
   if (shellHidden) {
     return children;
@@ -227,12 +238,7 @@ export function GCFitnessShell({
                           label={tNav(item.labelKey)}
                           isActive={isItemActive(item)}
                           icon={<item.icon className="h-4 w-4" />}
-                          badge={
-                            item.href === "/gc-fitness/chat" &&
-                            unreadChatTotal > 0
-                              ? unreadChatTotal
-                              : null
-                          }
+                          badge={navBadges[item.href] > 0 ? navBadges[item.href] : null}
                         />
                       </SidebarMenuItem>
                     ))}
