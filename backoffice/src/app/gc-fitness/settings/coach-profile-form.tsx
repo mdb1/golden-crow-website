@@ -44,6 +44,20 @@ export function CoachProfileForm({
     setImageFailed(false);
   }, [previewURL]);
 
+  // The Save button is disabled until the coach actually changes something —
+  // a new photo was picked, or the display name / description differs from
+  // what was loaded. After a successful save, `router.refresh()` re-supplies
+  // the initial props (now equal to the edited state), so this flips back to
+  // false and the button disables again.
+  const isDirty = useMemo(
+    () =>
+      pickedFile !== null ||
+      displayName !== initialDisplayName ||
+      bio !== (initialBio ?? "") ||
+      photoURL !== initialPhotoURL,
+    [pickedFile, displayName, bio, photoURL, initialDisplayName, initialBio, initialPhotoURL],
+  );
+
   async function handleSubmit() {
     startTransition(async () => {
       try {
@@ -52,9 +66,13 @@ export function CoachProfileForm({
           const storage = getGCFitnessStorage();
           const path = `profile_photos/${uid}/avatar.jpg`;
           const uploadRef = ref(storage, path);
-          await uploadBytes(uploadRef, pickedFile, {
-            contentType: pickedFile.type || "image/jpeg",
-          });
+          // The `profile_photos` Storage rule caps writes at 1 MB. The iOS /
+          // Android apps normalize avatars before upload; the backoffice must
+          // too, or a raw photo (often > 1 MB) gets rejected with
+          // `storage/unauthorized`. Downscale + JPEG-compress to well under
+          // the cap before uploading.
+          const compressed = await compressImageToJpeg(pickedFile);
+          await uploadBytes(uploadRef, compressed, { contentType: "image/jpeg" });
           resolvedPhotoURL = await getDownloadURL(uploadRef);
           setPhotoURL(resolvedPhotoURL);
           setPickedFile(null);
@@ -150,11 +168,66 @@ export function CoachProfileForm({
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">{t("emailHint", { email })}</p>
-          <Button type="button" onClick={handleSubmit} disabled={pending}>
+          <Button type="button" onClick={handleSubmit} disabled={pending || !isDirty}>
             {pending ? t("saving") : t("save")}
           </Button>
         </div>
       </div>
     </section>
   );
+}
+
+/**
+ * Downscale + JPEG-compress an arbitrary image File to a Blob that fits the
+ * `profile_photos` Storage-rule 1 MB cap (twin of the apps' avatar
+ * normalization). Caps the longest side at `maxDimension` and steps the JPEG
+ * quality down until the result is under `maxBytes` (well below 1 MB so the
+ * rule never rejects it).
+ */
+async function compressImageToJpeg(
+  file: File,
+  maxDimension = 1024,
+  maxBytes = 900 * 1024,
+): Promise<Blob> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read image"));
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("Could not decode image"));
+    el.src = dataUrl;
+  });
+
+  const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const toBlob = (quality: number) =>
+    new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("Could not encode image"))),
+        "image/jpeg",
+        quality,
+      );
+    });
+
+  let quality = 0.85;
+  let blob = await toBlob(quality);
+  while (blob.size > maxBytes && quality > 0.4) {
+    quality -= 0.15;
+    blob = await toBlob(quality);
+  }
+  return blob;
 }
