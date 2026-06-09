@@ -133,9 +133,13 @@ export function GCFitnessShell({
     if (!trainerUid) return sum;
     return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
   }, 0);
+  const notificationsBadge =
+    pathname.startsWith("/gc-fitness/notifications")
+      ? 0
+      : newClientBadges.notifications + birthdayNotificationCount;
   const navBadges: Record<string, number> = {
     "/gc-fitness/chat": unreadChatTotal,
-    "/gc-fitness/notifications": newClientBadges.notifications + birthdayNotificationCount,
+    "/gc-fitness/notifications": notificationsBadge,
     "/gc-fitness/clients": newClientBadges.clients,
   };
 
