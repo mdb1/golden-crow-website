@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +20,18 @@ export function ClientIdentityEditor({
   birthDate: string | null;
   initialNickname: string | null;
   clientName: string;
-}) {
+  }) {
   const router = useRouter();
+  const locale = useLocale();
   const t = useTranslations("clients.detail.identity");
   const [pending, startTransition] = useTransition();
   const [nickname, setNickname] = useState(initialNickname ?? "");
   const [birthDateValue, setBirthDateValue] = useState(birthDate ?? "");
+
+  function textOrFallback(key: string, fallback: string): string {
+    const value = t(key as never);
+    return value === key ? fallback : value;
+  }
 
   useEffect(() => {
     setNickname(initialNickname ?? "");
@@ -65,7 +71,14 @@ export function ClientIdentityEditor({
       <div className="grid gap-4">
         <div className="grid gap-2">
           <Label htmlFor="coach-nickname">{t("nicknameLabel")}</Label>
-          <p className="text-xs text-muted-foreground">{t("nicknameHelp")}</p>
+          <p className="text-xs text-muted-foreground">
+            {textOrFallback(
+              "nicknameHelp",
+              locale === "es"
+                ? "Solo vos lo ves en el backoffice; no cambia el nombre del cliente en la app."
+                : "Only you can see it in the backoffice; it does not change the client's app name.",
+            )}
+          </p>
           <Input
             id="coach-nickname"
             value={nickname}
@@ -80,7 +93,14 @@ export function ClientIdentityEditor({
               ? t("birthDateValue", { birthDate: birthDateValue })
               : t("birthDateMissing")}
           </div>
-          <p className="text-xs text-muted-foreground">{t("birthDateReadOnly")}</p>
+          <p className="text-xs text-muted-foreground">
+            {textOrFallback(
+              "birthDateReadOnly",
+              locale === "es"
+                ? "El cumpleaños se define desde la app y no se puede editar desde el backoffice."
+                : "Birthday is set from the app and can't be edited from the backoffice.",
+            )}
+          </p>
         </div>
         <div className="flex justify-end">
           <Button type="button" onClick={save} disabled={pending}>
