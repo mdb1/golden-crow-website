@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 // GET /api/gc-fitness/storage-image?path=<gs://bucket/object | object/path>
 //
-// Streams a reference image (habit photo / exercise thumbnail) same-origin via
+// Streams a reference image (habit photo / exercise thumbnail / client profile photo)
+// same-origin via
 // the Admin SDK. Needed because trainers authenticate with next-firebase-auth-edge
 // COOKIES, not the Firebase JS client SDK — so a browser-side `getDownloadURL`
 // on a protected Storage object fails and the dropzone could only show the raw
@@ -21,7 +22,7 @@ export const runtime = "nodejs";
 // already shared across trainers, so a per-doc ownership check is not required
 // here (consistent with the existing read model).
 
-const ALLOWED_PREFIXES = ["habits/", "exercises/"];
+const ALLOWED_PREFIXES = ["habits/", "exercises/", "profile_photos/"];
 
 function parseStoragePath(raw: string): { bucket: string | null; object: string } | null {
   if (raw.startsWith("gs://")) {

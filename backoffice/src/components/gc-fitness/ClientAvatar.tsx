@@ -31,6 +31,14 @@ const SIZE_CLASS: Record<AvatarSize, string> = {
   md: "h-10 w-10 text-sm",
 };
 
+function resolveAvatarSrc(photoURL: string): string {
+  const raw = photoURL.trim();
+  if (raw.length === 0) return raw;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  const path = encodeURIComponent(raw);
+  return `/api/gc-fitness/storage-image?path=${path}`;
+}
+
 function initialsFromName(name: string): string {
   return (
     name
@@ -64,7 +72,8 @@ export function ClientAvatar({
   // CORS, host not allow-listed), fall back to initials.
   const [failed, setFailed] = useState(false);
   const px = SIZE_PX[size];
-  const showImage = !!photoURL && !failed;
+  const resolvedSrc = photoURL ? resolveAvatarSrc(photoURL) : null;
+  const showImage = !!resolvedSrc && !failed;
 
   return (
     <div
@@ -77,7 +86,7 @@ export function ClientAvatar({
     >
       {showImage ? (
         <Image
-          src={photoURL!}
+          src={resolvedSrc!}
           alt=""
           width={px}
           height={px}
