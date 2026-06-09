@@ -31,9 +31,11 @@ import {
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { ClientHeader } from "./_components/ClientHeader";
+import { ClientIdentityEditor } from "./_components/ClientIdentityEditor";
 import { WorkoutTrendsWidget } from "./_components/WorkoutTrendsWidget";
 import { HabitTrendsWidget } from "./_components/HabitTrendsWidget";
 import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
@@ -118,6 +120,8 @@ export default async function ClientDetailPage({
     displayName?: string;
     email?: string;
     photoURL?: string;
+    coachNickname?: string;
+    birthDate?: string;
     coachId?: string;
     timezone?: string;
     heightCm?: number;
@@ -127,7 +131,12 @@ export default async function ClientDetailPage({
   };
   if (client.coachId !== trainer.uid) notFound();
 
-  const displayName = client.displayName ?? client.email ?? id;
+  const displayName = coachVisibleClientName({
+    uid: id,
+    displayName: client.displayName ?? client.email ?? id,
+    email: client.email ?? "",
+    coachNickname: client.coachNickname ?? null,
+  });
   const timezone = client.timezone ?? "UTC";
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
@@ -160,10 +169,19 @@ export default async function ClientDetailPage({
       <ClientHeader
         clientId={id}
         displayName={displayName}
+        appDisplayName={client.displayName ?? client.email ?? id}
         email={client.email ?? ""}
         photoURL={client.photoURL ?? null}
+        coachNickname={client.coachNickname ?? null}
+        birthDate={client.birthDate ?? null}
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={latestBodyWeightKg}
+      />
+      <ClientIdentityEditor
+        clientId={id}
+        birthDate={client.birthDate ?? null}
+        initialNickname={client.coachNickname ?? null}
+        clientName={displayName}
       />
       <ClientSummaryCard
         clientId={id}

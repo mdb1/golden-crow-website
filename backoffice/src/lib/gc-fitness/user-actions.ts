@@ -50,6 +50,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
@@ -234,13 +235,18 @@ function fallbackName(email: string): string {
 async function trainerProfile(
   uid: string,
   email: string,
-): Promise<{ displayName: string; photoURL: string | null }> {
-  const snap = await gcFitnessFirestore()
+): Promise<{ displayName: string; photoURL: string | null; bio: string | null }> {
+  const auth = gcFitnessAuth();
+  const [snap, authUser] = await Promise.all([
+    gcFitnessFirestore()
     .collection(FirestoreCollections.users)
     .doc(uid)
-    .get();
+    .get(),
+    auth.getUser(uid).catch(() => null),
+  ]);
   const name = snap.exists ? snap.get("displayName") : undefined;
   const photoURL = snap.exists ? snap.get("photoURL") : undefined;
+  const bio = snap.exists ? snap.get("bio") : undefined;
   return {
     displayName:
       typeof name === "string" && name.trim().length > 0
@@ -249,8 +255,106 @@ async function trainerProfile(
     photoURL:
       typeof photoURL === "string" && photoURL.trim().length > 0
         ? photoURL.trim()
+        : typeof authUser?.photoURL === "string" && authUser.photoURL.trim().length > 0
+          ? authUser.photoURL.trim()
+        : null,
+    bio:
+      typeof bio === "string" && bio.trim().length > 0
+        ? bio.trim()
         : null,
   };
+}
+
+async function fanOutCoachProfile(
+  db: ReturnType<typeof gcFitnessFirestore>,
+  coachId: string,
+  displayName: string,
+  photoURL: string | null,
+  bio: string | null,
+): Promise<void> {
+  const updates = {
+    coachDisplayName: displayName,
+    coachPhotoURL: photoURL,
+    coachBio: bio,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  const [clientSnap, mirrorSnap] = await Promise.all([
+    db.collection(FirestoreCollections.users)
+      .where("coachId", "==", coachId)
+      .get(),
+    db.collection(FirestoreCollections.userMirror)
+      .where("coachId", "==", coachId)
+      .get(),
+  ]);
+
+  const docs = [...clientSnap.docs, ...mirrorSnap.docs];
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = db.batch();
+    for (const doc of docs.slice(i, i + 400)) {
+      batch.set(doc.ref, updates, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+const updateTrainerProfileSchema = z.object({
+  displayName: z.string().trim().min(1).max(120),
+  photoURL: z.string().trim().url().nullable().optional(),
+  bio: z.string().trim().max(280).nullable().optional(),
+});
+
+export async function updateTrainerProfile(
+  input: unknown,
+): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const parsed = updateTrainerProfileSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const docRef = db.collection(FirestoreCollections.users).doc(session.uid);
+  const photoURL = parsed.photoURL ?? null;
+  const bio = parsed.bio ?? null;
+  await docRef.set(
+    {
+      email: session.email,
+      displayName: parsed.displayName,
+      photoURL,
+      bio,
+      coachBio: bio,
+      role: "trainer",
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await fanOutCoachProfile(db, session.uid, parsed.displayName, photoURL, bio);
+  revalidateTag("gc-fitness-roster", "max");
+  return { ok: true };
+}
+
+const updateClientNicknameSchema = z.object({
+  clientId: z.string().trim().min(1),
+  coachNickname: z.string().trim().max(120).nullable().optional(),
+});
+
+export async function updateClientNickname(
+  input: unknown,
+): Promise<{ ok: true }> {
+  const session = await getCurrentTrainer();
+  const parsed = updateClientNicknameSchema.parse(input);
+  const db = gcFitnessFirestore();
+  const clientRef = db.collection(FirestoreCollections.users).doc(parsed.clientId);
+  const snap = await clientRef.get();
+  if (!snap.exists || snap.get("coachId") !== session.uid) {
+    throw new Error("Forbidden");
+  }
+  await clientRef.set(
+    {
+      coachNickname: parsed.coachNickname ?? FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  revalidateTag("gc-fitness-roster", "max");
+  return { ok: true };
 }
 
 /**
@@ -288,12 +392,14 @@ export async function provisionClient(
         coachId: session.uid,
         coachDisplayName,
         coachPhotoURL: coach.photoURL,
+        coachBio: coach.bio,
         pre_created: true,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
+    revalidateTag("gc-fitness-roster", "max");
     return { ok: true, mode: "precreated-mirror" };
   }
 
@@ -326,6 +432,7 @@ export async function provisionClient(
         coachId: session.uid,
         coachDisplayName,
         coachPhotoURL: coach.photoURL,
+        coachBio: coach.bio,
         preferences: data.preferences ?? {},
         fcmTokens: data.fcmTokens ?? [],
         deleted: false,
@@ -347,6 +454,7 @@ export async function provisionClient(
     );
   });
 
+  revalidateTag("gc-fitness-roster", "max");
   return { ok: true, mode: "attached-existing-user" };
 }
 
@@ -376,24 +484,48 @@ export async function provisionClient(
 export async function getCurrentTrainerProfile(): Promise<{
   uid: string;
   displayName: string;
+  photoURL: string | null;
+  bio: string | null;
   chatQuickReplies: string[];
 }> {
   const session = await getCurrentTrainer();
+  const auth = gcFitnessAuth();
   const db = gcFitnessFirestore();
-  const snap = await db
-    .collection(FirestoreCollections.users)
-    .doc(session.uid)
-    .get();
+  const [snap, authUser] = await Promise.all([
+    db
+      .collection(FirestoreCollections.users)
+      .doc(session.uid)
+      .get(),
+    auth.getUser(session.uid).catch(() => null),
+  ]);
   if (!snap.exists) {
-    return { uid: session.uid, displayName: "", chatQuickReplies: [] };
+    return {
+      uid: session.uid,
+      displayName: "",
+      photoURL: null,
+      bio: null,
+      chatQuickReplies: [],
+    };
   }
   const data = snap.data() as {
     displayName?: string;
+    photoURL?: string;
+    bio?: string;
     chatQuickReplies?: string[];
   };
   return {
     uid: session.uid,
     displayName: data.displayName ?? "",
+    photoURL:
+      typeof data.photoURL === "string" && data.photoURL.trim().length > 0
+        ? data.photoURL.trim()
+        : typeof authUser?.photoURL === "string" && authUser.photoURL.trim().length > 0
+          ? authUser.photoURL.trim()
+        : null,
+    bio:
+      typeof data.bio === "string" && data.bio.trim().length > 0
+        ? data.bio.trim()
+        : null,
     chatQuickReplies: data.chatQuickReplies ?? [],
   };
 }

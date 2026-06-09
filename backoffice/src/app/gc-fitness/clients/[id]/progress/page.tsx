@@ -19,6 +19,7 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { getClientExerciseProgress } from "@/lib/gc-fitness/exercise-progress-actions";
 import { PageHeader } from "@/components/gc-fitness/page-header";
@@ -62,10 +63,16 @@ export default async function ClientExerciseProgressPage({
     email?: string;
     coachId?: string;
     timezone?: string;
+    coachNickname?: string;
   };
   if (client.coachId !== trainer.uid) notFound();
 
-  const displayName = client.displayName ?? client.email ?? id;
+  const displayName = coachVisibleClientName({
+    uid: id,
+    displayName: client.displayName ?? client.email ?? id,
+    email: client.email ?? "",
+    coachNickname: client.coachNickname ?? null,
+  });
   const timezone = client.timezone ?? "UTC";
   const today = civilDateToday(timezone);
 

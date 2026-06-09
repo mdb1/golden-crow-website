@@ -32,9 +32,9 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { getCurrentTrainerProfile } from "@/lib/gc-fitness/user-actions";
 import { PageHeader } from "@/components/gc-fitness/page-header";
-import { Badge } from "@/components/ui/badge";
 
 import { SettingsSections } from "./settings-sections";
+import { CoachProfileForm } from "./coach-profile-form";
 
 export const dynamic = "force-dynamic";
 
@@ -47,19 +47,6 @@ function deriveName(email: string): string {
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ") || "Coach"
-  );
-}
-
-function initials(name: string): string {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .map((w) => w[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "·"
   );
 }
 
@@ -91,23 +78,13 @@ export default async function SettingsPage() {
     <div className="gc-page flex flex-col gap-6">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
-      {/* Coach profile card — square gold initials avatar + identity. */}
-      <div className="flex flex-col gap-4 rounded-[1.25rem] border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:gap-5">
-        <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground">
-          {initials(name)}
-        </span>
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="truncate font-heading text-xl font-semibold text-foreground">
-            {name}
-          </p>
-          <p className="truncate text-sm text-muted-foreground">
-            {trainer.email}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <Badge variant="success">{t("verifiedBadge")}</Badge>
-          </div>
-        </div>
-      </div>
+      <CoachProfileForm
+        uid={trainer.uid}
+        email={trainer.email}
+        initialDisplayName={name}
+        initialPhotoURL={profile.photoURL}
+        initialBio={profile.bio}
+      />
 
       <SettingsSections
         currentLocale={currentLocale}

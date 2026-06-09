@@ -20,6 +20,9 @@ import { PageHeader } from "@/components/gc-fitness/page-header";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { listClients } from "@/lib/gc-fitness/client-roster";
+import {
+  listBirthdayNotificationsForTrainer,
+} from "@/lib/gc-fitness/birthday-notifications";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
@@ -36,7 +39,7 @@ import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-
 export const dynamic = "force-dynamic";
 
 type Locale = "en" | "es";
-type NotificationFilter = "all" | "prs" | "renewals" | "activations";
+type NotificationFilter = "all" | "prs" | "renewals" | "activations" | "birthdays";
 
 type RenewalNotification = {
   id: string;
@@ -60,6 +63,18 @@ type ActivationNotification = {
   detail: string;
   actionHref: string;
   actionLabel: string;
+};
+
+type BirthdayNotification = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  birthDate: string;
+  title: string;
+  detail: string;
+  actionHref: string;
+  actionLabel: string;
+  sortAtISO: string | null;
 };
 
 type PrNotification = {
@@ -99,7 +114,7 @@ type ActiveWorkoutCardData = ActiveWorkoutSummary & {
 };
 
 function resolveNotificationFilter(raw: string | undefined): NotificationFilter {
-  if (raw === "prs" || raw === "renewals" || raw === "activations") return raw;
+  if (raw === "prs" || raw === "renewals" || raw === "activations" || raw === "birthdays") return raw;
   return "all";
 }
 
@@ -136,6 +151,7 @@ export default async function NotificationsPage({
     listClients(),
     listRecentPrWorkoutNotifications(trainer.uid),
   ]);
+  const birthdayNotificationsRaw = await listBirthdayNotificationsForTrainer(trainer.uid, todayCivil);
 
   const clientNameById = new Map(
     clients.map((client) => [client.uid, client.displayName]),
@@ -148,6 +164,7 @@ export default async function NotificationsPage({
     ...item,
     clientName: clientNameById.get(item.clientId) ?? item.clientName,
   }));
+  const birthdayNotifications = birthdayNotificationsRaw;
 
   const renewalNotifications = [
     ...buildWorkoutRenewalNotifications(
@@ -228,6 +245,19 @@ export default async function NotificationsPage({
       actionLabel: item.actionLabel,
       featured: true,
     })),
+    ...birthdayNotifications.map((item): UnifiedNotification => ({
+      id: item.id,
+      kind: "birthdays",
+      sortAtISO: item.sortAtISO,
+      tone: "violet",
+      icon: <Trophy />,
+      title: t("birthdayCardTitle", { client: item.clientName }),
+      detail: t("birthdayCardDetail", { birthDate: item.birthDate }),
+      meta: formatMeta(item.sortAtISO, item.clientName, null, locale, trainerTimezone),
+      actionHref: item.actionHref,
+      actionLabel: item.actionLabel,
+      featured: true,
+    })),
   ].sort((a, b) => isoMs(b.sortAtISO) - isoMs(a.sortAtISO));
   const visibleNotifications =
     activeFilter === "all"
@@ -262,6 +292,12 @@ export default async function NotificationsPage({
       label: t("filterActivations"),
       count: activationNotifications.length,
       href: "/gc-fitness/notifications?type=activations",
+    },
+    {
+      key: "birthdays",
+      label: t("filterBirthdays"),
+      count: birthdayNotifications.length,
+      href: "/gc-fitness/notifications?type=birthdays",
     },
   ];
 

@@ -32,6 +32,7 @@ import { z } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { coachVisibleClientName } from "./client-name";
 
 import {
   assignTemplateSchema,
@@ -1304,8 +1305,20 @@ export async function listFutureAssignmentsForTemplate(
   const nameByUid = new Map<string, string>();
   for (const doc of clientDocs) {
     if (!doc.exists) continue;
-    const data = doc.data() as { displayName?: string; email?: string };
-    nameByUid.set(doc.id, data.displayName ?? data.email ?? doc.id);
+    const data = doc.data() as {
+      displayName?: string;
+      email?: string;
+      coachNickname?: string;
+    };
+    nameByUid.set(
+      doc.id,
+      coachVisibleClientName({
+        uid: doc.id,
+        displayName: data.displayName ?? data.email ?? doc.id,
+        email: data.email ?? "",
+        coachNickname: data.coachNickname ?? null,
+      }),
+    );
   }
 
   const clients: TemplatePropagationClient[] = [...perClient.entries()]

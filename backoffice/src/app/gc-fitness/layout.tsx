@@ -8,6 +8,9 @@ import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetr
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
 import { GCFitnessShellProviders } from "@/components/gc-fitness/shell-providers";
 import { TimezoneSync } from "@/components/gc-fitness/timezone-sync";
+import { birthdayNotificationCountForTrainer } from "@/lib/gc-fitness/birthday-notifications";
+import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { getCurrentGCFitnessUser } from "@/lib/gc-fitness/auth-helpers";
 
 export const metadata: Metadata = {
@@ -32,15 +35,20 @@ export default async function GCFitnessLayout({
   let trainerUid: string | null = null;
   let trainerEmail: string | null = null;
   let isAdmin = false;
+  let birthdayBadgeCount = 0;
   try {
     const user = await getCurrentGCFitnessUser();
     trainerUid = user.uid;
     trainerEmail = user.email;
     isAdmin = user.isAdmin;
+    const timezone = await getTrainerTimezone().catch(() => "UTC");
+    const todayCivil = civilDateToday(timezone);
+    birthdayBadgeCount = await birthdayNotificationCountForTrainer(user.uid, todayCivil);
   } catch {
     trainerUid = null;
     trainerEmail = null;
     isAdmin = false;
+    birthdayBadgeCount = 0;
   }
 
   return (
@@ -55,6 +63,7 @@ export default async function GCFitnessLayout({
             trainerUid={trainerUid}
             trainerEmail={trainerEmail}
             isAdmin={isAdmin}
+            birthdayNotificationCount={birthdayBadgeCount}
           >
             {children}
           </GCFitnessShell>

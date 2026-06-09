@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
+import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
@@ -32,8 +33,15 @@ export default async function ComparePhotosPage({
     displayName?: string;
     email?: string;
     timezone?: string;
+    coachNickname?: string;
   };
   if (client.coachId !== trainer.uid) notFound();
+  const clientName = coachVisibleClientName({
+    uid: id,
+    displayName: client.displayName ?? client.email ?? id,
+    email: client.email ?? "",
+    coachNickname: client.coachNickname ?? null,
+  });
 
   const photos = await listProgressPhotosForClient(id);
   const timezone = client.timezone ?? "UTC";
@@ -43,16 +51,16 @@ export default async function ComparePhotosPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <h1 className="gc-page-title text-2xl sm:text-3xl">Comparador de fotos</h1>
-          <p className="text-sm text-muted-foreground">{client.displayName ?? client.email ?? id}</p>
+          <p className="text-sm text-muted-foreground">{clientName}</p>
         </div>
         <Button asChild variant="outline" className="rounded-full">
           <Link href={`/gc-fitness/clients/${id}#progress-photos`}>Volver al perfil</Link>
         </Button>
       </div>
-      <ProgressPhotoCompareEditor
+        <ProgressPhotoCompareEditor
         photos={photos}
         timezone={timezone}
-        clientName={client.displayName ?? client.email ?? id}
+        clientName={clientName}
       />
     </div>
   );

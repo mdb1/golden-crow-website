@@ -82,6 +82,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             displayName: c.displayName,
             email: c.email,
             photoURL: c.photoURL,
+            birthDate: c.birthDate,
           }))}
           initialMonthFirst={monthFirstCivil}
           initialClientIds={selectedClientIds}

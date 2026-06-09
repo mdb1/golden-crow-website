@@ -62,6 +62,7 @@ const CATEGORY_ICON: Record<
   photo: Camera,
   weight: Scale,
   signup: User,
+  profile: User,
 };
 const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   habit: "badgeHabit",
@@ -70,6 +71,7 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   photo: "badgePhoto",
   weight: "badgeWeight",
   signup: "badgeSignup",
+  profile: "badgeProfile",
 };
 
 export function RecentLogsFeed({

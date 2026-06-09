@@ -22,7 +22,7 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useMutation,
   useQuery,
@@ -73,6 +73,7 @@ interface ClientLite {
   displayName: string;
   email: string;
   photoURL?: string | null;
+  birthDate?: string | null;
 }
 
 interface MonthCalendarProps {
@@ -221,7 +222,9 @@ export function MonthCalendar({
   trainerUid,
 }: MonthCalendarProps) {
   const t = useTranslations("schedule.calendar");
+  const locale = useLocale();
   const tNav = useTranslations("nav");
+  const birthdayBadge = t("birthdayBadge");
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -720,6 +723,16 @@ export function MonthCalendar({
                     : [];
                   const isToday = civil === todayCivil;
                   const dayNumber = Number(civil.slice(8, 10));
+                  const birthdayNames = clients
+                    .filter(
+                      (c) =>
+                        selectedIds.has(c.uid) &&
+                        isBirthdayOn(c.birthDate ?? null, civil),
+                    )
+                    .map((c) => ({
+                      name: c.displayName,
+                      age: ageOnCivilDate(c.birthDate ?? null, civil),
+                    }));
                   return (
                     <DayCell
                       key={civil}
@@ -732,6 +745,9 @@ export function MonthCalendar({
                       clients={clients}
                       showWorkouts={showWorkouts}
                       showHabits={showHabits}
+                      birthdayBadge={birthdayBadge}
+                      birthdayNames={birthdayNames}
+                      locale={locale}
                       cellMinHClass={cellMinHClass}
                       isDragOver={dragOverDay === civil}
                       onDragOver={(e) => {
@@ -838,11 +854,17 @@ export function MonthCalendar({
                             )
                           : [];
                         const isToday = civil === todayCivil;
+                        const isBirthday = isBirthdayOn(client.birthDate ?? null, civil);
+                        const birthdayAge = ageOnCivilDate(client.birthDate ?? null, civil);
                         return (
                           <ClientDayCell
                             key={civil}
                             civil={civil}
                             isToday={isToday}
+                            birthdayBadge={birthdayBadge}
+                            isBirthday={isBirthday}
+                            birthdayAge={birthdayAge}
+                            locale={locale}
                             workouts={workouts}
                             habits={habits}
                             showWorkouts={showWorkouts}
@@ -1081,6 +1103,9 @@ interface DayCellProps {
   dayNumber: number;
   inMonth: boolean;
   isToday: boolean;
+  birthdayBadge: string;
+  birthdayNames: Array<{ name: string; age: number | null }>;
+  locale: string;
   workouts: MonthWorkoutChip[];
   habits: MonthHabitChip[];
   clients: ClientLite[];
@@ -1102,6 +1127,9 @@ function DayCell({
   dayNumber,
   inMonth,
   isToday,
+  birthdayBadge,
+  birthdayNames,
+  locale,
   workouts,
   habits,
   clients,
@@ -1149,6 +1177,20 @@ function DayCell({
           showHabits={showHabits}
         />
       </div>
+
+      {birthdayNames.length > 0 ? (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {birthdayNames.map(({ name, age }) => (
+            <span
+              key={name}
+              className="inline-flex items-center rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-900 dark:text-violet-200"
+            >
+              🎂 {birthdayBadge}: {name}
+              {age != null ? ` · ${age} ${locale === "es" ? "años" : "years"}` : ""}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="min-w-0 flex flex-1 flex-col gap-3.5">
         {(() => {
@@ -1270,6 +1312,10 @@ function DayCell({
 interface ClientDayCellProps {
   civil: string;
   isToday: boolean;
+  birthdayBadge: string;
+  isBirthday: boolean;
+  birthdayAge: number | null;
+  locale: string;
   workouts: MonthWorkoutChip[];
   habits: MonthHabitChip[];
   showWorkouts: boolean;
@@ -1294,6 +1340,10 @@ interface ClientDayCellProps {
 function ClientDayCell({
   civil,
   isToday,
+  birthdayBadge,
+  isBirthday,
+  birthdayAge,
+  locale,
   workouts,
   habits,
   showWorkouts,
@@ -1320,6 +1370,12 @@ function ClientDayCell({
       )}
     >
       <div className="flex min-h-[88px] min-w-0 flex-col gap-1.5">
+        {isBirthday ? (
+          <span className="inline-flex w-fit items-center rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-900 dark:text-violet-200">
+            🎂 {birthdayBadge}
+            {birthdayAge != null ? ` · ${birthdayAge} ${locale === "es" ? "años" : "years"}` : ""}
+          </span>
+        ) : null}
         {workouts.map((w) => {
           const movedFromLabel = w.originallyScheduledFor
             ? formatMovedFromLabel(w.originallyScheduledFor, w.scheduledFor)
@@ -1433,6 +1489,32 @@ function parseCivilDateInUtc(civilDate: string): Date | null {
   const [y, m, d] = parts.map(Number);
   if (!y || !m || !d) return null;
   return new Date(Date.UTC(y, m - 1, d));
+}
+
+function monthDay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parts = value.split("-");
+  if (parts.length !== 3) return null;
+  const [, month, day] = parts;
+  if (!month || !day) return null;
+  return `${month}-${day}`;
+}
+
+function isBirthdayOn(birthDate: string | null | undefined, civil: string): boolean {
+  return monthDay(birthDate) != null && monthDay(birthDate) === monthDay(civil);
+}
+
+function ageOnCivilDate(birthDate: string | null | undefined, civil: string): number | null {
+  if (!birthDate) return null;
+  const birth = parseCivilDateInUtc(birthDate);
+  const today = parseCivilDateInUtc(civil);
+  if (!birth || !today) return null;
+  let age = today.getUTCFullYear() - birth.getUTCFullYear();
+  const monthDelta = today.getUTCMonth() - birth.getUTCMonth();
+  const beforeBirthday =
+    monthDelta < 0 || (monthDelta === 0 && today.getUTCDate() < birth.getUTCDate());
+  if (beforeBirthday) age -= 1;
+  return age >= 0 ? age : null;
 }
 
 function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {

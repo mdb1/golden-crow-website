@@ -29,8 +29,11 @@ import { Button } from "@/components/ui/button";
 export interface ClientHeaderProps {
   clientId: string;
   displayName: string;
+  appDisplayName: string;
   email: string;
   photoURL: string | null;
+  coachNickname: string | null;
+  birthDate: string | null;
   heightCm?: number | null;
   bodyWeightKg?: number | null;
 }
@@ -38,8 +41,11 @@ export interface ClientHeaderProps {
 export function ClientHeader({
   clientId,
   displayName,
+  appDisplayName,
   email,
   photoURL,
+  coachNickname,
+  birthDate,
   heightCm,
   bodyWeightKg,
 }: ClientHeaderProps) {
@@ -52,6 +58,12 @@ export function ClientHeader({
     typeof bodyWeightKg === "number"
       ? `${bodyWeightKg.toFixed(1)} kg`
       : tCommon("emDash");
+  const cleanDisplayName = displayName.trim();
+  const cleanAppDisplayName = appDisplayName.trim();
+  const headerDisplayName =
+    cleanAppDisplayName && cleanAppDisplayName !== cleanDisplayName
+      ? `${cleanDisplayName} (${cleanAppDisplayName})`
+      : cleanDisplayName;
   const initials = displayName
     .split(/\s+/)
     .map((s) => s[0]?.toUpperCase() ?? "")
@@ -76,12 +88,22 @@ export function ClientHeader({
           </Avatar>
           <div className="flex min-w-0 flex-col gap-1">
             <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
-              {displayName}
+              {headerDisplayName}
             </h1>
             {email && email !== displayName ? (
               <p className="text-sm text-muted-foreground">{email}</p>
             ) : null}
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              {coachNickname ? (
+                <Badge variant="secondary">
+                  {t("coachNicknameLabel", { value: coachNickname })}
+                </Badge>
+              ) : null}
+              {birthDate ? (
+                <Badge variant="outline">
+                  {t("birthDateLabel", { value: birthDate })}
+                </Badge>
+              ) : null}
               <Badge variant="outline">
                 {t("heightLabel", { value: heightValue })}
               </Badge>

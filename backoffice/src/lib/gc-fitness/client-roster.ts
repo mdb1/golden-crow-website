@@ -45,6 +45,7 @@ import { unstable_cache } from "next/cache";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
+import { coachVisibleClientName } from "./client-name";
 import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
 import {
@@ -64,6 +65,8 @@ export interface ClientRosterEntry {
   displayName: string;
   timezone: string | null;
   photoURL: string | null;
+  birthDate?: string | null;
+  coachNickname?: string | null;
   pendingProvisioning: boolean;
   /** True when this client signed up WITHOUT a trainer-authored user_mirror and
    *  was auto-attached to the default coach (functions DEFAULT_FALLBACK_COACH_ID).
@@ -170,14 +173,23 @@ async function _fetchClientsForTrainer(
       displayName?: string;
       timezone?: string;
       photoURL?: string;
+      birthDate?: string;
+      coachNickname?: string;
       autoAssignedCoach?: boolean;
     };
     return {
       uid: d.id,
       email: data.email ?? "",
-      displayName: data.displayName ?? data.email ?? d.id,
+      displayName: coachVisibleClientName({
+        uid: d.id,
+        email: data.email ?? "",
+        displayName: data.displayName ?? data.email ?? d.id,
+        coachNickname: data.coachNickname ?? null,
+      }),
       timezone: typeof data.timezone === "string" ? data.timezone : null,
       photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
+      birthDate: typeof data.birthDate === "string" ? data.birthDate : null,
+      coachNickname: typeof data.coachNickname === "string" ? data.coachNickname : null,
       pendingProvisioning: false,
       autoAssignedCoach: data.autoAssignedCoach === true,
     };
@@ -205,6 +217,8 @@ async function _fetchClientsForTrainer(
             : email,
         timezone: null,
         photoURL: null,
+        birthDate: null,
+        coachNickname: null,
         pendingProvisioning: true,
         autoAssignedCoach: false,
       });
@@ -214,7 +228,7 @@ async function _fetchClientsForTrainer(
   const rows = [...activeRows, ...pendingRows];
 
   rows.sort((a, b) =>
-    a.displayName.localeCompare(b.displayName, undefined, {
+    coachVisibleClientName(a).localeCompare(coachVisibleClientName(b), undefined, {
       sensitivity: "base",
     }),
   );
@@ -243,7 +257,7 @@ async function _fetchClientsForTrainer(
 const cachedFetchClients = unstable_cache(
   _fetchClientsForTrainer,
   ["gc-fitness-roster"],
-  { revalidate: 60 },
+  { revalidate: 60, tags: ["gc-fitness-roster"] },
 );
 
 /**

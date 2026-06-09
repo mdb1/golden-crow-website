@@ -43,6 +43,7 @@ const CATEGORY_ICON: Record<
   photo: Camera,
   weight: Scale,
   signup: User,
+  profile: User,
 };
 
 const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
@@ -52,6 +53,7 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   photo: "badgePhoto",
   weight: "badgeWeight",
   signup: "badgeSignup",
+  profile: "badgeProfile",
 };
 
 const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
@@ -67,6 +69,8 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
     "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
   signup:
     "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+  profile:
+    "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300",
 };
 
 interface Props {

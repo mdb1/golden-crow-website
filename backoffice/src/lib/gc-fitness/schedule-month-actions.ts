@@ -25,6 +25,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
+import { coachVisibleClientName } from "./client-name";
 import { logCountsAsCompleted, type HabitLogRow } from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
 
@@ -277,8 +278,14 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     const userData = userSnap.data() as {
       displayName?: string;
       email?: string;
+      coachNickname?: string;
     } | undefined;
-    clientName = userData?.displayName ?? userData?.email ?? clientId;
+    clientName = coachVisibleClientName({
+      uid: clientId,
+      displayName: userData?.displayName ?? userData?.email ?? clientId,
+      email: userData?.email ?? "",
+      coachNickname: userData?.coachNickname ?? null,
+    });
   }
 
   // 260529-ltm — the logged-in trainer IS the coach. Resolve their
