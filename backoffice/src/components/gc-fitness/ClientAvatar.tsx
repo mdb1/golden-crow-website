@@ -39,6 +39,10 @@ function resolveAvatarSrc(photoURL: string): string {
   return `/api/gc-fitness/storage-image?path=${path}`;
 }
 
+function shouldBypassOptimizer(src: string): boolean {
+  return src.startsWith("/api/gc-fitness/storage-image");
+}
+
 function initialsFromName(name: string): string {
   return (
     name
@@ -74,6 +78,7 @@ export function ClientAvatar({
   const px = SIZE_PX[size];
   const resolvedSrc = photoURL ? resolveAvatarSrc(photoURL) : null;
   const showImage = !!resolvedSrc && !failed;
+  const bypassOptimizer = resolvedSrc ? shouldBypassOptimizer(resolvedSrc) : false;
 
   return (
     <div
@@ -91,6 +96,7 @@ export function ClientAvatar({
           width={px}
           height={px}
           className="h-full w-full rounded-full object-cover"
+          unoptimized={bypassOptimizer}
           onError={() => setFailed(true)}
         />
       ) : (
