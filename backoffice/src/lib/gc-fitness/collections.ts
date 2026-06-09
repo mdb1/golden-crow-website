@@ -153,6 +153,13 @@ export const FirestoreCollections = {
   clientExerciseNotes: "client_exercise_notes",
 
   /**
+   * Per-user profile change events. One doc per identity update so recent
+   * activity can surface name / photo / birthday changes from the apps and
+   * backoffice.
+   */
+  profileEvents: "profile_events",
+
+  /**
    * Global, single-document mobile app configuration (`/app_config/mobile`).
    * Holds the per-platform minimum supported build + store URLs that drive the
    * iOS/Android force-update gate. Written EXCLUSIVELY by this backoffice via

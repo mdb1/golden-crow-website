@@ -106,11 +106,13 @@ export function GCFitnessShell({
   trainerUid,
   trainerEmail,
   isAdmin,
+  birthdayNotificationCount,
 }: {
   children: React.ReactNode;
   trainerUid: string | null;
   trainerEmail: string | null;
   isAdmin: boolean;
+  birthdayNotificationCount: number;
 }) {
   const pathname = usePathname();
   const t = useTranslations("shell");
@@ -131,9 +133,13 @@ export function GCFitnessShell({
     if (!trainerUid) return sum;
     return sum + Math.max(0, chat.unreadCount?.[trainerUid] ?? 0);
   }, 0);
+  const notificationsBadge =
+    pathname.startsWith("/gc-fitness/notifications")
+      ? 0
+      : newClientBadges.notifications + birthdayNotificationCount;
   const navBadges: Record<string, number> = {
     "/gc-fitness/chat": unreadChatTotal,
-    "/gc-fitness/notifications": newClientBadges.notifications,
+    "/gc-fitness/notifications": notificationsBadge,
     "/gc-fitness/clients": newClientBadges.clients,
   };
 

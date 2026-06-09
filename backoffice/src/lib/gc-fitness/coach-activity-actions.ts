@@ -4,6 +4,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
+import { coachVisibleClientName } from "./client-name";
 
 export type CoachActivityKind =
   | "workout_template"
@@ -124,8 +125,20 @@ export async function listMyCoachActivityPage(
   ]);
 
   for (const doc of clientsSnap.docs) {
-    const data = doc.data() as { displayName?: string; email?: string };
-    clientNameById.set(doc.id, data.displayName ?? data.email ?? doc.id);
+    const data = doc.data() as {
+      displayName?: string;
+      email?: string;
+      coachNickname?: string;
+    };
+    clientNameById.set(
+      doc.id,
+      coachVisibleClientName({
+        uid: doc.id,
+        displayName: data.displayName ?? data.email ?? doc.id,
+        email: data.email ?? "",
+        coachNickname: data.coachNickname ?? null,
+      }),
+    );
   }
 
   const rows: MyCoachActivityRow[] = [];
@@ -210,8 +223,20 @@ export async function listMyActivityClients(): Promise<MyActivityClientOption[]>
     .get();
   return snap.docs
     .map((d) => {
-      const x = d.data() as { displayName?: string; email?: string };
-      return { id: d.id, name: x.displayName ?? x.email ?? d.id };
+      const x = d.data() as {
+        displayName?: string;
+        email?: string;
+        coachNickname?: string;
+      };
+      return {
+        id: d.id,
+        name: coachVisibleClientName({
+          uid: d.id,
+          displayName: x.displayName ?? x.email ?? d.id,
+          email: x.email ?? "",
+          coachNickname: x.coachNickname ?? null,
+        }),
+      };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }

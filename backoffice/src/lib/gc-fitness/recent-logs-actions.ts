@@ -7,7 +7,11 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
-import { listClients, type ClientRosterEntry } from "./client-roster";
+import {
+  listClients,
+  type ClientRosterEntry,
+} from "./client-roster";
+import { coachVisibleClientName } from "./client-name";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 
@@ -17,7 +21,8 @@ export type RecentLogCategory =
   | "reschedule"
   | "photo"
   | "weight"
-  | "signup";
+  | "signup"
+  | "profile";
 
 export interface RecentLogRow {
   id: string;
@@ -31,6 +36,9 @@ export interface RecentLogRow {
   title: string;
   detail: string;
   workoutLogId: string | null;
+  profile?: {
+    changedFields: string[];
+  };
   /** Habit rows only — the habit's TARGET civil date ("YYYY-MM-DD"), set ONLY
    *  when the completion was BACKDATED (marked on a different civil day than the
    *  habit belongs to). The iOS app lets clients tick past-day habits, so a
@@ -319,6 +327,7 @@ async function buildRecentLogs(params: {
   let habitLogsSnaps: FirebaseFirestore.QuerySnapshot[];
   let photoSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let weightSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
+  let profileSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let habitsSnaps: Array<FirebaseFirestore.QuerySnapshot | null>;
   let trainerAssignmentsSnap: { docs: FirebaseFirestore.QueryDocumentSnapshot[] };
   // Set in page mode: true when any time-series source returned a FULL page,
@@ -393,6 +402,21 @@ async function buildRecentLogs(params: {
                 .doc(c.uid)
                 .collection("body_weight_logs"),
               "recordedAt",
+            )
+              .get()
+              .catch(() => null),
+          ),
+        )
+      : Promise.resolve([] as Array<FirebaseFirestore.QuerySnapshot | null>);
+    const profileSnapsP = want("profile")
+      ? Promise.all(
+          clients.map((c) =>
+            ranged(
+              db
+                .collection(FirestoreCollections.users)
+                .doc(c.uid)
+                .collection(FirestoreCollections.profileEvents),
+              "eventAt",
             )
               .get()
               .catch(() => null),
@@ -480,6 +504,7 @@ async function buildRecentLogs(params: {
       workoutSnaps,
       photoSnapsR,
       weightSnapsR,
+      profileSnapsR,
       assignSnapsR,
       habitSnapsR,
       usersSnapR,
@@ -488,6 +513,7 @@ async function buildRecentLogs(params: {
       workoutSnapsP,
       photoSnapsP,
       weightSnapsP,
+      profileSnapsP,
       assignSnapsP,
       habitSnapsP,
       usersP,
@@ -502,6 +528,7 @@ async function buildRecentLogs(params: {
     habitLogsSnaps = habitSnapsR;
     photoSnaps = photoSnapsR;
     weightSnaps = weightSnapsR;
+    profileSnaps = profileSnapsR;
     habitsSnaps = habitsMasterR;
 
     const sourceFull = (
@@ -511,7 +538,8 @@ async function buildRecentLogs(params: {
       sourceFull(workoutSnaps) ||
       sourceFull(habitSnapsR) ||
       sourceFull(photoSnapsR) ||
-      sourceFull(weightSnapsR);
+      sourceFull(weightSnapsR) ||
+      sourceFull(profileSnapsR);
   } else {
     const workoutLogsPromise = db
       .collection(FirestoreCollections.workoutLogs)
@@ -599,6 +627,16 @@ async function buildRecentLogs(params: {
         .get()
         .catch(() => null),
     );
+    const profilePromises = clients.map((client) =>
+      db
+        .collection(FirestoreCollections.users)
+        .doc(client.uid)
+        .collection(FirestoreCollections.profileEvents)
+        .orderBy("eventAt", "desc")
+        .limit(20)
+        .get()
+        .catch(() => null),
+    );
 
     // Habits master list — needed to compute "habits scheduled today" per
     // client for the "1/3 habits done today" badge appended to each habit
@@ -618,6 +656,7 @@ async function buildRecentLogs(params: {
       habitLogsSnaps,
       photoSnaps,
       weightSnaps,
+      profileSnaps,
       habitsSnaps,
       trainerAssignmentsSnap,
     ] = await Promise.all([
@@ -626,6 +665,7 @@ async function buildRecentLogs(params: {
       Promise.all(habitLogPromises),
       Promise.all(photoPromises),
       Promise.all(weightPromises),
+      Promise.all(profilePromises),
       Promise.all(habitsPromises),
       trainerAssignmentsPromise,
     ]);
@@ -825,6 +865,52 @@ async function buildRecentLogs(params: {
       title: `${nameByClientId.get(clientId) ?? clientId} completed first sign-in`,
       detail: "Pending client converted to active user",
       workoutLogId: null,
+    });
+  });
+
+  profileSnaps.forEach((snap) => {
+    if (!snap) return;
+    snap.docs.forEach((doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      const clientId = typeof data.clientId === "string" ? data.clientId : doc.ref.parent.parent?.id ?? "";
+      if (!clientId || !nameByClientId.has(clientId)) return;
+      const eventAt = asIso(data.eventAt) ?? asIso(data.updatedAt) ?? asIso(data.createdAt);
+      if (!eventAt) return;
+      const changedFields = Array.isArray(data.changedFields)
+        ? (data.changedFields as unknown[]).filter(
+            (field): field is string =>
+              typeof field === "string" &&
+              ["displayName", "photoURL", "birthDate"].includes(field),
+          )
+        : [];
+      const fieldLabels = changedFields.map((field) => {
+        switch (field) {
+          case "displayName":
+            return "name";
+          case "photoURL":
+            return "photo";
+          case "birthDate":
+            return "birthday";
+          default:
+            return field;
+        }
+      });
+      const detail =
+        fieldLabels.length > 0
+          ? `Updated ${fieldLabels.join(", ")}`
+          : "Updated profile";
+      rows.push({
+        id: `profile:${clientId}:${doc.id}`,
+        category: "profile",
+        eventAt,
+        clientId,
+        clientName: nameByClientId.get(clientId) ?? clientId,
+        clientPhotoURL: photoByClientId.get(clientId) ?? null,
+        title: `${nameByClientId.get(clientId) ?? clientId} - Profile updated`,
+        detail,
+        workoutLogId: null,
+        profile: { changedFields },
+      });
     });
   });
 
@@ -1208,6 +1294,9 @@ async function loadClientRosterEntry(
       displayName,
       timezone: typeof data.timezone === "string" ? data.timezone : null,
       photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
+      birthDate: typeof data.birthDate === "string" ? data.birthDate : null,
+      coachNickname:
+        typeof data.coachNickname === "string" ? data.coachNickname : null,
       pendingProvisioning: false,
       autoAssignedCoach: data.autoAssignedCoach === true,
     },
@@ -1486,8 +1575,17 @@ async function buildWorkoutLogDetail(
   }
 
   const clientSnap = await db.collection(FirestoreCollections.users).doc(clientId).get();
-  const clientData = clientSnap.data() as { displayName?: string } | undefined;
-  const clientName = clientData?.displayName ?? clientId;
+  const clientData = clientSnap.data() as {
+    displayName?: string;
+    email?: string;
+    coachNickname?: string;
+  } | undefined;
+  const clientName = coachVisibleClientName({
+    uid: clientId,
+    displayName: clientData?.displayName ?? clientId,
+    email: clientData?.email ?? "",
+    coachNickname: clientData?.coachNickname ?? null,
+  });
   // Render all log timestamps in the CLIENT's timezone (mirrors the
   // assertOwnsClient pattern in client-daily-timeline-actions.ts): prefer the
   // client's stored IANA tz, else fall back to the trainer's. Without this the

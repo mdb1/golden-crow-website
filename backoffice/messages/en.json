@@ -62,7 +62,7 @@
     "clientsDescription": "Roster with last activity, compliance, unread chat.",
     "recentLogsDescription": "Cross-client recent habit/workout activity feed.",
     "myActivityDescription": "Coach-authored actions across programming, notes and chat.",
-    "notificationsDescription": "Recurring workout/habit renewals and recent client activations.",
+    "notificationsDescription": "Recurring workout/habit renewals, birthdays, and recent client activations.",
     "workoutsDescription": "Workout-template authoring + assignments.",
     "habitsDescription": "Habit CRUD + per-client assignment.",
     "exercisesDescription": "Exercise library + GIF management.",
@@ -172,6 +172,7 @@
     "filterPrs": "PRs",
     "filterRenewals": "Renewals",
     "filterActivations": "Activations",
+    "filterBirthdays": "Birthdays",
     "prsTitle": "Recent PRs",
     "prsDescription": "Completed workouts where the client hit personal records.",
     "noPrs": "No recent PRs to review.",
@@ -179,6 +180,8 @@
     "prsCardDetail": "{workout} · {count, plural, one {# personal record} other {# personal records}}",
     "activationsTitle": "Recent activations",
     "activationsDescription": "New client sign-ins that are worth following up.",
+    "birthdayCardTitle": "{client}'s birthday",
+    "birthdayCardDetail": "Say happy birthday today. Birthday on {birthDate}.",
     "noRenewals": "No recurring workouts or habits need attention right now.",
     "noActivations": "No recent client activations yet.",
     "clientActivated": "Client activated",
@@ -269,6 +272,8 @@
     "detail": {
       "heightLabel": "Height: {value}",
       "weightLabel": "Weight: {value}",
+      "coachNicknameLabel": "Coach nickname: {value}",
+      "birthDateLabel": "Birthday: {value}",
       "openChat": "Open chat",
       "openInCalendar": "Open in calendar",
       "openExerciseProgress": "View per-exercise progress",
@@ -494,6 +499,21 @@
         "loading": "Loading…",
         "previous": "Previous",
         "next": "Next"
+      },
+      "identity": {
+        "title": "Client identity",
+        "subtitle": "Edit the name, photo and birthday shown in the app.",
+        "nicknameLabel": "Coach nickname",
+        "nicknamePlaceholder": "Nickname the coach uses",
+        "nicknameHelp": "Only you can see it in the backoffice; it does not change the client's app name.",
+        "birthDateLabel": "Birthday",
+        "birthDateMissing": "Birthday not set.",
+        "birthDateValue": "Birthday: {birthDate}",
+        "birthDateReadOnly": "Birthday is set from the app and can't be edited from the backoffice.",
+        "save": "Save",
+        "saving": "Saving…",
+        "savedToast": "Client identity updated.",
+        "saveFailedToast": "Could not save client identity."
       }
     }
   },
@@ -854,6 +874,21 @@
         "numeric": "Numeric",
         "weight": "Weight"
       }
+    },
+    "identity": {
+      "title": "Client identity",
+      "subtitle": "Edit the internal nickname you use to tell {client} apart. Birthday is set from the app and stays read-only here.",
+      "nicknameLabel": "Internal nickname",
+      "nicknamePlaceholder": "Optional",
+      "nicknameHelp": "Only you can see it in the backoffice; it does not change the client's app name.",
+      "birthDateLabel": "Birthday (read-only)",
+      "birthDateValue": "Birth date: {birthDate}",
+      "birthDateMissing": "Birth date not set.",
+      "birthDateReadOnly": "Birthday is set from the app and can't be edited from the backoffice.",
+      "save": "Save identity",
+      "saving": "Saving…",
+      "savedToast": "Client identity saved.",
+      "saveFailedToast": "Couldn't save client identity."
     },
     "editPage": {
       "title": "Edit habit",
@@ -1270,6 +1305,21 @@
       "saving": "Saving…",
       "savedToast": "Language updated.",
       "saveFailedToast": "Couldn't save language."
+    },
+    "coachProfile": {
+      "title": "Coach profile",
+      "subtitle": "Name, photo, and description shown to clients in the app.",
+      "photoCta": "Choose photo",
+      "photoHelp": "PNG or JPG. This will be stored in Firebase Storage and reused in the app.",
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "Your name",
+      "bioLabel": "Description",
+      "bioPlaceholder": "Tell clients a bit about your coaching style.",
+      "emailHint": "Signed in as {email}",
+      "save": "Save profile",
+      "saving": "Saving…",
+      "savedToast": "Coach profile saved.",
+      "saveFailedToast": "Couldn't save coach profile."
     }
   },
   "schedule": {
@@ -1293,6 +1343,7 @@
       "show": "Show",
       "workouts": "Workouts",
       "habits": "Habits",
+      "birthdayBadge": "Birthday",
       "pickClientsPrompt": "Pick one or more clients above to see their agenda.",
       "pickClientFirstToast": "Pick at least one client first"
     },
@@ -1510,6 +1561,7 @@
       "badgePhoto": "Photo",
       "badgeWeight": "Weight",
       "badgeSignup": "First sign-in",
+      "badgeProfile": "Profile",
       "openChat": "Open chat",
       "openProfile": "Profile",
       "viewWorkout": "View workout",

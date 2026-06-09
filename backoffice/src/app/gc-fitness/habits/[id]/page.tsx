@@ -17,6 +17,7 @@ import {
   getCurrentTrainer,
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
+import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import type { HabitType } from "@/lib/gc-fitness/habit-schema";
@@ -97,8 +98,17 @@ export default async function HabitDetailPage({ params }: PageParams) {
   if (data.clientId) {
     const userSnap = await db.collection("users").doc(data.clientId).get();
     if (userSnap.exists) {
-      const u = userSnap.data() as { displayName?: string; email?: string };
-      clientLabel = u.displayName ?? u.email ?? data.clientId;
+      const u = userSnap.data() as {
+        displayName?: string;
+        email?: string;
+        coachNickname?: string;
+      };
+      clientLabel = coachVisibleClientName({
+        uid: data.clientId,
+        displayName: u.displayName ?? u.email ?? data.clientId,
+        email: u.email ?? "",
+        coachNickname: u.coachNickname ?? null,
+      });
     }
   }
 

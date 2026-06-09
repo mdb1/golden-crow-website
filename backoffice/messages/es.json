@@ -62,7 +62,7 @@
     "clientsDescription": "Plantel con última actividad, adherencia y chat sin leer.",
     "recentLogsDescription": "Actividad reciente de hábitos y entrenamientos entre clientes.",
     "myActivityDescription": "Acciones propias del coach en planificación, notas y chat.",
-    "notificationsDescription": "Renovaciones de workouts/hábitos y activaciones recientes de clientes.",
+    "notificationsDescription": "Renovaciones de workouts/hábitos, cumpleaños y activaciones recientes de clientes.",
     "workoutsDescription": "Creación y asignación de plantillas de entrenamiento.",
     "habitsDescription": "CRUD de hábitos y asignación por cliente.",
     "exercisesDescription": "Biblioteca de ejercicios y gestión de GIFs.",
@@ -172,6 +172,7 @@
     "filterPrs": "PRs",
     "filterRenewals": "Renovaciones",
     "filterActivations": "Activaciones",
+    "filterBirthdays": "Cumpleaños",
     "prsTitle": "PRs recientes",
     "prsDescription": "Workouts completados donde el cliente marcó récords personales.",
     "noPrs": "No hay PRs recientes para revisar.",
@@ -179,6 +180,8 @@
     "prsCardDetail": "{workout} · {count, plural, one {# récord personal} other {# récords personales}}",
     "activationsTitle": "Activaciones recientes",
     "activationsDescription": "Nuevos ingresos de clientes para hacer seguimiento.",
+    "birthdayCardTitle": "Cumpleaños de {client}",
+    "birthdayCardDetail": "Mandale un feliz cumpleaños hoy. Cumple {birthDate}.",
     "noRenewals": "No hay workouts o hábitos recurrentes que requieran atención ahora.",
     "noActivations": "Todavía no hay activaciones recientes.",
     "clientActivated": "Cliente activado",
@@ -269,6 +272,8 @@
     "detail": {
       "heightLabel": "Altura: {value}",
       "weightLabel": "Peso: {value}",
+      "coachNicknameLabel": "Apodo del coach: {value}",
+      "birthDateLabel": "Cumpleaños: {value}",
       "openChat": "Abrir chat",
       "openInCalendar": "Abrir en calendario",
       "openExerciseProgress": "Ver progreso por ejercicio",
@@ -494,6 +499,21 @@
         "loading": "Cargando…",
         "previous": "Anterior",
         "next": "Siguiente"
+      },
+      "identity": {
+        "title": "Identidad del cliente",
+        "subtitle": "Editá el nombre, la foto y el cumpleaños que se muestran en la app.",
+        "nicknameLabel": "Apodo del coach",
+        "nicknamePlaceholder": "Apodo que usa el coach",
+        "nicknameHelp": "Solo vos lo ves en el backoffice; no cambia el nombre del cliente en la app.",
+        "birthDateLabel": "Cumpleaños",
+        "birthDateMissing": "Cumpleaños no definido.",
+        "birthDateValue": "Cumpleaños: {birthDate}",
+        "birthDateReadOnly": "El cumpleaños se define desde la app y no se puede editar desde el backoffice.",
+        "save": "Guardar",
+        "saving": "Guardando…",
+        "savedToast": "Identidad del cliente actualizada.",
+        "saveFailedToast": "No pudimos guardar la identidad del cliente."
       }
     }
   },
@@ -854,6 +874,21 @@
         "numeric": "Numérico",
         "weight": "Peso"
       }
+    },
+    "identity": {
+      "title": "Identidad del cliente",
+      "subtitle": "Editá el apodo interno que usás para distinguir a {client}. El cumpleaños se define desde la app y acá queda solo de referencia.",
+      "nicknameLabel": "Apodo interno",
+      "nicknamePlaceholder": "Opcional",
+      "nicknameHelp": "Solo vos lo ves en el backoffice; no cambia el nombre del cliente en la app.",
+      "birthDateLabel": "Cumpleaños (solo lectura)",
+      "birthDateValue": "Fecha de nacimiento: {birthDate}",
+      "birthDateMissing": "La fecha de nacimiento no está cargada.",
+      "birthDateReadOnly": "El cumpleaños se define desde la app y no se puede editar desde el backoffice.",
+      "save": "Guardar identidad",
+      "saving": "Guardando…",
+      "savedToast": "Identidad del cliente guardada.",
+      "saveFailedToast": "No se pudo guardar la identidad del cliente."
     },
     "editPage": {
       "title": "Editar hábito",
@@ -1270,6 +1305,21 @@
       "saving": "Guardando…",
       "savedToast": "Idioma actualizado.",
       "saveFailedToast": "No se pudo guardar el idioma."
+    },
+    "coachProfile": {
+      "title": "Perfil del coach",
+      "subtitle": "Nombre, foto y descripción que se muestran a los clientes en la app.",
+      "photoCta": "Elegir foto",
+      "photoHelp": "PNG o JPG. Se guarda en Firebase Storage y se reutiliza en la app.",
+      "displayNameLabel": "Nombre para mostrar",
+      "displayNamePlaceholder": "Tu nombre",
+      "bioLabel": "Descripción",
+      "bioPlaceholder": "Contales a tus clientes un poco sobre tu estilo de coaching.",
+      "emailHint": "Sesión iniciada como {email}",
+      "save": "Guardar perfil",
+      "saving": "Guardando…",
+      "savedToast": "Perfil del coach guardado.",
+      "saveFailedToast": "No se pudo guardar el perfil del coach."
     }
   },
   "schedule": {
@@ -1293,6 +1343,7 @@
       "show": "Mostrar",
       "workouts": "Workouts",
       "habits": "Hábitos",
+      "birthdayBadge": "Cumpleaños",
       "pickClientsPrompt": "Elegí uno o más clientes arriba para ver su agenda.",
       "pickClientFirstToast": "Elegí al menos un cliente primero"
     },
@@ -1510,6 +1561,7 @@
       "badgePhoto": "Foto",
       "badgeWeight": "Peso",
       "badgeSignup": "Primer ingreso",
+      "badgeProfile": "Perfil",
       "openChat": "Abrir chat",
       "openProfile": "Perfil",
       "viewWorkout": "Ver entrenamiento",
