@@ -1,16 +1,13 @@
 // __tests__/admin-user-search.test.ts
 //
-// Unit coverage for the pure email-prefix range-bound builder used by the
-// admin user-email search (GitHub issue #163). These exports are side-effect
-// free (no firebase imports) — the unit-testable seam for the Admin-SDK query.
+// Unit coverage for the pure email CONTAINS matcher used by the admin
+// user-email search (GitHub issue #163). These exports are side-effect free
+// (no firebase imports) — the unit-testable seam for the Admin-SDK scan.
 //
 // The server-action block (searchUsersByEmailForAdmin) is appended later and
 // mirrors admin-actions.app-config.test.ts mocks.
 
-import {
-  buildEmailPrefixBounds,
-  normalizeSearchQuery,
-} from "../admin-user-search";
+import { emailMatchesQuery, normalizeSearchQuery } from "../admin-user-search";
 
 // ── Mocks for the server-action block (mirrors admin-actions.app-config.test.ts).
 // jest.mock is hoisted, so these apply file-wide; the pure helper above has NO
@@ -20,11 +17,8 @@ jest.mock("@/lib/gc-fitness/auth-helpers", () => ({
 }));
 
 const mockGet = jest.fn();
-const mockLimit = jest.fn(() => ({ get: mockGet }));
-const mockEndAt = jest.fn(() => ({ limit: mockLimit }));
-const mockStartAt = jest.fn(() => ({ endAt: mockEndAt }));
-const mockOrderBy = jest.fn(() => ({ startAt: mockStartAt }));
-const mockCollection = jest.fn(() => ({ orderBy: mockOrderBy }));
+const mockSelect = jest.fn(() => ({ get: mockGet }));
+const mockCollection = jest.fn(() => ({ select: mockSelect }));
 const mockGetUser = jest.fn();
 
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
@@ -40,19 +34,23 @@ jest.mock("firebase-admin/firestore", () => ({
   },
 }));
 
-// Standard Firestore prefix-range upper-bound sentinel (highest BMP private-use
-// code point). The PLAN renders `endAt` as the bare query because the sentinel
-// is a non-printing glyph; the real upper bound is `q + SENTINEL`.
-const SENTINEL = "";
+/** Build a mock projected QueryDocumentSnapshot: supports .data() and .get(field). */
+function mockDoc(id: string, fields: Record<string, unknown>) {
+  return {
+    id,
+    data: () => fields,
+    get: (field: string) => fields[field],
+  };
+}
 
 describe("normalizeSearchQuery", () => {
   it("trims surrounding whitespace and lowercases", () => {
     expect(normalizeSearchQuery("  Foo@Example.COM ")).toBe("foo@example.com");
   });
 
-  it("does NOT apply gmail dot/plus canonicalization (literal prefix matching)", () => {
+  it("does NOT apply gmail dot/plus canonicalization (literal matching)", () => {
     // Unlike normalizeMirrorEmail, this keeps dots + the +tag so the literal
-    // stored email prefix matches.
+    // stored email substring matches.
     expect(normalizeSearchQuery("First.Last+tag@Gmail.com")).toBe(
       "first.last+tag@gmail.com",
     );
@@ -63,41 +61,39 @@ describe("normalizeSearchQuery", () => {
   });
 });
 
-describe("buildEmailPrefixBounds", () => {
-  it("builds a [q, q+sentinel] range for a non-empty query", () => {
-    expect(buildEmailPrefixBounds("ab")).toEqual({
-      startAt: "ab",
-      endAt: "ab" + SENTINEL,
-    });
+describe("emailMatchesQuery", () => {
+  it("matches a prefix", () => {
+    expect(emailMatchesQuery("carba.nico@gmail.com", "carba")).toBe(true);
   });
 
-  it("returns null for an empty query", () => {
-    expect(buildEmailPrefixBounds("")).toBeNull();
+  it("matches a mid-string substring (the #163 follow-up case)", () => {
+    expect(emailMatchesQuery("ncarballal@gmail.com", "carba")).toBe(true);
   });
 
-  it("returns null for an all-whitespace query", () => {
-    expect(buildEmailPrefixBounds("   ")).toBeNull();
+  it("matches case-insensitively against the stored value", () => {
+    expect(emailMatchesQuery("NCarballal@Gmail.com", "carba")).toBe(true);
   });
 
-  it("normalizes (trim + lowercase) before building bounds", () => {
-    expect(buildEmailPrefixBounds("  AB ")).toEqual({
-      startAt: "ab",
-      endAt: "ab" + SENTINEL,
-    });
+  it("does not match when the substring is absent", () => {
+    expect(emailMatchesQuery("someone@example.com", "carba")).toBe(false);
   });
 
-  it("uses the high-codepoint sentinel as the upper bound", () => {
-    const bounds = buildEmailPrefixBounds("john@");
-    expect(bounds).not.toBeNull();
-    expect(bounds!.startAt).toBe("john@");
-    expect(bounds!.endAt).toBe("john@" + SENTINEL);
+  it("never matches an empty query", () => {
+    expect(emailMatchesQuery("someone@example.com", "")).toBe(false);
+  });
+
+  it("never matches non-string or empty stored emails", () => {
+    expect(emailMatchesQuery(undefined, "a")).toBe(false);
+    expect(emailMatchesQuery(null, "a")).toBe(false);
+    expect(emailMatchesQuery(42, "a")).toBe(false);
+    expect(emailMatchesQuery("", "a")).toBe(false);
   });
 });
 
 // ── Server-action block ───────────────────────────────────────────────────────
 // Imported AFTER the mocks above are declared. searchUsersByEmailForAdmin is
-// admin-gated, runs the prefix-range query via the Admin SDK, and merges claim
-// roles into the doc role.
+// admin-gated, scans the users collection with a field projection, filters
+// CONTAINS in memory, and merges claim roles into the doc role.
 
 import { searchUsersByEmailForAdmin } from "../admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
@@ -124,53 +120,65 @@ describe("searchUsersByEmailForAdmin", () => {
   it("propagates Forbidden when the caller is not an admin", async () => {
     mockedGetCurrentAdmin.mockRejectedValueOnce(new Error("Forbidden"));
     await expect(searchUsersByEmailForAdmin("foo")).rejects.toThrow("Forbidden");
-    expect(mockOrderBy).not.toHaveBeenCalled();
+    expect(mockCollection).not.toHaveBeenCalled();
   });
 
   it("returns [] for an empty query WITHOUT querying firestore", async () => {
     const rows = await searchUsersByEmailForAdmin("   ");
     expect(rows).toEqual([]);
     expect(mockCollection).not.toHaveBeenCalled();
-    expect(mockOrderBy).not.toHaveBeenCalled();
   });
 
-  it("runs the orderBy(email).startAt/endAt prefix range for a non-empty query", async () => {
-    mockGet.mockResolvedValueOnce({ docs: [] });
-    await searchUsersByEmailForAdmin("  John@ ");
+  it("scans users with a field projection and filters CONTAINS (not prefix-only)", async () => {
+    const docs = [
+      mockDoc("uid-prefix", { email: "carba.nico@gmail.com", role: "trainer" }),
+      mockDoc("uid-substr", { email: "ncarballal@gmail.com", role: "client", coachId: "coach-1" }),
+      mockDoc("uid-other", { email: "someone@example.com", role: "client" }),
+    ];
+    mockGet.mockResolvedValueOnce({ docs });
+
+    const rows = await searchUsersByEmailForAdmin("  Carba ");
 
     expect(mockCollection).toHaveBeenCalledWith("users");
-    expect(mockOrderBy).toHaveBeenCalledWith("email");
-    expect(mockStartAt).toHaveBeenCalledWith("john@");
-    expect(mockEndAt).toHaveBeenCalledWith("john@" + SENTINEL);
+    expect(mockSelect).toHaveBeenCalledWith(
+      "email",
+      "displayName",
+      "role",
+      "photoURL",
+      "deleted",
+      "coachId",
+    );
+    // Both the prefix match AND the mid-string match come back; the non-match doesn't.
+    expect(rows.map((r) => r.uid).sort()).toEqual(["uid-prefix", "uid-substr"]);
+    // Auth lookups only ran for the matches.
+    expect(mockGetUser).toHaveBeenCalledTimes(2);
   });
 
-  it("caps the limit to 50", async () => {
-    mockGet.mockResolvedValueOnce({ docs: [] });
-    await searchUsersByEmailForAdmin("john", 9999);
-    expect(mockLimit).toHaveBeenCalledWith(50);
+  it("caps the result list to 50 matches", async () => {
+    const docs = Array.from({ length: 60 }, (_, i) =>
+      mockDoc(`uid-${i}`, { email: `user${String(i).padStart(2, "0")}@carba.com` }),
+    );
+    mockGet.mockResolvedValueOnce({ docs });
+
+    const rows = await searchUsersByEmailForAdmin("carba", 9999);
+    expect(rows).toHaveLength(50);
   });
 
-  it("maps a snapshot into rows and merges claim roles with the doc role", async () => {
+  it("maps matches into rows and merges claim roles with the doc role", async () => {
     const docs = [
-      {
-        id: "uid-client",
-        data: () => ({
-          email: "client@example.com",
-          displayName: "Client One",
-          role: "client",
-          photoURL: "https://example.com/c.jpg",
-          deleted: false,
-          coachId: "coach-9",
-        }),
-      },
-      {
-        id: "uid-admin",
-        data: () => ({
-          email: "admin2@example.com",
-          displayName: "Admin Two",
-          // No doc role — admin lives only in claims.
-        }),
-      },
+      mockDoc("uid-client", {
+        email: "client@example.com",
+        displayName: "Client One",
+        role: "client",
+        photoURL: "https://example.com/c.jpg",
+        deleted: false,
+        coachId: "coach-9",
+      }),
+      mockDoc("uid-admin", {
+        email: "admin2@example.com",
+        displayName: "Admin Two",
+        // No doc role — admin lives only in claims.
+      }),
     ];
     mockGet.mockResolvedValueOnce({ docs });
     // Per-uid claims: the first user has no extra claims, the second is admin.
@@ -180,7 +188,7 @@ describe("searchUsersByEmailForAdmin", () => {
         : Promise.resolve({ customClaims: {} }),
     );
 
-    const rows = await searchUsersByEmailForAdmin("a");
+    const rows = await searchUsersByEmailForAdmin("example.com");
 
     expect(rows).toHaveLength(2);
 
@@ -205,10 +213,7 @@ describe("searchUsersByEmailForAdmin", () => {
 
   it("does not throw when getUser fails for a doc (tolerant role merge)", async () => {
     const docs = [
-      {
-        id: "uid-x",
-        data: () => ({ email: "x@example.com", displayName: "X", role: "trainer" }),
-      },
+      mockDoc("uid-x", { email: "x@example.com", displayName: "X", role: "trainer" }),
     ];
     mockGet.mockResolvedValueOnce({ docs });
     mockGetUser.mockRejectedValueOnce(new Error("auth/user-not-found"));
