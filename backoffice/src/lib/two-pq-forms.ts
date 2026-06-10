@@ -4,12 +4,19 @@ export type PatientInformationFormState = {
   institutionId: string;
   doctorId: string;
   email: string;
+  firstName: string;
+  lastName: string;
   fullName: string;
   medicalRecordNumber: string;
   birthDate: string;
   sex: string;
   status: "active" | "inactive";
   notes: string;
+  partnerFirstName: string;
+  partnerLastName: string;
+  partnerMedicalRecordNumber: string;
+  partnerBirthDate: string;
+  partnerNotes: string;
 };
 
 export type InstitutionInformationFormState = {
@@ -27,11 +34,10 @@ export type InstitutionInformationFormState = {
 };
 
 export type MedicalInformationFormState = {
-  previousConceptionsCount: string;
   previousMiscarriagesCount: string;
-  previousBirthsCount: string;
-  previousCyclesCount: string;
   maleFactor: string;
+  spermGameteSource: string;
+  oocyteGameteSource: string;
   otherBackground: string;
 };
 
@@ -40,6 +46,10 @@ export type PreviousGeneticTestsFormState = {
   karyotype: string;
   pgtResult: string;
   karyotypeResult: string;
+  karyotypeFileName: string;
+  karyotypeFileType: string;
+  karyotypeFileSize: string;
+  karyotypeFileContent: string;
 };
 
 export type RequestedTestFormState = {
@@ -48,8 +58,16 @@ export type RequestedTestFormState = {
   priority: string;
   reason: string;
   notes: string;
+  pgtAFast: string;
+  pgtAFastReportsMosaicism: string;
+  pgtAFastReportsSex: string;
+  pgtAStandard: string;
+  pgtAStandardReportsMosaicism: string;
+  pgtAStandardReportsSex: string;
   pgtA: string;
   pgtSr: string;
+  pgtSrReportsMosaicism: string;
+  pgtSrReportsSex: string;
   reportsMosaicism: string;
   reportsSex: string;
   requestReason: string;

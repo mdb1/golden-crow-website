@@ -42,12 +42,18 @@ type PatientInformationInput = {
   institutionId?: string;
   doctorId?: string;
   email?: string;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   medicalRecordNumber?: string;
   birthDate?: string;
   sex?: string;
   status?: "active" | "inactive";
   notes?: string;
+  partnerFullName?: string;
+  partnerMedicalRecordNumber?: string;
+  partnerBirthDate?: string;
+  partnerNotes?: string;
 };
 
 type InstitutionInformationInput = {
@@ -70,6 +76,8 @@ type MedicalInformationInput = {
   previousBirthsCount?: number | string;
   previousCyclesCount?: number | string;
   maleFactor?: boolean | string;
+  spermGameteSource?: string;
+  oocyteGameteSource?: string;
   otherBackground?: string;
   clinicalIndication?: string;
   suspectedDiagnosis?: string;
@@ -84,6 +92,10 @@ type PreviousGeneticTestsInput = {
   karyotype?: boolean | string;
   pgtResult?: string;
   karyotypeResult?: string;
+  karyotypeFileName?: string;
+  karyotypeFileType?: string;
+  karyotypeFileSize?: number | string;
+  karyotypeFileContent?: string;
   hasPreviousTests?: string;
   testDescription?: string;
   labName?: string;
@@ -93,8 +105,16 @@ type PreviousGeneticTestsInput = {
 };
 
 type RequestedTestInput = {
+  pgtAFast?: boolean | string;
+  pgtAFastReportsMosaicism?: boolean | string;
+  pgtAFastReportsSex?: boolean | string;
+  pgtAStandard?: boolean | string;
+  pgtAStandardReportsMosaicism?: boolean | string;
+  pgtAStandardReportsSex?: boolean | string;
   pgtA?: boolean | string;
   pgtSr?: boolean | string;
+  pgtSrReportsMosaicism?: boolean | string;
+  pgtSrReportsSex?: boolean | string;
   reportsMosaicism?: boolean | string;
   reportsSex?: boolean | string;
   requestReason?: string;
@@ -241,15 +261,6 @@ function normalizeRequiredIsoDateString(value: unknown, label: string) {
   return candidate.toISOString();
 }
 
-function normalizeNonNegativeInteger(value: unknown, label: string) {
-  const normalized =
-    typeof value === "number" ? value : Number(normalizeRequiredString(value, label));
-  if (!Number.isInteger(normalized) || normalized < 0) {
-    throw new AdminRepositoryError(`${label} must be a whole number of 0 or more.`, 400);
-  }
-  return normalized;
-}
-
 function normalizeBooleanAnswer(value: unknown, label: string) {
   if (typeof value === "boolean") {
     return value;
@@ -264,6 +275,49 @@ function normalizeBooleanAnswer(value: unknown, label: string) {
   }
 
   throw new AdminRepositoryError(`${label} must be SI or NO.`, 400);
+}
+
+function joinNameParts(firstName: unknown, lastName: unknown) {
+  return [normalizeOptionalString(firstName), normalizeOptionalString(lastName)]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+}
+
+function normalizeFullName(input: PatientInformationInput) {
+  return normalizeRequiredString(
+    normalizeOptionalString(input.fullName) ??
+      joinNameParts(input.firstName, input.lastName),
+    "Patient full name"
+  );
+}
+
+function normalizeGameteSource(value: unknown, label: string) {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized === "propio" || normalized === "donado") {
+    return normalized;
+  }
+
+  throw new AdminRepositoryError(`${label} must be propio or donado.`, 400);
+}
+
+function normalizePreviousMiscarriages(value: unknown) {
+  const normalized = normalizeRequiredString(
+    value,
+    "Numero abortos previos"
+  );
+  const allowedValues = new Set(["0", "1", "2", "3_or_more", "recurrent"]);
+  if (allowedValues.has(normalized)) {
+    return normalized;
+  }
+
+  throw new AdminRepositoryError(
+    "Numero abortos previos must be 0, 1, 2, 3_or_more, or recurrent.",
+    400
+  );
 }
 
 function normalizeStatus(value: unknown): "active" | "inactive" {
@@ -507,32 +561,43 @@ async function validateDoctorInstitutionLink(institutionId: string, doctorId: st
 function normalizePatientInformation(input: PatientInformationInput) {
   const institutionId = normalizeRequiredString(input.institutionId, "Patient institution");
   const doctorId = normalizeRequiredString(input.doctorId, "Patient doctor");
+  const sex = normalizeOptionalString(input.sex);
+  const partnerFullName = normalizeOptionalString(input.partnerFullName);
+  const partnerMedicalRecordNumber = normalizeOptionalString(
+    input.partnerMedicalRecordNumber
+  );
+  const partnerBirthDate = normalizeIsoDateString(input.partnerBirthDate);
+  const partnerNotes = normalizeOptionalString(input.partnerNotes);
 
   return compactRecord({
     institutionId,
     doctorId,
     email: normalizeEmail(input.email, "Patient email"),
-    fullName: normalizeRequiredString(input.fullName, "Patient full name"),
+    fullName: normalizeFullName(input),
     medicalRecordNumber: normalizeOptionalString(input.medicalRecordNumber),
     birthDate: normalizeIsoDateString(input.birthDate),
-    sex: normalizeOptionalString(input.sex),
+    ...(sex ? { sex } : {}),
     status: normalizeStatus(input.status),
     notes: normalizeOptionalString(input.notes),
+    ...(partnerFullName ||
+    partnerMedicalRecordNumber ||
+    partnerBirthDate ||
+    partnerNotes
+      ? {
+          partnerFullName,
+          partnerMedicalRecordNumber,
+          partnerBirthDate,
+          partnerNotes,
+        }
+      : {}),
   });
 }
 
 function normalizeInstitutionInformation(input: InstitutionInformationInput) {
   return compactRecord({
-    code: normalizeOptionalString(input.code),
     name: normalizeRequiredString(input.name, "Institution name"),
-    legalName: normalizeOptionalString(input.legalName),
     contactEmail: normalizeOptionalEmail(input.contactEmail),
     contactPhone: normalizeOptionalString(input.contactPhone),
-    addressLine1: normalizeOptionalString(input.addressLine1),
-    addressLine2: normalizeOptionalString(input.addressLine2),
-    city: normalizeOptionalString(input.city),
-    state: normalizeOptionalString(input.state),
-    country: normalizeOptionalString(input.country),
     notes: normalizeOptionalString(input.notes),
   });
 }
@@ -543,23 +608,18 @@ function normalizeMedicalInformation(
 ) {
   if (formType === "study_request") {
     return compactRecord({
-      previousConceptionsCount: normalizeNonNegativeInteger(
-        input.previousConceptionsCount,
-        "Numero concepciones previas"
+      spermGameteSource: normalizeGameteSource(
+        input.spermGameteSource,
+        "Esperma"
       ),
-      previousMiscarriagesCount: normalizeNonNegativeInteger(
-        input.previousMiscarriagesCount,
-        "Numero abortos previos"
-      ),
-      previousBirthsCount: normalizeNonNegativeInteger(
-        input.previousBirthsCount,
-        "Numero nacimientos previos"
-      ),
-      previousCyclesCount: normalizeNonNegativeInteger(
-        input.previousCyclesCount,
-        "Numero ciclos previos"
+      oocyteGameteSource: normalizeGameteSource(
+        input.oocyteGameteSource,
+        "Ovocitos"
       ),
       maleFactor: normalizeBooleanAnswer(input.maleFactor, "Factor masculino"),
+      previousMiscarriagesCount: normalizePreviousMiscarriages(
+        input.previousMiscarriagesCount
+      ),
       otherBackground: normalizeRequiredString(
         input.otherBackground,
         "Otros antecedentes"
@@ -585,18 +645,18 @@ function normalizePreviousGeneticTests(
   formType: TwoPQFormType = "study_request"
 ) {
   if (formType === "study_request") {
-    const pgtASr = normalizeBooleanAnswer(input.pgtASr, "PGT-A / PGT-SR");
-    const karyotype = normalizeBooleanAnswer(input.karyotype, "CARIOTIPO");
-
     return compactRecord({
-      pgtASr,
-      karyotype,
-      pgtResult: pgtASr
-        ? normalizeRequiredString(input.pgtResult, "RESULTADO PGT")
-        : normalizeOptionalString(input.pgtResult),
-      karyotypeResult: karyotype
-        ? normalizeRequiredString(input.karyotypeResult, "RESULTADO CARIOTIPO")
-        : normalizeOptionalString(input.karyotypeResult),
+      karyotypeResult: normalizeRequiredString(
+        input.karyotypeResult,
+        "RESULTADO CARIOTIPO"
+      ),
+      karyotypeFileName: normalizeOptionalString(input.karyotypeFileName),
+      karyotypeFileType: normalizeOptionalString(input.karyotypeFileType),
+      karyotypeFileSize:
+        typeof input.karyotypeFileSize === "number"
+          ? String(input.karyotypeFileSize)
+          : normalizeOptionalString(input.karyotypeFileSize),
+      karyotypeFileContent: normalizeOptionalString(input.karyotypeFileContent),
     });
   }
 
@@ -613,39 +673,78 @@ function normalizePreviousGeneticTests(
   });
 }
 
+function normalizeConditionalBooleanAnswer(
+  value: unknown,
+  selected: boolean,
+  label: string
+) {
+  return selected ? normalizeBooleanAnswer(value, label) : undefined;
+}
+
 function normalizeRequestedTest(
   input: RequestedTestInput,
   formType: TwoPQFormType = "sample"
 ) {
+  if (formType === "study_request") {
+    const pgtAFast = normalizeBooleanAnswer(input.pgtAFast, "PGT-A FAST");
+    const pgtAStandard = normalizeBooleanAnswer(
+      input.pgtAStandard,
+      "PGT-A STANDARD"
+    );
+    const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
+    if (!pgtAFast && !pgtAStandard && !pgtSr) {
+      throw new AdminRepositoryError("At least one requested test must be SI.", 400);
+    }
+
+    return compactRecord({
+      pgtAFast,
+      pgtAFastReportsMosaicism: normalizeConditionalBooleanAnswer(
+        input.pgtAFastReportsMosaicism,
+        pgtAFast,
+        "PGT-A FAST informa mosaicismos"
+      ),
+      pgtAFastReportsSex: normalizeConditionalBooleanAnswer(
+        input.pgtAFastReportsSex,
+        pgtAFast,
+        "PGT-A FAST informa sexo"
+      ),
+      pgtAStandard,
+      pgtAStandardReportsMosaicism: normalizeConditionalBooleanAnswer(
+        input.pgtAStandardReportsMosaicism,
+        pgtAStandard,
+        "PGT-A STANDARD informa mosaicismos"
+      ),
+      pgtAStandardReportsSex: normalizeConditionalBooleanAnswer(
+        input.pgtAStandardReportsSex,
+        pgtAStandard,
+        "PGT-A STANDARD informa sexo"
+      ),
+      pgtSr,
+      pgtSrReportsMosaicism: normalizeConditionalBooleanAnswer(
+        input.pgtSrReportsMosaicism,
+        pgtSr,
+        "PGT-SR informa mosaicismos"
+      ),
+      pgtSrReportsSex: normalizeConditionalBooleanAnswer(
+        input.pgtSrReportsSex,
+        pgtSr,
+        "PGT-SR informa sexo"
+      ),
+    });
+  }
+
   const hasPgtAnswer =
     typeof input.pgtA !== "undefined" || typeof input.pgtSr !== "undefined";
-  if (formType === "study_request" || hasPgtAnswer) {
+  if (hasPgtAnswer) {
     const pgtA = normalizeBooleanAnswer(input.pgtA, "PGT-A");
     const pgtSr = normalizeBooleanAnswer(input.pgtSr, "PGT-SR");
     if (!pgtA && !pgtSr) {
       throw new AdminRepositoryError("At least one requested test must be SI.", 400);
     }
 
-    if (formType === "sample") {
-      return compactRecord({
-        pgtA,
-        pgtSr,
-      });
-    }
-
     return compactRecord({
       pgtA,
       pgtSr,
-      reportsMosaicism: normalizeBooleanAnswer(
-        input.reportsMosaicism,
-        "INFORMA MOSAICISMOS"
-      ),
-      reportsSex: normalizeBooleanAnswer(input.reportsSex, "INFORMA SEXO"),
-      requestReason: normalizeRequiredString(
-        input.requestReason,
-        "MOTIVO DE SOLICITUD"
-      ),
-      requestDate: normalizeRequiredIsoDateString(input.requestDate, "FECHA"),
     });
   }
 
@@ -662,11 +761,19 @@ function getRequestedTestName(
   requestedTest: Record<string, unknown>,
   formType: TwoPQFormType
 ) {
-  if (
-    formType === "study_request" ||
-    "pgtA" in requestedTest ||
-    "pgtSr" in requestedTest
-  ) {
+  if (formType === "study_request") {
+    const selectedTests = [
+      requestedTest.pgtAFast === true ? "PGT-A FAST" : null,
+      requestedTest.pgtAStandard === true ? "PGT-A STANDARD" : null,
+      requestedTest.pgtSr === true ? "PGT-SR" : null,
+    ].filter((value): value is string => Boolean(value));
+
+    return selectedTests.length > 0
+      ? selectedTests.join(" / ")
+      : "Solicitud de estudio";
+  }
+
+  if ("pgtA" in requestedTest || "pgtSr" in requestedTest) {
     const selectedTests = [
       requestedTest.pgtA === true ? "PGT-A" : null,
       requestedTest.pgtSr === true ? "PGT-SR" : null,

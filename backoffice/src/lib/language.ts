@@ -227,15 +227,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select an institution.": "Seleccioná una institución.",
   "Select a doctor.": "Seleccioná un médico.",
   "Enter a valid patient email.": "Ingresá un email de paciente válido.",
+  "Enter a valid patient reference email.":
+    "Ingresá un mail de referencia del paciente válido.",
   "Patient full name is required.": "El nombre completo del paciente es requerido.",
-  "Previous conceptions must be a whole number of 0 or more.":
-    "Concepciones previas debe ser un número entero de 0 o más.",
-  "Previous miscarriages must be a whole number of 0 or more.":
-    "Abortos previos debe ser un número entero de 0 o más.",
-  "Previous births must be a whole number of 0 or more.":
-    "Nacimientos previos debe ser un número entero de 0 o más.",
-  "Previous cycles must be a whole number of 0 or more.":
-    "Ciclos previos debe ser un número entero de 0 o más.",
+  "Patient first name is required.": "El nombre del paciente es requerido.",
+  "Patient last name is required.": "El apellido del paciente es requerido.",
+  "Partner birth date must be a valid date.":
+    "La fecha de nacimiento de la pareja debe ser una fecha válida.",
+  "Sperm gamete source is not valid.":
+    "El origen del esperma no es válido.",
+  "Oocyte gamete source is not valid.":
+    "El origen de los ovocitos no es válido.",
+  "Select previous miscarriages.": "Seleccioná abortos previos.",
+  "Previous miscarriages selection is not valid.":
+    "La selección de abortos previos no es válida.",
   "Select male factor.": "Seleccioná factor masculino.",
   "Other background is required.": "Otros antecedentes es requerido.",
   "Select PGT-A / PGT-SR.": "Seleccioná PGT-A / PGT-SR.",
@@ -244,10 +249,24 @@ const SPANISH_TEXT: Record<string, string> = {
     "Resultado PGT es requerido cuando PGT-A / PGT-SR es Sí.",
   "Karyotype result is required when karyotype is Yes.":
     "Resultado cariotipo es requerido cuando cariotipo es Sí.",
+  "Karyotype result is required.": "Resultado cariotipo es requerido.",
   "Select PGT-A.": "Seleccioná PGT-A.",
+  "Select PGT-A FAST.": "Seleccioná PGT-A FAST.",
+  "Select PGT-A STANDARD.": "Seleccioná PGT-A STANDARD.",
   "Select PGT-SR.": "Seleccioná PGT-SR.",
   "Select Yes for at least one requested test.":
     "Seleccioná Sí para al menos un test solicitado.",
+  "Select PGT-A FAST reports mosaicism.":
+    "Seleccioná informa mosaicismo para PGT-A FAST.",
+  "Select PGT-A FAST reports sex.":
+    "Seleccioná informa sexo para PGT-A FAST.",
+  "Select PGT-A STANDARD reports mosaicism.":
+    "Seleccioná informa mosaicismo para PGT-A STANDARD.",
+  "Select PGT-A STANDARD reports sex.":
+    "Seleccioná informa sexo para PGT-A STANDARD.",
+  "Select PGT-SR reports mosaicism.":
+    "Seleccioná informa mosaicismo para PGT-SR.",
+  "Select PGT-SR reports sex.": "Seleccioná informa sexo para PGT-SR.",
   "Select reports mosaicism.": "Seleccioná informa mosaicismos.",
   "Select reports sex.": "Seleccioná informa sexo.",
   "Request reason is required.": "Motivo de solicitud es requerido.",
@@ -382,6 +401,19 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select doctor": "Seleccionar médico",
   "No doctor": "Sin médico",
   Email: "Email",
+  "Study request form": "Formulario de solicitud",
+  "Patient reference email": "Mail de referencia del paciente",
+  "Patient first name": "Nombre del paciente",
+  "Patient last name": "Apellido del paciente",
+  "Patient DNI": "DNI del paciente",
+  "Patient birth date": "Fecha de nacimiento del paciente",
+  "Patient notes": "Notas del paciente",
+  Partner: "Pareja",
+  "Partner first name": "Nombre de la pareja",
+  "Partner last name": "Apellido de la pareja",
+  "Partner DNI": "DNI de la pareja",
+  "Partner birth date": "Fecha de nacimiento de la pareja",
+  "Partner notes": "Notas de la pareja",
   "Full name": "Nombre completo",
   "Medical record number": "Número de historia clínica",
   "Birth date": "Fecha de nacimiento",
@@ -389,15 +421,35 @@ const SPANISH_TEXT: Record<string, string> = {
   Status: "Estado",
   "Select status": "Seleccionar estado",
   Notes: "Notas",
-  "Previous conceptions": "Concepciones previas",
   "Previous miscarriages": "Abortos previos",
-  "Previous births": "Nacimientos previos",
-  "Previous cycles": "Ciclos previos",
+  "Gamete donation": "Donación de gametas",
+  Sperm: "Esperma",
+  Oocytes: "Ovocitos",
+  Own: "Propio",
+  Donated: "Donado",
+  "Not set": "Sin definir",
+  "3 or more": "3 o más",
+  Recurrent: "Recurrente",
   "Male factor": "Factor masculino",
   "Other background": "Otros antecedentes",
   Karyotype: "Cariotipo",
   "PGT result": "Resultado PGT",
   "Karyotype result": "Resultado cariotipo",
+  "PGT-A FAST reports mosaicism": "PGT-A FAST informa mosaicismo",
+  "PGT-A FAST reports sex": "PGT-A FAST informa sexo",
+  "PGT-A STANDARD reports mosaicism": "PGT-A STANDARD informa mosaicismo",
+  "PGT-A STANDARD reports sex": "PGT-A STANDARD informa sexo",
+  "PGT-SR reports mosaicism": "PGT-SR informa mosaicismo",
+  "PGT-SR reports sex": "PGT-SR informa sexo",
+  "Karyotype file": "Archivo cariotipo",
+  "Karyotype file is too large.":
+    "El archivo de cariotipo es demasiado grande.",
+  "Unable to read karyotype file.":
+    "No se pudo leer el archivo de cariotipo.",
+  "No file selected": "Sin archivo seleccionado",
+  "Upload file": "Cargar archivo",
+  "Remove file": "Quitar archivo",
+  "Maximum file size: 750 KB.": "Tamaño máximo del archivo: 750 KB.",
   "Reports mosaicism": "Informa mosaicismos",
   "Reports sex": "Informa sexo",
   "Request reason": "Motivo de solicitud",

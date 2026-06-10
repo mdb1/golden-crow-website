@@ -20,59 +20,80 @@ import { compactList } from "@/lib/moderation-utils";
 type FieldSpec = {
   key: string;
   label: string;
-  type?: "boolean" | "date" | "datetime";
+  type?: "boolean" | "date" | "datetime" | "gameteSource" | "miscarriages";
 };
 
 const PATIENT_FIELDS: FieldSpec[] = [
   { key: "patientId", label: "Scoped patient ID" },
   { key: "fullName", label: "Full name" },
-  { key: "email", label: "Email" },
+  { key: "email", label: "Patient reference email" },
   { key: "institutionId", label: "Institution ID" },
   { key: "doctorId", label: "Doctor ID" },
-  { key: "medicalRecordNumber", label: "Medical record number" },
+  { key: "medicalRecordNumber", label: "DNI" },
   { key: "birthDate", label: "Birth date", type: "date" },
-  { key: "sex", label: "Sex / gender" },
-  { key: "status", label: "Status" },
   { key: "notes", label: "Notes" },
+  { key: "partnerFullName", label: "Pareja" },
+  { key: "partnerMedicalRecordNumber", label: "DNI pareja" },
+  { key: "partnerBirthDate", label: "Fecha de nacimiento pareja", type: "date" },
+  { key: "partnerNotes", label: "Notas pareja" },
 ];
 
 const INSTITUTION_FIELDS: FieldSpec[] = [
-  { key: "code", label: "Institution code" },
   { key: "name", label: "Institution name" },
-  { key: "legalName", label: "Legal name" },
   { key: "contactEmail", label: "Contact email" },
   { key: "contactPhone", label: "Contact phone" },
-  { key: "addressLine1", label: "Address line 1" },
-  { key: "addressLine2", label: "Address line 2" },
-  { key: "city", label: "City" },
-  { key: "state", label: "State / region" },
-  { key: "country", label: "Country" },
   { key: "notes", label: "Notes" },
 ];
 
 const STUDY_MEDICAL_FIELDS: FieldSpec[] = [
-  { key: "previousConceptionsCount", label: "numero concepciones previas" },
-  { key: "previousMiscarriagesCount", label: "numero abortos previos" },
-  { key: "previousBirthsCount", label: "numero nacimientos previos" },
-  { key: "previousCyclesCount", label: "numero ciclos previos" },
+  { key: "spermGameteSource", label: "esperma", type: "gameteSource" },
+  { key: "oocyteGameteSource", label: "ovocitos", type: "gameteSource" },
   { key: "maleFactor", label: "Factor masculino", type: "boolean" },
+  {
+    key: "previousMiscarriagesCount",
+    label: "numero abortos previos",
+    type: "miscarriages",
+  },
   { key: "otherBackground", label: "otros antecedentes" },
 ];
 
 const STUDY_PREVIOUS_TEST_FIELDS: FieldSpec[] = [
-  { key: "pgtASr", label: "PGT-A / PGT-SR", type: "boolean" },
-  { key: "karyotype", label: "CARIOTIPO", type: "boolean" },
-  { key: "pgtResult", label: "RESULTADO PGT" },
   { key: "karyotypeResult", label: "RESULTADO CARIOTIPO" },
+  { key: "karyotypeFileName", label: "Archivo cariotipo" },
+  { key: "karyotypeFileType", label: "Tipo archivo cariotipo" },
+  { key: "karyotypeFileSize", label: "Tamaño archivo cariotipo" },
 ];
 
 const STUDY_REQUESTED_TEST_FIELDS: FieldSpec[] = [
-  { key: "pgtA", label: "PGT-A", type: "boolean" },
+  { key: "pgtAFast", label: "PGT-A FAST", type: "boolean" },
+  {
+    key: "pgtAFastReportsMosaicism",
+    label: "PGT-A FAST informa mosaicismo",
+    type: "boolean",
+  },
+  {
+    key: "pgtAFastReportsSex",
+    label: "PGT-A FAST informa sexo",
+    type: "boolean",
+  },
+  { key: "pgtAStandard", label: "PGT-A STANDARD", type: "boolean" },
+  {
+    key: "pgtAStandardReportsMosaicism",
+    label: "PGT-A STANDARD informa mosaicismo",
+    type: "boolean",
+  },
+  {
+    key: "pgtAStandardReportsSex",
+    label: "PGT-A STANDARD informa sexo",
+    type: "boolean",
+  },
   { key: "pgtSr", label: "PGT-SR", type: "boolean" },
-  { key: "reportsMosaicism", label: "INFORMA MOSAICISMOS", type: "boolean" },
-  { key: "reportsSex", label: "INFORMA SEXO", type: "boolean" },
-  { key: "requestReason", label: "MOTIVO DE SOLICITUD" },
-  { key: "requestDate", label: "FECHA", type: "date" },
+  {
+    key: "pgtSrReportsMosaicism",
+    label: "PGT-SR informa mosaicismo",
+    type: "boolean",
+  },
+  { key: "pgtSrReportsSex", label: "PGT-SR informa sexo", type: "boolean" },
 ];
 
 const SAMPLE_REQUESTED_TEST_FIELDS: FieldSpec[] = [
@@ -162,6 +183,14 @@ function formatValue(value: unknown, type?: FieldSpec["type"]) {
     }
     if (type === "date" || type === "datetime") {
       return formatDate(value, type === "datetime");
+    }
+    if (type === "gameteSource") {
+      if (value === "propio") return "Propio";
+      if (value === "donado") return "Donado";
+    }
+    if (type === "miscarriages") {
+      if (value === "3_or_more") return "3 o más";
+      if (value === "recurrent") return "Recurrente";
     }
     return value;
   }

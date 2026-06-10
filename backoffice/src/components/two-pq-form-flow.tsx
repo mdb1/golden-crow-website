@@ -14,6 +14,8 @@ import {
   Plus,
   Save,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
@@ -96,8 +98,8 @@ type WholeDataValidationResult = {
 const STUDY_REQUEST_STEPS: StepKey[] = [
   "patientInformation",
   "medicalInformation",
-  "previousGeneticTests",
   "requestedTest",
+  "previousGeneticTests",
   "institutionInformation",
 ];
 
@@ -112,7 +114,7 @@ const SAMPLE_STEPS: StepKey[] = [
 const STEP_LABELS: Record<StepKey, string> = {
   patientInformation: "Patient information",
   medicalInformation: "Medical information",
-  previousGeneticTests: "Previous genetic tests",
+  previousGeneticTests: "Karyotype",
   requestedTest: "Requested test",
   institutionInformation: "Institution information",
   sampleInformation: "Sample information",
@@ -127,21 +129,30 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   selectedCaseId: "Pick existing 2PQ case",
   "patientInformation.institutionId": "Institution",
   "patientInformation.doctorId": "Doctor",
-  "patientInformation.email": "Email",
+  "patientInformation.email": "Patient reference email",
+  "patientInformation.firstName": "Patient first name",
+  "patientInformation.lastName": "Patient last name",
   "patientInformation.fullName": "Full name",
   "patientInformation.birthDate": "Birth date",
-  "medicalInformation.previousConceptionsCount": "Previous conceptions",
+  "patientInformation.partnerBirthDate": "Partner birth date",
+  "medicalInformation.spermGameteSource": "Sperm",
+  "medicalInformation.oocyteGameteSource": "Oocytes",
   "medicalInformation.previousMiscarriagesCount": "Previous miscarriages",
-  "medicalInformation.previousBirthsCount": "Previous births",
-  "medicalInformation.previousCyclesCount": "Previous cycles",
   "medicalInformation.maleFactor": "Male factor",
   "medicalInformation.otherBackground": "Other background",
-  "previousGeneticTests.pgtASr": "PGT-A / PGT-SR",
-  "previousGeneticTests.karyotype": "Karyotype",
-  "previousGeneticTests.pgtResult": "PGT result",
   "previousGeneticTests.karyotypeResult": "Karyotype result",
+  "previousGeneticTests.karyotypeFileContent": "Karyotype file",
+  "requestedTest.pgtAFast": "PGT-A FAST",
+  "requestedTest.pgtAFastReportsMosaicism": "PGT-A FAST reports mosaicism",
+  "requestedTest.pgtAFastReportsSex": "PGT-A FAST reports sex",
+  "requestedTest.pgtAStandard": "PGT-A STANDARD",
+  "requestedTest.pgtAStandardReportsMosaicism":
+    "PGT-A STANDARD reports mosaicism",
+  "requestedTest.pgtAStandardReportsSex": "PGT-A STANDARD reports sex",
   "requestedTest.pgtA": "PGT-A",
   "requestedTest.pgtSr": "PGT-SR",
+  "requestedTest.pgtSrReportsMosaicism": "PGT-SR reports mosaicism",
+  "requestedTest.pgtSrReportsSex": "PGT-SR reports sex",
   "requestedTest.reportsMosaicism": "Reports mosaicism",
   "requestedTest.reportsSex": "Reports sex",
   "requestedTest.requestReason": "Request reason",
@@ -172,6 +183,21 @@ const YES_NO_OPTIONS = [
   { value: "si", label: "Yes" },
   { value: "no", label: "No" },
 ];
+
+const GAMETE_SOURCE_OPTIONS = [
+  { value: "propio", label: "Own" },
+  { value: "donado", label: "Donated" },
+];
+
+const PREVIOUS_MISCARRIAGES_OPTIONS = [
+  { value: "0", label: "0" },
+  { value: "1", label: "1" },
+  { value: "2", label: "2" },
+  { value: "3_or_more", label: "3 or more" },
+  { value: "recurrent", label: "Recurrent" },
+];
+
+const KARYOTYPE_FILE_MAX_BYTES = 750_000;
 
 const SAMPLE_TYPE_OPTIONS = [
   { value: "biopsia de trofoectodermo", label: "Trophectoderm biopsy" },
@@ -227,14 +253,6 @@ function optionalValidEmail(value: string) {
   return !value.trim() || isValidEmail(value);
 }
 
-function isNonNegativeInteger(value: string) {
-  if (!value.trim()) {
-    return false;
-  }
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0;
-}
-
 function isValidDateInput(value: string) {
   const trimmedValue = value.trim();
   if (!trimmedValue || !/^\d{4}-\d{2}-\d{2}$/.test(trimmedValue)) {
@@ -256,6 +274,28 @@ function optionalValidDateInput(value: string) {
 
 function toDateInputValue(value?: string) {
   return value ? value.slice(0, 10) : "";
+}
+
+function joinNameParts(firstName: string, lastName: string) {
+  return [firstName, lastName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function splitFullName(fullName: string) {
+  const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (nameParts.length <= 1) {
+    return {
+      firstName: nameParts[0] ?? "",
+      lastName: "",
+    };
+  }
+
+  return {
+    firstName: nameParts[0],
+    lastName: nameParts.slice(1).join(" "),
+  };
 }
 
 function todayDateInputValue() {
@@ -476,7 +516,8 @@ function emptySampling(): SamplingInformationFormState {
 
 function buildInitialState(
   institutionId: string,
-  doctorId: string
+  doctorId: string,
+  referenceEmail = ""
 ): FlowState {
   return {
     selectedPatientId: "",
@@ -485,20 +526,26 @@ function buildInitialState(
     patientInformation: {
       institutionId,
       doctorId,
-      email: "",
+      email: referenceEmail,
+      firstName: "",
+      lastName: "",
       fullName: "",
       medicalRecordNumber: "",
       birthDate: "",
       sex: "",
       status: "active",
       notes: "",
+      partnerFirstName: "",
+      partnerLastName: "",
+      partnerMedicalRecordNumber: "",
+      partnerBirthDate: "",
+      partnerNotes: "",
     },
     medicalInformation: {
-      previousConceptionsCount: "",
       previousMiscarriagesCount: "",
-      previousBirthsCount: "",
-      previousCyclesCount: "",
       maleFactor: "",
+      spermGameteSource: "",
+      oocyteGameteSource: "",
       otherBackground: "",
     },
     previousGeneticTests: {
@@ -506,6 +553,10 @@ function buildInitialState(
       karyotype: "",
       pgtResult: "",
       karyotypeResult: "",
+      karyotypeFileName: "",
+      karyotypeFileType: "",
+      karyotypeFileSize: "",
+      karyotypeFileContent: "",
     },
     requestedTest: {
       testName: "",
@@ -513,8 +564,16 @@ function buildInitialState(
       priority: "",
       reason: "",
       notes: "",
+      pgtAFast: "",
+      pgtAFastReportsMosaicism: "",
+      pgtAFastReportsSex: "",
+      pgtAStandard: "",
+      pgtAStandardReportsMosaicism: "",
+      pgtAStandardReportsSex: "",
       pgtA: "",
       pgtSr: "",
+      pgtSrReportsMosaicism: "",
+      pgtSrReportsSex: "",
       reportsMosaicism: "",
       reportsSex: "",
       requestReason: "",
@@ -575,6 +634,31 @@ function validationStatusFor(errors: FieldErrors): StepValidationStatus {
 
 function mergeDraftSection<T extends object>(base: T, value: unknown): T {
   return isRecord(value) ? { ...base, ...value } as T : base;
+}
+
+function mergePatientInformationDraft(
+  base: PatientInformationFormState,
+  value: unknown
+): PatientInformationFormState {
+  const merged = mergeDraftSection(base, value);
+  if (
+    (!merged.firstName.trim() || !merged.lastName.trim()) &&
+    merged.fullName.trim()
+  ) {
+    const splitName = splitFullName(merged.fullName);
+    return {
+      ...merged,
+      firstName: merged.firstName.trim() ? merged.firstName : splitName.firstName,
+      lastName: merged.lastName.trim() ? merged.lastName : splitName.lastName,
+    };
+  }
+
+  return {
+    ...merged,
+    fullName: merged.fullName.trim()
+      ? merged.fullName
+      : joinNameParts(merged.firstName, merged.lastName),
+  };
 }
 
 function mergeSampleInformationDraft(
@@ -644,7 +728,7 @@ function hydrateDraftState(
       typeof draftState.selectedRequestingDoctorId === "string"
         ? draftState.selectedRequestingDoctorId
         : defaultState.selectedRequestingDoctorId,
-    patientInformation: mergeDraftSection(
+    patientInformation: mergePatientInformationDraft(
       defaultState.patientInformation,
       draftState.patientInformation
     ),
@@ -719,9 +803,21 @@ function validateStepFields(
       errors["patientInformation.doctorId"] = t("Select a doctor.");
     }
     if (!isValidEmail(flowState.patientInformation.email)) {
-      errors["patientInformation.email"] = t("Enter a valid patient email.");
+      errors["patientInformation.email"] =
+        formType === "study_request"
+          ? t("Enter a valid patient reference email.")
+          : t("Enter a valid patient email.");
     }
-    if (!flowState.patientInformation.fullName.trim()) {
+    if (formType === "study_request") {
+      if (!flowState.patientInformation.firstName.trim()) {
+        errors["patientInformation.firstName"] =
+          t("Patient first name is required.");
+      }
+      if (!flowState.patientInformation.lastName.trim()) {
+        errors["patientInformation.lastName"] =
+          t("Patient last name is required.");
+      }
+    } else if (!flowState.patientInformation.fullName.trim()) {
       errors["patientInformation.fullName"] = t("Patient full name is required.");
     }
     if (
@@ -730,37 +826,41 @@ function validateStepFields(
     ) {
       errors["patientInformation.birthDate"] = t("Birth date must be a valid date.");
     }
+    if (
+      flowState.patientInformation.partnerBirthDate &&
+      !optionalValidDateInput(flowState.patientInformation.partnerBirthDate)
+    ) {
+      errors["patientInformation.partnerBirthDate"] =
+        t("Partner birth date must be a valid date.");
+    }
   }
 
   if (step === "medicalInformation") {
-    const integerFields: Array<[string, string, string]> = [
-      [
-        "medicalInformation.previousConceptionsCount",
-        flowState.medicalInformation.previousConceptionsCount,
-        t("Previous conceptions must be a whole number of 0 or more."),
-      ],
-      [
-        "medicalInformation.previousMiscarriagesCount",
-        flowState.medicalInformation.previousMiscarriagesCount,
-        t("Previous miscarriages must be a whole number of 0 or more."),
-      ],
-      [
-        "medicalInformation.previousBirthsCount",
-        flowState.medicalInformation.previousBirthsCount,
-        t("Previous births must be a whole number of 0 or more."),
-      ],
-      [
-        "medicalInformation.previousCyclesCount",
-        flowState.medicalInformation.previousCyclesCount,
-        t("Previous cycles must be a whole number of 0 or more."),
-      ],
-    ];
-
-    integerFields.forEach(([key, value, message]) => {
-      if (!isNonNegativeInteger(value)) {
-        errors[key] = message;
-      }
-    });
+    const validGameteSourceValues = new Set(
+      GAMETE_SOURCE_OPTIONS.map((option) => option.value)
+    );
+    const spermGameteSource = flowState.medicalInformation.spermGameteSource;
+    const oocyteGameteSource = flowState.medicalInformation.oocyteGameteSource;
+    if (spermGameteSource && !validGameteSourceValues.has(spermGameteSource)) {
+      errors["medicalInformation.spermGameteSource"] =
+        t("Sperm gamete source is not valid.");
+    }
+    if (oocyteGameteSource && !validGameteSourceValues.has(oocyteGameteSource)) {
+      errors["medicalInformation.oocyteGameteSource"] =
+        t("Oocyte gamete source is not valid.");
+    }
+    if (!flowState.medicalInformation.previousMiscarriagesCount) {
+      errors["medicalInformation.previousMiscarriagesCount"] =
+        t("Select previous miscarriages.");
+    } else if (
+      !PREVIOUS_MISCARRIAGES_OPTIONS.some(
+        (option) =>
+          option.value === flowState.medicalInformation.previousMiscarriagesCount
+      )
+    ) {
+      errors["medicalInformation.previousMiscarriagesCount"] =
+        t("Previous miscarriages selection is not valid.");
+    }
     if (!flowState.medicalInformation.maleFactor) {
       errors["medicalInformation.maleFactor"] = t("Select male factor.");
     }
@@ -770,29 +870,73 @@ function validateStepFields(
   }
 
   if (step === "previousGeneticTests") {
-    if (!flowState.previousGeneticTests.pgtASr) {
-      errors["previousGeneticTests.pgtASr"] = t("Select PGT-A / PGT-SR.");
-    }
-    if (!flowState.previousGeneticTests.karyotype) {
-      errors["previousGeneticTests.karyotype"] = t("Select karyotype.");
-    }
-    if (
-      flowState.previousGeneticTests.pgtASr === "si" &&
-      !flowState.previousGeneticTests.pgtResult.trim()
-    ) {
-      errors["previousGeneticTests.pgtResult"] =
-        t("PGT result is required when PGT-A / PGT-SR is Yes.");
-    }
-    if (
-      flowState.previousGeneticTests.karyotype === "si" &&
-      !flowState.previousGeneticTests.karyotypeResult.trim()
-    ) {
+    if (!flowState.previousGeneticTests.karyotypeResult.trim()) {
       errors["previousGeneticTests.karyotypeResult"] =
-        t("Karyotype result is required when karyotype is Yes.");
+        t("Karyotype result is required.");
     }
   }
 
   if (step === "requestedTest") {
+    if (formType === "study_request") {
+      const requestedStudyTests = [
+        {
+          key: "pgtAFast",
+          value: flowState.requestedTest.pgtAFast,
+          label: "PGT-A FAST",
+          mosaicismKey: "pgtAFastReportsMosaicism",
+          mosaicismValue: flowState.requestedTest.pgtAFastReportsMosaicism,
+          sexKey: "pgtAFastReportsSex",
+          sexValue: flowState.requestedTest.pgtAFastReportsSex,
+        },
+        {
+          key: "pgtAStandard",
+          value: flowState.requestedTest.pgtAStandard,
+          label: "PGT-A STANDARD",
+          mosaicismKey: "pgtAStandardReportsMosaicism",
+          mosaicismValue: flowState.requestedTest.pgtAStandardReportsMosaicism,
+          sexKey: "pgtAStandardReportsSex",
+          sexValue: flowState.requestedTest.pgtAStandardReportsSex,
+        },
+        {
+          key: "pgtSr",
+          value: flowState.requestedTest.pgtSr,
+          label: "PGT-SR",
+          mosaicismKey: "pgtSrReportsMosaicism",
+          mosaicismValue: flowState.requestedTest.pgtSrReportsMosaicism,
+          sexKey: "pgtSrReportsSex",
+          sexValue: flowState.requestedTest.pgtSrReportsSex,
+        },
+      ];
+
+      requestedStudyTests.forEach((test) => {
+        if (!test.value) {
+          errors[`requestedTest.${test.key}`] = t(`Select ${test.label}.`);
+        }
+        if (test.value === "si") {
+          if (!test.mosaicismValue) {
+            errors[`requestedTest.${test.mosaicismKey}`] =
+              t(`Select ${test.label} reports mosaicism.`);
+          }
+          if (!test.sexValue) {
+            errors[`requestedTest.${test.sexKey}`] =
+              t(`Select ${test.label} reports sex.`);
+          }
+        }
+      });
+
+      if (
+        requestedStudyTests.every((test) => test.value) &&
+        !requestedStudyTests.some((test) => test.value === "si")
+      ) {
+        requestedStudyTests.forEach((test) => {
+          errors[`requestedTest.${test.key}`] =
+            t("Select Yes for at least one requested test.");
+        });
+      }
+
+      return errors;
+    }
+
     if (!flowState.requestedTest.pgtA) {
       errors["requestedTest.pgtA"] = t("Select PGT-A.");
     }
@@ -807,23 +951,6 @@ function validateStepFields(
     ) {
       errors["requestedTest.pgtA"] = t("Select Yes for at least one requested test.");
       errors["requestedTest.pgtSr"] = t("Select Yes for at least one requested test.");
-    }
-  }
-
-  if (step === "requestedTest" && formType === "study_request") {
-    if (!flowState.requestedTest.reportsMosaicism) {
-      errors["requestedTest.reportsMosaicism"] = t("Select reports mosaicism.");
-    }
-    if (!flowState.requestedTest.reportsSex) {
-      errors["requestedTest.reportsSex"] = t("Select reports sex.");
-    }
-    if (!flowState.requestedTest.requestReason.trim()) {
-      errors["requestedTest.requestReason"] = t("Request reason is required.");
-    }
-    if (!flowState.requestedTest.requestDate) {
-      errors["requestedTest.requestDate"] = t("Date is required.");
-    } else if (!isValidDateInput(flowState.requestedTest.requestDate)) {
-      errors["requestedTest.requestDate"] = t("Date must be a valid date.");
     }
   }
 
@@ -1216,16 +1343,25 @@ function validateWholeDocument({
 }
 
 function patientToFormState(patient: PatientListItem): PatientInformationFormState {
+  const splitName = splitFullName(patient.fullName);
+
   return {
     institutionId: patient.institutionId,
     doctorId: patient.doctorId,
     email: patient.email,
+    firstName: splitName.firstName,
+    lastName: splitName.lastName,
     fullName: patient.fullName,
     medicalRecordNumber: patient.medicalRecordNumber ?? "",
     birthDate: toDateInputValue(patient.birthDate),
     sex: patient.sex ?? "",
     status: patient.status,
     notes: patient.notes ?? "",
+    partnerFirstName: "",
+    partnerLastName: "",
+    partnerMedicalRecordNumber: "",
+    partnerBirthDate: "",
+    partnerNotes: "",
   };
 }
 
@@ -1495,6 +1631,81 @@ function TextAreaField({
   );
 }
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Unable to read file."));
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function RequestedStudyTestSection({
+  title,
+  value,
+  mosaicismValue,
+  sexValue,
+  onValueChange,
+  onMosaicismChange,
+  onSexChange,
+  errors,
+  yesNoOptions,
+  translate,
+}: {
+  title: string;
+  value: string;
+  mosaicismValue: string;
+  sexValue: string;
+  onValueChange: (value: string) => void;
+  onMosaicismChange: (value: string) => void;
+  onSexChange: (value: string) => void;
+  errors: {
+    value?: string;
+    mosaicism?: string;
+    sex?: string;
+  };
+  yesNoOptions: Array<{ value: string; label: string }>;
+  translate: (text: string) => string;
+}) {
+  return (
+    <section className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <YesNoField
+          label={title}
+          value={value}
+          onChange={onValueChange}
+          error={errors.value}
+          options={yesNoOptions}
+          placeholder={translate("Select")}
+        />
+        {value === "si" ? (
+          <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+            <YesNoField
+              label={translate("Reports mosaicism")}
+              value={mosaicismValue}
+              onChange={onMosaicismChange}
+              error={errors.mosaicism}
+              options={yesNoOptions}
+              placeholder={translate("Select")}
+            />
+            <YesNoField
+              label={translate("Reports sex")}
+              value={sexValue}
+              onChange={onSexChange}
+              error={errors.sex}
+              options={yesNoOptions}
+              placeholder={translate("Select")}
+            />
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function TwoPQFormFlow({
   formType,
   institutions,
@@ -1524,6 +1735,9 @@ export function TwoPQFormFlow({
     adminContext.role === "institution_doctor" ? adminContext.doctorId ?? "" : "";
   const defaultInstitutionId =
     scopedInstitutionId || (institutions.length === 1 ? institutions[0]?.id ?? "" : "");
+  const defaultInstitution = institutions.find(
+    (institution) => institution.id === defaultInstitutionId
+  );
   const defaultDoctorId =
     scopedDoctorId ||
     (doctors.length === 1 && doctors[0]?.institutionId === defaultInstitutionId
@@ -1536,10 +1750,14 @@ export function TwoPQFormFlow({
   const initialFlowState = useMemo(
     () =>
       hydrateDraftState(
-        buildInitialState(defaultInstitutionId, defaultDoctorId),
+        buildInitialState(
+          defaultInstitutionId,
+          defaultDoctorId,
+          defaultInstitution?.contactEmail ?? ""
+        ),
         matchingDraft
       ),
-    [defaultDoctorId, defaultInstitutionId, matchingDraft]
+    [defaultDoctorId, defaultInstitution?.contactEmail, defaultInstitutionId, matchingDraft]
   );
 
   const [stepIndex, setStepIndex] = useState(initialStepIndex);
@@ -1645,6 +1863,16 @@ export function TwoPQFormFlow({
     value: option.value,
     label: t(option.label),
   }));
+  const gameteSourceOptions = GAMETE_SOURCE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const previousMiscarriagesOptions = PREVIOUS_MISCARRIAGES_OPTIONS.map(
+    (option) => ({
+      value: option.value,
+      label: t(option.label),
+    })
+  );
   const sampleTypeOptions = SAMPLE_TYPE_OPTIONS.map((option) => ({
     value: option.value,
     label: t(option.label),
@@ -1793,6 +2021,52 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function buildPatientInformationSubmission(
+    patientInformation: PatientInformationFormState
+  ) {
+    const fullName =
+      formType === "study_request"
+        ? joinNameParts(patientInformation.firstName, patientInformation.lastName)
+        : patientInformation.fullName.trim() ||
+          joinNameParts(patientInformation.firstName, patientInformation.lastName);
+    const partnerFullName = joinNameParts(
+      patientInformation.partnerFirstName,
+      patientInformation.partnerLastName
+    );
+    const hasPartnerInformation = Boolean(
+      partnerFullName ||
+        patientInformation.partnerMedicalRecordNumber.trim() ||
+        patientInformation.partnerBirthDate.trim() ||
+        patientInformation.partnerNotes.trim()
+    );
+
+    return {
+      institutionId: patientInformation.institutionId,
+      doctorId: patientInformation.doctorId,
+      email: patientInformation.email,
+      fullName,
+      medicalRecordNumber: patientInformation.medicalRecordNumber,
+      birthDate: patientInformation.birthDate,
+      ...(formType === "study_request" ? {} : { sex: patientInformation.sex }),
+      status:
+        formType === "study_request"
+          ? "active"
+          : patientInformation.status === "inactive"
+            ? "inactive"
+            : "active",
+      notes: patientInformation.notes,
+      ...(hasPartnerInformation
+        ? {
+            partnerFullName,
+            partnerMedicalRecordNumber:
+              patientInformation.partnerMedicalRecordNumber,
+            partnerBirthDate: patientInformation.partnerBirthDate,
+            partnerNotes: patientInformation.partnerNotes,
+          }
+        : {}),
+    };
+  }
+
   function updateInstitutionInformation(
     patch: Partial<InstitutionInformationFormState>
   ) {
@@ -1821,11 +2095,67 @@ export function TwoPQFormFlow({
     }));
   }
 
+  async function attachKaryotypeFile(file: File) {
+    if (file.size > KARYOTYPE_FILE_MAX_BYTES) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Karyotype file is too large."),
+      });
+      return;
+    }
+
+    try {
+      const content = await fileToDataUrl(file);
+      updatePreviousGeneticTests({
+        karyotypeFileName: file.name,
+        karyotypeFileType: file.type || "application/octet-stream",
+        karyotypeFileSize: String(file.size),
+        karyotypeFileContent: content,
+      });
+    } catch {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Unable to read karyotype file."),
+      });
+    }
+  }
+
+  function clearKaryotypeFile() {
+    updatePreviousGeneticTests({
+      karyotypeFileName: "",
+      karyotypeFileType: "",
+      karyotypeFileSize: "",
+      karyotypeFileContent: "",
+    });
+  }
+
   function updateRequestedTest(patch: Partial<RequestedTestFormState>) {
     setState((current) => ({
       ...current,
       requestedTest: { ...current.requestedTest, ...patch },
     }));
+  }
+
+  function updateRequestedStudyTest(
+    key: "pgtAFast" | "pgtAStandard" | "pgtSr",
+    value: string
+  ) {
+    const patch: Partial<RequestedTestFormState> = { [key]: value };
+    if (key === "pgtAFast" && value !== "si") {
+      patch.pgtAFastReportsMosaicism = "";
+      patch.pgtAFastReportsSex = "";
+    }
+    if (key === "pgtAStandard" && value !== "si") {
+      patch.pgtAStandardReportsMosaicism = "";
+      patch.pgtAStandardReportsSex = "";
+    }
+    if (key === "pgtSr" && value !== "si") {
+      patch.pgtSrReportsMosaicism = "";
+      patch.pgtSrReportsSex = "";
+    }
+    updateRequestedTest(patch);
   }
 
   function updateSampleInformation(patch: Partial<SampleInformationFormState>) {
@@ -1897,6 +2227,9 @@ export function TwoPQFormFlow({
     const patientInstitution = patient
       ? institutions.find((institution) => institution.id === patient.institutionId)
       : null;
+    const fallbackInstitution = institutions.find(
+      (institution) => institution.id === defaultInstitutionId
+    );
     setState((current) => ({
       ...current,
       selectedPatientId: patientId,
@@ -1912,6 +2245,10 @@ export function TwoPQFormFlow({
             ...current.patientInformation,
             institutionId: defaultInstitutionId,
             doctorId: defaultDoctorId,
+            email: fallbackInstitution?.contactEmail ?? "",
+            firstName: "",
+            lastName: "",
+            fullName: "",
           },
     }));
   }
@@ -2109,7 +2446,9 @@ export function TwoPQFormFlow({
               formType,
               selectedPatientId: submissionState.selectedPatientId,
               selectedInstitutionId: submissionState.selectedInstitutionId,
-              patientInformation: submissionState.patientInformation,
+              patientInformation: buildPatientInformationSubmission(
+                submissionState.patientInformation
+              ),
               medicalInformation: submissionState.medicalInformation,
               previousGeneticTests: submissionState.previousGeneticTests,
               requestedTest: submissionState.requestedTest,
@@ -2120,7 +2459,9 @@ export function TwoPQFormFlow({
               selectedPatientId: submissionState.selectedPatientId,
               selectedCaseId: submissionState.selectedCaseId,
               selectedRequestingDoctorId: submissionState.selectedRequestingDoctorId,
-              patientInformation: submissionState.patientInformation,
+              patientInformation: buildPatientInformationSubmission(
+                submissionState.patientInformation
+              ),
               requestedTest: submissionState.requestedTest,
               sampleInformation: submissionState.sampleInformation,
               caseInformation: submissionState.caseInformation,
@@ -2463,7 +2804,7 @@ export function TwoPQFormFlow({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {formType === "study_request" ? t("Study request") : t("Sample")}
+              {formType === "study_request" ? t("Study request form") : t("Sample")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {currentStepLabel}
@@ -2546,6 +2887,9 @@ export function TwoPQFormFlow({
                 options={institutionOptions}
                 value={state.patientInformation.institutionId}
                 onChange={(institutionId) => {
+                  const institution = institutions.find(
+                    (candidate) => candidate.id === institutionId
+                  );
                   const nextDoctors = doctors.filter(
                     (doctor) => doctor.institutionId === institutionId
                   );
@@ -2556,6 +2900,7 @@ export function TwoPQFormFlow({
                     patientInformation: {
                       ...current.patientInformation,
                       institutionId,
+                      email: institution?.contactEmail ?? current.patientInformation.email,
                       doctorId: nextDoctors.some(
                         (doctor) => doctor.id === current.patientInformation.doctorId
                       )
@@ -2593,114 +2938,215 @@ export function TwoPQFormFlow({
             </div>
             <Field
               id="form-patient-email"
-              label={t("Email")}
+              label={
+                formType === "study_request"
+                  ? t("Patient reference email")
+                  : t("Email")
+              }
               value={state.patientInformation.email}
               onChange={(email) => updatePatientInformation({ email })}
               error={errorFor("patientInformation.email")}
             />
-            <Field
-              id="form-patient-full-name"
-              label={t("Full name")}
-              value={state.patientInformation.fullName}
-              onChange={(fullName) => updatePatientInformation({ fullName })}
-              error={errorFor("patientInformation.fullName")}
-            />
-            <Field
-              id="form-patient-mrn"
-              label={t("Medical record number")}
-              value={state.patientInformation.medicalRecordNumber}
-              onChange={(medicalRecordNumber) =>
-                updatePatientInformation({ medicalRecordNumber })
-              }
-            />
-            <Field
-              id="form-patient-birth-date"
-              label={t("Birth date")}
-              type="date"
-              value={state.patientInformation.birthDate}
-              onChange={(birthDate) => updatePatientInformation({ birthDate })}
-              error={errorFor("patientInformation.birthDate")}
-            />
-            <Field
-              id="form-patient-sex"
-              label={t("Sex / gender")}
-              value={state.patientInformation.sex}
-              onChange={(sex) => updatePatientInformation({ sex })}
-            />
-            <div className="space-y-2">
-              <Label>{t("Status")}</Label>
-              <OptionSelectField
-                options={personStatusOptions}
-                value={state.patientInformation.status}
-                onChange={(status) =>
-                  updatePatientInformation({
-                    status: status === "inactive" ? "inactive" : "active",
-                  })
-                }
-                placeholder={t("Select status")}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-patient-notes"
-                label={t("Notes")}
-                value={state.patientInformation.notes}
-                onChange={(notes) => updatePatientInformation({ notes })}
-              />
-            </div>
+            {formType === "study_request" ? (
+              <>
+                <Field
+                  id="form-patient-first-name"
+                  label={t("Patient first name")}
+                  value={state.patientInformation.firstName}
+                  onChange={(firstName) => updatePatientInformation({ firstName })}
+                  error={errorFor("patientInformation.firstName")}
+                />
+                <Field
+                  id="form-patient-last-name"
+                  label={t("Patient last name")}
+                  value={state.patientInformation.lastName}
+                  onChange={(lastName) => updatePatientInformation({ lastName })}
+                  error={errorFor("patientInformation.lastName")}
+                />
+                <Field
+                  id="form-patient-dni"
+                  label={t("Patient DNI")}
+                  value={state.patientInformation.medicalRecordNumber}
+                  onChange={(medicalRecordNumber) =>
+                    updatePatientInformation({ medicalRecordNumber })
+                  }
+                />
+                <Field
+                  id="form-patient-birth-date"
+                  label={t("Patient birth date")}
+                  type="date"
+                  value={state.patientInformation.birthDate}
+                  onChange={(birthDate) => updatePatientInformation({ birthDate })}
+                  error={errorFor("patientInformation.birthDate")}
+                />
+                <section className="md:col-span-2">
+                  <div className="border-y border-border/70 py-5">
+                    <div className="mb-4">
+                      <h3 className="font-heading text-lg font-semibold text-foreground">
+                        {t("Partner")}
+                      </h3>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field
+                        id="form-partner-first-name"
+                        label={t("Partner first name")}
+                        value={state.patientInformation.partnerFirstName}
+                        onChange={(partnerFirstName) =>
+                          updatePatientInformation({ partnerFirstName })
+                        }
+                      />
+                      <Field
+                        id="form-partner-last-name"
+                        label={t("Partner last name")}
+                        value={state.patientInformation.partnerLastName}
+                        onChange={(partnerLastName) =>
+                          updatePatientInformation({ partnerLastName })
+                        }
+                      />
+                      <Field
+                        id="form-partner-dni"
+                        label={t("Partner DNI")}
+                        value={
+                          state.patientInformation.partnerMedicalRecordNumber
+                        }
+                        onChange={(partnerMedicalRecordNumber) =>
+                          updatePatientInformation({
+                            partnerMedicalRecordNumber,
+                          })
+                        }
+                      />
+                      <Field
+                        id="form-partner-birth-date"
+                        label={t("Partner birth date")}
+                        type="date"
+                        value={state.patientInformation.partnerBirthDate}
+                        onChange={(partnerBirthDate) =>
+                          updatePatientInformation({ partnerBirthDate })
+                        }
+                        error={errorFor("patientInformation.partnerBirthDate")}
+                      />
+                      <div className="md:col-span-2">
+                        <TextAreaField
+                          id="form-partner-notes"
+                          label={t("Partner notes")}
+                          value={state.patientInformation.partnerNotes}
+                          onChange={(partnerNotes) =>
+                            updatePatientInformation({ partnerNotes })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <div className="md:col-span-2">
+                  <TextAreaField
+                    id="form-patient-notes"
+                    label={t("Patient notes")}
+                    value={state.patientInformation.notes}
+                    onChange={(notes) => updatePatientInformation({ notes })}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <Field
+                  id="form-patient-full-name"
+                  label={t("Full name")}
+                  value={state.patientInformation.fullName}
+                  onChange={(fullName) => updatePatientInformation({ fullName })}
+                  error={errorFor("patientInformation.fullName")}
+                />
+                <Field
+                  id="form-patient-mrn"
+                  label={t("Medical record number")}
+                  value={state.patientInformation.medicalRecordNumber}
+                  onChange={(medicalRecordNumber) =>
+                    updatePatientInformation({ medicalRecordNumber })
+                  }
+                />
+                <Field
+                  id="form-patient-birth-date"
+                  label={t("Birth date")}
+                  type="date"
+                  value={state.patientInformation.birthDate}
+                  onChange={(birthDate) => updatePatientInformation({ birthDate })}
+                  error={errorFor("patientInformation.birthDate")}
+                />
+                <Field
+                  id="form-patient-sex"
+                  label={t("Sex / gender")}
+                  value={state.patientInformation.sex}
+                  onChange={(sex) => updatePatientInformation({ sex })}
+                />
+                <div className="space-y-2">
+                  <Label>{t("Status")}</Label>
+                  <OptionSelectField
+                    options={personStatusOptions}
+                    value={state.patientInformation.status}
+                    onChange={(status) =>
+                      updatePatientInformation({
+                        status: status === "inactive" ? "inactive" : "active",
+                      })
+                    }
+                    placeholder={t("Select status")}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <TextAreaField
+                    id="form-patient-notes"
+                    label={t("Notes")}
+                    value={state.patientInformation.notes}
+                    onChange={(notes) => updatePatientInformation({ notes })}
+                  />
+                </div>
+              </>
+            )}
           </div>
         ) : null}
 
         {currentStep === "medicalInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <Field
-              id="form-previous-conceptions"
-              label={t("Previous conceptions")}
-              type="number"
-              min="0"
-              step="1"
-              value={state.medicalInformation.previousConceptionsCount}
-              onChange={(previousConceptionsCount) =>
-                updateMedicalInformation({ previousConceptionsCount })
-              }
-              error={errorFor("medicalInformation.previousConceptionsCount")}
-            />
-            <Field
-              id="form-previous-miscarriages"
-              label={t("Previous miscarriages")}
-              type="number"
-              min="0"
-              step="1"
-              value={state.medicalInformation.previousMiscarriagesCount}
-              onChange={(previousMiscarriagesCount) =>
-                updateMedicalInformation({ previousMiscarriagesCount })
-              }
-              error={errorFor("medicalInformation.previousMiscarriagesCount")}
-            />
-            <Field
-              id="form-previous-births"
-              label={t("Previous births")}
-              type="number"
-              min="0"
-              step="1"
-              value={state.medicalInformation.previousBirthsCount}
-              onChange={(previousBirthsCount) =>
-                updateMedicalInformation({ previousBirthsCount })
-              }
-              error={errorFor("medicalInformation.previousBirthsCount")}
-            />
-            <Field
-              id="form-previous-cycles"
-              label={t("Previous cycles")}
-              type="number"
-              min="0"
-              step="1"
-              value={state.medicalInformation.previousCyclesCount}
-              onChange={(previousCyclesCount) =>
-                updateMedicalInformation({ previousCyclesCount })
-              }
-              error={errorFor("medicalInformation.previousCyclesCount")}
-            />
+            <section className="md:col-span-2">
+              <div className="border-b border-border/70 pb-5">
+                <div className="mb-4">
+                  <h3 className="font-heading text-lg font-semibold text-foreground">
+                    {t("Gamete donation")}
+                  </h3>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t("Sperm")}</Label>
+                    <OptionSelectField
+                      options={gameteSourceOptions}
+                      value={state.medicalInformation.spermGameteSource}
+                      onChange={(spermGameteSource) =>
+                        updateMedicalInformation({ spermGameteSource })
+                      }
+                      placeholder={t("Select")}
+                      emptyLabel={t("Not set")}
+                    />
+                    <FieldError
+                      message={errorFor("medicalInformation.spermGameteSource")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("Oocytes")}</Label>
+                    <OptionSelectField
+                      options={gameteSourceOptions}
+                      value={state.medicalInformation.oocyteGameteSource}
+                      onChange={(oocyteGameteSource) =>
+                        updateMedicalInformation({ oocyteGameteSource })
+                      }
+                      placeholder={t("Select")}
+                      emptyLabel={t("Not set")}
+                    />
+                    <FieldError
+                      message={errorFor("medicalInformation.oocyteGameteSource")}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
             <YesNoField
               label={t("Male factor")}
               value={state.medicalInformation.maleFactor}
@@ -2709,6 +3155,21 @@ export function TwoPQFormFlow({
               options={yesNoOptions}
               placeholder={t("Select")}
             />
+            <div className="space-y-2">
+              <Label>{t("Previous miscarriages")}</Label>
+              <OptionSelectField
+                options={previousMiscarriagesOptions}
+                value={state.medicalInformation.previousMiscarriagesCount}
+                onChange={(previousMiscarriagesCount) =>
+                  updateMedicalInformation({ previousMiscarriagesCount })
+                }
+                placeholder={t("Select")}
+                emptyLabel={t("Not set")}
+              />
+              <FieldError
+                message={errorFor("medicalInformation.previousMiscarriagesCount")}
+              />
+            </div>
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-other-background"
@@ -2725,35 +3186,6 @@ export function TwoPQFormFlow({
 
         {currentStep === "previousGeneticTests" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <YesNoField
-              label="PGT-A / PGT-SR"
-              value={state.previousGeneticTests.pgtASr}
-              onChange={(pgtASr) => updatePreviousGeneticTests({ pgtASr })}
-              error={errorFor("previousGeneticTests.pgtASr")}
-              options={yesNoOptions}
-              placeholder={t("Select")}
-            />
-            <YesNoField
-              label={t("Karyotype")}
-              value={state.previousGeneticTests.karyotype}
-              onChange={(karyotype) =>
-                updatePreviousGeneticTests({ karyotype })
-              }
-              error={errorFor("previousGeneticTests.karyotype")}
-              options={yesNoOptions}
-              placeholder={t("Select")}
-            />
-            <div className="md:col-span-2">
-              <TextAreaField
-                id="form-pgt-result"
-                label={t("PGT result")}
-                value={state.previousGeneticTests.pgtResult}
-                onChange={(pgtResult) =>
-                  updatePreviousGeneticTests({ pgtResult })
-                }
-                error={errorFor("previousGeneticTests.pgtResult")}
-              />
-            </div>
             <div className="md:col-span-2">
               <TextAreaField
                 id="form-karyotype-result"
@@ -2765,64 +3197,132 @@ export function TwoPQFormFlow({
                 error={errorFor("previousGeneticTests.karyotypeResult")}
               />
             </div>
+            <div className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <Label htmlFor="form-karyotype-file">
+                    {t("Karyotype file")}
+                  </Label>
+                  {state.previousGeneticTests.karyotypeFileName ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {state.previousGeneticTests.karyotypeFileName}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("No file selected")}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" asChild>
+                    <label htmlFor="form-karyotype-file" className="cursor-pointer">
+                      <Upload className="size-4" />
+                      {t("Upload file")}
+                    </label>
+                  </Button>
+                  {state.previousGeneticTests.karyotypeFileName ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={clearKaryotypeFile}
+                    >
+                      <X className="size-4" />
+                      {t("Remove file")}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              <Input
+                id="form-karyotype-file"
+                type="file"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) {
+                    void attachKaryotypeFile(file);
+                  }
+                }}
+              />
+              <p className="mt-3 text-xs text-muted-foreground">
+                {t("Maximum file size: 750 KB.")}
+              </p>
+            </div>
           </div>
         ) : null}
 
         {currentStep === "requestedTest" ? (
           formType === "study_request" ? (
             <div className="grid gap-4 md:grid-cols-2">
-              <YesNoField
-                label="PGT-A"
-                value={state.requestedTest.pgtA}
-                onChange={(pgtA) => updateRequestedTest({ pgtA })}
-                error={errorFor("requestedTest.pgtA")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
-              />
-              <YesNoField
-                label="PGT-SR"
-                value={state.requestedTest.pgtSr}
-                onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
-                error={errorFor("requestedTest.pgtSr")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
-              />
-              <YesNoField
-                label={t("Reports mosaicism")}
-                value={state.requestedTest.reportsMosaicism}
-                onChange={(reportsMosaicism) =>
-                  updateRequestedTest({ reportsMosaicism })
+              <RequestedStudyTestSection
+                title="PGT-A FAST"
+                value={state.requestedTest.pgtAFast}
+                mosaicismValue={state.requestedTest.pgtAFastReportsMosaicism}
+                sexValue={state.requestedTest.pgtAFastReportsSex}
+                onValueChange={(pgtAFast) =>
+                  updateRequestedStudyTest("pgtAFast", pgtAFast)
                 }
-                error={errorFor("requestedTest.reportsMosaicism")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
+                onMosaicismChange={(pgtAFastReportsMosaicism) =>
+                  updateRequestedTest({ pgtAFastReportsMosaicism })
+                }
+                onSexChange={(pgtAFastReportsSex) =>
+                  updateRequestedTest({ pgtAFastReportsSex })
+                }
+                errors={{
+                  value: errorFor("requestedTest.pgtAFast"),
+                  mosaicism: errorFor("requestedTest.pgtAFastReportsMosaicism"),
+                  sex: errorFor("requestedTest.pgtAFastReportsSex"),
+                }}
+                yesNoOptions={yesNoOptions}
+                translate={t}
               />
-              <YesNoField
-                label={t("Reports sex")}
-                value={state.requestedTest.reportsSex}
-                onChange={(reportsSex) => updateRequestedTest({ reportsSex })}
-                error={errorFor("requestedTest.reportsSex")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
+              <RequestedStudyTestSection
+                title="PGT-A STANDARD"
+                value={state.requestedTest.pgtAStandard}
+                mosaicismValue={
+                  state.requestedTest.pgtAStandardReportsMosaicism
+                }
+                sexValue={state.requestedTest.pgtAStandardReportsSex}
+                onValueChange={(pgtAStandard) =>
+                  updateRequestedStudyTest("pgtAStandard", pgtAStandard)
+                }
+                onMosaicismChange={(pgtAStandardReportsMosaicism) =>
+                  updateRequestedTest({ pgtAStandardReportsMosaicism })
+                }
+                onSexChange={(pgtAStandardReportsSex) =>
+                  updateRequestedTest({ pgtAStandardReportsSex })
+                }
+                errors={{
+                  value: errorFor("requestedTest.pgtAStandard"),
+                  mosaicism: errorFor(
+                    "requestedTest.pgtAStandardReportsMosaicism"
+                  ),
+                  sex: errorFor("requestedTest.pgtAStandardReportsSex"),
+                }}
+                yesNoOptions={yesNoOptions}
+                translate={t}
               />
-              <div className="md:col-span-2">
-                <TextAreaField
-                  id="form-request-reason"
-                  label={t("Request reason")}
-                  value={state.requestedTest.requestReason}
-                  onChange={(requestReason) =>
-                    updateRequestedTest({ requestReason })
-                  }
-                  error={errorFor("requestedTest.requestReason")}
-                />
-              </div>
-              <Field
-                id="form-request-date"
-                label={t("Date")}
-                type="date"
-                value={state.requestedTest.requestDate}
-                onChange={(requestDate) => updateRequestedTest({ requestDate })}
-                error={errorFor("requestedTest.requestDate")}
+              <RequestedStudyTestSection
+                title="PGT-SR"
+                value={state.requestedTest.pgtSr}
+                mosaicismValue={state.requestedTest.pgtSrReportsMosaicism}
+                sexValue={state.requestedTest.pgtSrReportsSex}
+                onValueChange={(pgtSr) =>
+                  updateRequestedStudyTest("pgtSr", pgtSr)
+                }
+                onMosaicismChange={(pgtSrReportsMosaicism) =>
+                  updateRequestedTest({ pgtSrReportsMosaicism })
+                }
+                onSexChange={(pgtSrReportsSex) =>
+                  updateRequestedTest({ pgtSrReportsSex })
+                }
+                errors={{
+                  value: errorFor("requestedTest.pgtSr"),
+                  mosaicism: errorFor("requestedTest.pgtSrReportsMosaicism"),
+                  sex: errorFor("requestedTest.pgtSrReportsSex"),
+                }}
+                yesNoOptions={yesNoOptions}
+                translate={t}
               />
             </div>
           ) : (
@@ -2861,26 +3361,12 @@ export function TwoPQFormFlow({
               <FieldError message={errorFor("selectedInstitutionId")} />
             </div>
             <Field
-              id="form-institution-code"
-              label={t("Institution code")}
-              value={state.institutionInformation.code}
-              onChange={(code) => updateInstitutionInformation({ code })}
-            />
-            <Field
               id="form-institution-name"
               label={t("Institution name")}
               value={state.institutionInformation.name}
               onChange={(name) => updateInstitutionInformation({ name })}
               error={errorFor("institutionInformation.name")}
             />
-            <div className="md:col-span-2">
-              <Field
-                id="form-institution-legal"
-                label={t("Legal name")}
-                value={state.institutionInformation.legalName}
-                onChange={(legalName) => updateInstitutionInformation({ legalName })}
-              />
-            </div>
             <Field
               id="form-institution-email"
               label={t("Contact email")}
@@ -2897,46 +3383,6 @@ export function TwoPQFormFlow({
               onChange={(contactPhone) =>
                 updateInstitutionInformation({ contactPhone })
               }
-            />
-            <div className="md:col-span-2">
-              <Field
-                id="form-institution-address-1"
-                label={t("Address line 1")}
-                value={state.institutionInformation.addressLine1}
-                onChange={(addressLine1) =>
-                  updateInstitutionInformation({ addressLine1 })
-                }
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Field
-                id="form-institution-address-2"
-                label={t("Address line 2")}
-                value={state.institutionInformation.addressLine2}
-                onChange={(addressLine2) =>
-                  updateInstitutionInformation({ addressLine2 })
-                }
-              />
-            </div>
-            <Field
-              id="form-institution-city"
-              label={t("City")}
-              value={state.institutionInformation.city}
-              onChange={(city) => updateInstitutionInformation({ city })}
-            />
-            <Field
-              id="form-institution-state"
-              label={t("State / region")}
-              value={state.institutionInformation.state}
-              onChange={(stateValue) =>
-                updateInstitutionInformation({ state: stateValue })
-              }
-            />
-            <Field
-              id="form-institution-country"
-              label={t("Country")}
-              value={state.institutionInformation.country}
-              onChange={(country) => updateInstitutionInformation({ country })}
             />
             <div className="md:col-span-2">
               <TextAreaField
