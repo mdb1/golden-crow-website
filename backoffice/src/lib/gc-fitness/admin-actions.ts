@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { buildEmailPrefixBounds } from "@/lib/gc-fitness/admin-user-search";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
@@ -155,6 +156,80 @@ export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
         customWorkoutsCount: workoutsAgg.data().count,
         customExercisesCount: exercisesAgg.data().count,
       } satisfies CoachAdminRow;
+    }),
+  );
+
+  rows.sort((a, b) => a.email.localeCompare(b.email));
+  return rows;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin user-email search (GitHub issue #163)
+//
+// Finds ANY user (client / coach / admin) by an email prefix. Runs through the
+// Admin SDK, which BYPASSES firestore.rules — so no rules change and no
+// composite index is needed (the single-field `email` index is always present).
+// Role is merged from the user doc `role` PLUS the custom claims (`admin` lives
+// only in claims, never in the doc), so an admin-only user surfaces correctly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UserSearchResultRow {
+  uid: string;
+  email: string;
+  displayName: string;
+  roles: string[];
+  photoURL: string | null;
+  deleted: boolean;
+  coachId: string | null;
+}
+
+export async function searchUsersByEmailForAdmin(
+  rawQuery: string,
+  limit = 25,
+): Promise<UserSearchResultRow[]> {
+  // (1) Admin gate FIRST — throws Error("Forbidden") for non-admins.
+  await getCurrentAdmin();
+
+  // (2) Empty / whitespace query → no query, empty result.
+  const bounds = buildEmailPrefixBounds(rawQuery);
+  if (!bounds) return [];
+
+  // (3) Admin-SDK prefix-range query over the always-present `email` index.
+  const db = gcFitnessFirestore();
+  const cappedLimit = Math.min(Math.max(limit, 1), 50);
+  const snap = await db
+    .collection(FirestoreCollections.users)
+    .orderBy("email")
+    .startAt(bounds.startAt)
+    .endAt(bounds.endAt)
+    .limit(cappedLimit)
+    .get();
+
+  // (4) Map each doc; merge doc.role with claim roles. Tolerant — a single bad
+  // doc never throws (missing field → "" / null / false; getUser failure → []).
+  const rows = await Promise.all(
+    snap.docs.map(async (doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      const uid = doc.id;
+      const authUser = await gcFitnessAuth().getUser(uid).catch(() => null);
+
+      const roles = new Set<string>(
+        rolesFromClaims(authUser?.customClaims as Record<string, unknown> | undefined),
+      );
+      const docRole = data.role;
+      if (typeof docRole === "string" && docRole.trim().length > 0) {
+        roles.add(docRole.trim().toLowerCase());
+      }
+
+      return {
+        uid,
+        email: typeof data.email === "string" ? data.email : "",
+        displayName: typeof data.displayName === "string" ? data.displayName : "",
+        roles: Array.from(roles),
+        photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
+        deleted: data.deleted === true,
+        coachId: typeof data.coachId === "string" ? data.coachId : null,
+      } satisfies UserSearchResultRow;
     }),
   );
 
