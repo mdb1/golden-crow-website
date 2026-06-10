@@ -441,6 +441,11 @@ function ExerciseSetTable({
   // based on `ex.metric`. Hardcoded Spanish strings match the file's
   // existing convention (this dialog is not yet `t()`-translated; the
   // 26-07 i18n pass will lift them into messages/{es,en}.json).
+  // 260610-j67 (issue #159) — when the exercise carries the explicit
+  // no-weight sentinel (weightBySetKg was an empty array = reps-only /
+  // bodyweight), drop the Peso column entirely so the detail reads reps-only
+  // with NO "kg" label. Legacy (nil) + weighted exercises keep the column.
+  const noWeight = ex.hasExplicitNoWeightPrescription;
   const rows = Array.from({ length: ex.sets }, (_, i) => ({
     setNumber: i + 1,
     reps: ex.repsBySet[i] ?? ex.reps,
@@ -448,18 +453,23 @@ function ExerciseSetTable({
     durationSeconds:
       ex.durationBySetSeconds[i] ?? ex.durationSeconds ?? null,
   }));
+  const gridCols = noWeight
+    ? "grid-cols-[28px_minmax(60px,1fr)]"
+    : "grid-cols-[28px_minmax(60px,1fr)_minmax(60px,1fr)]";
   return (
     <div className="mt-2">
-      <div className="grid grid-cols-[28px_minmax(60px,1fr)_minmax(60px,1fr)] gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div
+        className={`grid ${gridCols} gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground`}
+      >
         <span>#</span>
         {/* TODO(26-07): i18n for Reps/Seg header */}
         <span>{ex.metric === "time" ? "Seg" : "Reps"}</span>
-        <span>Peso</span>
+        {!noWeight ? <span>Peso</span> : null}
       </div>
       {rows.map((row) => (
         <div
           key={row.setNumber}
-          className="grid grid-cols-[28px_minmax(60px,1fr)_minmax(60px,1fr)] gap-2 border-t py-1 text-xs"
+          className={`grid ${gridCols} gap-2 border-t py-1 text-xs`}
         >
           <span className="text-muted-foreground">{row.setNumber}</span>
           <span className="tabular-nums">
@@ -469,9 +479,11 @@ function ExerciseSetTable({
                 : "–"
               : row.reps || "–"}
           </span>
-          <span className="tabular-nums">
-            {row.kg !== null ? `${row.kg} kg` : "–"}
-          </span>
+          {!noWeight ? (
+            <span className="tabular-nums">
+              {row.kg !== null ? `${row.kg} kg` : "–"}
+            </span>
+          ) : null}
         </div>
       ))}
       <div className="mt-1 text-[10px] text-muted-foreground">

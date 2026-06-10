@@ -162,6 +162,10 @@ export function AssignTemplateModal({
         transition_rest_seconds: string;
         notes: string;
         setRows: Array<{ reps: string; kg: string; duration?: string }>;
+        // 260610-j67 (issue #159) — "Sin peso" intent. Seeded from the source
+        // template exercise's hasExplicitNoWeightPrescription; ON → the
+        // override writes weightBySetKg: [] + hides the kg column.
+        noWeight: boolean;
       }
     >
   >({});
@@ -218,6 +222,7 @@ export function AssignTemplateModal({
             transition_rest_seconds: string;
             notes: string;
             setRows: Array<{ reps: string; kg: string; duration?: string }>;
+            noWeight: boolean;
           }>>((acc, exercise) => {
             // Reconstruct one row per prescribed set. Pull reps from
             // repsBySet[i] if present, otherwise from the exercise-level
@@ -279,6 +284,8 @@ export function AssignTemplateModal({
               ),
               notes: exercise.notes ?? "",
               setRows,
+              // 260610-j67 — seed the no-weight intent from the template.
+              noWeight: exercise.hasExplicitNoWeightPrescription === true,
             };
             return acc;
           }, {}),
@@ -347,7 +354,10 @@ export function AssignTemplateModal({
           .slice(0, finalSets)
           .map((n) => (Number.isFinite(n) ? n : 0));
         const finalWeightsRaw = weightBySetKg.slice(0, finalSets);
-        const hasAnyWeight = finalWeightsRaw.some((n) => Number.isFinite(n));
+        // 260610-j67 (issue #159) — when "Sin peso" is on, force no weights
+        // (finalWeights = null) so the override emits weightBySetKg: [].
+        const hasAnyWeight =
+          !draft.noWeight && finalWeightsRaw.some((n) => Number.isFinite(n));
         const finalWeights = hasAnyWeight
           ? finalWeightsRaw.map((n) => (Number.isFinite(n) ? n : 0))
           : null;
@@ -950,6 +960,30 @@ export function AssignTemplateModal({
                           {group}
                         </span>
                       ) : null}
+                      {/* 260610-j67 (issue #159) — "Sin peso" toggle. ON →
+                          override writes weightBySetKg: [] + hides the kg
+                          column for this exercise on the assignment. */}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-pressed={draft.noWeight}
+                        onClick={() =>
+                          setOverrideDrafts((prev) => ({
+                            ...prev,
+                            [exercise.index]: {
+                              ...prev[exercise.index],
+                              noWeight: !prev[exercise.index].noWeight,
+                            },
+                          }))
+                        }
+                        className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-medium ${
+                          draft.noWeight
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                        }`}
+                      >
+                        {t("exerciseOverridesNoWeight")}
+                      </button>
                     </div>
                     <div className="min-w-0 sm:w-[16rem]">
                       <label className="min-w-0 text-[11px] font-medium text-muted-foreground">
@@ -982,20 +1016,34 @@ export function AssignTemplateModal({
                       exact (reps × kg) prescription set-by-set rather than
                       typing a comma-joined string. */}
                   <div className="mt-2 flex flex-col gap-1.5">
-                    <div className="grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]">
+                    {/* 260610-j67 — when "Sin peso" is on, drop the kg column
+                        from both the header and per-set grids. */}
+                    <div
+                      className={
+                        draft.noWeight
+                          ? "grid grid-cols-[24px_minmax(52px,1fr)_40px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid-cols-[28px_minmax(80px,1fr)_max-content]"
+                          : "grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                      }
+                    >
                       <span>{t("exerciseOverridesSetHeader")}</span>
                       <span>
                         {effectiveMetric === "time"
                           ? t("exerciseOverridesSeconds")
                           : t("exerciseOverridesReps")}
                       </span>
-                      <span>{t("exerciseOverridesWeightHeader")}</span>
+                      {!draft.noWeight ? (
+                        <span>{t("exerciseOverridesWeightHeader")}</span>
+                      ) : null}
                       <span aria-hidden="true" />
                     </div>
                     {draft.setRows.map((row, setIdx) => (
                       <div
                         key={`${exercise.exerciseId}-set-${setIdx + 1}`}
-                        className="grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                        className={
+                          draft.noWeight
+                            ? "grid grid-cols-[24px_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_max-content]"
+                            : "grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                        }
                       >
                         <span className="text-xs text-muted-foreground">{setIdx + 1}</span>
                         {/* 26-03 — Primary input branches on effectiveMetric.
@@ -1047,26 +1095,29 @@ export function AssignTemplateModal({
                             className="h-9 rounded-md border bg-background px-2 text-sm"
                           />
                         )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row.kg}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setOverrideDrafts((prev) => {
-                              const cur = prev[exercise.index];
-                              const next = cur.setRows.map((r, i) =>
-                                i === setIdx ? { ...r, kg: value } : r,
-                              );
-                              return {
-                                ...prev,
-                                [exercise.index]: { ...cur, setRows: next },
-                              };
-                            });
-                          }}
-                          placeholder={t("exerciseOverridesKgPlaceholder")}
-                          className="h-9 rounded-md border bg-background px-2 text-sm"
-                        />
+                        {/* 260610-j67 — hide the kg input when "Sin peso". */}
+                        {!draft.noWeight ? (
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={row.kg}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setOverrideDrafts((prev) => {
+                                const cur = prev[exercise.index];
+                                const next = cur.setRows.map((r, i) =>
+                                  i === setIdx ? { ...r, kg: value } : r,
+                                );
+                                return {
+                                  ...prev,
+                                  [exercise.index]: { ...cur, setRows: next },
+                                };
+                              });
+                            }}
+                            placeholder={t("exerciseOverridesKgPlaceholder")}
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                          />
+                        ) : null}
                         <div className="flex items-center justify-end gap-1">
                           {setIdx === 0 ? (
                             <button
