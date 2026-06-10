@@ -6,6 +6,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
+import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { FirestoreCollections } from "./collections";
 import {
   listClients,
@@ -268,7 +269,7 @@ function habitLogCountsAsCompleted(
   _habit: Record<string, unknown> | undefined,
 ): boolean {
   if (data.deleted === true) return false;
-  return data.value === true;
+  return coerceLegacyHabitLogValue(data.value);
 }
 
 /**

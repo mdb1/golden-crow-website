@@ -21,6 +21,7 @@ import { getTranslations } from "next-intl/server";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
+import { coerceLegacyHabitLogValue } from "@/lib/gc-fitness/habit-compliance";
 import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
 import { TREND_RANGES, type TrendRangeKey, addCivilDays } from "./trend-range";
 import { HabitTrendsClient, type HabitTrendRow } from "./HabitTrendsClient";
@@ -82,7 +83,7 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
         if (data.deleted === true) continue;
         const date = typeof data.civilDate === "string" ? data.civilDate : "";
         if (!date) continue;
-        if (data.value === true) completedDates.add(date);
+        if (coerceLegacyHabitLogValue(data.value)) completedDates.add(date);
       }
 
       const byRange = {} as Record<

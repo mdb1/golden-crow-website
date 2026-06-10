@@ -103,6 +103,23 @@ export function logCountsAsCompleted(
 }
 
 /**
+ * Legacy-tolerant wire→binary collapse for `habit_logs.value`. TS twin of the
+ * Swift `HabitLogValue.init(from:)` collapse (and the Android `fromWire` fix,
+ * gc-fitness #173 round 2): pre-v1.1 clients wrote numeric/string values, and
+ * a strict `data.value === true` coercion silently UNDER-COUNTS those
+ * completed days (the 34% vs 36% mismatch). Every wire-boundary read of
+ * `habit_logs.value` MUST go through this before `logCountsAsCompleted`.
+ *
+ *   boolean → itself · number → value != 0 · string → !isEmpty · else → false
+ */
+export function coerceLegacyHabitLogValue(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") return value.length > 0;
+  return false;
+}
+
+/**
  * Computes the compliance ratio over a window ending at `today` plus a
  * day-by-day completion timeline suitable for sparkline rendering.
  *
