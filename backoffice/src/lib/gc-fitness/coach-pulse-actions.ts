@@ -6,6 +6,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { listClients, type ClientRosterEntry } from "./client-roster";
+import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 
@@ -76,7 +77,7 @@ function habitLogCountsAsCompleted(
   // Habits are binary-only: a log counts iff it isn't soft-deleted AND its
   // value is `true`. Mirrors `logCountsAsCompleted` in habit-compliance.ts.
   if (data.deleted === true) return false;
-  return data.value === true;
+  return coerceLegacyHabitLogValue(data.value);
 }
 
 function buildWindowDays(timezone: string): string[] {

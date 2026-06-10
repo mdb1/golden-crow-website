@@ -26,7 +26,11 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
 import { coachVisibleClientName } from "./client-name";
-import { logCountsAsCompleted, type HabitLogRow } from "./habit-compliance";
+import {
+  coerceLegacyHabitLogValue,
+  logCountsAsCompleted,
+  type HabitLogRow,
+} from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
 
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
@@ -693,7 +697,7 @@ export async function listMonthForClients(input: {
         habitId,
         clientId: (data.clientId as string) ?? "",
         civilDate: civil,
-        value: data.value === true,
+        value: coerceLegacyHabitLogValue(data.value),
         unit: typeof data.unit === "string" ? data.unit : undefined,
         deleted: data.deleted === true,
       };

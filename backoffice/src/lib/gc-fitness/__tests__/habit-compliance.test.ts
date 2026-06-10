@@ -35,6 +35,7 @@
 // Habits are BINARY-ONLY now: a log counts iff `!deleted && value === true`.
 
 import {
+  coerceLegacyHabitLogValue,
   computeCompliance,
   logCountsAsCompleted,
   type HabitLogRow,
@@ -70,6 +71,44 @@ describe("habit-compliance — logCountsAsCompleted", () => {
         binaryLog({ date: "2026-05-19", value: true, deleted: true }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("habit-compliance — coerceLegacyHabitLogValue", () => {
+  // TS twin of the Swift HabitLogValue.init(from:) collapse and the Android
+  // fromWire fix (gc-fitness #173 round 2). Fixtures IDENTICAL to the Swift
+  // and Kotlin parity tests — a strict `=== true` coercion under-counted
+  // legacy numeric/string completed days (the 34% vs 36% mismatch).
+  it("passes booleans through", () => {
+    expect(coerceLegacyHabitLogValue(true)).toBe(true);
+    expect(coerceLegacyHabitLogValue(false)).toBe(false);
+  });
+
+  it("collapses legacy numbers: non-zero counts, zero does not", () => {
+    expect(coerceLegacyHabitLogValue(1.0)).toBe(true);
+    expect(coerceLegacyHabitLogValue(3)).toBe(true);
+    expect(coerceLegacyHabitLogValue(0)).toBe(false);
+  });
+
+  it("collapses legacy strings: non-empty counts, empty does not", () => {
+    expect(coerceLegacyHabitLogValue("done")).toBe(true);
+    expect(coerceLegacyHabitLogValue("")).toBe(false);
+  });
+
+  it("null/undefined/unknown shapes never count", () => {
+    expect(coerceLegacyHabitLogValue(null)).toBe(false);
+    expect(coerceLegacyHabitLogValue(undefined)).toBe(false);
+    expect(coerceLegacyHabitLogValue({ legacy: true })).toBe(false);
+  });
+
+  it("repro: a legacy 1.0-valued completed day counts toward compliance (36% not 34%)", () => {
+    // The wire-boundary mapping must collapse BEFORE logCountsAsCompleted.
+    const legacyWire: unknown = 1.0;
+    const log = binaryLog({
+      date: "2026-05-19",
+      value: coerceLegacyHabitLogValue(legacyWire),
+    });
+    expect(logCountsAsCompleted(log)).toBe(true);
   });
 });
 

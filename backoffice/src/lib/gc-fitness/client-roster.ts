@@ -46,6 +46,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
+import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
 import {
@@ -623,7 +624,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           habitId: hid,
           clientId: (data.clientId as string) ?? "",
           civilDate: typeof data.civilDate === "string" ? data.civilDate : "",
-          value: data.value === true,
+          value: coerceLegacyHabitLogValue(data.value),
           unit: typeof data.unit === "string" ? data.unit : undefined,
           deleted: data.deleted === true,
         };

@@ -42,6 +42,7 @@
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import {
+  coerceLegacyHabitLogValue,
   computeAdherence,
   type HabitLogRow,
 } from "./habit-compliance";
@@ -199,7 +200,7 @@ export async function fetchHabitCompliance(
         habitId: (data.habitId as string) ?? "",
         clientId: (data.clientId as string) ?? "",
         civilDate: (data.civilDate as string) ?? "",
-        value: data.value === true,
+        value: coerceLegacyHabitLogValue(data.value),
         unit: typeof data.unit === "string" ? data.unit : undefined,
         loggedAt: toIsoOrEmpty(data.loggedAt),
         deleted: data.deleted === true,
