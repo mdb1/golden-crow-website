@@ -564,6 +564,15 @@ export function TemplateForm({
             const cleanedWeights = Array.isArray(ex.weightBySetKg)
               ? ex.weightBySetKg.filter((n): n is number => Number.isFinite(n))
               : [];
+            // 260610-j67 (issue #159) — the no-weight sentinel. An EXPLICIT
+            // empty array `weightBySetKg: []` is the intentional "Sin peso" /
+            // reps-only prescription (twin of iOS
+            // ExerciseRef.hasExplicitNoWeightPrescription). It MUST survive
+            // serialization as a length-0 array — the alignment below would
+            // otherwise coerce `[] → undefined` (legacy "no override"), which
+            // silently destroys the sentinel.
+            const hasExplicitNoWeight =
+              Array.isArray(ex.weightBySetKg) && ex.weightBySetKg.length === 0;
             // 26-03 — Parallel `cleanedDurations` branch per PATTERNS.md
             // §16 Pattern D. Pad/truncate to canonicalLen the same way
             // reps + weight are handled so the duration array can never
@@ -622,7 +631,15 @@ export function TemplateForm({
                   ? ex.transition_rest_seconds
                   : 60,
               ...(alignedReps.length > 0 ? { repsBySet: alignedReps } : {}),
-              ...(alignedWeights ? { weightBySetKg: alignedWeights } : {}),
+              // 260610-j67 — preserve the no-weight sentinel verbatim: an
+              // explicit "Sin peso" exercise emits `weightBySetKg: []`
+              // (NEVER coerced to undefined). Otherwise fall back to the
+              // aligned weights (or omit entirely = legacy "no override").
+              ...(hasExplicitNoWeight
+                ? { weightBySetKg: [] }
+                : alignedWeights
+                  ? { weightBySetKg: alignedWeights }
+                  : {}),
               ...(alignedDurations
                 ? { durationBySetSeconds: alignedDurations }
                 : {}),
@@ -1012,6 +1029,15 @@ export function TemplateForm({
                     : undefined;
                   const effectiveMetric: "reps" | "time" =
                     templateMetric ?? sourceMetric ?? "reps";
+                  // 260610-j67 (issue #159) — no-weight ("Sin peso") state.
+                  // An EXPLICIT empty `weightBySetKg: []` array is the
+                  // reps-only sentinel; nil/array-with-values = legacy kg UI.
+                  const watchedWeightBySet = form.watch(
+                    `exercises.${index}.weightBySetKg` as const,
+                  );
+                  const isNoWeight =
+                    Array.isArray(watchedWeightBySet) &&
+                    watchedWeightBySet.length === 0;
                   const supersetMembership = getSupersetMembership(
                     watchedExercises,
                     index,
@@ -1164,6 +1190,47 @@ export function TemplateForm({
                           {t("templateMetricToggleInherited")}
                         </span>
                       ) : null}
+                      {/* 260610-j67 (issue #159) — "Sin peso" toggle. When
+                          ON, writes `weightBySetKg: []` (the reps-only
+                          sentinel) and hides the per-set kg column below.
+                          Orthogonal to reps/time metric. When OFF, restores
+                          the legacy kg column (weightBySetKg cleared to a
+                          length-0 slice = undefined on submit). */}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-pressed={isNoWeight}
+                        onClick={() => {
+                          const weightPath =
+                            `exercises.${index}.weightBySetKg` as const;
+                          if (isNoWeight) {
+                            // Turn OFF → clear the sentinel to `undefined`
+                            // (legacy "no override") so the kg column returns
+                            // and submit omits the field unless weights are
+                            // typed. setValue(undefined) drops the array.
+                            form.setValue(
+                              weightPath,
+                              undefined as unknown as number[],
+                              { shouldDirty: true },
+                            );
+                          } else {
+                            // Turn ON → write the explicit empty-array
+                            // sentinel (`weightBySetKg: []`) + hide the kg
+                            // column. This is the reps-only prescription.
+                            form.setValue(weightPath, [], {
+                              shouldDirty: true,
+                            });
+                          }
+                        }}
+                        className={cn(
+                          "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium",
+                          isNoWeight
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border/70 bg-background text-foreground hover:border-foreground/30",
+                        )}
+                      >
+                        {t("noWeightToggle")}
+                      </button>
                     </div>
 
                     {/* Sets / Rest. Reps is defined per-set
@@ -1403,16 +1470,28 @@ export function TemplateForm({
                       <div>
                         <FormLabel>{t("setRowsTitle")}</FormLabel>
                         <div className="mt-2 flex flex-col gap-2">
-                          <div className="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 px-1 sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)]">
+                          {/* 260610-j67 — when "Sin peso" is on, collapse the
+                              weight column out of the header grid entirely so
+                              the layout reads as two columns (set + reps). */}
+                          <div
+                            className={cn(
+                              "grid items-center gap-2 px-1",
+                              isNoWeight
+                                ? "grid-cols-[52px_minmax(0,1fr)] sm:grid-cols-[84px_minmax(140px,1fr)]"
+                                : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)]",
+                            )}
+                          >
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {t("setHeader")}
                             </span>
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {effectiveMetric === "time" ? t("secondsHeader") : t("reps")}
                             </span>
-                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {t("weightKgShort")}
-                            </span>
+                            {!isNoWeight ? (
+                              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {t("weightKgShort")}
+                              </span>
+                            ) : null}
                           </div>
                           {Array.from({
                             length: Math.max(
@@ -1448,7 +1527,14 @@ export function TemplateForm({
                                 key={`${field.id}-set-${setIdx + 1}`}
                                 data-set-row={setKey}
                                 data-set-idx={setIdx}
-                                className="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_28px] items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px]"
+                                className={cn(
+                                  "grid items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2",
+                                  // 260610-j67 — drop the weight column from
+                                  // the set-row grid when "Sin peso" is on.
+                                  isNoWeight
+                                    ? "grid-cols-[52px_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_28px]"
+                                    : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px]",
+                                )}
                               >
                                 <span className="text-xs text-muted-foreground">
                                   {t("setNumber", { count: setIdx + 1 })}
@@ -1622,6 +1708,9 @@ export function TemplateForm({
                                     aria-label={t("setRepsAria", { count: setIdx + 1 })}
                                   />
                                 )}
+                                {/* 260610-j67 — hide the per-set kg Input
+                                    entirely when "Sin peso" is on. */}
+                                {!isNoWeight ? (
                                 <Input
                                   type="text"
                                   inputMode="decimal"
@@ -1718,6 +1807,7 @@ export function TemplateForm({
                                   }}
                                   aria-label={t("setWeightAria", { count: setIdx + 1 })}
                                 />
+                                ) : null}
                                 {/* Copy-to-all affordance on Serie 1 — propagates
                                     its current primary value (reps OR duration)
                                     + kg drafts to every subsequent set, then

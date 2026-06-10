@@ -109,6 +109,15 @@ export interface WorkoutTemplateExerciseDetail {
   notes?: string;
   repsBySet?: number[];
   weightBySetKg?: number[];
+  /**
+   * 260610-j67 (issue #159) — no-weight ("Sin peso") sentinel, twin of iOS
+   * `ExerciseRef.hasExplicitNoWeightPrescription`. True when the source
+   * `weightBySetKg` was an EXPLICIT empty array (reps-only prescription).
+   * The normalized `weightBySetKg` above collapses both legacy-absent and
+   * explicit-empty to `[]`, so this flag carries the distinction for the
+   * assign-template modal's "Sin peso" seed.
+   */
+  hasExplicitNoWeightPrescription: boolean;
   /** Preview URL — preferred chain gifUrl → imageUrl → thumbnailURL. The
    *  assign-template-modal renders ExercisePreviewThumb with this so the
    *  trainer can hover-preview the exercise without leaving the modal. */
@@ -541,6 +550,11 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
         weightBySetKg: Array.isArray(exercise.weightBySetKg)
           ? (exercise.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
           : [],
+        // 260610-j67 — capture the no-weight sentinel before the array
+        // collapse above erases it. Explicit empty array = reps-only.
+        hasExplicitNoWeightPrescription:
+          Array.isArray(exercise.weightBySetKg) &&
+          (exercise.weightBySetKg as unknown[]).length === 0,
         previewUrl: extractPreviewUrl(source),
         supersetGroup:
           typeof exercise.supersetGroup === "string" &&

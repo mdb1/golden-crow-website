@@ -212,6 +212,16 @@ export interface AssignmentExercise {
   notes: string;
   repsBySet: number[];
   weightBySetKg: number[];
+  /**
+   * 260610-j67 (issue #159) — the no-weight ("Sin peso") sentinel, twin of
+   * iOS `ExerciseRef.hasExplicitNoWeightPrescription` /
+   * `ExerciseSnapshot.hasExplicitNoWeightPrescription`. True when the source
+   * `weightBySetKg` was an EXPLICIT empty array (reps-only / bodyweight
+   * prescription). The normalized `weightBySetKg: number[]` above collapses
+   * BOTH legacy-absent and explicit-empty to `[]`, so the read surfaces rely
+   * on THIS flag (not array length) to decide whether to hide the kg column.
+   */
+  hasExplicitNoWeightPrescription: boolean;
   supersetGroup: string | null;
   /**
    * 26-03 — Effective metric snapshotted on the assignment doc. Reads
@@ -384,6 +394,11 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
         weightBySetKg: Array.isArray(ex.weightBySetKg)
           ? (ex.weightBySetKg as number[]).filter((n) => Number.isFinite(n))
           : [],
+        // 260610-j67 — preserve the no-weight sentinel BEFORE the array
+        // collapse above erases it. Explicit empty array = reps-only.
+        hasExplicitNoWeightPrescription:
+          Array.isArray(ex.weightBySetKg) &&
+          (ex.weightBySetKg as unknown[]).length === 0,
         supersetGroup:
           typeof ex.supersetGroup === "string" &&
           ex.supersetGroup.trim().length > 0

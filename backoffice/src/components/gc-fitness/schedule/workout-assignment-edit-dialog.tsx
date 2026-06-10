@@ -53,6 +53,16 @@ interface ExerciseDraft {
   transitionRest: string;
   notes: string;
   setRows: SetRow[];
+  /**
+   * 260610-j67 (issue #159) — explicit "Sin peso" / no-weight intent for
+   * this exercise. When true, the payload writes `weightBySetKg: []` (the
+   * reps-only sentinel) and the kg column is hidden. Seeded from the
+   * assignment's `hasExplicitNoWeightPrescription` so an already-no-weight
+   * assignment stays no-weight on edit (the legacy `hasAnyWeight ? […] : []`
+   * derivation would otherwise be ambiguous with a weighted exercise whose
+   * weights were all cleared).
+   */
+  noWeight: boolean;
 }
 
 function InfoTooltip({ text, label }: { text: string; label: string }) {
@@ -94,6 +104,8 @@ function seedDrafts(exercises: AssignmentDetail["exercises"]): Record<number, Ex
       transitionRest: String(ex.transition_rest_seconds ?? 60),
       notes: ex.notes ?? "",
       setRows: setRows.length > 0 ? setRows : [{ reps: "0", kg: "" }],
+      // 260610-j67 — preserve the no-weight sentinel across edits.
+      noWeight: ex.hasExplicitNoWeightPrescription === true,
     };
   }
   return out;
@@ -167,11 +179,17 @@ export function WorkoutAssignmentEditDialog({
         return raw === "" ? NaN : Number(raw);
       });
       const hasAnyWeight = weightsRaw.some((n) => Number.isFinite(n));
-      const weightBySetKg = hasAnyWeight
-        ? weightsRaw.map((n) =>
-            Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : 0,
-          )
-        : [];
+      // 260610-j67 (issue #159) — when "Sin peso" is on, ALWAYS emit the
+      // explicit empty-array sentinel `[]` (reps-only), regardless of any
+      // stray typed kg. Otherwise keep the legacy derivation (weights when
+      // present, else [] = bodyweight per the original behavior).
+      const weightBySetKg = draft.noWeight
+        ? []
+        : hasAnyWeight
+          ? weightsRaw.map((n) =>
+              Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : 0,
+            )
+          : [];
       const rest = Number(draft.rest);
       return {
         index: ex.index,
@@ -262,6 +280,24 @@ export function WorkoutAssignmentEditDialog({
                   <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm font-medium">{ex.exerciseName}</p>
                     <div className="flex flex-wrap items-center gap-3">
+                      {/* 260610-j67 (issue #159) — "Sin peso" toggle. ON →
+                          writes weightBySetKg: [] (reps-only) + hides the kg
+                          column. */}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-pressed={draft.noWeight}
+                        onClick={() =>
+                          patch(ex.index, { noWeight: !draft.noWeight })
+                        }
+                        className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium ${
+                          draft.noWeight
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                        }`}
+                      >
+                        Sin peso
+                      </button>
                       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         Descanso (seg)
                         <input
@@ -274,10 +310,16 @@ export function WorkoutAssignmentEditDialog({
                       </label>
                     </div>
                   </div>
-                  <div className="grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div
+                    className={`grid items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ${
+                      draft.noWeight
+                        ? "grid-cols-[28px_minmax(80px,1fr)_max-content]"
+                        : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                    }`}
+                  >
                     <span>#</span>
                     <span>Reps</span>
-                    <span>Kg</span>
+                    {!draft.noWeight ? <span>Kg</span> : null}
                     <span />
                   </div>
                   {draft.setRows.map((row, rowIdx) => {
@@ -288,7 +330,11 @@ export function WorkoutAssignmentEditDialog({
                     return (
                     <div
                       key={rowIdx}
-                      className="mt-1 grid grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content] items-start gap-2"
+                      className={`mt-1 grid items-start gap-2 ${
+                        draft.noWeight
+                          ? "grid-cols-[28px_minmax(80px,1fr)_max-content]"
+                          : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                      }`}
                     >
                       <span className="pt-2 text-xs text-muted-foreground">
                         {rowIdx + 1}
@@ -302,23 +348,26 @@ export function WorkoutAssignmentEditDialog({
                         }
                         className="h-9 rounded-md border bg-background px-2 text-sm"
                       />
-                      <div className="flex flex-col gap-0.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row.kg}
-                          placeholder="Kg"
-                          onChange={(e) =>
-                            patchRow(ex.index, rowIdx, { kg: e.target.value })
-                          }
-                          className="h-9 rounded-md border bg-background px-2 text-sm"
-                        />
-                        {lastLogged ? (
-                          <span className="px-0.5 text-[10px] text-muted-foreground">
-                            Último: {lastLogged.weightKg}kg × {lastLogged.reps}
-                          </span>
-                        ) : null}
-                      </div>
+                      {/* 260610-j67 — hide the kg input when "Sin peso" is on. */}
+                      {!draft.noWeight ? (
+                        <div className="flex flex-col gap-0.5">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={row.kg}
+                            placeholder="Kg"
+                            onChange={(e) =>
+                              patchRow(ex.index, rowIdx, { kg: e.target.value })
+                            }
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                          />
+                          {lastLogged ? (
+                            <span className="px-0.5 text-[10px] text-muted-foreground">
+                              Último: {lastLogged.weightKg}kg × {lastLogged.reps}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-end gap-1 pt-1">
                         {rowIdx === 0 ? (
                           <button
