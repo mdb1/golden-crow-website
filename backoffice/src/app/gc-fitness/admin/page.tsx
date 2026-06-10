@@ -205,6 +205,18 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-xl">User search</CardTitle>
+          <CardDescription>Find any user (client, coach, or admin) by email and open their profile.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/gc-fitness/admin/users">Open user search</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-xl">Coaches</CardTitle>
           <CardDescription>Email, roles, clients, custom workouts, custom exercises.</CardDescription>
         </CardHeader>
