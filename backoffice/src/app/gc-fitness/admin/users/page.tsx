@@ -23,13 +23,18 @@ export const dynamic = "force-dynamic";
 
 /**
  * Resolve the right profile destination for a user by role precedence:
- *   client  → existing client detail page
+ *   client  → ADMIN client view under their coach. The trainer-facing
+ *             /gc-fitness/clients/{uid} page is ownership-gated (404s for
+ *             clients of other coaches), so admin search must never link it.
  *   trainer → existing coach detail page
- *   else (admin-only) → no dedicated page; render an inline read-only summary.
+ *   else (admin-only, or a client with no coach) → no dedicated page;
+ *             render an inline read-only summary.
  */
 function profileHrefForRow(row: UserSearchResultRow): string | null {
   if (row.roles.includes("client")) {
-    return `/gc-fitness/clients/${row.uid}`;
+    return row.coachId
+      ? `/gc-fitness/admin/coaches/${row.coachId}/clients/${row.uid}`
+      : null;
   }
   if (row.roles.includes("trainer")) {
     return `/gc-fitness/admin/coaches/${row.uid}`;
