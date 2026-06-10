@@ -4,7 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
-import { buildEmailPrefixBounds } from "@/lib/gc-fitness/admin-user-search";
+import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
@@ -191,24 +191,32 @@ export async function searchUsersByEmailForAdmin(
   await getCurrentAdmin();
 
   // (2) Empty / whitespace query → no query, empty result.
-  const bounds = buildEmailPrefixBounds(rawQuery);
-  if (!bounds) return [];
+  const q = normalizeSearchQuery(rawQuery);
+  if (q.length === 0) return [];
 
-  // (3) Admin-SDK prefix-range query over the always-present `email` index.
+  // (3) CONTAINS search: Firestore has no substring operator (a prefix range
+  // misses "carba" → ncarballal@…), so scan the users collection with a field
+  // projection and filter in memory. Admin-only tool over a small user base —
+  // the projected scan is cheap, and the per-user Auth lookup below only runs
+  // on the capped matches.
   const db = gcFitnessFirestore();
   const cappedLimit = Math.min(Math.max(limit, 1), 50);
   const snap = await db
     .collection(FirestoreCollections.users)
-    .orderBy("email")
-    .startAt(bounds.startAt)
-    .endAt(bounds.endAt)
-    .limit(cappedLimit)
+    .select("email", "displayName", "role", "photoURL", "deleted", "coachId")
     .get();
+
+  const matches = snap.docs
+    .filter((doc) => emailMatchesQuery(doc.get("email"), q))
+    .sort((a, b) =>
+      String(a.get("email") ?? "").localeCompare(String(b.get("email") ?? "")),
+    )
+    .slice(0, cappedLimit);
 
   // (4) Map each doc; merge doc.role with claim roles. Tolerant — a single bad
   // doc never throws (missing field → "" / null / false; getUser failure → []).
   const rows = await Promise.all(
-    snap.docs.map(async (doc) => {
+    matches.map(async (doc) => {
       const data = doc.data() as Record<string, unknown>;
       const uid = doc.id;
       const authUser = await gcFitnessAuth().getUser(uid).catch(() => null);
