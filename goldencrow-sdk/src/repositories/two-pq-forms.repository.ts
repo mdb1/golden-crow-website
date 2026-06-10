@@ -593,6 +593,30 @@ function normalizePatientInformation(input: PatientInformationInput) {
   });
 }
 
+function buildPatientAdditionalInformation(
+  patientInformation: ReturnType<typeof normalizePatientInformation>
+) {
+  const hasPartnerInformation = Boolean(
+    patientInformation.partnerFullName ||
+      patientInformation.partnerMedicalRecordNumber ||
+      patientInformation.partnerBirthDate ||
+      patientInformation.partnerNotes
+  );
+
+  if (!hasPartnerInformation) {
+    return undefined;
+  }
+
+  return {
+    partner: compactRecord({
+      fullName: patientInformation.partnerFullName,
+      medicalRecordNumber: patientInformation.partnerMedicalRecordNumber,
+      birthDate: patientInformation.partnerBirthDate,
+      notes: patientInformation.partnerNotes,
+    }),
+  };
+}
+
 function normalizeInstitutionInformation(input: InstitutionInformationInput) {
   return compactRecord({
     name: normalizeRequiredString(input.name, "Institution name"),
@@ -1185,6 +1209,9 @@ export async function createTwoPQFormForContext(
   }
 
   if (!selectedPatientId) {
+    const additionalInformation =
+      buildPatientAdditionalInformation(patientInformation);
+
     selectedPatient = await createPatientForContext(context, {
       institutionId,
       doctorId,
@@ -1207,6 +1234,7 @@ export async function createTwoPQFormForContext(
         typeof patientInformation.notes === "string"
           ? patientInformation.notes
           : undefined,
+      ...(additionalInformation ? { additionalInformation } : {}),
     });
     selectedPatientId = selectedPatient.id;
   }

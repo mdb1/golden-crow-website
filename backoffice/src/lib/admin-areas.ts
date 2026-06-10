@@ -98,6 +98,7 @@ export interface PatientRecord {
   sex?: string;
   status: "active" | "inactive";
   notes?: string;
+  additionalInformation?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

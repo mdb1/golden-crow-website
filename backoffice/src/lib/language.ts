@@ -408,6 +408,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Patient DNI": "DNI del paciente",
   "Patient birth date": "Fecha de nacimiento del paciente",
   "Patient notes": "Notas del paciente",
+  "Includes partner information": "Incluye información de pareja",
   Partner: "Pareja",
   "Partner first name": "Nombre de la pareja",
   "Partner last name": "Apellido de la pareja",

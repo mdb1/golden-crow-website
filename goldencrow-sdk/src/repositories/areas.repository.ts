@@ -89,6 +89,20 @@ function normalizeSex(value: unknown): string | undefined {
   return normalizeOptionalString(value);
 }
 
+function normalizeOptionalRecord(
+  value: unknown
+): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      ([, entryValue]) => entryValue !== undefined
+    )
+  );
+}
+
 function hasOwnKey<T extends object>(value: T, key: keyof T) {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
@@ -150,6 +164,7 @@ function toPatientRecord(id: string, data: Record<string, unknown>): PatientReco
     sex: normalizeSex(data.sex),
     status: normalizeStatus(data.status),
     notes: normalizeOptionalString(data.notes),
+    additionalInformation: normalizeOptionalRecord(data.additionalInformation),
     createdAt: normalizeOptionalString(data.createdAt) ?? now,
     updatedAt: normalizeOptionalString(data.updatedAt) ?? now,
   };
@@ -1130,6 +1145,7 @@ export async function createPatientForContext(
     sex?: string;
     status?: "active" | "inactive";
     notes?: string;
+    additionalInformation?: Record<string, unknown>;
   }
 ): Promise<PatientRecord> {
   const institutionId =
@@ -1161,6 +1177,8 @@ export async function createPatientForContext(
     sex: normalizeSex(payload.sex) ?? null,
     status: normalizeStatus(payload.status),
     notes: normalizeOptionalString(payload.notes) ?? null,
+    additionalInformation:
+      normalizeOptionalRecord(payload.additionalInformation) ?? null,
     createdAt: now,
     updatedAt: now,
   };

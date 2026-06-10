@@ -12,6 +12,7 @@ export type PatientInformationFormState = {
   sex: string;
   status: "active" | "inactive";
   notes: string;
+  includesPartnerInformation: boolean;
   partnerFirstName: string;
   partnerLastName: string;
   partnerMedicalRecordNumber: string;

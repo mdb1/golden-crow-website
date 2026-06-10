@@ -23,6 +23,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -535,6 +536,7 @@ function buildInitialState(
       sex: "",
       status: "active",
       notes: "",
+      includesPartnerInformation: false,
       partnerFirstName: "",
       partnerLastName: "",
       partnerMedicalRecordNumber: "",
@@ -641,23 +643,43 @@ function mergePatientInformationDraft(
   value: unknown
 ): PatientInformationFormState {
   const merged = mergeDraftSection(base, value);
+  const hasLegacyPartnerInformation = Boolean(
+    merged.partnerFirstName.trim() ||
+      merged.partnerLastName.trim() ||
+      merged.partnerMedicalRecordNumber.trim() ||
+      merged.partnerBirthDate.trim() ||
+      merged.partnerNotes.trim()
+  );
+  const mergedWithPartnerFlag = {
+    ...merged,
+    includesPartnerInformation:
+      merged.includesPartnerInformation || hasLegacyPartnerInformation,
+  };
   if (
-    (!merged.firstName.trim() || !merged.lastName.trim()) &&
-    merged.fullName.trim()
+    (!mergedWithPartnerFlag.firstName.trim() ||
+      !mergedWithPartnerFlag.lastName.trim()) &&
+    mergedWithPartnerFlag.fullName.trim()
   ) {
-    const splitName = splitFullName(merged.fullName);
+    const splitName = splitFullName(mergedWithPartnerFlag.fullName);
     return {
-      ...merged,
-      firstName: merged.firstName.trim() ? merged.firstName : splitName.firstName,
-      lastName: merged.lastName.trim() ? merged.lastName : splitName.lastName,
+      ...mergedWithPartnerFlag,
+      firstName: mergedWithPartnerFlag.firstName.trim()
+        ? mergedWithPartnerFlag.firstName
+        : splitName.firstName,
+      lastName: mergedWithPartnerFlag.lastName.trim()
+        ? mergedWithPartnerFlag.lastName
+        : splitName.lastName,
     };
   }
 
   return {
-    ...merged,
-    fullName: merged.fullName.trim()
-      ? merged.fullName
-      : joinNameParts(merged.firstName, merged.lastName),
+    ...mergedWithPartnerFlag,
+    fullName: mergedWithPartnerFlag.fullName.trim()
+      ? mergedWithPartnerFlag.fullName
+      : joinNameParts(
+          mergedWithPartnerFlag.firstName,
+          mergedWithPartnerFlag.lastName
+        ),
   };
 }
 
@@ -827,6 +849,7 @@ function validateStepFields(
       errors["patientInformation.birthDate"] = t("Birth date must be a valid date.");
     }
     if (
+      flowState.patientInformation.includesPartnerInformation &&
       flowState.patientInformation.partnerBirthDate &&
       !optionalValidDateInput(flowState.patientInformation.partnerBirthDate)
     ) {
@@ -1357,6 +1380,7 @@ function patientToFormState(patient: PatientListItem): PatientInformationFormSta
     sex: patient.sex ?? "",
     status: patient.status,
     notes: patient.notes ?? "",
+    includesPartnerInformation: false,
     partnerFirstName: "",
     partnerLastName: "",
     partnerMedicalRecordNumber: "",
@@ -2021,6 +2045,21 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function updatePartnerInformationIncluded(includesPartnerInformation: boolean) {
+    updatePatientInformation(
+      includesPartnerInformation
+        ? { includesPartnerInformation }
+        : {
+            includesPartnerInformation,
+            partnerFirstName: "",
+            partnerLastName: "",
+            partnerMedicalRecordNumber: "",
+            partnerBirthDate: "",
+            partnerNotes: "",
+          }
+    );
+  }
+
   function buildPatientInformationSubmission(
     patientInformation: PatientInformationFormState
   ) {
@@ -2034,10 +2073,12 @@ export function TwoPQFormFlow({
       patientInformation.partnerLastName
     );
     const hasPartnerInformation = Boolean(
-      partnerFullName ||
-        patientInformation.partnerMedicalRecordNumber.trim() ||
-        patientInformation.partnerBirthDate.trim() ||
-        patientInformation.partnerNotes.trim()
+      formType === "study_request" &&
+        patientInformation.includesPartnerInformation &&
+        (partnerFullName ||
+          patientInformation.partnerMedicalRecordNumber.trim() ||
+          patientInformation.partnerBirthDate.trim() ||
+          patientInformation.partnerNotes.trim())
     );
 
     return {
@@ -2979,65 +3020,6 @@ export function TwoPQFormFlow({
                   onChange={(birthDate) => updatePatientInformation({ birthDate })}
                   error={errorFor("patientInformation.birthDate")}
                 />
-                <section className="md:col-span-2">
-                  <div className="border-y border-border/70 py-5">
-                    <div className="mb-4">
-                      <h3 className="font-heading text-lg font-semibold text-foreground">
-                        {t("Partner")}
-                      </h3>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field
-                        id="form-partner-first-name"
-                        label={t("Partner first name")}
-                        value={state.patientInformation.partnerFirstName}
-                        onChange={(partnerFirstName) =>
-                          updatePatientInformation({ partnerFirstName })
-                        }
-                      />
-                      <Field
-                        id="form-partner-last-name"
-                        label={t("Partner last name")}
-                        value={state.patientInformation.partnerLastName}
-                        onChange={(partnerLastName) =>
-                          updatePatientInformation({ partnerLastName })
-                        }
-                      />
-                      <Field
-                        id="form-partner-dni"
-                        label={t("Partner DNI")}
-                        value={
-                          state.patientInformation.partnerMedicalRecordNumber
-                        }
-                        onChange={(partnerMedicalRecordNumber) =>
-                          updatePatientInformation({
-                            partnerMedicalRecordNumber,
-                          })
-                        }
-                      />
-                      <Field
-                        id="form-partner-birth-date"
-                        label={t("Partner birth date")}
-                        type="date"
-                        value={state.patientInformation.partnerBirthDate}
-                        onChange={(partnerBirthDate) =>
-                          updatePatientInformation({ partnerBirthDate })
-                        }
-                        error={errorFor("patientInformation.partnerBirthDate")}
-                      />
-                      <div className="md:col-span-2">
-                        <TextAreaField
-                          id="form-partner-notes"
-                          label={t("Partner notes")}
-                          value={state.patientInformation.partnerNotes}
-                          onChange={(partnerNotes) =>
-                            updatePatientInformation({ partnerNotes })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </section>
                 <div className="md:col-span-2">
                   <TextAreaField
                     id="form-patient-notes"
@@ -3046,6 +3028,87 @@ export function TwoPQFormFlow({
                     onChange={(notes) => updatePatientInformation({ notes })}
                   />
                 </div>
+                <section className="md:col-span-2">
+                  <div className="border-y border-border/70 py-5">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="form-includes-partner-information"
+                        checked={
+                          state.patientInformation.includesPartnerInformation
+                        }
+                        onCheckedChange={(checked) =>
+                          updatePartnerInformationIncluded(checked === true)
+                        }
+                      />
+                      <Label
+                        htmlFor="form-includes-partner-information"
+                        className="cursor-pointer font-medium text-foreground"
+                      >
+                        {t("Includes partner information")}
+                      </Label>
+                    </div>
+                    {state.patientInformation.includesPartnerInformation ? (
+                      <div className="mt-5">
+                        <h3 className="font-heading text-lg font-semibold text-foreground">
+                          {t("Partner")}
+                        </h3>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                          <Field
+                            id="form-partner-first-name"
+                            label={t("Partner first name")}
+                            value={state.patientInformation.partnerFirstName}
+                            onChange={(partnerFirstName) =>
+                              updatePatientInformation({ partnerFirstName })
+                            }
+                          />
+                          <Field
+                            id="form-partner-last-name"
+                            label={t("Partner last name")}
+                            value={state.patientInformation.partnerLastName}
+                            onChange={(partnerLastName) =>
+                              updatePatientInformation({ partnerLastName })
+                            }
+                          />
+                          <Field
+                            id="form-partner-dni"
+                            label={t("Partner DNI")}
+                            value={
+                              state.patientInformation
+                                .partnerMedicalRecordNumber
+                            }
+                            onChange={(partnerMedicalRecordNumber) =>
+                              updatePatientInformation({
+                                partnerMedicalRecordNumber,
+                              })
+                            }
+                          />
+                          <Field
+                            id="form-partner-birth-date"
+                            label={t("Partner birth date")}
+                            type="date"
+                            value={state.patientInformation.partnerBirthDate}
+                            onChange={(partnerBirthDate) =>
+                              updatePatientInformation({ partnerBirthDate })
+                            }
+                            error={errorFor(
+                              "patientInformation.partnerBirthDate"
+                            )}
+                          />
+                          <div className="md:col-span-2">
+                            <TextAreaField
+                              id="form-partner-notes"
+                              label={t("Partner notes")}
+                              value={state.patientInformation.partnerNotes}
+                              onChange={(partnerNotes) =>
+                                updatePatientInformation({ partnerNotes })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
               </>
             ) : (
               <>
