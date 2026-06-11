@@ -289,7 +289,12 @@ function RequestRow({
           <span className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground">
             {state.statusText}
           </span>
-          <span className="text-xs text-muted-foreground">{state.helperText}</span>
+          {/* When gated (#160) the ready-again helper ("you can request now")
+              contradicts the next-eligible-date line below — hide it. The
+              active-request helper ("reactivates on …") stays. */}
+          {gated && !state.isActive ? null : (
+            <span className="text-xs text-muted-foreground">{state.helperText}</span>
+          )}
         </div>
         {note ? (
           note.fulfilled ? (
@@ -302,9 +307,6 @@ function RequestRow({
               {note.text}
             </Badge>
           )
-        ) : null}
-        {gated && gatedHelper ? (
-          <p className="text-xs text-muted-foreground">{gatedHelper}</p>
         ) : null}
         <div className="mt-auto flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
