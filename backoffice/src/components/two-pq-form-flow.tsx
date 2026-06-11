@@ -3790,38 +3790,43 @@ export function TwoPQFormFlow({
               hasErrors(validateStepFields(step, state, formType, language))
                 ? "invalid"
                 : storedStatus;
+            const completed = stepStatus === "valid";
+            const stepButtonClass = [
+              "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
+              completed
+                ? "border-emerald-600 bg-emerald-600 text-white shadow-[0_8px_18px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
+                : active
+                  ? "border-indigo-300 bg-indigo-500/12 text-indigo-950 dark:border-indigo-300/40 dark:text-indigo-100"
+                  : stepStatus === "invalid"
+                    ? "border-red-200 bg-red-50/65 text-red-950 hover:bg-red-50 dark:border-red-300/28 dark:bg-red-950/18 dark:text-red-100"
+                    : "border-border/80 bg-background/54 text-muted-foreground hover:bg-background/80",
+            ].join(" ");
+            const stepNumberClass = [
+              "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
+              completed
+                ? "border-white/70 bg-white/18 text-white"
+                : active
+                  ? "border-indigo-600 bg-indigo-600 text-white shadow-[0_6px_14px_rgba(79,70,229,0.24)]"
+                  : stepStatus === "invalid"
+                    ? "border-red-300 bg-red-100 text-red-700 dark:border-red-300/42 dark:bg-red-400/12 dark:text-red-200"
+                    : "border-indigo-300/80 bg-transparent text-indigo-700 dark:border-indigo-300/45 dark:text-indigo-200",
+            ].join(" ");
             return (
               <button
                 key={step}
                 type="button"
                 onClick={() => void selectStep(index)}
                 disabled={pending || draftPending}
-                className={[
-                  "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
-                  active
-                    ? "border-indigo-300 bg-indigo-500/12 text-indigo-950 dark:border-indigo-300/40 dark:text-indigo-100"
-                    : stepStatus === "invalid"
-                      ? "border-red-200 bg-red-50/65 text-red-950 hover:bg-red-50 dark:border-red-300/28 dark:bg-red-950/18 dark:text-red-100"
-                    : "border-border/80 bg-background/54 text-muted-foreground hover:bg-background/80",
-                ].join(" ")}
+                className={stepButtonClass}
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={[
-                      "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
-                      active
-                        ? "border-indigo-600 bg-indigo-600 text-white shadow-[0_6px_14px_rgba(79,70,229,0.24)]"
-                        : stepStatus === "invalid"
-                          ? "border-red-300 bg-red-100 text-red-700 dark:border-red-300/42 dark:bg-red-400/12 dark:text-red-200"
-                        : "border-indigo-300/80 bg-transparent text-indigo-700 dark:border-indigo-300/45 dark:text-indigo-200",
-                    ].join(" ")}
-                  >
+                  <span className={stepNumberClass}>
                     {index + 1}
                   </span>
                   <span className="min-w-0 truncate">{t(STEP_LABELS[step])}</span>
                 </span>
-                {stepStatus === "valid" ? (
-                  <CheckCircle2 className="size-4 text-emerald-600" />
+                {completed ? (
+                  <CheckCircle2 className="size-4 text-white" />
                 ) : stepStatus === "invalid" ? (
                   <CircleX className="size-4 text-red-600" />
                 ) : null}
