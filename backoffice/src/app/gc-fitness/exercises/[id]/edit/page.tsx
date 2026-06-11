@@ -66,7 +66,10 @@ export default async function EditExercisePage({ params }: PageParams) {
   const db = gcFitnessFirestore();
   const snap = await db.collection("exercises").doc(id).get();
   if (!snap.exists) {
-    redirect("/gc-fitness/exercises");
+    // Straight to the Biblioteca tab — /gc-fitness/exercises is itself just a
+    // redirect to this URL, and chaining two 307s through force-dynamic pages
+    // was half of the issue-#171 error-flash window.
+    redirect("/gc-fitness/library?tab=exercises");
   }
   const data = snap.data() as Record<string, unknown> & {
     source?: string;
