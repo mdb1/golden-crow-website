@@ -18,14 +18,17 @@ import {
   TWO_PQ_FORM_ROUTES,
   type TwoPQFormDraftRecord,
 } from "@/lib/two-pq-forms";
+import { appText, type AppLanguage } from "@/lib/language";
 import { TwoPQContactSection } from "@/components/two-pq-contact-section";
 
 export function TwoPQDashboardHome({
   adminContext,
+  language,
   metrics,
   formDraft,
 }: {
   adminContext: AdminContextRecord;
+  language: AppLanguage;
   metrics: {
     institutions: number;
     doctors: number;
@@ -37,6 +40,7 @@ export function TwoPQDashboardHome({
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
   const linkedEntityAreas = TWO_PQ_AREA_CONFIGS.filter((area) => linkedEntityKeys.has(area.key));
   const secondaryAreas = TWO_PQ_AREA_CONFIGS.filter((area) => !linkedEntityKeys.has(area.key));
+  const t = (text: string) => appText(language, text);
   const draftHref = formDraft
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
@@ -46,7 +50,7 @@ export function TwoPQDashboardHome({
       eyebrow: "Scope",
       value: metrics.institutions,
       description: "Institutions visible to this role",
-      createLabel: "+ New Institution",
+      createLabel: t("+ New Institution"),
       createHref: "/areas/institutions/new",
       browseLabel: "Open Institutions",
       browseHref: "/areas/institutions",
@@ -58,7 +62,7 @@ export function TwoPQDashboardHome({
       eyebrow: "Scope",
       value: metrics.doctors,
       description: "Doctors available for 2PQ ownership",
-      createLabel: "+ New Doctor",
+      createLabel: t("+ New Doctor"),
       createHref: "/areas/doctors/new",
       browseLabel: "Open Doctors",
       browseHref: "/areas/doctors",
@@ -70,7 +74,7 @@ export function TwoPQDashboardHome({
       eyebrow: "Scope",
       value: metrics.patients,
       description: "Patients available for linkage",
-      createLabel: "+ New Patient",
+      createLabel: t("+ New Patient"),
       createHref: "/areas/patients/new",
       browseLabel: "Open Patients",
       browseHref: "/areas/patients",
@@ -83,7 +87,7 @@ export function TwoPQDashboardHome({
       eyebrow: "Access",
       value: metrics.roles,
       description: "Role records defining the active lane",
-      createLabel: "+ New Role",
+      createLabel: t("+ New Role"),
       createHref: "/roles/new",
       browseLabel: "Open Roles",
       browseHref: "/roles",
