@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Info } from "lucide-react";
+import { Info, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -30,6 +30,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { ExercisePickerPopover } from "@/components/gc-fitness/exercise-picker-popover";
+import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
 import {
   getAssignmentDetail,
   type AssignmentDetail,
@@ -48,7 +50,11 @@ interface SetRow {
   reps: string;
   kg: string;
 }
-interface ExerciseDraft {
+interface ExerciseDraftRow {
+  rowId: string;
+  exerciseId: string;
+  name: { en: string; es: string };
+  previewUrl: string | null;
   rest: string;
   transitionRest: string;
   notes: string;
@@ -63,6 +69,10 @@ interface ExerciseDraft {
    * weights were all cleared).
    */
   noWeight: boolean;
+  metric: "reps" | "time";
+  durationBySetSeconds: number[];
+  durationSeconds: number | null;
+  supersetGroup: string | null;
 }
 
 function InfoTooltip({ text, label }: { text: string; label: string }) {
@@ -85,9 +95,16 @@ function InfoTooltip({ text, label }: { text: string; label: string }) {
   );
 }
 
-function seedDrafts(exercises: AssignmentDetail["exercises"]): Record<number, ExerciseDraft> {
-  const out: Record<number, ExerciseDraft> = {};
-  for (const ex of exercises) {
+function makeRowId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function exerciseName(ex: AssignmentDetail["exercises"][number]): { en: string; es: string } {
+  return { en: ex.exerciseName, es: "" };
+}
+
+function seedDraftRows(exercises: AssignmentDetail["exercises"]): ExerciseDraftRow[] {
+  return exercises.map((ex) => {
     const baseReps =
       ex.repsBySet.length > 0
         ? ex.repsBySet
@@ -99,16 +116,23 @@ function seedDrafts(exercises: AssignmentDetail["exercises"]): Record<number, Ex
           ? String(ex.weightBySetKg[i])
           : "",
     }));
-    out[ex.index] = {
+    return {
+      rowId: makeRowId(),
+      exerciseId: ex.exerciseId,
+      name: exerciseName(ex),
+      previewUrl: ex.previewUrl ?? null,
       rest: String(ex.rest_seconds ?? 60),
       transitionRest: String(ex.transition_rest_seconds ?? 60),
       notes: ex.notes ?? "",
       setRows: setRows.length > 0 ? setRows : [{ reps: "0", kg: "" }],
       // 260610-j67 — preserve the no-weight sentinel across edits.
       noWeight: ex.hasExplicitNoWeightPrescription === true,
+      metric: ex.metric,
+      durationBySetSeconds: ex.durationBySetSeconds ?? [],
+      durationSeconds: ex.durationSeconds ?? null,
+      supersetGroup: ex.supersetGroup ?? null,
     };
-  }
-  return out;
+  });
 }
 
 export function WorkoutAssignmentEditDialog({
@@ -117,9 +141,10 @@ export function WorkoutAssignmentEditDialog({
   assignmentId,
   onSaved,
 }: WorkoutAssignmentEditDialogProps) {
-  const [drafts, setDrafts] = useState<Record<number, ExerciseDraft>>({});
+  const [drafts, setDrafts] = useState<ExerciseDraftRow[]>([]);
   const [scope, setScope] = useState<"one" | "series">("one");
   const [saving, setSaving] = useState(false);
+  const { data: exerciseLibrary } = useExercisesQuery();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["assignment-detail", assignmentId],
@@ -127,10 +152,17 @@ export function WorkoutAssignmentEditDialog({
     enabled: open,
     staleTime: 30_000,
   });
+  const exerciseById = useMemo(
+    () =>
+      new Map(
+        (exerciseLibrary ?? []).map((exercise) => [exercise.id, exercise]),
+      ),
+    [exerciseLibrary],
+  );
 
   // Seed the editable drafts once the detail loads (and reset on reopen).
   useEffect(() => {
-    if (data) setDrafts(seedDrafts(data.exercises));
+    if (data) setDrafts(seedDraftRows(data.exercises));
   }, [data]);
   useEffect(() => {
     if (!open) setScope("one");
@@ -138,38 +170,83 @@ export function WorkoutAssignmentEditDialog({
 
   const isSeries = Boolean(data?.seriesId || data?.recurrence);
 
-  const exercises = useMemo(() => data?.exercises ?? [], [data]);
+  const exercises = useMemo(() => drafts, [drafts]);
 
-  function patch(index: number, next: Partial<ExerciseDraft>) {
-    setDrafts((prev) => ({ ...prev, [index]: { ...prev[index], ...next } }));
+  function patch(rowId: string, next: Partial<ExerciseDraftRow>) {
+    setDrafts((prev) =>
+      prev.map((row) => (row.rowId === rowId ? { ...row, ...next } : row)),
+    );
   }
-  function patchRow(index: number, rowIdx: number, next: Partial<SetRow>) {
+  function patchRow(rowId: string, rowIdx: number, next: Partial<SetRow>) {
     setDrafts((prev) => {
-      const cur = prev[index];
+      const cur = prev.find((row) => row.rowId === rowId);
+      if (!cur) return prev;
       const setRows = cur.setRows.map((r, i) =>
         i === rowIdx ? { ...r, ...next } : r,
       );
-      return { ...prev, [index]: { ...cur, setRows } };
+      return prev.map((row) => (row.rowId === rowId ? { ...cur, setRows } : row));
     });
   }
-  function copyFirstSetToAll(index: number) {
+  function copyFirstSetToAll(rowId: string) {
     setDrafts((prev) => {
-      const cur = prev[index];
+      const cur = prev.find((row) => row.rowId === rowId);
       const first = cur?.setRows[0];
       if (!cur || !first) return prev;
-      return {
-        ...prev,
-        [index]: {
-          ...cur,
-          setRows: cur.setRows.map(() => ({ ...first })),
-        },
-      };
+      return prev.map((row) =>
+        row.rowId === rowId
+          ? {
+              ...cur,
+              setRows: cur.setRows.map(() => ({ ...first })),
+            }
+          : row,
+      );
     });
   }
 
+  function appendExerciseRow() {
+    setDrafts((prev) => [
+      ...prev,
+      {
+        rowId: makeRowId(),
+        exerciseId: "",
+        name: { en: "", es: "" },
+        previewUrl: null,
+        rest: "60",
+        transitionRest: "60",
+        notes: "",
+        setRows: [{ reps: "10", kg: "" }],
+        noWeight: false,
+        metric: "reps",
+        durationBySetSeconds: [],
+        durationSeconds: null,
+        supersetGroup: null,
+      },
+    ]);
+  }
+
+  function removeExerciseRow(rowId: string) {
+    setDrafts((prev) => (prev.length <= 1 ? prev : prev.filter((row) => row.rowId !== rowId)));
+  }
+
+  function selectExercise(rowId: string, exerciseId: string) {
+    const selected = exerciseById.get(exerciseId);
+    setDrafts((prev) =>
+      prev.map((row) => {
+        if (row.rowId !== rowId) return row;
+        return {
+          ...row,
+          exerciseId,
+          name: selected?.name ?? row.name,
+          previewUrl:
+            selected?.gifUrl ?? selected?.imageUrl ?? selected?.thumbnailURL ?? row.previewUrl,
+          metric: selected?.metric ?? row.metric,
+        };
+      }),
+    );
+  }
+
   function buildPayload() {
-    return exercises.map((ex) => {
-      const draft = drafts[ex.index];
+    return exercises.map((draft) => {
       const repsBySet = draft.setRows.map((r) => {
         const n = Number(r.reps);
         return Number.isFinite(n) ? Math.max(0, Math.min(50, Math.round(n))) : 0;
@@ -192,7 +269,9 @@ export function WorkoutAssignmentEditDialog({
           : [];
       const rest = Number(draft.rest);
       return {
-        index: ex.index,
+        exerciseId: draft.exerciseId,
+        name: draft.name,
+        previewUrl: draft.previewUrl,
         repsBySet: repsBySet.length > 0 ? repsBySet : [0],
         weightBySetKg,
         rest_seconds: Number.isFinite(rest)
@@ -202,11 +281,25 @@ export function WorkoutAssignmentEditDialog({
           ? Math.max(0, Math.min(600, Math.round(Number(draft.transitionRest))))
           : 60,
         notes: draft.notes.trim(),
+        metric: draft.metric,
+        durationBySetSeconds: draft.durationBySetSeconds,
+        durationSeconds: draft.durationSeconds,
+        supersetGroup: draft.supersetGroup,
+        noWeight: draft.noWeight,
       };
     });
   }
 
   async function onSave() {
+    if (
+      exercises.some(
+        (row) =>
+          row.exerciseId.trim().length === 0 || row.name.en.trim().length === 0,
+      )
+    ) {
+      toast.error("Elegí un ejercicio para cada fila antes de guardar.");
+      return;
+    }
     setSaving(true);
     try {
       const result = await editAssignmentExercises(assignmentId, {
@@ -269,181 +362,237 @@ export function WorkoutAssignmentEditDialog({
               {error instanceof Error ? error.message : "No se pudo cargar."}
             </p>
           ) : data ? (
-            exercises.map((ex) => {
-              const draft = drafts[ex.index];
-              if (!draft) return null;
-              return (
-                <div
-                  key={`${ex.exerciseId}-${ex.index}`}
-                  className="rounded-lg border p-3"
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {exercises.length} ejercicio
+                  {exercises.length === 1 ? "" : "s"}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={appendExerciseRow}
                 >
-                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm font-medium">{ex.exerciseName}</p>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* 260610-j67 (issue #159) — "Sin peso" toggle. ON →
-                          writes weightBySetKg: [] (reps-only) + hides the kg
-                          column. */}
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        aria-pressed={draft.noWeight}
-                        onClick={() =>
-                          patch(ex.index, { noWeight: !draft.noWeight })
-                        }
-                        className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium ${
-                          draft.noWeight
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border/70 bg-background text-foreground hover:border-foreground/30"
-                        }`}
-                      >
-                        Sin peso
-                      </button>
-                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        Descanso (seg)
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={draft.rest}
-                          onChange={(e) => patch(ex.index, { rest: e.target.value })}
-                          className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                  <div
-                    className={`grid items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ${
-                      draft.noWeight
-                        ? "grid-cols-[28px_minmax(80px,1fr)_max-content]"
-                        : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
-                    }`}
-                  >
-                    <span>#</span>
-                    <span>Reps</span>
-                    {!draft.noWeight ? <span>Kg</span> : null}
-                    <span />
-                  </div>
-                  {draft.setRows.map((row, rowIdx) => {
-                    const lastLogged =
-                      data.lastLoggedSetsByExerciseId?.[ex.exerciseId]?.[
-                        rowIdx
-                      ];
-                    return (
-                    <div
-                      key={rowIdx}
-                      className={`mt-1 grid items-start gap-2 ${
-                        draft.noWeight
-                          ? "grid-cols-[28px_minmax(80px,1fr)_max-content]"
-                          : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
-                      }`}
-                    >
-                      <span className="pt-2 text-xs text-muted-foreground">
-                        {rowIdx + 1}
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={row.reps}
-                        onChange={(e) =>
-                          patchRow(ex.index, rowIdx, { reps: e.target.value })
-                        }
-                        className="h-9 rounded-md border bg-background px-2 text-sm"
-                      />
-                      {/* 260610-j67 — hide the kg input when "Sin peso" is on. */}
-                      {!draft.noWeight ? (
-                        <div className="flex flex-col gap-0.5">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={row.kg}
-                            placeholder="Kg"
-                            onChange={(e) =>
-                              patchRow(ex.index, rowIdx, { kg: e.target.value })
-                            }
-                            className="h-9 rounded-md border bg-background px-2 text-sm"
-                          />
-                          {lastLogged ? (
-                            <span className="px-0.5 text-[10px] text-muted-foreground">
-                              Último: {lastLogged.weightKg}kg × {lastLogged.reps}
-                            </span>
+                  <Plus className="h-4 w-4" />
+                  Agregar ejercicio
+                </Button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {exercises.map((draft, index) => {
+                  const selectedExercise = exerciseById.get(draft.exerciseId);
+                  const showRemove = exercises.length > 1;
+                  return (
+                    <div key={draft.rowId} className="rounded-lg border p-3">
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">
+                            Ejercicio {index + 1}
+                          </p>
+                          <div className="mt-2">
+                            <ExercisePickerPopover
+                              value={draft.exerciseId}
+                              onChange={(value) =>
+                                selectExercise(draft.rowId, value)
+                              }
+                              placeholder="Elegí un ejercicio"
+                              ariaLabel={`Elegir ejercicio ${index + 1}`}
+                            />
+                          </div>
+                          {selectedExercise ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {selectedExercise.name.en}
+                              {selectedExercise.name.es &&
+                              selectedExercise.name.es !== selectedExercise.name.en
+                                ? ` · ${selectedExercise.name.es}`
+                                : ""}
+                            </p>
                           ) : null}
                         </div>
-                      ) : null}
-                      <div className="flex items-center justify-end gap-1 pt-1">
-                        {rowIdx === 0 ? (
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             tabIndex={-1}
-                            disabled={draft.setRows.length <= 1}
-                            onClick={() => copyFirstSetToAll(ex.index)}
-                            className="inline-flex h-7 items-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
+                            aria-pressed={draft.noWeight}
+                            onClick={() =>
+                              patch(draft.rowId, { noWeight: !draft.noWeight })
+                            }
+                            className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium ${
+                              draft.noWeight
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                            }`}
                           >
-                            Copiar a todas
+                            Sin peso
                           </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          disabled={draft.setRows.length <= 1}
-                          aria-label={`Quitar serie ${rowIdx + 1}`}
-                          onClick={() =>
-                            patch(ex.index, {
-                              setRows: draft.setRows.filter(
-                                (_, i) => i !== rowIdx,
-                              ),
+                          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            Descanso (seg)
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={draft.rest}
+                              onChange={(e) =>
+                                patch(draft.rowId, { rest: e.target.value })
+                              }
+                              className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
+                            />
+                          </label>
+                          {showRemove ? (
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              aria-label={`Quitar ejercicio ${index + 1}`}
+                              onClick={() => removeExerciseRow(draft.rowId)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div
+                        className={`grid items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ${
+                          draft.noWeight
+                            ? "grid-cols-[28px_minmax(80px,1fr)_max-content]"
+                            : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                        }`}
+                      >
+                        <span>#</span>
+                        <span>Reps</span>
+                        {!draft.noWeight ? <span>Kg</span> : null}
+                        <span />
+                      </div>
+                      {draft.setRows.map((row, rowIdx) => {
+                        const lastLogged =
+                          data.lastLoggedSetsByExerciseId?.[draft.exerciseId]?.[
+                            rowIdx
+                          ];
+                        return (
+                          <div
+                            key={`${draft.rowId}-${rowIdx}`}
+                            className={`mt-1 grid items-start gap-2 ${
+                              draft.noWeight
+                                ? "grid-cols-[28px_minmax(80px,1fr)_max-content]"
+                                : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
+                            }`}
+                          >
+                            <span className="pt-2 text-xs text-muted-foreground">
+                              {rowIdx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={row.reps}
+                              onChange={(e) =>
+                                patchRow(draft.rowId, rowIdx, {
+                                  reps: e.target.value,
+                                })
+                              }
+                              className="h-9 rounded-md border bg-background px-2 text-sm"
+                            />
+                            {!draft.noWeight ? (
+                              <div className="flex flex-col gap-0.5">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={row.kg}
+                                  placeholder="Kg"
+                                  onChange={(e) =>
+                                    patchRow(draft.rowId, rowIdx, {
+                                      kg: e.target.value,
+                                    })
+                                  }
+                                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                                />
+                                {lastLogged ? (
+                                  <span className="px-0.5 text-[10px] text-muted-foreground">
+                                    Último: {lastLogged.weightKg}kg × {lastLogged.reps}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            <div className="flex items-center justify-end gap-1 pt-1">
+                              {rowIdx === 0 ? (
+                                <button
+                                  type="button"
+                                  tabIndex={-1}
+                                  disabled={draft.setRows.length <= 1}
+                                  onClick={() => copyFirstSetToAll(draft.rowId)}
+                                  className="inline-flex h-7 items-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
+                                >
+                                  Copiar a todas
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                disabled={draft.setRows.length <= 1}
+                                aria-label={`Quitar serie ${rowIdx + 1}`}
+                                onClick={() =>
+                                  patch(draft.rowId, {
+                                    setRows: draft.setRows.filter(
+                                      (_, i) => i !== rowIdx,
+                                    ),
+                                  })
+                                }
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-30"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        disabled={draft.setRows.length >= 10}
+                        onClick={() => {
+                          const last = draft.setRows[draft.setRows.length - 1];
+                          patch(draft.rowId, {
+                            setRows: [
+                              ...draft.setRows,
+                              { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
+                            ],
+                          });
+                        }}
+                        className="mt-1 inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Agregar serie
+                      </button>
+                      <textarea
+                        value={draft.notes}
+                        onChange={(e) =>
+                          patch(draft.rowId, { notes: e.target.value })
+                        }
+                        placeholder="Notas específicas para este cliente en este ejercicio"
+                        className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
+                      />
+                      <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-100">
+                        Descanso entre ejercicios (s)
+                        <InfoTooltip
+                          text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
+                          label="Explicar descanso entre ejercicios"
+                        />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={draft.transitionRest}
+                          onChange={(e) =>
+                            patch(draft.rowId, {
+                              transitionRest: e.target.value,
                             })
                           }
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-30"
-                        >
-                          ×
-                        </button>
-                      </div>
+                          className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
+                        />
+                      </label>
                     </div>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    disabled={draft.setRows.length >= 10}
-                    onClick={() => {
-                      const last = draft.setRows[draft.setRows.length - 1];
-                      patch(ex.index, {
-                        setRows: [
-                          ...draft.setRows,
-                          { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
-                        ],
-                      });
-                    }}
-                    className="mt-1 inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium hover:border-foreground/30 disabled:opacity-50"
-                  >
-                    + Agregar serie
-                  </button>
-                  <textarea
-                    value={draft.notes}
-                    onChange={(e) => patch(ex.index, { notes: e.target.value })}
-                    placeholder="Notas específicas para este cliente en este ejercicio"
-                    className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
-                  />
-                  {/* Transition rest sits below the coach notes — the client
-                      sees it after finishing this exercise. */}
-                  <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-100">
-                    Descanso entre ejercicios (s)
-                    <InfoTooltip
-                      text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
-                      label="Explicar descanso entre ejercicios"
-                    />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={draft.transitionRest}
-                      onChange={(e) =>
-                        patch(ex.index, { transitionRest: e.target.value })
-                      }
-                      className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
-                    />
-                  </label>
-                </div>
-              );
-            })
+                  );
+                })}
+              </div>
+            </>
           ) : null}
         </div>
 
@@ -489,7 +638,18 @@ export function WorkoutAssignmentEditDialog({
             >
               Cancelar
             </Button>
-            <Button onClick={onSave} disabled={saving || !data}>
+            <Button
+              onClick={onSave}
+              disabled={
+                saving ||
+                !data ||
+                exercises.some(
+                  (row) =>
+                    row.exerciseId.trim().length === 0 ||
+                    row.name.en.trim().length === 0,
+                )
+              }
+            >
               {saving ? "Guardando…" : "Guardar cambios"}
             </Button>
           </div>

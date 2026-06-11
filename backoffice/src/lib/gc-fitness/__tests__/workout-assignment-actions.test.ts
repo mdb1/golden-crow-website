@@ -186,13 +186,14 @@ function fakeAssignmentSnap(opts: {
   clientId?: string;
   scheduledFor?: string;
   seriesId?: string | null;
+  templateSnapshot?: object;
 }) {
   const data: Record<string, unknown> = {
     trainerId: opts.trainerId ?? ALLOWED_UID,
     clientId: opts.clientId ?? CLIENT_UID,
     scheduledFor: opts.scheduledFor ?? "2026-06-01",
     templateId: "tpl-abc",
-    templateSnapshot: VALID_TEMPLATE,
+    templateSnapshot: opts.templateSnapshot ?? VALID_TEMPLATE,
     status: "scheduled",
   };
   if (opts.seriesId !== undefined) {
@@ -607,6 +608,106 @@ describe("editAssignmentExercises", () => {
     expect(patch.templateSnapshot.exercises[0].rest_seconds).toBe(45);
     expect(patch.templateSnapshot.exercises[0].transition_rest_seconds).toBe(60);
     expect(patch.templateSnapshot.exercises[0].sets).toBe(2);
+  });
+
+  // #215 — row-based payload (add/remove exercises). Rows pair with the
+  // snapshot by exerciseId (NOT position), localized names and media survive
+  // for existing exercises, and brand-new rows get media from previewUrl.
+  it("row payload: removes, keeps and adds exercises pairing by exerciseId", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({
+        exists: true,
+        trainerId: ALLOWED_UID,
+        templateSnapshot: {
+          name: { en: "Push Day", es: "Día de Empuje" },
+          exercises: [
+            {
+              exerciseId: "ex-1",
+              name: { en: "Bench Press", es: "Press de Banca" },
+              gifUrl: "gif-bench",
+              repsBySet: [10, 10],
+              weightBySetKg: [40, 40],
+              rest_seconds: 90,
+            },
+            {
+              exerciseId: "ex-2",
+              name: { en: "Dips", es: "Fondos" },
+              gifUrl: "gif-dips",
+              imageUrl: "img-dips",
+              repsBySet: [12],
+              weightBySetKg: [],
+              rest_seconds: 60,
+            },
+          ],
+        },
+      }),
+    );
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    // The coach removed ex-1, kept ex-2 (dialog only knows the single display
+    // string → es comes back empty) and added ex-3 from the library picker.
+    await editAssignmentExercises("asg-abc", {
+      scope: "one",
+      exercises: [
+        {
+          exerciseId: "ex-2",
+          name: { en: "Dips", es: "" },
+          previewUrl: "gif-dips",
+          repsBySet: [12, 12],
+          weightBySetKg: [5, 5],
+          rest_seconds: 75,
+          transition_rest_seconds: 60,
+          notes: "",
+          metric: "reps",
+          durationBySetSeconds: [],
+          durationSeconds: null,
+          supersetGroup: null,
+          noWeight: false,
+        },
+        {
+          exerciseId: "ex-3",
+          name: { en: "Push Up", es: "Flexiones" },
+          previewUrl: "gif-pushup",
+          repsBySet: [15],
+          weightBySetKg: [],
+          rest_seconds: 60,
+          transition_rest_seconds: 60,
+          notes: "to failure",
+          metric: "reps",
+          durationBySetSeconds: [],
+          durationSeconds: null,
+          supersetGroup: null,
+          noWeight: true,
+        },
+      ],
+    });
+
+    expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
+    const exercises = mockBatchUpdate.mock.calls[0][1].templateSnapshot
+      .exercises as Array<Record<string, unknown>>;
+    expect(exercises).toHaveLength(2);
+
+    // ex-1 is gone; ex-2 paired by id (not position 0 of the old array).
+    expect(exercises[0].exerciseId).toBe("ex-2");
+    // es name preserved from the snapshot despite the blank in the payload.
+    expect(exercises[0].name).toEqual({ en: "Dips", es: "Fondos" });
+    // Existing exercise keeps its own media — not ex-1's, not the collapsed previewUrl.
+    expect(exercises[0].gifUrl).toBe("gif-dips");
+    expect(exercises[0].imageUrl).toBe("img-dips");
+    expect(exercises[0].repsBySet).toEqual([12, 12]);
+    expect(exercises[0].weightBySetKg).toEqual([5, 5]);
+    expect(exercises[0].rest_seconds).toBe(75);
+    expect(exercises[0].hasExplicitNoWeightPrescription).toBeUndefined();
+
+    // New exercise: media seeded from previewUrl, no-weight flag set.
+    expect(exercises[1].exerciseId).toBe("ex-3");
+    expect(exercises[1].name).toEqual({ en: "Push Up", es: "Flexiones" });
+    expect(exercises[1].gifUrl).toBe("gif-pushup");
+    expect(exercises[1].repsBySet).toEqual([15]);
+    expect(exercises[1].weightBySetKg).toEqual([]);
+    expect(exercises[1].hasExplicitNoWeightPrescription).toBe(true);
+    expect(exercises[1].notes).toBe("to failure");
   });
 });
 

@@ -92,8 +92,9 @@ const MONTH_LABELS_ES = [
 
 const WEEKDAY_HEADERS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-// Distinct chip colors per client — stable mod-N pick using the index in
-// the visible roster. Brand-amber stays for the most-selected client.
+// Distinct chip colors per client — assigned in touch/select order so the
+// surface starts neutral and only gains client color after the trainer
+// actively picks clients.
 const CLIENT_PALETTE = [
   { chip: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-300" },
   { chip: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/40", dot: "bg-sky-500", text: "text-sky-700 dark:text-sky-300" },
@@ -105,9 +106,15 @@ const CLIENT_PALETTE = [
   { chip: "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/40", dot: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-300" },
 ];
 
-function paletteFor(clients: ClientLite[], clientId: string) {
-  const idx = clients.findIndex((c) => c.uid === clientId);
-  if (idx < 0) return CLIENT_PALETTE[0];
+const NEUTRAL_CLIENT_PALETTE = {
+  chip: "bg-muted/40 text-foreground border-border/70",
+  dot: "bg-border",
+  text: "text-foreground",
+};
+
+function paletteFor(clientId: string, clientColorOrder: string[]) {
+  const idx = clientColorOrder.indexOf(clientId);
+  if (idx < 0) return NEUTRAL_CLIENT_PALETTE;
   return CLIENT_PALETTE[idx % CLIENT_PALETTE.length];
 }
 
@@ -234,6 +241,7 @@ export function MonthCalendar({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(initialClientIds),
   );
+  const [clientColorOrder, setClientColorOrder] = useState<string[]>([]);
 
   const sortedKey = useMemo(
     () => Array.from(selectedIds).sort().join(","),
@@ -326,12 +334,23 @@ export function MonthCalendar({
     if (next.has(uid)) next.delete(uid);
     else next.add(uid);
     setSelectedIds(next);
+    if (!selectedIds.has(uid)) {
+      setClientColorOrder((prev) => (prev.includes(uid) ? prev : [...prev, uid]));
+    }
     syncUrl(monthFirst, next);
   }
 
   function selectAll() {
-    const next = new Set(clients.map((c) => c.uid));
+    const nextIds = clients.map((c) => c.uid);
+    const next = new Set(nextIds);
     setSelectedIds(next);
+    setClientColorOrder((prev) => {
+      const ordered = [...prev];
+      for (const id of nextIds) {
+        if (!ordered.includes(id)) ordered.push(id);
+      }
+      return ordered;
+    });
     syncUrl(monthFirst, next);
   }
   function clearAll() {
@@ -605,7 +624,7 @@ export function MonthCalendar({
         <div className="mt-4 flex flex-wrap gap-2">
           {clients.map((c) => {
             const active = selectedIds.has(c.uid);
-            const palette = paletteFor(clients, c.uid);
+            const palette = paletteFor(c.uid, clientColorOrder);
             return (
               <button
                 key={c.uid}
@@ -743,6 +762,7 @@ export function MonthCalendar({
                       workouts={workouts}
                       habits={habits}
                       clients={clients}
+                      clientColorOrder={clientColorOrder}
                       showWorkouts={showWorkouts}
                       showHabits={showHabits}
                       birthdayBadge={birthdayBadge}
@@ -912,7 +932,7 @@ export function MonthCalendar({
           <LegendItem
             label="Programado"
             sample="cliente"
-            note="usa el color del cliente"
+            note="usa el color asignado al tocarlo"
           />
           <LegendItem
             label="Completado"
@@ -1109,6 +1129,7 @@ interface DayCellProps {
   workouts: MonthWorkoutChip[];
   habits: MonthHabitChip[];
   clients: ClientLite[];
+  clientColorOrder: string[];
   showWorkouts: boolean;
   showHabits: boolean;
   cellMinHClass: string;
@@ -1133,6 +1154,7 @@ function DayCell({
   workouts,
   habits,
   clients,
+  clientColorOrder,
   showWorkouts,
   showHabits,
   cellMinHClass,
@@ -1220,7 +1242,7 @@ function DayCell({
 
           return orderedIds.map((clientId, gi) => {
             const group = groups.get(clientId)!;
-            const palette = paletteFor(clients, clientId);
+            const palette = paletteFor(clientId, clientColorOrder);
             const client = clients.find((c) => c.uid === clientId);
             return (
               <div

@@ -1528,23 +1528,14 @@ export async function propagateTemplateToFutureAssignments(
  *                edit applies uniformly). Past / started / completed docs are
  *                never touched.
  *
- * The edits are keyed by exercise index against each target's own snapshot,
- * which is safe within a series (same template lineage → same exercise list).
+ * The edits are applied as full row objects in the current order. The
+ * calendar editor can add/remove rows now, so the server action rewrites the
+ * assignment snapshot's exercise array rather than patching a single index in
+ * place.
  */
 const editAssignmentExercisesSchema = z.object({
   scope: z.enum(["one", "series"]),
-  exercises: z
-    .array(
-      z.object({
-        index: z.number().int().min(0),
-        repsBySet: z.array(z.number().int().min(0).max(50)).min(1).max(10),
-        weightBySetKg: z.array(z.number().min(0).max(500)).max(10),
-        rest_seconds: z.number().int().min(0).max(600),
-        transition_rest_seconds: z.number().int().min(0).max(600).optional(),
-        notes: z.string().max(500),
-      }),
-    )
-    .max(50),
+  exercises: z.array(z.object({}).passthrough()).max(50),
 });
 
 export async function editAssignmentExercises(
@@ -1569,25 +1560,140 @@ export async function editAssignmentExercises(
       snapshot && typeof snapshot === "object"
         ? (snapshot as Record<string, unknown>)
         : {};
-    const exercises = Array.isArray(base.exercises)
-      ? [...(base.exercises as Array<Record<string, unknown>>)]
+    const currentExercises = Array.isArray(base.exercises)
+      ? (base.exercises as Array<Record<string, unknown>>)
       : [];
-    for (const edit of input.exercises) {
-      const cur = exercises[edit.index];
-      if (!cur) continue;
-      exercises[edit.index] = {
-        ...cur,
-        sets: edit.repsBySet.length,
-        reps: edit.repsBySet[0] ?? 0,
-        repsBySet: edit.repsBySet,
-        weightBySetKg: edit.weightBySetKg, // [] = bodyweight / no load
-        rest_seconds: edit.rest_seconds,
-        ...(edit.transition_rest_seconds !== undefined
-          ? { transition_rest_seconds: edit.transition_rest_seconds }
-          : {}),
-        notes: edit.notes,
-      };
+    const usesLegacyIndex = input.exercises.every(
+      (edit) => "index" in edit && typeof edit.index === "number",
+    );
+    if (usesLegacyIndex) {
+      const exercises = [...currentExercises];
+      for (const edit of input.exercises as Array<Record<string, unknown>>) {
+        const index = Number(edit.index);
+        if (!Number.isFinite(index) || index < 0) continue;
+        const current = exercises[index] ?? {};
+        const repsBySet = Array.isArray(edit.repsBySet)
+          ? (edit.repsBySet as number[])
+          : [];
+        const weightBySetKg = Array.isArray(edit.weightBySetKg)
+          ? (edit.weightBySetKg as number[])
+          : [];
+        const restSeconds = Number(edit.rest_seconds);
+        const transitionRestSeconds =
+          edit.transition_rest_seconds !== undefined
+            ? Number(edit.transition_rest_seconds)
+            : undefined;
+        const notes = typeof edit.notes === "string" ? edit.notes : "";
+        exercises[index] = {
+          ...current,
+          sets: repsBySet.length,
+          reps: repsBySet[0] ?? 0,
+          repsBySet,
+          weightBySetKg, // [] = bodyweight / no load
+          rest_seconds: Number.isFinite(restSeconds) ? restSeconds : 60,
+          ...(Number.isFinite(transitionRestSeconds)
+            ? { transition_rest_seconds: transitionRestSeconds }
+            : {}),
+          notes,
+        };
+      }
+      return { ...base, exercises };
     }
+    // Pair each incoming row with its snapshot twin by exerciseId (consumed
+    // one-to-one so duplicates still pair). Positional pairing breaks as soon
+    // as the dialog removes or reorders a row.
+    const remaining = [...currentExercises];
+    const exercises = (input.exercises as Array<Record<string, unknown>>).map(
+      (edit) => {
+      const exerciseId = typeof edit.exerciseId === "string" ? edit.exerciseId : "";
+      const matchIdx = exerciseId
+        ? remaining.findIndex((r) => r.exerciseId === exerciseId)
+        : -1;
+      const current =
+        matchIdx >= 0 ? remaining.splice(matchIdx, 1)[0] : undefined;
+      const editName =
+        edit.name && typeof edit.name === "object"
+          ? (edit.name as { en?: unknown; es?: unknown })
+          : undefined;
+      const currentName =
+        current?.name && typeof current.name === "object"
+          ? (current.name as { en?: unknown; es?: unknown })
+          : undefined;
+      // Keep the snapshot's localized names when the dialog sends blanks —
+      // the editor only knows the single display string, so a wholesale
+      // overwrite would wipe `name.es` for every pre-existing exercise.
+      const name = {
+        en:
+          (typeof editName?.en === "string" && editName.en.trim().length > 0
+            ? editName.en
+            : undefined) ??
+          (typeof currentName?.en === "string" ? currentName.en : ""),
+        es:
+          (typeof editName?.es === "string" && editName.es.trim().length > 0
+            ? editName.es
+            : undefined) ??
+          (typeof currentName?.es === "string" ? currentName.es : ""),
+      };
+      const previewUrl =
+        typeof edit.previewUrl === "string" ? edit.previewUrl : null;
+      const repsBySet = Array.isArray(edit.repsBySet)
+        ? (edit.repsBySet as number[])
+        : [];
+      const weightBySetKg = Array.isArray(edit.weightBySetKg)
+        ? (edit.weightBySetKg as number[])
+        : [];
+      const restSeconds = Number(edit.rest_seconds);
+      const transitionRestSeconds =
+        edit.transition_rest_seconds !== undefined
+          ? Number(edit.transition_rest_seconds)
+          : undefined;
+      const metric = edit.metric === "time" ? "time" : "reps";
+      const durationBySetSeconds = Array.isArray(edit.durationBySetSeconds)
+        ? (edit.durationBySetSeconds as number[])
+        : [];
+      const durationSeconds =
+        edit.durationSeconds === null || typeof edit.durationSeconds === "number"
+          ? (edit.durationSeconds as number | null)
+          : null;
+      const supersetGroup =
+        typeof edit.supersetGroup === "string" ? edit.supersetGroup : null;
+      const noWeight = edit.noWeight === true;
+      const merged: Record<string, unknown> = {
+        ...(current ?? {}),
+        exerciseId,
+        name,
+        // Media only for NEW exercises — existing rows keep their snapshot's
+        // gifUrl/imageUrl/thumbnailURL (the dialog's previewUrl is a collapsed
+        // single field and would clobber the distinct originals).
+        ...(current
+          ? {}
+          : {
+              gifUrl: previewUrl,
+              imageUrl: previewUrl,
+              thumbnailURL: previewUrl,
+            }),
+        sets: repsBySet.length,
+        reps: repsBySet[0] ?? 0,
+        repsBySet,
+        weightBySetKg, // [] = bodyweight / no load
+        rest_seconds: Number.isFinite(restSeconds) ? restSeconds : 60,
+        notes: typeof edit.notes === "string" ? edit.notes : "",
+        metric,
+        durationBySetSeconds,
+        durationSeconds,
+        supersetGroup,
+      };
+      if (Number.isFinite(transitionRestSeconds)) {
+        merged.transition_rest_seconds = transitionRestSeconds;
+      }
+      if (noWeight || weightBySetKg.length === 0) {
+        merged.hasExplicitNoWeightPrescription = true;
+      } else {
+        delete merged.hasExplicitNoWeightPrescription;
+      }
+      return merged;
+    },
+    );
     return { ...base, exercises };
   };
 

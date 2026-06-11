@@ -1293,6 +1293,14 @@ async function loadClientRosterEntry(
       uid: clientId,
       email,
       displayName,
+      createdAt:
+        typeof data.createdAt === "string"
+          ? data.createdAt
+          : data.createdAt &&
+              typeof (data.createdAt as { toDate?: () => Date }).toDate ===
+                "function"
+            ? (data.createdAt as { toDate: () => Date }).toDate().toISOString()
+            : null,
       timezone: typeof data.timezone === "string" ? data.timezone : null,
       photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       birthDate: typeof data.birthDate === "string" ? data.birthDate : null,

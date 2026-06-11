@@ -31,8 +31,8 @@ jest.mock("@/lib/gc-fitness/trainer-timezone", () => ({
 }));
 jest.mock("@/lib/gc-fitness/client-roster", () => ({
   listClients: jest.fn(async () => [
-    { uid: "c1", email: "c1@x.com", displayName: "Client One", timezone: null, photoURL: null, pendingProvisioning: false },
-    { uid: "c2", email: "c2@x.com", displayName: "Client Two", timezone: null, photoURL: null, pendingProvisioning: false },
+    { uid: "c1", email: "c1@x.com", displayName: "Client One", createdAt: null, timezone: null, photoURL: null, pendingProvisioning: false },
+    { uid: "c2", email: "c2@x.com", displayName: "Client Two", createdAt: null, timezone: null, photoURL: null, pendingProvisioning: false },
   ]),
 }));
 

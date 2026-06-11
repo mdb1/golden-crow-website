@@ -31,6 +31,7 @@ jest.mock("@/lib/gc-fitness/client-roster", () => ({
       uid: "c1",
       email: "c1@x.com",
       displayName: "Client One",
+      createdAt: null,
       timezone: null,
       photoURL: null,
       pendingProvisioning: false,

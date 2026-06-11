@@ -21,6 +21,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertCircle,
   CheckCircle2,
@@ -29,7 +30,6 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,7 @@ export function RosterTable({
   initialNeedsAttentionOnly = false,
 }: RosterTableProps) {
   const router = useRouter();
+  const locale = useLocale();
   const t = useTranslations("clients");
   const tTable = useTranslations("clients.table");
   const tCommon = useTranslations("common");
@@ -315,8 +316,15 @@ export function RosterTable({
                       </span>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      {tTable("lastActivity")}:{" "}
-                      <RelativeTime iso={row.lastActivityAt} />
+                      {row.lastActivityAt ? (
+                        <>
+                          {tTable("lastActivity")}: <RelativeTime iso={row.lastActivityAt} />
+                        </>
+                      ) : (
+                        <>
+                          {tTable("joined")}: {formatRosterDate(row.createdAt, locale)}
+                        </>
+                      )}
                     </p>
                   </div>
                 </CardContent>
@@ -334,4 +342,13 @@ export function RosterTable({
       ) : null}
     </div>
   );
+}
+
+function formatRosterDate(iso: string | null, locale: string): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale === "es" ? "es-AR" : "en-US", {
+    dateStyle: "medium",
+  }).format(date);
 }
