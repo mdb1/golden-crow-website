@@ -355,6 +355,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to save the form draft.": "No se pudo guardar el borrador del formulario.",
   "Unable to prepare the form draft.":
     "No se pudo preparar el borrador del formulario.",
+  "Unknown error": "Error desconocido",
   Form: "Formulario",
   "stored.": "guardado.",
   "Unable to store the form. Review the form and try again.":
@@ -511,6 +512,28 @@ const SPANISH_TEXT: Record<string, string> = {
   "No institution selected": "Sin institución seleccionada",
   Previous: "Anterior",
   "Continue to preview": "Continuar a vista previa",
+  "Preview validation": "Validación para vista previa",
+  "The form validates steps 1 to 5 before opening the read-only preview.":
+    "El formulario valida los pasos 1 a 5 antes de abrir la vista previa de solo lectura.",
+  "Validating steps 1 to 5 before opening preview.":
+    "Validando los pasos 1 a 5 antes de abrir la vista previa.",
+  "Steps 1 to 5 passed validation. Saving draft checkpoint.":
+    "Los pasos 1 a 5 pasaron la validación. Guardando checkpoint de borrador.",
+  "Steps 1 to 5 passed validation. Opening preview.":
+    "Los pasos 1 a 5 pasaron la validación. Abriendo vista previa.",
+  "Fix these issues before opening the preview.":
+    "Corregí estos problemas antes de abrir la vista previa.",
+  "Preview validation found issues.":
+    "La validación para vista previa encontró problemas.",
+  "Preview validation passed, but the draft checkpoint could not be saved.":
+    "La validación para vista previa fue exitosa, pero no se pudo guardar el checkpoint del borrador.",
+  "draft checkpoint failed": "falló el checkpoint del borrador",
+  "Draft checkpoint failed": "Falló el checkpoint del borrador",
+  "The information passed validation, but the draft checkpoint failed. You can open the preview anyway; final submission will try to save again and may show the same backend error.":
+    "La información pasó la validación, pero falló el checkpoint del borrador. Podés abrir la vista previa de todos modos; el envío final intentará guardar nuevamente y puede mostrar el mismo error de backend.",
+  "Technical details": "Detalles técnicos",
+  "Go to first issue": "Ir al primer problema",
+  "Open preview anyway": "Abrir vista previa igual",
   "Study request form preview": "Vista previa del formulario de solicitud",
   "This preview is read-only. Go back to previous steps to make changes before signing.":
     "Esta vista previa es de solo lectura. Volvé a los pasos anteriores para hacer cambios antes de firmar.",

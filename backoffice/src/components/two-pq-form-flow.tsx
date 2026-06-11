@@ -42,7 +42,7 @@ import type {
 } from "@/lib/admin-areas";
 import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import { appText, type AppLanguage } from "@/lib/language";
-import { sdkFetch } from "@/lib/sdk-client";
+import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import {
   type CaseInformationFormState,
@@ -67,6 +67,9 @@ type StepValidationStatus = "valid" | "invalid";
 type StepValidationState = Partial<Record<StepKey, StepValidationStatus>>;
 type FormStorageProcessingStatus = "pending" | "running" | "success" | "error";
 type WholeDataValidationStatus = "running" | "success" | "error";
+type PreviewValidationStatus =
+  | WholeDataValidationStatus
+  | "draft-checkpoint-error";
 
 type FormStorageProcessingStep = {
   id: string;
@@ -87,6 +90,13 @@ type WholeDataValidationIssue = {
 type WholeDataValidationReport = {
   status: WholeDataValidationStatus;
   issues: WholeDataValidationIssue[];
+};
+
+type PreviewValidationReport = {
+  status: PreviewValidationStatus;
+  issues: WholeDataValidationIssue[];
+  draftErrorMessage?: string;
+  draftErrorDetails?: string;
 };
 
 type WholeDataValidationResult = {
@@ -1880,6 +1890,8 @@ export function TwoPQFormFlow({
   );
   const [wholeDataValidationReport, setWholeDataValidationReport] =
     useState<WholeDataValidationReport | null>(null);
+  const [previewValidationReport, setPreviewValidationReport] =
+    useState<PreviewValidationReport | null>(null);
   const [storedFormId, setStoredFormId] = useState<string | null>(null);
   const [doctorResponsibilityAlertOpen, setDoctorResponsibilityAlertOpen] =
     useState(false);
@@ -2302,8 +2314,46 @@ export function TwoPQFormFlow({
   const runningStorageStep = storageProcessingSteps.find(
     (step) => step.status === "running"
   );
+  const previewValidationSteps = steps.filter(
+    (step) => step !== "previewAndSignature"
+  );
+  const previewStepIndex = steps.indexOf("previewAndSignature");
+  const currentStepContinuesToPreview =
+    formType === "study_request" &&
+    currentStep === "institutionInformation" &&
+    previewStepIndex >= 0;
   const processDialogOpen =
     Boolean(wholeDataValidationReport) || storageProcessingSteps.length > 0;
+  const previewValidationDialogOpen = Boolean(previewValidationReport);
+  const previewValidationIssueStepIndex = previewValidationReport?.issues[0]
+    ? steps.indexOf(previewValidationReport.issues[0].step)
+    : -1;
+
+  function clientErrorDetails(error: unknown) {
+    if (error instanceof SdkRequestError) {
+      const detailsWithoutRequestBody = error.details
+        .split("\n\n")
+        .filter((detail) => !detail.startsWith("Request body:"))
+        .join("\n\n");
+
+      return {
+        message: error.message,
+        details: detailsWithoutRequestBody,
+      };
+    }
+
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+        details: error.stack ?? error.message,
+      };
+    }
+
+    return {
+      message: t("Unknown error"),
+      details: String(error),
+    };
+  }
 
   function updateStorageProcessingStep(
     stepId: string,
@@ -2363,13 +2413,15 @@ export function TwoPQFormFlow({
           state: nextState,
         }),
       });
-    } catch {
+    } catch (error) {
       setToast({
         id: Date.now(),
         tone: "error",
         message: options.errorMessage ?? t("Unable to save the form draft."),
       });
-      throw new Error(t("Unable to save the form draft."));
+      throw error instanceof Error
+        ? error
+        : new Error(t("Unable to save the form draft."));
     } finally {
       if (!options.quiet) {
         setDraftPending(false);
@@ -2729,12 +2781,96 @@ export function TwoPQFormFlow({
     });
   }
 
+  function closePreviewValidationDialog(goToFirstIssue = false) {
+    const issueStepIndex = previewValidationReport?.issues[0]
+      ? steps.indexOf(previewValidationReport.issues[0].step)
+      : -1;
+
+    setPreviewValidationReport(null);
+    if (goToFirstIssue && issueStepIndex >= 0) {
+      setStepIndex(issueStepIndex);
+    }
+  }
+
+  function openPreviewWithoutDraftCheckpoint() {
+    if (previewStepIndex < 0) {
+      return;
+    }
+
+    setPreviewValidationReport(null);
+    setStepIndex(previewStepIndex);
+  }
+
+  async function validateAndContinueToPreview() {
+    if (previewStepIndex < 0) {
+      return;
+    }
+
+    setPreviewValidationReport({ status: "running", issues: [] });
+    await wait(180);
+
+    const wholeValidation = validateWholeDocument({
+      flowState: state,
+      steps: previewValidationSteps,
+      formType,
+      language,
+      institutions,
+      doctors,
+      patients,
+      cases,
+    });
+    setFieldErrors(wholeValidation.fieldErrors);
+    setStepValidation((current) => ({
+      ...current,
+      ...wholeValidation.stepValidation,
+    }));
+
+    if (wholeValidation.issues.length > 0) {
+      setPreviewValidationReport({
+        status: "error",
+        issues: wholeValidation.issues,
+      });
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        message: t("Preview validation found issues."),
+      });
+      return;
+    }
+
+    setPreviewValidationReport({ status: "success", issues: [] });
+    await wait(220);
+
+    try {
+      await persistDraftSnapshot(previewStepIndex, state, {
+        errorMessage: t(
+          "Preview validation passed, but the draft checkpoint could not be saved."
+        ),
+      });
+      setPreviewValidationReport(null);
+      setStepIndex(previewStepIndex);
+    } catch (error) {
+      const { message, details } = clientErrorDetails(error);
+      setPreviewValidationReport({
+        status: "draft-checkpoint-error",
+        issues: [],
+        draftErrorMessage: message,
+        draftErrorDetails: details,
+      });
+    }
+  }
+
   async function goNext() {
     if (
       currentStep === "patientInformation" &&
       !state.patientInformation.doctorId
     ) {
       showDoctorResponsibilityAlert();
+      return;
+    }
+
+    if (currentStepContinuesToPreview) {
+      await validateAndContinueToPreview();
       return;
     }
 
@@ -2769,6 +2905,15 @@ export function TwoPQFormFlow({
       steps.length - 1
     );
     if (boundedStepIndex === stepIndex) {
+      return;
+    }
+
+    if (
+      formType === "study_request" &&
+      steps[boundedStepIndex] === "previewAndSignature" &&
+      currentStep !== "previewAndSignature"
+    ) {
+      await validateAndContinueToPreview();
       return;
     }
 
@@ -2955,6 +3100,186 @@ export function TwoPQFormFlow({
               {t("Understood")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={previewValidationDialogOpen}
+        onOpenChange={(open) => {
+          if (
+            !open &&
+            previewValidationReport?.status !== "running" &&
+            !draftPending
+          ) {
+            closePreviewValidationDialog(false);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[calc(100vh-1.5rem)] max-w-3xl overflow-hidden rounded-2xl border border-indigo-100 p-0 shadow-[0_28px_90px_rgba(79,70,229,0.22)] dark:border-indigo-300/20">
+          <DialogHeader className="border-b border-indigo-100 bg-indigo-50/70 px-6 py-5 dark:border-indigo-300/16 dark:bg-indigo-950/26">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <DialogTitle className="font-heading text-2xl font-semibold">
+                  {t("Preview validation")}
+                </DialogTitle>
+                <DialogDescription className="mt-2 text-sm">
+                  {t(
+                    "The form validates steps 1 to 5 before opening the read-only preview."
+                  )}
+                </DialogDescription>
+              </div>
+              {previewValidationReport ? (
+                <Badge
+                  variant={
+                    previewValidationReport.status === "success"
+                      ? "success"
+                      : previewValidationReport.status === "running"
+                        ? "brand"
+                        : "destructive"
+                  }
+                >
+                  {previewValidationReport.status === "draft-checkpoint-error"
+                    ? t("draft checkpoint failed")
+                    : t(previewValidationReport.status)}
+                </Badge>
+              ) : null}
+            </div>
+          </DialogHeader>
+
+          <div className="max-h-[calc(100vh-13rem)] overflow-y-auto px-6 py-5">
+            {previewValidationReport?.status === "running" ? (
+              <div className="flex items-center gap-3 rounded-xl border border-indigo-100 bg-indigo-50/75 px-4 py-4 text-sm text-indigo-950/76 dark:border-indigo-300/16 dark:bg-indigo-400/10 dark:text-indigo-50/76">
+                <Loader2 className="h-4 w-4 animate-spin text-indigo-700 dark:text-indigo-200" />
+                {t("Validating steps 1 to 5 before opening preview.")}
+              </div>
+            ) : null}
+
+            {previewValidationReport?.status === "success" ? (
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+                <CheckCircle2 className="h-4 w-4" />
+                {draftPending
+                  ? t("Steps 1 to 5 passed validation. Saving draft checkpoint.")
+                  : t("Steps 1 to 5 passed validation. Opening preview.")}
+              </div>
+            ) : null}
+
+            {previewValidationReport?.status === "error" ? (
+              <div className="grid gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {t("Fix these issues before opening the preview.")}
+                </p>
+                {previewValidationReport.issues.map((issue, index) => {
+                  const issueStepIndex = steps.indexOf(issue.step);
+                  const stepLabel =
+                    language === "es"
+                      ? `Paso ${issueStepIndex + 1} de ${
+                          previewValidationSteps.length
+                        }`
+                      : `Step ${issueStepIndex + 1} of ${
+                          previewValidationSteps.length
+                        }`;
+
+                  return (
+                    <div
+                      key={issue.id}
+                      className="rounded-xl border border-red-200 bg-red-50/82 px-4 py-4 text-red-950 dark:border-red-300/22 dark:bg-red-950/22 dark:text-red-100"
+                    >
+                      <div className="flex gap-3">
+                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-xs font-semibold text-red-700 dark:border-red-300/24 dark:bg-red-400/10 dark:text-red-100">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-950/56 dark:text-red-100/58">
+                            {stepLabel}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold">
+                              {issue.stepLabel}
+                            </p>
+                            <span className="text-xs text-red-950/48 dark:text-red-100/54">
+                              /
+                            </span>
+                            <p className="text-sm font-semibold">
+                              {issue.fieldLabel}
+                            </p>
+                          </div>
+                          <p className="mt-1 text-sm text-red-950/72 dark:text-red-100/72">
+                            {issue.message}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {previewValidationReport?.status === "draft-checkpoint-error" ? (
+              <div className="grid gap-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-4 text-amber-950 dark:border-amber-300/22 dark:bg-amber-950/24 dark:text-amber-100">
+                  <div className="flex gap-3">
+                    <CircleX className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">{t("Draft checkpoint failed")}</p>
+                      <p className="mt-1 text-sm text-amber-950/74 dark:text-amber-100/74">
+                        {t(
+                          "The information passed validation, but the draft checkpoint failed. You can open the preview anyway; final submission will try to save again and may show the same backend error."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {previewValidationReport.draftErrorMessage ? (
+                  <div className="rounded-xl border border-border bg-background px-4 py-4">
+                    <p className="text-sm font-semibold">
+                      {previewValidationReport.draftErrorMessage}
+                    </p>
+                    {previewValidationReport.draftErrorDetails ? (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          {t("Technical details")}
+                        </p>
+                        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-muted px-3 py-3 text-xs text-muted-foreground">
+                          {previewValidationReport.draftErrorDetails}
+                        </pre>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {previewValidationReport?.status === "error" ||
+          previewValidationReport?.status === "draft-checkpoint-error" ? (
+            <DialogFooter className="gap-3 border-t border-border bg-muted/30 px-6 py-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => closePreviewValidationDialog(false)}
+              >
+                {t("Close and review data")}
+              </Button>
+              {previewValidationReport.status === "error" &&
+              previewValidationIssueStepIndex >= 0 ? (
+                <Button
+                  type="button"
+                  onClick={() => closePreviewValidationDialog(true)}
+                  className="bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  {t("Go to first issue")}
+                </Button>
+              ) : null}
+              {previewValidationReport.status === "draft-checkpoint-error" ? (
+                <Button
+                  type="button"
+                  onClick={openPreviewWithoutDraftCheckpoint}
+                  className="bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  {t("Open preview anyway")}
+                </Button>
+              ) : null}
+            </DialogFooter>
+          ) : null}
         </DialogContent>
       </Dialog>
       <Dialog
