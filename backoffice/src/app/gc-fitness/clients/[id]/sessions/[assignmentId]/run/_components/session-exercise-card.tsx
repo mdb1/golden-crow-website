@@ -254,8 +254,14 @@ export function SessionExerciseCard({
             title="Editar ejercicio en otra ventana"
             asChild
           >
+            {/* Issue #171 — enter at /view, not /edit. Nearly every workout
+                exercise is library-sourced (wger / free-exercise-db), for
+                which /edit always 307s to /view — a 2-hop chain of
+                force-dynamic SSR pages that flashed an error before landing.
+                /view renders library exercises directly (0 redirects) and
+                bounces trainer-owned ones to /edit (1 redirect, rare case). */}
             <a
-              href={`/gc-fitness/exercises/${exercise.exerciseId}/edit`}
+              href={`/gc-fitness/exercises/${exercise.exerciseId}/view`}
               target="_blank"
               rel="noopener noreferrer"
             >

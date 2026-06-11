@@ -62,7 +62,8 @@ export default async function ViewExercisePage({ params }: PageParams) {
   const db = gcFitnessFirestore();
   const snap = await db.collection("exercises").doc(id).get();
   if (!snap.exists) {
-    redirect("/gc-fitness/exercises");
+    // Straight to the Biblioteca tab (see edit/page.tsx — issue #171).
+    redirect("/gc-fitness/library?tab=exercises");
   }
   const data = snap.data() as Record<string, unknown>;
 
