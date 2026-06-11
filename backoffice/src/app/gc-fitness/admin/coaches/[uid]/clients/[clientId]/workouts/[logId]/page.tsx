@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { getWorkoutLogDetailAsAdmin } from "@/lib/gc-fitness/recent-logs-actions";
 import { WorkoutLogDetailView } from "@/components/gc-fitness/workout-log-detail-view";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <adminPanel>" (issue #170).
+export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
 

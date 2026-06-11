@@ -8,6 +8,10 @@ import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { ExerciseForm } from "../_components/ExerciseForm";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <exercises>" (issue #170).
+export const generateMetadata = () => sectionMetadata("exercises");
 
 export const dynamic = "force-dynamic";
 

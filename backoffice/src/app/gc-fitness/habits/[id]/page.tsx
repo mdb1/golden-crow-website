@@ -29,6 +29,10 @@ import {
   ComplianceWidget,
   ComplianceWidgetSkeleton,
 } from "./_components/ComplianceWidget";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <habits>" (issue #170).
+export const generateMetadata = () => sectionMetadata("habits");
 
 export const dynamic = "force-dynamic";
 

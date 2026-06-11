@@ -35,6 +35,10 @@ import { PageHeader } from "@/components/gc-fitness/page-header";
 
 import { SettingsSections } from "./settings-sections";
 import { CoachProfileForm } from "./coach-profile-form";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <settings>" (issue #170).
+export const generateMetadata = () => sectionMetadata("settings");
 
 export const dynamic = "force-dynamic";
 

@@ -8,6 +8,10 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { listDataHygienePage, type DataHygienePage } from "@/lib/gc-fitness/data-hygiene-actions";
 
 import { DataHygieneFeed } from "./DataHygieneFeed";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <adminPanel>" (issue #170).
+export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
 

@@ -14,6 +14,10 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { listProgressPhotosForClientAsAdmin } from "@/lib/gc-fitness/progress-photo-actions";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ProgressPhotoCompareEditor } from "@/app/gc-fitness/clients/[id]/compare-photos/photo-compare-editor";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <adminPanel>" (issue #170).
+export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
 

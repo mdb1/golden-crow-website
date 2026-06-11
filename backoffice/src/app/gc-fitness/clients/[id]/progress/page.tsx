@@ -25,6 +25,10 @@ import { getClientExerciseProgress } from "@/lib/gc-fitness/exercise-progress-ac
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { addCivilDays } from "../_components/trend-range";
 import { ExerciseProgressClient } from "./ExerciseProgressClient";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <clients>" (issue #170).
+export const generateMetadata = () => sectionMetadata("clients");
 
 export const dynamic = "force-dynamic";
 
