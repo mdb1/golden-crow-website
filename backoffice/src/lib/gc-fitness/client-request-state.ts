@@ -1,4 +1,6 @@
-export const CLIENT_REQUEST_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+// 7 days — matches the weekly progress-photo check-in window (#160) so the
+// request cooldown and the client's check-in gate use the same cadence.
+export const CLIENT_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ClientRequestKind = "progressPhotos" | "weight";
 

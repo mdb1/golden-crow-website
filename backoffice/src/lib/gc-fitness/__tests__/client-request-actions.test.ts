@@ -14,7 +14,7 @@ describe("client-request-actions", () => {
     expect(status.isActive).toBe(false);
   });
 
-  it("keeps the request active for three days", () => {
+  it("keeps the request active for seven days", () => {
     const requestedAt = new Date("2026-06-02T15:00:00.000Z");
     const status = getClientRequestStatus(requestedAt, now);
 
@@ -26,7 +26,7 @@ describe("client-request-actions", () => {
   });
 
   it("turns inactive after the TTL passes", () => {
-    const requestedAt = new Date("2026-05-30T15:00:00.000Z");
+    const requestedAt = new Date("2026-05-26T15:00:00.000Z");
     const status = getClientRequestStatus(requestedAt, now);
 
     expect(status.requestedAt?.toISOString()).toBe(requestedAt.toISOString());

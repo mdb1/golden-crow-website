@@ -301,7 +301,8 @@
           "reactivatesOn": "Se reactiva el {date}",
           "readyHelp": "Podés volver a pedirlo ahora.",
           "active": "El pedido queda activo por 3 días",
-          "ready": "Listo para pedir"
+          "ready": "Listo para pedir",
+          "photoGatedUntil": "Próximo check-in disponible el {date}"
         },
         "fulfillment": {
           "photos": "Ya subió fotos · {ago}",

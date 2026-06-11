@@ -301,7 +301,8 @@
           "reactivatesOn": "Reactivates on {date}",
           "readyHelp": "You can request it again now.",
           "active": "Request is active for 3 days",
-          "ready": "Ready to request"
+          "ready": "Ready to request",
+          "photoGatedUntil": "Next check-in available on {date}"
         },
         "fulfillment": {
           "photos": "Photos uploaded · {ago}",
