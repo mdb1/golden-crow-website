@@ -40,6 +40,10 @@ import {
   TopPerformers,
 } from "./_components/coach-pulse";
 import { ChecklistPending } from "./_components/checklist-pending";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <dashboard>" (issue #170).
+export const generateMetadata = () => sectionMetadata("dashboard");
 
 export const dynamic = "force-dynamic";
 const ATTENTION_PAGE_SIZE = 10;

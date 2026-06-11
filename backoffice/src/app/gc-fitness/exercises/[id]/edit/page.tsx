@@ -24,6 +24,10 @@ import {
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ExerciseForm } from "../../_components/ExerciseForm";
 import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <exercises>" (issue #170).
+export const generateMetadata = () => sectionMetadata("exercises");
 
 export const dynamic = "force-dynamic";
 

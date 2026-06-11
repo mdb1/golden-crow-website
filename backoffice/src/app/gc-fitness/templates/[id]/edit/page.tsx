@@ -23,6 +23,10 @@ import { forkStandardWorkoutTemplate } from "@/lib/gc-fitness/workout-template-a
 import { ExerciseQueryProvider } from "../../../exercises/providers";
 import { TemplatesQueryProvider } from "../../providers";
 import { EditTemplateClient } from "./client";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <workouts>" (issue #170).
+export const generateMetadata = () => sectionMetadata("workouts");
 
 export const dynamic = "force-dynamic";
 

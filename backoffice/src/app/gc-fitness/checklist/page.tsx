@@ -6,6 +6,10 @@ import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { listCoachChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { CoachChecklistClient } from "./CoachChecklistClient";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <checklist>" (issue #170).
+export const generateMetadata = () => sectionMetadata("checklist");
 
 export const dynamic = "force-dynamic";
 

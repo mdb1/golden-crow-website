@@ -8,6 +8,10 @@ import { redirect } from "next/navigation";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { NewHabitClient } from "./client";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <habits>" (issue #170).
+export const generateMetadata = () => sectionMetadata("habits");
 
 export const dynamic = "force-dynamic";
 

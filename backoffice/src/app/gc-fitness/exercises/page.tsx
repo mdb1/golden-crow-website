@@ -2,6 +2,10 @@
 // The exercises LIST now lives under /gc-fitness/library?tab=exercises. The
 // create/edit/view routes are unaffected.
 import { redirect } from "next/navigation";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <exercises>" (issue #170).
+export const generateMetadata = () => sectionMetadata("exercises");
 
 export const dynamic = "force-dynamic";
 

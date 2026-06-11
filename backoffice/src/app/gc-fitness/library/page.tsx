@@ -23,6 +23,10 @@ import { ExerciseQueryProvider } from "../exercises/providers";
 import { ExerciseLibraryClient } from "../exercises/client";
 import { HabitsQueryProvider } from "../habits/providers";
 import { HabitsLibraryClient } from "../habits/client";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <library>" (issue #170).
+export const generateMetadata = () => sectionMetadata("library");
 
 export const dynamic = "force-dynamic";
 

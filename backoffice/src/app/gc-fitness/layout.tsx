@@ -13,8 +13,15 @@ import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { getCurrentGCFitnessUser } from "@/lib/gc-fitness/auth-helpers";
 
+// Issue #170 — tab titles. Pages export `generateMetadata` with their section
+// name (see lib/gc-fitness/page-metadata.ts); the template prefixes it so tabs
+// read "GC Fitness - Agenda", "GC Fitness - Inicio", etc. Pages without a
+// title (login, redirects) fall back to the default.
 export const metadata: Metadata = {
-  title: "GC Fitness Admin",
+  title: {
+    template: "GC Fitness - %s",
+    default: "GC Fitness Admin",
+  },
   description: "GC Fitness trainer backoffice.",
 };
 

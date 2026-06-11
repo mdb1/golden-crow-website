@@ -10,6 +10,10 @@ import {
   listMyCoachActivityPage,
 } from "@/lib/gc-fitness/coach-activity-actions";
 import { MyActivityFeed } from "./MyActivityFeed";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <myActivity>" (issue #170).
+export const generateMetadata = () => sectionMetadata("myActivity");
 
 export const dynamic = "force-dynamic";
 

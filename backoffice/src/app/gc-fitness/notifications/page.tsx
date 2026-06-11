@@ -35,6 +35,10 @@ import {
 import type { ActiveWorkoutSummary } from "@/lib/gc-fitness/live-workout-types";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <notifications>" (issue #170).
+export const generateMetadata = () => sectionMetadata("notifications");
 
 export const dynamic = "force-dynamic";
 

@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { ShareWorkoutCard } from "@/components/gc-fitness/share-workout-card";
 import { WorkoutLogDetailView } from "@/components/gc-fitness/workout-log-detail-view";
 import { getWorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 interface PageProps {
   params: Promise<{ logId: string }>;
 }
+
+// Tab title: "GC Fitness - <recentLogs>" (issue #170).
+export const generateMetadata = () => sectionMetadata("recentLogs");
 
 export const dynamic = "force-dynamic";
 

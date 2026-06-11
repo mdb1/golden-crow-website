@@ -11,6 +11,10 @@ import {
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { listClients } from "@/lib/gc-fitness/client-roster";
 import { RecentLogsFeed } from "./_components/RecentLogsFeed";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <recentLogs>" (issue #170).
+export const generateMetadata = () => sectionMetadata("recentLogs");
 
 export const dynamic = "force-dynamic";
 

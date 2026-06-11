@@ -54,6 +54,10 @@ import {
 } from "@/lib/gc-fitness/client-request-fulfillment";
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
+import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+
+// Tab title: "GC Fitness - <clients>" (issue #170).
+export const generateMetadata = () => sectionMetadata("clients");
 
 export const dynamic = "force-dynamic";
 
