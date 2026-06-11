@@ -39,9 +39,10 @@ export default async function ClientRequestActionsCard({
   progressPhotosFulfilled?: RequestFulfillment;
   bodyWeightFulfilled?: RequestFulfillment;
   // Issue #160 — when the client is NOT eligible (baseline complete AND within
-  // the 7-day window), the progress-photos request button is disabled with a
-  // helper naming the next-eligible date. Derived in page.tsx from the photos it
-  // already loads — no extra read. Only affects the photos row.
+  // the 7-day window), both request buttons are disabled with a helper naming
+  // the next-eligible date. Derived in page.tsx from the photos it already
+  // loads — no extra read. The weekly check-in covers photos AND weight in the
+  // coaching flow, so the weight row is gated by the same date.
   progressPhotosCheckInEligible?: boolean;
   progressPhotosNextEligibleDate?: string | null;
 }) {
@@ -67,9 +68,9 @@ export default async function ClientRequestActionsCard({
     t,
   );
 
-  // Issue #160 — gate the PHOTOS row only. When the client is within their
-  // weekly check-in window, re-requesting can't help, so disable the button and
-  // explain the next-eligible date. The weight row is untouched.
+  // Issue #160 — gate BOTH request rows. When the client is within their
+  // weekly check-in window, re-requesting can't help, so disable the buttons
+  // and explain the next-eligible date (the check-in covers photos + weight).
   const photoGated =
     !progressPhotosCheckInEligible && Boolean(progressPhotosNextEligibleDate);
   const photoGatedHelper = photoGated
@@ -120,6 +121,8 @@ export default async function ClientRequestActionsCard({
           submitLabel={t("request.cta")}
           activeLabel={t("status.active")}
           readyLabel={t("status.ready")}
+          gated={photoGated}
+          gatedHelper={photoGatedHelper}
         />
       </CardContent>
     </Card>
