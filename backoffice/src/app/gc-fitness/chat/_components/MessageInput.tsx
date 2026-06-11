@@ -46,6 +46,7 @@ import { CHATS_BASE_KEY } from "@/lib/gc-fitness/chat-listener";
 import { buildReplyQuote } from "@/lib/gc-fitness/chat-reply";
 import type { MessageRow } from "@/lib/gc-fitness/chat-schema";
 
+import { ChatImageLightbox } from "./ChatImageLightbox";
 import { QuickReplyDropdown } from "./QuickReplyDropdown";
 
 export interface MessageInputProps {
@@ -84,6 +85,9 @@ export function MessageInput({
     fileName: string;
   } | null>(null);
   const pendingImageRef = useRef(pendingImage);
+  // Issue #258 — full-size preview of the STAGED attachment so the coach can
+  // check the photo before hitting Send. Same lightbox the sent bubbles use.
+  const [previewingPendingImage, setPreviewingPendingImage] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [supportsRecording, setSupportsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -126,6 +130,9 @@ export function MessageInput({
   // without re-running on every staged image.
   useEffect(() => {
     pendingImageRef.current = pendingImage;
+    // Issue #258 — close the full-size preview whenever the staged file
+    // changes (sent / removed / replaced) so it never shows a stale image.
+    setPreviewingPendingImage(false);
   }, [pendingImage]);
   useEffect(() => {
     return () => {
@@ -412,12 +419,22 @@ export function MessageInput({
       ) : null}
       {pendingImage ? (
         <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
-          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL, not optimizable */}
-          <img
-            src={pendingImage.previewUrl}
-            alt={pendingImage.fileName}
-            className="h-14 w-14 shrink-0 rounded-md border border-border object-cover"
-          />
+          {/* Issue #258 — the staged thumbnail opens full-size so the coach
+              can check the photo before sending it. */}
+          <button
+            type="button"
+            onClick={() => setPreviewingPendingImage(true)}
+            aria-label={t("previewAttachment")}
+            title={t("previewAttachment")}
+            className="shrink-0 cursor-zoom-in appearance-none border-0 bg-transparent p-0"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- local object URL, not optimizable */}
+            <img
+              src={pendingImage.previewUrl}
+              alt={pendingImage.fileName}
+              className="h-14 w-14 shrink-0 rounded-md border border-border object-cover"
+            />
+          </button>
           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {pendingImage.fileName}
           </span>
@@ -432,6 +449,13 @@ export function MessageInput({
             <X className="h-4 w-4" />
           </button>
         </div>
+      ) : null}
+      {pendingImage && previewingPendingImage ? (
+        <ChatImageLightbox
+          url={pendingImage.previewUrl}
+          alt={pendingImage.fileName}
+          onClose={() => setPreviewingPendingImage(false)}
+        />
       ) : null}
       <div className="flex items-end gap-2 rounded-3xl border border-border bg-background p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-ring/40">
         <label
