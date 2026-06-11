@@ -458,71 +458,90 @@ export async function startWorkoutSession(
   );
 
   // Idempotent: reuse an existing active log for this assignment.
-  const existing = await db
-    .collection(LOGS)
-    .where("assignment_id", "==", assignmentId)
-    .where("status", "==", "active")
-    .limit(1)
-    .get();
+  //
+  // Issue #169 — the existing-active check and the create MUST be one atomic
+  // unit. The previous read-then-write let two concurrent starts (double
+  // click, page render + client-hook retry, two tabs) BOTH observe "no active
+  // log" and each create one — the sidebar then listed N live sessions of the
+  // same workout. Firestore server transactions serialize the query against
+  // concurrent commits: the loser retries, sees the winner's log, and reuses
+  // it. While here, self-heal any duplicates that already exist: keep the
+  // most recently updated active log (the one the coach is actually driving)
+  // and abandon the rest.
+  const now = FieldValue.serverTimestamp();
+  const candidateLogId = randomUUID();
+  const newLogData = {
+    clientId: asg.clientId,
+    trainerId: trainer.uid,
+    source: "coach",
+    assignment_id: assignmentId,
+    templateSnapshot: asg.templateSnapshot ?? {},
+    status: "active",
+    sets: [],
+    prs: [],
+    startedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
 
-  if (!existing.empty) {
-    const doc = existing.docs[0];
-    if (asg.status === "scheduled") {
-      await asgRef.update({
-        status: "started",
-        updatedAt: FieldValue.serverTimestamp(),
+  const reused = await db.runTransaction(async (tx) => {
+    const existing = await tx.get(
+      db
+        .collection(LOGS)
+        .where("assignment_id", "==", assignmentId)
+        .where("status", "==", "active"),
+    );
+
+    const markStarted = () => {
+      if (asg.status === "scheduled") {
+        tx.update(asgRef, { status: "started", updatedAt: now });
+      }
+    };
+
+    if (!existing.empty) {
+      const byFreshness = [...existing.docs].sort((a, b) => {
+        const ms = (d: (typeof existing.docs)[number]) => {
+          const u = (d.data() as Record<string, unknown>).updatedAt as
+            | { toMillis?: () => number }
+            | undefined;
+          return u?.toMillis?.() ?? 0;
+        };
+        return ms(b) - ms(a);
       });
+      const keeper = byFreshness[0];
+      for (const dup of byFreshness.slice(1)) {
+        tx.update(dup.ref, {
+          status: "abandoned",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      markStarted();
+      return { id: keeper.id, data: keeper.data() as Record<string, unknown> };
     }
+
+    tx.set(db.collection(LOGS).doc(candidateLogId), newLogData);
+    markStarted();
+    return null;
+  });
+
+  if (reused) {
     return buildActiveSession(
-      doc.id,
+      reused.id,
       assignmentId,
       asg,
-      doc.data(),
+      reused.data,
       { resolveMedia: false },
     );
   }
 
-  const logId = randomUUID();
-  const now = FieldValue.serverTimestamp();
-  await db
-    .collection(LOGS)
-      .doc(logId)
-      .set({
-        clientId: asg.clientId,
-        trainerId: trainer.uid,
-        source: "coach",
-        assignment_id: assignmentId,
-        templateSnapshot: asg.templateSnapshot ?? {},
-        status: "active",
-      sets: [],
-      prs: [],
-      startedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-  if (asg.status === "scheduled") {
-    await asgRef.update({ status: "started", updatedAt: now });
-  }
+  const logId = candidateLogId;
 
   // Re-read the just-written log so startedAt resolves to a real instant.
   return buildActiveSession(
     logId,
     assignmentId,
     asg,
-    {
-      clientId: asg.clientId,
-      trainerId: trainer.uid,
-      source: "coach",
-      assignment_id: assignmentId,
-      templateSnapshot: asg.templateSnapshot ?? {},
-      status: "active",
-      sets: [],
-      prs: [],
-      startedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    } as Record<string, unknown>,
+    newLogData as Record<string, unknown>,
     { resolveMedia: false },
     new Date().toISOString(),
   );
