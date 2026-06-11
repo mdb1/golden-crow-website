@@ -19,16 +19,18 @@ import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
-type AvatarSize = "sm" | "md";
+type AvatarSize = "sm" | "md" | "lg";
 
 const SIZE_PX: Record<AvatarSize, number> = {
   sm: 24,
   md: 40,
+  lg: 64,
 };
 
 const SIZE_CLASS: Record<AvatarSize, string> = {
   sm: "h-6 w-6 text-[10px]",
   md: "h-10 w-10 text-sm",
+  lg: "h-16 w-16 text-lg",
 };
 
 function resolveAvatarSrc(photoURL: string): string {

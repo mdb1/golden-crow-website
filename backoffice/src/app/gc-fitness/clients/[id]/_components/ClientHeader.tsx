@@ -22,9 +22,9 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, LineChart, MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 
 export interface ClientHeaderProps {
   clientId: string;
@@ -64,13 +64,6 @@ export function ClientHeader({
     cleanAppDisplayName && cleanAppDisplayName !== cleanDisplayName
       ? `${cleanDisplayName} (${cleanAppDisplayName})`
       : cleanDisplayName;
-  const initials = displayName
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? "")
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("");
-
   return (
     <div className="flex flex-col gap-4">
       <Link
@@ -82,10 +75,12 @@ export function ClientHeader({
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Avatar className="size-16">
-            {photoURL ? <AvatarImage src={photoURL} alt={displayName} /> : null}
-            <AvatarFallback>{initials || "?"}</AvatarFallback>
-          </Avatar>
+          {/* Issue #193 — iOS-uploaded photos are BARE Storage paths
+              ("profile_photos/{uid}/avatar.jpg"); a raw <AvatarImage> can't
+              load them. ClientAvatar routes non-https values through
+              /api/gc-fitness/storage-image (same as the roster + calendar,
+              which is why those surfaces worked and this one didn't). */}
+          <ClientAvatar name={displayName} photoURL={photoURL} size="lg" />
           <div className="flex min-w-0 flex-col gap-1">
             <h1 className="gc-page-title text-[1.7rem] leading-tight sm:text-3xl">
               {headerDisplayName}
