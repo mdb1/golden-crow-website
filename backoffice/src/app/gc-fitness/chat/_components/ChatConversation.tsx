@@ -680,7 +680,11 @@ function ChatImageBubble({
   onLoaded,
 }: ChatImageBubbleProps) {
   const url = useSignedAttachmentUrl(chatId, imagePath);
-  if (url === null) {
+  // Issue #252 — tap-to-enlarge. The bubble's <img> is capped at max-h-80 and
+  // object-cover crops it; clicking opens the SAME signed URL full-size in a
+  // lightbox overlay (no extra fetch — the browser reuses the cached bytes).
+  const [expanded, setExpanded] = useState(false);
+  if (url == null) {
     return (
       <span className="text-sm italic">
         {placeholder}
@@ -691,16 +695,80 @@ function ChatImageBubble({
   const aspect = width && height ? `${width} / ${height}` : undefined;
   return (
     <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="cursor-zoom-in appearance-none border-0 bg-transparent p-0 text-left"
+        aria-label={caption ?? placeholder}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={caption ?? placeholder}
+          loading="lazy"
+          style={aspect ? { aspectRatio: aspect } : undefined}
+          className="max-h-80 w-auto rounded-lg object-cover"
+          onLoad={onLoaded}
+        />
+      </button>
+      {caption ? <p className="text-sm">{caption}</p> : null}
+      {expanded ? (
+        <ChatImageLightbox
+          url={url}
+          alt={caption ?? placeholder}
+          onClose={() => setExpanded(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Issue #252 — minimal full-screen image viewer for chat photos. A fixed
+ * overlay (click anywhere or Escape to close) rather than the shadcn Dialog,
+ * so the photo can use the whole viewport without DialogContent's max-width
+ * styling fighting the image's natural size.
+ */
+function ChatImageLightbox({
+  url,
+  alt,
+  onClose,
+}: {
+  url: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
+      onClick={onClose}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={url}
-        alt={caption ?? placeholder}
-        loading="lazy"
-        style={aspect ? { aspectRatio: aspect } : undefined}
-        className="max-h-80 w-auto rounded-lg object-cover"
-        onLoad={onLoaded}
+        alt={alt}
+        className="max-h-full max-w-full rounded-lg object-contain"
+        onClick={(event) => event.stopPropagation()}
       />
-      {caption ? <p className="text-sm">{caption}</p> : null}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-black/60 text-xl text-white transition-colors hover:bg-black/80"
+      >
+        ×
+      </button>
     </div>
   );
 }
