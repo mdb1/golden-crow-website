@@ -64,6 +64,7 @@ export interface ClientRosterEntry {
   uid: string;
   email: string;
   displayName: string;
+  createdAt?: string | null;
   timezone: string | null;
   photoURL: string | null;
   birthDate?: string | null;
@@ -92,6 +93,7 @@ export interface ClientRosterRow {
   uid: string;
   email: string;
   displayName: string;
+  createdAt: string | null;
   /** Client profile photo (`users/{uid}.photoURL`) — Google photo or Storage
    *  upload, or null. Rendered as a cached avatar in the roster name column. */
   photoURL: string | null;
@@ -142,6 +144,15 @@ export interface ClientRosterRow {
   goalsCount: { short: number; medium: number; long: number };
 }
 
+function toIsoMaybe(value: unknown): string | null {
+  if (value && typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  return null;
+}
+
 /**
  * Internal Firestore-fanning body for `listClients()`. Takes the trainer uid
  * as an EXPLICIT parameter — it must NOT call `getCurrentTrainer()` (which
@@ -172,6 +183,7 @@ async function _fetchClientsForTrainer(
     const data = d.data() as {
       email?: string;
       displayName?: string;
+      createdAt?: unknown;
       timezone?: string;
       photoURL?: string;
       birthDate?: string;
@@ -187,6 +199,7 @@ async function _fetchClientsForTrainer(
         displayName: data.displayName ?? data.email ?? d.id,
         coachNickname: data.coachNickname ?? null,
       }),
+      createdAt: toIsoMaybe(data.createdAt),
       timezone: typeof data.timezone === "string" ? data.timezone : null,
       photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       birthDate: typeof data.birthDate === "string" ? data.birthDate : null,
@@ -216,6 +229,7 @@ async function _fetchClientsForTrainer(
           typeof data.displayName === "string" && data.displayName.trim().length > 0
             ? data.displayName.trim()
             : email,
+        createdAt: null,
         timezone: null,
         photoURL: null,
         birthDate: null,
@@ -357,6 +371,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           typeof data.displayName === "string" && data.displayName.trim().length > 0
             ? data.displayName.trim()
             : email,
+        createdAt: null,
         timezone: null,
         photoURL: null,
         pendingProvisioning: true,
@@ -657,14 +672,11 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         complianceSum += ratio;
         complianceCount += 1;
       }
-      // Vacuous-compliance rule (11-06 decision): when the client has zero
-      // assigned habits, the average is over an empty set. We default to
-      // 1.0 (vacuously compliant) so the `clientNeedsAttention` predicate
-      // does NOT flag the client for "low compliance" against an empty
-      // habit set. The roster table's "This week" column clamps the
-      // displayed percentage to [0, 100] regardless.
+      // No habits yet → show 0% instead of the vacuous 100% that read as
+      // "already perfect" for brand-new clients. The attention predicate
+      // below is based on activity recency only, so this stays visual.
       const thisWeekComplianceRatio =
-        complianceCount > 0 ? complianceSum / complianceCount : 1;
+        complianceCount > 0 ? complianceSum / complianceCount : 0;
 
       // 11-06: derive missed workouts + needs-attention.
       const assignedCount = assignedLast7Snap.size;
@@ -792,6 +804,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         uid: c.uid,
         email: c.email,
         displayName: c.displayName,
+        createdAt: c.createdAt ?? null,
         photoURL: c.photoURL,
         timezone: c.timezone,
         source: isPending ? "pending" : "active",

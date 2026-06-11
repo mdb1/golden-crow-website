@@ -214,6 +214,7 @@
     "table": {
       "name": "Nombre",
       "lastActivity": "Última actividad",
+      "joined": "Se unió",
       "thisWeek": "Esta semana",
       "thisMonth": "Este mes",
       "unread": "Sin leer",
