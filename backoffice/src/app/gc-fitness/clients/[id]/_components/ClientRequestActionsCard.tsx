@@ -28,6 +28,8 @@ export default async function ClientRequestActionsCard({
   bodyWeightRequestedAt,
   progressPhotosFulfilled,
   bodyWeightFulfilled,
+  progressPhotosCheckInEligible = true,
+  progressPhotosNextEligibleDate = null,
 }: {
   clientId: string;
   clientName: string;
@@ -36,6 +38,12 @@ export default async function ClientRequestActionsCard({
   bodyWeightRequestedAt: unknown;
   progressPhotosFulfilled?: RequestFulfillment;
   bodyWeightFulfilled?: RequestFulfillment;
+  // Issue #160 — when the client is NOT eligible (baseline complete AND within
+  // the 7-day window), the progress-photos request button is disabled with a
+  // helper naming the next-eligible date. Derived in page.tsx from the photos it
+  // already loads — no extra read. Only affects the photos row.
+  progressPhotosCheckInEligible?: boolean;
+  progressPhotosNextEligibleDate?: string | null;
 }) {
   const locale = await getLocale();
   const t = await getTranslations("clients.detail.requests");
@@ -58,6 +66,17 @@ export default async function ClientRequestActionsCard({
     locale,
     t,
   );
+
+  // Issue #160 — gate the PHOTOS row only. When the client is within their
+  // weekly check-in window, re-requesting can't help, so disable the button and
+  // explain the next-eligible date. The weight row is untouched.
+  const photoGated =
+    !progressPhotosCheckInEligible && Boolean(progressPhotosNextEligibleDate);
+  const photoGatedHelper = photoGated
+    ? t("status.photoGatedUntil", {
+        date: formatCivilDate(progressPhotosNextEligibleDate!, locale),
+      })
+    : null;
 
   async function requestProgressPhotos() {
     "use server";
@@ -89,6 +108,8 @@ export default async function ClientRequestActionsCard({
           submitLabel={t("request.cta")}
           activeLabel={t("status.active")}
           readyLabel={t("status.ready")}
+          gated={photoGated}
+          gatedHelper={photoGatedHelper}
         />
         <RequestRow
           title={t("weight.title")}
@@ -210,6 +231,27 @@ function formatDate(
   }
 }
 
+/**
+ * Render a civil-date ("YYYY-MM-DD") for display without letting the host
+ * timezone reinterpret it as an instant — anchor at UTC noon and format in UTC.
+ * Mirrors the civil-date label convention used elsewhere in the backoffice.
+ */
+function formatCivilDate(civilDate: string, locale: string): string {
+  const [y, m, d] = civilDate.split("-").map((part) => Number.parseInt(part, 10));
+  if (!y || !m || !d) return civilDate;
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return civilDate;
+  }
+}
+
 function RequestRow({
   title,
   description,
@@ -219,6 +261,8 @@ function RequestRow({
   submitLabel,
   activeLabel,
   readyLabel,
+  gated = false,
+  gatedHelper = null,
 }: {
   title: string;
   description: string;
@@ -228,6 +272,8 @@ function RequestRow({
   submitLabel: string;
   activeLabel: string;
   readyLabel: string;
+  gated?: boolean;
+  gatedHelper?: string | null;
 }) {
   return (
     <form action={action} className="rounded-xl border bg-muted/20 p-4">
@@ -254,11 +300,18 @@ function RequestRow({
             </Badge>
           )
         ) : null}
+        {gated && gatedHelper ? (
+          <p className="text-xs text-muted-foreground">{gatedHelper}</p>
+        ) : null}
         <div className="mt-auto flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            {state.isActive ? activeLabel : readyLabel}
+            {gated ? (gatedHelper ?? readyLabel) : state.isActive ? activeLabel : readyLabel}
           </p>
-          <Button type="submit" variant={state.isActive ? "secondary" : "default"} disabled={state.isActive}>
+          <Button
+            type="submit"
+            variant={state.isActive || gated ? "secondary" : "default"}
+            disabled={state.isActive || gated}
+          >
             {submitLabel}
           </Button>
         </div>

@@ -29,6 +29,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
+import { evaluateProgressPhotoCheckIn } from "@/lib/gc-fitness/progress-photo-checkin-policy";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { coachVisibleClientName } from "@/lib/gc-fitness/client-name";
@@ -162,6 +163,20 @@ export default async function ClientDetailPage({
     client.progressPhotosRequestedAt ?? null,
     progressPhotos,
   );
+  // Issue #160 — derive the client's next-eligible check-in date from the photos
+  // already loaded above (no extra Firestore read). Once the client's baseline is
+  // complete (every used angle ≥2), the coach's "request progress photos" button
+  // stays disabled until that date — re-requesting before then can't help.
+  const progressPhotosCheckIn = evaluateProgressPhotoCheckIn(
+    progressPhotos.map((p) => ({
+      angle: p.angle,
+      checkInDate: p.checkInDate,
+      takenAt: p.takenAt,
+      createdAt: p.createdAt,
+    })),
+    todayCivil,
+    timezone,
+  );
   const tSkeleton = await getTranslations("clients.detail.skeleton");
 
   return (
@@ -198,6 +213,8 @@ export default async function ClientDetailPage({
         bodyWeightRequestedAt={client.bodyWeightRequestedAt ?? null}
         progressPhotosFulfilled={progressPhotosFulfilled}
         bodyWeightFulfilled={bodyWeightFulfilled}
+        progressPhotosCheckInEligible={progressPhotosCheckIn.isEligible}
+        progressPhotosNextEligibleDate={progressPhotosCheckIn.nextEligibleDate}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
