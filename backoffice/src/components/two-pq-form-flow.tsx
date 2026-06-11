@@ -1376,9 +1376,10 @@ function validateWholeDocument({
         (typeof linkedStudyRequestForm.patientInformation.patientId === "string"
           ? linkedStudyRequestForm.patientInformation.patientId
           : "");
+      const linkedDoctorId = formDoctorId(linkedStudyRequestForm);
       if (
         linkedStudyRequestForm.institutionId !== institutionId ||
-        linkedStudyRequestForm.doctorId !== doctorId
+        linkedDoctorId !== doctorId
       ) {
         addIssue(
           "linkedStudyRequest",
@@ -1526,6 +1527,10 @@ function stringField(record: Record<string, unknown> | undefined, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function formDoctorId(form: TwoPQFormRecord) {
+  return form.doctorId || stringField(form.patientInformation, "doctorId");
+}
+
 function studyRequestPatientToFormState(
   form: TwoPQFormRecord
 ): PatientInformationFormState {
@@ -1538,7 +1543,7 @@ function studyRequestPatientToFormState(
 
   return {
     institutionId: form.institutionId,
-    doctorId: form.doctorId,
+    doctorId: formDoctorId(form),
     email: stringField(patientInformation, "email") || form.patientEmail || "",
     firstName: stringField(patientInformation, "firstName") || splitName.firstName,
     lastName: stringField(patientInformation, "lastName") || splitName.lastName,
@@ -2072,17 +2077,31 @@ export function TwoPQFormFlow({
   const selectedStudyRequestForm = studyRequestForms.find(
     (form) => form.id === state.linkedStudyRequestFormId
   );
-  const studyRequestFormOptions = studyRequestForms.map((form) => ({
-    value: form.id,
-    label: [
-      form.patientName || stringField(form.patientInformation, "fullName") || form.id,
-      form.requestedTestName,
-      form.createdAt ? toDateInputValue(form.createdAt) : "",
-      form.id,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-  }));
+  const selectedStudyRequestDoctorId = selectedStudyRequestForm
+    ? formDoctorId(selectedStudyRequestForm)
+    : "";
+  const selectedStudyRequestDoctor = selectedStudyRequestDoctorId
+    ? doctors.find((doctor) => doctor.id === selectedStudyRequestDoctorId)
+    : null;
+  const studyRequestFormOptions = studyRequestForms.map((form) => {
+    const linkedDoctorId = formDoctorId(form);
+    const linkedDoctor = linkedDoctorId
+      ? doctors.find((doctor) => doctor.id === linkedDoctorId)
+      : null;
+
+    return {
+      value: form.id,
+      label: [
+        form.patientName || stringField(form.patientInformation, "fullName") || form.id,
+        form.requestedTestName,
+        linkedDoctor?.fullName || linkedDoctorId,
+        form.createdAt ? toDateInputValue(form.createdAt) : "",
+        form.id,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  });
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
     label: `${institution.name} (${institution.id})`,
@@ -3878,6 +3897,16 @@ export function TwoPQFormFlow({
                   <p className="mt-1 font-medium">
                     {selectedStudyRequestForm.institutionName ||
                       selectedStudyRequestForm.institutionId}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    {t("Doctor")}
+                  </p>
+                  <p className="mt-1 font-medium">
+                    {selectedStudyRequestDoctor
+                      ? selectedStudyRequestDoctor.fullName
+                      : selectedStudyRequestDoctorId || t("Not provided")}
                   </p>
                 </div>
                 <div>

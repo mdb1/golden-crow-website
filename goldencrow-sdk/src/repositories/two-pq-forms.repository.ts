@@ -395,6 +395,10 @@ function toPatientRecord(id: string, data: Record<string, unknown>): PatientReco
 function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQFormRecord {
   const formType = data.formType === "sample" ? "sample" : "study_request";
   const patientInformation = data.patientInformation;
+  const patientInformationRecord =
+    patientInformation && typeof patientInformation === "object"
+      ? patientInformation as Record<string, unknown>
+      : {};
   const requestedTest = data.requestedTest;
   const authorEmail =
     normalizeOptionalString(data.authorEmail) ??
@@ -408,7 +412,10 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     formType,
     collectionKey: FORMS_COLLECTION,
     institutionId: normalizeOptionalString(data.institutionId) ?? "",
-    doctorId: normalizeOptionalString(data.doctorId) ?? "",
+    doctorId:
+      normalizeOptionalString(data.doctorId) ??
+      normalizeOptionalString(patientInformationRecord.doctorId) ??
+      "",
     selectedPatientId: normalizeOptionalString(data.selectedPatientId),
     selectedInstitutionId: normalizeOptionalString(data.selectedInstitutionId),
     patientName: normalizeOptionalString(data.patientName),
@@ -424,10 +431,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
           .map((entry) => normalizeOptionalString(entry))
           .filter((entry): entry is string => Boolean(entry))
       : undefined,
-    patientInformation:
-      patientInformation && typeof patientInformation === "object"
-        ? patientInformation as TwoPQFormRecord["patientInformation"]
-        : {},
+    patientInformation: patientInformationRecord as TwoPQFormRecord["patientInformation"],
     medicalInformation:
       data.medicalInformation && typeof data.medicalInformation === "object"
         ? data.medicalInformation as TwoPQFormRecord["medicalInformation"]
