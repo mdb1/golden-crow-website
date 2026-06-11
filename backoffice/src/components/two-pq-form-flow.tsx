@@ -556,6 +556,16 @@ function generatedSamplingSampleId(boxCode: string, index: number) {
     : "";
 }
 
+function generatedSamplingNotes(index: number, rowCount: number) {
+  if (index === rowCount - 2) {
+    return "CONTROL";
+  }
+  if (index === rowCount - 1) {
+    return "BLANCO";
+  }
+  return "";
+}
+
 function buildInitialState(
   institutionId: string,
   doctorId: string,
@@ -2833,6 +2843,7 @@ export function TwoPQFormFlow({
             index
           ),
           sampleType: current.sampleInformation.sampleType,
+          notes: generatedSamplingNotes(index, rowCount),
         })),
       };
     });
