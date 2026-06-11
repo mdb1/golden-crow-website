@@ -549,6 +549,13 @@ function emptySampling(): SamplingInformationFormState {
   };
 }
 
+function generatedSamplingSampleId(boxCode: string, index: number) {
+  const normalizedBoxCode = normalizeBoxCodeInput(boxCode);
+  return normalizedBoxCode
+    ? `${normalizedBoxCode}${String(index + 1).padStart(3, "0")}`
+    : "";
+}
+
 function buildInitialState(
   institutionId: string,
   doctorId: string,
@@ -2809,19 +2816,26 @@ export function TwoPQFormFlow({
   }
 
   function generateSamplingTable() {
-    const biopsyCount = Number(state.sampleInformation.biopsyCount);
-    if (!Number.isInteger(biopsyCount) || biopsyCount <= 0) {
-      return;
-    }
+    setState((current) => {
+      const biopsyCount = Number(current.sampleInformation.biopsyCount);
+      if (!Number.isInteger(biopsyCount) || biopsyCount <= 0) {
+        return current;
+      }
 
-    const rowCount = biopsyCount + 2;
-    setState((current) => ({
-      ...current,
-      samplingTableGenerated: true,
-      samplingInformation: Array.from({ length: rowCount }, (_, index) => ({
-        ...(current.samplingInformation[index] ?? emptySampling()),
-      })),
-    }));
+      const rowCount = biopsyCount + 2;
+      return {
+        ...current,
+        samplingTableGenerated: true,
+        samplingInformation: Array.from({ length: rowCount }, (_, index) => ({
+          ...(current.samplingInformation[index] ?? emptySampling()),
+          sampleId: generatedSamplingSampleId(
+            current.sampleInformation.boxCode,
+            index
+          ),
+          sampleType: current.sampleInformation.sampleType,
+        })),
+      };
+    });
   }
 
   function updateCaseInformation(patch: Partial<CaseInformationFormState>) {
