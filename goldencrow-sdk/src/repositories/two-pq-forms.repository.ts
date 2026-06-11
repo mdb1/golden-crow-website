@@ -558,15 +558,9 @@ async function validateDoctorInstitutionLink(institutionId: string, doctorId: st
   }
 }
 
-function normalizePatientInformation(
-  input: PatientInformationInput,
-  formType: TwoPQFormType
-) {
+function normalizePatientInformation(input: PatientInformationInput) {
   const institutionId = normalizeRequiredString(input.institutionId, "Patient institution");
-  const doctorId =
-    formType === "sample"
-      ? normalizeRequiredString(input.doctorId, "Patient doctor")
-      : normalizeOptionalString(input.doctorId);
+  const doctorId = normalizeRequiredString(input.doctorId, "Patient doctor");
   const sex = normalizeOptionalString(input.sex);
   const partnerFullName = normalizeOptionalString(input.partnerFullName);
   const partnerMedicalRecordNumber = normalizeOptionalString(
@@ -1158,10 +1152,7 @@ export async function createTwoPQFormForContext(
 ): Promise<TwoPQFormRecord> {
   const authorEmail = normalizeEmail(context.email, "Form author email");
   const authorUid = normalizeRequiredString(context.uid, "Form author uid");
-  const patientInformation = normalizePatientInformation(
-    payload.patientInformation,
-    payload.formType
-  );
+  const patientInformation = normalizePatientInformation(payload.patientInformation);
   const institutionId =
     context.role === "institution_admin" || context.role === "institution_doctor"
       ? context.institutionId ?? patientInformation.institutionId
@@ -1171,17 +1162,11 @@ export async function createTwoPQFormForContext(
       ? context.doctorId ?? patientInformation.doctorId
       : patientInformation.doctorId;
 
-  if (
-    !institutionId ||
-    (payload.formType === "sample" && !doctorId) ||
-    !canCreatePatient(context, institutionId, doctorId ?? "")
-  ) {
+  if (!institutionId || !doctorId || !canCreatePatient(context, institutionId, doctorId)) {
     throw new AdminRepositoryError("You cannot create forms in this scope.", 403);
   }
 
-  if (doctorId) {
-    await validateDoctorInstitutionLink(institutionId, doctorId);
-  }
+  await validateDoctorInstitutionLink(institutionId, doctorId);
 
   let selectedPatient: PatientRecord | null = null;
   let selectedPatientId = normalizeOptionalString(payload.selectedPatientId);
@@ -1195,12 +1180,10 @@ export async function createTwoPQFormForContext(
     }
     if (
       selectedPatient.institutionId !== institutionId ||
-      (doctorId && selectedPatient.doctorId !== doctorId)
+      selectedPatient.doctorId !== doctorId
     ) {
       throw new AdminRepositoryError(
-        doctorId
-          ? "Selected patient must belong to the selected institution and doctor."
-          : "Selected patient must belong to the selected institution.",
+        "Selected patient must belong to the selected institution and doctor.",
         400
       );
     }
@@ -1304,8 +1287,6 @@ export async function createTwoPQFormForContext(
     if (!normalizedSampleInformation) {
       throw new AdminRepositoryError("Sample information is required.", 400);
     }
-    const linkedDoctorId = normalizeRequiredString(doctorId, "Patient doctor");
-
     const sampleBoxCode = normalizedSampleInformation.boxCode;
     let patientIdForLinkedRecords = selectedPatientId;
     let linkedCaseLabel: string;
@@ -1322,7 +1303,7 @@ export async function createTwoPQFormForContext(
       const caseRecord = caseDetail.record;
       if (
         caseRecord.institutionId !== institutionId ||
-        caseRecord.doctorId !== linkedDoctorId
+        caseRecord.doctorId !== doctorId
       ) {
         throw new AdminRepositoryError(
           "Selected 2PQ case must belong to the selected institution and doctor.",
@@ -1370,7 +1351,7 @@ export async function createTwoPQFormForContext(
         ...normalizedCaseInformation,
         three_letter_code: sampleBoxCode,
         institutionId,
-        doctorId: linkedDoctorId,
+        doctorId,
         patientId: patientIdForLinkedRecords,
       });
       selectedCaseId = createdCase.id;
@@ -1386,7 +1367,7 @@ export async function createTwoPQFormForContext(
         {
           ...samplingEntry,
           institutionId,
-          doctorId: linkedDoctorId,
+          doctorId,
           patientId: patientIdForLinkedRecords,
           parent_case: linkedCaseId,
         }
@@ -1407,7 +1388,7 @@ export async function createTwoPQFormForContext(
     formType: payload.formType,
     collectionKey: FORMS_COLLECTION,
     institutionId,
-    doctorId: doctorId ?? null,
+    doctorId,
     selectedPatientId: selectedPatientId ?? null,
     selectedInstitutionId: selectedInstitutionId ?? null,
     selectedRequestingDoctorId: selectedRequestingDoctorId ?? null,
@@ -1422,7 +1403,7 @@ export async function createTwoPQFormForContext(
       ...patientInformation,
       patientId: selectedPatientId,
       institutionId,
-      doctorId: doctorId ?? null,
+      doctorId,
     },
     requestedTest,
     createdAt: now,

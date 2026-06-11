@@ -1137,7 +1137,7 @@ export async function createPatientForContext(
   context: AdminContext,
   payload: {
     institutionId: string;
-    doctorId?: string;
+    doctorId: string;
     email: string;
     fullName: string;
     medicalRecordNumber?: string;
@@ -1157,24 +1157,19 @@ export async function createPatientForContext(
       ? context.doctorId ?? payload.doctorId
       : payload.doctorId;
 
-  if (
-    !institutionId ||
-    !canCreatePatient(context, institutionId, doctorId ?? "")
-  ) {
+  if (!institutionId || !doctorId || !canCreatePatient(context, institutionId, doctorId)) {
     throw new AdminRepositoryError("You cannot create patients in this scope.", 403);
   }
 
   await ensureInstitutionExists(institutionId);
-  if (doctorId) {
-    await validateDoctorInstitutionLink(institutionId, doctorId);
-  }
+  await validateDoctorInstitutionLink(institutionId, doctorId);
 
   const patientId = await getNextEntityId("patient");
   const now = new Date().toISOString();
   const document = {
     id: patientId,
     institutionId,
-    doctorId: doctorId ?? null,
+    doctorId,
     email: normalizeRoleEmail(normalizeRequiredString(payload.email, "Patient email")),
     fullName: normalizeRequiredString(payload.fullName, "Patient full name"),
     medicalRecordNumber: normalizeOptionalString(payload.medicalRecordNumber) ?? null,

@@ -821,7 +821,7 @@ function validateStepFields(
     if (!flowState.patientInformation.institutionId) {
       errors["patientInformation.institutionId"] = t("Select an institution.");
     }
-    if (formType !== "study_request" && !flowState.patientInformation.doctorId) {
+    if (!flowState.patientInformation.doctorId) {
       errors["patientInformation.doctorId"] = t("Select a doctor.");
     }
     if (!isValidEmail(flowState.patientInformation.email)) {
@@ -1237,7 +1237,7 @@ function validateWholeDocument({
       );
     } else if (
       selectedPatient.institutionId !== institutionId ||
-      (doctorId && selectedPatient.doctorId !== doctorId)
+      selectedPatient.doctorId !== doctorId
     ) {
       addIssue(
         "patientInformation",
@@ -1843,6 +1843,8 @@ export function TwoPQFormFlow({
   const [wholeDataValidationReport, setWholeDataValidationReport] =
     useState<WholeDataValidationReport | null>(null);
   const [storedFormId, setStoredFormId] = useState<string | null>(null);
+  const [doctorResponsibilityAlertOpen, setDoctorResponsibilityAlertOpen] =
+    useState(false);
   const currentStep = steps[stepIndex] ?? steps[0];
   const currentStepLabel = t(STEP_LABELS[currentStep]);
   const availableDoctors = doctors.filter((doctor) =>
@@ -2390,6 +2392,17 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function showDoctorResponsibilityAlert() {
+    setDoctorResponsibilityAlertOpen(true);
+    setStepErrors("patientInformation", {
+      "patientInformation.doctorId": t("Select a doctor."),
+    });
+    setStepValidation((current) => ({
+      ...current,
+      patientInformation: "invalid",
+    }));
+  }
+
   function markSkippedStepsInvalid(nextStepIndex: number) {
     setStepValidation((current) => {
       const next: StepValidationState = { ...current };
@@ -2403,6 +2416,14 @@ export function TwoPQFormFlow({
   }
 
   async function goNext() {
+    if (
+      currentStep === "patientInformation" &&
+      !state.patientInformation.doctorId
+    ) {
+      showDoctorResponsibilityAlert();
+      return;
+    }
+
     const errors = validateStepFields(currentStep, state, formType, language);
     setStepErrors(currentStep, errors);
     if (hasErrors(errors)) {
@@ -2437,6 +2458,15 @@ export function TwoPQFormFlow({
       return;
     }
 
+    if (
+      boundedStepIndex > stepIndex &&
+      stepIndex === 0 &&
+      !state.patientInformation.doctorId
+    ) {
+      showDoctorResponsibilityAlert();
+      return;
+    }
+
     try {
       const nextState =
         steps[boundedStepIndex] === "caseInformation"
@@ -2463,6 +2493,14 @@ export function TwoPQFormFlow({
     setStorageProcessingSteps([]);
     setStorageProcessingError(null);
     setStoredFormId(null);
+
+    if (!submissionState.patientInformation.doctorId) {
+      setWholeDataValidationReport(null);
+      showDoctorResponsibilityAlert();
+      setStepIndex(0);
+      return;
+    }
+
     setWholeDataValidationReport({ status: "running", issues: [] });
     setPending(true);
     await wait(180);
@@ -2585,6 +2623,26 @@ export function TwoPQFormFlow({
   return (
     <div className="flex flex-col gap-5">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
+      <Dialog
+        open={doctorResponsibilityAlertOpen}
+        onOpenChange={setDoctorResponsibilityAlertOpen}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("Doctor is required")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "The patient must always belong to a doctor from the institution. The doctor signs the document and is responsible for the form, so this field cannot be empty."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setDoctorResponsibilityAlertOpen(false)}>
+              {t("Understood")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={processDialogOpen}
         onOpenChange={(open) => {

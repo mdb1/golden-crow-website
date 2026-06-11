@@ -226,6 +226,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Eliminar el borrador temporal del usuario cuando el formulario final quede guardado.",
   "Select an institution.": "Seleccioná una institución.",
   "Select a doctor.": "Seleccioná un médico.",
+  "Doctor is required": "Médico requerido",
+  "The patient must always belong to a doctor from the institution. The doctor signs the document and is responsible for the form, so this field cannot be empty.":
+    "El paciente siempre debe pertenecer a un médico de la institución. El médico firma el documento y se hace responsable del formulario, por lo tanto este campo no puede estar vacío.",
+  Understood: "Entendido",
   "Enter a valid patient email.": "Ingresá un email de paciente válido.",
   "Enter a valid patient reference email.":
     "Ingresá un mail de referencia del paciente válido.",
