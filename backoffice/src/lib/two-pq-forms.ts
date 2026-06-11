@@ -180,6 +180,14 @@ export interface TwoPQFormRecord {
   updatedByUid?: string;
 }
 
+export type TwoPQFormsOrder = "newest" | "oldest";
+
+export interface TwoPQFormsPage {
+  forms: TwoPQFormRecord[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface TwoPQFormDraftRecord {
   id: string;
   formType: TwoPQFormType;

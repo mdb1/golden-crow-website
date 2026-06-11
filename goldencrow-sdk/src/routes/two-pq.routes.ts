@@ -272,6 +272,11 @@ const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
   formType: z.enum(["study_request", "sample"]).optional(),
   limit: z.string().optional(),
+  cursor: z.string().optional(),
+  search: z.string().optional(),
+  createdFrom: z.string().optional(),
+  createdTo: z.string().optional(),
+  order: z.enum(["newest", "oldest"]).optional(),
 });
 
 function parseBooleanQueryFlag(value: string | undefined) {
@@ -415,8 +420,13 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           includeArchived: parseBooleanQueryFlag(request.query.includeArchived),
           formType: request.query.formType,
           limit: parseQueryLimit(request.query.limit),
+          cursor: request.query.cursor,
+          search: request.query.search,
+          createdFrom: request.query.createdFrom,
+          createdTo: request.query.createdTo,
+          order: request.query.order,
         });
-        return reply.send({ forms });
+        return reply.send(forms);
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }

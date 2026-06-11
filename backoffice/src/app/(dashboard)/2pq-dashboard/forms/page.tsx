@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, ArrowLeft, ClipboardList, FileClock } from "lucide-react";
+import { ArrowLeft, ClipboardList, FileClock } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQFormCompletionDialog } from "@/components/two-pq-form-completion-dialog";
 import { TwoPQFormsList } from "@/components/two-pq-forms-list";
@@ -8,21 +8,74 @@ import { Button } from "@/components/ui/button";
 import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
+  type TwoPQFormsOrder,
+  type TwoPQFormType,
 } from "@/lib/two-pq-forms";
-import { getTwoPQFormDraft, getTwoPQForms } from "@/lib/two-pq-server";
+import { getTwoPQFormDraft, getTwoPQFormsPage } from "@/lib/two-pq-server";
+
+const FORMS_PAGE_SIZE = 20;
+
+function one(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function formTypeFromParam(value: string | string[] | undefined): TwoPQFormType | undefined {
+  const normalized = one(value);
+  return normalized === "study_request" || normalized === "sample"
+    ? normalized
+    : undefined;
+}
+
+function orderFromParam(value: string | string[] | undefined): TwoPQFormsOrder {
+  return one(value) === "oldest" ? "oldest" : "newest";
+}
 
 export default async function TwoPQFormsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ createdId?: string; includeArchived?: string }>;
+  searchParams: Promise<{
+    createdId?: string;
+    includeArchived?: string;
+    formType?: string;
+    search?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    order?: string;
+  }>;
 }) {
-  const { createdId, includeArchived: includeArchivedParam } = await searchParams;
+  const {
+    createdId,
+    includeArchived: includeArchivedParam,
+    formType: formTypeParam,
+    search,
+    createdFrom,
+    createdTo,
+    order,
+  } = await searchParams;
   const includeArchived =
     includeArchivedParam === "1" ||
     includeArchivedParam === "true" ||
     includeArchivedParam === "yes";
-  const [forms, formDraft] = await Promise.all([
-    getTwoPQForms({ includeArchived }),
+  const formType = formTypeFromParam(formTypeParam);
+  const formsOrder = orderFromParam(order);
+  const initialFilters = {
+    includeArchived,
+    formType: formType ?? "all",
+    search: search ?? "",
+    createdFrom: createdFrom ?? "",
+    createdTo: createdTo ?? "",
+    order: formsOrder,
+  } as const;
+  const [formsPage, formDraft] = await Promise.all([
+    getTwoPQFormsPage({
+      includeArchived,
+      formType,
+      limit: FORMS_PAGE_SIZE,
+      search,
+      createdFrom,
+      createdTo,
+      order: formsOrder,
+    }),
     getTwoPQFormDraft(),
   ]);
   const draftHref = formDraft
@@ -75,14 +128,15 @@ export default async function TwoPQFormsPage({
               All submitted form flows are stored as joined documents here.
             </p>
           </div>
-          <Button variant={includeArchived ? "default" : "outline"} size="sm" asChild>
-            <Link href={includeArchived ? "/2pq-dashboard/forms" : "/2pq-dashboard/forms?includeArchived=1"}>
-              <Archive className="size-3.5" />
-              {includeArchived ? "Hide archived" : "Show archived"}
-            </Link>
-          </Button>
         </div>
-        <TwoPQFormsList forms={forms} allowMutations />
+        <TwoPQFormsList
+          forms={formsPage.forms}
+          initialCursor={formsPage.nextCursor}
+          initialHasMore={formsPage.hasMore}
+          initialFilters={initialFilters}
+          pageSize={FORMS_PAGE_SIZE}
+          allowMutations
+        />
       </section>
     </div>
   );

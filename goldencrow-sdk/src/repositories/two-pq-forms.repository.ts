@@ -198,6 +198,17 @@ type ListTwoPQFormsOptions = {
   includeArchived?: boolean;
   formType?: TwoPQFormType;
   limit?: number;
+  cursor?: string;
+  search?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  order?: "newest" | "oldest";
+};
+
+type ListTwoPQFormsPage = {
+  forms: TwoPQFormRecord[];
+  nextCursor: string | null;
+  hasMore: boolean;
 };
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -210,6 +221,85 @@ function normalizeRequiredString(value: unknown, label: string) {
     throw new AdminRepositoryError(`${label} is required.`, 400);
   }
   return normalized;
+}
+
+function normalizeSearchText(value: unknown) {
+  return normalizeOptionalString(value)
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function normalizeDateBoundary(value: unknown, boundary: "start" | "end") {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(normalized)
+    ? new Date(`${normalized}T${boundary === "start" ? "00:00:00.000" : "23:59:59.999"}Z`)
+    : new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return date.toISOString();
+}
+
+function formSearchHaystack(form: TwoPQFormRecord) {
+  const patientInformation = form.patientInformation ?? {};
+  return normalizeSearchText(
+    [
+      form.patientName,
+      form.patientEmail,
+      form.selectedPatientId,
+      patientInformation.fullName,
+      patientInformation.firstName,
+      patientInformation.lastName,
+      patientInformation.email,
+      patientInformation.medicalRecordNumber,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  ) ?? "";
+}
+
+function formMatchesSearch(form: TwoPQFormRecord, normalizedSearch: string | undefined) {
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  const haystack = formSearchHaystack(form);
+  return normalizedSearch
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) => haystack.includes(token));
+}
+
+function formMatchesListFilters(
+  form: TwoPQFormRecord,
+  context: AdminContext,
+  options: ListTwoPQFormsOptions,
+  normalizedSearch: string | undefined,
+  createdFrom: string | undefined,
+  createdTo: string | undefined
+) {
+  if (!canViewTwoPQForm(context, form)) {
+    return false;
+  }
+  if (!options.includeArchived && form.archivedAt) {
+    return false;
+  }
+  if (options.formType && form.formType !== options.formType) {
+    return false;
+  }
+  if (createdFrom && form.createdAt < createdFrom) {
+    return false;
+  }
+  if (createdTo && form.createdAt > createdTo) {
+    return false;
+  }
+  return formMatchesSearch(form, normalizedSearch);
 }
 
 function normalizeThreeLetterCode(value: unknown, label: string) {
@@ -977,25 +1067,124 @@ function canViewTwoPQForm(
 export async function listTwoPQFormsForContext(
   context: AdminContext,
   options: ListTwoPQFormsOptions = {}
-): Promise<TwoPQFormRecord[]> {
-  let query = adminDb.collection(FORMS_COLLECTION) as FirebaseFirestore.Query;
-  if (context.role !== "full_admin") {
-    query = query.where("institutionId", "==", context.institutionId ?? "__none__");
-  }
-  if (options.formType) {
-    query = query.where("formType", "==", options.formType);
-  }
-  if (options.limit) {
-    query = query.limit(options.limit);
+): Promise<ListTwoPQFormsPage> {
+  const safeLimit = Math.min(Math.max(options.limit ?? 20, 1), 50);
+  const fetchWindow = Math.min(Math.max(safeLimit * 3, 30), 100);
+  const direction = options.order === "oldest" ? "asc" : "desc";
+  const normalizedSearch = normalizeSearchText(options.search);
+  const createdFrom = normalizeDateBoundary(options.createdFrom, "start");
+  const createdTo = normalizeDateBoundary(options.createdTo, "end");
+
+  async function readPage(useIndexedFilters: boolean): Promise<ListTwoPQFormsPage> {
+    const accepted: Array<{ form: TwoPQFormRecord; cursor: string }> = [];
+    let cursorSnapshot: FirebaseFirestore.DocumentSnapshot | null = null;
+    let lastScannedCursor: string | null = null;
+    let hasMore = false;
+    let scanned = 0;
+    const maxScanned = normalizedSearch ? 500 : 250;
+
+    if (options.cursor) {
+      const snapshot = await adminDb
+        .collection(FORMS_COLLECTION)
+        .doc(options.cursor)
+        .get();
+      if (snapshot.exists) {
+        cursorSnapshot = snapshot;
+      }
+    }
+
+    while (accepted.length < safeLimit && scanned < maxScanned) {
+      let query = adminDb
+        .collection(FORMS_COLLECTION)
+        .orderBy("createdAt", direction) as FirebaseFirestore.Query;
+
+      if (createdFrom) {
+        query = query.where("createdAt", ">=", createdFrom);
+      }
+      if (createdTo) {
+        query = query.where("createdAt", "<=", createdTo);
+      }
+      if (useIndexedFilters && context.role !== "full_admin") {
+        query = query.where("institutionId", "==", context.institutionId ?? "__none__");
+      }
+      if (useIndexedFilters && options.formType) {
+        query = query.where("formType", "==", options.formType);
+      }
+      if (cursorSnapshot) {
+        query = query.startAfter(cursorSnapshot);
+      }
+
+      const snapshot = await query.limit(fetchWindow).get();
+      if (snapshot.empty) {
+        hasMore = false;
+        break;
+      }
+
+      scanned += snapshot.size;
+      for (const doc of snapshot.docs) {
+        const form = toTwoPQFormRecord(
+          doc.id,
+          doc.data() as Record<string, unknown>
+        );
+        if (
+          formMatchesListFilters(
+            form,
+            context,
+            options,
+            normalizedSearch,
+            createdFrom,
+            createdTo
+          )
+        ) {
+          accepted.push({ form, cursor: doc.id });
+          if (accepted.length >= safeLimit) {
+            break;
+          }
+        }
+      }
+
+      const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      lastScannedCursor = lastDoc?.id ?? lastScannedCursor;
+      cursorSnapshot = lastDoc ?? cursorSnapshot;
+
+      if (accepted.length >= safeLimit) {
+        hasMore =
+          snapshot.size === fetchWindow ||
+          snapshot.docs[snapshot.docs.length - 1]?.id !== accepted[accepted.length - 1]?.cursor;
+        break;
+      }
+      if (snapshot.size < fetchWindow) {
+        hasMore = false;
+        break;
+      }
+
+      hasMore = true;
+    }
+
+    const forms = accepted.map((entry) => entry.form);
+    const nextCursor = forms.length > 0
+      ? accepted[accepted.length - 1]?.cursor ?? null
+      : hasMore
+        ? lastScannedCursor
+        : null;
+
+    return {
+      forms,
+      nextCursor,
+      hasMore,
+    };
   }
 
-  const snapshot = await query.get();
+  try {
+    return await readPage(true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/index|FAILED_PRECONDITION/i.test(message)) {
+      throw error;
+    }
 
-  return snapshot.docs
-    .map((doc) => toTwoPQFormRecord(doc.id, doc.data() as Record<string, unknown>))
-    .filter((form) => canViewTwoPQForm(context, form))
-    .filter((form) => options.includeArchived || !form.archivedAt)
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return readPage(false);
+  }
 }
 
 export async function getTwoPQFormForContext(

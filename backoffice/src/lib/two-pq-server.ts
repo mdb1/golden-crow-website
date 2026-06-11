@@ -1,6 +1,11 @@
 import type { DoctorListItem, InstitutionListItem, PatientListItem } from "@/lib/admin-areas";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
-import type { TwoPQFormDraftRecord, TwoPQFormRecord } from "@/lib/two-pq-forms";
+import type {
+  TwoPQFormDraftRecord,
+  TwoPQFormRecord,
+  TwoPQFormsOrder,
+  TwoPQFormsPage,
+} from "@/lib/two-pq-forms";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export async function getTwoPQLookupData() {
@@ -64,6 +69,27 @@ export async function getTwoPQForms(
     includeArchived?: boolean;
     formType?: "study_request" | "sample";
     limit?: number;
+    search?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    order?: TwoPQFormsOrder;
+    cursor?: string;
+  } = {}
+) {
+  const payload = await getTwoPQFormsPage(options);
+  return payload.forms;
+}
+
+export async function getTwoPQFormsPage(
+  options: {
+    includeArchived?: boolean;
+    formType?: "study_request" | "sample";
+    limit?: number;
+    search?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    order?: TwoPQFormsOrder;
+    cursor?: string;
   } = {}
 ) {
   const params = new URLSearchParams();
@@ -76,11 +102,30 @@ export async function getTwoPQForms(
   if (options.limit) {
     params.set("limit", String(options.limit));
   }
+  if (options.search) {
+    params.set("search", options.search);
+  }
+  if (options.createdFrom) {
+    params.set("createdFrom", options.createdFrom);
+  }
+  if (options.createdTo) {
+    params.set("createdTo", options.createdTo);
+  }
+  if (options.order) {
+    params.set("order", options.order);
+  }
+  if (options.cursor) {
+    params.set("cursor", options.cursor);
+  }
   const query = params.size > 0 ? `?${params.toString()}` : "";
-  const payload = await sdkFetchServer<{ forms: TwoPQFormRecord[] }>(
+  const payload = await sdkFetchServer<TwoPQFormsPage>(
     `/2pq/forms${query}`
   );
-  return payload.forms;
+  return {
+    forms: payload.forms,
+    nextCursor: payload.nextCursor ?? null,
+    hasMore: Boolean(payload.hasMore),
+  };
 }
 
 export async function getTwoPQFormDraft() {
