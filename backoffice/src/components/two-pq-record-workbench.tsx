@@ -4539,7 +4539,7 @@ export function TwoPQRecordWorkbench({
                       ? t("Record created")
                       : pendingAction === "create"
                         ? t("Creating record...")
-                        : t("Create Record")}
+                        : area.createLabel}
                   </Button>
                 </div>
               </div>
@@ -4935,7 +4935,8 @@ export function TwoPQRecordWorkbench({
                         {mode === "create" ? (
                           <>
                             {t("The code will be stored on the new case document as")}{" "}
-                            <code>three_letter_code</code> {t("when you tap")} <span className="font-medium">{t("Create Record")}</span>.
+                            <code>three_letter_code</code> {t("when you tap")}{" "}
+                            <span className="font-medium">{area.createLabel}</span>.
                           </>
                         ) : (
                           <>

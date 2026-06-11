@@ -689,6 +689,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add doctor": "Agregar médico",
   "Add manually": "Agregar manualmente",
   "Add multiple samplings at once": "Agregar varios muestreos a la vez",
+  "Add new record": "Alta de registro",
+  "Add new role assignment": "Alta de rol",
   "Add patient": "Agregar paciente",
   "Add three letter code": "Agregar código de tres letras",
   admins: "administradores",
@@ -1076,14 +1078,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Multi sampling edit paused": "Edición múltiple de muestreos pausada",
   "Multi sampling edit progress": "Progreso de edición múltiple de muestreos",
   New: "Nuevo",
-  "New case": "Nuevo caso",
-  "New provider": "Nuevo prestador",
+  "New case": "Alta de caso",
+  "New provider": "Alta de prestador",
   "New record": "Nuevo registro",
-  "New report record": "Nuevo registro de reporte",
-  "New sampling": "Nuevo muestreo",
-  "New sampling record": "Nuevo registro de muestreo",
-  "New sequencing batch": "Nuevo lote de secuenciación",
-  "New shipment": "Nuevo envío",
+  "New report record": "Alta de reporte",
+  "New sampling": "Alta de muestreo",
+  "New sampling record": "Alta de muestreo",
+  "New sequencing batch": "Alta de lote de secuenciación",
+  "New shipment": "Alta de envío",
   "New similar form": "Nuevo formulario similar",
   "New value": "Nuevo valor",
   No: "No",
@@ -1231,6 +1233,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Primary sequencing batch identifier.":
     "Identificador principal del lote de secuenciación.",
   "Primary sequencing contact.": "Contacto principal de secuenciación.",
+  "Primary actions": "Acciones principales",
   "Private profiles": "Perfiles privados",
   "profiles/{uid} documents that back onboarding and private account state.":
     "Documentos profiles/{uid} que respaldan onboarding y estado privado de cuenta.",
@@ -1519,6 +1522,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El rol actual no puede crear asignaciones de rol.",
   "The current role cannot create role assignments on this screen.":
     "El rol actual no puede crear asignaciones de rol en esta pantalla.",
+  "The current role cannot create records on this screen.":
+    "El rol actual no puede dar de alta registros en esta pantalla.",
   "The current stored file snapshot may be out of date. This case was updated":
     "La captura actual del archivo almacenado puede estar desactualizada. Este caso se actualizó",
   "The doctor link controls who can actually edit this patient later. Institution scope and doctor scope stay explicit and visible on the patient sheet.":
@@ -1702,6 +1707,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Validating existing sampling IDs before generation...":
     "Validando sample IDs existentes antes de generar...",
   "Visit 2PQ": "Visitar 2PQ",
+  "Visualize access permission": "Ver permisos de acceso",
+  "Visualize access permissions": "Ver permisos de acceso",
   "What this role can and cannot do": "Qué puede y qué no puede hacer este rol",
   "when you tap": "cuando tocás",
   "When the report was delivered.": "Cuándo se entregó el reporte.",

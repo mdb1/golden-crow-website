@@ -49,6 +49,7 @@ export default async function TwoPQAreaPage({
         accessHref={`${area.route}/access`}
         createHref={`${area.route}/new`}
         canCreate={canCreate}
+        createLabel={translatedArea.createLabel}
         description={t("Access review and record creation now start from their own dedicated screens instead of this main area page.")}
       />
       <TwoPQAreaBrowser areaKey={area.key} initialRecords={records} createdId={createdId} />

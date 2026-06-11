@@ -34,6 +34,7 @@ export default async function InstitutionsPage() {
         accessHref="/areas/institutions/access"
         createHref="/areas/institutions/new"
         canCreate={canCreateInstitutionUi(adminContext)}
+        createLabel="Create institution"
         description="Access review and institution creation now start from their own dedicated screens instead of this main area page."
       />
       <InstitutionBrowser initialInstitutions={institutions} />

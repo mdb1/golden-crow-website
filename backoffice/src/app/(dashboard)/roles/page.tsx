@@ -33,7 +33,7 @@ export default async function RolesPage() {
         accessLabel="Role assignment capabilities"
         createHref="/roles/new"
         canCreate={getAssignableRoleOptions(adminContext.role).length > 0}
-        createLabel="Add new role assignment"
+        createLabel="Create role"
         createDisabledTitle="The current role cannot create role assignments on this screen."
         description="Open the role-by-role capabilities guide or jump directly into the role creation flow."
       />
