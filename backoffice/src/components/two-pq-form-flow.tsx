@@ -1407,6 +1407,29 @@ function institutionToFormState(
   };
 }
 
+function applyScopedInstitutionSelection(
+  flowState: FlowState,
+  institution: InstitutionListItem | undefined
+): FlowState {
+  if (!institution) {
+    return flowState;
+  }
+
+  return {
+    ...flowState,
+    selectedInstitutionId: institution.id,
+    institutionInformation: institutionToFormState(institution),
+    patientInformation: {
+      ...flowState.patientInformation,
+      institutionId: institution.id,
+      email:
+        flowState.patientInformation.email ||
+        institution.contactEmail ||
+        "",
+    },
+  };
+}
+
 function caseToFormState(record: TwoPQListItem): CaseInformationFormState {
   return {
     caseLabel: record.caseLabel ?? "",
@@ -1772,16 +1795,28 @@ export function TwoPQFormFlow({
     [matchingDraft, steps]
   );
   const initialFlowState = useMemo(
-    () =>
-      hydrateDraftState(
+    () => {
+      const hydratedState = hydrateDraftState(
         buildInitialState(
           defaultInstitutionId,
           defaultDoctorId,
           defaultInstitution?.contactEmail ?? ""
         ),
         matchingDraft
-      ),
-    [defaultDoctorId, defaultInstitution?.contactEmail, defaultInstitutionId, matchingDraft]
+      );
+
+      return scopedInstitutionId
+        ? applyScopedInstitutionSelection(hydratedState, defaultInstitution)
+        : hydratedState;
+    },
+    [
+      defaultDoctorId,
+      defaultInstitution,
+      defaultInstitution?.contactEmail,
+      defaultInstitutionId,
+      matchingDraft,
+      scopedInstitutionId,
+    ]
   );
 
   const [stepIndex, setStepIndex] = useState(initialStepIndex);
@@ -3420,6 +3455,7 @@ export function TwoPQFormFlow({
                 onChange={selectInstitution}
                 placeholder={t("Select institution")}
                 emptyLabel={t("Manual institution information")}
+                disabled={Boolean(scopedInstitutionId)}
               />
               <FieldError message={errorFor("selectedInstitutionId")} />
             </div>
