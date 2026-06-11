@@ -365,8 +365,10 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
   }
 
   const requestingDoctorId =
-    form.selectedRequestingDoctorId ??
-    getTextValue(form.sampleInformation, "requestingDoctorId");
+    form.selectedRequestingDoctorId ||
+    getTextValue(form.sampleInformation, "requestingDoctorId") ||
+    form.doctorId ||
+    getTextValue(form.patientInformation, "doctorId");
 
   return (
     <section className="rounded-2xl border border-violet-200/80 bg-violet-50/72 px-5 py-5 shadow-[0_16px_38px_rgba(124,58,237,0.12)] dark:border-violet-300/24 dark:bg-violet-950/20">
@@ -386,7 +388,7 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
             <p className="mt-1 text-sm text-violet-950/72 dark:text-violet-50/74">
               {requestingDoctorId
                 ? "This sample form is linked to the scoped requesting doctor record."
-                : "This sample form does not have a requesting doctor link stored."}
+                : "This sample form is missing the requesting doctor link."}
             </p>
             {requestingDoctorId ? (
               <p className="mt-2 font-mono text-xs text-violet-900/74 dark:text-violet-100/74">

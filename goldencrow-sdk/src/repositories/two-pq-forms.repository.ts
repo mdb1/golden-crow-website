@@ -1290,23 +1290,22 @@ export async function createTwoPQFormForContext(
     | undefined;
 
   if (payload.formType === "sample") {
-    selectedRequestingDoctorId = normalizeOptionalString(payload.selectedRequestingDoctorId);
+    selectedRequestingDoctorId =
+      normalizeOptionalString(payload.selectedRequestingDoctorId) ?? doctorId;
     let requestingDoctor: DoctorRecord | null = null;
 
-    if (selectedRequestingDoctorId) {
-      requestingDoctor = await getDoctorById(selectedRequestingDoctorId);
-      if (!requestingDoctor) {
-        throw new AdminRepositoryError("Selected requesting doctor not found.", 404);
-      }
-      if (!canViewDoctor(context, requestingDoctor)) {
-        throw new AdminRepositoryError("You cannot use this requesting doctor.", 403);
-      }
-      if (requestingDoctor.institutionId !== institutionId) {
-        throw new AdminRepositoryError(
-          "Selected requesting doctor must belong to the selected institution.",
-          400
-        );
-      }
+    requestingDoctor = await getDoctorById(selectedRequestingDoctorId);
+    if (!requestingDoctor) {
+      throw new AdminRepositoryError("Selected requesting doctor not found.", 404);
+    }
+    if (!canViewDoctor(context, requestingDoctor)) {
+      throw new AdminRepositoryError("You cannot use this requesting doctor.", 403);
+    }
+    if (requestingDoctor.institutionId !== institutionId) {
+      throw new AdminRepositoryError(
+        "Selected requesting doctor must belong to the selected institution.",
+        400
+      );
     }
 
     normalizedSampleInformation = normalizeSampleInformation(

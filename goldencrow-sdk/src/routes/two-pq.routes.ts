@@ -230,6 +230,7 @@ const TwoPQFormDraftStepSchema = z.enum([
   "institutionInformation",
   "previewAndSignature",
   "sampleInformation",
+  "doctorInformation",
   "caseInformation",
   "samplingInformation",
 ]);

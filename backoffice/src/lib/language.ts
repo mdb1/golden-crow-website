@@ -216,6 +216,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "after confirming it matches box code": "después de confirmar que coincide con código caja",
   "Create the case from step 4 and attach it to the patient, institution, and doctor.":
     "Crear el caso desde el paso 4 y asociarlo al paciente, la institución y el médico.",
+  "Create the case from the 2PQ case step and attach it to the patient, institution, and doctor.":
+    "Crear el caso desde el paso de caso 2PQ y asociarlo al paciente, la institución y el médico.",
   "Bind three-letter box code": "Vincular código caja de tres letras",
   "Store box code": "Guardar código caja",
   "as the case three_letter_code and keep the form linked to it.":
@@ -346,6 +348,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El médico solicitante seleccionado no está disponible en los datos actuales.",
   "Selected requesting doctor must belong to the selected institution.":
     "El médico solicitante seleccionado debe pertenecer a la institución seleccionada.",
+  "Requesting doctor is required.":
+    "El médico solicitante es requerido.",
   "Selected 2PQ case is not available in the current lookup data.":
     "El caso 2PQ seleccionado no está disponible en los datos actuales.",
   "Selected 2PQ case must belong to the selected institution and doctor.":
@@ -492,6 +496,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Date: "Fecha",
   "Pick existing institution": "Elegir institución existente",
   "Manual institution information": "Información manual de institución",
+  "Institution ID": "ID de institución",
   "Institution code": "Código de institución",
   "Institution name": "Nombre de institución",
   "Legal name": "Razón social",
@@ -505,6 +510,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "FIV center": "Centro FIV",
   "Center code": "Código centro",
   "Requesting doctor": "Médico solicitante",
+  "Doctor Information": "Información del médico",
+  "Doctor ID": "ID del médico",
   "Pick existing doctor": "Elegir médico existente",
   "Select requesting doctor": "Seleccionar médico solicitante",
   "Manual requesting doctor information":

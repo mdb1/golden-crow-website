@@ -280,6 +280,7 @@ export type TwoPQFormDraftStepKey =
   | "institutionInformation"
   | "previewAndSignature"
   | "sampleInformation"
+  | "doctorInformation"
   | "caseInformation"
   | "samplingInformation";
 

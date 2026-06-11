@@ -118,6 +118,7 @@ const SAMPLE_STEPS: StepKey[] = [
   "patientInformation",
   "requestedTest",
   "sampleInformation",
+  "doctorInformation",
   "caseInformation",
   "samplingInformation",
 ];
@@ -131,6 +132,7 @@ const STEP_LABELS: Record<StepKey, string> = {
   institutionInformation: "Institution information",
   previewAndSignature: "Preview and signature",
   sampleInformation: "Sample information",
+  doctorInformation: "Doctor Information",
   caseInformation: "2PQ case",
   samplingInformation: "2PQ sampling",
 };
@@ -140,7 +142,8 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   linkedStudyRequestFormId: "Linked study request form",
   selectedPatientId: "Pick existing patient",
   selectedInstitutionId: "Pick existing institution",
-  selectedRequestingDoctorId: "Pick existing doctor",
+  doctorInformation: "Doctor Information",
+  selectedRequestingDoctorId: "Requesting doctor",
   selectedCaseId: "Pick existing 2PQ case",
   "patientInformation.institutionId": "Institution",
   "patientInformation.doctorId": "Doctor",
@@ -437,13 +440,22 @@ function buildFormStorageProcessingSteps(
         : t("Create the scoped patient from step 1 and link it to the stored form.")
     ),
     pendingProcessingStep(
+      "requesting-doctor",
+      t("Link selected requesting doctor"),
+      `${t("Use doctor")} ${
+        flowState.selectedRequestingDoctorId || flowState.patientInformation.doctorId
+      } ${t("as requesting doctor.")}`
+    ),
+    pendingProcessingStep(
       "case",
       flowState.selectedCaseId
         ? t("Link existing 2PQ case")
         : `${t("Create 2PQ case")} ${caseLabel}`,
       flowState.selectedCaseId
         ? `${t("Use case")} ${flowState.selectedCaseId} ${t("after confirming it matches box code")} ${boxCode}.`
-        : t("Create the case from step 4 and attach it to the patient and institution.")
+        : t(
+            "Create the case from the 2PQ case step and attach it to the patient, institution, and doctor."
+          )
     ),
     pendingProcessingStep(
       "box-code",
@@ -680,7 +692,7 @@ function isStepErrorKey(key: string, step: StepKey) {
     (step === "linkedStudyRequest" && key === "linkedStudyRequestFormId") ||
     (step === "patientInformation" && key === "selectedPatientId") ||
     (step === "institutionInformation" && key === "selectedInstitutionId") ||
-    (step === "sampleInformation" && key === "selectedRequestingDoctorId") ||
+    (step === "doctorInformation" && key === "selectedRequestingDoctorId") ||
     (step === "caseInformation" && key === "selectedCaseId")
   );
 }
@@ -1087,6 +1099,14 @@ function validateStepFields(
     }
   }
 
+  if (step === "doctorInformation") {
+    const requestingDoctorId =
+      flowState.selectedRequestingDoctorId || flowState.patientInformation.doctorId;
+    if (!requestingDoctorId.trim()) {
+      errors.selectedRequestingDoctorId = t("Requesting doctor is required.");
+    }
+  }
+
   if (step === "caseInformation" && !flowState.selectedCaseId) {
     if (!flowState.caseInformation.caseLabel.trim()) {
       errors["caseInformation.caseLabel"] = t("2PQ case label is required.");
@@ -1401,20 +1421,27 @@ function validateWholeDocument({
     }
 
     const boxCode = normalizeBoxCodeForValidation(flowState.sampleInformation.boxCode);
-    const selectedRequestingDoctorId = flowState.selectedRequestingDoctorId;
-    if (selectedRequestingDoctorId) {
+    const selectedRequestingDoctorId =
+      flowState.selectedRequestingDoctorId || doctorId;
+    if (!selectedRequestingDoctorId) {
+      addIssue(
+        "doctorInformation",
+        "selectedRequestingDoctorId",
+        t("Requesting doctor is required.")
+      );
+    } else {
       const requestingDoctor = doctors.find(
         (doctor) => doctor.id === selectedRequestingDoctorId
       );
       if (!requestingDoctor) {
         addIssue(
-          "sampleInformation",
+          "doctorInformation",
           "selectedRequestingDoctorId",
           t("Selected requesting doctor is not available in the current lookup data.")
         );
       } else if (requestingDoctor.institutionId !== institutionId) {
         addIssue(
-          "sampleInformation",
+          "doctorInformation",
           "selectedRequestingDoctorId",
           t("Selected requesting doctor must belong to the selected institution.")
         );
@@ -2071,6 +2098,11 @@ export function TwoPQFormFlow({
   const selectedDoctor = doctors.find(
     (doctor) => doctor.id === state.patientInformation.doctorId
   );
+  const requestingDoctorId =
+    state.selectedRequestingDoctorId || state.patientInformation.doctorId;
+  const selectedRequestingDoctor = requestingDoctorId
+    ? doctors.find((doctor) => doctor.id === requestingDoctorId)
+    : null;
   const selectedPatient = patients.find(
     (patient) => patient.id === state.selectedPatientId
   );
@@ -2187,6 +2219,78 @@ export function TwoPQFormFlow({
     }
 
     return `${Math.round(size / 1024)} KB`;
+  };
+  const doctorInformationPreviewSection: PreviewSectionData = {
+    title: t("Requesting doctor"),
+    fields: [
+      {
+        label: t("Doctor ID"),
+        value: previewValue(requestingDoctorId),
+      },
+      {
+        label: t("Institution ID"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.institutionId)
+          : previewValue(state.patientInformation.institutionId),
+      },
+      {
+        label: t("Institution name"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.institutionName)
+          : previewValue(selectedInstitution?.name),
+      },
+      {
+        label: t("Full name"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.fullName)
+          : previewValue(""),
+      },
+      {
+        label: t("Auth email"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.authEmail)
+          : previewValue(""),
+      },
+      {
+        label: t("Auth UID"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.authUid)
+          : previewValue(""),
+      },
+      {
+        label: t("Specialty"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.specialty)
+          : previewValue(""),
+      },
+      {
+        label: t("License number"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.licenseNumber)
+          : previewValue(""),
+      },
+      {
+        label: t("Contact phone"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.contactPhone)
+          : previewValue(""),
+      },
+      {
+        label: t("Status"),
+        value: selectedRequestingDoctor
+          ? previewValue(
+              t(selectedRequestingDoctor.status === "inactive" ? "Inactive" : "Active")
+            )
+          : previewValue(""),
+      },
+      {
+        label: t("Notes"),
+        value: selectedRequestingDoctor
+          ? previewValue(selectedRequestingDoctor.notes)
+          : previewValue(""),
+        wide: true,
+      },
+    ],
   };
   const previewSelectedPatient = selectedPatient
     ? `${selectedPatient.fullName} (${selectedPatient.id})`
@@ -2790,6 +2894,7 @@ export function TwoPQFormFlow({
         linkedStudyRequestFormId: "",
         selectedPatientId: "",
         selectedInstitutionId: "",
+        selectedRequestingDoctorId: "",
         patientInformation: buildInitialState(
           defaultInstitutionId,
           defaultDoctorId,
@@ -2814,7 +2919,7 @@ export function TwoPQFormFlow({
       selectedInstitutionId:
         linkedForm.selectedInstitutionId || linkedForm.institutionId,
       selectedCaseId: "",
-      selectedRequestingDoctorId: "",
+      selectedRequestingDoctorId: formDoctorId(linkedForm),
       patientInformation: linkedPatientInformation,
       institutionInformation: linkedInstitution
         ? institutionToFormState(linkedInstitution)
@@ -3240,6 +3345,9 @@ export function TwoPQFormFlow({
               linkedStudyRequestFormId: submissionState.linkedStudyRequestFormId,
               selectedPatientId: submissionState.selectedPatientId,
               selectedCaseId: submissionState.selectedCaseId,
+              selectedRequestingDoctorId:
+                submissionState.selectedRequestingDoctorId ||
+                submissionState.patientInformation.doctorId,
               patientInformation: buildPatientInformationSubmission(
                 submissionState.patientInformation
               ),
@@ -4646,6 +4754,15 @@ export function TwoPQFormFlow({
                 </div>
               </div>
             </section>
+          </div>
+        ) : null}
+
+        {currentStep === "doctorInformation" ? (
+          <div className="space-y-4">
+            <div className="rounded-sm border border-black/12 bg-white px-6 py-6 text-black shadow-sm">
+              <PreviewPaperSection section={doctorInformationPreviewSection} />
+            </div>
+            <FieldError message={errorFor("selectedRequestingDoctorId")} />
           </div>
         ) : null}
 
