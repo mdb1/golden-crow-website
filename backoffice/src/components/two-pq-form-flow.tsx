@@ -821,7 +821,7 @@ function validateStepFields(
     if (!flowState.patientInformation.institutionId) {
       errors["patientInformation.institutionId"] = t("Select an institution.");
     }
-    if (!flowState.patientInformation.doctorId) {
+    if (formType !== "study_request" && !flowState.patientInformation.doctorId) {
       errors["patientInformation.doctorId"] = t("Select a doctor.");
     }
     if (!isValidEmail(flowState.patientInformation.email)) {
@@ -1237,7 +1237,7 @@ function validateWholeDocument({
       );
     } else if (
       selectedPatient.institutionId !== institutionId ||
-      selectedPatient.doctorId !== doctorId
+      (doctorId && selectedPatient.doctorId !== doctorId)
     ) {
       addIssue(
         "patientInformation",
