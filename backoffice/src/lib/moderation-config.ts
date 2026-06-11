@@ -4,6 +4,7 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  ClipboardList,
   Dna,
   FileBadge2,
   FileCode2,
@@ -697,6 +698,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/2pq-dashboard",
     description: "Workflow hub with area access and CRUD visibility",
     icon: Dna,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "mission",
+    label: "Forms",
+    href: "/2pq-dashboard/forms",
+    description: "Stored study request and sample form submissions",
+    icon: ClipboardList,
     visibleRoles: AREA_ROLES,
   },
   ...TWO_PQ_AREA_CONFIGS.map((area) => ({
