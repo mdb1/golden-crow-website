@@ -102,6 +102,7 @@ const STUDY_REQUEST_STEPS: StepKey[] = [
   "requestedTest",
   "previousGeneticTests",
   "institutionInformation",
+  "previewAndSignature",
 ];
 
 const SAMPLE_STEPS: StepKey[] = [
@@ -118,6 +119,7 @@ const STEP_LABELS: Record<StepKey, string> = {
   previousGeneticTests: "Karyotype",
   requestedTest: "Requested test",
   institutionInformation: "Institution information",
+  previewAndSignature: "Preview and signature",
   sampleInformation: "Sample information",
   caseInformation: "2PQ case",
   samplingInformation: "2PQ sampling",
@@ -1690,6 +1692,42 @@ function fileToDataUrl(file: File) {
   });
 }
 
+type PreviewField = {
+  label: string;
+  value: string;
+  wide?: boolean;
+};
+
+type PreviewSectionData = {
+  title: string;
+  fields: PreviewField[];
+};
+
+function PreviewPaperSection({ section }: { section: PreviewSectionData }) {
+  return (
+    <section className="border-t border-black/12 pt-5 first:border-t-0 first:pt-0">
+      <h3 className="font-heading text-base font-semibold text-black">
+        {section.title}
+      </h3>
+      <dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        {section.fields.map((field) => (
+          <div
+            key={`${section.title}-${field.label}`}
+            className={field.wide ? "sm:col-span-2" : undefined}
+          >
+            <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+              {field.label}
+            </dt>
+            <dd className="mt-1 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
+              {field.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function RequestedStudyTestSection({
   title,
   value,
@@ -1858,6 +1896,9 @@ export function TwoPQFormFlow({
   const selectedDoctor = doctors.find(
     (doctor) => doctor.id === state.patientInformation.doctorId
   );
+  const selectedPatient = patients.find(
+    (patient) => patient.id === state.selectedPatientId
+  );
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
     label: `${institution.name} (${institution.id})`,
@@ -1954,6 +1995,279 @@ export function TwoPQFormFlow({
     value: option.value,
     label: t(option.label),
   }));
+  const notProvidedLabel = t("Not provided");
+  const previewValue = (value: string | undefined | null) =>
+    value?.trim() || notProvidedLabel;
+  const previewOptionValue = (
+    options: Array<{ value: string; label: string }>,
+    value: string | undefined | null
+  ) => {
+    const normalizedValue = value?.trim();
+    if (!normalizedValue) {
+      return notProvidedLabel;
+    }
+
+    return options.find((option) => option.value === normalizedValue)?.label ??
+      normalizedValue;
+  };
+  const previewDateValue = (value: string | undefined | null) => {
+    const normalizedValue = value?.trim();
+    if (!normalizedValue) {
+      return notProvidedLabel;
+    }
+
+    if (!optionalValidDateInput(normalizedValue)) {
+      return normalizedValue;
+    }
+
+    const [year, month, day] = normalizedValue.split("-").map(Number);
+    return new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(Date.UTC(year, month - 1, day)));
+  };
+  const previewFileSizeValue = (value: string) => {
+    const size = Number(value);
+    if (!Number.isFinite(size) || size <= 0) {
+      return notProvidedLabel;
+    }
+
+    return `${Math.round(size / 1024)} KB`;
+  };
+  const previewSelectedPatient = selectedPatient
+    ? `${selectedPatient.fullName} (${selectedPatient.id})`
+    : state.selectedPatientId || t("Manual patient information");
+  const previewSelectedInstitution = selectedInstitution
+    ? `${selectedInstitution.name} (${selectedInstitution.id})`
+    : state.selectedInstitutionId || t("Manual institution information");
+  const patientPreviewFields: PreviewField[] = [
+    { label: t("Pick existing patient"), value: previewSelectedPatient },
+    {
+      label: t("Institution"),
+      value: selectedInstitution
+        ? `${selectedInstitution.name} (${selectedInstitution.id})`
+        : previewValue(state.patientInformation.institutionId),
+    },
+    {
+      label: t("Doctor"),
+      value: selectedDoctor
+        ? `${selectedDoctor.fullName} (${selectedDoctor.id})`
+        : previewValue(state.patientInformation.doctorId),
+    },
+    {
+      label: t("Patient reference email"),
+      value: previewValue(state.patientInformation.email),
+    },
+    {
+      label: t("Patient DNI"),
+      value: previewValue(state.patientInformation.medicalRecordNumber),
+    },
+    {
+      label: t("Patient first name"),
+      value: previewValue(state.patientInformation.firstName),
+    },
+    {
+      label: t("Patient last name"),
+      value: previewValue(state.patientInformation.lastName),
+    },
+    {
+      label: t("Patient birth date"),
+      value: previewDateValue(state.patientInformation.birthDate),
+    },
+    {
+      label: t("Patient notes"),
+      value: previewValue(state.patientInformation.notes),
+      wide: true,
+    },
+    {
+      label: t("Includes partner information"),
+      value: state.patientInformation.includesPartnerInformation
+        ? t("Yes")
+        : t("No"),
+    },
+  ];
+  const partnerPreviewFields: PreviewField[] =
+    state.patientInformation.includesPartnerInformation
+      ? [
+          {
+            label: t("Partner first name"),
+            value: previewValue(state.patientInformation.partnerFirstName),
+          },
+          {
+            label: t("Partner last name"),
+            value: previewValue(state.patientInformation.partnerLastName),
+          },
+          {
+            label: t("Partner DNI"),
+            value: previewValue(
+              state.patientInformation.partnerMedicalRecordNumber
+            ),
+          },
+          {
+            label: t("Partner birth date"),
+            value: previewDateValue(state.patientInformation.partnerBirthDate),
+          },
+          {
+            label: t("Partner notes"),
+            value: previewValue(state.patientInformation.partnerNotes),
+            wide: true,
+          },
+        ]
+      : [];
+  const studyRequestPreviewSections: PreviewSectionData[] = [
+    {
+      title: t("Patient data"),
+      fields: [...patientPreviewFields, ...partnerPreviewFields],
+    },
+    {
+      title: t("Medical data"),
+      fields: [
+        {
+          label: t("Previous miscarriages"),
+          value: previewOptionValue(
+            previousMiscarriagesOptions,
+            state.medicalInformation.previousMiscarriagesCount
+          ),
+        },
+        {
+          label: t("Male factor"),
+          value: previewOptionValue(yesNoOptions, state.medicalInformation.maleFactor),
+        },
+        {
+          label: t("Sperm"),
+          value: previewOptionValue(
+            gameteSourceOptions,
+            state.medicalInformation.spermGameteSource
+          ),
+        },
+        {
+          label: t("Oocytes"),
+          value: previewOptionValue(
+            gameteSourceOptions,
+            state.medicalInformation.oocyteGameteSource
+          ),
+        },
+        {
+          label: t("Other background"),
+          value: previewValue(state.medicalInformation.otherBackground),
+          wide: true,
+        },
+      ],
+    },
+    {
+      title: t("Requested tests"),
+      fields: [
+        {
+          label: "PGT-A FAST",
+          value: previewOptionValue(yesNoOptions, state.requestedTest.pgtAFast),
+        },
+        {
+          label: t("PGT-A FAST reports mosaicism"),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtAFastReportsMosaicism
+          ),
+        },
+        {
+          label: t("PGT-A FAST reports sex"),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtAFastReportsSex
+          ),
+        },
+        {
+          label: "PGT-A STANDARD",
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtAStandard
+          ),
+        },
+        {
+          label: t("PGT-A STANDARD reports mosaicism"),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtAStandardReportsMosaicism
+          ),
+        },
+        {
+          label: t("PGT-A STANDARD reports sex"),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtAStandardReportsSex
+          ),
+        },
+        {
+          label: "PGT-SR",
+          value: previewOptionValue(yesNoOptions, state.requestedTest.pgtSr),
+        },
+        {
+          label: t("PGT-SR reports mosaicism"),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtSrReportsMosaicism
+          ),
+        },
+        {
+          label: t("PGT-SR reports sex"),
+          value: previewOptionValue(
+            yesNoOptions,
+            state.requestedTest.pgtSrReportsSex
+          ),
+        },
+      ],
+    },
+    {
+      title: t("Karyotype and attachments"),
+      fields: [
+        {
+          label: t("Karyotype result"),
+          value: previewValue(state.previousGeneticTests.karyotypeResult),
+          wide: true,
+        },
+        {
+          label: t("Karyotype file name"),
+          value: previewValue(state.previousGeneticTests.karyotypeFileName),
+        },
+        {
+          label: t("Karyotype file type"),
+          value: previewValue(state.previousGeneticTests.karyotypeFileType),
+        },
+        {
+          label: t("Karyotype file size"),
+          value: previewFileSizeValue(
+            state.previousGeneticTests.karyotypeFileSize
+          ),
+        },
+      ],
+    },
+    {
+      title: t("Institution data"),
+      fields: [
+        {
+          label: t("Pick existing institution"),
+          value: previewSelectedInstitution,
+        },
+        {
+          label: t("Institution name"),
+          value: previewValue(state.institutionInformation.name),
+        },
+        {
+          label: t("Contact email"),
+          value: previewValue(state.institutionInformation.contactEmail),
+        },
+        {
+          label: t("Contact phone"),
+          value: previewValue(state.institutionInformation.contactPhone),
+        },
+        {
+          label: t("Notes"),
+          value: previewValue(state.institutionInformation.notes),
+          wide: true,
+        },
+      ],
+    },
+  ];
 
   const progressLabel = useMemo(
     () =>
@@ -3552,6 +3866,74 @@ export function TwoPQFormFlow({
           </div>
         ) : null}
 
+        {currentStep === "previewAndSignature" ? (
+          <div className="space-y-6">
+            <div className="mx-auto max-w-5xl rounded-sm bg-white px-6 py-8 text-black shadow-[0_24px_70px_rgba(15,23,42,0.16)] ring-1 ring-black/10 sm:px-10 sm:py-12">
+              <div className="border-b border-black/20 pb-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/55">
+                  2PQ
+                </p>
+                <h2 className="mt-2 font-heading text-2xl font-semibold text-black">
+                  {t("Study request form preview")}
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
+                  {t(
+                    "This preview is read-only. Go back to previous steps to make changes before signing."
+                  )}
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-8">
+                {studyRequestPreviewSections.map((section) => (
+                  <PreviewPaperSection key={section.title} section={section} />
+                ))}
+              </div>
+
+              <div className="mt-10 border-t border-black/20 pt-6">
+                <h3 className="font-heading text-base font-semibold text-black">
+                  {t("Signature and submission")}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-black/70">
+                  {t(
+                    "By signing, the responsible doctor confirms the information shown here."
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mx-auto max-w-5xl rounded-2xl border border-indigo-200 bg-indigo-50/72 p-5 shadow-[0_18px_48px_rgba(79,70,229,0.12)] dark:border-indigo-300/22 dark:bg-indigo-950/22">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void selectStep(stepIndex - 1)}
+                disabled={pending || draftPending}
+                className="mb-4 bg-white/80 text-indigo-950 hover:bg-white"
+              >
+                <ArrowLeft className="size-4" />
+                {t("Previous")}
+              </Button>
+              <p className="text-sm leading-6 text-indigo-950/78 dark:text-indigo-50/78">
+                {t(
+                  "After submission, the form cannot be changed. If you find an error after sending it, contact 2PQ directly so they can correct it."
+                )}
+              </p>
+              <Button
+                type="button"
+                onClick={() => void submitForm()}
+                disabled={pending || draftPending}
+                className="mt-4 min-h-14 w-full bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700 sm:text-lg"
+              >
+                {pending ? (
+                  <FileText className="size-5 animate-pulse" />
+                ) : (
+                  <Save className="size-5" />
+                )}
+                {pending ? t("Sending...") : t("Sign and send form")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {currentStep === "sampleInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <BoxCodeField
@@ -3916,6 +4298,7 @@ export function TwoPQFormFlow({
           </div>
         ) : null}
 
+        {currentStep === "previewAndSignature" ? null : (
         <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-muted-foreground">
             {selectedInstitution?.name ?? state.institutionInformation.name
@@ -3949,12 +4332,16 @@ export function TwoPQFormFlow({
                 disabled={pending || draftPending}
                 className="bg-indigo-600 text-white hover:bg-indigo-700"
               >
-                {t("Continue")}
+                {currentStep === "institutionInformation" &&
+                formType === "study_request"
+                  ? t("Continue to preview")
+                  : t("Continue")}
                 <ArrowRight className="size-4" />
               </Button>
             )}
           </div>
         </div>
+        )}
       </section>
     </div>
   );

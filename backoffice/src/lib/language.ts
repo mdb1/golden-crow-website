@@ -149,6 +149,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Previous genetic tests": "Pruebas genéticas previas",
   "Requested test": "Test solicitado",
   "Institution information": "Información de institución",
+  "Preview and signature": "Vista previa y firma",
   "Sample information": "Información de muestra",
   "2PQ case": "Caso 2PQ",
   "2PQ sampling": "Muestreo 2PQ",
@@ -447,6 +448,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "PGT-SR reports mosaicism": "PGT-SR informa mosaicismo",
   "PGT-SR reports sex": "PGT-SR informa sexo",
   "Karyotype file": "Archivo cariotipo",
+  "Karyotype file name": "Nombre de archivo cariotipo",
+  "Karyotype file type": "Tipo de archivo cariotipo",
+  "Karyotype file size": "Tamaño de archivo cariotipo",
   "Karyotype file is too large.":
     "El archivo de cariotipo es demasiado grande.",
   "Unable to read karyotype file.":
@@ -506,6 +510,23 @@ const SPANISH_TEXT: Record<string, string> = {
   "Add sampling": "Agregar muestreo",
   "No institution selected": "Sin institución seleccionada",
   Previous: "Anterior",
+  "Continue to preview": "Continuar a vista previa",
+  "Study request form preview": "Vista previa del formulario de solicitud",
+  "This preview is read-only. Go back to previous steps to make changes before signing.":
+    "Esta vista previa es de solo lectura. Volvé a los pasos anteriores para hacer cambios antes de firmar.",
+  "Patient data": "Datos del paciente",
+  "Medical data": "Información médica",
+  "Requested tests": "Tests solicitados",
+  "Karyotype and attachments": "Cariotipo y adjuntos",
+  "Institution data": "Datos de institución",
+  "Signature and submission": "Firma y envío",
+  "By signing, the responsible doctor confirms the information shown here.":
+    "Al firmar, el médico responsable confirma la información que se muestra aquí.",
+  "After submission, the form cannot be changed. If you find an error after sending it, contact 2PQ directly so they can correct it.":
+    "Una vez enviado, el formulario no se puede cambiar. Si encontrás un error después del envío, deberás comunicarte directamente con 2PQ para subsanarlo.",
+  "Sign and send form": "Firmar y enviar formulario",
+  "Sending...": "Enviando...",
+  "Not provided": "No informado",
   "Store form": "Guardar formulario",
   "Storing...": "Guardando...",
   Continue: "Continuar",

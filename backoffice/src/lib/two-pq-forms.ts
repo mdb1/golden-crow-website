@@ -117,6 +117,7 @@ export type TwoPQFormDraftStepKey =
   | "previousGeneticTests"
   | "requestedTest"
   | "institutionInformation"
+  | "previewAndSignature"
   | "sampleInformation"
   | "caseInformation"
   | "samplingInformation";
