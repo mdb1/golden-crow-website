@@ -817,7 +817,7 @@ function buildHabitRenewalNotifications(
   const items: RenewalNotification[] = [];
   for (const habit of habits) {
     if (!habit.endsOn) continue;
-    if (!withinRenewalWindow(habit.endsOn, todayCivil, renewalWindowEnd)) {
+    if (!withinHabitRenewalWindow(habit.endsOn, todayCivil)) {
       continue;
     }
     const clientName = clientNameById.get(habit.clientId) ?? habit.clientId;
@@ -855,6 +855,11 @@ function parseWorkoutSeriesDetail(detail: string | null): { endDate: string } | 
 
 function withinRenewalWindow(civilDate: string, todayCivil: string, windowEnd: string): boolean {
   return civilDate >= addCivilDays(todayCivil, -7) && civilDate <= windowEnd;
+}
+
+function withinHabitRenewalWindow(civilDate: string, todayCivil: string): boolean {
+  const diff = daysBetweenCivilDates(todayCivil, civilDate);
+  return diff >= 0 && diff <= 3;
 }
 
 function formatDueLabel(civilDate: string, todayCivil: string, locale: Locale): string {
