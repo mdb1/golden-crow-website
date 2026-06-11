@@ -4,8 +4,10 @@ import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQAreaBrowser } from "@/components/two-pq-area-browser";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { appText } from "@/lib/language";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
-import { getTwoPQAreaConfig } from "@/lib/two-pq-areas";
+import { getTwoPQAreaConfig, translateTwoPQAreaConfig } from "@/lib/two-pq-areas";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function TwoPQAreaPage({
@@ -21,6 +23,9 @@ export default async function TwoPQAreaPage({
   if (!area) {
     notFound();
   }
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const translatedArea = translateTwoPQAreaConfig(area, language);
 
   const adminContext = await getAdminContextServer();
   const { records } = await sdkFetchServer<{ records: TwoPQListItem[] }>(`/2pq/${area.key}`);
@@ -33,18 +38,18 @@ export default async function TwoPQAreaPage({
     <div className="flex flex-col gap-6">
       <PageHero
         eyebrow="2PQ"
-        title={area.label}
-        description={area.summary}
+        title={translatedArea.label}
+        description={translatedArea.summary}
       />
-      <HelperBanner title={area.helperTitle} tone="blue">
-        {area.helperBody} Live documents in <code>{area.collectionKey}</code> stay scoped to the
-        same institution, doctor, and patient permission lanes already enforced by the SDK.
+      <HelperBanner title={translatedArea.helperTitle} tone="blue">
+        {translatedArea.helperBody} {t("Live documents in")} <code>{area.collectionKey}</code>{" "}
+        {t("stay scoped to the same institution, doctor, and patient permission lanes already enforced by the SDK.")}
       </HelperBanner>
       <AreaAccessEntry
         accessHref={`${area.route}/access`}
         createHref={`${area.route}/new`}
         canCreate={canCreate}
-        description="Access review and record creation now start from their own dedicated screens instead of this main area page."
+        description={t("Access review and record creation now start from their own dedicated screens instead of this main area page.")}
       />
       <TwoPQAreaBrowser areaKey={area.key} initialRecords={records} createdId={createdId} />
     </div>

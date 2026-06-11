@@ -8,21 +8,25 @@ import { Button } from "@/components/ui/button";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { getAssignableRoleOptions } from "@/lib/admin-areas";
 import type { RoleManagementRecord } from "@/lib/admin-areas";
+import { appText } from "@/lib/language";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function RolesPage() {
   const adminContext = await getAdminContextServer();
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
   const { roles } = await sdkFetchServer<{ roles: RoleManagementRecord[] }>("/roles");
 
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Access"
-        title="Roles & permissions"
-        description="Email-based role assignments with a clear hierarchy: full admin, institution admin, institution doctor, and patient."
+        eyebrow={t("Access")}
+        title={t("Roles & permissions")}
+        description={t("Email-based role assignments with a clear hierarchy: full admin, institution admin, institution doctor, and patient.")}
       />
-      <HelperBanner title="The permission tree must stay explicit." tone="blue">
-        Full admins can create anything. Institution admins stay inside one institution. Institution doctors can only create patient-facing records and patient roles tied to their own doctor scope.
+      <HelperBanner title={t("The permission tree must stay explicit.")} tone="blue">
+        {t("Full admins can create anything. Institution admins stay inside one institution. Institution doctors can only create patient-facing records and patient roles tied to their own doctor scope.")}
       </HelperBanner>
       <AreaAccessEntry
         accessHref="/roles/access"
@@ -39,18 +43,18 @@ export default async function RolesPage() {
             <UserRoundCog className="h-4 w-4" />
           </div>
           <div>
-            <p className="section-eyebrow">Self-service</p>
+            <p className="section-eyebrow">{t("Self-service")}</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              My account
+              {t("My account")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Review your own role, permissions, and Firebase Auth details without opening another user&apos;s role assignment.
+              {t("Review your own role, permissions, and Firebase Auth details without opening another user's role assignment.")}
             </p>
           </div>
         </div>
         <Button size="lg" className="justify-between md:min-w-[12rem]" asChild>
           <Link href="/my-account">
-            My account
+            {t("My account")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>

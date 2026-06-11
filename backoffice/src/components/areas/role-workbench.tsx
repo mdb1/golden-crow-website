@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ import {
   getRoleEditRestrictionMessage,
   ROLE_CAPABILITY_LINES,
 } from "@/lib/areas-ui";
+import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import { compactList } from "@/lib/moderation-utils";
 
@@ -79,6 +81,8 @@ export function RoleWorkbench({
   initialEmail?: string;
 }) {
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const router = useRouter();
   const defaults = useMemo(
     () => ({
@@ -222,7 +226,7 @@ export function RoleWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Role email is required and must be valid.",
+        message: t("Role email is required and must be valid."),
       });
       return;
     }
@@ -231,7 +235,7 @@ export function RoleWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Institution-scoped roles require an institution.",
+        message: t("Institution-scoped roles require an institution."),
       });
       return;
     }
@@ -240,7 +244,7 @@ export function RoleWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Institution-doctor roles require a doctor link.",
+        message: t("Institution-doctor roles require a doctor link."),
       });
       return;
     }
@@ -249,7 +253,7 @@ export function RoleWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Patient roles require both a doctor and a patient link.",
+        message: t("Patient roles require both a doctor and a patient link."),
       });
       return;
     }
@@ -279,7 +283,7 @@ export function RoleWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: mode === "create" ? "Role assignment created." : "Role assignment saved.",
+        message: mode === "create" ? t("Role assignment created.") : t("Role assignment saved."),
       });
       router.push(`/roles/${encodeURIComponent(state.email)}`);
       router.refresh();
@@ -289,8 +293,8 @@ export function RoleWorkbench({
         tone: "error",
         message:
           mode === "create"
-            ? "Unable to create the role assignment."
-            : "Unable to save the role assignment.",
+            ? t("Unable to create the role assignment.")
+            : t("Unable to save the role assignment."),
       });
     } finally {
       setPending(false);
@@ -303,7 +307,7 @@ export function RoleWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/roles">Back to roles</Link>
+          <Link href="/roles">{t("Back to roles")}</Link>
         </Button>
         {mode === "edit" && roleRecord ? (
           <span className="font-mono text-xs text-muted-foreground">
@@ -315,13 +319,12 @@ export function RoleWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">Access</p>
+            <p className="section-eyebrow">{t("Access")}</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              {mode === "create" ? "Create role assignment" : "Role workbench"}
+              {mode === "create" ? t("Create role assignment") : t("Role workbench")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Roles are attached to emails, then constrained by institution,
-              doctor, and patient links according to the permission tree.
+              {t("Roles are attached to emails, then constrained by institution, doctor, and patient links according to the permission tree.")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -332,7 +335,7 @@ export function RoleWorkbench({
               disabled={!changed || pending || !isEditable}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset
+              {t("Reset")}
             </Button>
             <Button
               size="sm"
@@ -342,24 +345,24 @@ export function RoleWorkbench({
               <Save className="h-3.5 w-3.5" />
               {pending
                 ? mode === "create"
-                  ? "Creating..."
-                  : "Saving..."
+                  ? t("Creating...")
+                  : t("Saving...")
                 : mode === "create"
-                  ? "Create role"
-                  : "Save role"}
+                  ? t("Create role")
+                  : t("Save role")}
             </Button>
           </div>
         </div>
 
         {restrictionMessage ? (
           <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-            {restrictionMessage}
+            {t(restrictionMessage)}
           </div>
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="role-email">User email</Label>
+            <Label htmlFor="role-email">{t("User email")}</Label>
             <Input
               id="role-email"
               value={state.email}
@@ -370,32 +373,35 @@ export function RoleWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="role-type">Role</Label>
+            <Label htmlFor="role-type">{t("Role")}</Label>
             <OptionSelectField
-              options={roleOptions}
+              options={roleOptions.map((option) => ({
+                ...option,
+                label: t(option.label),
+              }))}
               value={state.role}
               onChange={(role) => applyRoleDefaults(role as RoleManagementRecord["role"])}
-              placeholder="Select role"
+              placeholder={t("Select role")}
               disabled={!isEditable}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="role-active">Role state</Label>
+            <Label htmlFor="role-active">{t("Role state")}</Label>
             <OptionSelectField
               options={[
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" },
+                { value: "active", label: t("Active") },
+                { value: "inactive", label: t("Inactive") },
               ]}
               value={state.isActive ? "active" : "inactive"}
               onChange={(value) =>
                 setState((current) => ({ ...current, isActive: value !== "inactive" }))
               }
-              placeholder="Select role state"
+              placeholder={t("Select role state")}
               disabled={!isEditable}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="role-display-name">Display name</Label>
+            <Label htmlFor="role-display-name">{t("Display name")}</Label>
             <Input
               id="role-display-name"
               value={state.displayName}
@@ -408,7 +414,7 @@ export function RoleWorkbench({
 
           {state.role !== "full_admin" ? (
             <div className="space-y-2">
-              <Label htmlFor="role-institution">Institution</Label>
+              <Label htmlFor="role-institution">{t("Institution")}</Label>
               <OptionSelectField
                 options={institutionOptions}
                 value={state.institutionId}
@@ -420,8 +426,8 @@ export function RoleWorkbench({
                     patientId: "",
                   }))
                 }
-                placeholder="Select institution"
-                emptyLabel="No institution"
+                placeholder={t("Select institution")}
+                emptyLabel={t("No institution")}
                 disabled={
                   !isEditable ||
                   adminContext.role === "institution_admin" ||
@@ -433,7 +439,7 @@ export function RoleWorkbench({
 
           {state.role === "institution_doctor" || state.role === "patient" ? (
             <div className="space-y-2">
-              <Label htmlFor="role-doctor">Doctor link</Label>
+              <Label htmlFor="role-doctor">{t("Doctor link")}</Label>
               <OptionSelectField
                 options={doctorOptions}
                 value={state.doctorId}
@@ -450,8 +456,8 @@ export function RoleWorkbench({
                         : current.email,
                   }));
                 }}
-                placeholder="Select doctor"
-                emptyLabel="No doctor"
+                placeholder={t("Select doctor")}
+                emptyLabel={t("No doctor")}
                 disabled={!isEditable || adminContext.role === "institution_doctor"}
               />
             </div>
@@ -459,7 +465,7 @@ export function RoleWorkbench({
 
           {state.role === "patient" ? (
             <div className="space-y-2">
-              <Label htmlFor="role-patient">Patient link</Label>
+              <Label htmlFor="role-patient">{t("Patient link")}</Label>
               <OptionSelectField
                 options={patientOptions}
                 value={state.patientId}
@@ -473,15 +479,15 @@ export function RoleWorkbench({
                     email: patient?.email ?? current.email,
                   }));
                 }}
-                placeholder="Select patient"
-                emptyLabel="No patient"
+                placeholder={t("Select patient")}
+                emptyLabel={t("No patient")}
                 disabled={!isEditable}
               />
             </div>
           ) : null}
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="role-notes">Notes</Label>
+            <Label htmlFor="role-notes">{t("Notes")}</Label>
             <Textarea
               id="role-notes"
               value={state.notes}
@@ -496,13 +502,13 @@ export function RoleWorkbench({
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="section-eyebrow">Permission tree</p>
+          <p className="section-eyebrow">{t("Permission tree")}</p>
           <Badge variant={getRoleBadgeVariant(state.role)}>
-            {ADMIN_ROLE_LABELS[state.role]}
+            {t(ADMIN_ROLE_LABELS[state.role])}
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          {ADMIN_ROLE_DESCRIPTIONS[state.role]}
+          {t(ADMIN_ROLE_DESCRIPTIONS[state.role])}
         </p>
         <div className="grid gap-2">
           {ROLE_CAPABILITY_LINES[state.role].map((line) => (
@@ -510,7 +516,7 @@ export function RoleWorkbench({
               key={line}
               className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3 text-sm text-foreground"
             >
-              {line}
+              {t(line)}
             </div>
           ))}
         </div>
@@ -518,31 +524,31 @@ export function RoleWorkbench({
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div>
-          <p className="section-eyebrow">Resolved scope</p>
+          <p className="section-eyebrow">{t("Resolved scope")}</p>
           <h3 className="font-heading text-lg font-semibold text-foreground">
-            Linked records
+            {t("Linked records")}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Use these links to confirm the role points at the exact institution, doctor, and patient you expect.
+            {t("Use these links to confirm the role points at the exact institution, doctor, and patient you expect.")}
           </p>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-3">
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <p className="font-medium text-foreground">
-              {selectedInstitution?.name ?? roleRecord?.institutionName ?? "No institution"}
+              {selectedInstitution?.name ?? roleRecord?.institutionName ?? t("No institution")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {compactList([
                 selectedInstitution?.contactEmail,
                 selectedInstitution?.city,
                 selectedInstitution?.country,
-              ]) || "Institution scope"}
+              ]) || t("Institution scope")}
             </p>
             {state.institutionId ? (
               <Button variant="link" size="sm" className="px-0" asChild>
                 <Link href={`/areas/institutions/${state.institutionId}`}>
-                  Open institution
+                  {t("Open institution")}
                 </Link>
               </Button>
             ) : null}
@@ -550,34 +556,34 @@ export function RoleWorkbench({
 
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <p className="font-medium text-foreground">
-              {selectedDoctor?.fullName ?? roleRecord?.doctorName ?? "No doctor"}
+              {selectedDoctor?.fullName ?? roleRecord?.doctorName ?? t("No doctor")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {compactList([
                 selectedDoctor?.authEmail,
                 selectedDoctor?.specialty,
-              ]) || "Doctor scope"}
+              ]) || t("Doctor scope")}
             </p>
             {state.doctorId ? (
               <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/doctors/${state.doctorId}`}>Open doctor</Link>
+                <Link href={`/areas/doctors/${state.doctorId}`}>{t("Open doctor")}</Link>
               </Button>
             ) : null}
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <p className="font-medium text-foreground">
-              {selectedPatient?.fullName ?? roleRecord?.patientName ?? "No patient"}
+              {selectedPatient?.fullName ?? roleRecord?.patientName ?? t("No patient")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {compactList([
                 selectedPatient?.email,
                 selectedPatient?.medicalRecordNumber,
-              ]) || "Patient scope"}
+              ]) || t("Patient scope")}
             </p>
             {state.patientId ? (
               <Button variant="link" size="sm" className="px-0" asChild>
-                <Link href={`/areas/patients/${state.patientId}`}>Open patient</Link>
+                <Link href={`/areas/patients/${state.patientId}`}>{t("Open patient")}</Link>
               </Button>
             ) : null}
           </div>

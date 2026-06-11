@@ -12,7 +12,7 @@ import {
   canCreateInstitutionUi,
   canCreatePatientUi,
 } from "@/lib/areas-ui";
-import { TWO_PQ_AREA_CONFIGS } from "@/lib/two-pq-areas";
+import { TWO_PQ_AREA_CONFIGS, translateTwoPQAreaConfig } from "@/lib/two-pq-areas";
 import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
@@ -38,9 +38,12 @@ export function TwoPQDashboardHome({
   formDraft?: TwoPQFormDraftRecord | null;
 }) {
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
-  const linkedEntityAreas = TWO_PQ_AREA_CONFIGS.filter((area) => linkedEntityKeys.has(area.key));
-  const secondaryAreas = TWO_PQ_AREA_CONFIGS.filter((area) => !linkedEntityKeys.has(area.key));
   const t = (text: string) => appText(language, text);
+  const translatedAreas = TWO_PQ_AREA_CONFIGS.map((area) =>
+    translateTwoPQAreaConfig(area, language)
+  );
+  const linkedEntityAreas = translatedAreas.filter((area) => linkedEntityKeys.has(area.key));
+  const secondaryAreas = translatedAreas.filter((area) => !linkedEntityKeys.has(area.key));
   const draftHref = formDraft
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
@@ -100,12 +103,12 @@ export function TwoPQDashboardHome({
     <div className="flex flex-col gap-8">
       <PageHero
         eyebrow="2PQ"
-        title="2PQ Dashboard"
-        description="Jump directly into the live 2PQ areas."
+        title={t("2PQ Dashboard")}
+        description={t("Jump directly into the live 2PQ areas.")}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/roles/access">
-              Role assignment capabilities
+              {t("Role assignment capabilities")}
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
@@ -116,14 +119,14 @@ export function TwoPQDashboardHome({
         <div className="flex flex-col gap-5">
           <div>
             <p className="section-eyebrow text-indigo-900/55 dark:text-indigo-100/72">
-              2PQ forms
+              {t("2PQ forms")}
             </p>
             <h2 className="font-heading text-2xl font-semibold text-indigo-950 dark:text-indigo-50">
-              Formularios y documentos
+              {t("Formularios y documentos")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-indigo-900/70 dark:text-indigo-50/72">
-              Complete guided form flows and review the joined submissions stored
-              in <code>2pq_forms</code>.
+              {t("Complete guided form flows and review the joined submissions stored in")}{" "}
+              <code>2pq_forms</code>.
             </p>
           </div>
 
@@ -148,7 +151,7 @@ export function TwoPQDashboardHome({
                 >
                   <Link href={draftHref}>
                     <FileClock className="size-4" />
-                    Continue from draft
+                    {t("Continue from draft")}
                     <span className="sr-only">
                       {" "}
                       {TWO_PQ_FORM_LABELS[formDraft.formType]}
@@ -163,7 +166,7 @@ export function TwoPQDashboardHome({
               asChild
             >
               <Link href="/2pq-dashboard/forms">
-                Open Forms
+                {t("Open Forms")}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -173,22 +176,21 @@ export function TwoPQDashboardHome({
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">Scoped areas</p>
-          <h2 className="font-heading text-2xl font-semibold text-foreground">Core scope controls</h2>
+          <p className="section-eyebrow">{t("Scoped areas")}</p>
+          <h2 className="font-heading text-2xl font-semibold text-foreground">{t("Core scope controls")}</h2>
           <p className="max-w-4xl text-sm text-muted-foreground">
-            Review the live institutions, doctors, patients, and role assignments tied to this
-            lane, then jump straight into creation or management from the dashboard.
+            {t("Review the live institutions, doctors, patients, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.")}
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {scopeCards.map((card) => (
             <article key={card.key} className="glass-panel flex flex-col px-4 py-4">
-              <p className="section-eyebrow">{card.eyebrow}</p>
+              <p className="section-eyebrow">{t(card.eyebrow)}</p>
               <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
                 {card.value}
               </p>
-              <p className="text-sm text-muted-foreground">{card.description}</p>
+              <p className="text-sm text-muted-foreground">{t(card.description)}</p>
 
               <div className="mt-4 flex flex-col gap-2">
                 {card.canCreate ? (
@@ -206,7 +208,7 @@ export function TwoPQDashboardHome({
                     size="sm"
                     className="w-full justify-between rounded-xl"
                     disabled
-                    title={card.disabledTitle}
+                    title={t(card.disabledTitle)}
                   >
                     <span className="flex items-center gap-2">
                       <PlusCircle className="h-4 w-4" />
@@ -223,7 +225,7 @@ export function TwoPQDashboardHome({
                   asChild
                 >
                   <Link href={card.browseHref}>
-                    <span>{card.browseLabel}</span>
+                    <span>{t(card.browseLabel)}</span>
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -236,13 +238,12 @@ export function TwoPQDashboardHome({
       <section className="glass-panel border-emerald-100 [background:linear-gradient(160deg,rgba(249,253,250,0.98),rgba(240,253,244,0.98)_42%,rgba(220,252,231,0.92))] px-5 py-5 shadow-[0_18px_56px_rgba(187,247,208,0.32)] dark:border-emerald-400/28 dark:[background:linear-gradient(145deg,rgba(6,35,24,0.98),rgba(10,42,30,0.95)_45%,rgba(16,185,129,0.2))] dark:shadow-[0_24px_80px_-52px_rgba(16,185,129,0.8)]">
         <div className="flex flex-col gap-5">
           <div>
-            <p className="section-eyebrow text-emerald-900/55 dark:text-emerald-100/72">2PQ circuit</p>
+            <p className="section-eyebrow text-emerald-900/55 dark:text-emerald-100/72">{t("2PQ circuit")}</p>
             <h2 className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
-              Linked entities
+              {t("Linked entities")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-emerald-900/70 dark:text-emerald-50/72">
-              Grouped parent-child entities for the new flow: sequencing batches, cases, and
-              sampling records.
+              {t("Grouped parent-child entities for the new flow: sequencing batches, cases, and sampling records.")}
             </p>
           </div>
 
@@ -274,7 +275,7 @@ export function TwoPQDashboardHome({
                     variant="outline"
                     className="border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/18 dark:bg-emerald-400/12 dark:text-emerald-50"
                   >
-                    Linked entity
+                    {t("Linked entity")}
                   </Badge>
                 </div>
 
@@ -286,7 +287,7 @@ export function TwoPQDashboardHome({
                     className="border-emerald-100 bg-white/80 text-emerald-900 shadow-[0_10px_24px_rgba(220,252,231,0.78)] hover:bg-emerald-50 dark:border-emerald-200/18 dark:bg-emerald-950/24 dark:text-emerald-50 dark:shadow-none dark:hover:bg-emerald-900/34"
                   >
                     <Link href={area.route}>
-                      Open area
+                      {t("Open area")}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </Button>
@@ -299,12 +300,12 @@ export function TwoPQDashboardHome({
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">Other 2PQ areas</p>
+          <p className="section-eyebrow">{t("Other 2PQ areas")}</p>
           <h2 className="font-heading text-2xl font-semibold text-foreground">
-            Secondary workflow surfaces
+            {t("Secondary workflow surfaces")}
           </h2>
           <p className="max-w-4xl text-sm text-muted-foreground">
-            Shipment, reporting, and client operations stay here as separate supporting areas.
+            {t("Shipment, reporting, and client operations stay here as separate supporting areas.")}
           </p>
         </div>
 
@@ -327,7 +328,7 @@ export function TwoPQDashboardHome({
               <div className="mt-auto flex justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={area.route}>
-                    Open area
+                    {t("Open area")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>

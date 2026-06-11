@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -10,12 +12,14 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAppLanguage } from "@/components/app-language-provider";
 import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
   type TwoPQFormRecord,
 } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
+import { appText, type AppLanguage } from "@/lib/language";
 
 type FieldSpec = {
   key: string;
@@ -143,7 +147,7 @@ const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "notes", label: "Notes" },
 ];
 
-function formatDate(value: string, includeTime = false) {
+function formatDate(value: string, language: AppLanguage, includeTime = false) {
   const dateSource =
     !includeTime && /^\d{4}-\d{2}-\d{2}/.test(value)
       ? `${value.slice(0, 10)}T12:00:00`
@@ -153,7 +157,7 @@ function formatDate(value: string, includeTime = false) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -161,9 +165,14 @@ function formatDate(value: string, includeTime = false) {
   }).format(date);
 }
 
-function formatValue(value: unknown, type?: FieldSpec["type"]) {
+function formatValue(
+  value: unknown,
+  language: AppLanguage,
+  t: (text: string) => string,
+  type?: FieldSpec["type"]
+) {
   if (value === null || typeof value === "undefined" || value === "") {
-    return "Not provided";
+    return t("Not provided");
   }
   if (typeof value === "boolean") {
     return value ? "SI" : "NO";
@@ -182,7 +191,7 @@ function formatValue(value: unknown, type?: FieldSpec["type"]) {
       }
     }
     if (type === "date" || type === "datetime") {
-      return formatDate(value, type === "datetime");
+      return formatDate(value, language, type === "datetime");
     }
     if (type === "gameteSource") {
       if (value === "propio") return "Propio";
@@ -207,6 +216,9 @@ function DetailSection({
   fields: FieldSpec[];
   data?: Record<string, unknown>;
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
   return (
     <section className="glass-panel flex flex-col gap-4 px-5 py-5">
       <div>
@@ -220,10 +232,10 @@ function DetailSection({
             className="rounded-xl border border-border/70 bg-background/58 px-4 py-3"
           >
             <dt className="text-xs font-medium uppercase text-muted-foreground">
-              {field.label}
+              {t(field.label)}
             </dt>
             <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-              {formatValue(data?.[field.key], field.type)}
+              {formatValue(data?.[field.key], language, t, field.type)}
             </dd>
           </div>
         ))}
@@ -238,6 +250,8 @@ function getTextValue(data: Record<string, unknown> | undefined, key: string) {
 }
 
 function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const samplingEntries = form.samplingInformation ?? [];
 
   if (!form.linkedCaseId && samplingEntries.length === 0) {
@@ -248,10 +262,10 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
     <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 px-5 py-5 shadow-[0_16px_40px_rgba(16,185,129,0.12)] dark:border-emerald-300/24 dark:bg-emerald-950/20">
       <div className="flex flex-col gap-1">
         <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
-          Linked entities
+          {t("Linked entities")}
         </p>
         <h2 className="font-heading text-xl font-semibold text-emerald-950 dark:text-emerald-50">
-          2PQ Case and sampling records
+          {t("2PQ Case and sampling records")}
         </h2>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -271,7 +285,7 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
               </div>
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/2pq-dashboard/cases/${encodeURIComponent(form.linkedCaseId)}`}>
-                  Open
+                  {t("Open")}
                   <ArrowRight className="size-3.5" />
                 </Link>
               </Button>
@@ -304,7 +318,7 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/2pq-dashboard/sampling/${encodeURIComponent(samplingId)}`}>
-                    Open
+                    {t("Open")}
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </Button>
@@ -318,6 +332,8 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
 }
 
 function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const patientId = form.selectedPatientId ?? getTextValue(form.patientInformation, "patientId");
 
   return (
@@ -329,15 +345,15 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
           </span>
           <div className="min-w-0">
             <p className="section-eyebrow text-sky-700 dark:text-sky-200">
-              Step 1 patient link
+              {t("Step 1 patient link")}
             </p>
             <h2 className="font-heading text-xl font-semibold text-sky-950 dark:text-sky-50">
-              {form.patientName ?? getTextValue(form.patientInformation, "fullName") ?? "Scoped patient"}
+              {form.patientName ?? getTextValue(form.patientInformation, "fullName") ?? t("Scoped patient")}
             </h2>
             <p className="mt-1 text-sm text-sky-950/72 dark:text-sky-50/74">
               {patientId
-                ? "This form is linked to the scoped patient record used for Step 1."
-                : "This legacy form does not have a scoped patient link stored."}
+                ? t("This form is linked to the scoped patient record used for Step 1.")
+                : t("This legacy form does not have a scoped patient link stored.")}
             </p>
             {patientId ? (
               <p className="mt-2 font-mono text-xs text-sky-900/74 dark:text-sky-100/74">
@@ -349,7 +365,7 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
         {patientId ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/areas/patients/${encodeURIComponent(patientId)}`}>
-              Open patient
+              {t("Open patient")}
               <ArrowRight className="size-3.5" />
             </Link>
           </Button>
@@ -360,6 +376,8 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
 }
 
 function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   if (form.formType !== "sample") {
     return null;
   }
@@ -379,16 +397,16 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
           </span>
           <div className="min-w-0">
             <p className="section-eyebrow text-violet-700 dark:text-violet-200">
-              MEDICO SOLICITANTE link
+              {t("Requesting doctor link")}
             </p>
             <h2 className="font-heading text-xl font-semibold text-violet-950 dark:text-violet-50">
               {getTextValue(form.sampleInformation, "requestingDoctorFullName") ??
-                "Requesting doctor"}
+                t("Requesting doctor")}
             </h2>
             <p className="mt-1 text-sm text-violet-950/72 dark:text-violet-50/74">
               {requestingDoctorId
-                ? "This sample form is linked to the scoped requesting doctor record."
-                : "This sample form is missing the requesting doctor link."}
+                ? t("This sample form is linked to the scoped requesting doctor record.")
+                : t("This sample form is missing the requesting doctor link.")}
             </p>
             {requestingDoctorId ? (
               <p className="mt-2 font-mono text-xs text-violet-900/74 dark:text-violet-100/74">
@@ -400,7 +418,7 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
         {requestingDoctorId ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/areas/doctors/${encodeURIComponent(requestingDoctorId)}`}>
-              Open doctor
+              {t("Open doctor")}
               <ArrowRight className="size-3.5" />
             </Link>
           </Button>
@@ -411,6 +429,8 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
 }
 
 export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const requestedTestFields =
     form.formType === "study_request"
       ? STUDY_REQUESTED_TEST_FIELDS
@@ -423,11 +443,11 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
         <Button variant="ghost" size="sm" asChild>
           <Link href="/2pq-dashboard/forms">
             <ArrowLeft className="size-3.5" />
-            Back to forms
+            {t("Back to forms")}
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={TWO_PQ_FORM_ROUTES[form.formType]}>New similar form</Link>
+          <Link href={TWO_PQ_FORM_ROUTES[form.formType]}>{t("New similar form")}</Link>
         </Button>
       </div>
 
@@ -436,7 +456,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           <div className="min-w-0">
             <p className="section-eyebrow">{form.id}</p>
             <h1 className="font-heading text-3xl font-semibold text-foreground">
-              {form.patientName ?? "Unnamed patient"}
+              {form.patientName ?? t("Unnamed patient")}
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               {compactList([
@@ -448,10 +468,10 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="brand">{TWO_PQ_FORM_LABELS[form.formType]}</Badge>
+            <Badge variant="brand">{t(TWO_PQ_FORM_LABELS[form.formType])}</Badge>
             <Badge variant="outline">
               <CalendarDays className="mr-1 size-3.5" />
-              {formatDate(form.createdAt, true)}
+              {formatDate(form.createdAt, language, true)}
             </Badge>
             {authorEmail ? (
               <Badge variant="outline">
@@ -471,7 +491,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       <RequestingDoctorLinkSection form={form} />
 
       <DetailSection
-        title="Patient information"
+        title={t("Patient information")}
         fields={PATIENT_FIELDS}
         data={form.patientInformation}
       />
@@ -479,12 +499,12 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       {form.formType === "study_request" ? (
         <>
           <DetailSection
-            title="Medical information"
+            title={t("Medical information")}
             fields={STUDY_MEDICAL_FIELDS}
             data={form.medicalInformation}
           />
           <DetailSection
-            title="Previous genetic tests"
+            title={t("Previous genetic tests")}
             fields={STUDY_PREVIOUS_TEST_FIELDS}
             data={form.previousGeneticTests}
           />
@@ -492,28 +512,28 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       ) : null}
 
       <DetailSection
-        title="Test solicitado"
+        title={t("Requested test")}
         fields={requestedTestFields}
         data={form.requestedTest}
       />
 
       {form.formType === "study_request" ? (
         <DetailSection
-          title="Institution information"
+          title={t("Institution information")}
           fields={INSTITUTION_FIELDS}
           data={form.institutionInformation}
         />
       ) : (
         <>
           <DetailSection
-            title="Sample information"
+            title={t("Sample information")}
             fields={SAMPLE_INFORMATION_FIELDS}
             data={form.sampleInformation}
           />
           <LinkedRecordsSection form={form} />
           {form.caseInformation ? (
             <DetailSection
-              title="2PQ Case"
+              title={t("2PQ Case")}
               fields={CASE_INFORMATION_FIELDS}
               data={form.caseInformation}
             />
@@ -521,7 +541,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           {(form.samplingInformation ?? []).map((sampling, index) => (
             <DetailSection
               key={`${getTextValue(sampling, "id") ?? index}`}
-              title={`2PQ Sampling ${index + 1}`}
+              title={`${t("2PQ Sampling")} ${index + 1}`}
               fields={SAMPLING_INFORMATION_FIELDS}
               data={sampling}
             />

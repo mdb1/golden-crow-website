@@ -5,6 +5,8 @@ import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import type { DoctorListItem, InstitutionRecord } from "@/lib/admin-areas";
 import { canCreatePatientUi } from "@/lib/areas-ui";
+import { appText } from "@/lib/language";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function NewPatientPage({
@@ -17,6 +19,8 @@ export default async function NewPatientPage({
   if (!canCreatePatientUi(adminContext, institutionId, doctorId)) {
     redirect("/areas/patients");
   }
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
   const [institutionsPayload, doctorsPayload] = await Promise.all([
     sdkFetchServer<{ institutions: InstitutionRecord[] }>("/areas/institutions"),
     sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
@@ -25,12 +29,12 @@ export default async function NewPatientPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Areas"
-        title="Create patient"
-        description="Create a patient record tied to one institution and one doctor. The save path respects institution-admin and doctor write boundaries automatically."
+        eyebrow={t("Areas")}
+        title={t("Create patient")}
+        description={t("Create a patient record tied to one institution and one doctor. The save path respects institution-admin and doctor write boundaries automatically.")}
       />
-      <HelperBanner title="Choose the doctor deliberately." tone="blue">
-        The doctor link controls who can actually edit this patient later. Institution scope and doctor scope stay explicit and visible on the patient sheet.
+      <HelperBanner title={t("Choose the doctor deliberately.")} tone="blue">
+        {t("The doctor link controls who can actually edit this patient later. Institution scope and doctor scope stay explicit and visible on the patient sheet.")}
       </HelperBanner>
       <PatientWorkbench
         mode="create"

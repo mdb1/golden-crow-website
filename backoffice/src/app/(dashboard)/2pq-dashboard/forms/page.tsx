@@ -11,6 +11,8 @@ import {
   type TwoPQFormsOrder,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
+import { appText } from "@/lib/language";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { getTwoPQFormDraft, getTwoPQFormsPage } from "@/lib/two-pq-server";
 
 const FORMS_PAGE_SIZE = 20;
@@ -52,6 +54,8 @@ export default async function TwoPQFormsPage({
     createdTo,
     order,
   } = await searchParams;
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
   const includeArchived =
     includeArchivedParam === "1" ||
     includeArchivedParam === "true" ||
@@ -87,15 +91,15 @@ export default async function TwoPQFormsPage({
       <TwoPQFormCompletionDialog createdId={createdId} />
       <PageHero
         eyebrow="2PQ"
-        title="Forms"
-        description="Stored 2PQ study request and sample forms."
+        title={t("Forms")}
+        description={t("Stored 2PQ study request and sample forms.")}
         actions={
           <>
             {formDraft && draftHref ? (
               <Button variant="default" size="sm" asChild>
                 <Link href={draftHref}>
                   <FileClock className="size-3.5" />
-                  Continue from draft
+                  {t("Continue from draft")}
                   <span className="sr-only">
                     {" "}
                     {TWO_PQ_FORM_LABELS[formDraft.formType]}
@@ -106,7 +110,7 @@ export default async function TwoPQFormsPage({
             <Button variant="outline" size="sm" asChild>
               <Link href="/2pq-dashboard">
                 <ArrowLeft className="size-3.5" />
-                Back to dashboard
+                {t("Back to dashboard")}
               </Link>
             </Button>
           </>
@@ -118,14 +122,14 @@ export default async function TwoPQFormsPage({
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="section-eyebrow">2pq_forms</p>
-              {includeArchived ? <Badge variant="warning">Archived visible</Badge> : null}
+              {includeArchived ? <Badge variant="warning">{t("Archived visible")}</Badge> : null}
             </div>
             <h2 className="font-heading text-2xl font-semibold text-foreground">
-              Existing stored forms
+              {t("Existing stored forms")}
             </h2>
             <p className="max-w-3xl text-sm text-muted-foreground">
               <ClipboardList className="mr-1 inline size-4" />
-              All submitted form flows are stored as joined documents here.
+              {t("All submitted form flows are stored as joined documents here.")}
             </p>
           </div>
         </div>

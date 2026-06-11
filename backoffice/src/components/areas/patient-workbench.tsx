@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, RotateCcw, Save, ArrowRight, AlertTriangle } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
 import {
@@ -36,6 +37,7 @@ import {
   getStatusBadgeVariant,
 } from "@/lib/areas-ui";
 import { sdkFetch } from "@/lib/sdk-client";
+import { appText } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 
 type PatientFormState = {
@@ -90,6 +92,8 @@ export function PatientWorkbench({
   initialDoctorId?: string;
 }) {
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const router = useRouter();
   const scopedInstitutionId =
     adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
@@ -149,7 +153,7 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Select an institution for this patient.",
+        message: t("Select an institution for this patient."),
       });
       return;
     }
@@ -158,7 +162,7 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Select a doctor for this patient.",
+        message: t("Select a doctor for this patient."),
       });
       return;
     }
@@ -167,7 +171,7 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Patient email is required and must be valid.",
+        message: t("Patient email is required and must be valid."),
       });
       return;
     }
@@ -176,7 +180,7 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Patient full name is required.",
+        message: t("Patient full name is required."),
       });
       return;
     }
@@ -204,7 +208,7 @@ export function PatientWorkbench({
         setToast({
           id: Date.now(),
           tone: "success",
-          message: "Patient created.",
+          message: t("Patient created."),
         });
         router.push(`/areas/patients/${response.patient.id}`);
         router.refresh();
@@ -222,14 +226,14 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: "Patient changes saved.",
+        message: t("Patient changes saved."),
       });
       router.refresh();
     } catch {
       setToast({
         id: Date.now(),
         tone: "error",
-        message: mode === "create" ? "Unable to create the patient." : "Unable to save the patient.",
+        message: mode === "create" ? t("Unable to create the patient.") : t("Unable to save the patient."),
       });
     } finally {
       setPending(false);
@@ -252,7 +256,7 @@ export function PatientWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Unable to delete the patient.",
+        message: t("Unable to delete the patient."),
       });
       setPending(false);
     }
@@ -264,7 +268,7 @@ export function PatientWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/areas/patients">Back to patients</Link>
+          <Link href="/areas/patients">{t("Back to patients")}</Link>
         </Button>
         {detail ? (
           <span className="font-mono text-xs text-muted-foreground">
@@ -276,13 +280,12 @@ export function PatientWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">Areas</p>
+            <p className="section-eyebrow">{t("Areas")}</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              {mode === "create" ? "Create patient" : "Patient workbench"}
+              {mode === "create" ? t("Create patient") : t("Patient workbench")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Patients are informative backoffice records. Each one stays tied
-              to exactly one institution and one doctor.
+              {t("Patients are informative backoffice records. Each one stays tied to exactly one institution and one doctor.")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -293,14 +296,14 @@ export function PatientWorkbench({
               disabled={!changed || pending}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset
+              {t("Reset")}
             </Button>
             {detail && isEditable ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm" disabled={pending}>
                     <Trash2 className="h-3.5 w-3.5" />
-                    Delete
+                    {t("Delete")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -308,18 +311,18 @@ export function PatientWorkbench({
                     <AlertDialogMedia className="bg-destructive/12 text-destructive">
                       <AlertTriangle className="h-5 w-5" />
                     </AlertDialogMedia>
-                    <AlertDialogTitle>Delete patient {detail.patient.fullName}?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("Delete patient")} {detail.patient.fullName}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This removes the patient record and any linked patient role assignment.
+                      {t("This removes the patient record and any linked patient role assignment.")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                       variant="destructive"
                       onClick={() => void handleDelete()}
                     >
-                      Delete patient
+                      {t("Delete patient")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -333,24 +336,24 @@ export function PatientWorkbench({
               <Save className="h-3.5 w-3.5" />
               {pending
                 ? mode === "create"
-                  ? "Creating..."
-                  : "Saving..."
+                  ? t("Creating...")
+                  : t("Saving...")
                 : mode === "create"
-                  ? "Create patient"
-                  : "Save patient"}
+                  ? t("Create patient")
+                  : t("Save patient")}
             </Button>
           </div>
         </div>
 
         {!isEditable ? (
           <div className="rounded-2xl border border-border/80 bg-background/65 px-4 py-3 text-sm text-muted-foreground">
-            This patient record is read only for the current role.
+            {t("This patient record is read only for the current role.")}
           </div>
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="patient-institution">Institution</Label>
+            <Label htmlFor="patient-institution">{t("Institution")}</Label>
               <OptionSelectField
                 options={institutionOptions}
                 value={state.institutionId}
@@ -369,26 +372,26 @@ export function PatientWorkbench({
                       : "",
                   }));
                 }}
-                placeholder="Select institution"
-                emptyLabel="No institution"
+                placeholder={t("Select institution")}
+                emptyLabel={t("No institution")}
                 disabled={!isEditable || Boolean(scopedInstitutionId)}
               />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-doctor">Doctor</Label>
+            <Label htmlFor="patient-doctor">{t("Doctor")}</Label>
               <OptionSelectField
                 options={doctorOptions}
                 value={state.doctorId}
                 onChange={(doctorId) =>
                   setState((current) => ({ ...current, doctorId }))
                 }
-                placeholder="Select doctor"
-                emptyLabel="No doctor"
+                placeholder={t("Select doctor")}
+                emptyLabel={t("No doctor")}
                 disabled={!isEditable || Boolean(scopedDoctorId)}
               />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-email">Email</Label>
+            <Label htmlFor="patient-email">{t("Email")}</Label>
             <Input
               id="patient-email"
               value={state.email}
@@ -399,7 +402,7 @@ export function PatientWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-full-name">Full name</Label>
+            <Label htmlFor="patient-full-name">{t("Full name")}</Label>
             <Input
               id="patient-full-name"
               value={state.fullName}
@@ -410,7 +413,7 @@ export function PatientWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-mrn">Medical record number</Label>
+            <Label htmlFor="patient-mrn">{t("Medical record number")}</Label>
             <Input
               id="patient-mrn"
               value={state.medicalRecordNumber}
@@ -424,7 +427,7 @@ export function PatientWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-birth-date">Birth date</Label>
+            <Label htmlFor="patient-birth-date">{t("Birth date")}</Label>
             <Input
               id="patient-birth-date"
               type="date"
@@ -436,7 +439,7 @@ export function PatientWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-sex">Sex / gender</Label>
+            <Label htmlFor="patient-sex">{t("Sex / gender")}</Label>
             <Input
               id="patient-sex"
               value={state.sex}
@@ -447,11 +450,11 @@ export function PatientWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="patient-status">Status</Label>
+            <Label htmlFor="patient-status">{t("Status")}</Label>
             <OptionSelectField
               options={PERSON_STATUS_OPTIONS.map((option) => ({
                 value: option.value,
-                label: option.label,
+                label: t(option.label),
               }))}
               value={state.status}
               onChange={(status) =>
@@ -460,12 +463,12 @@ export function PatientWorkbench({
                   status: status === "inactive" ? "inactive" : "active",
                 }))
               }
-              placeholder="Select status"
+              placeholder={t("Select status")}
               disabled={!isEditable}
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="patient-notes">Notes</Label>
+            <Label htmlFor="patient-notes">{t("Notes")}</Label>
             <Textarea
               id="patient-notes"
               value={state.notes}
@@ -480,12 +483,12 @@ export function PatientWorkbench({
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div>
-          <p className="section-eyebrow">Relations</p>
+          <p className="section-eyebrow">{t("Relations")}</p>
           <h3 className="font-heading text-lg font-semibold text-foreground">
-            Linked institution and doctor
+            {t("Linked institution and doctor")}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            The patient sheet is informative, but it always resolves back to one institution and one doctor.
+            {t("The patient sheet is informative, but it always resolves back to one institution and one doctor.")}
           </p>
         </div>
 
@@ -493,7 +496,7 @@ export function PatientWorkbench({
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium text-foreground">
-                {selectedInstitution?.name ?? detail?.institution?.name ?? "No institution"}
+                {selectedInstitution?.name ?? detail?.institution?.name ?? t("No institution")}
               </p>
               {selectedInstitution || detail?.institution ? (
                 <span className="font-mono text-xs text-muted-foreground">
@@ -506,12 +509,12 @@ export function PatientWorkbench({
                 selectedInstitution?.contactEmail ?? detail?.institution?.contactEmail,
                 selectedInstitution?.city ?? detail?.institution?.city,
                 selectedInstitution?.country ?? detail?.institution?.country,
-              ]) || "Institution link"}
+              ]) || t("Institution link")}
             </p>
             {(selectedInstitution || detail?.institution) ? (
               <Button variant="link" size="sm" className="px-0" asChild>
                 <Link href={`/areas/institutions/${selectedInstitution?.id ?? detail?.institution?.id}`}>
-                  Open institution
+                  {t("Open institution")}
                 </Link>
               </Button>
             ) : null}
@@ -520,7 +523,7 @@ export function PatientWorkbench({
           <div className="rounded-2xl border border-border/80 bg-background/60 px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium text-foreground">
-                {selectedDoctor?.fullName ?? detail?.doctor?.fullName ?? "No doctor"}
+                {selectedDoctor?.fullName ?? detail?.doctor?.fullName ?? t("No doctor")}
               </p>
               {selectedDoctor || detail?.doctor ? (
                 <span className="font-mono text-xs text-muted-foreground">
@@ -529,7 +532,7 @@ export function PatientWorkbench({
               ) : null}
               {detail ? (
                 <Badge variant={getStatusBadgeVariant(detail.patient.status)}>
-                  {detail.patient.status}
+                  {t(detail.patient.status)}
                 </Badge>
               ) : null}
             </div>
@@ -537,12 +540,12 @@ export function PatientWorkbench({
               {compactList([
                 selectedDoctor?.authEmail ?? detail?.doctor?.authEmail,
                 selectedDoctor?.specialty ?? detail?.doctor?.specialty,
-              ]) || "Doctor link"}
+              ]) || t("Doctor link")}
             </p>
             {(selectedDoctor || detail?.doctor) ? (
               <Button variant="link" size="sm" className="px-0" asChild>
                 <Link href={`/areas/doctors/${selectedDoctor?.id ?? detail?.doctor?.id}`}>
-                  Open doctor
+                  {t("Open doctor")}
                 </Link>
               </Button>
             ) : null}

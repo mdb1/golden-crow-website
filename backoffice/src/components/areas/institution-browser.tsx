@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { InstitutionListItem } from "@/lib/admin-areas";
 import { canDeleteInstitutionUi, canEditInstitutionUi } from "@/lib/areas-ui";
+import { appText } from "@/lib/language";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
 export function InstitutionBrowser({
@@ -21,6 +23,8 @@ export function InstitutionBrowser({
   initialInstitutions: InstitutionListItem[];
 }) {
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "institutions"],
@@ -68,10 +72,10 @@ export function InstitutionBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          Failed to load institutions. Confirm the SDK is running and retry.
+          {t("Failed to load institutions. Confirm the SDK is running and retry.")}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Retry
+          {t("Retry")}
         </Button>
       </div>
     );
@@ -85,13 +89,13 @@ export function InstitutionBrowser({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search institutions by id, code, name, email, or city..."
+            placeholder={t("Search institutions by id, code, name, email, or city...")}
             className="pl-9"
           />
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>Showing {filteredInstitutions.length} institutions</span>
+          <span>{t("Showing")} {filteredInstitutions.length} {t("institutions")}</span>
           <Button
             variant="outline"
             size="sm"
@@ -99,22 +103,22 @@ export function InstitutionBrowser({
             disabled={isFetching}
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            {isFetching ? "Refreshing" : "Refresh"}
+            {isFetching ? t("Refreshing") : t("Refresh")}
           </Button>
         </div>
       </div>
 
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
-          <span>Institution</span>
-          <span>Scope</span>
-          <span>Updated</span>
-          <span className="text-right">Action</span>
+          <span>{t("Institution")}</span>
+          <span>{t("Scope")}</span>
+          <span>{t("Updated")}</span>
+          <span className="text-right">{t("Action")}</span>
         </div>
 
         {filteredInstitutions.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No institutions match the current filter.
+            {t("No institutions match the current filter.")}
           </div>
         ) : (
           filteredInstitutions.map((institution) => (
@@ -136,28 +140,28 @@ export function InstitutionBrowser({
                     institution.contactEmail,
                     institution.city,
                     institution.country,
-                  ]) || "Institution record"}
+                  ]) || t("Institution record")}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Badge variant="brand">{institution.doctorCount} doctors</Badge>
-                <Badge variant="success">{institution.patientCount} patients</Badge>
+                <Badge variant="brand">{institution.doctorCount} {t("doctors")}</Badge>
+                <Badge variant="success">{institution.patientCount} {t("patients")}</Badge>
                 <Badge variant="outline">
-                  {institution.institutionAdminCount} admins
+                  {institution.institutionAdminCount} {t("admins")}
                 </Badge>
               </div>
 
               <div className="text-sm text-muted-foreground">
-                {formatDateTime(institution.updatedAt) ?? "No timestamp"}
+                {formatDateTime(institution.updatedAt) ?? t("No timestamp")}
               </div>
 
               <div className="flex gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/areas/institutions/${institution.id}`}>
                     {canEditInstitutionUi(adminContext, institution.id)
-                      ? "Open"
-                      : "Read only"}
+                      ? t("Open")
+                      : t("Read only")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
@@ -167,7 +171,7 @@ export function InstitutionBrowser({
                   name={institution.name}
                   endpoint={`/areas/institutions/${institution.id}`}
                   disabled={!canDeleteInstitutionUi(adminContext, institution.id)}
-                  disabledReason="Only full admins can delete institution roots."
+                  disabledReason={t("Only full admins can delete institution roots.")}
                   onDeleted={() => void refetch()}
                 />
               </div>

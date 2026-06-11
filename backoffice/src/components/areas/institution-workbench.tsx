@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import {
   canEditInstitutionUi,
 } from "@/lib/areas-ui";
 import { sdkFetch } from "@/lib/sdk-client";
+import { appText } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 
 type InstitutionFormState = {
@@ -63,6 +65,8 @@ export function InstitutionWorkbench({
   mode?: "create" | "edit";
 }) {
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const router = useRouter();
   const [state, setState] = useState<InstitutionFormState>(() =>
     toInstitutionFormState(detail?.institution)
@@ -85,7 +89,7 @@ export function InstitutionWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Institution name is required.",
+        message: t("Institution name is required."),
       });
       return;
     }
@@ -94,7 +98,7 @@ export function InstitutionWorkbench({
       setToast({
         id: Date.now(),
         tone: "error",
-        message: "Enter a valid institution contact email.",
+        message: t("Enter a valid institution contact email."),
       });
       return;
     }
@@ -128,7 +132,7 @@ export function InstitutionWorkbench({
         setToast({
           id: Date.now(),
           tone: "success",
-          message: "Institution created.",
+          message: t("Institution created."),
         });
         router.push(`/areas/institutions/${response.institution.id}`);
         router.refresh();
@@ -150,7 +154,7 @@ export function InstitutionWorkbench({
       setToast({
         id: Date.now(),
         tone: "success",
-        message: "Institution changes saved.",
+        message: t("Institution changes saved."),
       });
       router.refresh();
     } catch {
@@ -159,8 +163,8 @@ export function InstitutionWorkbench({
         tone: "error",
         message:
           mode === "create"
-            ? "Unable to create the institution."
-            : "Unable to save the institution.",
+            ? t("Unable to create the institution.")
+            : t("Unable to save the institution."),
       });
     } finally {
       setPending(false);
@@ -173,7 +177,7 @@ export function InstitutionWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/areas/institutions">Back to institutions</Link>
+          <Link href="/areas/institutions">{t("Back to institutions")}</Link>
         </Button>
         {detail ? (
           <span className="font-mono text-xs text-muted-foreground">
@@ -185,14 +189,12 @@ export function InstitutionWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">Areas</p>
+            <p className="section-eyebrow">{t("Areas")}</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              {mode === "create" ? "Create institution" : "Institution workbench"}
+              {mode === "create" ? t("Create institution") : t("Institution workbench")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Keep institution records direct and operational: one durable id,
-              one readable descriptor set, and linked doctor operations from the
-              same screen.
+              {t("Keep institution records direct and operational: one durable id, one readable descriptor set, and linked doctor operations from the same screen.")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -203,7 +205,7 @@ export function InstitutionWorkbench({
               disabled={!changed || pending}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset
+              {t("Reset")}
             </Button>
             <Button
               size="sm"
@@ -213,24 +215,24 @@ export function InstitutionWorkbench({
               <Save className="h-3.5 w-3.5" />
               {pending
                 ? mode === "create"
-                  ? "Creating..."
-                  : "Saving..."
+                  ? t("Creating...")
+                  : t("Saving...")
                 : mode === "create"
-                  ? "Create institution"
-                  : "Save institution"}
+                  ? t("Create institution")
+                  : t("Save institution")}
             </Button>
           </div>
         </div>
 
         {!isEditable ? (
           <div className="rounded-2xl border border-border/80 bg-background/65 px-4 py-3 text-sm text-muted-foreground">
-            This institution is read only for the current role.
+            {t("This institution is read only for the current role.")}
           </div>
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="institution-code">Institution code</Label>
+            <Label htmlFor="institution-code">{t("Institution code")}</Label>
             <Input
               id="institution-code"
               value={state.code}
@@ -241,7 +243,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="institution-name">Institution name</Label>
+            <Label htmlFor="institution-name">{t("Institution name")}</Label>
             <Input
               id="institution-name"
               value={state.name}
@@ -252,7 +254,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-legal-name">Legal name</Label>
+            <Label htmlFor="institution-legal-name">{t("Legal name")}</Label>
             <Input
               id="institution-legal-name"
               value={state.legalName}
@@ -263,7 +265,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="institution-email">Contact email</Label>
+            <Label htmlFor="institution-email">{t("Contact email")}</Label>
             <Input
               id="institution-email"
               value={state.contactEmail}
@@ -274,7 +276,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="institution-phone">Contact phone</Label>
+            <Label htmlFor="institution-phone">{t("Contact phone")}</Label>
             <Input
               id="institution-phone"
               value={state.contactPhone}
@@ -285,7 +287,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-address-line-1">Address line 1</Label>
+            <Label htmlFor="institution-address-line-1">{t("Address line 1")}</Label>
             <Input
               id="institution-address-line-1"
               value={state.addressLine1}
@@ -296,7 +298,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-address-line-2">Address line 2</Label>
+            <Label htmlFor="institution-address-line-2">{t("Address line 2")}</Label>
             <Input
               id="institution-address-line-2"
               value={state.addressLine2}
@@ -307,7 +309,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="institution-city">City</Label>
+            <Label htmlFor="institution-city">{t("City")}</Label>
             <Input
               id="institution-city"
               value={state.city}
@@ -318,7 +320,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="institution-state">State / region</Label>
+            <Label htmlFor="institution-state">{t("State / region")}</Label>
             <Input
               id="institution-state"
               value={state.state}
@@ -329,7 +331,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="institution-country">Country</Label>
+            <Label htmlFor="institution-country">{t("Country")}</Label>
             <Input
               id="institution-country"
               value={state.country}
@@ -340,7 +342,7 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-notes">Notes</Label>
+            <Label htmlFor="institution-notes">{t("Notes")}</Label>
             <Textarea
               id="institution-notes"
               value={state.notes}
@@ -357,20 +359,18 @@ export function InstitutionWorkbench({
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="section-eyebrow">Institution doctors</p>
+              <p className="section-eyebrow">{t("Institution doctors")}</p>
               <h3 className="font-heading text-lg font-semibold text-foreground">
-                Doctors attached to this institution
+                {t("Doctors attached to this institution")}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Review the whole team here. Institution admins can add more
-                doctors; institution doctors can inspect peers but only edit
-                their own doctor record.
+                {t("Review the whole team here. Institution admins can add more doctors; institution doctors can inspect peers but only edit their own doctor record.")}
               </p>
             </div>
             {canCreateDoctorUi(adminContext, detail.institution.id) ? (
               <Button size="sm" asChild>
                 <Link href={`/areas/doctors/new?institutionId=${detail.institution.id}`}>
-                  Add doctor
+                  {t("Add doctor")}
                 </Link>
               </Button>
             ) : null}
@@ -379,7 +379,7 @@ export function InstitutionWorkbench({
           <div className="grid gap-3">
             {detail.doctors.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No doctors are attached to this institution yet.
+                {t("No doctors are attached to this institution yet.")}
               </p>
             ) : (
               detail.doctors.map((doctor) => (
@@ -399,21 +399,21 @@ export function InstitutionWorkbench({
                         doctor.authEmail,
                         doctor.specialty,
                         doctor.licenseNumber,
-                      ]) || "Doctor record"}
+                      ]) || t("Doctor record")}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{doctor.patientCount} patients</Badge>
+                    <Badge variant="outline">{doctor.patientCount} {t("patients")}</Badge>
                     {doctor.roleEmail ? (
                       <Badge variant={doctor.roleActive ? "brand" : "warning"}>
-                        {doctor.roleActive ? "Role active" : "Role inactive"}
+                        {doctor.roleActive ? t("Role active") : t("Role inactive")}
                       </Badge>
                     ) : (
-                      <Badge variant="warning">No role</Badge>
+                      <Badge variant="warning">{t("No role")}</Badge>
                     )}
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/areas/doctors/${doctor.id}`}>
-                        Open
+                        {t("Open")}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
                     </Button>
@@ -423,7 +423,7 @@ export function InstitutionWorkbench({
                       name={doctor.fullName}
                       endpoint={`/areas/doctors/${doctor.id}`}
                       disabled={!canDeleteDoctorUi(adminContext, doctor)}
-                      disabledReason="Only full admins and institution admins can delete doctors in scope."
+                      disabledReason={t("Only full admins and institution admins can delete doctors in scope.")}
                       onDeleted={() => router.refresh()}
                     />
                   </div>

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AreaAccessScreen } from "@/components/area-access-screen";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { appText } from "@/lib/language";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { getSurfaceSpec } from "@/lib/two-pq-dashboard";
 
 export default async function DoctorAccessPage() {
@@ -10,11 +12,13 @@ export default async function DoctorAccessPage() {
   if (!surface) {
     notFound();
   }
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
 
   return (
     <AreaAccessScreen
-      eyebrow="Areas"
-      title="Doctor access"
+      eyebrow={t("Areas")}
+      title={t("Doctor access")}
       description="Review the doctor role boundary on its own screen before you open a doctor workbench."
       backHref="/areas/doctors"
       backLabel="Back to doctors"

@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowUpRight, Globe2, Mail, PhoneCall } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
+import { appText } from "@/lib/language";
 
 const CONTACT_CHANNELS = [
   {
@@ -30,6 +34,9 @@ const CONTACT_CHANNELS = [
 ] as const;
 
 export function TwoPQContactSection() {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
   return (
     <section
       id="contact"
@@ -38,14 +45,13 @@ export function TwoPQContactSection() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
         <div className="max-w-2xl">
           <p className="section-eyebrow text-sky-900/60 dark:text-sky-100/72">
-            Contact
+            {t("Contact")}
           </p>
           <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-sky-950 dark:text-sky-50">
-            2PQ contact information
+            {t("2PQ contact information")}
           </h2>
           <p className="mt-3 text-sm leading-6 text-sky-900/72 dark:text-sky-50/72">
-            Keep these official 2PQ channels visible for form coordination,
-            sample logistics, and operational follow-up.
+            {t("Keep these official 2PQ channels visible for form coordination, sample logistics, and operational follow-up.")}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button
@@ -54,7 +60,7 @@ export function TwoPQContactSection() {
             >
               <Link href="mailto:2pq.info@gmail.com">
                 <Mail className="size-4" />
-                Send email
+                {t("Send email")}
               </Link>
             </Button>
             <Button
@@ -63,7 +69,7 @@ export function TwoPQContactSection() {
               asChild
             >
               <Link href="https://www.2pq.life" target="_blank" rel="noreferrer">
-                Visit 2PQ
+                {t("Visit 2PQ")}
                 <ArrowUpRight className="size-4" />
               </Link>
             </Button>
@@ -80,13 +86,13 @@ export function TwoPQContactSection() {
                 <channel.icon className="size-5" />
               </div>
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-900/54 dark:text-sky-100/64">
-                {channel.label}
+                {t(channel.label)}
               </p>
               <p className="mt-1 break-words font-heading text-lg font-semibold text-sky-950 [overflow-wrap:anywhere] dark:text-sky-50">
                 {channel.value}
               </p>
               <p className="mt-2 text-sm leading-6 text-sky-900/68 dark:text-sky-50/70">
-                {channel.detail}
+                {t(channel.detail)}
               </p>
               <Link
                 href={channel.href}
@@ -94,7 +100,7 @@ export function TwoPQContactSection() {
                 rel={channel.href.startsWith("http") ? "noreferrer" : undefined}
                 className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-sky-800 hover:text-sky-950 dark:text-sky-100 dark:hover:text-white"
               >
-                {channel.actionLabel}
+                {t(channel.actionLabel)}
                 <ArrowUpRight className="size-3.5" />
               </Link>
             </article>

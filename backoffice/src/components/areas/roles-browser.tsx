@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { getRoleBadgeVariant } from "@/lib/areas-ui";
+import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
@@ -21,6 +23,8 @@ export function RolesBrowser({
 }: {
   initialRoles: RoleManagementRecord[];
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "roles"],
@@ -66,10 +70,10 @@ export function RolesBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          Failed to load role assignments. Confirm the SDK is running and retry.
+          {t("Failed to load role assignments. Confirm the SDK is running and retry.")}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Retry
+          {t("Retry")}
         </Button>
       </div>
     );
@@ -82,13 +86,13 @@ export function RolesBrowser({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search roles by email, name, institution, doctor, or patient..."
+            placeholder={t("Search roles by email, name, institution, doctor, or patient...")}
             className="pl-9"
           />
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>Showing {filteredRoles.length} role records</span>
+          <span>{t("Showing")} {filteredRoles.length} {t("role records")}</span>
           <Button
             variant="outline"
             size="sm"
@@ -96,22 +100,22 @@ export function RolesBrowser({
             disabled={isFetching}
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            {isFetching ? "Refreshing" : "Refresh"}
+            {isFetching ? t("Refreshing") : t("Refresh")}
           </Button>
         </div>
       </div>
 
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
-          <span>User email</span>
-          <span>Scope</span>
-          <span>Updated</span>
-          <span className="text-right">Action</span>
+          <span>{t("User email")}</span>
+          <span>{t("Scope")}</span>
+          <span>{t("Updated")}</span>
+          <span className="text-right">{t("Action")}</span>
         </div>
 
         {filteredRoles.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No role records match the current filter.
+            {t("No role records match the current filter.")}
           </div>
         ) : (
           filteredRoles.map((record) => (
@@ -123,10 +127,10 @@ export function RolesBrowser({
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-medium text-foreground">{record.email}</h3>
                   <Badge variant={getRoleBadgeVariant(record.role)}>
-                    {ADMIN_ROLE_LABELS[record.role]}
+                    {t(ADMIN_ROLE_LABELS[record.role])}
                   </Badge>
                   {record.bootstrap ? <Badge variant="outline">Bootstrap</Badge> : null}
-                  {record.isActive ? null : <Badge variant="warning">Inactive</Badge>}
+                  {record.isActive ? null : <Badge variant="warning">{t("Inactive")}</Badge>}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {compactList([
@@ -134,7 +138,7 @@ export function RolesBrowser({
                     record.institutionName,
                     record.doctorName,
                     record.patientName,
-                  ]) || "Email-based role assignment"}
+                  ]) || t("Email-based role assignment")}
                 </p>
               </div>
 
@@ -142,7 +146,7 @@ export function RolesBrowser({
                 {record.institutionId ? (
                   <Badge variant="brand">{record.institutionId}</Badge>
                 ) : (
-                  <Badge variant="outline">Global</Badge>
+                  <Badge variant="outline">{t("Global")}</Badge>
                 )}
                 {record.doctorId ? (
                   <Badge variant="success">{record.doctorId}</Badge>
@@ -153,13 +157,13 @@ export function RolesBrowser({
               </div>
 
               <div className="text-sm text-muted-foreground">
-                {formatDateTime(record.updatedAt) ?? "No timestamp"}
+                {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
               <div className="flex lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/roles/${encodeURIComponent(record.email)}`}>
-                    Open
+                    {t("Open")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>

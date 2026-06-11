@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   canEditDoctorUi,
   getStatusBadgeVariant,
 } from "@/lib/areas-ui";
+import { appText } from "@/lib/language";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
 export function DoctorBrowser({
@@ -25,6 +27,8 @@ export function DoctorBrowser({
   initialDoctors: DoctorListItem[];
 }) {
   const adminContext = useAdminContext();
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
   const { data, isFetching, isLoading, refetch, error } = useQuery({
     queryKey: ["areas", "doctors"],
@@ -71,10 +75,10 @@ export function DoctorBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          Failed to load doctors. Confirm the SDK is running and retry.
+          {t("Failed to load doctors. Confirm the SDK is running and retry.")}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Retry
+          {t("Retry")}
         </Button>
       </div>
     );
@@ -88,13 +92,13 @@ export function DoctorBrowser({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search doctors by id, name, email, institution, or license..."
+            placeholder={t("Search doctors by id, name, email, institution, or license...")}
             className="pl-9"
           />
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>Showing {filteredDoctors.length} doctors</span>
+          <span>{t("Showing")} {filteredDoctors.length} {t("doctors")}</span>
           <Button
             variant="outline"
             size="sm"
@@ -102,22 +106,22 @@ export function DoctorBrowser({
             disabled={isFetching}
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            {isFetching ? "Refreshing" : "Refresh"}
+            {isFetching ? t("Refreshing") : t("Refresh")}
           </Button>
         </div>
       </div>
 
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
-          <span>Doctor</span>
-          <span>Status</span>
-          <span>Updated</span>
-          <span className="text-right">Action</span>
+          <span>{t("Doctor")}</span>
+          <span>{t("Status")}</span>
+          <span>{t("Updated")}</span>
+          <span className="text-right">{t("Action")}</span>
         </div>
 
         {filteredDoctors.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No doctors match the current filter.
+            {t("No doctors match the current filter.")}
           </div>
         ) : (
           filteredDoctors.map((doctor) => (
@@ -138,32 +142,32 @@ export function DoctorBrowser({
                     doctor.specialty,
                     doctor.licenseNumber,
                     doctor.institutionName,
-                  ]) || "Doctor record"}
+                  ]) || t("Doctor record")}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Badge variant={getStatusBadgeVariant(doctor.status)}>
-                  {doctor.status}
+                  {t(doctor.status)}
                 </Badge>
-                <Badge variant="outline">{doctor.patientCount} patients</Badge>
+                <Badge variant="outline">{doctor.patientCount} {t("patients")}</Badge>
                 {doctor.roleEmail ? (
                   <Badge variant={doctor.roleActive ? "brand" : "warning"}>
-                    {doctor.roleActive ? "Role active" : "Role inactive"}
+                    {doctor.roleActive ? t("Role active") : t("Role inactive")}
                   </Badge>
                 ) : (
-                  <Badge variant="warning">No role</Badge>
+                  <Badge variant="warning">{t("No role")}</Badge>
                 )}
               </div>
 
               <div className="text-sm text-muted-foreground">
-                {formatDateTime(doctor.updatedAt) ?? "No timestamp"}
+                {formatDateTime(doctor.updatedAt) ?? t("No timestamp")}
               </div>
 
               <div className="flex gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/areas/doctors/${doctor.id}`}>
-                    {canEditDoctorUi(adminContext, doctor) ? "Open" : "Read only"}
+                    {canEditDoctorUi(adminContext, doctor) ? t("Open") : t("Read only")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
@@ -173,7 +177,7 @@ export function DoctorBrowser({
                   name={doctor.fullName}
                   endpoint={`/areas/doctors/${doctor.id}`}
                   disabled={!canDeleteDoctorUi(adminContext, doctor)}
-                  disabledReason="Only full admins and institution admins can delete doctors in scope."
+                  disabledReason={t("Only full admins and institution admins can delete doctors in scope.")}
                   onDeleted={() => void refetch()}
                 />
               </div>

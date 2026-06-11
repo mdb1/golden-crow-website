@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Trash2 } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 
 type AreaEntityKind = "institution" | "doctor" | "patient";
@@ -59,6 +61,8 @@ export function AreaDeleteDialog({
   disabledReason?: string;
   onDeleted?: () => void;
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -90,10 +94,10 @@ export function AreaDeleteDialog({
           disabled={disabled || mutation.isPending}
           title={
             disabled
-              ? (disabledReason ?? `Current role cannot delete this ${label}.`)
-              : `Delete ${label} ${name || id}`
+              ? (disabledReason ?? `${t("Current role cannot delete this")} ${t(label)}.`)
+              : `${t("Delete")} ${t(label)} ${name || id}`
           }
-          aria-label={`Delete ${label} ${name || id}`}
+          aria-label={`${t("Delete")} ${t(label)} ${name || id}`}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -104,10 +108,10 @@ export function AreaDeleteDialog({
             <AlertTriangle className="h-5 w-5" />
           </AlertDialogMedia>
           <AlertDialogTitle>
-            Delete {label} {name || id}?
+            {t("Delete")} {t(label)} {name || id}?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {DELETE_DESCRIPTIONS[kind]} This action cannot be undone.
+            {t(DELETE_DESCRIPTIONS[kind])} {t("This action cannot be undone.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {mutation.error ? (
@@ -116,7 +120,7 @@ export function AreaDeleteDialog({
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={mutation.isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={mutation.isPending}>{t("Cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={mutation.isPending}
@@ -125,7 +129,7 @@ export function AreaDeleteDialog({
               mutation.mutate();
             }}
           >
-            {mutation.isPending ? "Deleting..." : `Delete ${label}`}
+            {mutation.isPending ? t("Deleting...") : `${t("Delete")} ${t(label)}`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -9,6 +9,8 @@ import type {
 } from "@/lib/admin-areas";
 import { getAssignableRoleOptions } from "@/lib/admin-areas";
 import { getAdminContextServer } from "@/lib/admin-context-server";
+import { appText } from "@/lib/language";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function NewRolePage({
@@ -21,6 +23,8 @@ export default async function NewRolePage({
     redirect("/roles");
   }
   const { email } = await searchParams;
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
 
   const [institutionsPayload, doctorsPayload, patientsPayload] = await Promise.all([
     sdkFetchServer<{ institutions: InstitutionRecord[] }>("/areas/institutions"),
@@ -31,12 +35,12 @@ export default async function NewRolePage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Access"
-        title="Create role assignment"
-        description="Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows."
+        eyebrow={t("Access")}
+        title={t("Create role assignment")}
+        description={t("Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows.")}
       />
-      <HelperBanner title="Scope first, role second." tone="blue">
-        The selected role determines which linked records are required. When a doctor or patient link exists, the backend validates that the email and relational scope line up correctly.
+      <HelperBanner title={t("Scope first, role second.")} tone="blue">
+        {t("The selected role determines which linked records are required. When a doctor or patient link exists, the backend validates that the email and relational scope line up correctly.")}
       </HelperBanner>
       <RoleWorkbench
         mode="create"

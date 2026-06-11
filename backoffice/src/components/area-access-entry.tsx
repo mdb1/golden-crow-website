@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, PlusCircle, ShieldUser } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
+import { appText } from "@/lib/language";
 
 export function AreaAccessEntry({
   accessHref,
@@ -21,16 +25,19 @@ export function AreaAccessEntry({
   title?: string;
   description: string;
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
   return (
     <section className="glass-panel flex flex-col gap-4 px-5 py-5">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-primary">
           <ShieldUser className="h-4 w-4" />
-          <p className="section-eyebrow">Access</p>
+          <p className="section-eyebrow">{t("Access")}</p>
         </div>
         <div>
-          <h2 className="font-heading text-xl font-semibold text-foreground">{title}</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
+          <h2 className="font-heading text-xl font-semibold text-foreground">{t(title)}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t(description)}</p>
         </div>
       </div>
 
@@ -44,7 +51,7 @@ export function AreaAccessEntry({
           <Link href={accessHref}>
             <span className="flex items-center gap-2">
               <ShieldUser className="h-4 w-4" />
-              {accessLabel}
+              {t(accessLabel)}
             </span>
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -59,7 +66,7 @@ export function AreaAccessEntry({
             <Link href={createHref}>
               <span className="flex items-center gap-2">
                 <PlusCircle className="h-4 w-4" />
-                {createLabel}
+                {t(createLabel)}
               </span>
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -70,11 +77,11 @@ export function AreaAccessEntry({
             variant="outline"
             className="h-auto flex-1 justify-between rounded-2xl px-5 py-5 text-left text-base"
             disabled
-            title={createDisabledTitle}
+            title={t(createDisabledTitle)}
           >
             <span className="flex items-center gap-2">
               <PlusCircle className="h-4 w-4" />
-              {createLabel}
+              {t(createLabel)}
             </span>
             <ArrowRight className="h-4 w-4" />
           </Button>

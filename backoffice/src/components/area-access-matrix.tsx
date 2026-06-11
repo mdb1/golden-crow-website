@@ -1,6 +1,10 @@
+"use client";
+
 import type { ComponentProps } from "react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { ADMIN_ROLE_LABELS, type AdminRole } from "@/lib/admin-areas";
+import { appText } from "@/lib/language";
 import {
   CRUD_CAPABILITIES,
   type AccessScope,
@@ -93,11 +97,14 @@ export function AreaAccessMatrix({
   compact?: boolean;
   className?: string;
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
   return (
     <section className={cn("flex flex-col gap-3", className)}>
       <div className="flex flex-col gap-1">
-        <h3 className="font-heading text-lg font-semibold text-foreground">{title}</h3>
-        <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+        <h3 className="font-heading text-lg font-semibold text-foreground">{t(title)}</h3>
+        <p className="max-w-3xl text-sm text-muted-foreground">{t(description)}</p>
       </div>
 
       <div
@@ -116,7 +123,7 @@ export function AreaAccessMatrix({
           >
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={roleBadgeVariants[entry.role]}>
-                {ADMIN_ROLE_LABELS[entry.role]}
+                {t(ADMIN_ROLE_LABELS[entry.role])}
               </Badge>
               <span
                 className={cn(
@@ -124,7 +131,7 @@ export function AreaAccessMatrix({
                   scopeMeta[entry.scope].className
                 )}
               >
-                {scopeMeta[entry.scope].label}
+                {t(scopeMeta[entry.scope].label)}
               </span>
             </div>
 
@@ -141,13 +148,13 @@ export function AreaAccessMatrix({
                         : "border-border/70 bg-background/55 text-muted-foreground"
                     )}
                   >
-                    {capabilityMeta[capability].label}
+                    {t(capabilityMeta[capability].label)}
                   </span>
                 );
               })}
             </div>
 
-            <p className="mt-3 text-sm text-muted-foreground">{entry.note}</p>
+            <p className="mt-3 text-sm text-muted-foreground">{t(entry.note)}</p>
           </article>
         ))}
       </div>

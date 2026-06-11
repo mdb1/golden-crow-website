@@ -5,8 +5,10 @@ import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { Button } from "@/components/ui/button";
+import { appText } from "@/lib/language";
 import type { TwoPQDetailRecord } from "@/lib/two-pq-areas";
-import { getTwoPQAreaConfig } from "@/lib/two-pq-areas";
+import { getTwoPQAreaConfig, translateTwoPQAreaConfig } from "@/lib/two-pq-areas";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getTwoPQLookupData } from "@/lib/two-pq-server";
 
@@ -23,6 +25,9 @@ export default async function TwoPQAreaCreatePage({
   if (!area) {
     notFound();
   }
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const translatedArea = translateTwoPQAreaConfig(area, language);
 
   let preloadedBatch: TwoPQDetailRecord["record"] | null = null;
   let preloadedCase: TwoPQDetailRecord["record"] | null = null;
@@ -55,21 +60,20 @@ export default async function TwoPQAreaCreatePage({
     <div className="flex flex-col gap-6">
       <PageHero
         eyebrow="2PQ"
-        title={area.createLabel}
-        description={`Create a live Firestore document in ${area.collectionKey} with explicit institution, doctor, and patient linkage.`}
+        title={translatedArea.createLabel}
+        description={`${t("Create a live Firestore document in")} ${area.collectionKey} ${t("with explicit institution, doctor, and patient linkage.")}`}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href={area.route}>
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to {area.navLabel.toLowerCase()}
+              {t("Back to")} {translatedArea.navLabel.toLowerCase()}
             </Link>
           </Button>
         }
       />
-      <HelperBanner title="Create writes a real Firebase document." tone="blue">
-        The workbench below sends a `POST` to the SDK and creates a new record in{" "}
-        <code>{area.collectionKey}</code>. After creation, replace, update, and delete become
-        available on the detail screen.
+      <HelperBanner title={t("Create writes a real Firebase document.")} tone="blue">
+        {t("The workbench below sends a POST to the SDK and creates a new record in")}{" "}
+        <code>{area.collectionKey}</code>. {t("After creation, replace, update, and delete become available on the detail screen.")}
       </HelperBanner>
       <TwoPQRecordWorkbench
         areaKey={area.key}

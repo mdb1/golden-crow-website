@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,9 @@ import {
   getTwoPQRecordSubtitle,
   getTwoPQRecordTitle,
   getTwoPQStatusPills,
+  translateTwoPQAreaConfig,
 } from "@/lib/two-pq-areas";
+import { appText } from "@/lib/language";
 import { formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +32,9 @@ export function TwoPQAreaBrowser({
   initialRecords: TwoPQListItem[];
   createdId?: string;
 }) {
-  const area = getTwoPQAreaConfig(areaKey)!;
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const area = translateTwoPQAreaConfig(getTwoPQAreaConfig(areaKey)!, language);
   const [query, setQuery] = useState("");
   const [animatedRecordId, setAnimatedRecordId] = useState<string | null>(null);
   const previousRecordIdsRef = useRef<Set<string>>(new Set(initialRecords.map((record) => record.id)));
@@ -127,10 +132,10 @@ export function TwoPQAreaBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          Failed to load {area.label.toLowerCase()}. Confirm the SDK is running and retry.
+          {t("Failed to load records. Confirm the SDK is running and retry.")}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Retry
+          {t("Retry")}
         </Button>
       </div>
     );
@@ -150,11 +155,11 @@ export function TwoPQAreaBrowser({
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>Showing {filteredRecords.length} records</span>
+          <span>{t("Showing")} {filteredRecords.length} {t("records")}</span>
           {createdId && !createdRecordPresent ? (
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/28 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-100">
               <RefreshCcw className="h-3 w-3 animate-spin" />
-              Syncing new record
+              {t("Syncing new record")}
             </span>
           ) : null}
           <Button
@@ -164,7 +169,7 @@ export function TwoPQAreaBrowser({
             disabled={isFetching}
           >
             <RefreshCcw className="h-3.5 w-3.5" />
-            {isFetching ? "Refreshing" : "Refresh"}
+            {isFetching ? t("Refreshing") : t("Refresh")}
           </Button>
         </div>
       </div>
@@ -172,14 +177,14 @@ export function TwoPQAreaBrowser({
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
           <span>{area.label}</span>
-          <span>State</span>
-          <span>Updated</span>
-          <span className="text-right">Action</span>
+          <span>{t("State")}</span>
+          <span>{t("Updated")}</span>
+          <span className="text-right">{t("Action")}</span>
         </div>
 
         {filteredRecords.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No records match the current filter.
+            {t("No records match the current filter.")}
           </div>
         ) : (
           filteredRecords.map((record) => (
@@ -205,37 +210,37 @@ export function TwoPQAreaBrowser({
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {getTwoPQRecordSubtitle(area, record) || "2PQ record"}
+                  {getTwoPQRecordSubtitle(area, record) || t("2PQ record")}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 {getTwoPQStatusPills(record).map((pill) => (
                   <Badge key={pill} variant="outline">
-                    {pill}
+                    {t(pill)}
                   </Badge>
                 ))}
                 {record.canReplace ? (
-                  <Badge variant="brand">Replace</Badge>
+                  <Badge variant="brand">{t("Replace")}</Badge>
                 ) : null}
                 {record.canUpdate ? (
-                  <Badge variant="success">Update</Badge>
+                  <Badge variant="success">{t("Update")}</Badge>
                 ) : null}
                 {record.canDelete ? (
-                  <Badge variant="destructive">Delete</Badge>
+                  <Badge variant="destructive">{t("Delete")}</Badge>
                 ) : (
-                  <Badge variant="warning">Read only</Badge>
+                  <Badge variant="warning">{t("Read only")}</Badge>
                 )}
               </div>
 
               <div className="text-sm text-muted-foreground">
-                {formatDateTime(record.updatedAt) ?? "No timestamp"}
+                {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
               <div className="flex lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`${area.route}/${record.id}`}>
-                    Open
+                    {t("Open")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>

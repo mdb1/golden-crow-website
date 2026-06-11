@@ -5,12 +5,15 @@ import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { Button } from "@/components/ui/button";
+import { appText } from "@/lib/language";
 import type { TwoPQDetailRecord } from "@/lib/two-pq-areas";
 import {
   getTwoPQAreaConfig,
   getTwoPQRecordSubtitle,
   getTwoPQRecordTitle,
+  translateTwoPQAreaConfig,
 } from "@/lib/two-pq-areas";
+import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getTwoPQLookupData } from "@/lib/two-pq-server";
 
@@ -24,6 +27,9 @@ export default async function TwoPQAreaDetailPage({
   if (!area) {
     notFound();
   }
+  const language = await getServerAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const translatedArea = translateTwoPQAreaConfig(area, language);
 
   let detail: TwoPQDetailRecord;
   try {
@@ -42,20 +48,19 @@ export default async function TwoPQAreaDetailPage({
       <PageHero
         eyebrow="2PQ"
         title={getTwoPQRecordTitle(area, detail.record)}
-        description={subtitle || `${area.label} detail and CRUD workbench.`}
+        description={subtitle || `${translatedArea.label} ${t("detail and CRUD workbench.")}`}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href={area.route}>
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to {area.navLabel.toLowerCase()}
+              {t("Back to")} {translatedArea.navLabel.toLowerCase()}
             </Link>
           </Button>
         }
       />
-      <HelperBanner title={area.helperTitle} tone="blue">
-        This screen is connected to <code>{area.collectionKey}</code>. Replace writes the full
-        record shape, update patches only changed fields, and delete removes the Firestore
-        document.
+      <HelperBanner title={translatedArea.helperTitle} tone="blue">
+        {t("This screen is connected to")} <code>{area.collectionKey}</code>.{" "}
+        {t("Replace writes the full record shape, update patches only changed fields, and delete removes the Firestore document.")}
       </HelperBanner>
       <TwoPQRecordWorkbench
         areaKey={area.key}

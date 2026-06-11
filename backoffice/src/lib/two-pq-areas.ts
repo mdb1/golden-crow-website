@@ -8,6 +8,7 @@ import {
   Users,
 } from "lucide-react";
 import type { DoctorListItem, InstitutionRecord, PatientListItem } from "@/lib/admin-areas";
+import { appText, type AppLanguage } from "@/lib/language";
 import type { RoleAccessSpec, TwoPQTone } from "@/lib/two-pq-dashboard";
 
 export type TwoPQAreaKey =
@@ -1022,6 +1023,44 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
 
 export function getTwoPQAreaConfig(areaKey: string) {
   return TWO_PQ_AREA_CONFIGS.find((area) => area.key === areaKey);
+}
+
+export function translateTwoPQAreaConfig(
+  area: TwoPQAreaConfig,
+  language: AppLanguage
+): TwoPQAreaConfig {
+  const t = (text: string) => appText(language, text);
+
+  return {
+    ...area,
+    label: t(area.label),
+    navLabel: t(area.navLabel),
+    description: t(area.description),
+    summary: t(area.summary),
+    helperTitle: t(area.helperTitle),
+    helperBody: t(area.helperBody),
+    searchPlaceholder: t(area.searchPlaceholder),
+    createLabel: t(area.createLabel),
+    roleAccess: area.roleAccess.map((entry) => ({
+      ...entry,
+      note: t(entry.note),
+    })),
+    fieldGroups: area.fieldGroups.map((group) => ({
+      ...group,
+      title: t(group.title),
+      description: t(group.description),
+      fields: group.fields.map((field) => ({
+        ...field,
+        label: t(field.label),
+        placeholder: field.placeholder ? t(field.placeholder) : field.placeholder,
+        description: t(field.description),
+        options: field.options?.map((option) => ({
+          ...option,
+          label: t(option.label),
+        })),
+      })),
+    })),
+  };
 }
 
 export function getTwoPQRecordTitle(area: TwoPQAreaConfig, record: TwoPQDisplayRecord) {

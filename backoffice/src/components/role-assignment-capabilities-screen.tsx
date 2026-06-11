@@ -1,6 +1,9 @@
+"use client";
+
 import type { ComponentProps } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Shield, XCircle } from "lucide-react";
+import { useAppLanguage } from "@/components/app-language-provider";
 import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +18,7 @@ import type {
   CrudCapability,
   RoleAccessSpec,
 } from "@/lib/two-pq-dashboard";
+import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
 
 const ROLE_TABS: AdminRole[] = [
@@ -252,6 +256,8 @@ export function RoleAssignmentCapabilitiesScreen({
   selectedRole: AdminRole;
   currentRole: AdminRole;
 }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
   const activeEntry = entries.find((entry) => entry.role === selectedRole) ?? entries[0];
   const activeScope = scopeMeta[activeEntry.scope];
   const activeItems = ROLE_ASSIGNMENT_ITEMS[activeEntry.role];
@@ -259,32 +265,31 @@ export function RoleAssignmentCapabilitiesScreen({
   return (
     <div className="flex flex-col gap-6">
       <PageHero
-        eyebrow="Access"
-        title="Role assignment capabilities"
-        description="A role-by-role explainer for what each assignment can do, where it is scoped, and where the boundary stops."
+        eyebrow={t("Access")}
+        title={t("Role assignment capabilities")}
+        description={t("A role-by-role explainer for what each assignment can do, where it is scoped, and where the boundary stops.")}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/roles">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to roles
+              {t("Back to roles")}
             </Link>
           </Button>
         }
       />
 
-      <HelperBanner title="Checks mark allowed actions. Crosses call out the hard boundary." tone="blue">
-        Use this screen before creating or editing a role assignment so the scope, the allowed role types,
-        and the blocked actions stay explicit.
+      <HelperBanner title={t("Checks mark allowed actions. Crosses call out the hard boundary.")} tone="blue">
+        {t("Use this screen before creating or editing a role assignment so the scope, the allowed role types, and the blocked actions stay explicit.")}
       </HelperBanner>
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-5">
         <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">Tabs</p>
+          <p className="section-eyebrow">{t("Tabs")}</p>
           <h2 className="font-heading text-xl font-semibold text-foreground">
-            Four role assignment lanes
+            {t("Four role assignment lanes")}
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Each tab explains the scope and operating limits for one role assignment type.
+            {t("Each tab explains the scope and operating limits for one role assignment type.")}
           </p>
         </div>
 
@@ -294,7 +299,7 @@ export function RoleAssignmentCapabilitiesScreen({
 
             return (
               <Button key={role} variant={isActive ? "default" : "outline"} size="sm" asChild>
-                <Link href={`/roles/access?role=${role}`}>{ADMIN_ROLE_LABELS[role]}</Link>
+                <Link href={`/roles/access?role=${role}`}>{t(ADMIN_ROLE_LABELS[role])}</Link>
               </Button>
             );
           })}
@@ -305,10 +310,10 @@ export function RoleAssignmentCapabilitiesScreen({
         <article className="glass-panel flex flex-col gap-4 px-5 py-5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={roleBadgeVariants[activeEntry.role]}>
-              {ADMIN_ROLE_LABELS[activeEntry.role]}
+              {t(ADMIN_ROLE_LABELS[activeEntry.role])}
             </Badge>
             {activeEntry.role === currentRole ? (
-              <Badge variant="secondary">Current role</Badge>
+              <Badge variant="secondary">{t("Current role")}</Badge>
             ) : null}
             <span
               className={cn(
@@ -316,12 +321,12 @@ export function RoleAssignmentCapabilitiesScreen({
                 activeScope.className
               )}
             >
-              {activeScope.label}
+              {t(activeScope.label)}
             </span>
           </div>
 
           <p className="text-sm text-muted-foreground">
-            {ADMIN_ROLE_DESCRIPTIONS[activeEntry.role]}
+            {t(ADMIN_ROLE_DESCRIPTIONS[activeEntry.role])}
           </p>
 
           <div className="rounded-2xl border border-primary/20 bg-primary/7 px-4 py-4">
@@ -330,18 +335,18 @@ export function RoleAssignmentCapabilitiesScreen({
                 <Shield className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="section-eyebrow text-primary">Scope</p>
+                <p className="section-eyebrow text-primary">{t("Scope")}</p>
                 <h3 className="font-heading text-lg font-semibold text-foreground">
-                  {activeScope.label}
+                  {t(activeScope.label)}
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground">{activeScope.description}</p>
-                <p className="mt-3 text-sm text-foreground/85">{activeEntry.note}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{t(activeScope.description)}</p>
+                <p className="mt-3 text-sm text-foreground/85">{t(activeEntry.note)}</p>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            <p className="section-eyebrow">Role assignment operations</p>
+            <p className="section-eyebrow">{t("Role assignment operations")}</p>
             <div className="flex flex-wrap gap-2">
               {ROLE_ASSIGNMENT_CAPABILITIES.map((capability) => {
                 const isEnabled = activeEntry.capabilities.includes(capability);
@@ -356,7 +361,7 @@ export function RoleAssignmentCapabilitiesScreen({
                         : "border-border/70 bg-background/55 text-muted-foreground"
                     )}
                   >
-                    {capabilityMeta[capability].label}
+                    {t(capabilityMeta[capability].label)}
                   </span>
                 );
               })}
@@ -367,10 +372,10 @@ export function RoleAssignmentCapabilitiesScreen({
         <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              What this role can and cannot do
+              {t("What this role can and cannot do")}
             </h2>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              The list below mixes allowed actions and blocked actions so the lane stays readable one rule at a time.
+              {t("The list below mixes allowed actions and blocked actions so the lane stays readable one rule at a time.")}
             </p>
           </div>
 
@@ -406,7 +411,7 @@ export function RoleAssignmentCapabilitiesScreen({
 
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-foreground">{item.title}</p>
+                        <p className="font-medium text-foreground">{t(item.title)}</p>
                         <span
                           className={cn(
                             "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]",
@@ -415,10 +420,10 @@ export function RoleAssignmentCapabilitiesScreen({
                               : "border-rose-300/70 bg-rose-100 text-rose-700 dark:border-rose-400/35 dark:bg-rose-500/12 dark:text-rose-100"
                           )}
                         >
-                          {isAllowed ? "Allowed" : "Blocked"}
+                          {isAllowed ? t("Allowed") : t("Blocked")}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{t(item.description)}</p>
                     </div>
                   </div>
                 </article>
