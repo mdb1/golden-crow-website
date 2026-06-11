@@ -150,6 +150,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Requested test": "Test solicitado",
   "Institution information": "Información de institución",
   "Preview and signature": "Vista previa y firma",
+  "Pick linked study request form": "Elegir formulario de solicitud linkeado",
   "Sample information": "Información de muestra",
   "2PQ case": "Caso 2PQ",
   "2PQ sampling": "Muestreo 2PQ",
@@ -299,6 +300,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "2PQ case label is required.": "Etiqueta del caso 2PQ es requerida.",
   "Select a 2PQ case status.": "Seleccioná un estado de caso 2PQ.",
   "Case status is not valid.": "Estado del caso no es válido.",
+  "Select a 2PQ case type.": "Seleccioná un tipo de caso 2PQ.",
+  "Case type is not valid.": "El tipo de caso no es válido.",
+  "Priority is required.": "La prioridad es requerida.",
   "Priority is not valid.": "Prioridad no es válida.",
   "Requested at is required for a new 2PQ case.":
     "Solicitado el es requerido para un nuevo caso 2PQ.",
@@ -314,6 +318,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "Select processing status.": "Seleccioná estado de procesamiento.",
   "Processing status is not valid.":
     "Estado de procesamiento no es válido.",
+  "Select a linked study request form.":
+    "Seleccioná un formulario de solicitud linkeado.",
+  "Linked study request form is not available in the current lookup data.":
+    "El formulario de solicitud linkeado no está disponible en los datos actuales.",
+  "Linked study request form must match the patient institution and doctor.":
+    "El formulario de solicitud linkeado debe coincidir con la institución y el médico del paciente.",
+  "Linked study request form must match the selected patient.":
+    "El formulario de solicitud linkeado debe coincidir con el paciente seleccionado.",
+  "Select number of biopsies.": "Seleccioná el número de biopsias.",
+  "Generate the sampling table.": "Generá la tabla de samplings.",
+  "Sampling table row count must match number of biopsies plus two.":
+    "La cantidad de filas de la tabla debe ser número de biopsias más dos.",
   "Selected institution is not available in the current lookup data.":
     "La institución seleccionada no está disponible en los datos actuales.",
   "Selected doctor is not available in the current lookup data.":
@@ -398,6 +414,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Recovered draft": "Borrador recuperado",
   "Saving draft": "Guardando borrador",
   "Pick existing patient": "Elegir paciente existente",
+  "Linked study request form": "Formulario de solicitud linkeado",
+  "Select linked study request form":
+    "Seleccionar formulario de solicitud linkeado",
+  "Link study request form": "Vincular formulario de solicitud",
+  "Use form": "Usar formulario",
+  "as the linked study request.": "como solicitud de estudio linkeada.",
+  "Confirm the sample has a linked study request form.":
+    "Confirmar que la muestra tiene un formulario de solicitud linkeado.",
+  "Persist the form with linked study request, patient, case, sample, and sampling records.":
+    "Persistir el formulario con solicitud linkeada, paciente, caso, muestra y registros de muestreo.",
   "Select patient": "Seleccionar paciente",
   "Manual patient information": "Información manual de paciente",
   Institution: "Institución",
@@ -488,6 +514,10 @@ const SPANISH_TEXT: Record<string, string> = {
   Specialty: "Especialidad",
   "License number": "Matrícula",
   "Sample type": "Tipo de muestra",
+  "Number of biopsies": "Número de biopsias",
+  "Generate table": "Generar tabla",
+  "Sampling table": "Tabla de samplings",
+  Row: "Fila",
   "Process date": "Fecha proceso",
   "Processed by": "Procesado por",
   "First name": "Nombre",
@@ -499,6 +529,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Case label": "Etiqueta del caso",
   "Case status": "Estado del caso",
   "Case type": "Tipo de caso",
+  "Select case type": "Seleccionar tipo de caso",
   "Select priority": "Seleccionar prioridad",
   "Tracking number": "Número de seguimiento",
   "Requested at": "Solicitado el",

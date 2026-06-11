@@ -6,7 +6,6 @@ import { adminDbFor } from "../config/firebase.js";
 const adminDb = adminDbFor("mydnamap");
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
-  createDoctorForContext,
   createPatientForContext,
 } from "./areas.repository.js";
 import {
@@ -144,6 +143,7 @@ type SampleInformationInput = {
   processedByLastName?: string;
   processDate?: string;
   boxCode?: string;
+  biopsyCount?: string;
   sampleId?: string;
   collectionDate?: string;
   collectionSite?: string;
@@ -172,6 +172,7 @@ type SamplingInformationInput = {
 
 type TwoPQFormInput = {
   formType: TwoPQFormType;
+  linkedStudyRequestFormId?: string;
   selectedPatientId?: string;
   selectedInstitutionId?: string;
   selectedCaseId?: string;
@@ -195,6 +196,8 @@ type TwoPQFormDraftInput = {
 
 type ListTwoPQFormsOptions = {
   includeArchived?: boolean;
+  formType?: TwoPQFormType;
+  limit?: number;
 };
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -412,6 +415,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     patientEmail: normalizeOptionalString(data.patientEmail),
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
+    linkedStudyRequestFormId: normalizeOptionalString(data.linkedStudyRequestFormId),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
     selectedRequestingDoctorId: normalizeOptionalString(data.selectedRequestingDoctorId),
     linkedCaseId: normalizeOptionalString(data.linkedCaseId),
@@ -811,35 +815,14 @@ function getRequestedTestName(
   return normalizeOptionalString(requestedTest.testName) ?? "Requested test";
 }
 
-function normalizeRequestingDoctorCreateInput(
-  input: SampleInformationInput = {},
-  institutionId: string
-) {
-  return {
-    institutionId,
-    authEmail: normalizeEmail(input.requestingDoctorAuthEmail, "MEDICO SOLICITANTE auth email"),
-    authUid: normalizeOptionalString(input.requestingDoctorAuthUid),
-    fullName: normalizeRequiredString(
-      input.requestingDoctorFullName,
-      "MEDICO SOLICITANTE full name"
-    ),
-    specialty: normalizeOptionalString(input.requestingDoctorSpecialty),
-    licenseNumber: normalizeOptionalString(input.requestingDoctorLicenseNumber),
-    contactPhone: normalizeOptionalString(input.requestingDoctorContactPhone),
-    status: input.requestingDoctorStatus === "inactive" ? "inactive" as const : "active" as const,
-    notes: normalizeOptionalString(input.requestingDoctorNotes),
-  };
-}
-
 function normalizeSampleInformation(
   input: SampleInformationInput = {},
-  requestingDoctor: DoctorRecord
+  requestingDoctor?: DoctorRecord | null
 ) {
   const sampleType = normalizeRequiredString(input.sampleType, "TIPO DE MUESTRA");
   const allowedSampleTypes = new Set([
     "biopsia de trofoectodermo",
     "rebiopsia de trofoectodermo",
-    "medio de cultivo",
     "otro",
   ]);
   if (!allowedSampleTypes.has(sampleType)) {
@@ -847,19 +830,20 @@ function normalizeSampleInformation(
   }
 
   return compactRecord({
-    fivCenter: normalizeRequiredString(input.fivCenter, "CENTRO FIV"),
-    centerCode: normalizeRequiredString(input.centerCode, "CODIGO CENTRO"),
-    requestingDoctorId: requestingDoctor.id,
-    requestingDoctorInstitutionId: requestingDoctor.institutionId,
-    requestingDoctorFullName: requestingDoctor.fullName,
-    requestingDoctorAuthEmail: requestingDoctor.authEmail,
-    requestingDoctorAuthUid: requestingDoctor.authUid,
-    requestingDoctorSpecialty: requestingDoctor.specialty,
-    requestingDoctorLicenseNumber: requestingDoctor.licenseNumber,
-    requestingDoctorContactPhone: requestingDoctor.contactPhone,
-    requestingDoctorStatus: requestingDoctor.status,
-    requestingDoctorNotes: requestingDoctor.notes,
+    fivCenter: normalizeOptionalString(input.fivCenter),
+    centerCode: normalizeOptionalString(input.centerCode),
+    requestingDoctorId: requestingDoctor?.id,
+    requestingDoctorInstitutionId: requestingDoctor?.institutionId,
+    requestingDoctorFullName: requestingDoctor?.fullName,
+    requestingDoctorAuthEmail: requestingDoctor?.authEmail,
+    requestingDoctorAuthUid: requestingDoctor?.authUid,
+    requestingDoctorSpecialty: requestingDoctor?.specialty,
+    requestingDoctorLicenseNumber: requestingDoctor?.licenseNumber,
+    requestingDoctorContactPhone: requestingDoctor?.contactPhone,
+    requestingDoctorStatus: requestingDoctor?.status,
+    requestingDoctorNotes: requestingDoctor?.notes,
     sampleType,
+    biopsyCount: normalizeOptionalString(input.biopsyCount),
     processedByFirstName: normalizeRequiredString(
       input.processedByFirstName,
       "PROCESADO POR nombre"
@@ -990,13 +974,18 @@ export async function listTwoPQFormsForContext(
   context: AdminContext,
   options: ListTwoPQFormsOptions = {}
 ): Promise<TwoPQFormRecord[]> {
-  const snapshot =
-    context.role === "full_admin"
-      ? await adminDb.collection(FORMS_COLLECTION).get()
-      : await adminDb
-          .collection(FORMS_COLLECTION)
-          .where("institutionId", "==", context.institutionId ?? "__none__")
-          .get();
+  let query = adminDb.collection(FORMS_COLLECTION) as FirebaseFirestore.Query;
+  if (context.role !== "full_admin") {
+    query = query.where("institutionId", "==", context.institutionId ?? "__none__");
+  }
+  if (options.formType) {
+    query = query.where("formType", "==", options.formType);
+  }
+  if (options.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const snapshot = await query.get();
 
   return snapshot.docs
     .map((doc) => toTwoPQFormRecord(doc.id, doc.data() as Record<string, unknown>))
@@ -1168,8 +1157,60 @@ export async function createTwoPQFormForContext(
 
   await validateDoctorInstitutionLink(institutionId, doctorId);
 
-  let selectedPatient: PatientRecord | null = null;
+  const linkedStudyRequestFormId =
+    payload.formType === "sample"
+      ? normalizeRequiredString(
+          payload.linkedStudyRequestFormId,
+          "Linked study request form"
+        )
+      : normalizeOptionalString(payload.linkedStudyRequestFormId);
+  let linkedStudyRequestForm: TwoPQFormRecord | null = null;
   let selectedPatientId = normalizeOptionalString(payload.selectedPatientId);
+
+  if (payload.formType === "sample") {
+    const requiredLinkedStudyRequestFormId = normalizeRequiredString(
+      linkedStudyRequestFormId,
+      "Linked study request form"
+    );
+    linkedStudyRequestForm = await getTwoPQFormForContext(
+      context,
+      requiredLinkedStudyRequestFormId
+    );
+    if (linkedStudyRequestForm.formType !== "study_request") {
+      throw new AdminRepositoryError(
+        "Linked form must be a study request form.",
+        400
+      );
+    }
+    if (
+      linkedStudyRequestForm.institutionId !== institutionId ||
+      linkedStudyRequestForm.doctorId !== doctorId
+    ) {
+      throw new AdminRepositoryError(
+        "Linked study request form must belong to the same institution and doctor.",
+        400
+      );
+    }
+
+    const linkedPatientId =
+      linkedStudyRequestForm.selectedPatientId ??
+      normalizeOptionalString(linkedStudyRequestForm.patientInformation.patientId);
+    if (!linkedPatientId) {
+      throw new AdminRepositoryError(
+        "Linked study request form must be linked to a patient.",
+        400
+      );
+    }
+    if (selectedPatientId && selectedPatientId !== linkedPatientId) {
+      throw new AdminRepositoryError(
+        "Sample patient must match the linked study request patient.",
+        400
+      );
+    }
+    selectedPatientId = linkedPatientId;
+  }
+
+  let selectedPatient: PatientRecord | null = null;
   if (selectedPatientId) {
     selectedPatient = await getPatientById(selectedPatientId);
     if (!selectedPatient) {
@@ -1262,12 +1303,6 @@ export async function createTwoPQFormForContext(
           400
         );
       }
-    } else {
-      requestingDoctor = await createDoctorForContext(
-        context,
-        normalizeRequestingDoctorCreateInput(payload.sampleInformation, institutionId)
-      );
-      selectedRequestingDoctorId = requestingDoctor.id;
     }
 
     normalizedSampleInformation = normalizeSampleInformation(
@@ -1396,6 +1431,7 @@ export async function createTwoPQFormForContext(
     patientEmail: patientInformation.email,
     institutionName: selectedInstitution?.name ?? null,
     requestedTestName: getRequestedTestName(requestedTest, payload.formType),
+    linkedStudyRequestFormId: linkedStudyRequestFormId ?? null,
     selectedCaseId: selectedCaseId ?? null,
     linkedCaseId: linkedCaseId ?? null,
     linkedSamplingIds: linkedSamplingIds ?? [],

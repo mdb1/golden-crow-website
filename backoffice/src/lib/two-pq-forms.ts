@@ -91,6 +91,7 @@ export type SampleInformationFormState = {
   processedByLastName: string;
   processDate: string;
   boxCode: string;
+  biopsyCount: string;
 };
 
 export type CaseInformationFormState = {
@@ -112,6 +113,7 @@ export type SamplingInformationFormState = {
 };
 
 export type TwoPQFormDraftStepKey =
+  | "linkedStudyRequest"
   | "patientInformation"
   | "medicalInformation"
   | "previousGeneticTests"
@@ -123,6 +125,7 @@ export type TwoPQFormDraftStepKey =
   | "samplingInformation";
 
 export type TwoPQFormDraftState = {
+  linkedStudyRequestFormId: string;
   selectedPatientId: string;
   selectedInstitutionId: string;
   selectedCaseId: string;
@@ -135,6 +138,7 @@ export type TwoPQFormDraftState = {
   sampleInformation: SampleInformationFormState;
   caseInformation: CaseInformationFormState;
   samplingInformation: SamplingInformationFormState[];
+  samplingTableGenerated: boolean;
 };
 
 export interface TwoPQFormRecord {
@@ -149,6 +153,7 @@ export interface TwoPQFormRecord {
   patientEmail?: string;
   institutionName?: string;
   requestedTestName?: string;
+  linkedStudyRequestFormId?: string;
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
   linkedCaseId?: string;

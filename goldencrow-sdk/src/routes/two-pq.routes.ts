@@ -194,6 +194,7 @@ const TwoPQSampleInformationSchema = z.object({
   processedByLastName: z.string().optional(),
   processDate: z.string().optional(),
   boxCode: z.string().optional(),
+  biopsyCount: z.string().optional(),
   sampleId: z.string().optional(),
   collectionDate: z.string().optional(),
   collectionSite: z.string().optional(),
@@ -221,6 +222,7 @@ const TwoPQSamplingInformationSchema = z.object({
 });
 
 const TwoPQFormDraftStepSchema = z.enum([
+  "linkedStudyRequest",
   "patientInformation",
   "medicalInformation",
   "previousGeneticTests",
@@ -245,6 +247,7 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   }),
   z.object({
     formType: z.literal("sample"),
+    linkedStudyRequestFormId: z.string(),
     selectedPatientId: z.string().optional(),
     selectedInstitutionId: z.string().optional(),
     selectedCaseId: z.string().optional(),
@@ -266,10 +269,25 @@ const TwoPQFormDraftMutationSchema = z.object({
 
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
+  formType: z.enum(["study_request", "sample"]).optional(),
+  limit: z.string().optional(),
 });
 
 function parseBooleanQueryFlag(value: string | undefined) {
   return value === "1" || value === "true" || value === "yes";
+}
+
+function parseQueryLimit(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return undefined;
+  }
+
+  return Math.min(parsed, 50);
 }
 
 function buildUnexpectedRouteErrorPayload(
@@ -394,6 +412,8 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
       try {
         const forms = await listTwoPQFormsForContext(request.adminContext, {
           includeArchived: parseBooleanQueryFlag(request.query.includeArchived),
+          formType: request.query.formType,
+          limit: parseQueryLimit(request.query.limit),
         });
         return reply.send({ forms });
       } catch (error) {

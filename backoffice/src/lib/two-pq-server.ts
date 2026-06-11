@@ -29,12 +29,25 @@ export async function getTwoPQLookupData() {
   };
 }
 
-export async function getTwoPQFormLookupData() {
-  const [institutionsPayload, doctorsPayload, patientsPayload, casesPayload] = await Promise.all([
+export async function getTwoPQFormLookupData(
+  options: { includeStudyRequestForms?: boolean } = {}
+) {
+  const [
+    institutionsPayload,
+    doctorsPayload,
+    patientsPayload,
+    casesPayload,
+    studyRequestFormsPayload,
+  ] = await Promise.all([
     sdkFetchServer<{ institutions: InstitutionListItem[] }>("/areas/institutions"),
     sdkFetchServer<{ doctors: DoctorListItem[] }>("/areas/doctors"),
     sdkFetchServer<{ patients: PatientListItem[] }>("/areas/patients"),
     sdkFetchServer<{ records: TwoPQListItem[] }>("/2pq/cases"),
+    options.includeStudyRequestForms
+      ? sdkFetchServer<{ forms: TwoPQFormRecord[] }>(
+          "/2pq/forms?formType=study_request&limit=20"
+        )
+      : Promise.resolve({ forms: [] }),
   ]);
 
   return {
@@ -42,11 +55,28 @@ export async function getTwoPQFormLookupData() {
     doctors: doctorsPayload.doctors,
     patients: patientsPayload.patients,
     cases: casesPayload.records,
+    studyRequestForms: studyRequestFormsPayload.forms,
   };
 }
 
-export async function getTwoPQForms(options: { includeArchived?: boolean } = {}) {
-  const query = options.includeArchived ? "?includeArchived=1" : "";
+export async function getTwoPQForms(
+  options: {
+    includeArchived?: boolean;
+    formType?: "study_request" | "sample";
+    limit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (options.includeArchived) {
+    params.set("includeArchived", "1");
+  }
+  if (options.formType) {
+    params.set("formType", options.formType);
+  }
+  if (options.limit) {
+    params.set("limit", String(options.limit));
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const payload = await sdkFetchServer<{ forms: TwoPQFormRecord[] }>(
     `/2pq/forms${query}`
   );

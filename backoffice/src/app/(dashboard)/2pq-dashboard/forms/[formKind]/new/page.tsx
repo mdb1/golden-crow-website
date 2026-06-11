@@ -20,7 +20,9 @@ export default async function NewTwoPQFormPage({
   const shouldRestoreDraft =
     draftParam === "1" || draftParam === "true" || draftParam === "yes";
   const [lookupData, formDraft] = await Promise.all([
-    getTwoPQFormLookupData(),
+    getTwoPQFormLookupData({
+      includeStudyRequestForms: formType === "sample",
+    }),
     shouldRestoreDraft ? getTwoPQFormDraft() : Promise.resolve(null),
   ]);
   const initialDraft = formDraft?.formType === formType ? formDraft : null;
@@ -33,6 +35,7 @@ export default async function NewTwoPQFormPage({
         doctors={lookupData.doctors}
         patients={lookupData.patients}
         cases={lookupData.cases}
+        studyRequestForms={lookupData.studyRequestForms}
         initialDraft={initialDraft}
       />
     </div>

@@ -272,6 +272,7 @@ export type TwoPQCollectionKey =
   | "2pq_client";
 
 export type TwoPQFormDraftStepKey =
+  | "linkedStudyRequest"
   | "patientInformation"
   | "medicalInformation"
   | "previousGeneticTests"
@@ -377,6 +378,7 @@ export interface TwoPQFormRecord {
   patientEmail?: string;
   institutionName?: string;
   requestedTestName?: string;
+  linkedStudyRequestFormId?: string;
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
   linkedCaseId?: string;
