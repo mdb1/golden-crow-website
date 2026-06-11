@@ -1231,6 +1231,7 @@
       "photoCta": "Attach photo",
       "photoLabel": "Photo",
       "removeAttachment": "Remove photo",
+      "previewAttachment": "View photo full size",
       "voiceCta": "Attach audio",
       "voiceLabel": "Audio",
       "voiceRecordCta": "Record audio",

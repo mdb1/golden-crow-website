@@ -42,7 +42,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
-import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
@@ -209,8 +209,20 @@ async function _fetchClientsForTrainer(
     };
   });
 
+  // Issue #270 — drop ORPHANED docs: a failed `onBeforeUserCreated` run can
+  // leave a `/users/{uid}` doc whose Auth account was never committed (the
+  // blocking function writes the provisioning docs, then the account create
+  // aborts — e.g. the 7s budget on a cold start; the client retries and gets
+  // a FRESH uid, so the same person shows twice in the roster). Such docs are
+  // unreachable by any user — filter them by verifying the uid still exists
+  // in Firebase Auth. Fails OPEN (lookup error ⇒ keep everyone).
+  const liveAuthUids = await fetchExistingAuthUids(activeRows.map((r) => r.uid));
+  const liveRows = liveAuthUids
+    ? activeRows.filter((row) => liveAuthUids.has(row.uid))
+    : activeRows;
+
   const activeEmails = new Set(
-    activeRows.map((row) => row.email.trim().toLowerCase()).filter(Boolean),
+    liveRows.map((row) => row.email.trim().toLowerCase()).filter(Boolean),
   );
   const pendingRows: ClientRosterEntry[] = mirrorSnap.docs
     .reduce<ClientRosterEntry[]>((rows, doc) => {
@@ -240,7 +252,7 @@ async function _fetchClientsForTrainer(
       return rows;
     }, []);
 
-  const rows = [...activeRows, ...pendingRows];
+  const rows = [...liveRows, ...pendingRows];
 
   rows.sort((a, b) =>
     coachVisibleClientName(a).localeCompare(coachVisibleClientName(b), undefined, {
@@ -249,6 +261,27 @@ async function _fetchClientsForTrainer(
   );
 
   return rows;
+}
+
+/**
+ * Issue #270 — the set of uids that still exist in Firebase Auth, batched 100
+ * per `getUsers` call (the Admin SDK cap). Returns null on ANY failure so the
+ * caller fails open (an Auth hiccup must never blank the roster).
+ */
+async function fetchExistingAuthUids(uids: string[]): Promise<Set<string> | null> {
+  if (uids.length === 0) return new Set();
+  try {
+    const auth = gcFitnessAuth();
+    const found = new Set<string>();
+    for (let i = 0; i < uids.length; i += 100) {
+      const chunk = uids.slice(i, i + 100).map((uid) => ({ uid }));
+      const res = await auth.getUsers(chunk);
+      for (const user of res.users) found.add(user.uid);
+    }
+    return found;
+  } catch {
+    return null;
+  }
 }
 
 /**
