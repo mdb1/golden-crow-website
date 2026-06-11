@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { uploadBytes, ref, getDownloadURL } from "firebase/storage";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -10,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { getGCFitnessAuth, getGCFitnessStorage } from "@/lib/firebase/gc-fitness-client";
+import { getGCFitnessAuth } from "@/lib/firebase/gc-fitness-client";
 import { updateTrainerProfile } from "@/lib/gc-fitness/user-actions";
 
 export function CoachProfileForm({
@@ -63,17 +62,32 @@ export function CoachProfileForm({
       try {
         let resolvedPhotoURL = photoURL;
         if (pickedFile) {
-          const storage = getGCFitnessStorage();
-          const path = `profile_photos/${uid}/avatar.jpg`;
-          const uploadRef = ref(storage, path);
-          // The `profile_photos` Storage rule caps writes at 1 MB. The iOS /
-          // Android apps normalize avatars before upload; the backoffice must
-          // too, or a raw photo (often > 1 MB) gets rejected with
-          // `storage/unauthorized`. Downscale + JPEG-compress to well under
-          // the cap before uploading.
+          // Issue #166 (round 2) — upload through the trainer-authenticated
+          // server route instead of the Firebase JS client SDK. The
+          // backoffice session lives in next-firebase-auth-edge COOKIES; the
+          // browser-side Firebase Auth context is separate and unreliable
+          // (absent / different account), and when it doesn't match the
+          // trainer, Storage rules reject the client upload with
+          // `storage/unauthorized`. The server route is gated by the same
+          // cookie every other backoffice write trusts, and uploads via the
+          // Admin SDK. Compression stays client-side (bandwidth + consistent
+          // avatar sizing across surfaces).
           const compressed = await compressImageToJpeg(pickedFile);
-          await uploadBytes(uploadRef, compressed, { contentType: "image/jpeg" });
-          resolvedPhotoURL = await getDownloadURL(uploadRef);
+          const response = await fetch("/api/gc-fitness/coach-profile-photo", {
+            method: "POST",
+            headers: { "Content-Type": "image/jpeg" },
+            body: compressed,
+          });
+          if (!response.ok) {
+            const payload = (await response.json().catch(() => null)) as
+              | { error?: string }
+              | null;
+            throw new Error(payload?.error ?? t("saveFailedToast"));
+          }
+          const { photoURL: uploadedURL } = (await response.json()) as {
+            photoURL: string;
+          };
+          resolvedPhotoURL = uploadedURL;
           setPhotoURL(resolvedPhotoURL);
           setPickedFile(null);
         }
