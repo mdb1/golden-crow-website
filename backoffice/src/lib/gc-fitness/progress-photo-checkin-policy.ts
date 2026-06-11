@@ -12,8 +12,9 @@
 // Firestore read, NO new denormalized field.
 //
 // Eligibility model (issue #160, LOCKED):
-//  - Baseline complete == at least one photo AND no used angle is stuck at exactly 1 (every
-//    angle the client has ANY photo of has >= 2). While baseline incomplete, uploads are FREE.
+//  - Baseline complete == ANY angle group has >= 2 photos. As soon as a single angle (e.g.
+//    front) reaches 2 photos, the weekly gate applies. While NO angle has reached 2, uploads
+//    are FREE. (front x2 + side x1 -> GATED; front x1 + side x1 + back x1 -> FREE.)
 //  - Once baseline complete: gate to one check-in per 7 days.
 //  - A "check-in" groups photos by civil date (`checkInDate ?? civilDate(takenAt ?? createdAt)`);
 //    the last check-in date is the MAX such civil date.
@@ -70,8 +71,7 @@ export function evaluateProgressPhotoCheckIn(
     const bucket = photo.angle ?? "single";
     counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
   }
-  const baselineComplete =
-    counts.size > 0 && ![...counts.values()].some((count) => count === 1);
+  const baselineComplete = [...counts.values()].some((count) => count >= 2);
 
   // Last check-in date == MAX civil date across all photos.
   let lastCheckInDate: string | null = null;

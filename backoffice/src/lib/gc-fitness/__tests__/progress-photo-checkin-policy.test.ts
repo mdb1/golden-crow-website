@@ -43,13 +43,26 @@ describe("evaluateProgressPhotoCheckIn (issue #160)", () => {
     expect(r.isEligible).toBe(false);
   });
 
-  it("front x2 + side x1 → baseline INCOMPLETE (side stuck at 1) → eligible", () => {
+  it("front x2 + side x1 → baseline COMPLETE (front reached 2) → gated", () => {
     const r = evaluateProgressPhotoCheckIn(
       [photo("front", "2026-06-10"), photo("front", "2026-06-10"), photo("side", "2026-06-10")],
       "2026-06-10",
       tz,
     );
+    expect(r.baselineComplete).toBe(true);
+    expect(r.lastCheckInDate).toBe("2026-06-10");
+    expect(r.nextEligibleDate).toBe("2026-06-17");
+    expect(r.isEligible).toBe(false);
+  });
+
+  it("front x1 + side x1 + back x1 → no angle reached 2 → baseline incomplete → eligible", () => {
+    const r = evaluateProgressPhotoCheckIn(
+      [photo("front", "2026-06-10"), photo("side", "2026-06-10"), photo("back", "2026-06-10")],
+      "2026-06-10",
+      tz,
+    );
     expect(r.baselineComplete).toBe(false);
+    expect(r.nextEligibleDate).toBeNull();
     expect(r.isEligible).toBe(true);
   });
 
