@@ -2991,6 +2991,14 @@ export function TwoPQFormFlow({
             {formType === "study_request" ? (
               <>
                 <Field
+                  id="form-patient-dni"
+                  label={t("Patient DNI")}
+                  value={state.patientInformation.medicalRecordNumber}
+                  onChange={(medicalRecordNumber) =>
+                    updatePatientInformation({ medicalRecordNumber })
+                  }
+                />
+                <Field
                   id="form-patient-first-name"
                   label={t("Patient first name")}
                   value={state.patientInformation.firstName}
@@ -3003,14 +3011,6 @@ export function TwoPQFormFlow({
                   value={state.patientInformation.lastName}
                   onChange={(lastName) => updatePatientInformation({ lastName })}
                   error={errorFor("patientInformation.lastName")}
-                />
-                <Field
-                  id="form-patient-dni"
-                  label={t("Patient DNI")}
-                  value={state.patientInformation.medicalRecordNumber}
-                  onChange={(medicalRecordNumber) =>
-                    updatePatientInformation({ medicalRecordNumber })
-                  }
                 />
                 <Field
                   id="form-patient-birth-date"
