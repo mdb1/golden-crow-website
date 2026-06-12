@@ -44,6 +44,10 @@ import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
 import { bulkAssignTemplate } from "@/lib/gc-fitness/workout-assignment-actions";
 import { MAX_CLIENTS_PER_BATCH } from "@/lib/gc-fitness/workout-assignment-schema";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+} from "@/lib/gc-fitness/end-date-presets";
 import type { ClientRosterEntry } from "@/lib/gc-fitness/client-roster";
 
 import { BulkConfirmModal } from "./bulk-confirm-modal";
@@ -52,6 +56,28 @@ interface BulkAssignFormProps {
   clients: ClientRosterEntry[];
   trainerTimezone?: string;
 }
+
+// 260612-e9t (#175): same cadence vocabulary the single-client
+// AssignTemplateModal exposes. "once" → no recurrence (single date on the
+// picked day, byte-identical to the pre-recurrence bulk path).
+type RecurrenceMode = "once" | "weekly" | "daily" | "everyN" | "monthly";
+
+type BulkRecurrenceRule =
+  | { kind: "daily" }
+  | { kind: "weekly"; weekday: number }
+  | { kind: "weekly_days"; weekdays: number[] }
+  | { kind: "every_n_days"; everyN: number }
+  | { kind: "monthly"; dayOfMonth: number };
+
+const BULK_WEEKDAY_KEYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+] as const;
 
 function parseCivilToLocalDate(civil: string): Date {
   const [y, m, d] = civil.split("-").map(Number);
@@ -86,6 +112,66 @@ export function BulkAssignForm({
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // 260612-e9t (#175): recurrence picker state, mirroring AssignTemplateModal.
+  const [mode, setMode] = useState<RecurrenceMode>("once");
+  const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(
+    () => new Set([parseCivilToLocalDate(civilDateToday(resolvedTimezone)).getDay()]),
+  );
+  const [recurringEveryN, setRecurringEveryN] = useState<number>(2);
+  const [recurringEveryNDraft, setRecurringEveryNDraft] = useState<string>("2");
+  const [recurringEndEnabled, setRecurringEndEnabled] = useState(true);
+  const [recurringEndDate, setRecurringEndDate] = useState<string>(() =>
+    addCivilMonths(civilDateToday(resolvedTimezone), 3),
+  );
+  const [recurringEndPresetMonths, setRecurringEndPresetMonths] = useState<
+    number | null
+  >(3);
+
+  function toggleWeekday(idx: number) {
+    setRecurringWeekdays((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        // Never let the multi-select drop to zero weekdays.
+        if (next.size > 1) next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  }
+
+  // Build the canonical recurrence rule from the current mode (null for "once").
+  function buildRecurrence(): BulkRecurrenceRule | null {
+    if (mode === "once") return null;
+    if (mode === "daily") return { kind: "daily" };
+    if (mode === "everyN") return { kind: "every_n_days", everyN: recurringEveryN };
+    if (mode === "monthly") {
+      return { kind: "monthly", dayOfMonth: parseCivilToLocalDate(civilDate).getDate() };
+    }
+    const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
+    return weekdays.length === 1
+      ? { kind: "weekly", weekday: weekdays[0] }
+      : { kind: "weekly_days", weekdays };
+  }
+
+  // Human-readable recurrence summary for the confirm modal (null when once).
+  const recurrenceSummary = useMemo(() => {
+    if (mode === "once") return null;
+    if (mode === "daily") return t("summaryDaily");
+    if (mode === "everyN") return t("summaryEveryN", { n: recurringEveryN });
+    if (mode === "monthly") {
+      return t("summaryMonthly", {
+        day: parseCivilToLocalDate(civilDate).getDate(),
+      });
+    }
+    const labels = Array.from(recurringWeekdays)
+      .sort((a, b) => a - b)
+      .map((idx) => t(`weekdays.${BULK_WEEKDAY_KEYS[idx]}`).slice(0, 3))
+      .join(", ");
+    return t("summaryWeekly", { days: labels });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, recurringEveryN, recurringWeekdays, civilDate, t]);
 
   const selectedClients = useMemo(
     () => clients.filter((c) => selectedUids.has(c.uid)),
@@ -146,6 +232,7 @@ export function BulkAssignForm({
     }
     setSubmitting(true);
     try {
+      const recurrence = buildRecurrence();
       const result = await bulkAssignTemplate({
         templateId,
         clientIds: finalClientIds,
@@ -153,12 +240,26 @@ export function BulkAssignForm({
         scheduledTime: scheduledTime || undefined,
         meetingNotes: meetingNotes.trim() || undefined,
         timezone: resolvedTimezone,
+        // Only send recurrence/endDate when recurring — keeps the "once" path
+        // byte-identical to the pre-260612 single-date submit.
+        ...(recurrence ? { recurrence } : {}),
+        ...(recurrence && recurringEndEnabled
+          ? { endDate: recurringEndDate }
+          : {}),
       });
-      toast.success(
-        result.ids.length === 1
-          ? t("successSingular", { count: result.ids.length })
-          : t("successPlural", { count: result.ids.length }),
-      );
+      if (recurrence) {
+        // Recurring: one doc per (client × matching date). result.ids.length is
+        // the total doc count; surface the CLIENT count in the success toast.
+        toast.success(
+          t("successRecurring", { count: finalClientIds.length }),
+        );
+      } else {
+        toast.success(
+          result.ids.length === 1
+            ? t("successSingular", { count: result.ids.length })
+            : t("successPlural", { count: result.ids.length }),
+        );
+      }
       setConfirmOpen(false);
       // Navigate to the first client's schedule view to give the trainer
       // an immediate "here's what you just wrote" surface.
@@ -235,6 +336,158 @@ export function BulkAssignForm({
                 className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
               />
             </div>
+          </div>
+
+          {/* 260612-e9t (#175): recurrence picker (mirrors AssignTemplateModal). */}
+          <div className="flex flex-col gap-3 md:col-span-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">{t("modeLabel")}</label>
+              <Select
+                value={mode}
+                onValueChange={(value) => setMode(value as RecurrenceMode)}
+              >
+                <SelectTrigger className="w-full md:w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">{t("modeOnce")}</SelectItem>
+                  <SelectItem value="weekly">{t("modeWeekly")}</SelectItem>
+                  <SelectItem value="daily">{t("modeDaily")}</SelectItem>
+                  <SelectItem value="everyN">{t("modeEveryN")}</SelectItem>
+                  <SelectItem value="monthly">{t("modeMonthly")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {mode === "weekly" ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium">{t("repeatOnLabel")}</label>
+                <div className="flex flex-wrap gap-2">
+                  {BULK_WEEKDAY_KEYS.map((key, idx) => {
+                    const active = recurringWeekdays.has(idx);
+                    return (
+                      <Button
+                        key={key}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleWeekday(idx)}
+                        aria-pressed={active}
+                      >
+                        {t(`weekdays.${key}`).slice(0, 3)}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {mode === "everyN" ? (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="bulk-every-n-input"
+                >
+                  {t("repeatEveryNLabel")}
+                </label>
+                <input
+                  id="bulk-every-n-input"
+                  type="number"
+                  min={2}
+                  max={30}
+                  value={recurringEveryNDraft}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    setRecurringEveryNDraft(raw);
+                    if (raw.trim() === "") return;
+                    const next = Number(raw);
+                    if (!Number.isFinite(next)) return;
+                    setRecurringEveryN(Math.max(2, Math.min(30, next)));
+                  }}
+                  onBlur={() => {
+                    const next = Number(recurringEveryNDraft);
+                    const normalized = Number.isFinite(next)
+                      ? Math.max(2, Math.min(30, next))
+                      : recurringEveryN;
+                    setRecurringEveryN(normalized);
+                    setRecurringEveryNDraft(String(normalized));
+                  }}
+                  className="h-10 w-24 rounded-md border bg-background px-3 text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("repeatEveryNHint", { n: recurringEveryN })}
+                </p>
+              </div>
+            ) : null}
+
+            {mode === "monthly" ? (
+              <p className="text-xs text-muted-foreground">
+                {t("repeatMonthlyHint", {
+                  day: parseCivilToLocalDate(civilDate).getDate(),
+                })}
+              </p>
+            ) : null}
+
+            {mode !== "once" ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="bulk-recurring-end-enabled"
+                    type="checkbox"
+                    checked={recurringEndEnabled}
+                    onChange={(event) => {
+                      const next = event.target.checked;
+                      setRecurringEndEnabled(next);
+                      if (next) {
+                        const preset = recurringEndPresetMonths ?? 3;
+                        setRecurringEndPresetMonths(preset);
+                        setRecurringEndDate(addCivilMonths(civilDate, preset));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border"
+                  />
+                  <label
+                    htmlFor="bulk-recurring-end-enabled"
+                    className="text-sm"
+                  >
+                    {t("setEndDate")}
+                  </label>
+                </div>
+                {recurringEndEnabled ? (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">
+                      {t("endDateLabel")}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {END_DATE_PRESET_MONTHS.map((months) => {
+                        const active =
+                          recurringEndPresetMonths === months &&
+                          recurringEndDate === addCivilMonths(civilDate, months);
+                        return (
+                          <Button
+                            key={months}
+                            type="button"
+                            variant={active ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setRecurringEndPresetMonths(months);
+                              setRecurringEndDate(
+                                addCivilMonths(civilDate, months),
+                              );
+                            }}
+                          >
+                            {t("endDatePresetMonths", { months })}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("endDateValue", { date: recurringEndDate })}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -330,6 +583,7 @@ export function BulkAssignForm({
         }
         scheduledFor={civilDate}
         candidates={selectedClients}
+        recurrenceSummary={recurrenceSummary}
         submitting={submitting}
         onConfirm={onConfirm}
       />
