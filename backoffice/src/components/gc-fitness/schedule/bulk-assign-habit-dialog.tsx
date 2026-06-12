@@ -223,285 +223,291 @@ export function BulkAssignHabitDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl overflow-hidden">
+      <DialogContent className="w-[min(96vw,72rem)] sm:max-w-5xl lg:max-w-6xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto -mx-4 px-4">
-          {/* Step 1 — habit template */}
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium">{t("habitLabel")}</p>
-            {selectedTemplate ? (
-              <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-                <span className="min-w-0 truncate text-sm font-medium">
-                  {selectedTemplate.name.en || selectedTemplate.name.es}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTemplate(null)}
-                  className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  {t("changeHabit")}
-                </button>
-              </div>
-            ) : (
-              <BulkHabitPicker onPick={setSelectedTemplate} />
-            )}
-          </div>
-
-          {/* Step 2 — clients */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">
-                {t("clientsLabel", { count: selectedCount })}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAll}
-                  disabled={clients.length === 0}
-                >
-                  {t("selectAll")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAll}
-                  disabled={selectedCount === 0}
-                >
-                  {t("clearAll")}
-                </Button>
-              </div>
-            </div>
-            {clients.length === 0 ? (
-              <p className="rounded-md border px-3 py-4 text-center text-sm text-muted-foreground">
-                {t("noClients")}
-              </p>
-            ) : (
-              <ul className="flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto rounded-md border p-2">
-                {clients.map((c) => {
-                  const checked = selectedClientIds.has(c.uid);
-                  return (
-                    <li key={c.uid}>
-                      <label
-                        className={cn(
-                          "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition hover:bg-accent",
-                          checked && "bg-accent/60",
-                        )}
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={() => toggleClient(c.uid)}
-                        />
-                        <span className="min-w-0 flex-1 truncate">
-                          {c.displayName}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          {/* Step 3 — start date */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="bulk-assign-starts-on" className="text-sm font-medium">
-              {t("startsOnLabel")}
-            </label>
-            <input
-              id="bulk-assign-starts-on"
-              type="date"
-              value={startsOn}
-              onChange={(e) => setStartsOn(e.target.value)}
-              className="h-10 w-48 rounded-md border bg-background px-3 text-sm"
-            />
-            <p className="text-xs text-muted-foreground">{t("startsOnHint")}</p>
-          </div>
-
-          {/* Step 4 — recurrence (#176). Seeded from the template; editable. */}
-          {selectedTemplate && schedule ? (
-            <div className="flex flex-col gap-3 rounded-md border p-3">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            <div className="flex flex-col gap-4">
+              {/* Step 1 — habit template */}
               <div className="flex flex-col gap-1.5">
-                <p className="text-sm font-medium">{t("scheduleLabel")}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t("scheduleHint")}
-                </p>
+                <p className="text-sm font-medium">{t("habitLabel")}</p>
+                {selectedTemplate ? (
+                  <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                    <span className="min-w-0 truncate text-sm font-medium">
+                      {selectedTemplate.name.en || selectedTemplate.name.es}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplate(null)}
+                      className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      {t("changeHabit")}
+                    </button>
+                  </div>
+                ) : (
+                  <BulkHabitPicker onPick={setSelectedTemplate} />
+                )}
               </div>
 
-              {/* Type: recurring vs one-time */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {t("scheduleTypeLabel")}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {(["recurring", "one-time"] as const).map((value) => {
-                    const active = schedule.scheduleType === value;
-                    return (
-                      <Button
-                        key={value}
-                        type="button"
-                        variant={active ? "default" : "outline"}
-                        size="sm"
-                        aria-pressed={active}
-                        onClick={() =>
-                          setSchedule((prev) =>
-                            prev ? { ...prev, scheduleType: value } : prev,
-                          )
-                        }
-                      >
-                        {value === "recurring"
-                          ? t("scheduleTypeRecurring")
-                          : t("scheduleTypeOneTime")}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Step 4 — recurrence (#176). Seeded from the template; editable. */}
+              {selectedTemplate && schedule ? (
+                <div className="flex flex-col gap-3 rounded-md border p-3">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-sm font-medium">{t("scheduleLabel")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("scheduleHint")}
+                    </p>
+                  </div>
 
-              {schedule.scheduleType === "recurring" ? (
-                <>
-                  {/* Cadence */}
+                  {/* Type: recurring vs one-time */}
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-medium text-muted-foreground">
-                      {t("cadenceLabel")}
+                      {t("scheduleTypeLabel")}
                     </span>
                     <div className="flex flex-wrap gap-2">
-                      {(["daily", "weekly", "monthly"] as const).map(
-                        (cadence) => {
-                          const active = schedule.scheduleCadence === cadence;
-                          return (
-                            <Button
-                              key={cadence}
-                              type="button"
-                              variant={active ? "default" : "outline"}
-                              size="sm"
-                              aria-pressed={active}
-                              onClick={() =>
-                                setSchedule((prev) => {
-                                  if (!prev) return prev;
-                                  const next: BulkSchedule = {
-                                    ...prev,
-                                    scheduleCadence: cadence,
-                                  };
-                                  // Seed a sensible default day when switching
-                                  // to monthly with nothing chosen yet.
-                                  if (
-                                    cadence === "monthly" &&
-                                    next.scheduleMonthDays.length === 0
-                                  ) {
-                                    next.scheduleMonthDays = [1];
-                                  }
-                                  return next;
-                                })
-                              }
-                            >
-                              {cadence === "daily"
-                                ? t("cadenceDaily")
-                                : cadence === "weekly"
-                                  ? t("cadenceWeekly")
-                                  : t("cadenceMonthly")}
-                            </Button>
-                          );
-                        },
-                      )}
+                      {(["recurring", "one-time"] as const).map((value) => {
+                        const active = schedule.scheduleType === value;
+                        return (
+                          <Button
+                            key={value}
+                            type="button"
+                            variant={active ? "default" : "outline"}
+                            size="sm"
+                            aria-pressed={active}
+                            onClick={() =>
+                              setSchedule((prev) =>
+                                prev ? { ...prev, scheduleType: value } : prev,
+                              )
+                            }
+                          >
+                            {value === "recurring"
+                              ? t("scheduleTypeRecurring")
+                              : t("scheduleTypeOneTime")}
+                          </Button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Weekly → weekday chips */}
-                  {schedule.scheduleCadence === "weekly" ? (
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {t("weekdaysLabel")}
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {WEEKDAY_KEYS.map((weekday) => {
-                          const active = schedule.scheduleWeekdays.includes(
-                            weekday.value,
-                          );
-                          return (
-                            <Button
-                              key={weekday.value}
-                              type="button"
-                              variant={active ? "default" : "outline"}
-                              size="sm"
-                              aria-pressed={active}
-                              onClick={() =>
-                                setSchedule((prev) => {
-                                  if (!prev) return prev;
-                                  const set = new Set(prev.scheduleWeekdays);
-                                  if (set.has(weekday.value))
-                                    set.delete(weekday.value);
-                                  else set.add(weekday.value);
-                                  return {
-                                    ...prev,
-                                    scheduleWeekdays: Array.from(set).sort(
-                                      (a, b) => a - b,
-                                    ),
-                                  };
-                                })
-                              }
-                            >
-                              {t(`weekdayShort.${weekday.key}`)}
-                            </Button>
-                          );
-                        })}
+                  {schedule.scheduleType === "recurring" ? (
+                    <>
+                      {/* Cadence */}
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {t("cadenceLabel")}
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {(["daily", "weekly", "monthly"] as const).map(
+                            (cadence) => {
+                              const active = schedule.scheduleCadence === cadence;
+                              return (
+                                <Button
+                                  key={cadence}
+                                  type="button"
+                                  variant={active ? "default" : "outline"}
+                                  size="sm"
+                                  aria-pressed={active}
+                                  onClick={() =>
+                                    setSchedule((prev) => {
+                                      if (!prev) return prev;
+                                      const next: BulkSchedule = {
+                                        ...prev,
+                                        scheduleCadence: cadence,
+                                      };
+                                      // Seed a sensible default day when switching
+                                      // to monthly with nothing chosen yet.
+                                      if (
+                                        cadence === "monthly" &&
+                                        next.scheduleMonthDays.length === 0
+                                      ) {
+                                        next.scheduleMonthDays = [1];
+                                      }
+                                      return next;
+                                    })
+                                  }
+                                >
+                                  {cadence === "daily"
+                                    ? t("cadenceDaily")
+                                    : cadence === "weekly"
+                                      ? t("cadenceWeekly")
+                                      : t("cadenceMonthly")}
+                                </Button>
+                              );
+                            },
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
 
-                  {/* Monthly → day-of-month chips */}
-                  {schedule.scheduleCadence === "monthly" ? (
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {t("monthDaysLabel")}
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {MONTH_DAY_OPTIONS.map((monthDay) => {
-                          const active =
-                            schedule.scheduleMonthDays.includes(monthDay);
-                          return (
-                            <Button
-                              key={monthDay}
-                              type="button"
-                              variant={active ? "default" : "outline"}
-                              size="sm"
-                              aria-pressed={active}
-                              onClick={() =>
-                                setSchedule((prev) => {
-                                  if (!prev) return prev;
-                                  const set = new Set(prev.scheduleMonthDays);
-                                  if (set.has(monthDay)) set.delete(monthDay);
-                                  else set.add(monthDay);
-                                  return {
-                                    ...prev,
-                                    scheduleMonthDays: Array.from(set).sort(
-                                      (a, b) => a - b,
-                                    ),
-                                  };
-                                })
-                              }
-                            >
-                              {monthDay}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {t("monthDaysHint")}
-                      </p>
-                    </div>
+                      {/* Weekly → weekday chips */}
+                      {schedule.scheduleCadence === "weekly" ? (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {t("weekdaysLabel")}
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {WEEKDAY_KEYS.map((weekday) => {
+                              const active = schedule.scheduleWeekdays.includes(
+                                weekday.value,
+                              );
+                              return (
+                                <Button
+                                  key={weekday.value}
+                                  type="button"
+                                  variant={active ? "default" : "outline"}
+                                  size="sm"
+                                  aria-pressed={active}
+                                  onClick={() =>
+                                    setSchedule((prev) => {
+                                      if (!prev) return prev;
+                                      const set = new Set(prev.scheduleWeekdays);
+                                      if (set.has(weekday.value))
+                                        set.delete(weekday.value);
+                                      else set.add(weekday.value);
+                                      return {
+                                        ...prev,
+                                        scheduleWeekdays: Array.from(set).sort(
+                                          (a, b) => a - b,
+                                        ),
+                                      };
+                                    })
+                                  }
+                                >
+                                  {t(`weekdayShort.${weekday.key}`)}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Monthly → day-of-month chips */}
+                      {schedule.scheduleCadence === "monthly" ? (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {t("monthDaysLabel")}
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {MONTH_DAY_OPTIONS.map((monthDay) => {
+                              const active =
+                                schedule.scheduleMonthDays.includes(monthDay);
+                              return (
+                                <Button
+                                  key={monthDay}
+                                  type="button"
+                                  variant={active ? "default" : "outline"}
+                                  size="sm"
+                                  aria-pressed={active}
+                                  onClick={() =>
+                                    setSchedule((prev) => {
+                                      if (!prev) return prev;
+                                      const set = new Set(prev.scheduleMonthDays);
+                                      if (set.has(monthDay)) set.delete(monthDay);
+                                      else set.add(monthDay);
+                                      return {
+                                        ...prev,
+                                        scheduleMonthDays: Array.from(set).sort(
+                                          (a, b) => a - b,
+                                        ),
+                                      };
+                                    })
+                                  }
+                                >
+                                  {monthDay}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {t("monthDaysHint")}
+                          </p>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
-                </>
+                </div>
               ) : null}
             </div>
-          ) : null}
+
+            <div className="flex flex-col gap-4">
+              {/* Step 2 — clients */}
+              <div className="flex flex-col gap-1.5 rounded-md border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">
+                    {t("clientsLabel", { count: selectedCount })}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={selectAll}
+                      disabled={clients.length === 0}
+                    >
+                      {t("selectAll")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAll}
+                      disabled={selectedCount === 0}
+                    >
+                      {t("clearAll")}
+                    </Button>
+                  </div>
+                </div>
+                {clients.length === 0 ? (
+                  <p className="rounded-md border px-3 py-4 text-center text-sm text-muted-foreground">
+                    {t("noClients")}
+                  </p>
+                ) : (
+                  <ul className="flex max-h-[42vh] flex-col gap-0.5 overflow-y-auto rounded-md border p-2">
+                    {clients.map((c) => {
+                      const checked = selectedClientIds.has(c.uid);
+                      return (
+                        <li key={c.uid}>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition hover:bg-accent",
+                              checked && "bg-accent/60",
+                            )}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleClient(c.uid)}
+                            />
+                            <span className="min-w-0 flex-1 truncate">
+                              {c.displayName}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {/* Step 3 — start date */}
+              <div className="flex flex-col gap-1.5 rounded-md border p-3">
+                <label htmlFor="bulk-assign-starts-on" className="text-sm font-medium">
+                  {t("startsOnLabel")}
+                </label>
+                <input
+                  id="bulk-assign-starts-on"
+                  type="date"
+                  value={startsOn}
+                  onChange={(e) => setStartsOn(e.target.value)}
+                  className="h-10 w-48 rounded-md border bg-background px-3 text-sm"
+                />
+                <p className="text-xs text-muted-foreground">{t("startsOnHint")}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
