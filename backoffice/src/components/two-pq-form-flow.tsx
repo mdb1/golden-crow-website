@@ -2807,9 +2807,11 @@ export function TwoPQFormFlow({
         {
           label: t("Change warning"),
           value: sampleRequestedTestChanged
-            ? t(
+            ? `${t(
                 "The biopsy form test is different from the linked study request test."
-              )
+              )} ${t(
+                "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample."
+              )}`
             : t("No changes from linked study request."),
           wide: true,
         },
@@ -5100,6 +5102,10 @@ export function TwoPQFormFlow({
                   {t("Original requested test")}:{" "}
                   {requestedTestKeyLabel(selectedStudyRequestOriginalTest) ||
                     t("Not provided")}
+                  .{" "}
+                  {t(
+                    "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample."
+                  )}
                 </div>
               ) : null}
               {selectedRequestedTest ? (

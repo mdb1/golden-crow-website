@@ -657,6 +657,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Change warning": "Aviso de cambio",
   "The biopsy form test is different from the linked study request test.":
     "El test del formulario de biopsias es distinto del test de la solicitud de estudio vinculada.",
+  "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample.":
+    "Se utilizará el nuevo valor seleccionado en este formulario como decisión final para avanzar con el procesamiento de la muestra.",
   "No changes from linked study request.":
     "Sin cambios respecto de la solicitud de estudio vinculada.",
   "Study creation date": "Fecha de creación del estudio",
