@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -3413,6 +3413,37 @@ export function TwoPQFormFlow({
     ].join(" ");
   }
 
+  function focusBiopsyTableCell(
+    rowIndex: number,
+    key: keyof SamplingInformationFormState
+  ) {
+    const cell = document.querySelector<HTMLElement>(
+      `[data-biopsy-cell="${rowIndex}:${key}"]`
+    );
+    const focusable = cell?.querySelector<HTMLElement>(
+      "input, textarea, button, [role='combobox'], [tabindex]:not([tabindex='-1'])"
+    );
+    focusable?.focus();
+  }
+
+  function handleBiopsyCellKeyDown(
+    event: KeyboardEvent<HTMLElement>,
+    rowIndex: number,
+    key: keyof SamplingInformationFormState
+  ) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+      return;
+    }
+
+    const nextRowIndex = rowIndex + (event.key === "ArrowDown" ? 1 : -1);
+    if (nextRowIndex < 0 || nextRowIndex >= state.samplingInformation.length) {
+      return;
+    }
+
+    event.preventDefault();
+    focusBiopsyTableCell(nextRowIndex, key);
+  }
+
   function setStepErrors(step: StepKey, errors: FieldErrors) {
     setFieldErrors((current) => ({
       ...Object.fromEntries(
@@ -3777,6 +3808,17 @@ export function TwoPQFormFlow({
       setPending(false);
     }
   }
+
+  const samplingTableValidationMessages = Object.entries(fieldErrors)
+    .filter(([key]) => key.startsWith("samplingInformation."))
+    .map(([, message]) => message);
+  const showSamplingTableValidationCard =
+    currentStep === "samplingInformation" &&
+    samplingTableValidationMessages.length > 0;
+  const visibleSamplingValidationMessages =
+    samplingTableValidationMessages.slice(0, 6);
+  const hiddenSamplingValidationCount =
+    samplingTableValidationMessages.length - visibleSamplingValidationMessages.length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -5535,7 +5577,8 @@ export function TwoPQFormFlow({
         {currentStep === "samplingInformation" ? (
           <div className="space-y-4">
             {state.samplingTableGenerated ? (
-              <div className="overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
+              <>
+                <div className="overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
                 <table className="min-w-[88rem] border-collapse bg-white text-sm">
                   <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
                     <tr>
@@ -5576,7 +5619,13 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td
+                          className="border border-slate-300 p-0 align-top"
+                          data-biopsy-cell={`${index}:internalCode`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(event, index, "internalCode")
+                          }
+                        >
                           <Input
                             id={`form-sampling-internal-code-${index}`}
                             value={sampling.internalCode}
@@ -5588,20 +5637,31 @@ export function TwoPQFormFlow({
                             className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
                           />
                         </td>
-                        <td className={samplingCellClass(index, "embryoStageDay")}>
-                          <OptionSelectField
-                            options={["5", "6", "7"].map((value) => ({
-                              value,
-                              label: value,
-                            }))}
+                        <td
+                          className={samplingCellClass(index, "embryoStageDay")}
+                          data-biopsy-cell={`${index}:embryoStageDay`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(
+                              event,
+                              index,
+                              "embryoStageDay"
+                            )
+                          }
+                        >
+                          <Input
+                            id={`form-sampling-stage-day-${index}`}
                             value={sampling.embryoStageDay}
-                            onChange={(embryoStageDay) =>
+                            maxLength={1}
+                            inputMode="numeric"
+                            onChange={(event) =>
                               updateSamplingInformation(index, {
-                                embryoStageDay,
+                                embryoStageDay: event.target.value.slice(0, 1),
                               })
                             }
-                            placeholder={t("Not set")}
-                            emptyLabel={t("Not set")}
+                            className={spreadsheetInputClass(
+                              index,
+                              "embryoStageDay"
+                            )}
                           />
                           <FieldError
                             message={errorFor(
@@ -5609,7 +5669,13 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className={samplingCellClass(index, "morphology")}>
+                        <td
+                          className={samplingCellClass(index, "morphology")}
+                          data-biopsy-cell={`${index}:morphology`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(event, index, "morphology")
+                          }
+                        >
                           <Input
                             id={`form-sampling-morphology-${index}`}
                             value={sampling.morphology}
@@ -5627,7 +5693,13 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className={samplingCellClass(index, "sentUl")}>
+                        <td
+                          className={samplingCellClass(index, "sentUl")}
+                          data-biopsy-cell={`${index}:sentUl`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(event, index, "sentUl")
+                          }
+                        >
                           <Input
                             id={`form-sampling-sent-ul-${index}`}
                             value={sampling.sentUl}
@@ -5645,7 +5717,17 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className={samplingCellClass(index, "biopsiedCells")}>
+                        <td
+                          className={samplingCellClass(index, "biopsiedCells")}
+                          data-biopsy-cell={`${index}:biopsiedCells`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(
+                              event,
+                              index,
+                              "biopsiedCells"
+                            )
+                          }
+                        >
                           <Input
                             id={`form-sampling-biopsied-cells-${index}`}
                             value={sampling.biopsiedCells}
@@ -5663,7 +5745,17 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className={samplingCellClass(index, "cellsVisualized")}>
+                        <td
+                          className={samplingCellClass(index, "cellsVisualized")}
+                          data-biopsy-cell={`${index}:cellsVisualized`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(
+                              event,
+                              index,
+                              "cellsVisualized"
+                            )
+                          }
+                        >
                           <OptionSelectField
                             options={yesNoOptions}
                             value={sampling.cellsVisualized}
@@ -5681,7 +5773,13 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td
+                          className="border border-slate-300 p-0 align-top"
+                          data-biopsy-cell={`${index}:notes`}
+                          onKeyDownCapture={(event) =>
+                            handleBiopsyCellKeyDown(event, index, "notes")
+                          }
+                        >
                           <Textarea
                             id={`form-sampling-notes-${index}`}
                             value={sampling.notes}
@@ -5701,7 +5799,33 @@ export function TwoPQFormFlow({
                 <p className="px-3 py-2 text-xs text-slate-600">
                   {t("(*): Required field")}
                 </p>
-              </div>
+                </div>
+                {showSamplingTableValidationCard ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-4 text-sm text-red-950 dark:border-red-300/24 dark:bg-red-950/20 dark:text-red-50">
+                    <p className="font-semibold">
+                      {t("Biopsy table validation failed.")}
+                    </p>
+                    <p className="mt-1 text-red-900/80 dark:text-red-50/78">
+                      {t(
+                        "Complete every required cell and fix cells that do not match their validation criteria before opening preview."
+                      )}
+                    </p>
+                    <ul className="mt-3 list-disc space-y-1 pl-5 text-xs">
+                      {visibleSamplingValidationMessages.map(
+                        (message, issueIndex) => (
+                          <li key={`${message}-${issueIndex}`}>{message}</li>
+                        )
+                      )}
+                      {hiddenSamplingValidationCount > 0 ? (
+                        <li>
+                          {t("Additional table issues")}:{" "}
+                          {hiddenSamplingValidationCount}
+                        </li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-5 text-sm text-muted-foreground">
                 {t("Generate the biopsy table from the previous step.")}

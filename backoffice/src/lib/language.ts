@@ -351,6 +351,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Stage day must be 5, 6 or 7.": "El estadio día debe ser 5, 6 o 7.",
   "Morphology must be 1 to 3 alphanumeric characters.":
     "La morfología debe tener de 1 a 3 caracteres alfanuméricos.",
+  "Biopsy table validation failed.":
+    "Falló la validación de la tabla de biopsias.",
+  "Complete every required cell and fix cells that do not match their validation criteria before opening preview.":
+    "Completá todas las celdas obligatorias y corregí las que no cumplen con sus criterios antes de abrir la vista previa.",
+  "Additional table issues": "Errores adicionales en la tabla",
   "Generate the sampling table.": "Generá la tabla de samplings.",
   "Sampling table row count must match number of biopsies plus two.":
     "La cantidad de filas de la tabla debe ser número de biopsias más dos.",
