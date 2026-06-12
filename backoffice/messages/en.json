@@ -1350,7 +1350,8 @@
       "habits": "Habits",
       "birthdayBadge": "Birthday",
       "pickClientsPrompt": "Pick one or more clients above to see their agenda.",
-      "pickClientFirstToast": "Pick at least one client first"
+      "pickClientFirstToast": "Pick at least one client first",
+      "bulkAssignHabit": "Assign habit"
     },
     "clientPicker": {
       "emptyTitle": "No clients yet",
