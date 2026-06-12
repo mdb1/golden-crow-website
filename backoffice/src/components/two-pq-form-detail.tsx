@@ -420,6 +420,74 @@ function RequestedTestDetailSection({
   );
 }
 
+function SamplingInformationTableSection({
+  samplings,
+}: {
+  samplings?: Record<string, unknown>[];
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+
+  if (!samplings?.length) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-sm bg-white px-6 py-6 text-black shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/10 sm:px-8">
+      <div className="border-b border-black/12 pb-4">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-black/45">
+          2pq_forms
+        </p>
+        <h2 className="mt-1 font-heading text-lg font-semibold text-black">
+          {t("Biopsy rows")}
+        </h2>
+      </div>
+      <div className="mt-5 overflow-x-auto border border-black/20">
+        <table className="min-w-[76rem] border-collapse bg-white text-sm">
+          <thead className="bg-black/[0.04] text-left text-[0.68rem] uppercase tracking-[0.08em] text-black/65">
+            <tr>
+              {SAMPLING_INFORMATION_FIELDS.map((field) => (
+                <th
+                  key={field.key}
+                  className="border border-black/20 px-3 py-2 align-bottom font-semibold"
+                >
+                  {t(field.label)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {samplings.map((sampling, index) => {
+              const rowKey =
+                getTextValue(sampling, "id") ||
+                getTextValue(sampling, "sampleId") ||
+                String(index);
+
+              return (
+                <tr key={`${rowKey}-${index}`} className="odd:bg-black/[0.015]">
+                  {SAMPLING_INFORMATION_FIELDS.map((field) => (
+                    <td
+                      key={`${rowKey}-${field.key}`}
+                      className="min-w-36 whitespace-pre-wrap break-words border border-black/20 px-3 py-2 align-top text-black"
+                    >
+                      {formatValue(
+                        sampling[field.key],
+                        language,
+                        t,
+                        field.type
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function getTextValue(data: Record<string, unknown> | undefined, key: string) {
   const value = data?.[key];
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -731,14 +799,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
               data={form.caseInformation}
             />
           ) : null}
-          {(form.samplingInformation ?? []).map((sampling, index) => (
-            <DetailSection
-              key={`${getTextValue(sampling, "id") ?? index}`}
-              title={`${t("2PQ Sampling")} ${index + 1}`}
-              fields={SAMPLING_INFORMATION_FIELDS}
-              data={sampling}
-            />
-          ))}
+          <SamplingInformationTableSection samplings={form.samplingInformation} />
         </>
       ) : (
         <>
