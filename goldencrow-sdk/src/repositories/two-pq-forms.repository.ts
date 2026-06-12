@@ -848,34 +848,34 @@ function normalizeRequestedTest(
       pgtAFast,
       pgtAFastReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsMosaicism,
-        formType === "study_request" && pgtAFast,
+        pgtAFast,
         "PGT-A FAST informa mosaicismos"
       ),
       pgtAFastReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsSex,
-        formType === "study_request" && pgtAFast,
+        pgtAFast,
         "PGT-A FAST informa sexo"
       ),
       pgtAStandard,
       pgtAStandardReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAStandardReportsMosaicism,
-        formType === "study_request" && pgtAStandard,
+        pgtAStandard,
         "PGT-A STANDARD informa mosaicismos"
       ),
       pgtAStandardReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtAStandardReportsSex,
-        formType === "study_request" && pgtAStandard,
+        pgtAStandard,
         "PGT-A STANDARD informa sexo"
       ),
       pgtSr,
       pgtSrReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtSrReportsMosaicism,
-        formType === "study_request" && pgtSr,
+        pgtSr,
         "PGT-SR informa mosaicismos"
       ),
       pgtSrReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtSrReportsSex,
-        formType === "study_request" && pgtSr,
+        pgtSr,
         "PGT-SR informa sexo"
       ),
     });

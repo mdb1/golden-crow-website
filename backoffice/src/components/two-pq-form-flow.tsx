@@ -1143,61 +1143,59 @@ function validateStepFields(
   }
 
   if (step === "requestedTest") {
-    if (formType === "study_request") {
-      const requestedStudyTests = [
-        {
-          key: "pgtAFast",
-          value: flowState.requestedTest.pgtAFast,
-          label: "PGT-A FAST",
-          mosaicismKey: "pgtAFastReportsMosaicism",
-          mosaicismValue: flowState.requestedTest.pgtAFastReportsMosaicism,
-          sexKey: "pgtAFastReportsSex",
-          sexValue: flowState.requestedTest.pgtAFastReportsSex,
-        },
-        {
-          key: "pgtAStandard",
-          value: flowState.requestedTest.pgtAStandard,
-          label: "PGT-A STANDARD",
-          mosaicismKey: "pgtAStandardReportsMosaicism",
-          mosaicismValue: flowState.requestedTest.pgtAStandardReportsMosaicism,
-          sexKey: "pgtAStandardReportsSex",
-          sexValue: flowState.requestedTest.pgtAStandardReportsSex,
-        },
-        {
-          key: "pgtSr",
-          value: flowState.requestedTest.pgtSr,
-          label: "PGT-SR",
-          mosaicismKey: "pgtSrReportsMosaicism",
-          mosaicismValue: flowState.requestedTest.pgtSrReportsMosaicism,
-          sexKey: "pgtSrReportsSex",
-          sexValue: flowState.requestedTest.pgtSrReportsSex,
-        },
-      ];
-      const selectedTestKey = selectedRequestedTestKey(flowState.requestedTest);
+    const requestedStudyTests = [
+      {
+        key: "pgtAFast",
+        value: flowState.requestedTest.pgtAFast,
+        label: "PGT-A FAST",
+        mosaicismKey: "pgtAFastReportsMosaicism",
+        mosaicismValue: flowState.requestedTest.pgtAFastReportsMosaicism,
+        sexKey: "pgtAFastReportsSex",
+        sexValue: flowState.requestedTest.pgtAFastReportsSex,
+      },
+      {
+        key: "pgtAStandard",
+        value: flowState.requestedTest.pgtAStandard,
+        label: "PGT-A STANDARD",
+        mosaicismKey: "pgtAStandardReportsMosaicism",
+        mosaicismValue: flowState.requestedTest.pgtAStandardReportsMosaicism,
+        sexKey: "pgtAStandardReportsSex",
+        sexValue: flowState.requestedTest.pgtAStandardReportsSex,
+      },
+      {
+        key: "pgtSr",
+        value: flowState.requestedTest.pgtSr,
+        label: "PGT-SR",
+        mosaicismKey: "pgtSrReportsMosaicism",
+        mosaicismValue: flowState.requestedTest.pgtSrReportsMosaicism,
+        sexKey: "pgtSrReportsSex",
+        sexValue: flowState.requestedTest.pgtSrReportsSex,
+      },
+    ];
+    const selectedTestKey = selectedRequestedTestKey(flowState.requestedTest);
 
-      if (!selectedTestKey) {
-        errors.requestedTest = t("Select one requested test.");
-      }
+    if (!selectedTestKey) {
+      errors.requestedTest = t("Select one requested test.");
+    }
 
-      requestedStudyTests.forEach((test) => {
-        if (test.value === "si") {
-          if (!test.mosaicismValue) {
-            errors[`requestedTest.${test.mosaicismKey}`] =
-              t(`Select ${test.label} reports mosaicism.`);
-          }
-          if (!test.sexValue) {
-            errors[`requestedTest.${test.sexKey}`] =
-              t(`Select ${test.label} reports sex.`);
-          }
+    requestedStudyTests.forEach((test) => {
+      if (test.value === "si") {
+        if (!test.mosaicismValue) {
+          errors[`requestedTest.${test.mosaicismKey}`] =
+            t(`Select ${test.label} reports mosaicism.`);
         }
-      });
-
-      if (
-        requestedStudyTests.filter((test) => test.value === "si").length > 1
-      ) {
-        errors.requestedTest = t("Select only one requested test.");
+        if (!test.sexValue) {
+          errors[`requestedTest.${test.sexKey}`] =
+            t(`Select ${test.label} reports sex.`);
+        }
       }
+    });
 
+    if (requestedStudyTests.filter((test) => test.value === "si").length > 1) {
+      errors.requestedTest = t("Select only one requested test.");
+    }
+
+    if (formType === "study_request") {
       if (!flowState.previousGeneticTests.karyotype) {
         errors["previousGeneticTests.karyotype"] =
           t("Select whether there is karyotype information.");
@@ -1211,10 +1209,6 @@ function validateStepFields(
       }
 
       return errors;
-    }
-
-    if (!selectedRequestedTestKey(flowState.requestedTest)) {
-      errors.requestedTest = t("Select one requested test.");
     }
   }
 
@@ -2767,6 +2761,32 @@ export function TwoPQFormFlow({
         {
           label: t("Original requested test"),
           value: previewValue(requestedTestKeyLabel(selectedStudyRequestOriginalTest)),
+        },
+        {
+          label: t("Reports mosaicism"),
+          value: previewOptionValue(
+            yesNoOptions,
+            selectedRequestedTest === "pgtAFast"
+              ? state.requestedTest.pgtAFastReportsMosaicism
+              : selectedRequestedTest === "pgtAStandard"
+                ? state.requestedTest.pgtAStandardReportsMosaicism
+                : selectedRequestedTest === "pgtSr"
+                  ? state.requestedTest.pgtSrReportsMosaicism
+                  : ""
+          ),
+        },
+        {
+          label: t("Reports sex"),
+          value: previewOptionValue(
+            yesNoOptions,
+            selectedRequestedTest === "pgtAFast"
+              ? state.requestedTest.pgtAFastReportsSex
+              : selectedRequestedTest === "pgtAStandard"
+                ? state.requestedTest.pgtAStandardReportsSex
+                : selectedRequestedTest === "pgtSr"
+                  ? state.requestedTest.pgtSrReportsSex
+                  : ""
+          ),
         },
         {
           label: t("Change warning"),
@@ -5002,6 +5022,79 @@ export function TwoPQFormFlow({
                   {requestedTestKeyLabel(selectedStudyRequestOriginalTest) ||
                     t("Not provided")}
                 </div>
+              ) : null}
+              {selectedRequestedTest ? (
+                <section className="rounded-xl border border-border/70 bg-background/50 p-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950 dark:border-emerald-300/24 dark:bg-emerald-950/20 dark:text-emerald-50">
+                      {requestedTestKeyLabel(selectedRequestedTest)}: {t("Yes")}
+                    </div>
+                    <YesNoField
+                      label={t("Reports mosaicism")}
+                      value={
+                        selectedRequestedTest === "pgtAFast"
+                          ? state.requestedTest.pgtAFastReportsMosaicism
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? state.requestedTest.pgtAStandardReportsMosaicism
+                            : state.requestedTest.pgtSrReportsMosaicism
+                      }
+                      onChange={(value) =>
+                        selectedRequestedTest === "pgtAFast"
+                          ? updateRequestedTest({
+                              pgtAFastReportsMosaicism: value,
+                            })
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? updateRequestedTest({
+                                pgtAStandardReportsMosaicism: value,
+                              })
+                            : updateRequestedTest({
+                                pgtSrReportsMosaicism: value,
+                              })
+                      }
+                      error={
+                        selectedRequestedTest === "pgtAFast"
+                          ? errorFor("requestedTest.pgtAFastReportsMosaicism")
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? errorFor("requestedTest.pgtAStandardReportsMosaicism")
+                            : errorFor("requestedTest.pgtSrReportsMosaicism")
+                      }
+                      options={yesNoOptions}
+                      placeholder={t("Select")}
+                    />
+                    <YesNoField
+                      label={t("Reports sex")}
+                      value={
+                        selectedRequestedTest === "pgtAFast"
+                          ? state.requestedTest.pgtAFastReportsSex
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? state.requestedTest.pgtAStandardReportsSex
+                            : state.requestedTest.pgtSrReportsSex
+                      }
+                      onChange={(value) =>
+                        selectedRequestedTest === "pgtAFast"
+                          ? updateRequestedTest({
+                              pgtAFastReportsSex: value,
+                            })
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? updateRequestedTest({
+                                pgtAStandardReportsSex: value,
+                              })
+                            : updateRequestedTest({
+                                pgtSrReportsSex: value,
+                              })
+                      }
+                      error={
+                        selectedRequestedTest === "pgtAFast"
+                          ? errorFor("requestedTest.pgtAFastReportsSex")
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? errorFor("requestedTest.pgtAStandardReportsSex")
+                            : errorFor("requestedTest.pgtSrReportsSex")
+                      }
+                      options={yesNoOptions}
+                      placeholder={t("Select")}
+                    />
+                  </div>
+                </section>
               ) : null}
               <div className="grid gap-3 rounded-xl border border-border/70 bg-background/58 p-4 md:grid-cols-2">
                 {[
