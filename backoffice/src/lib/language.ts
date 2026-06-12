@@ -708,7 +708,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "2PQ Reports": "Reportes 2PQ",
   "2PQ reports are separate from the legacy reports module.":
     "Los reportes 2PQ están separados del módulo histórico de reportes.",
-  "2PQ Sampling": "Muestreo 2PQ",
+  "2PQ Sampling": "Biopsia 2pq",
   "2PQ Sequencing": "Secuenciación 2PQ",
   "2PQ Shipments": "Envíos 2PQ",
   "6 character codes to be generated": "códigos de 6 caracteres por generar",
