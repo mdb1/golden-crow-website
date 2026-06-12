@@ -109,6 +109,12 @@ export type SamplingInformationFormState = {
   sampleId: string;
   sampleType: string;
   processingStatus: string;
+  internalCode: string;
+  embryoStageDay: string;
+  morphology: string;
+  sentUl: string;
+  biopsiedCells: string;
+  cellsVisualized: string;
   notes: string;
 };
 
@@ -207,7 +213,7 @@ export interface TwoPQFormDraftRecord {
 
 export const TWO_PQ_FORM_LABELS: Record<TwoPQFormType, string> = {
   study_request: "Solicitud de estudio",
-  sample: "Muestra",
+  sample: "Formulario de biopsias",
 };
 
 export const TWO_PQ_FORM_ROUTES: Record<TwoPQFormType, string> = {

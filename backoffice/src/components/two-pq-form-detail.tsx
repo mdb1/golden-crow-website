@@ -58,11 +58,11 @@ const STUDY_MEDICAL_FIELDS: FieldSpec[] = [
     label: "numero abortos previos",
     type: "miscarriages",
   },
-  { key: "otherBackground", label: "otros antecedentes" },
+  { key: "otherBackground", label: "Observaciones" },
 ];
 
 const STUDY_PREVIOUS_TEST_FIELDS: FieldSpec[] = [
-  { key: "karyotypeResult", label: "RESULTADO CARIOTIPO" },
+  { key: "karyotype", label: "Tiene informacion de cariotipo?", type: "boolean" },
   { key: "karyotypeFileName", label: "Archivo cariotipo" },
   { key: "karyotypeFileType", label: "Tipo archivo cariotipo" },
   { key: "karyotypeFileSize", label: "Tamaño archivo cariotipo" },
@@ -138,13 +138,13 @@ const CASE_INFORMATION_FIELDS: FieldSpec[] = [
 
 const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "sampleId", label: "Sample ID" },
-  { key: "sampleType", label: "Sample type" },
-  { key: "processingStatus", label: "Processing status" },
-  { key: "collectionDate", label: "Collection date", type: "date" },
-  { key: "receptionDate", label: "Reception date", type: "date" },
-  { key: "runId", label: "Run ID" },
-  { key: "qcStatus", label: "QC status" },
-  { key: "notes", label: "Notes" },
+  { key: "internalCode", label: "Internal code" },
+  { key: "embryoStageDay", label: "Stage day 5, 6 or 7" },
+  { key: "morphology", label: "Morphology" },
+  { key: "sentUl", label: "Sent uL" },
+  { key: "biopsiedCells", label: "Biopsied cells" },
+  { key: "cellsVisualized", label: "Cells visualized?", type: "boolean" },
+  { key: "notes", label: "Comments" },
 ];
 
 function formatDate(value: string, language: AppLanguage, includeTime = false) {
@@ -198,8 +198,9 @@ function formatValue(
       if (value === "donado") return "Donado";
     }
     if (type === "miscarriages") {
-      if (value === "3_or_more") return "3 o más";
-      if (value === "recurrent") return "Recurrente";
+      if (value === "3_or_more" || value === "recurrent") {
+        return "3 o más (recurrente)";
+      }
     }
     return value;
   }
@@ -249,6 +250,12 @@ function getTextValue(data: Record<string, unknown> | undefined, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function displayCaseLabel(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+  const xxxMatch = /^([A-Za-z]{3})XXX$/i.exec(normalized);
+  return xxxMatch ? xxxMatch[1].toUpperCase() : normalized;
+}
+
 function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -268,7 +275,7 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
           {t("2PQ Case and sampling records")}
         </h2>
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      <div className="mt-4 grid gap-3">
         {form.linkedCaseId ? (
           <div className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24">
             <div className="flex items-start gap-3">
@@ -276,8 +283,13 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                 <ClipboardList className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-emerald-950 dark:text-emerald-50">
-                  {getTextValue(form.caseInformation, "caseLabel") ?? form.linkedCaseId}
+                <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
+                  {t("Box code")}
+                </p>
+                <p className="font-heading text-3xl font-semibold text-emerald-950 dark:text-emerald-50">
+                  {displayCaseLabel(getTextValue(form.caseInformation, "caseLabel")) ||
+                    displayCaseLabel(getTextValue(form.caseInformation, "three_letter_code")) ||
+                    form.linkedCaseId}
                 </p>
                 <p className="font-mono text-xs text-emerald-900/70 dark:text-emerald-100/70">
                   {form.linkedCaseId}
@@ -304,7 +316,7 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
               key={`${samplingId}-${index}`}
               className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24"
             >
-              <div className="flex items-start gap-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/14 dark:text-emerald-200">
                   <FlaskConical className="size-5" />
                 </span>
@@ -312,9 +324,20 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                   <p className="font-medium text-emerald-950 dark:text-emerald-50">
                     {getTextValue(sampling, "sampleId") ?? samplingId}
                   </p>
-                  <p className="font-mono text-xs text-emerald-900/70 dark:text-emerald-100/70">
-                    {samplingId}
-                  </p>
+                  <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                    {SAMPLING_INFORMATION_FIELDS.filter(
+                      (field) => field.key !== "sampleId"
+                    ).map((field) => (
+                      <div key={field.key}>
+                        <dt className="text-xs font-semibold uppercase text-emerald-900/62 dark:text-emerald-100/62">
+                          {t(field.label)}
+                        </dt>
+                        <dd className="mt-0.5 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
+                          {formatValue(sampling[field.key], language, t, field.type)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/2pq-dashboard/sampling/${encodeURIComponent(samplingId)}`}>
@@ -487,6 +510,12 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
         </div>
       </section>
 
+      {form.formType === "sample" ? (
+        <LinkedRecordsSection form={form} />
+      ) : null}
+
+      {form.formType === "sample" ? null : (
+        <>
       <PatientLinkSection form={form} />
       <RequestingDoctorLinkSection form={form} />
 
@@ -546,6 +575,8 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
               data={sampling}
             />
           ))}
+        </>
+      )}
         </>
       )}
     </div>

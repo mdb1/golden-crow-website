@@ -144,7 +144,7 @@ function formTypeLabel(type: FormTypeFilter, t: (text: string) => string) {
     return t("Study request");
   }
   if (type === "sample") {
-    return t("Sample request");
+    return t("Biopsy form");
   }
   return t("All types");
 }
@@ -395,7 +395,7 @@ export function TwoPQFormsList({
               <SelectContent>
                 <SelectItem value="all">{t("All types")}</SelectItem>
                 <SelectItem value="study_request">{t("Study request")}</SelectItem>
-                <SelectItem value="sample">{t("Sample request")}</SelectItem>
+                <SelectItem value="sample">{t("Biopsy form")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -489,7 +489,7 @@ export function TwoPQFormsList({
                     {compactList([
                       form.formType === "study_request"
                         ? t("Study request")
-                        : t("Sample request"),
+                        : t("Biopsy form"),
                       form.requestedTestName,
                       form.institutionName,
                       form.patientEmail,
@@ -502,7 +502,7 @@ export function TwoPQFormsList({
                   <Badge variant="brand">
                     {form.formType === "study_request"
                       ? t("Study request")
-                      : t("Sample request")}
+                      : t("Biopsy form")}
                   </Badge>
                   {isArchived ? (
                     <Badge variant="warning">{t("Archived")}</Badge>

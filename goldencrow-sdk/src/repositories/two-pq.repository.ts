@@ -47,6 +47,12 @@ type TwoPQMutationInput = {
   collectionDate?: string;
   receptionDate?: string;
   processingStatus?: string;
+  internalCode?: string;
+  embryoStageDay?: string;
+  morphology?: string;
+  sentUl?: string;
+  biopsiedCells?: string;
+  cellsVisualized?: boolean | string;
   runId?: string;
   qcStatus?: string;
   carrier?: string;
@@ -96,6 +102,12 @@ const MUTABLE_FIELDS: Array<keyof TwoPQMutationInput> = [
   "collectionDate",
   "receptionDate",
   "processingStatus",
+  "internalCode",
+  "embryoStageDay",
+  "morphology",
+  "sentUl",
+  "biopsiedCells",
+  "cellsVisualized",
   "runId",
   "qcStatus",
   "carrier",

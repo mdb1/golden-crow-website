@@ -311,6 +311,12 @@ export interface TwoPQRecord {
   collectionDate?: string;
   receptionDate?: string;
   processingStatus?: string;
+  internalCode?: string;
+  embryoStageDay?: string;
+  morphology?: string;
+  sentUl?: string;
+  biopsiedCells?: string;
+  cellsVisualized?: string;
   runId?: string;
   qcStatus?: string;
   carrier?: string;

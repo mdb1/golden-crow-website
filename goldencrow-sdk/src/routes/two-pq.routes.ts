@@ -218,6 +218,12 @@ const TwoPQSamplingInformationSchema = z.object({
   sampleId: z.string().optional(),
   sampleType: z.string().optional(),
   processingStatus: z.string().optional(),
+  internalCode: z.string().optional(),
+  embryoStageDay: z.string().optional(),
+  morphology: z.string().optional(),
+  sentUl: z.string().optional(),
+  biopsiedCells: z.string().optional(),
+  cellsVisualized: TwoPQBooleanAnswerSchema.optional(),
   notes: z.string().optional(),
 });
 

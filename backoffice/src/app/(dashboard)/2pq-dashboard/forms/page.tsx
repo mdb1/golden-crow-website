@@ -37,6 +37,7 @@ export default async function TwoPQFormsPage({
 }: {
   searchParams: Promise<{
     createdId?: string;
+    createdType?: string;
     includeArchived?: string;
     formType?: string;
     search?: string;
@@ -47,6 +48,7 @@ export default async function TwoPQFormsPage({
 }) {
   const {
     createdId,
+    createdType,
     includeArchived: includeArchivedParam,
     formType: formTypeParam,
     search,
@@ -88,11 +90,14 @@ export default async function TwoPQFormsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <TwoPQFormCompletionDialog createdId={createdId} />
+      <TwoPQFormCompletionDialog
+        createdId={createdId}
+        createdType={formTypeFromParam(createdType)}
+      />
       <PageHero
         eyebrow="2PQ"
         title={t("Forms")}
-        description={t("Stored 2PQ study request and sample forms.")}
+        description={t("Stored 2PQ study request and biopsy forms.")}
         actions={
           <>
             {formDraft && draftHref ? (

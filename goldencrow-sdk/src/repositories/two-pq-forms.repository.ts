@@ -167,6 +167,12 @@ type SamplingInformationInput = {
   sampleId?: string;
   sampleType?: string;
   processingStatus?: string;
+  internalCode?: string;
+  embryoStageDay?: string;
+  morphology?: string;
+  sentUl?: string;
+  biopsiedCells?: string;
+  cellsVisualized?: boolean | string;
   notes?: string;
 };
 
@@ -744,7 +750,7 @@ function normalizeMedicalInformation(
       ),
       otherBackground: normalizeRequiredString(
         input.otherBackground,
-        "Otros antecedentes"
+        "Observaciones"
       ),
     });
   }
@@ -767,18 +773,30 @@ function normalizePreviousGeneticTests(
   formType: TwoPQFormType = "study_request"
 ) {
   if (formType === "study_request") {
+    const hasKaryotypeInformation = normalizeBooleanAnswer(
+      input.karyotype,
+      "Tiene informacion de cariotipo"
+    );
+    const karyotypeFileContent = normalizeOptionalString(
+      input.karyotypeFileContent
+    );
+    if (hasKaryotypeInformation && !karyotypeFileContent) {
+      throw new AdminRepositoryError(
+        "Karyotype file is required when karyotype information is SI.",
+        400
+      );
+    }
+
     return compactRecord({
-      karyotypeResult: normalizeRequiredString(
-        input.karyotypeResult,
-        "RESULTADO CARIOTIPO"
-      ),
+      karyotype: hasKaryotypeInformation,
+      karyotypeResult: normalizeOptionalString(input.karyotypeResult),
       karyotypeFileName: normalizeOptionalString(input.karyotypeFileName),
       karyotypeFileType: normalizeOptionalString(input.karyotypeFileType),
       karyotypeFileSize:
         typeof input.karyotypeFileSize === "number"
           ? String(input.karyotypeFileSize)
           : normalizeOptionalString(input.karyotypeFileSize),
-      karyotypeFileContent: normalizeOptionalString(input.karyotypeFileContent),
+      karyotypeFileContent,
     });
   }
 
@@ -807,7 +825,12 @@ function normalizeRequestedTest(
   input: RequestedTestInput,
   formType: TwoPQFormType = "sample"
 ) {
-  if (formType === "study_request") {
+  const hasThreeWayRequestedTest =
+    typeof input.pgtAFast !== "undefined" ||
+    typeof input.pgtAStandard !== "undefined" ||
+    typeof input.pgtSr !== "undefined";
+
+  if (formType === "study_request" || hasThreeWayRequestedTest) {
     const pgtAFast = normalizeBooleanAnswer(input.pgtAFast, "PGT-A FAST");
     const pgtAStandard = normalizeBooleanAnswer(
       input.pgtAStandard,
@@ -817,39 +840,42 @@ function normalizeRequestedTest(
     if (!pgtAFast && !pgtAStandard && !pgtSr) {
       throw new AdminRepositoryError("At least one requested test must be SI.", 400);
     }
+    if ([pgtAFast, pgtAStandard, pgtSr].filter(Boolean).length > 1) {
+      throw new AdminRepositoryError("Only one requested test can be SI.", 400);
+    }
 
     return compactRecord({
       pgtAFast,
       pgtAFastReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsMosaicism,
-        pgtAFast,
+        formType === "study_request" && pgtAFast,
         "PGT-A FAST informa mosaicismos"
       ),
       pgtAFastReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtAFastReportsSex,
-        pgtAFast,
+        formType === "study_request" && pgtAFast,
         "PGT-A FAST informa sexo"
       ),
       pgtAStandard,
       pgtAStandardReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtAStandardReportsMosaicism,
-        pgtAStandard,
+        formType === "study_request" && pgtAStandard,
         "PGT-A STANDARD informa mosaicismos"
       ),
       pgtAStandardReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtAStandardReportsSex,
-        pgtAStandard,
+        formType === "study_request" && pgtAStandard,
         "PGT-A STANDARD informa sexo"
       ),
       pgtSr,
       pgtSrReportsMosaicism: normalizeConditionalBooleanAnswer(
         input.pgtSrReportsMosaicism,
-        pgtSr,
+        formType === "study_request" && pgtSr,
         "PGT-SR informa mosaicismos"
       ),
       pgtSrReportsSex: normalizeConditionalBooleanAnswer(
         input.pgtSrReportsSex,
-        pgtSr,
+        formType === "study_request" && pgtSr,
         "PGT-SR informa sexo"
       ),
     });
@@ -883,7 +909,11 @@ function getRequestedTestName(
   requestedTest: Record<string, unknown>,
   formType: TwoPQFormType
 ) {
-  if (formType === "study_request") {
+  if (
+    formType === "study_request" ||
+    "pgtAFast" in requestedTest ||
+    "pgtAStandard" in requestedTest
+  ) {
     const selectedTests = [
       requestedTest.pgtAFast === true ? "PGT-A FAST" : null,
       requestedTest.pgtAStandard === true ? "PGT-A STANDARD" : null,
@@ -976,6 +1006,17 @@ function normalizeSamplingInformation(
       input.processingStatus,
       "2PQ processing status"
     ),
+    internalCode: normalizeOptionalString(input.internalCode),
+    embryoStageDay: normalizeOptionalString(input.embryoStageDay),
+    morphology: normalizeOptionalString(input.morphology),
+    sentUl: normalizeOptionalString(input.sentUl),
+    biopsiedCells: normalizeOptionalString(input.biopsiedCells),
+    cellsVisualized:
+      typeof input.cellsVisualized === "undefined"
+        ? undefined
+        : normalizeBooleanAnswer(input.cellsVisualized, "Celulas visualizadas")
+          ? "si"
+          : "no",
     collectionDate: undefined,
     receptionDate: undefined,
     runId: undefined,
@@ -1028,6 +1069,12 @@ function samplingRecordToFormInformation(record: {
   sampleId?: string;
   sampleType?: string;
   processingStatus?: string;
+  internalCode?: string;
+  embryoStageDay?: string;
+  morphology?: string;
+  sentUl?: string;
+  biopsiedCells?: string;
+  cellsVisualized?: boolean | string;
   collectionDate?: string;
   receptionDate?: string;
   runId?: string;
@@ -1041,6 +1088,15 @@ function samplingRecordToFormInformation(record: {
     sampleId: normalizeOptionalString(record.sampleId),
     sampleType: normalizeOptionalString(record.sampleType),
     processingStatus: normalizeOptionalString(record.processingStatus),
+    internalCode: normalizeOptionalString(record.internalCode),
+    embryoStageDay: normalizeOptionalString(record.embryoStageDay),
+    morphology: normalizeOptionalString(record.morphology),
+    sentUl: normalizeOptionalString(record.sentUl),
+    biopsiedCells: normalizeOptionalString(record.biopsiedCells),
+    cellsVisualized:
+      typeof record.cellsVisualized === "boolean"
+        ? record.cellsVisualized
+        : normalizeOptionalString(record.cellsVisualized),
     collectionDate: normalizeOptionalString(record.collectionDate),
     receptionDate: normalizeOptionalString(record.receptionDate),
     runId: normalizeOptionalString(record.runId),

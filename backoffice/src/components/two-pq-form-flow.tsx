@@ -108,7 +108,6 @@ const STUDY_REQUEST_STEPS: StepKey[] = [
   "patientInformation",
   "medicalInformation",
   "requestedTest",
-  "previousGeneticTests",
   "institutionInformation",
   "previewAndSignature",
 ];
@@ -118,9 +117,8 @@ const SAMPLE_STEPS: StepKey[] = [
   "patientInformation",
   "requestedTest",
   "sampleInformation",
-  "doctorInformation",
-  "caseInformation",
   "samplingInformation",
+  "previewAndSignature",
 ];
 
 const STEP_LABELS: Record<StepKey, string> = {
@@ -131,10 +129,10 @@ const STEP_LABELS: Record<StepKey, string> = {
   requestedTest: "Requested test",
   institutionInformation: "Institution information",
   previewAndSignature: "Preview and signature",
-  sampleInformation: "Sample information",
+  sampleInformation: "Biopsy form information",
   doctorInformation: "Doctor Information",
   caseInformation: "2PQ case",
-  samplingInformation: "2PQ sampling",
+  samplingInformation: "Biopsy table",
 };
 
 const VALIDATION_FIELD_LABELS: Record<string, string> = {
@@ -157,9 +155,11 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   "medicalInformation.oocyteGameteSource": "Oocytes",
   "medicalInformation.previousMiscarriagesCount": "Previous miscarriages",
   "medicalInformation.maleFactor": "Male factor",
-  "medicalInformation.otherBackground": "Other background",
+  "medicalInformation.otherBackground": "Observations",
+  "previousGeneticTests.karyotype": "Has karyotype information?",
   "previousGeneticTests.karyotypeResult": "Karyotype result",
   "previousGeneticTests.karyotypeFileContent": "Karyotype file",
+  "requestedTest": "Requested test",
   "requestedTest.pgtAFast": "PGT-A FAST",
   "requestedTest.pgtAFastReportsMosaicism": "PGT-A FAST reports mosaicism",
   "requestedTest.pgtAFastReportsSex": "PGT-A FAST reports sex",
@@ -198,6 +198,13 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   "samplingInformation.sampleId": "Sample ID",
   "samplingInformation.sampleType": "Sample type",
   "samplingInformation.processingStatus": "Processing status",
+  "samplingInformation.internalCode": "Internal code",
+  "samplingInformation.embryoStageDay": "Stage day 5, 6 or 7",
+  "samplingInformation.morphology": "Morphology",
+  "samplingInformation.sentUl": "Sent uL",
+  "samplingInformation.biopsiedCells": "Biopsied cells",
+  "samplingInformation.cellsVisualized": "Cells visualized?",
+  "samplingInformation.notes": "Comments",
 };
 
 const YES_NO_OPTIONS = [
@@ -214,8 +221,7 @@ const PREVIOUS_MISCARRIAGES_OPTIONS = [
   { value: "0", label: "0" },
   { value: "1", label: "1" },
   { value: "2", label: "2" },
-  { value: "3_or_more", label: "3 or more" },
-  { value: "recurrent", label: "Recurrent" },
+  { value: "3_or_more", label: "3 or more (recurrent)" },
 ];
 
 const KARYOTYPE_FILE_MAX_BYTES = 750_000;
@@ -234,6 +240,20 @@ const SAMPLE_CASE_TYPE_OPTIONS = [
   { value: "PGT SR", label: "PGT SR" },
   { value: "PGT A STANDARD", label: "PGT A STANDARD" },
 ];
+
+const REQUESTED_STUDY_TEST_OPTIONS = [
+  { value: "pgtSr", label: "PGT SR" },
+  { value: "pgtAStandard", label: "PGT A standard" },
+  { value: "pgtAFast", label: "PGT A fast" },
+];
+
+const REQUESTED_TEST_TO_CASE_TYPE: Record<string, string> = {
+  pgtSr: "PGT SR",
+  pgtAStandard: "PGT A STANDARD",
+  pgtAFast: "PGT FAST",
+};
+
+const MORPHOLOGY_PATTERN = /^[a-zA-Z0-9]{1,3}$/;
 
 const BIOPSY_COUNT_OPTIONS = Array.from({ length: 30 }, (_, index) => {
   const value = String(index + 1);
@@ -557,6 +577,12 @@ function emptySampling(): SamplingInformationFormState {
     sampleId: "",
     sampleType: "",
     processingStatus: "awaiting_reception",
+    internalCode: "",
+    embryoStageDay: "",
+    morphology: "",
+    sentUl: "",
+    biopsiedCells: "",
+    cellsVisualized: "",
     notes: "",
   };
 }
@@ -576,6 +602,129 @@ function generatedSamplingNotes(index: number, rowCount: number) {
     return "BLANCO";
   }
   return "";
+}
+
+function answerToFormValue(value: unknown) {
+  if (value === true) return "si";
+  if (value === false) return "no";
+  if (typeof value !== "string") return "";
+  const normalized = value.trim().toLowerCase();
+  if (["si", "sí", "yes", "true", "1"].includes(normalized)) return "si";
+  if (["no", "false", "0"].includes(normalized)) return "no";
+  return "";
+}
+
+function selectedRequestedTestKey(requestedTest: RequestedTestFormState) {
+  if (answerToFormValue(requestedTest.pgtSr) === "si") return "pgtSr";
+  if (answerToFormValue(requestedTest.pgtAStandard) === "si") {
+    return "pgtAStandard";
+  }
+  if (answerToFormValue(requestedTest.pgtAFast) === "si") return "pgtAFast";
+  return "";
+}
+
+function requestedTestKeyLabel(key: string) {
+  return REQUESTED_STUDY_TEST_OPTIONS.find((option) => option.value === key)?.label ?? "";
+}
+
+function caseTypeForRequestedTestKey(key: string) {
+  return REQUESTED_TEST_TO_CASE_TYPE[key] ?? "";
+}
+
+function requestedTestKeyFromRecord(record: Record<string, unknown> | undefined) {
+  if (!record) return "";
+  if (answerToFormValue(record.pgtSr) === "si") return "pgtSr";
+  if (answerToFormValue(record.pgtAStandard) === "si") return "pgtAStandard";
+  if (answerToFormValue(record.pgtAFast) === "si") return "pgtAFast";
+  const testName = stringField(record, "testName").toUpperCase();
+  if (testName.includes("PGT SR")) return "pgtSr";
+  if (testName.includes("STANDARD")) return "pgtAStandard";
+  if (testName.includes("FAST")) return "pgtAFast";
+  return "";
+}
+
+function requestedTestToFormState(
+  record: Record<string, unknown> | undefined,
+  fallback: RequestedTestFormState
+): RequestedTestFormState {
+  if (!record) {
+    return fallback;
+  }
+
+  return {
+    ...fallback,
+    pgtAFast: answerToFormValue(record.pgtAFast),
+    pgtAFastReportsMosaicism: answerToFormValue(record.pgtAFastReportsMosaicism),
+    pgtAFastReportsSex: answerToFormValue(record.pgtAFastReportsSex),
+    pgtAStandard: answerToFormValue(record.pgtAStandard),
+    pgtAStandardReportsMosaicism: answerToFormValue(
+      record.pgtAStandardReportsMosaicism
+    ),
+    pgtAStandardReportsSex: answerToFormValue(record.pgtAStandardReportsSex),
+    pgtSr: answerToFormValue(record.pgtSr),
+    pgtSrReportsMosaicism: answerToFormValue(record.pgtSrReportsMosaicism),
+    pgtSrReportsSex: answerToFormValue(record.pgtSrReportsSex),
+    testName: stringField(record, "testName") || fallback.testName,
+    testCode: stringField(record, "testCode") || fallback.testCode,
+    priority: stringField(record, "priority") || fallback.priority,
+    reason: stringField(record, "reason") || fallback.reason,
+    notes: stringField(record, "notes") || fallback.notes,
+  };
+}
+
+function withRequestedStudyTestSelection(
+  current: RequestedTestFormState,
+  selectedKey: string
+): RequestedTestFormState {
+  const pgtAFastSelected = selectedKey === "pgtAFast";
+  const pgtAStandardSelected = selectedKey === "pgtAStandard";
+  const pgtSrSelected = selectedKey === "pgtSr";
+
+  return {
+    ...current,
+    testName: requestedTestKeyLabel(selectedKey),
+    pgtAFast: selectedKey ? (pgtAFastSelected ? "si" : "no") : "",
+    pgtAFastReportsMosaicism: pgtAFastSelected
+      ? current.pgtAFastReportsMosaicism
+      : "",
+    pgtAFastReportsSex: pgtAFastSelected ? current.pgtAFastReportsSex : "",
+    pgtAStandard: selectedKey ? (pgtAStandardSelected ? "si" : "no") : "",
+    pgtAStandardReportsMosaicism: pgtAStandardSelected
+      ? current.pgtAStandardReportsMosaicism
+      : "",
+    pgtAStandardReportsSex: pgtAStandardSelected
+      ? current.pgtAStandardReportsSex
+      : "",
+    pgtSr: selectedKey ? (pgtSrSelected ? "si" : "no") : "",
+    pgtSrReportsMosaicism: pgtSrSelected ? current.pgtSrReportsMosaicism : "",
+    pgtSrReportsSex: pgtSrSelected ? current.pgtSrReportsSex : "",
+  };
+}
+
+function withGeneratedSamplingTable(flowState: FlowState): FlowState {
+  const biopsyCount = Number(flowState.sampleInformation.biopsyCount);
+  if (!Number.isInteger(biopsyCount) || biopsyCount <= 0) {
+    return flowState;
+  }
+
+  const rowCount = biopsyCount + 2;
+  return {
+    ...flowState,
+    samplingTableGenerated: true,
+    samplingInformation: Array.from({ length: rowCount }, (_, index) => ({
+      ...(flowState.samplingInformation[index] ?? emptySampling()),
+      sampleId: generatedSamplingSampleId(flowState.sampleInformation.boxCode, index),
+      sampleType: flowState.sampleInformation.sampleType,
+      processingStatus: "awaiting_reception",
+      notes: generatedSamplingNotes(index, rowCount),
+    })),
+  };
+}
+
+function displayCaseLabel(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+  const xxxMatch = /^([A-Za-z]{3})XXX$/i.exec(normalized);
+  return xxxMatch ? xxxMatch[1].toUpperCase() : normalized;
 }
 
 function buildInitialState(
@@ -786,6 +935,12 @@ function mergeSamplingInformationDraft(
     sampleId: merged.sampleId,
     sampleType: merged.sampleType,
     processingStatus: merged.processingStatus,
+    internalCode: merged.internalCode,
+    embryoStageDay: merged.embryoStageDay,
+    morphology: merged.morphology,
+    sentUl: merged.sentUl,
+    biopsiedCells: merged.biopsiedCells,
+    cellsVisualized: merged.cellsVisualized,
     notes: merged.notes,
   };
 }
@@ -969,14 +1124,21 @@ function validateStepFields(
       errors["medicalInformation.maleFactor"] = t("Select male factor.");
     }
     if (!flowState.medicalInformation.otherBackground.trim()) {
-      errors["medicalInformation.otherBackground"] = t("Other background is required.");
+      errors["medicalInformation.otherBackground"] = t("Observations are required.");
     }
   }
 
   if (step === "previousGeneticTests") {
-    if (!flowState.previousGeneticTests.karyotypeResult.trim()) {
-      errors["previousGeneticTests.karyotypeResult"] =
-        t("Karyotype result is required.");
+    if (!flowState.previousGeneticTests.karyotype) {
+      errors["previousGeneticTests.karyotype"] =
+        t("Select whether there is karyotype information.");
+    }
+    if (
+      flowState.previousGeneticTests.karyotype === "si" &&
+      !flowState.previousGeneticTests.karyotypeFileContent.trim()
+    ) {
+      errors["previousGeneticTests.karyotypeFileContent"] =
+        t("Attach the karyotype file.");
     }
   }
 
@@ -1011,11 +1173,13 @@ function validateStepFields(
           sexValue: flowState.requestedTest.pgtSrReportsSex,
         },
       ];
+      const selectedTestKey = selectedRequestedTestKey(flowState.requestedTest);
+
+      if (!selectedTestKey) {
+        errors.requestedTest = t("Select one requested test.");
+      }
 
       requestedStudyTests.forEach((test) => {
-        if (!test.value) {
-          errors[`requestedTest.${test.key}`] = t(`Select ${test.label}.`);
-        }
         if (test.value === "si") {
           if (!test.mosaicismValue) {
             errors[`requestedTest.${test.mosaicismKey}`] =
@@ -1029,32 +1193,28 @@ function validateStepFields(
       });
 
       if (
-        requestedStudyTests.every((test) => test.value) &&
-        !requestedStudyTests.some((test) => test.value === "si")
+        requestedStudyTests.filter((test) => test.value === "si").length > 1
       ) {
-        requestedStudyTests.forEach((test) => {
-          errors[`requestedTest.${test.key}`] =
-            t("Select Yes for at least one requested test.");
-        });
+        errors.requestedTest = t("Select only one requested test.");
+      }
+
+      if (!flowState.previousGeneticTests.karyotype) {
+        errors["previousGeneticTests.karyotype"] =
+          t("Select whether there is karyotype information.");
+      }
+      if (
+        flowState.previousGeneticTests.karyotype === "si" &&
+        !flowState.previousGeneticTests.karyotypeFileContent.trim()
+      ) {
+        errors["previousGeneticTests.karyotypeFileContent"] =
+          t("Attach the karyotype file.");
       }
 
       return errors;
     }
 
-    if (!flowState.requestedTest.pgtA) {
-      errors["requestedTest.pgtA"] = t("Select PGT-A.");
-    }
-    if (!flowState.requestedTest.pgtSr) {
-      errors["requestedTest.pgtSr"] = t("Select PGT-SR.");
-    }
-    if (
-      flowState.requestedTest.pgtA &&
-      flowState.requestedTest.pgtSr &&
-      flowState.requestedTest.pgtA !== "si" &&
-      flowState.requestedTest.pgtSr !== "si"
-    ) {
-      errors["requestedTest.pgtA"] = t("Select Yes for at least one requested test.");
-      errors["requestedTest.pgtSr"] = t("Select Yes for at least one requested test.");
+    if (!selectedRequestedTestKey(flowState.requestedTest)) {
+      errors.requestedTest = t("Select one requested test.");
     }
   }
 
@@ -1096,6 +1256,14 @@ function validateStepFields(
     } else if (!isValidBoxCode(flowState.sampleInformation.boxCode)) {
       errors["sampleInformation.boxCode"] =
         t("Box code must be exactly three letters (A-Z).");
+    }
+    const biopsyCount = Number(flowState.sampleInformation.biopsyCount);
+    if (
+      !flowState.sampleInformation.biopsyCount ||
+      !Number.isInteger(biopsyCount) ||
+      biopsyCount <= 0
+    ) {
+      errors["sampleInformation.biopsyCount"] = t("Select number of biopsies.");
     }
   }
 
@@ -1208,6 +1376,17 @@ function validateStepFields(
       ) {
         errors[`samplingInformation.${index}.processingStatus`] =
           `${row}: ${t("Processing status is not valid.")}`;
+      }
+      if (
+        sampling.embryoStageDay &&
+        !["5", "6", "7"].includes(sampling.embryoStageDay)
+      ) {
+        errors[`samplingInformation.${index}.embryoStageDay`] =
+          `${row}: ${t("Stage day must be 5, 6 or 7.")}`;
+      }
+      if (sampling.morphology && !MORPHOLOGY_PATTERN.test(sampling.morphology)) {
+        errors[`samplingInformation.${index}.morphology`] =
+          `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`;
       }
     });
   }
@@ -2164,6 +2343,10 @@ export function TwoPQFormFlow({
     value: option.value,
     label: t(option.label),
   }));
+  const requestedStudyTestOptions = REQUESTED_STUDY_TEST_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+  }));
   const biopsyCountOptions = BIOPSY_COUNT_OPTIONS.map((option) => ({
     value: option.value,
     label: option.label,
@@ -2180,6 +2363,17 @@ export function TwoPQFormFlow({
     value: option.value,
     label: t(option.label),
   }));
+  const selectedRequestedTest = selectedRequestedTestKey(state.requestedTest);
+  const selectedStudyRequestOriginalTest = requestedTestKeyFromRecord(
+    selectedStudyRequestForm?.requestedTest
+  );
+  const sampleRequestedTestChanged = Boolean(
+    formType === "sample" &&
+      selectedStudyRequestOriginalTest &&
+      selectedRequestedTest &&
+      selectedStudyRequestOriginalTest !== selectedRequestedTest
+  );
+  const selectedCaseType = caseTypeForRequestedTestKey(selectedRequestedTest);
   const notProvidedLabel = t("Not provided");
   const previewValue = (value: string | undefined | null) =>
     value?.trim() || notProvidedLabel;
@@ -2220,6 +2414,10 @@ export function TwoPQFormFlow({
 
     return `${Math.round(size / 1024)} KB`;
   };
+  const karyotypeImageContent =
+    state.previousGeneticTests.karyotypeFileContent.startsWith("data:image/")
+      ? state.previousGeneticTests.karyotypeFileContent
+      : "";
   const doctorInformationPreviewSection: PreviewSectionData = {
     title: t("Requesting doctor"),
     fields: [
@@ -2406,81 +2604,51 @@ export function TwoPQFormFlow({
           ),
         },
         {
-          label: t("Other background"),
+          label: t("Observations"),
           value: previewValue(state.medicalInformation.otherBackground),
           wide: true,
         },
       ],
     },
     {
-      title: t("Requested tests"),
+      title: t("Requested test and karyotype"),
       fields: [
         {
-          label: "PGT-A FAST",
-          value: previewOptionValue(yesNoOptions, state.requestedTest.pgtAFast),
+          label: t("Requested test"),
+          value: previewValue(requestedTestKeyLabel(selectedRequestedTest)),
         },
         {
-          label: t("PGT-A FAST reports mosaicism"),
+          label: t("Reports mosaicism"),
           value: previewOptionValue(
             yesNoOptions,
-            state.requestedTest.pgtAFastReportsMosaicism
+            selectedRequestedTest === "pgtAFast"
+              ? state.requestedTest.pgtAFastReportsMosaicism
+              : selectedRequestedTest === "pgtAStandard"
+                ? state.requestedTest.pgtAStandardReportsMosaicism
+                : selectedRequestedTest === "pgtSr"
+                  ? state.requestedTest.pgtSrReportsMosaicism
+                  : ""
           ),
         },
         {
-          label: t("PGT-A FAST reports sex"),
+          label: t("Reports sex"),
           value: previewOptionValue(
             yesNoOptions,
-            state.requestedTest.pgtAFastReportsSex
+            selectedRequestedTest === "pgtAFast"
+              ? state.requestedTest.pgtAFastReportsSex
+              : selectedRequestedTest === "pgtAStandard"
+                ? state.requestedTest.pgtAStandardReportsSex
+                : selectedRequestedTest === "pgtSr"
+                  ? state.requestedTest.pgtSrReportsSex
+                  : ""
           ),
         },
         {
-          label: "PGT-A STANDARD",
+          label: t("Has karyotype information?"),
           value: previewOptionValue(
             yesNoOptions,
-            state.requestedTest.pgtAStandard
+            state.previousGeneticTests.karyotype
           ),
-        },
-        {
-          label: t("PGT-A STANDARD reports mosaicism"),
-          value: previewOptionValue(
-            yesNoOptions,
-            state.requestedTest.pgtAStandardReportsMosaicism
-          ),
-        },
-        {
-          label: t("PGT-A STANDARD reports sex"),
-          value: previewOptionValue(
-            yesNoOptions,
-            state.requestedTest.pgtAStandardReportsSex
-          ),
-        },
-        {
-          label: "PGT-SR",
-          value: previewOptionValue(yesNoOptions, state.requestedTest.pgtSr),
-        },
-        {
-          label: t("PGT-SR reports mosaicism"),
-          value: previewOptionValue(
-            yesNoOptions,
-            state.requestedTest.pgtSrReportsMosaicism
-          ),
-        },
-        {
-          label: t("PGT-SR reports sex"),
-          value: previewOptionValue(
-            yesNoOptions,
-            state.requestedTest.pgtSrReportsSex
-          ),
-        },
-      ],
-    },
-    {
-      title: t("Karyotype and attachments"),
-      fields: [
-        {
-          label: t("Karyotype result"),
-          value: previewValue(state.previousGeneticTests.karyotypeResult),
-          wide: true,
         },
         {
           label: t("Karyotype file name"),
@@ -2525,6 +2693,154 @@ export function TwoPQFormFlow({
       ],
     },
   ];
+  const linkedStudyCreatedDate = selectedStudyRequestForm?.createdAt
+    ? previewDateValue(toDateInputValue(selectedStudyRequestForm.createdAt))
+    : notProvidedLabel;
+  const biopsyFormPreviewSections: PreviewSectionData[] = [
+    {
+      title: t("Linked study request form"),
+      fields: [
+        {
+          label: t("Form"),
+          value: previewValue(state.linkedStudyRequestFormId),
+        },
+        {
+          label: t("Study creation date"),
+          value: linkedStudyCreatedDate,
+        },
+        {
+          label: t("Original requested test"),
+          value: previewValue(requestedTestKeyLabel(selectedStudyRequestOriginalTest)),
+        },
+      ],
+    },
+    {
+      title: t("Patient data"),
+      fields: [
+        {
+          label: t("Institution"),
+          value: selectedInstitution
+            ? `${selectedInstitution.name} (${selectedInstitution.id})`
+            : previewValue(state.patientInformation.institutionId),
+        },
+        {
+          label: t("Doctor"),
+          value: selectedDoctor
+            ? `${selectedDoctor.fullName} (${selectedDoctor.id})`
+            : previewValue(state.patientInformation.doctorId),
+        },
+        {
+          label: t("Email"),
+          value: previewValue(state.patientInformation.email),
+        },
+        {
+          label: t("Patient DNI"),
+          value: previewValue(state.patientInformation.medicalRecordNumber),
+        },
+        {
+          label: t("Full name"),
+          value: previewValue(
+            state.patientInformation.fullName ||
+              joinNameParts(
+                state.patientInformation.firstName,
+                state.patientInformation.lastName
+              )
+          ),
+        },
+        {
+          label: t("Birth date"),
+          value: previewDateValue(state.patientInformation.birthDate),
+        },
+        {
+          label: t("Study creation date"),
+          value: linkedStudyCreatedDate,
+        },
+      ],
+    },
+    {
+      title: t("Requested test"),
+      fields: [
+        {
+          label: t("Selected requested test"),
+          value: previewValue(requestedTestKeyLabel(selectedRequestedTest)),
+        },
+        {
+          label: t("Original requested test"),
+          value: previewValue(requestedTestKeyLabel(selectedStudyRequestOriginalTest)),
+        },
+        {
+          label: t("Change warning"),
+          value: sampleRequestedTestChanged
+            ? t(
+                "The biopsy form test is different from the linked study request test."
+              )
+            : t("No changes from linked study request."),
+          wide: true,
+        },
+      ],
+    },
+    {
+      title: t("Biopsy form information"),
+      fields: [
+        {
+          label: t("Box code"),
+          value: previewValue(state.sampleInformation.boxCode),
+        },
+        {
+          label: t("Sample type"),
+          value: previewOptionValue(sampleTypeOptions, state.sampleInformation.sampleType),
+        },
+        {
+          label: t("Process date"),
+          value: previewDateValue(state.sampleInformation.processDate),
+        },
+        {
+          label: t("Processed by"),
+          value: previewValue(
+            joinNameParts(
+              state.sampleInformation.processedByFirstName,
+              state.sampleInformation.processedByLastName
+            )
+          ),
+        },
+        {
+          label: t("Number of biopsies"),
+          value: previewValue(state.sampleInformation.biopsyCount),
+        },
+      ],
+    },
+    doctorInformationPreviewSection,
+    {
+      title: t("2PQ case"),
+      fields: [
+        {
+          label: t("Case label"),
+          value: previewValue(displayCaseLabel(state.caseInformation.caseLabel)),
+        },
+        {
+          label: t("Case status"),
+          value: t("Intake"),
+        },
+        {
+          label: t("Case type"),
+          value: previewValue(state.caseInformation.caseType || selectedCaseType),
+        },
+        {
+          label: t("Priority"),
+          value: state.caseInformation.priority || selectedCaseType
+            ? (state.caseInformation.priority ||
+                priorityForSampleCaseType(selectedCaseType)) === "urgent"
+              ? t("Urgent")
+              : t("Routine")
+            : notProvidedLabel,
+        },
+        {
+          label: t("Requested at"),
+          value: previewDateValue(state.caseInformation.requestedAt),
+        },
+      ],
+    },
+  ];
 
   const progressLabel = useMemo(
     () =>
@@ -2559,13 +2875,18 @@ export function TwoPQFormFlow({
   const runningStorageStep = storageProcessingSteps.find(
     (step) => step.status === "running"
   );
-  const previewValidationSteps = steps.filter(
-    (step) => step !== "previewAndSignature"
-  );
+  const previewValidationSteps =
+    formType === "sample"
+      ? ([
+          ...steps.filter((step) => step !== "previewAndSignature"),
+          "doctorInformation",
+          "caseInformation",
+        ] as StepKey[])
+      : steps.filter((step) => step !== "previewAndSignature");
   const previewStepIndex = steps.indexOf("previewAndSignature");
   const currentStepContinuesToPreview =
-    formType === "study_request" &&
-    currentStep === "institutionInformation" &&
+    ((formType === "study_request" && currentStep === "institutionInformation") ||
+      (formType === "sample" && currentStep === "samplingInformation")) &&
     previewStepIndex >= 0;
   const processDialogOpen =
     Boolean(wholeDataValidationReport) || storageProcessingSteps.length > 0;
@@ -2827,24 +3148,26 @@ export function TwoPQFormFlow({
     }));
   }
 
-  function updateRequestedStudyTest(
-    key: "pgtAFast" | "pgtAStandard" | "pgtSr",
-    value: string
-  ) {
-    const patch: Partial<RequestedTestFormState> = { [key]: value };
-    if (key === "pgtAFast" && value !== "si") {
-      patch.pgtAFastReportsMosaicism = "";
-      patch.pgtAFastReportsSex = "";
-    }
-    if (key === "pgtAStandard" && value !== "si") {
-      patch.pgtAStandardReportsMosaicism = "";
-      patch.pgtAStandardReportsSex = "";
-    }
-    if (key === "pgtSr" && value !== "si") {
-      patch.pgtSrReportsMosaicism = "";
-      patch.pgtSrReportsSex = "";
-    }
-    updateRequestedTest(patch);
+  function selectRequestedStudyTest(selectedKey: string) {
+    setState((current) => {
+      const requestedTest = withRequestedStudyTestSelection(
+        current.requestedTest,
+        selectedKey
+      );
+      const caseType = caseTypeForRequestedTestKey(selectedKey);
+      return {
+        ...current,
+        requestedTest,
+        caseInformation:
+          formType === "sample"
+            ? {
+                ...current.caseInformation,
+                caseType,
+                priority: priorityForSampleCaseType(caseType),
+              }
+            : current.caseInformation,
+      };
+    });
   }
 
   function updateSampleInformation(patch: Partial<SampleInformationFormState>) {
@@ -2911,6 +3234,16 @@ export function TwoPQFormFlow({
     const linkedPatientId =
       linkedForm.selectedPatientId ||
       stringField(linkedForm.patientInformation, "patientId");
+    const linkedRequestedTest = requestedTestToFormState(
+      linkedForm.requestedTest,
+      buildInitialState(
+        defaultInstitutionId,
+        defaultDoctorId,
+        defaultInstitution?.contactEmail ?? ""
+      ).requestedTest
+    );
+    const linkedRequestedTestKey = selectedRequestedTestKey(linkedRequestedTest);
+    const linkedCaseType = caseTypeForRequestedTestKey(linkedRequestedTestKey);
 
     setState((current) => ({
       ...current,
@@ -2924,14 +3257,15 @@ export function TwoPQFormFlow({
       institutionInformation: linkedInstitution
         ? institutionToFormState(linkedInstitution)
         : mergeDraftSection(emptyInstitution(), linkedForm.institutionInformation),
+      requestedTest: linkedRequestedTest,
       caseInformation: {
         ...withCaseDefaultsForBoxCode({
           ...current,
           selectedCaseId: "",
           patientInformation: linkedPatientInformation,
         }).caseInformation,
-        caseType: current.caseInformation.caseType,
-        priority: priorityForSampleCaseType(current.caseInformation.caseType),
+        caseType: linkedCaseType,
+        priority: priorityForSampleCaseType(linkedCaseType),
       },
     }));
     setFieldErrors((current) => {
@@ -2950,27 +3284,7 @@ export function TwoPQFormFlow({
   }
 
   function generateSamplingTable() {
-    setState((current) => {
-      const biopsyCount = Number(current.sampleInformation.biopsyCount);
-      if (!Number.isInteger(biopsyCount) || biopsyCount <= 0) {
-        return current;
-      }
-
-      const rowCount = biopsyCount + 2;
-      return {
-        ...current,
-        samplingTableGenerated: true,
-        samplingInformation: Array.from({ length: rowCount }, (_, index) => ({
-          ...(current.samplingInformation[index] ?? emptySampling()),
-          sampleId: generatedSamplingSampleId(
-            current.sampleInformation.boxCode,
-            index
-          ),
-          sampleType: current.sampleInformation.sampleType,
-          notes: generatedSamplingNotes(index, rowCount),
-        })),
-      };
-    });
+    setState((current) => withGeneratedSamplingTable(current));
   }
 
   function updateCaseInformation(patch: Partial<CaseInformationFormState>) {
@@ -3182,9 +3496,15 @@ export function TwoPQFormFlow({
 
     const nextStepIndex = Math.min(stepIndex + 1, steps.length - 1);
     const nextState =
-      steps[nextStepIndex] === "caseInformation"
-        ? withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
-        : state;
+      formType === "sample" &&
+      currentStep === "sampleInformation" &&
+      steps[nextStepIndex] === "samplingInformation"
+        ? withGeneratedSamplingTable(
+            withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
+          )
+        : steps[nextStepIndex] === "caseInformation"
+          ? withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
+          : state;
     try {
       await persistDraftSnapshot(nextStepIndex, nextState);
       setState(nextState);
@@ -3219,7 +3539,6 @@ export function TwoPQFormFlow({
     }
 
     if (
-      formType === "study_request" &&
       steps[boundedStepIndex] === "previewAndSignature" &&
       currentStep !== "previewAndSignature"
     ) {
@@ -3255,7 +3574,9 @@ export function TwoPQFormFlow({
   async function submitForm() {
     const submissionState =
       formType === "sample"
-        ? withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
+        ? withGeneratedSamplingTable(
+            withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
+          )
         : state;
     if (submissionState !== state) {
       setState(submissionState);
@@ -3373,7 +3694,9 @@ export function TwoPQFormFlow({
         message: `${t("Form")} ${response.form.id} ${t("stored.")}`,
       });
       await wait(700);
-      router.push(`/2pq-dashboard/forms?createdId=${response.form.id}`);
+      router.push(
+        `/2pq-dashboard/forms?createdId=${response.form.id}&createdType=${formType}`
+      );
       router.refresh();
     } catch (error) {
       setStorageProcessingSteps((current) =>
@@ -3893,7 +4216,9 @@ export function TwoPQFormFlow({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {formType === "study_request" ? t("Study request form") : t("Sample")}
+              {formType === "study_request"
+                ? t("Study request form")
+                : t("Biopsy form")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {currentStepLabel}
@@ -4025,6 +4350,18 @@ export function TwoPQFormFlow({
                     {selectedStudyRequestForm.id}
                   </p>
                 </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    {t("Study creation date")}
+                  </p>
+                  <p className="mt-1 font-medium">
+                    {selectedStudyRequestForm.createdAt
+                      ? previewDateValue(
+                          toDateInputValue(selectedStudyRequestForm.createdAt)
+                        )
+                      : t("Not provided")}
+                  </p>
+                </div>
               </div>
             ) : null}
           </div>
@@ -4049,7 +4386,7 @@ export function TwoPQFormFlow({
                     ),
                 ],
                 [t("Birth date"), previewDateValue(state.patientInformation.birthDate)],
-                [t("Notes"), state.patientInformation.notes],
+                [t("Study creation date"), linkedStudyCreatedDate],
               ].map(([label, value]) => (
                 <div
                   key={label}
@@ -4391,9 +4728,16 @@ export function TwoPQFormFlow({
               />
             </div>
             <div className="md:col-span-2">
+              {state.medicalInformation.maleFactor === "si" ? (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
+                  {t(
+                    "Male factor is selected. Specify the type of male factor in observations."
+                  )}
+                </div>
+              ) : null}
               <TextAreaField
                 id="form-other-background"
-                label={t("Other background")}
+                label={t("Observations")}
                 value={state.medicalInformation.otherBackground}
                 onChange={(otherBackground) =>
                   updateMedicalInformation({ otherBackground })
@@ -4473,96 +4817,217 @@ export function TwoPQFormFlow({
 
         {currentStep === "requestedTest" ? (
           formType === "study_request" ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <RequestedStudyTestSection
-                title="PGT-A FAST"
-                value={state.requestedTest.pgtAFast}
-                mosaicismValue={state.requestedTest.pgtAFastReportsMosaicism}
-                sexValue={state.requestedTest.pgtAFastReportsSex}
-                onValueChange={(pgtAFast) =>
-                  updateRequestedStudyTest("pgtAFast", pgtAFast)
-                }
-                onMosaicismChange={(pgtAFastReportsMosaicism) =>
-                  updateRequestedTest({ pgtAFastReportsMosaicism })
-                }
-                onSexChange={(pgtAFastReportsSex) =>
-                  updateRequestedTest({ pgtAFastReportsSex })
-                }
-                errors={{
-                  value: errorFor("requestedTest.pgtAFast"),
-                  mosaicism: errorFor("requestedTest.pgtAFastReportsMosaicism"),
-                  sex: errorFor("requestedTest.pgtAFastReportsSex"),
-                }}
-                yesNoOptions={yesNoOptions}
-                translate={t}
-              />
-              <RequestedStudyTestSection
-                title="PGT-A STANDARD"
-                value={state.requestedTest.pgtAStandard}
-                mosaicismValue={
-                  state.requestedTest.pgtAStandardReportsMosaicism
-                }
-                sexValue={state.requestedTest.pgtAStandardReportsSex}
-                onValueChange={(pgtAStandard) =>
-                  updateRequestedStudyTest("pgtAStandard", pgtAStandard)
-                }
-                onMosaicismChange={(pgtAStandardReportsMosaicism) =>
-                  updateRequestedTest({ pgtAStandardReportsMosaicism })
-                }
-                onSexChange={(pgtAStandardReportsSex) =>
-                  updateRequestedTest({ pgtAStandardReportsSex })
-                }
-                errors={{
-                  value: errorFor("requestedTest.pgtAStandard"),
-                  mosaicism: errorFor(
-                    "requestedTest.pgtAStandardReportsMosaicism"
-                  ),
-                  sex: errorFor("requestedTest.pgtAStandardReportsSex"),
-                }}
-                yesNoOptions={yesNoOptions}
-                translate={t}
-              />
-              <RequestedStudyTestSection
-                title="PGT-SR"
-                value={state.requestedTest.pgtSr}
-                mosaicismValue={state.requestedTest.pgtSrReportsMosaicism}
-                sexValue={state.requestedTest.pgtSrReportsSex}
-                onValueChange={(pgtSr) =>
-                  updateRequestedStudyTest("pgtSr", pgtSr)
-                }
-                onMosaicismChange={(pgtSrReportsMosaicism) =>
-                  updateRequestedTest({ pgtSrReportsMosaicism })
-                }
-                onSexChange={(pgtSrReportsSex) =>
-                  updateRequestedTest({ pgtSrReportsSex })
-                }
-                errors={{
-                  value: errorFor("requestedTest.pgtSr"),
-                  mosaicism: errorFor("requestedTest.pgtSrReportsMosaicism"),
-                  sex: errorFor("requestedTest.pgtSrReportsSex"),
-                }}
-                yesNoOptions={yesNoOptions}
-                translate={t}
-              />
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label>{t("Requested test")}</Label>
+                <OptionSelectField
+                  options={requestedStudyTestOptions}
+                  value={selectedRequestedTest}
+                  onChange={selectRequestedStudyTest}
+                  placeholder={t("Not set")}
+                  emptyLabel={t("Not set")}
+                />
+                <FieldError message={errorFor("requestedTest")} />
+              </div>
+              {selectedRequestedTest ? (
+                <section className="rounded-xl border border-border/70 bg-background/50 p-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950 dark:border-emerald-300/24 dark:bg-emerald-950/20 dark:text-emerald-50">
+                      {requestedTestKeyLabel(selectedRequestedTest)}: {t("Yes")}
+                    </div>
+                    <YesNoField
+                      label={t("Reports mosaicism")}
+                      value={
+                        selectedRequestedTest === "pgtAFast"
+                          ? state.requestedTest.pgtAFastReportsMosaicism
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? state.requestedTest.pgtAStandardReportsMosaicism
+                            : state.requestedTest.pgtSrReportsMosaicism
+                      }
+                      onChange={(value) =>
+                        selectedRequestedTest === "pgtAFast"
+                          ? updateRequestedTest({
+                              pgtAFastReportsMosaicism: value,
+                            })
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? updateRequestedTest({
+                                pgtAStandardReportsMosaicism: value,
+                              })
+                            : updateRequestedTest({
+                                pgtSrReportsMosaicism: value,
+                              })
+                      }
+                      error={
+                        selectedRequestedTest === "pgtAFast"
+                          ? errorFor("requestedTest.pgtAFastReportsMosaicism")
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? errorFor("requestedTest.pgtAStandardReportsMosaicism")
+                            : errorFor("requestedTest.pgtSrReportsMosaicism")
+                      }
+                      options={yesNoOptions}
+                      placeholder={t("Select")}
+                    />
+                    <YesNoField
+                      label={t("Reports sex")}
+                      value={
+                        selectedRequestedTest === "pgtAFast"
+                          ? state.requestedTest.pgtAFastReportsSex
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? state.requestedTest.pgtAStandardReportsSex
+                            : state.requestedTest.pgtSrReportsSex
+                      }
+                      onChange={(value) =>
+                        selectedRequestedTest === "pgtAFast"
+                          ? updateRequestedTest({
+                              pgtAFastReportsSex: value,
+                            })
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? updateRequestedTest({
+                                pgtAStandardReportsSex: value,
+                              })
+                            : updateRequestedTest({
+                                pgtSrReportsSex: value,
+                              })
+                      }
+                      error={
+                        selectedRequestedTest === "pgtAFast"
+                          ? errorFor("requestedTest.pgtAFastReportsSex")
+                          : selectedRequestedTest === "pgtAStandard"
+                            ? errorFor("requestedTest.pgtAStandardReportsSex")
+                            : errorFor("requestedTest.pgtSrReportsSex")
+                      }
+                      options={yesNoOptions}
+                      placeholder={t("Select")}
+                    />
+                  </div>
+                </section>
+              ) : null}
+              <section className="rounded-xl border border-border/70 bg-background/50 p-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <YesNoField
+                    label={t("Has karyotype information?")}
+                    value={state.previousGeneticTests.karyotype}
+                    onChange={(karyotype) => {
+                      updatePreviousGeneticTests({ karyotype });
+                      if (karyotype !== "si") {
+                        clearKaryotypeFile();
+                      }
+                    }}
+                    error={errorFor("previousGeneticTests.karyotype")}
+                    options={yesNoOptions}
+                    placeholder={t("Select")}
+                  />
+                  {state.previousGeneticTests.karyotype === "si" ? (
+                    <div className="md:col-span-2 rounded-xl border border-border/70 bg-background/50 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <Label htmlFor="form-karyotype-file">
+                            {t("Karyotype file")}
+                          </Label>
+                          {state.previousGeneticTests.karyotypeFileName ? (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {state.previousGeneticTests.karyotypeFileName}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {t("No file selected")}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="outline" asChild>
+                            <label
+                              htmlFor="form-karyotype-file"
+                              className="cursor-pointer"
+                            >
+                              <Upload className="size-4" />
+                              {t("Upload file")}
+                            </label>
+                          </Button>
+                          {state.previousGeneticTests.karyotypeFileName ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={clearKaryotypeFile}
+                            >
+                              <X className="size-4" />
+                              {t("Remove file")}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Input
+                        id="form-karyotype-file"
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="sr-only"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (file) {
+                            void attachKaryotypeFile(file);
+                          }
+                        }}
+                      />
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {t("Maximum file size: 750 KB.")}
+                      </p>
+                      <FieldError
+                        message={errorFor("previousGeneticTests.karyotypeFileContent")}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </section>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              <YesNoField
-                label="PGT-A"
-                value={state.requestedTest.pgtA}
-                onChange={(pgtA) => updateRequestedTest({ pgtA })}
-                error={errorFor("requestedTest.pgtA")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
-              />
-              <YesNoField
-                label="PGT-SR"
-                value={state.requestedTest.pgtSr}
-                onChange={(pgtSr) => updateRequestedTest({ pgtSr })}
-                error={errorFor("requestedTest.pgtSr")}
-                options={yesNoOptions}
-                placeholder={t("Select")}
-              />
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label>{t("Requested test")}</Label>
+                <OptionSelectField
+                  options={requestedStudyTestOptions}
+                  value={selectedRequestedTest}
+                  onChange={selectRequestedStudyTest}
+                  placeholder={t("Not set")}
+                  emptyLabel={t("Not set")}
+                />
+                <FieldError message={errorFor("requestedTest")} />
+              </div>
+              {sampleRequestedTestChanged ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
+                  {t(
+                    "The biopsy form test is different from the linked study request test."
+                  )}{" "}
+                  {t("Original requested test")}:{" "}
+                  {requestedTestKeyLabel(selectedStudyRequestOriginalTest) ||
+                    t("Not provided")}
+                </div>
+              ) : null}
+              <div className="grid gap-3 rounded-xl border border-border/70 bg-background/58 p-4 md:grid-cols-2">
+                {[
+                  [t("Original requested test"), requestedTestKeyLabel(selectedStudyRequestOriginalTest)],
+                  [t("Selected requested test"), requestedTestKeyLabel(selectedRequestedTest)],
+                  [t("Case type"), state.caseInformation.caseType || selectedCaseType],
+                  [
+                    t("Priority"),
+                    state.caseInformation.priority || selectedCaseType
+                      ? (state.caseInformation.priority ||
+                          priorityForSampleCaseType(selectedCaseType)) === "urgent"
+                        ? t("Urgent")
+                        : t("Routine")
+                      : "",
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {value || t("Not provided")}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )
         ) : null}
@@ -4624,7 +5089,9 @@ export function TwoPQFormFlow({
                   2PQ
                 </p>
                 <h2 className="mt-2 font-heading text-2xl font-semibold text-black">
-                  {t("Study request form preview")}
+                  {formType === "study_request"
+                    ? t("Study request form preview")
+                    : t("Biopsy form preview")}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
                   {t(
@@ -4634,9 +5101,91 @@ export function TwoPQFormFlow({
               </div>
 
               <div className="mt-8 space-y-8">
-                {studyRequestPreviewSections.map((section) => (
+                {(formType === "study_request"
+                  ? studyRequestPreviewSections
+                  : biopsyFormPreviewSections
+                ).map((section) => (
                   <PreviewPaperSection key={section.title} section={section} />
                 ))}
+                {formType === "study_request" && karyotypeImageContent ? (
+                  <section className="border-t border-black/12 pt-5">
+                    <h3 className="font-heading text-base font-semibold text-black">
+                      {t("Karyotype attached image")}
+                    </h3>
+                    <div className="mt-4 overflow-hidden rounded-sm border border-black/20 bg-white">
+                      <img
+                        src={karyotypeImageContent}
+                        alt={t("Karyotype attached image")}
+                        className="max-h-[34rem] w-full object-contain"
+                      />
+                    </div>
+                  </section>
+                ) : null}
+                {formType === "sample" ? (
+                  <section className="border-t border-black/12 pt-5">
+                    <h3 className="font-heading text-base font-semibold text-black">
+                      {t("Biopsy rows")}
+                    </h3>
+                    <div className="mt-4 overflow-x-auto border border-black/20">
+                      <table className="min-w-[76rem] border-collapse text-sm">
+                        <thead className="bg-black/[0.04] text-left text-[0.68rem] uppercase tracking-[0.08em] text-black/65">
+                          <tr>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Sample ID")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Internal code")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Stage day 5, 6 or 7")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Morphology")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Sent uL")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Biopsied cells")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Cells visualized?")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Comments")}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {state.samplingInformation.map((sampling, index) => (
+                            <tr key={`${sampling.sampleId}-${index}`}>
+                              {[
+                                sampling.sampleId,
+                                sampling.internalCode,
+                                sampling.embryoStageDay,
+                                sampling.morphology,
+                                sampling.sentUl,
+                                sampling.biopsiedCells,
+                                previewOptionValue(
+                                  yesNoOptions,
+                                  sampling.cellsVisualized
+                                ),
+                                sampling.notes,
+                              ].map((value, valueIndex) => (
+                                <td
+                                  key={`${sampling.sampleId}-${valueIndex}`}
+                                  className="whitespace-pre-wrap border border-black/20 px-3 py-2 align-top text-black"
+                                >
+                                  {value || t("Not provided")}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                ) : null}
               </div>
 
               <div className="mt-10 border-t border-black/20 pt-6">
@@ -4754,6 +5303,23 @@ export function TwoPQFormFlow({
                 </div>
               </div>
             </section>
+            <section className="md:col-span-2">
+              <div className="rounded-xl border border-border/70 bg-background/58 p-4">
+                <div className="space-y-2">
+                  <Label>{t("Number of biopsies")}</Label>
+                  <OptionSelectField
+                    options={biopsyCountOptions}
+                    value={state.sampleInformation.biopsyCount}
+                    onChange={(biopsyCount) =>
+                      updateSampleInformation({ biopsyCount })
+                    }
+                    placeholder={t("Not set")}
+                    emptyLabel={t("Not set")}
+                  />
+                  <FieldError message={errorFor("sampleInformation.biopsyCount")} />
+                </div>
+              </div>
+            </section>
           </div>
         ) : null}
 
@@ -4835,104 +5401,139 @@ export function TwoPQFormFlow({
 
         {currentStep === "samplingInformation" ? (
           <div className="space-y-4">
-            <div className="grid gap-4 rounded-xl border border-border/70 bg-background/58 p-4 md:grid-cols-[minmax(16rem,1fr)_auto] md:items-end">
-              <div className="space-y-2">
-                <Label>{t("Number of biopsies")}</Label>
-                <OptionSelectField
-                  options={biopsyCountOptions}
-                  value={state.sampleInformation.biopsyCount}
-                  onChange={(biopsyCount) =>
-                    updateSampleInformation({ biopsyCount })
-                  }
-                  placeholder={t("Not set")}
-                />
-                <FieldError message={errorFor("sampleInformation.biopsyCount")} />
-              </div>
-              <Button
-                type="button"
-                onClick={generateSamplingTable}
-                disabled={!state.sampleInformation.biopsyCount}
-                className={
-                  state.sampleInformation.biopsyCount
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-muted text-muted-foreground hover:bg-muted"
-                }
-              >
-                {t("Generate table")}
-              </Button>
-              <FieldError message={errorFor("samplingTableGenerated")} />
-            </div>
-
             {state.samplingTableGenerated ? (
-              <div className="overflow-x-auto rounded-xl border border-border/70">
-                <table className="min-w-[58rem] border-collapse bg-background text-sm">
-                  <thead className="bg-muted/70 text-left text-xs uppercase text-muted-foreground">
+              <div className="overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
+                <table className="min-w-[88rem] border-collapse bg-white text-sm">
+                  <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
                     <tr>
-                      <th className="w-16 px-4 py-3">{t("Row")}</th>
-                      <th className="min-w-56 px-4 py-3">{t("Sample ID")}</th>
-                      <th className="min-w-56 px-4 py-3">{t("Sample type")}</th>
-                      <th className="min-w-64 px-4 py-3">
-                        {t("Processing status")}
+                      <th className="min-w-36 border border-slate-300 px-3 py-2">
+                        {t("Sample ID")}
                       </th>
-                      <th className="min-w-80 px-4 py-3">{t("Sampling notes")}</th>
+                      <th className="min-w-44 border border-slate-300 px-3 py-2">
+                        {t("Internal code")}
+                      </th>
+                      <th className="min-w-44 border border-slate-300 px-3 py-2">
+                        {t("Stage day 5, 6 or 7")}
+                      </th>
+                      <th className="min-w-40 border border-slate-300 px-3 py-2">
+                        {t("Morphology")}
+                      </th>
+                      <th className="min-w-36 border border-slate-300 px-3 py-2">
+                        {t("Sent uL")}
+                      </th>
+                      <th className="min-w-44 border border-slate-300 px-3 py-2">
+                        {t("Biopsied cells")}
+                      </th>
+                      <th className="min-w-44 border border-slate-300 px-3 py-2">
+                        {t("Cells visualized?")}
+                      </th>
+                      <th className="min-w-80 border border-slate-300 px-3 py-2">
+                        {t("Comments")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {state.samplingInformation.map((sampling, index) => (
-                      <tr key={index} className="border-t border-border/70">
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                          {index + 1}
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <Input
-                            id={`form-sampling-id-${index}`}
-                            value={sampling.sampleId}
-                            onChange={(event) =>
-                              updateSamplingInformation(index, {
-                                sampleId: event.target.value,
-                              })
-                            }
-                          />
+                      <tr key={index}>
+                        <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-900">
+                          {sampling.sampleId || t("Not provided")}
                           <FieldError
                             message={errorFor(
                               `samplingInformation.${index}.sampleId`
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="border border-slate-300 p-0 align-top">
                           <Input
-                            id={`form-sampling-type-${index}`}
-                            value={sampling.sampleType}
+                            id={`form-sampling-internal-code-${index}`}
+                            value={sampling.internalCode}
                             onChange={(event) =>
                               updateSamplingInformation(index, {
-                                sampleType: event.target.value,
+                                internalCode: event.target.value,
                               })
                             }
-                          />
-                          <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.sampleType`
-                            )}
+                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="border border-slate-300 p-0 align-top">
                           <OptionSelectField
-                            options={processingOptions}
-                            value={sampling.processingStatus}
-                            onChange={(processingStatus) =>
+                            options={["5", "6", "7"].map((value) => ({
+                              value,
+                              label: value,
+                            }))}
+                            value={sampling.embryoStageDay}
+                            onChange={(embryoStageDay) =>
                               updateSamplingInformation(index, {
-                                processingStatus,
+                                embryoStageDay,
                               })
                             }
-                            placeholder={t("Select status")}
+                            placeholder={t("Not set")}
+                            emptyLabel={t("Not set")}
                           />
                           <FieldError
                             message={errorFor(
-                              `samplingInformation.${index}.processingStatus`
+                              `samplingInformation.${index}.embryoStageDay`
                             )}
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="border border-slate-300 p-0 align-top">
+                          <Input
+                            id={`form-sampling-morphology-${index}`}
+                            value={sampling.morphology}
+                            maxLength={3}
+                            onChange={(event) =>
+                              updateSamplingInformation(index, {
+                                morphology: event.target.value,
+                              })
+                            }
+                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                          />
+                          <FieldError
+                            message={errorFor(
+                              `samplingInformation.${index}.morphology`
+                            )}
+                          />
+                        </td>
+                        <td className="border border-slate-300 p-0 align-top">
+                          <Input
+                            id={`form-sampling-sent-ul-${index}`}
+                            value={sampling.sentUl}
+                            inputMode="decimal"
+                            onChange={(event) =>
+                              updateSamplingInformation(index, {
+                                sentUl: event.target.value,
+                              })
+                            }
+                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                          />
+                        </td>
+                        <td className="border border-slate-300 p-0 align-top">
+                          <Input
+                            id={`form-sampling-biopsied-cells-${index}`}
+                            value={sampling.biopsiedCells}
+                            inputMode="numeric"
+                            onChange={(event) =>
+                              updateSamplingInformation(index, {
+                                biopsiedCells: event.target.value,
+                              })
+                            }
+                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                          />
+                        </td>
+                        <td className="border border-slate-300 p-0 align-top">
+                          <OptionSelectField
+                            options={yesNoOptions}
+                            value={sampling.cellsVisualized}
+                            onChange={(cellsVisualized) =>
+                              updateSamplingInformation(index, {
+                                cellsVisualized,
+                              })
+                            }
+                            placeholder={t("Not set")}
+                            emptyLabel={t("Not set")}
+                          />
+                        </td>
+                        <td className="border border-slate-300 p-0 align-top">
                           <Textarea
                             id={`form-sampling-notes-${index}`}
                             value={sampling.notes}
@@ -4942,6 +5543,7 @@ export function TwoPQFormFlow({
                               })
                             }
                             rows={2}
+                            className="min-h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
                           />
                         </td>
                       </tr>
@@ -4949,7 +5551,11 @@ export function TwoPQFormFlow({
                   </tbody>
                 </table>
               </div>
-            ) : null}
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-5 text-sm text-muted-foreground">
+                {t("Generate the biopsy table from the previous step.")}
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -4984,12 +5590,28 @@ export function TwoPQFormFlow({
             ) : (
               <Button
                 onClick={() => void goNext()}
-                disabled={pending || draftPending}
-                className="bg-indigo-600 text-white hover:bg-indigo-700"
+                disabled={
+                  pending ||
+                  draftPending ||
+                  (currentStep === "sampleInformation" &&
+                    formType === "sample" &&
+                    !state.sampleInformation.biopsyCount)
+                }
+                className={
+                  currentStep === "sampleInformation" &&
+                  formType === "sample" &&
+                  !state.sampleInformation.biopsyCount
+                    ? "bg-muted text-muted-foreground hover:bg-muted"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700"
+                }
               >
                 {currentStep === "institutionInformation" &&
                 formType === "study_request"
                   ? t("Continue to preview")
+                  : currentStep === "sampleInformation" && formType === "sample"
+                    ? t("Generate table")
+                    : currentStep === "samplingInformation" && formType === "sample"
+                      ? t("Continue to preview")
                   : t("Continue")}
                 <ArrowRight className="size-4" />
               </Button>

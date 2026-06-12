@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle2, ClipboardList } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import { appText } from "@/lib/language";
+import type { TwoPQFormType } from "@/lib/two-pq-forms";
 
 const FORM_COMPLETION_CONFETTI = [
   { left: "9%", top: "18%", color: "#c4b5fd", delay: "0ms", duration: "1080ms" },
@@ -19,7 +20,13 @@ const FORM_COMPLETION_CONFETTI = [
   { left: "90%", top: "20%", color: "#bfdbfe", delay: "390ms", duration: "990ms" },
 ] as const;
 
-export function TwoPQFormCompletionDialog({ createdId }: { createdId?: string }) {
+export function TwoPQFormCompletionDialog({
+  createdId,
+  createdType,
+}: {
+  createdId?: string;
+  createdType?: TwoPQFormType;
+}) {
   const router = useRouter();
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -61,7 +68,9 @@ export function TwoPQFormCompletionDialog({ createdId }: { createdId?: string })
             {t("Form completed")}
           </p>
           <h3 className="mt-2 font-heading text-3xl font-semibold text-white">
-            {t("The 2PQ form is stored and ready")}
+            {createdType === "sample"
+              ? t("The biopsy form is ready and stored")
+              : t("The 2PQ form is stored and ready")}
           </h3>
           <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
             {t("Form")} <span className="font-mono text-indigo-50">{createdId}</span>{" "}

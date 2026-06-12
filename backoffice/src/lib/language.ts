@@ -145,13 +145,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Workflow map and role-aware CRUD shell for cases, samples, shipments, sequencing, reports, and clients.":
     "Mapa de flujo y consola CRUD sensible a roles para casos, muestras, envíos, secuenciación, reportes y clientes.",
   "Stored study request and sample form submissions.":
-    "Formularios almacenados de solicitud de estudio y muestra.",
+    "Formularios almacenados de solicitud de estudio y biopsias.",
   "Official 2PQ website, phone, and email contact channels.":
     "Canales oficiales de contacto de 2PQ: web, teléfono y email.",
   "Guided form flow stored in 2pq_forms.":
     "Flujo guiado de formulario almacenado en 2pq_forms.",
   "Study request": "Solicitud de estudio",
-  Sample: "Muestra",
+  Sample: "Formulario de biopsias",
+  "Biopsy form": "Formulario de biopsias",
+  "Biopsy form preview": "Vista previa del formulario de biopsias",
+  "Biopsy form information": "Información del formulario de biopsias",
   "Patient information": "Información del paciente",
   "Medical information": "Información médica",
   "Previous genetic tests": "Pruebas genéticas previas",
@@ -159,9 +162,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Institution information": "Información de institución",
   "Preview and signature": "Vista previa y firma",
   "Pick linked study request form": "Elegir formulario de solicitud linkeado",
-  "Sample information": "Información de muestra",
+  "Sample information": "Información de biopsia",
   "2PQ case": "Caso 2PQ",
-  "2PQ sampling": "Muestreo 2PQ",
+  "2PQ sampling": "Biopsias 2PQ",
+  "Biopsy table": "Tabla de biopsias",
   Yes: "Sí",
   "Trophectoderm biopsy": "Biopsia de trofoectodermo",
   "Trophectoderm rebiopsy": "Rebiopsia de trofoectodermo",
@@ -258,7 +262,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Previous miscarriages selection is not valid.":
     "La selección de abortos previos no es válida.",
   "Select male factor.": "Seleccioná factor masculino.",
-  "Other background is required.": "Otros antecedentes es requerido.",
+  "Other background is required.": "Observaciones es requerido.",
+  "Observations are required.": "Observaciones es requerido.",
   "Select PGT-A / PGT-SR.": "Seleccioná PGT-A / PGT-SR.",
   "Select karyotype.": "Seleccioná cariotipo.",
   "PGT result is required when PGT-A / PGT-SR is Yes.":
@@ -266,6 +271,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Karyotype result is required when karyotype is Yes.":
     "Resultado cariotipo es requerido cuando cariotipo es Sí.",
   "Karyotype result is required.": "Resultado cariotipo es requerido.",
+  "Select whether there is karyotype information.":
+    "Seleccioná si tiene información de cariotipo.",
+  "Attach the karyotype file.": "Adjuntá el archivo de cariotipo.",
+  "Select one requested test.": "Seleccioná un test solicitado.",
+  "Select only one requested test.": "Seleccioná solo un test solicitado.",
   "Select PGT-A.": "Seleccioná PGT-A.",
   "Select PGT-A FAST.": "Seleccioná PGT-A FAST.",
   "Select PGT-A STANDARD.": "Seleccioná PGT-A STANDARD.",
@@ -337,6 +347,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Linked study request form must match the selected patient.":
     "El formulario de solicitud linkeado debe coincidir con el paciente seleccionado.",
   "Select number of biopsies.": "Seleccioná el número de biopsias.",
+  "Stage day must be 5, 6 or 7.": "El estadio día debe ser 5, 6 o 7.",
+  "Morphology must be 1 to 3 alphanumeric characters.":
+    "La morfología debe tener de 1 a 3 caracteres alfanuméricos.",
   "Generate the sampling table.": "Generá la tabla de samplings.",
   "Sampling table row count must match number of biopsies plus two.":
     "La cantidad de filas de la tabla debe ser número de biopsias más dos.",
@@ -474,10 +487,15 @@ const SPANISH_TEXT: Record<string, string> = {
   Donated: "Donado",
   "Not set": "Sin definir",
   "3 or more": "3 o más",
+  "3 or more (recurrent)": "3 o más (recurrente)",
   Recurrent: "Recurrente",
   "Male factor": "Factor masculino",
-  "Other background": "Otros antecedentes",
+  "Other background": "Observaciones",
+  Observations: "Observaciones",
+  "Male factor is selected. Specify the type of male factor in observations.":
+    "Factor masculino está marcado. Indicá el tipo de factor masculino en observaciones.",
   Karyotype: "Cariotipo",
+  "Has karyotype information?": "¿Tiene información de cariotipo?",
   "PGT result": "Resultado PGT",
   "Karyotype result": "Resultado cariotipo",
   "PGT-A FAST reports mosaicism": "PGT-A FAST informa mosaicismo",
@@ -487,6 +505,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "PGT-SR reports mosaicism": "PGT-SR informa mosaicismo",
   "PGT-SR reports sex": "PGT-SR informa sexo",
   "Karyotype file": "Archivo cariotipo",
+  "Karyotype attached image": "Imagen adjunta de cariotipo",
   "Karyotype file name": "Nombre de archivo cariotipo",
   "Karyotype file type": "Tipo de archivo cariotipo",
   "Karyotype file size": "Tamaño de archivo cariotipo",
@@ -531,7 +550,17 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sample type": "Tipo de muestra",
   "Number of biopsies": "Número de biopsias",
   "Generate table": "Generar tabla",
+  "Generate the biopsy table from the previous step.":
+    "Generá la tabla de biopsias desde el paso anterior.",
   "Sampling table": "Tabla de samplings",
+  "Biopsy rows": "Filas de biopsias",
+  "Internal code": "Código interno",
+  "Stage day 5, 6 or 7": "Estadio día 5, 6 o 7",
+  Morphology: "Morfología",
+  "Sent uL": "uL enviados",
+  "Biopsied cells": "# de células biopsiadas",
+  "Cells visualized?": "¿Células visualizadas?",
+  Comments: "Comentarios",
   Row: "Fila",
   "Process date": "Fecha proceso",
   "Processed by": "Procesado por",
@@ -586,6 +615,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Patient data": "Datos del paciente",
   "Medical data": "Información médica",
   "Requested tests": "Tests solicitados",
+  "Requested test and karyotype": "Test solicitado y cariotipo",
   "Karyotype and attachments": "Cariotipo y adjuntos",
   "Institution data": "Datos de institución",
   "Signature and submission": "Firma y envío",
@@ -611,7 +641,15 @@ const SPANISH_TEXT: Record<string, string> = {
   To: "Hasta",
   "Form type": "Tipo de formulario",
   "All types": "Todos los tipos",
-  "Sample request": "Solicitud de muestra",
+  "Sample request": "Formulario de biopsias",
+  "Selected requested test": "Test solicitado seleccionado",
+  "Original requested test": "Test solicitado original",
+  "Change warning": "Aviso de cambio",
+  "The biopsy form test is different from the linked study request test.":
+    "El test del formulario de biopsias es distinto del test de la solicitud de estudio vinculada.",
+  "No changes from linked study request.":
+    "Sin cambios respecto de la solicitud de estudio vinculada.",
+  "Study creation date": "Fecha de creación del estudio",
   "Apply filters": "Aplicar filtros",
   "Clear filters": "Limpiar filtros",
   "Newest first": "Más nuevos primero",
@@ -640,6 +678,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Form completed": "Formulario completado",
   "The 2PQ form is stored and ready":
     "El formulario 2PQ está guardado y listo",
+  "The biopsy form is ready and stored":
+    "El formulario de biopsias está listo y guardado",
   "is now in": "ahora está en",
   "with its author, scope, and linked records preserved.":
     "con su autor, alcance y registros vinculados preservados.",
@@ -1496,7 +1536,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "mantienen el mismo alcance por institución, médico y paciente que ya hace cumplir el SDK.",
   "Step 1 patient link": "Vínculo de paciente del paso 1",
   "Stored 2PQ study request and sample forms.":
-    "Formularios 2PQ guardados de solicitud de estudio y muestra.",
+    "Formularios 2PQ guardados de solicitud de estudio y biopsias.",
+  "Stored 2PQ study request and biopsy forms.":
+    "Formularios 2PQ guardados de solicitud de estudio y biopsias.",
   "Stored file": "Archivo almacenado",
   "Stored file document missing.": "Falta el documento de archivo almacenado.",
   "Stored file last updated:": "Última actualización del archivo almacenado:",
