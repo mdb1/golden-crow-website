@@ -69,10 +69,27 @@ const mockCollection = jest.fn(() => ({
   get: () => mockQueryGet(),
 }));
 
+// batch().set(...).commit() — captures every set payload for assignHabitTemplate.
+const mockBatchSet = jest.fn();
+const mockBatchCommit = jest.fn().mockResolvedValue(undefined);
+const mockBatch = jest.fn(() => ({
+  set: mockBatchSet,
+  commit: mockBatchCommit,
+}));
+
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: jest.fn(() => ({
     collection: mockCollection,
+    batch: mockBatch,
   })),
+}));
+
+// coach-activity-log is a side-effect logger here — stub it so assign tests
+// don't hit Firestore writes through it. habitAssignedEvent is a pure builder.
+jest.mock("../coach-activity-log", () => ({
+  recordCoachActivityEvent: jest.fn().mockResolvedValue(undefined),
+  markCoachActivityDeleted: jest.fn().mockResolvedValue(undefined),
+  habitAssignedEvent: jest.fn((args: unknown) => args),
 }));
 
 jest.mock("firebase-admin/firestore", () => ({
@@ -95,6 +112,7 @@ import {
   getHabit,
   listHabitsForTrainer,
   listHabitsForClient,
+  assignHabitTemplate,
 } from "../habit-actions";
 import { getTokens } from "next-firebase-auth-edge";
 
@@ -191,6 +209,46 @@ function fakeQuerySnapshot(
       }),
     })),
   } as unknown as QuerySnapshot;
+}
+
+// A habit_templates doc snapshot for the assign tests. Defaults to a
+// trainer-owned, daily, recurring binary template.
+function fakeTemplateSnapshot(opts: {
+  exists: boolean;
+  id?: string;
+  scope?: "global" | "trainer";
+  trainerId?: string | null;
+  deleted?: boolean;
+  scheduleType?: "recurring" | "one-time";
+  scheduleCadence?: "daily" | "weekly" | "monthly";
+  scheduleWeekdays?: number[];
+  scheduleMonthDays?: number[];
+  startsOn?: string;
+}) {
+  const data = {
+    id: opts.id ?? "habit-template-trainer-A-x",
+    scope: opts.scope ?? "trainer",
+    trainerId: opts.trainerId ?? ALLOWED_UID,
+    type: "binary",
+    name: { en: "Stretch", es: "Estirar" },
+    reminderEnabled: false,
+    deleted: opts.deleted ?? false,
+    scheduleType: opts.scheduleType ?? "recurring",
+    scheduleCadence: opts.scheduleCadence ?? "daily",
+    ...(opts.scheduleWeekdays ? { scheduleWeekdays: opts.scheduleWeekdays } : {}),
+    ...(opts.scheduleMonthDays
+      ? { scheduleMonthDays: opts.scheduleMonthDays }
+      : {}),
+    startsOn: opts.startsOn ?? "2026-05-01",
+    createdAt: { toDate: () => new Date("2026-05-01T00:00:00Z") },
+    updatedAt: { toDate: () => new Date("2026-05-01T00:00:00Z") },
+  };
+  return {
+    exists: opts.exists,
+    id: data.id,
+    data: () => data,
+    get: (field: string) => (data as Record<string, unknown>)[field],
+  } as unknown as DocumentSnapshot;
 }
 
 const VALID_BINARY_HABIT_INPUT = {
@@ -615,5 +673,171 @@ describe("getHabit", () => {
 
     expect(result.id).toBe("hab-abc");
     expect(result.trainerId).toBe("previous-coach");
+  });
+});
+
+describe("assignHabitTemplate — recurrence override (#176)", () => {
+  // Each assign: mockGet resolves the TEMPLATE first, then one user doc per
+  // client (assertTrainerOwnsClient). Helper wires those resolves in order.
+  function wireTemplateAndClients(
+    template: DocumentSnapshot,
+    clientCount: number,
+  ) {
+    mockGet.mockResolvedValueOnce(template);
+    for (let i = 0; i < clientCount; i += 1) {
+      mockGet.mockResolvedValueOnce(
+        fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }),
+      );
+    }
+  }
+
+  // A1 — NO override → habit inherits the template's schedule (prior behavior).
+  it("A1 — inherits the template schedule when no override is sent", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    wireTemplateAndClients(
+      fakeTemplateSnapshot({
+        exists: true,
+        scheduleType: "recurring",
+        scheduleCadence: "weekly",
+        scheduleWeekdays: [1, 3, 5],
+      }),
+      1,
+    );
+
+    const result = await assignHabitTemplate({
+      templateId: "habit-template-trainer-A-x",
+      clientIds: ["uid-client-1"],
+      startsOn: "2026-06-15",
+    });
+
+    expect(result.created).toBe(1);
+    expect(mockBatchSet).toHaveBeenCalledTimes(1);
+    const payload = mockBatchSet.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.scheduleType).toBe("recurring");
+    expect(payload.scheduleCadence).toBe("weekly");
+    expect(payload.scheduleWeekdays).toEqual([1, 3, 5]);
+    expect(payload.startsOn).toBe("2026-06-15");
+    expect(payload.sourceTemplateId).toBe("habit-template-trainer-A-x");
+  });
+
+  // A2 — weekly override beats a daily template; weekdays written verbatim.
+  it("A2 — applies a weekly override to every created habit doc", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    wireTemplateAndClients(
+      fakeTemplateSnapshot({ exists: true, scheduleCadence: "daily" }),
+      2,
+    );
+
+    await assignHabitTemplate({
+      templateId: "habit-template-trainer-A-x",
+      clientIds: ["uid-client-1", "uid-client-2"],
+      startsOn: "2026-06-15",
+      schedule: {
+        scheduleType: "recurring",
+        scheduleCadence: "weekly",
+        scheduleWeekdays: [2, 4],
+      },
+    });
+
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    for (const call of mockBatchSet.mock.calls) {
+      const payload = call[1] as Record<string, unknown>;
+      expect(payload.scheduleType).toBe("recurring");
+      expect(payload.scheduleCadence).toBe("weekly");
+      expect(payload.scheduleWeekdays).toEqual([2, 4]);
+      // The template was daily; the override must NOT leak a daily cadence.
+      expect(payload.scheduleMonthDays).toBeUndefined();
+    }
+  });
+
+  // A3 — monthly override writes scheduleMonthDays AND mirrors the first day
+  // into scheduleDayOfMonth (iOS/Android read whichever exists).
+  it("A3 — monthly override writes month days and mirrors scheduleDayOfMonth", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    wireTemplateAndClients(fakeTemplateSnapshot({ exists: true }), 1);
+
+    await assignHabitTemplate({
+      templateId: "habit-template-trainer-A-x",
+      clientIds: ["uid-client-1"],
+      startsOn: "2026-06-15",
+      schedule: {
+        scheduleType: "recurring",
+        scheduleCadence: "monthly",
+        scheduleMonthDays: [12, 25],
+      },
+    });
+
+    const payload = mockBatchSet.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.scheduleCadence).toBe("monthly");
+    expect(payload.scheduleMonthDays).toEqual([12, 25]);
+    expect(payload.scheduleDayOfMonth).toBe(12);
+    expect(payload.scheduleWeekdays).toBeUndefined();
+  });
+
+  // A4 — one-time override drops all recurrence fields.
+  it("A4 — one-time override drops cadence/weekday/monthday fields", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    wireTemplateAndClients(
+      fakeTemplateSnapshot({
+        exists: true,
+        scheduleCadence: "weekly",
+        scheduleWeekdays: [1, 2, 3],
+      }),
+      1,
+    );
+
+    await assignHabitTemplate({
+      templateId: "habit-template-trainer-A-x",
+      clientIds: ["uid-client-1"],
+      startsOn: "2026-06-15",
+      schedule: { scheduleType: "one-time" },
+    });
+
+    const payload = mockBatchSet.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.scheduleType).toBe("one-time");
+    expect(payload.scheduleCadence).toBeUndefined();
+    expect(payload.scheduleWeekdays).toBeUndefined();
+    expect(payload.scheduleMonthDays).toBeUndefined();
+  });
+
+  // A5 — endsOn override flows onto the habit doc.
+  it("A5 — carries an endsOn override onto the habit doc", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    wireTemplateAndClients(fakeTemplateSnapshot({ exists: true }), 1);
+
+    await assignHabitTemplate({
+      templateId: "habit-template-trainer-A-x",
+      clientIds: ["uid-client-1"],
+      startsOn: "2026-06-15",
+      schedule: {
+        scheduleType: "recurring",
+        scheduleCadence: "daily",
+        endsOn: "2026-09-15",
+      },
+    });
+
+    const payload = mockBatchSet.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.endsOn).toBe("2026-09-15");
+  });
+
+  // A6 — a cross-trainer / deleted template is refused before any write.
+  it("A6 — refuses a template owned by another trainer", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValueOnce(
+      fakeTemplateSnapshot({
+        exists: true,
+        scope: "trainer",
+        trainerId: "other-trainer",
+      }),
+    );
+
+    await expect(
+      assignHabitTemplate({
+        templateId: "habit-template-other-x",
+        clientIds: ["uid-client-1"],
+        schedule: { scheduleType: "recurring", scheduleCadence: "daily" },
+      }),
+    ).rejects.toThrow(/not available/i);
+    expect(mockBatchSet).not.toHaveBeenCalled();
   });
 });
