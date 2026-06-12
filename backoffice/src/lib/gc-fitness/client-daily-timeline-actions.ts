@@ -416,6 +416,12 @@ export async function getClientDailyTimeline(
                 : "pending",
         future,
       });
+      // DEPLOY-SAFETY (260611-ugu): the coach-facing "client changed reminder"
+      // indicator for HABITS ships on the habits table ReminderCell (gated on
+      // habit reminderUpdatedAt — no new query/index). It is NOT added to this
+      // timeline `reminders` array because ClientDailyTimeline.tsx does not
+      // render that array (only workouts/habits/logs/photos), so threading the
+      // habit reminderUpdatedAt here would be dead data. No new index introduced.
       if (habit.reminderEnabled === true) {
         row.reminders.push({
           id: `${habitId}-${day}`,

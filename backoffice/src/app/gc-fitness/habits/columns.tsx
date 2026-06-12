@@ -107,6 +107,7 @@ export function makeHabitColumns(
         <ReminderCell
           reminderEnabled={row.original.reminderEnabled}
           reminderTime={row.original.reminderTime}
+          reminderEditedAt={row.original.reminderEditedAt}
         />
       ),
     },
