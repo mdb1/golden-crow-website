@@ -40,6 +40,8 @@ import {
   bulkAssignSchema,
   editAssignmentSchema,
   MAX_CLIENTS_PER_BATCH,
+  MAX_OPS_PER_BATCH,
+  OPS_PER_ASSIGNMENT,
 } from "./workout-assignment-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import {
@@ -292,6 +294,94 @@ function nextCivilForWeekdayOnOrAfter(civilDate: string, weekday: number): strin
   const delta = (weekday - currentWeekday + 7) % 7;
   return addCivilDays(civilDate, delta);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared recurrence date-expansion (single + bulk call sites)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// 260612-e9t (#175): `assignTemplateRecurring` and `bulkAssignTemplate` must
+// expand a `RecurrenceRule` into the SAME set of civil dates for the SAME
+// startDate/endDate — otherwise the two surfaces would silently drift. The
+// matcher + civil-day walk below is the SINGLE source of truth; both client
+// call sites invoke `expandRecurrenceDates`. (The inline matcher inside
+// `assignTemplateRecurring*ToPending` is a separate pending-mirror path; this
+// shared helper covers the canonical client paths.)
+
+type ExpandableRecurrence =
+  | { kind: "single" }
+  | { kind: "daily" }
+  | { kind: "weekly"; weekday: number }
+  | { kind: "weekly_days"; weekdays: number[] }
+  | { kind: "every_n_days"; everyN: number }
+  | { kind: "monthly"; dayOfMonth: number };
+
+/** True when `date` (a civil-date string) matches `recurrence` anchored at `startDate`. */
+function matchesRecurrence(
+  recurrence: ExpandableRecurrence,
+  startDate: string,
+  date: string,
+  dayIndex: number,
+): boolean {
+  switch (recurrence.kind) {
+    case "single":
+      return date === startDate;
+    case "daily":
+      return true;
+    case "weekly":
+      return dayIndex === recurrence.weekday;
+    case "weekly_days":
+      return recurrence.weekdays.includes(dayIndex);
+    case "every_n_days": {
+      const [y0, m0, d0] = startDate.split("-").map(Number);
+      const [y1, m1, d1] = date.split("-").map(Number);
+      const diff =
+        (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
+      return diff >= 0 && diff % recurrence.everyN === 0;
+    }
+    case "monthly": {
+      const [y, m, d] = date.split("-").map(Number);
+      const target = recurrence.dayOfMonth;
+      const lastDayOfMonth = new Date(y, m, 0).getDate();
+      const clamped = Math.min(target, lastDayOfMonth);
+      return d === clamped;
+    }
+  }
+}
+
+/**
+ * Expand a recurrence rule into the matching civil dates in
+ * `[startDate, endDate ?? startDate + NO_END_HORIZON_DAYS]`, capped at
+ * `MAX_RECURRING_OCCURRENCES`. Returns the dates in ascending order.
+ */
+function expandRecurrenceDates(
+  recurrence: ExpandableRecurrence,
+  startDate: string,
+  endDate?: string,
+): string[] {
+  const hardWindowEnd = addCivilDays(startDate, NO_END_HORIZON_DAYS);
+  const windowEnd = endDate ?? hardWindowEnd;
+  const dates: string[] = [];
+  for (let date = startDate; date <= windowEnd; date = addCivilDays(date, 1)) {
+    if (
+      matchesRecurrence(recurrence, startDate, date, dayOfWeekFromCivil(date))
+    ) {
+      dates.push(date);
+      if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
+    }
+  }
+  return dates;
+}
+
+/**
+ * Hard ceiling on total docs a single bulk-recurring submit may write
+ * (clients × dates). Mirrors the spirit of MAX_RECURRING_OCCURRENCES (the
+ * per-client cap) for the multi-client fan-out. 166 clients × 12 weekly
+ * occurrences ≈ 2000 docs is comfortably under this; an "absurd" submit
+ * (166 × daily-for-a-year capped at 104 = 17264) is rejected BEFORE any
+ * commit so we never half-write a series. Chosen as a sane operational
+ * ceiling, not a Firestore limit.
+ */
+const MAX_TOTAL_BULK_RECURRING_DOCS = 5000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Per-exercise weight-prefill freshness anchor (prescriptionUpdatedAtByExerciseId)
@@ -616,59 +706,176 @@ export async function bulkAssignTemplate(
     throw new Error("Not your template.");
   }
 
-  // 2) Build the batch.
-  const batch = db.batch();
-  const ids: string[] = [];
-  const ymd = parsed.scheduledFor.replace(/-/g, "");
   const templateSnapshot = applyExerciseOverrides(
     await templateSnapshotForAssignment(template),
     undefined,
   );
 
-  for (const clientId of parsed.clientIds) {
-    const docId = `asg-${clientId}-${ymd}-${randomUUID()}`;
-    const ref = db.collection(ASSIGNMENTS).doc(docId);
-    batch.set(ref, {
-      templateId: parsed.templateId,
-      templateSnapshot, // SAME REFERENCE — immutable snapshot
-      clientId,
-      trainerId: trainer.uid,
-      scheduledFor: parsed.scheduledFor,
-      scheduledTime: parsed.scheduledTime ?? null,
-      meetingNotes: parsed.meetingNotes ?? null,
-      timezone: parsed.timezone ?? null,
-      status: "scheduled" as const,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      // Prescription established now — weight-prefill freshness anchor.
-      prescriptionUpdatedAt: FieldValue.serverTimestamp(),
-    });
-    ids.push(docId);
+  // 260612-e9t (#175): decide single-date vs recurring expansion. A
+  // `{kind:"single"}` rule (or no recurrence) keeps the byte-identical
+  // single-date behavior; any other rule expands dates per the SHARED
+  // `expandRecurrenceDates` helper (same matcher assignTemplateRecurring uses).
+  const recurrence = parsed.recurrence as ExpandableRecurrence | undefined;
+  const isRecurring =
+    recurrence !== undefined && recurrence.kind !== "single";
+
+  if (!isRecurring) {
+    // ── No-recurrence path: ONE doc per client on parsed.scheduledFor in a
+    // single atomic WriteBatch (byte-identical to the pre-260612 behavior:
+    // same doc shape, singleAssignmentEvent per client, no seriesId/recurrence).
+    const batch = db.batch();
+    const ids: string[] = [];
+    const ymd = parsed.scheduledFor.replace(/-/g, "");
+
+    for (const clientId of parsed.clientIds) {
+      const docId = `asg-${clientId}-${ymd}-${randomUUID()}`;
+      const ref = db.collection(ASSIGNMENTS).doc(docId);
+      batch.set(ref, {
+        templateId: parsed.templateId,
+        templateSnapshot, // SAME REFERENCE — immutable snapshot
+        clientId,
+        trainerId: trainer.uid,
+        scheduledFor: parsed.scheduledFor,
+        scheduledTime: parsed.scheduledTime ?? null,
+        meetingNotes: parsed.meetingNotes ?? null,
+        timezone: parsed.timezone ?? null,
+        status: "scheduled" as const,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        // Prescription established now — weight-prefill freshness anchor.
+        prescriptionUpdatedAt: FieldValue.serverTimestamp(),
+      });
+      ids.push(docId);
+    }
+
+    // Atomic commit — throws on permission denial, network error, or rule
+    // violation. The verbatim error message bubbles up to the trainer toast
+    // (Pitfall 5 — no silent partial-success messaging). UID lists are never
+    // included in the error (T-04-24 — count + verbatim error string only).
+    await batch.commit();
+
+    await Promise.all(
+      parsed.clientIds.map((clientId, i) =>
+        recordCoachActivityEvent(
+          db,
+          singleAssignmentEvent({
+            trainerId: trainer.uid,
+            assignmentId: ids[i],
+            templateName: (templateSnapshot as { name?: unknown }).name,
+            clientId,
+            pendingEmail: null,
+            scheduledFor: parsed.scheduledFor,
+          }),
+        ),
+      ),
+    );
+
+    return { ids };
   }
 
-  // 3) Atomic commit — throws on permission denial, network error, or rule
-  // violation. The verbatim error message bubbles up to the trainer toast
-  // (Pitfall 5 — no silent partial-success messaging). UID lists are never
-  // included in the error (T-04-24 — count + verbatim error string only).
-  await batch.commit();
+  // ── Recurring path ──────────────────────────────────────────────────────
+  // Expand dates ONCE (same for every client — they all share scheduledFor as
+  // the anchor) then write one doc per (client × date). Each CLIENT gets its
+  // OWN seriesId so cascade-delete / series-edit scope a single client's series.
+  const dates = expandRecurrenceDates(
+    recurrence,
+    parsed.scheduledFor,
+    parsed.endDate,
+  );
+  if (dates.length === 0) {
+    throw new Error("No dates generated for that recurrence.");
+  }
 
+  // Total-ops guard: reject an absurd submit BEFORE any commit so we never
+  // half-write a series across chunked batches (no all-or-nothing per-chunk
+  // rollback). clients × dates is the doc count. The error is verbatim and
+  // carries NO UID list (T-04-24).
+  const totalDocs = parsed.clientIds.length * dates.length;
+  if (totalDocs > MAX_TOTAL_BULK_RECURRING_DOCS) {
+    throw new Error(
+      `This recurring bulk-assign would write ${totalDocs} sessions, ` +
+        `which exceeds the ${MAX_TOTAL_BULK_RECURRING_DOCS} limit. ` +
+        `Reduce the client count, the date range, or the frequency.`,
+    );
+  }
+
+  const recurrencePayload: Record<string, unknown> = recurrence;
+  // Pre-generate a per-client seriesId so the coach_activity events (recorded
+  // AFTER all commits succeed) reference the same series each client's docs
+  // carry.
+  const seriesIdByClient = new Map<string, string>(
+    parsed.clientIds.map((clientId) => [clientId, randomUUID()]),
+  );
+
+  // Chunk writes across batches: Firestore caps a batch at 500 ops and each
+  // assignment write costs OPS_PER_ASSIGNMENT(3), so flush every
+  // floor(500/3)=166 SET ops. We accumulate (client × date) docs in submit
+  // order and commit a batch whenever it fills.
+  const SETS_PER_BATCH = Math.floor(MAX_OPS_PER_BATCH / OPS_PER_ASSIGNMENT); // 166
+  const idsByClient = new Map<string, string[]>(
+    parsed.clientIds.map((clientId) => [clientId, []]),
+  );
+  const allIds: string[] = [];
+
+  let batch = db.batch();
+  let opsInBatch = 0;
+  for (const clientId of parsed.clientIds) {
+    const seriesId = seriesIdByClient.get(clientId)!;
+    for (const date of dates) {
+      const ymd = date.replace(/-/g, "");
+      const docId = `asg-${clientId}-${ymd}-${randomUUID()}`;
+      const ref = db.collection(ASSIGNMENTS).doc(docId);
+      batch.set(ref, {
+        templateId: parsed.templateId,
+        templateSnapshot, // SAME REFERENCE — immutable snapshot
+        clientId,
+        trainerId: trainer.uid,
+        scheduledFor: date,
+        scheduledTime: parsed.scheduledTime ?? null,
+        meetingNotes: parsed.meetingNotes ?? null,
+        timezone: parsed.timezone ?? null,
+        status: "scheduled" as const,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        // Prescription established now — weight-prefill freshness anchor.
+        prescriptionUpdatedAt: FieldValue.serverTimestamp(),
+        recurrence: recurrencePayload,
+        seriesId,
+      });
+      idsByClient.get(clientId)!.push(docId);
+      allIds.push(docId);
+      opsInBatch += 1;
+      if (opsInBatch >= SETS_PER_BATCH) {
+        await batch.commit();
+        batch = db.batch();
+        opsInBatch = 0;
+      }
+    }
+  }
+  if (opsInBatch > 0) {
+    await batch.commit();
+  }
+
+  // Record ONE seriesAssignmentEvent per client AFTER all commits succeed
+  // (mirrors assignTemplateRecurring + the single-path post-commit Promise.all).
   await Promise.all(
-    parsed.clientIds.map((clientId, i) =>
+    parsed.clientIds.map((clientId) =>
       recordCoachActivityEvent(
         db,
-        singleAssignmentEvent({
+        seriesAssignmentEvent({
           trainerId: trainer.uid,
-          assignmentId: ids[i],
+          seriesId: seriesIdByClient.get(clientId)!,
           templateName: (templateSnapshot as { name?: unknown }).name,
           clientId,
           pendingEmail: null,
-          scheduledFor: parsed.scheduledFor,
+          recurrence: recurrencePayload,
+          dates,
         }),
       ),
     ),
   );
 
-  return { ids };
+  return { ids: allIds };
 }
 
 export async function assignTemplateRecurring(
@@ -717,55 +924,20 @@ export async function assignTemplateRecurring(
     recurrence = { kind: "weekly", weekday: parsed.weekday! };
   }
 
-  const hardWindowEnd = addCivilDays(parsed.startDate, NO_END_HORIZON_DAYS);
-  const windowEnd = parsed.endDate ?? hardWindowEnd;
-
-  // Walk each civil day in [startDate, windowEnd]; keep dates that match the
-  // recurrence rule. Cap at MAX_RECURRING_OCCURRENCES so a "no end date +
-  // daily" submit can't write more than 104 docs.
-  function matchesRule(date: string, dayIndex: number): boolean {
-    switch (recurrence.kind) {
-      case "single":
-        return date === parsed.startDate;
-      case "daily":
-        return true;
-      case "weekly":
-        return dayIndex === recurrence.weekday;
-      case "weekly_days":
-        return recurrence.weekdays.includes(dayIndex);
-      case "every_n_days": {
-        // Whole-day delta in civil days from startDate to date.
-        const [y0, m0, d0] = parsed.startDate.split("-").map(Number);
-        const [y1, m1, d1] = date.split("-").map(Number);
-        const diff =
-          (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
-        return diff >= 0 && diff % recurrence.everyN === 0;
-      }
-      case "monthly": {
-        const [y, m, d] = date.split("-").map(Number);
-        const target = recurrence.dayOfMonth;
-        const lastDayOfMonth = new Date(y, m, 0).getDate();
-        const clamped = Math.min(target, lastDayOfMonth);
-        return d === clamped;
-      }
-    }
-  }
-
-  const dates: string[] = [];
-  for (
-    let date = parsed.startDate;
-    date <= windowEnd;
-    date = addCivilDays(date, 1)
-  ) {
-    if (matchesRule(date, dayOfWeekFromCivil(date))) {
-      dates.push(date);
-      if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
-    }
-  }
+  // 260612-e9t (#175): date expansion now flows through the SHARED
+  // `expandRecurrenceDates` helper (single source of truth with
+  // bulkAssignTemplate). Same window cap + MAX_RECURRING_OCCURRENCES behavior.
+  const dates = expandRecurrenceDates(
+    recurrence,
+    parsed.startDate,
+    parsed.endDate,
+  );
   if (dates.length === 0) {
     throw new Error("No dates generated for that recurrence.");
   }
   const windowStart = dates[0];
+  const windowEnd =
+    parsed.endDate ?? addCivilDays(parsed.startDate, NO_END_HORIZON_DAYS);
 
   const templateSnapshot = applyExerciseOverrides(
     await templateSnapshotForAssignment(template),

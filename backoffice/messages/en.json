@@ -157,7 +157,11 @@
       "habitsDescription": "Create habit assignments for clients.",
       "chatTitle": "Chat",
       "chatDescription": "Reply to client conversations."
-    }
+    },
+    "unassignedSoonTitle": "Nothing assigned this week",
+    "unassignedSoonSubtitle": "Active clients with no workout or active habit in the next 4 days.",
+    "unassignedSoonEmpty": "All caught up — every active client has something assigned.",
+    "unassignedSoonAssignCta": "Assign"
   },
   "notifications": {
     "title": "Notifications",
@@ -1350,7 +1354,8 @@
       "habits": "Habits",
       "birthdayBadge": "Birthday",
       "pickClientsPrompt": "Pick one or more clients above to see their agenda.",
-      "pickClientFirstToast": "Pick at least one client first"
+      "pickClientFirstToast": "Pick at least one client first",
+      "bulkAssignHabit": "Assign habit"
     },
     "clientPicker": {
       "emptyTitle": "No clients yet",
@@ -1411,7 +1416,35 @@
       "errorBulkFailed": "Bulk assign failed.",
       "successSingular": "Assigned to {count} client.",
       "successPlural": "Assigned to {count} clients.",
-      "unknownTemplate": "(unknown template)"
+      "unknownTemplate": "(unknown template)",
+      "modeLabel": "Frequency",
+      "modeOnce": "One-time",
+      "modeWeekly": "Weekly recurring",
+      "modeDaily": "Daily",
+      "modeEveryN": "Every N days",
+      "modeMonthly": "Monthly",
+      "repeatOnLabel": "Repeat on",
+      "repeatEveryNLabel": "Every (days)",
+      "repeatEveryNHint": "Repeats every {n} days from the start date.",
+      "repeatMonthlyHint": "Repeats on day {day} of every month (months without that day use their last day).",
+      "setEndDate": "Set end date",
+      "endDateLabel": "End date",
+      "endDatePresetMonths": "{months, plural, one {# month} other {# months}}",
+      "endDateValue": "Ends on {date}.",
+      "successRecurring": "Assigned a recurring series to {count, plural, one {# client} other {# clients}}.",
+      "summaryDaily": "Every day",
+      "summaryEveryN": "Every {n} days",
+      "summaryWeekly": "Weekly: {days}",
+      "summaryMonthly": "Monthly on day {day}",
+      "weekdays": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      }
     },
     "bulkConfirm": {
       "titleSingular": "Assign “{template}” to {count} client on {date}?",
@@ -1421,7 +1454,9 @@
       "cancel": "Cancel",
       "assigning": "Assigning…",
       "confirmSingular": "Confirm {count} assignment",
-      "confirmPlural": "Confirm {count} assignments"
+      "confirmPlural": "Confirm {count} assignments",
+      "recurrenceLabel": "Recurrence:",
+      "recurrenceHint": "Each of the {count, plural, one {# client} other {# clients}} gets a recurring series starting {start}."
     },
     "assignModal": {
       "title": "Assign a workout template",

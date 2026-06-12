@@ -29,6 +29,7 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
+import { listClientsWithNothingAssignedSoon } from "@/lib/gc-fitness/coach-attention-actions";
 import { listPendingChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { safe } from "@/lib/gc-fitness/safe-load";
 import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "@/lib/gc-fitness/client-attention";
@@ -40,6 +41,7 @@ import {
   TopPerformers,
 } from "./_components/coach-pulse";
 import { ChecklistPending } from "./_components/checklist-pending";
+import { UnassignedClientsCard } from "./_components/unassigned-clients-card";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "GC Fitness - <dashboard>" (issue #170).
@@ -88,6 +90,12 @@ export default async function GCFitnessDashboardPage({
   // `safe()` so a checklist read failure degrades to no widget, never a 500.
   const pendingChecklist =
     (await safe("coach checklist", () => listPendingChecklistItems())) ?? [];
+  // 260612-e9t (#245): active clients with nothing assigned in the next 4 days.
+  // Behind safe() so a query failure degrades to no card, never a 500.
+  const unassignedSoon =
+    (await safe("unassigned clients", () =>
+      listClientsWithNothingAssignedSoon(),
+    )) ?? [];
 
   const tDashboard = await getTranslations("dashboard");
   const tNav = await getTranslations("nav");
@@ -209,6 +217,9 @@ export default async function GCFitnessDashboardPage({
 
       {/* Pending checklist (overdue + due today) */}
       <ChecklistPending items={pendingChecklist} />
+
+      {/* 260612-e9t (#245): clients with nothing assigned in the next 4 days */}
+      <UnassignedClientsCard rows={unassignedSoon} />
 
       {/* Charts: workouts (gold bars) + habits (line) */}
       <div className="grid gap-4 xl:grid-cols-2">

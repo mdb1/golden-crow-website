@@ -125,20 +125,39 @@ export type AssignTemplateInput = z.infer<typeof assignTemplateSchema>;
  * WriteBatch. Cap is `MAX_CLIENTS_PER_BATCH` (166) per Pitfall 5; the
  * Server Action re-asserts the cap defensively after parse.
  */
-export const bulkAssignSchema = z.object({
-  templateId: z.string().min(1, "templateId is required."),
-  clientIds: z
-    .array(z.string().min(1, "clientId entries cannot be empty strings."))
-    .min(1, "Pick at least one client.")
-    .max(
-      MAX_CLIENTS_PER_BATCH,
-      `Bulk-assign supports at most ${MAX_CLIENTS_PER_BATCH} clients per submit.`,
-  ),
-  scheduledFor: civilDateSchema,
-  scheduledTime: scheduledTimeSchema,
-  meetingNotes: meetingNotesSchema,
-  timezone: ianaTimezoneSchema,
-});
+export const bulkAssignSchema = z
+  .object({
+    templateId: z.string().min(1, "templateId is required."),
+    clientIds: z
+      .array(z.string().min(1, "clientId entries cannot be empty strings."))
+      .min(1, "Pick at least one client.")
+      .max(
+        MAX_CLIENTS_PER_BATCH,
+        `Bulk-assign supports at most ${MAX_CLIENTS_PER_BATCH} clients per submit.`,
+    ),
+    scheduledFor: civilDateSchema,
+    scheduledTime: scheduledTimeSchema,
+    meetingNotes: meetingNotesSchema,
+    timezone: ianaTimezoneSchema,
+    // 260612-e9t (#175): optional recurrence. When absent or `{kind:"single"}`
+    // the Server Action writes exactly one doc per client on `scheduledFor`
+    // (byte-identical to the pre-recurrence behavior). When a real recurrence
+    // is present, the action expands dates (mirroring `assignTemplateRecurring`)
+    // and writes one doc per (client × matching date) with a per-client
+    // seriesId. `endDate` bounds the expansion window (rolling horizon cap when
+    // omitted).
+    recurrence: z.lazy(() => recurrenceSchema).optional(),
+    endDate: civilDateSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.endDate && data.endDate < data.scheduledFor) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "endDate must be on or after scheduledFor.",
+      });
+    }
+  });
 
 export type BulkAssignInput = z.infer<typeof bulkAssignSchema>;
 

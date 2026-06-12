@@ -512,6 +512,161 @@ describe("bulkAssignTemplate", () => {
     // collide on overwriting writes).
     expect(result.ids[0]).not.toBe(result.ids[1]);
   });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 260612-e9t (#175): bulk RECURRENCE
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it("no-recurrence path is unchanged: 1 doc/client, no seriesId/recurrence", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    const result = await bulkAssignTemplate({
+      templateId: "tpl-abc",
+      clientIds: ["c1", "c2", "c3"],
+      scheduledFor: "2026-06-01",
+    });
+
+    expect(result.ids).toHaveLength(3);
+    expect(mockBatch).toHaveBeenCalledTimes(1);
+    expect(mockBatchSet).toHaveBeenCalledTimes(3);
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+    // No seriesId / recurrence on any doc on the single-date path.
+    for (const call of mockBatchSet.mock.calls) {
+      const doc = call[1];
+      expect(doc.seriesId).toBeUndefined();
+      expect(doc.recurrence).toBeUndefined();
+      expect(doc.scheduledFor).toBe("2026-06-01");
+    }
+  });
+
+  it("single-kind recurrence behaves like the no-recurrence path", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    const result = await bulkAssignTemplate({
+      templateId: "tpl-abc",
+      clientIds: ["c1", "c2"],
+      scheduledFor: "2026-06-01",
+      recurrence: { kind: "single" },
+    });
+
+    expect(result.ids).toHaveLength(2);
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    for (const call of mockBatchSet.mock.calls) {
+      expect(call[1].seriesId).toBeUndefined();
+      expect(call[1].recurrence).toBeUndefined();
+    }
+  });
+
+  it("weekly recurrence expands to one doc per (client × matching date) with a per-client seriesId", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    // 2026-06-01 is a Monday (weekday 1). Window 2026-06-01..2026-06-22 has
+    // 4 Mondays: 06-01, 06-08, 06-15, 06-22.
+    const result = await bulkAssignTemplate({
+      templateId: "tpl-abc",
+      clientIds: ["c1", "c2"],
+      scheduledFor: "2026-06-01",
+      recurrence: { kind: "weekly", weekday: 1 },
+      endDate: "2026-06-22",
+    });
+
+    // 2 clients × 4 Mondays = 8 docs.
+    expect(result.ids).toHaveLength(8);
+    expect(mockBatchSet).toHaveBeenCalledTimes(8);
+
+    // Each doc carries a recurrence rule + a seriesId; the seriesId is shared
+    // WITHIN a client's series but DIFFERS across clients.
+    const byClient = new Map<string, Set<string>>();
+    const expectedDates = ["2026-06-01", "2026-06-08", "2026-06-15", "2026-06-22"];
+    const datesByClient = new Map<string, string[]>();
+    for (const call of mockBatchSet.mock.calls) {
+      const doc = call[1];
+      expect(doc.recurrence).toEqual({ kind: "weekly", weekday: 1 });
+      expect(typeof doc.seriesId).toBe("string");
+      const set = byClient.get(doc.clientId) ?? new Set<string>();
+      set.add(doc.seriesId);
+      byClient.set(doc.clientId, set);
+      const dates = datesByClient.get(doc.clientId) ?? [];
+      dates.push(doc.scheduledFor);
+      datesByClient.set(doc.clientId, dates);
+    }
+    // One seriesId per client (shared across that client's 4 docs).
+    expect(byClient.get("c1")!.size).toBe(1);
+    expect(byClient.get("c2")!.size).toBe(1);
+    // Different clients get different series.
+    const s1 = [...byClient.get("c1")!][0];
+    const s2 = [...byClient.get("c2")!][0];
+    expect(s1).not.toBe(s2);
+    // Expected dates per client.
+    expect(datesByClient.get("c1")!.sort()).toEqual(expectedDates);
+    expect(datesByClient.get("c2")!.sort()).toEqual(expectedDates);
+  });
+
+  it("chunks writes across multiple batches when clients × dates × 3 ops > 500", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    // 10 clients × daily over 2026-06-01..2026-06-30 = 30 dates = 300 docs.
+    // 300 docs × 3 ops = 900 ops > 500 → must commit across ⌈300/166⌉ = 2 batches.
+    const clientIds = Array.from({ length: 10 }, (_, i) => `client-${i}`);
+    const result = await bulkAssignTemplate({
+      templateId: "tpl-abc",
+      clientIds,
+      scheduledFor: "2026-06-01",
+      recurrence: { kind: "daily" },
+      endDate: "2026-06-30",
+    });
+
+    expect(result.ids).toHaveLength(300);
+    expect(mockBatchSet).toHaveBeenCalledTimes(300);
+    // 300 set ops / floor(500/3)=166 per batch → 2 commits.
+    expect(mockBatchCommit).toHaveBeenCalledTimes(2);
+    expect(mockBatch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("rejects an over-cap recurring submit BEFORE any commit (total-ops guard)", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    // 100 clients × daily-for-a-year (capped at 104 occurrences) = 10400 docs,
+    // well over MAX_TOTAL_BULK_RECURRING_DOCS (5000) → reject, no writes.
+    const clientIds = Array.from({ length: 100 }, (_, i) => `c-${i}`);
+    await expect(
+      bulkAssignTemplate({
+        templateId: "tpl-abc",
+        clientIds,
+        scheduledFor: "2026-06-01",
+        recurrence: { kind: "daily" },
+        // No endDate → rolling horizon, capped at 104 occurrences per client.
+      }),
+    ).rejects.toThrow(/exceeds the 5000 limit/i);
+    expect(mockBatchSet).not.toHaveBeenCalled();
+    expect(mockBatchCommit).not.toHaveBeenCalled();
+  });
+
+  it("rejects endDate before scheduledFor at Zod parse time", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+
+    await expect(
+      bulkAssignTemplate({
+        templateId: "tpl-abc",
+        clientIds: ["c1"],
+        scheduledFor: "2026-06-10",
+        recurrence: { kind: "daily" },
+        endDate: "2026-06-01",
+      }),
+    ).rejects.toThrow();
+    expect(mockBatchSet).not.toHaveBeenCalled();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

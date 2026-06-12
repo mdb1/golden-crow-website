@@ -157,7 +157,11 @@
       "habitsDescription": "Creá asignaciones de hábitos para los clientes.",
       "chatTitle": "Chat",
       "chatDescription": "Respondé las conversaciones con tus clientes."
-    }
+    },
+    "unassignedSoonTitle": "Sin nada asignado esta semana",
+    "unassignedSoonSubtitle": "Clientes activos sin entrenamiento ni hábito activo en los próximos 4 días.",
+    "unassignedSoonEmpty": "Todo al día — cada cliente activo tiene algo asignado.",
+    "unassignedSoonAssignCta": "Asignar"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -1350,7 +1354,8 @@
       "habits": "Hábitos",
       "birthdayBadge": "Cumpleaños",
       "pickClientsPrompt": "Elegí uno o más clientes arriba para ver su agenda.",
-      "pickClientFirstToast": "Elegí al menos un cliente primero"
+      "pickClientFirstToast": "Elegí al menos un cliente primero",
+      "bulkAssignHabit": "Asignar hábito"
     },
     "clientPicker": {
       "emptyTitle": "Aún no tenés clientes",
@@ -1411,7 +1416,35 @@
       "errorBulkFailed": "Falló la asignación masiva.",
       "successSingular": "Asignado a {count} cliente.",
       "successPlural": "Asignado a {count} clientes.",
-      "unknownTemplate": "(plantilla desconocida)"
+      "unknownTemplate": "(plantilla desconocida)",
+      "modeLabel": "Frecuencia",
+      "modeOnce": "Única",
+      "modeWeekly": "Semanal recurrente",
+      "modeDaily": "Diaria",
+      "modeEveryN": "Cada N días",
+      "modeMonthly": "Mensual",
+      "repeatOnLabel": "Repetir los",
+      "repeatEveryNLabel": "Cada (días)",
+      "repeatEveryNHint": "Se repite cada {n} días desde la fecha de inicio.",
+      "repeatMonthlyHint": "Se repite el día {day} de cada mes (si el mes no tiene ese día, se usa el último día del mes).",
+      "setEndDate": "Definir fecha de fin",
+      "endDateLabel": "Fecha de fin",
+      "endDatePresetMonths": "{months, plural, one {# mes} other {# meses}}",
+      "endDateValue": "Termina el {date}.",
+      "successRecurring": "Se asignó una serie recurrente a {count, plural, one {# cliente} other {# clientes}}.",
+      "summaryDaily": "Todos los días",
+      "summaryEveryN": "Cada {n} días",
+      "summaryWeekly": "Semanal: {days}",
+      "summaryMonthly": "Mensual el día {day}",
+      "weekdays": {
+        "sunday": "Domingo",
+        "monday": "Lunes",
+        "tuesday": "Martes",
+        "wednesday": "Miércoles",
+        "thursday": "Jueves",
+        "friday": "Viernes",
+        "saturday": "Sábado"
+      }
     },
     "bulkConfirm": {
       "titleSingular": "¿Asignar “{template}” a {count} cliente el {date}?",
@@ -1421,7 +1454,9 @@
       "cancel": "Cancelar",
       "assigning": "Asignando…",
       "confirmSingular": "Confirmar {count} asignación",
-      "confirmPlural": "Confirmar {count} asignaciones"
+      "confirmPlural": "Confirmar {count} asignaciones",
+      "recurrenceLabel": "Recurrencia:",
+      "recurrenceHint": "Cada uno de los {count, plural, one {# cliente} other {# clientes}} recibe una serie recurrente que empieza el {start}."
     },
     "assignModal": {
       "title": "Asignar una plantilla de entrenamiento",

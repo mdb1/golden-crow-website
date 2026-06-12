@@ -39,6 +39,13 @@ interface BulkConfirmModalProps {
   scheduledFor: string;
   /** Initially-selected clients passed in from BulkAssignForm. */
   candidates: ClientRosterEntry[];
+  /**
+   * 260612-e9t (#175): human-readable recurrence summary (e.g. "Cada semana:
+   * Lun, Mié"). Null/undefined on the single-date ("once") path. When present,
+   * the modal shows the trainer they're rolling out a recurring SERIES per
+   * client rather than a single session.
+   */
+  recurrenceSummary?: string | null;
   submitting: boolean;
   onConfirm: (finalClientIds: string[]) => void;
 }
@@ -49,6 +56,7 @@ export function BulkConfirmModal({
   templateName,
   scheduledFor,
   candidates,
+  recurrenceSummary,
   submitting,
   onConfirm,
 }: BulkConfirmModalProps) {
@@ -95,6 +103,16 @@ export function BulkConfirmModal({
           </DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
+
+        {recurrenceSummary ? (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+            <span className="font-medium">{t("recurrenceLabel")}</span>{" "}
+            <span className="text-muted-foreground">{recurrenceSummary}</span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("recurrenceHint", { count: finalCount, start: scheduledFor })}
+            </p>
+          </div>
+        ) : null}
 
         <div className="max-h-72 overflow-y-auto rounded border p-2">
           <ul className="flex flex-col gap-1.5">

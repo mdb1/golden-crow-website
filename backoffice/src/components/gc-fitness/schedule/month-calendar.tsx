@@ -67,6 +67,7 @@ import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
 import { HabitDetailDialog } from "./habit-detail-dialog";
+import { BulkAssignHabitDialog } from "./bulk-assign-habit-dialog";
 
 interface ClientLite {
   uid: string;
@@ -392,6 +393,8 @@ export function MonthCalendar({
     | { date: string; clientId: string; clientName: string }
     | null
   >(null);
+  // 260612-e9t (#176): bulk habit assignment reachable from the Agenda.
+  const [bulkHabitOpen, setBulkHabitOpen] = useState(false);
   // Day-cell "+" was clicked but multiple clients are selected — show a
   // micro-picker first. `kind` carries through so we know which surface
   // to open after the client is chosen.
@@ -581,6 +584,19 @@ export function MonthCalendar({
           asChild
         >
           <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
+        </Button>
+        {/* 260612-e9t (#176): bulk habit assignment from the Agenda. The
+            assigned habit carries its template's recurring schedule (the dialog
+            copies scheduleCadence/Weekdays/etc. server-side). */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-[40px] rounded-full"
+          onClick={() => setBulkHabitOpen(true)}
+          disabled={clients.length === 0}
+        >
+          {t("bulkAssignHabit")}
         </Button>
       </div>
 
@@ -1104,6 +1120,21 @@ export function MonthCalendar({
           }}
         />
       ) : null}
+
+      {/* ── 260612-e9t (#176): bulk habit assignment from the Agenda ─────── */}
+      <BulkAssignHabitDialog
+        open={bulkHabitOpen}
+        onOpenChange={setBulkHabitOpen}
+        clients={clients.map((c) => ({
+          uid: c.uid,
+          displayName: c.displayName,
+        }))}
+        onAssigned={() => {
+          // Refresh the month so newly assigned habits appear on the calendar.
+          queryClient.invalidateQueries({ queryKey: ["schedule"] });
+          setBulkHabitOpen(false);
+        }}
+      />
 
       {clients.length === 0 ? (
         <p className="rounded-[1.25rem] border border-dashed p-6 text-center text-sm text-muted-foreground">
