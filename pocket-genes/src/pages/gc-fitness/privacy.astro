@@ -1,0 +1,137 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="GC Fitness — Política de Privacidad">
+  <main class="legal-page">
+    <div class="legal-container">
+      <p class="legal-lang"><a href="/en/gc-fitness/privacy">English version</a></p>
+      <h1>Política de Privacidad — GC Fitness</h1>
+      <p class="legal-updated">Vigente desde: 12 de junio de 2026</p>
+
+      <p>
+        Esta política describe cómo Golden Crow («nosotros») trata tus datos personales cuando
+        usás la aplicación móvil <strong>GC Fitness</strong> (paquete
+        <code>com.goldencrow.fitness</code>, disponible para iOS y Android). GC Fitness es una
+        plataforma de coaching: conecta a cada cliente con su entrenador personal.
+      </p>
+
+      <h2>Qué datos recopilamos</h2>
+      <ul>
+        <li><strong>Cuenta:</strong> nombre, dirección de email y foto de perfil provistos por tu
+          método de inicio de sesión (Google o Apple).</li>
+        <li><strong>Datos de entrenamiento y salud:</strong> entrenamientos registrados (series,
+          repeticiones, pesos, duraciones), hábitos y su cumplimiento, métricas corporales que
+          cargues (peso, altura), récords personales y objetivos.</li>
+        <li><strong>Fotos de progreso:</strong> las fotos que subas voluntariamente para tu
+          seguimiento visual.</li>
+        <li><strong>Mensajes:</strong> el chat con tu entrenador (texto, fotos y notas de voz).</li>
+        <li><strong>Datos técnicos:</strong> token del dispositivo para notificaciones push (FCM),
+          informes de fallos (Firebase Crashlytics) y eventos de uso de la app (Firebase
+          Analytics: por ejemplo «entrenamiento iniciado», «serie registrada» y vistas de
+          pantalla, asociados a tu ID de usuario). No usamos identificadores publicitarios.</li>
+        <li><strong>Preferencias:</strong> idioma, tema, unidades, configuración de notificaciones
+          y zona horaria.</li>
+      </ul>
+
+      <h2>Para qué usamos tus datos</h2>
+      <ul>
+        <li>Brindar el servicio: tu entrenador ve tus entrenamientos, hábitos, métricas, fotos de
+          progreso y mensajes para poder entrenarte.</li>
+        <li>Funcionamiento de la app: sincronización entre tus dispositivos, notificaciones
+          (recordatorios de entrenamientos y hábitos, mensajes del coach, fin del descanso).</li>
+        <li>Diagnóstico y mejora: informes de fallos y analítica de uso del producto.</li>
+      </ul>
+      <p>
+        En iOS, si lo autorizás, la app escribe tus entrenamientos en Apple Health y lee datos como
+        frecuencia cardíaca, energía activa y pasos para mostrarlos en la app. Esos datos de Apple
+        Health se procesan en tu dispositivo y no se usan con fines publicitarios.
+      </p>
+
+      <h2>Con quién compartimos datos</h2>
+      <ul>
+        <li><strong>Tu entrenador:</strong> ve los datos de fitness, fotos y mensajes asociados a tu
+          cuenta — es el propósito del servicio.</li>
+        <li><strong>Proveedores de infraestructura:</strong> usamos Google Firebase
+          (autenticación, base de datos, almacenamiento, notificaciones, Crashlytics y Analytics)
+          para operar la app. Google actúa como encargado del tratamiento.</li>
+      </ul>
+      <p>
+        <strong>No vendemos tus datos.</strong> No mostramos publicidad ni compartimos tus datos
+        con terceros con fines de marketing.
+      </p>
+
+      <h2>Seguridad y almacenamiento</h2>
+      <p>
+        Tus datos se almacenan en Google Cloud (Firebase) y se transmiten cifrados (TLS). El acceso
+        está restringido por reglas de seguridad: solo vos y tu entrenador pueden acceder a tus
+        datos.
+      </p>
+
+      <h2>Retención y eliminación</h2>
+      <p>
+        Conservamos tus datos mientras tu cuenta esté activa. Podés eliminar tu cuenta en cualquier
+        momento desde la app (Ajustes → Eliminar cuenta) o solicitándolo por email — ver
+        <a href="/gc-fitness/delete-account">Eliminación de cuenta</a>. Al eliminarla se borran tu
+        perfil, entrenamientos, hábitos, métricas, fotos y mensajes; se conserva un registro mínimo
+        anonimizado (sin nombre ni email) por integridad del sistema, y los informes de fallos /
+        analítica se eliminan según los plazos de retención de Firebase.
+      </p>
+
+      <h2>Tus derechos</h2>
+      <p>
+        Podés solicitar acceso, corrección o eliminación de tus datos escribiendo a
+        <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>.
+      </p>
+
+      <h2>Menores</h2>
+      <p>La app no está dirigida a menores de 13 años.</p>
+
+      <h2>Cambios</h2>
+      <p>
+        Si modificamos esta política publicaremos la versión actualizada en esta página con su
+        nueva fecha de vigencia.
+      </p>
+
+      <h2>Contacto</h2>
+      <p>
+        Golden Crow — <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>
+      </p>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding: 7rem 1.5rem 4rem;
+    min-height: 60vh;
+  }
+  .legal-container {
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .legal-container h1 {
+    font-size: 2rem;
+    margin-bottom: 0.25rem;
+  }
+  .legal-container h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.5rem;
+  }
+  .legal-container ul {
+    padding-left: 1.25rem;
+  }
+  .legal-container li {
+    margin-bottom: 0.4rem;
+  }
+  .legal-updated {
+    opacity: 0.7;
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+  }
+  .legal-lang {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+</style>
