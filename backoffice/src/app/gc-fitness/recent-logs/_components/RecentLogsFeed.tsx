@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
+  Bell,
   CalendarClock,
   MessageCircle,
   Filter,
@@ -59,6 +60,7 @@ const CATEGORY_ICON: Record<
   habit: ListChecks,
   workout: Dumbbell,
   reschedule: ArrowRightLeft,
+  reminder: Bell,
   photo: Camera,
   weight: Scale,
   signup: User,
@@ -68,6 +70,7 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   habit: "badgeHabit",
   workout: "badgeWorkout",
   reschedule: "badgeReschedule",
+  reminder: "badgeReminder",
   photo: "badgePhoto",
   weight: "badgeWeight",
   signup: "badgeSignup",
@@ -197,6 +200,12 @@ export function RecentLogsFeed({
       label: t("reschedulesOption"),
       icon: <ArrowRightLeft />,
       onSelect: () => applyFilters(selectedClientIds, "reschedule"),
+    },
+    {
+      key: "reminder",
+      label: t("remindersOption"),
+      icon: <Bell />,
+      onSelect: () => applyFilters(selectedClientIds, "reminder"),
     },
     {
       key: "photo",

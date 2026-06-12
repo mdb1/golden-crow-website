@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRightLeft,
+  Bell,
   CalendarClock,
   Camera,
   ChevronRight,
@@ -40,6 +41,7 @@ const CATEGORY_ICON: Record<
   habit: ListChecks,
   workout: Dumbbell,
   reschedule: ArrowRightLeft,
+  reminder: Bell,
   photo: Camera,
   weight: Scale,
   signup: User,
@@ -50,6 +52,7 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
   habit: "badgeHabit",
   workout: "badgeWorkout",
   reschedule: "badgeReschedule",
+  reminder: "badgeReminder",
   photo: "badgePhoto",
   weight: "badgeWeight",
   signup: "badgeSignup",
@@ -63,6 +66,8 @@ const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
     "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
   reschedule:
     "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+  reminder:
+    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
   photo:
     "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
   weight:
