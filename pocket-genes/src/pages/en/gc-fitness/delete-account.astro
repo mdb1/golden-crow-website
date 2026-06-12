@@ -1,0 +1,85 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="GC Fitness — Account deletion">
+  <main class="legal-page">
+    <div class="legal-container">
+      <p class="legal-lang"><a href="/gc-fitness/delete-account">Versión en español</a></p>
+      <h1>Account deletion — GC Fitness</h1>
+
+      <p>
+        You can delete your GC Fitness account (app <code>com.goldencrow.fitness</code>) and all
+        associated data in two ways:
+      </p>
+
+      <h2>1. From the app (recommended)</h2>
+      <ol>
+        <li>Open GC Fitness and sign in.</li>
+        <li>Go to <strong>Settings</strong>.</li>
+        <li>Tap <strong>Delete account</strong> at the bottom of the screen.</li>
+        <li>Confirm by typing the requested word. Deletion is immediate and permanent.</li>
+      </ol>
+
+      <h2>2. By email</h2>
+      <p>
+        If you no longer have access to the app, email
+        <a href="mailto:support@goldencrowvs.com?subject=Delete%20GC%20Fitness%20account">support@goldencrowvs.com</a>
+        with the subject "Delete GC Fitness account" from your account's email address. We process
+        requests within 30 days.
+      </p>
+
+      <h2>What gets deleted</h2>
+      <ul>
+        <li>Your account and profile (name, email, photo).</li>
+        <li>Your entire workout, habit, and body-metric history.</li>
+        <li>Your progress photos and uploaded files.</li>
+        <li>The chat with your trainer (messages, photos, and voice notes).</li>
+        <li>Your devices' push-notification tokens.</li>
+      </ul>
+
+      <h2>What is kept</h2>
+      <ul>
+        <li>A minimal <strong>anonymized</strong> record (no name, email, or content) for system
+          integrity.</li>
+        <li>Crash reports and usage analytics are removed per Firebase's (Google's) retention
+          windows.</li>
+      </ul>
+
+      <p>
+        See our <a href="/en/gc-fitness/privacy">Privacy Policy</a> for more details.
+      </p>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding: 7rem 1.5rem 4rem;
+    min-height: 60vh;
+  }
+  .legal-container {
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .legal-container h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  .legal-container h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.5rem;
+  }
+  .legal-container ul,
+  .legal-container ol {
+    padding-left: 1.25rem;
+  }
+  .legal-container li {
+    margin-bottom: 0.4rem;
+  }
+  .legal-lang {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+</style>

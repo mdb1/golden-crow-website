@@ -1,0 +1,137 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="GC Fitness — Privacy Policy">
+  <main class="legal-page">
+    <div class="legal-container">
+      <p class="legal-lang"><a href="/gc-fitness/privacy">Versión en español</a></p>
+      <h1>Privacy Policy — GC Fitness</h1>
+      <p class="legal-updated">Effective date: June 12, 2026</p>
+
+      <p>
+        This policy describes how Golden Crow ("we") handles your personal data when you use the
+        <strong>GC Fitness</strong> mobile app (package <code>com.goldencrow.fitness</code>,
+        available for iOS and Android). GC Fitness is a coaching platform: it connects each client
+        with their personal trainer.
+      </p>
+
+      <h2>Data we collect</h2>
+      <ul>
+        <li><strong>Account:</strong> name, email address, and profile photo provided by your
+          sign-in method (Google or Apple).</li>
+        <li><strong>Training and health data:</strong> logged workouts (sets, reps, weights,
+          durations), habits and their completion, body metrics you enter (weight, height),
+          personal records, and goals.</li>
+        <li><strong>Progress photos:</strong> photos you voluntarily upload for visual
+          tracking.</li>
+        <li><strong>Messages:</strong> your chat with your coach (text, photos, and voice
+          notes).</li>
+        <li><strong>Technical data:</strong> device push token (FCM), crash reports (Firebase
+          Crashlytics), and product-usage events (Firebase Analytics: e.g. "workout started",
+          "set logged", screen views — associated with your user ID). We do not use advertising
+          identifiers.</li>
+        <li><strong>Preferences:</strong> language, theme, units, notification settings, and
+          timezone.</li>
+      </ul>
+
+      <h2>How we use your data</h2>
+      <ul>
+        <li>Providing the service: your trainer sees your workouts, habits, metrics, progress
+          photos, and messages in order to coach you.</li>
+        <li>App functionality: syncing across your devices, notifications (workout and habit
+          reminders, coach messages, rest-timer alerts).</li>
+        <li>Diagnostics and improvement: crash reports and product analytics.</li>
+      </ul>
+      <p>
+        On iOS, with your permission, the app writes your workouts to Apple Health and reads data
+        such as heart rate, active energy, and steps to display them in the app. Apple Health data
+        is processed on your device and is never used for advertising.
+      </p>
+
+      <h2>Who we share data with</h2>
+      <ul>
+        <li><strong>Your trainer:</strong> sees the fitness data, photos, and messages associated
+          with your account — that is the purpose of the service.</li>
+        <li><strong>Infrastructure providers:</strong> we use Google Firebase (authentication,
+          database, storage, push notifications, Crashlytics, and Analytics) to operate the app.
+          Google acts as a data processor.</li>
+      </ul>
+      <p>
+        <strong>We do not sell your data.</strong> There are no ads, and we never share your data
+        with third parties for marketing.
+      </p>
+
+      <h2>Security and storage</h2>
+      <p>
+        Your data is stored on Google Cloud (Firebase) and encrypted in transit (TLS). Access is
+        restricted by security rules: only you and your trainer can access your data.
+      </p>
+
+      <h2>Retention and deletion</h2>
+      <p>
+        We keep your data while your account is active. You can delete your account at any time
+        from the app (Settings → Delete account) or by emailing us — see
+        <a href="/en/gc-fitness/delete-account">Account deletion</a>. Deletion removes your
+        profile, workouts, habits, metrics, photos, and messages; a minimal anonymized record
+        (no name or email) is kept for system integrity, and crash/analytics telemetry is removed
+        per Firebase's retention windows.
+      </p>
+
+      <h2>Your rights</h2>
+      <p>
+        You can request access to, correction of, or deletion of your data by writing to
+        <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>.
+      </p>
+
+      <h2>Children</h2>
+      <p>The app is not directed at children under 13.</p>
+
+      <h2>Changes</h2>
+      <p>
+        If we change this policy we will publish the updated version on this page with a new
+        effective date.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Golden Crow — <a href="mailto:support@goldencrowvs.com">support@goldencrowvs.com</a>
+      </p>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding: 7rem 1.5rem 4rem;
+    min-height: 60vh;
+  }
+  .legal-container {
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .legal-container h1 {
+    font-size: 2rem;
+    margin-bottom: 0.25rem;
+  }
+  .legal-container h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.5rem;
+  }
+  .legal-container ul {
+    padding-left: 1.25rem;
+  }
+  .legal-container li {
+    margin-bottom: 0.4rem;
+  }
+  .legal-updated {
+    opacity: 0.7;
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+  }
+  .legal-lang {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+</style>

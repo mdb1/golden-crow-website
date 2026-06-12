@@ -1,0 +1,86 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="GC Fitness — Eliminación de cuenta">
+  <main class="legal-page">
+    <div class="legal-container">
+      <p class="legal-lang"><a href="/en/gc-fitness/delete-account">English version</a></p>
+      <h1>Eliminación de cuenta — GC Fitness</h1>
+
+      <p>
+        Podés eliminar tu cuenta de GC Fitness (app <code>com.goldencrow.fitness</code>) y todos
+        los datos asociados de dos maneras:
+      </p>
+
+      <h2>1. Desde la app (recomendado)</h2>
+      <ol>
+        <li>Abrí GC Fitness e iniciá sesión.</li>
+        <li>Andá a <strong>Ajustes</strong> (pestaña de configuración).</li>
+        <li>Tocá <strong>Eliminar cuenta</strong>, al final de la pantalla.</li>
+        <li>Confirmá escribiendo la palabra solicitada. La eliminación es inmediata y definitiva.</li>
+      </ol>
+
+      <h2>2. Por email</h2>
+      <p>
+        Si ya no tenés acceso a la app, escribí a
+        <a href="mailto:support@goldencrowvs.com?subject=Eliminar%20cuenta%20GC%20Fitness">support@goldencrowvs.com</a>
+        con el asunto «Eliminar cuenta GC Fitness» desde la dirección de email de tu cuenta.
+        Procesamos las solicitudes dentro de los 30 días.
+      </p>
+
+      <h2>Qué se elimina</h2>
+      <ul>
+        <li>Tu cuenta y perfil (nombre, email, foto).</li>
+        <li>Todo tu historial de entrenamientos, hábitos y métricas corporales.</li>
+        <li>Tus fotos de progreso y archivos subidos.</li>
+        <li>El chat con tu entrenador (mensajes, fotos y audios).</li>
+        <li>Los tokens de notificaciones de tus dispositivos.</li>
+      </ul>
+
+      <h2>Qué se conserva</h2>
+      <ul>
+        <li>Un registro mínimo <strong>anonimizado</strong> (sin nombre, email ni contenido) por
+          integridad del sistema.</li>
+        <li>Los informes de fallos y la analítica de uso se eliminan según los plazos de
+          retención de Firebase (Google).</li>
+      </ul>
+
+      <p>
+        Más información en nuestra
+        <a href="/gc-fitness/privacy">Política de Privacidad</a>.
+      </p>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .legal-page {
+    padding: 7rem 1.5rem 4rem;
+    min-height: 60vh;
+  }
+  .legal-container {
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .legal-container h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  .legal-container h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 0.5rem;
+  }
+  .legal-container ul,
+  .legal-container ol {
+    padding-left: 1.25rem;
+  }
+  .legal-container li {
+    margin-bottom: 0.4rem;
+  }
+  .legal-lang {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+</style>
