@@ -3470,6 +3470,56 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function validateBiopsyTableBeforePreview() {
+    if (formType !== "sample" || currentStep !== "samplingInformation") {
+      return true;
+    }
+
+    const errors: FieldErrors = {};
+    const biopsyCount = Number(state.sampleInformation.biopsyCount);
+    if (
+      !state.samplingTableGenerated ||
+      !Number.isInteger(biopsyCount) ||
+      biopsyCount <= 0 ||
+      state.samplingInformation.length !== biopsyCount + 2
+    ) {
+      errors["samplingInformation._table"] = t("Generate the sampling table.");
+    }
+
+    state.samplingInformation.forEach((sampling, index) => {
+      const row = `${t("Sampling")} ${index + 1}`;
+      const embryoStageDay = sampling.embryoStageDay.trim();
+      const morphology = sampling.morphology.trim();
+
+      if (!embryoStageDay || !["5", "6", "7"].includes(embryoStageDay)) {
+        errors[`samplingInformation.${index}.embryoStageDay`] = embryoStageDay
+          ? `${row}: ${t("Stage day must be 5, 6 or 7.")}`
+          : `${row}: ${t("Required field.")}`;
+      }
+      if (!morphology || !MORPHOLOGY_PATTERN.test(morphology)) {
+        errors[`samplingInformation.${index}.morphology`] = morphology
+          ? `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`
+          : `${row}: ${t("Required field.")}`;
+      }
+      if (!sampling.sentUl.trim()) {
+        errors[`samplingInformation.${index}.sentUl`] =
+          `${row}: ${t("Required field.")}`;
+      }
+      if (!sampling.biopsiedCells.trim()) {
+        errors[`samplingInformation.${index}.biopsiedCells`] =
+          `${row}: ${t("Required field.")}`;
+      }
+      if (!sampling.cellsVisualized) {
+        errors[`samplingInformation.${index}.cellsVisualized`] =
+          `${row}: ${t("Required field.")}`;
+      }
+    });
+
+    setPreviewValidationReport(null);
+    setStepErrors("samplingInformation", errors);
+    return !hasErrors(errors);
+  }
+
   function markSkippedStepsInvalid(nextStepIndex: number) {
     setStepValidation((current) => {
       const next: StepValidationState = { ...current };
@@ -3504,6 +3554,10 @@ export function TwoPQFormFlow({
 
   async function validateAndContinueToPreview() {
     if (previewStepIndex < 0) {
+      return;
+    }
+
+    if (!validateBiopsyTableBeforePreview()) {
       return;
     }
 
