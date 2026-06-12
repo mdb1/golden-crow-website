@@ -4934,9 +4934,6 @@ export function TwoPQFormFlow({
               {selectedRequestedTest ? (
                 <section className="rounded-xl border border-border/70 bg-background/50 p-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950 dark:border-emerald-300/24 dark:bg-emerald-950/20 dark:text-emerald-50">
-                      {requestedTestKeyLabel(selectedRequestedTest)}: {t("Yes")}
-                    </div>
                     <YesNoField
                       label={t("Reports mosaicism")}
                       value={
@@ -5108,9 +5105,6 @@ export function TwoPQFormFlow({
               {selectedRequestedTest ? (
                 <section className="rounded-xl border border-border/70 bg-background/50 p-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950 dark:border-emerald-300/24 dark:bg-emerald-950/20 dark:text-emerald-50">
-                      {requestedTestKeyLabel(selectedRequestedTest)}: {t("Yes")}
-                    </div>
                     <YesNoField
                       label={t("Reports mosaicism")}
                       value={
