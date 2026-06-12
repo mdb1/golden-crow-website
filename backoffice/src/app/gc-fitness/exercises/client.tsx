@@ -54,6 +54,7 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
+import { exerciseSearchHaystack } from "@/lib/gc-fitness/exercise-search";
 import {
   softDeleteExercise,
   duplicateExercise,
@@ -85,12 +86,12 @@ function matchesFilters(
   trainerUid: string,
 ): boolean {
   // Search — case-insensitive substring match on EN and ES name + EN
-  // description. Trainers expect to search by either language; lower-casing
-  // both sides handles ES accents reasonably (full normalization deferred
-  // until i18n in P12).
+  // description + keywords + tags. Trainers expect to search by either
+  // language; lower-casing both sides handles ES accents reasonably (full
+  // normalization deferred until i18n in P12).
   if (f.search.trim().length > 0) {
     const needle = f.search.trim().toLowerCase();
-    const hay = `${row.name.en} ${row.name.es} ${row.description.en}`.toLowerCase();
+    const hay = exerciseSearchHaystack(row).toLowerCase();
     if (!hay.includes(needle)) return false;
   }
 
@@ -108,11 +109,13 @@ function matchesFilters(
     if (!row.equipment.some((e) => f.equipment.includes(e))) return false;
   }
 
-  // Source filter — `["wger"]` shows only wger; `["Custom"]` shows only
-  // trainer. Empty = show all.
+  // Source filter — `["Standard"]` shows the shared standard library;
+  // `["Custom"]` shows only trainer-authored exercises. Empty = show all.
   if (f.source.length > 0) {
     const want = new Set(f.source);
-    const tag = row.source === "wger" ? "wger" : "Custom";
+    const tag = row.source === "wger" || row.tags?.includes("standard-library")
+      ? "Standard"
+      : "Custom";
     if (!want.has(tag)) return false;
   }
 

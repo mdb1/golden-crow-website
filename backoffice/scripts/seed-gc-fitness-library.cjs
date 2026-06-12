@@ -39,8 +39,10 @@ const EQUIPMENT = [
   "medicine_ball",
   "none",
   "pull_up_bar",
+  "discs",
   "resistance_band",
   "rope",
+  "smith",
   "swiss_ball",
 ];
 
@@ -87,6 +89,8 @@ const EQUIPMENT_MAP = {
   "Medicine Ball": "medicine_ball",
   Machine: "machine",
   Rope: "rope",
+  Discs: "discs",
+  Smith: "smith",
 };
 
 const TEMPLATE_SPECS = [

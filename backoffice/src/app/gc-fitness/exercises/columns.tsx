@@ -51,22 +51,10 @@ const LEVEL_LABELS: Record<string, string> = {
   advanced: "Avanzado",
 };
 
-// Preview-source helpers — local duplicate of the picker pattern
-// (`exercise-picker-popover.tsx`). Lifting to a shared module is out of
-// scope for this plan to keep blast radius minimal.
-function previewUrl(url?: string | null): string | null {
-  if (typeof url === "string" && /^https?:\/\//.test(url)) return url;
-  return null;
-}
-
 function previewSrc(
   row: Pick<ExerciseRow, "gifUrl" | "imageUrl" | "thumbnailURL">,
 ): string | null {
-  return (
-    previewUrl(row.gifUrl) ??
-    previewUrl(row.imageUrl) ??
-    previewUrl(row.thumbnailURL)
-  );
+  return row.gifUrl ?? row.imageUrl ?? row.thumbnailURL ?? null;
 }
 
 // Retained for parity with the picker, but NOT the gate for `unoptimized`
@@ -146,6 +134,20 @@ export function makeColumns(
               {row.original.name.es}
             </span>
           )}
+          {row.original.tags?.length ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {row.original.tags.slice(0, 2).map((tag) => (
+                <Badge key={tag} variant="secondary" className="font-normal">
+                  {formatLabel(tag)}
+                </Badge>
+              ))}
+              {row.original.tags.length > 2 ? (
+                <Badge variant="secondary" className="font-normal">
+                  +{row.original.tags.length - 2}
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ),
     },

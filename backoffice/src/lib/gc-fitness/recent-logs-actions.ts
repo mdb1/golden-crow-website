@@ -13,6 +13,7 @@ import {
   type ClientRosterEntry,
 } from "./client-roster";
 import { coachVisibleClientName } from "./client-name";
+import { resolveExerciseDocsById } from "./exercise-resolution";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 
@@ -1718,6 +1719,13 @@ async function buildWorkoutLogDetail(
   const templateExercises =
     (data.templateSnapshot as { exercises?: Array<Record<string, unknown>> } | undefined)
       ?.exercises ?? [];
+  const templateExerciseIds = templateExercises
+    .map((exercise) => exercise.exerciseId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const exerciseMap: Map<string, Record<string, unknown>> =
+    templateExerciseIds.length > 0
+      ? await resolveExerciseDocsById(db, templateExerciseIds)
+      : new Map();
 
   // iOS writes sets keyed by `exerciseId` (string), not by index — see
   // gc-fitness/GCFitness/Core/Firebase/WorkoutLogRepository.swift:303.
@@ -1750,7 +1758,11 @@ async function buildWorkoutLogDetail(
     const templateExercise = exerciseId
       ? templateExerciseById.get(exerciseId)
       : undefined;
-    const exerciseName = localizedText(templateExercise?.name, `Exercise ${index + 1}`);
+    const sourceExercise = exerciseId ? exerciseMap.get(exerciseId) : undefined;
+    const exerciseName = localizedText(
+      sourceExercise?.name ?? templateExercise?.name,
+      `Exercise ${index + 1}`,
+    );
     const setLogId = typeof set.id === "string" ? set.id : "";
     const pr = setLogId ? prBySetLogId.get(setLogId) : undefined;
     return {

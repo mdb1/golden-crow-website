@@ -34,7 +34,7 @@ export interface ExerciseFiltersState {
   search: string;
   muscleGroups: string[];
   equipment: string[];
-  source: string[]; // subset of ['wger', 'Custom']
+  source: string[]; // subset of ['Standard', 'Custom']
   mineOnly: boolean;
 }
 
@@ -52,6 +52,11 @@ function readFromStorage(): ExerciseFiltersState | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ExerciseFiltersState>;
+    const normalizedSource = Array.isArray(parsed.source)
+      ? parsed.source
+          .filter((v): v is string => typeof v === "string")
+          .map((v) => (v === "wger" ? "Standard" : v))
+      : [];
     // Shallow-validate the shape — drop unknown fields, default missing.
     return {
       search: typeof parsed.search === "string" ? parsed.search : "",
@@ -61,9 +66,7 @@ function readFromStorage(): ExerciseFiltersState | null {
       equipment: Array.isArray(parsed.equipment)
         ? parsed.equipment.filter((v): v is string => typeof v === "string")
         : [],
-      source: Array.isArray(parsed.source)
-        ? parsed.source.filter((v): v is string => typeof v === "string")
-        : [],
+      source: normalizedSource,
       mineOnly: parsed.mineOnly === true,
     };
   } catch {
@@ -232,7 +235,7 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
         </div>
         <div className="flex-1 min-w-[160px]">
           <MultiSelectCombobox
-            options={["wger", "Custom"] as const}
+            options={["Standard", "Custom"] as const}
             value={state.source}
             onChange={(next) => setState((s) => ({ ...s, source: next }))}
             placeholder={

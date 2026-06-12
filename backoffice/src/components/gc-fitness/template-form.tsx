@@ -568,9 +568,9 @@ export function TemplateForm({
             // empty array `weightBySetKg: []` is the intentional "Sin peso" /
             // reps-only prescription (twin of iOS
             // ExerciseRef.hasExplicitNoWeightPrescription). It MUST survive
-            // serialization as a length-0 array — the alignment below would
-            // otherwise coerce `[] → undefined` (legacy "no override"), which
-            // silently destroys the sentinel.
+            // serialization as a length-0 array. When the toggle is OFF, an
+            // empty UI field means "weight x reps with 0kg", so we emit a
+            // zero-filled array instead of dropping the field.
             const hasExplicitNoWeight =
               Array.isArray(ex.weightBySetKg) && ex.weightBySetKg.length === 0;
             // 26-03 — Parallel `cleanedDurations` branch per PATTERNS.md
@@ -602,11 +602,11 @@ export function TemplateForm({
             const alignedReps = Array.from({ length: canonicalLen }, (_, i) =>
               Number.isFinite(cleanedReps[i]) ? cleanedReps[i] : repsFallback,
             );
-            const alignedWeights = cleanedWeights.length > 0
-              ? Array.from({ length: canonicalLen }, (_, i) =>
+            const alignedWeights = hasExplicitNoWeight
+              ? []
+              : Array.from({ length: canonicalLen }, (_, i) =>
                   Number.isFinite(cleanedWeights[i]) ? cleanedWeights[i] : 0,
-                )
-              : undefined;
+                );
             // 26-03 — Align durations to canonicalLen ONLY when the
             // trainer authored at least one duration value (or set an
             // exercise-level fallback). Otherwise we omit the field
@@ -633,13 +633,11 @@ export function TemplateForm({
               ...(alignedReps.length > 0 ? { repsBySet: alignedReps } : {}),
               // 260610-j67 — preserve the no-weight sentinel verbatim: an
               // explicit "Sin peso" exercise emits `weightBySetKg: []`
-              // (NEVER coerced to undefined). Otherwise fall back to the
-              // aligned weights (or omit entirely = legacy "no override").
+              // (NEVER coerced to undefined). Otherwise the UI keeps the
+              // weight-based structure alive with zero-filled kg values.
               ...(hasExplicitNoWeight
                 ? { weightBySetKg: [] }
-                : alignedWeights
-                  ? { weightBySetKg: alignedWeights }
-                  : {}),
+                : { weightBySetKg: alignedWeights }),
               ...(alignedDurations
                 ? { durationBySetSeconds: alignedDurations }
                 : {}),

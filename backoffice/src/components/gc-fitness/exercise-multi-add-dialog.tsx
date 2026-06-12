@@ -32,6 +32,7 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
+import { exerciseSearchHaystack } from "@/lib/gc-fitness/exercise-search";
 
 import {
   ChipRow,
@@ -54,21 +55,10 @@ function exerciseDisplayName(row: ExerciseRow): string {
   return row.name.en || row.name.es || "(untitled)";
 }
 
-function previewUrl(url?: string | null): string | null {
-  if (typeof url === "string" && /^https?:\/\//.test(url)) {
-    return url;
-  }
-  return null;
-}
-
 function previewSrc(
   row: Pick<ExerciseRow, "gifUrl" | "imageUrl" | "thumbnailURL">,
 ): string | null {
-  return (
-    previewUrl(row.gifUrl) ??
-    previewUrl(row.imageUrl) ??
-    previewUrl(row.thumbnailURL)
-  );
+  return row.gifUrl ?? row.imageUrl ?? row.thumbnailURL ?? null;
 }
 
 function formatLabel(s: string): string {
@@ -140,8 +130,7 @@ export function ExerciseMultiAddDialog({
     const needle = search.trim();
     const bySearch = needle
       ? exercises.filter((ex) => {
-          const haystack = [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" ");
-          return fuzzyTokenMatch(needle, haystack);
+          return fuzzyTokenMatch(needle, exerciseSearchHaystack(ex));
         })
       : exercises;
     return applyFilters(bySearch, filters);

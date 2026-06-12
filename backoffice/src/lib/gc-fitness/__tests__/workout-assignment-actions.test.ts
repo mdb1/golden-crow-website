@@ -765,6 +765,32 @@ describe("editAssignmentExercises", () => {
     expect(patch.templateSnapshot.exercises[0].sets).toBe(2);
   });
 
+  it("empty weight inputs stay weight-based as 0kg unless noWeight is explicit", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeAssignmentSnap({ exists: true, trainerId: ALLOWED_UID }),
+    );
+    mockBatchCommit.mockResolvedValue(undefined);
+
+    await editAssignmentExercises("asg-abc", {
+      scope: "one",
+      exercises: [
+        {
+          index: 0,
+          repsBySet: [8, 8],
+          weightBySetKg: [],
+          rest_seconds: 60,
+          notes: "",
+          noWeight: false,
+        },
+      ],
+    });
+
+    const patch = mockBatchUpdate.mock.calls[0][1];
+    expect(patch.templateSnapshot.exercises[0].weightBySetKg).toEqual([0, 0]);
+    expect(patch.templateSnapshot.exercises[0].hasExplicitNoWeightPrescription).toBeUndefined();
+  });
+
   // #215 — row-based payload (add/remove exercises). Rows pair with the
   // snapshot by exerciseId (NOT position), localized names and media survive
   // for existing exercises, and brand-new rows get media from previewUrl.

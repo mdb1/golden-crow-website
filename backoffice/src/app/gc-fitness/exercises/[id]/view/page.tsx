@@ -17,6 +17,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ExerciseForm } from "../../_components/ExerciseForm";
 import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import { resolveExercisePreviewUrl } from "@/lib/gc-fitness/exercise-preview-url";
 
 // Tab title: "GC Fitness - <exercises>" (issue #170).
 export const generateMetadata = () => sectionMetadata("exercises");
@@ -27,22 +28,15 @@ interface PageParams {
   params: Promise<{ id: string }>;
 }
 
-// Local preview-source helpers — duplicate of the columns.tsx + picker
-// pattern. Server-Component-local; not exported.
-function previewUrl(url: string | null): string | null {
-  if (typeof url === "string" && /^https?:\/\//.test(url)) return url;
-  return null;
-}
-
 function previewSrc(row: {
   gifUrl: string | null;
   imageUrl: string | null;
   thumbnailURL: string | null;
 }): string | null {
   return (
-    previewUrl(row.gifUrl) ??
-    previewUrl(row.imageUrl) ??
-    previewUrl(row.thumbnailURL)
+    resolveExercisePreviewUrl(row.gifUrl) ??
+    resolveExercisePreviewUrl(row.imageUrl) ??
+    resolveExercisePreviewUrl(row.thumbnailURL)
   );
 }
 

@@ -25,6 +25,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { ExerciseForm } from "../../_components/ExerciseForm";
 import type { ExerciseInput } from "@/lib/gc-fitness/exercise-schema";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import { resolveExercisePreviewUrl } from "@/lib/gc-fitness/exercise-preview-url";
 
 // Tab title: "GC Fitness - <exercises>" (issue #170).
 export const generateMetadata = () => sectionMetadata("exercises");
@@ -35,21 +36,12 @@ interface PageParams {
   params: Promise<{ id: string }>;
 }
 
-// Media preview helpers — mirror of the /view page logic so the edit
-// page renders the same hero thumbnail (gif → image → thumbnailURL →
-// mediaURL fallback). Free-Exercise-DB-seeded trainer docs store the
-// asset URL in `gifUrl` / `imageUrl` (not in `mediaURL`), which is why
-// the dropzone alone showed nothing for those rows.
-function previewUrl(url: unknown): string | null {
-  if (typeof url === "string" && /^https?:\/\//.test(url)) return url;
-  return null;
-}
 function pickPreviewSrc(data: Record<string, unknown>): string | null {
   return (
-    previewUrl(data.gifUrl) ??
-    previewUrl(data.imageUrl) ??
-    previewUrl(data.thumbnailURL) ??
-    previewUrl(data.mediaURL)
+    resolveExercisePreviewUrl(data.gifUrl as string | null) ??
+    resolveExercisePreviewUrl(data.imageUrl as string | null) ??
+    resolveExercisePreviewUrl(data.thumbnailURL as string | null) ??
+    resolveExercisePreviewUrl(data.mediaURL as string | null)
   );
 }
 

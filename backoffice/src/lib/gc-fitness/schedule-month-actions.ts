@@ -26,6 +26,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
 import { coachVisibleClientName } from "./client-name";
+import { resolveExerciseDocsById } from "./exercise-resolution";
 import {
   coerceLegacyHabitLogValue,
   logCountsAsCompleted,
@@ -331,6 +332,11 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
   const templateTag =
     typeof snapshot.tag === "string" ? snapshot.tag : null;
   const exercises = Array.isArray(snapshot.exercises) ? snapshot.exercises : [];
+  const exerciseIds = exercises
+    .map((exercise) => exercise.exerciseId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const exerciseMap: Map<string, Record<string, unknown>> =
+    exerciseIds.length > 0 ? await resolveExerciseDocsById(db, exerciseIds) : new Map();
 
   // Q2 — the client's most recent logged set values per exercise, so the edit
   // dialog can hint "Último: 50kg × 10" beside each set. The trainer reads
@@ -361,23 +367,33 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
         : null,
     exercises: exercises.map((ex, idx) => {
       const exId = typeof ex.exerciseId === "string" ? ex.exerciseId : "";
+      const source = exerciseMap.get(exId);
+      const sourceName = source?.name as { en?: string; es?: string } | undefined;
       const nameField = ex.name as { en?: string; es?: string } | string | undefined;
       const exerciseName =
-        typeof nameField === "string"
+        sourceName?.en ??
+        sourceName?.es ??
+        (typeof nameField === "string"
           ? nameField
-          : nameField?.en ?? nameField?.es ?? exId ?? `Exercise ${idx + 1}`;
+          : nameField?.en ?? nameField?.es ?? exId ?? `Exercise ${idx + 1}`);
       return {
         index: idx,
         exerciseId: exId,
         exerciseName,
         previewUrl:
-          typeof ex.gifUrl === "string"
-            ? ex.gifUrl
-            : typeof ex.imageUrl === "string"
-              ? (ex.imageUrl as string)
-              : typeof ex.thumbnailURL === "string"
-                ? (ex.thumbnailURL as string)
-                : null,
+          typeof source?.gifUrl === "string"
+            ? source.gifUrl
+            : typeof source?.imageUrl === "string"
+              ? (source.imageUrl as string)
+              : typeof source?.thumbnailURL === "string"
+                ? (source.thumbnailURL as string)
+                : typeof ex.gifUrl === "string"
+                  ? ex.gifUrl
+                  : typeof ex.imageUrl === "string"
+                    ? (ex.imageUrl as string)
+                    : typeof ex.thumbnailURL === "string"
+                      ? (ex.thumbnailURL as string)
+                      : null,
         sets:
           typeof ex.sets === "number" && Number.isFinite(ex.sets) ? ex.sets : 3,
         reps:
