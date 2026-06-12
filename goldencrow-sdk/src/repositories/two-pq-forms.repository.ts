@@ -1007,16 +1007,22 @@ function normalizeSamplingInformation(
       "2PQ processing status"
     ),
     internalCode: normalizeOptionalString(input.internalCode),
-    embryoStageDay: normalizeOptionalString(input.embryoStageDay),
-    morphology: normalizeOptionalString(input.morphology),
-    sentUl: normalizeOptionalString(input.sentUl),
-    biopsiedCells: normalizeOptionalString(input.biopsiedCells),
-    cellsVisualized:
-      typeof input.cellsVisualized === "undefined"
-        ? undefined
-        : normalizeBooleanAnswer(input.cellsVisualized, "Celulas visualizadas")
-          ? "si"
-          : "no",
+    embryoStageDay: normalizeRequiredString(
+      input.embryoStageDay,
+      "Estadio dia 5, 6 o 7"
+    ),
+    morphology: normalizeRequiredString(input.morphology, "Morfologia"),
+    sentUl: normalizeRequiredString(input.sentUl, "uL enviados"),
+    biopsiedCells: normalizeRequiredString(
+      input.biopsiedCells,
+      "Celulas biopsiadas"
+    ),
+    cellsVisualized: normalizeBooleanAnswer(
+      input.cellsVisualized,
+      "Celulas visualizadas"
+    )
+      ? "si"
+      : "no",
     collectionDate: undefined,
     receptionDate: undefined,
     runId: undefined,

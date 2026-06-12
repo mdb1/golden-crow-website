@@ -347,6 +347,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Linked study request form must match the selected patient.":
     "El formulario de solicitud linkeado debe coincidir con el paciente seleccionado.",
   "Select number of biopsies.": "Seleccioná el número de biopsias.",
+  "Required field.": "Campo obligatorio.",
   "Stage day must be 5, 6 or 7.": "El estadio día debe ser 5, 6 o 7.",
   "Morphology must be 1 to 3 alphanumeric characters.":
     "La morfología debe tener de 1 a 3 caracteres alfanuméricos.",
@@ -552,6 +553,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Generate table": "Generar tabla",
   "Generate the biopsy table from the previous step.":
     "Generá la tabla de biopsias desde el paso anterior.",
+  "(*): Required field": "(*): Campo obligatorio",
   "Sampling table": "Tabla de samplings",
   "Biopsy rows": "Filas de biopsias",
   "Internal code": "Código interno",

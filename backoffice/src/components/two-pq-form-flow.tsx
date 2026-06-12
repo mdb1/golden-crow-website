@@ -1372,15 +1372,31 @@ function validateStepFields(
           `${row}: ${t("Processing status is not valid.")}`;
       }
       if (
-        sampling.embryoStageDay &&
+        !sampling.embryoStageDay ||
         !["5", "6", "7"].includes(sampling.embryoStageDay)
       ) {
         errors[`samplingInformation.${index}.embryoStageDay`] =
-          `${row}: ${t("Stage day must be 5, 6 or 7.")}`;
+          sampling.embryoStageDay
+            ? `${row}: ${t("Stage day must be 5, 6 or 7.")}`
+            : `${row}: ${t("Required field.")}`;
       }
-      if (sampling.morphology && !MORPHOLOGY_PATTERN.test(sampling.morphology)) {
+      if (!sampling.morphology || !MORPHOLOGY_PATTERN.test(sampling.morphology)) {
         errors[`samplingInformation.${index}.morphology`] =
-          `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`;
+          sampling.morphology
+            ? `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`
+            : `${row}: ${t("Required field.")}`;
+      }
+      if (!sampling.sentUl.trim()) {
+        errors[`samplingInformation.${index}.sentUl`] =
+          `${row}: ${t("Required field.")}`;
+      }
+      if (!sampling.biopsiedCells.trim()) {
+        errors[`samplingInformation.${index}.biopsiedCells`] =
+          `${row}: ${t("Required field.")}`;
+      }
+      if (!sampling.cellsVisualized) {
+        errors[`samplingInformation.${index}.cellsVisualized`] =
+          `${row}: ${t("Required field.")}`;
       }
     });
   }
@@ -3371,6 +3387,30 @@ export function TwoPQFormFlow({
 
   function errorFor(key: string) {
     return fieldErrors[key];
+  }
+
+  function samplingCellClass(index: number, key: keyof SamplingInformationFormState) {
+    return [
+      "border border-slate-300 p-0 align-top",
+      "[&_[data-slot=select-trigger]]:h-10 [&_[data-slot=select-trigger]]:w-full",
+      "[&_[data-slot=select-trigger]]:rounded-none [&_[data-slot=select-trigger]]:border-0",
+      "[&_[data-slot=select-trigger]]:bg-transparent [&_[data-slot=select-trigger]]:shadow-none",
+      errorFor(`samplingInformation.${index}.${key}`)
+        ? "border-red-200 bg-red-50/80"
+        : "bg-white",
+    ].join(" ");
+  }
+
+  function spreadsheetInputClass(
+    index: number,
+    key: keyof SamplingInformationFormState
+  ) {
+    return [
+      "h-10 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-1",
+      errorFor(`samplingInformation.${index}.${key}`)
+        ? "placeholder:text-red-400 focus-visible:ring-red-300"
+        : "",
+    ].join(" ");
   }
 
   function setStepErrors(step: StepKey, errors: FieldErrors) {
@@ -5506,19 +5546,19 @@ export function TwoPQFormFlow({
                         {t("Internal code")}
                       </th>
                       <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Stage day 5, 6 or 7")}
+                        {t("Stage day 5, 6 or 7")} *
                       </th>
                       <th className="min-w-40 border border-slate-300 px-3 py-2">
-                        {t("Morphology")}
+                        {t("Morphology")} *
                       </th>
                       <th className="min-w-36 border border-slate-300 px-3 py-2">
-                        {t("Sent uL")}
+                        {t("Sent uL")} *
                       </th>
                       <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Biopsied cells")}
+                        {t("Biopsied cells")} *
                       </th>
                       <th className="min-w-44 border border-slate-300 px-3 py-2">
-                        {t("Cells visualized?")}
+                        {t("Cells visualized?")} *
                       </th>
                       <th className="min-w-80 border border-slate-300 px-3 py-2">
                         {t("Comments")}
@@ -5548,7 +5588,7 @@ export function TwoPQFormFlow({
                             className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td className={samplingCellClass(index, "embryoStageDay")}>
                           <OptionSelectField
                             options={["5", "6", "7"].map((value) => ({
                               value,
@@ -5569,7 +5609,7 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td className={samplingCellClass(index, "morphology")}>
                           <Input
                             id={`form-sampling-morphology-${index}`}
                             value={sampling.morphology}
@@ -5579,7 +5619,7 @@ export function TwoPQFormFlow({
                                 morphology: event.target.value,
                               })
                             }
-                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                            className={spreadsheetInputClass(index, "morphology")}
                           />
                           <FieldError
                             message={errorFor(
@@ -5587,7 +5627,7 @@ export function TwoPQFormFlow({
                             )}
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td className={samplingCellClass(index, "sentUl")}>
                           <Input
                             id={`form-sampling-sent-ul-${index}`}
                             value={sampling.sentUl}
@@ -5597,10 +5637,15 @@ export function TwoPQFormFlow({
                                 sentUl: event.target.value,
                               })
                             }
-                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                            className={spreadsheetInputClass(index, "sentUl")}
+                          />
+                          <FieldError
+                            message={errorFor(
+                              `samplingInformation.${index}.sentUl`
+                            )}
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td className={samplingCellClass(index, "biopsiedCells")}>
                           <Input
                             id={`form-sampling-biopsied-cells-${index}`}
                             value={sampling.biopsiedCells}
@@ -5610,10 +5655,15 @@ export function TwoPQFormFlow({
                                 biopsiedCells: event.target.value,
                               })
                             }
-                            className="h-10 rounded-none border-0 bg-white shadow-none focus-visible:ring-1"
+                            className={spreadsheetInputClass(index, "biopsiedCells")}
+                          />
+                          <FieldError
+                            message={errorFor(
+                              `samplingInformation.${index}.biopsiedCells`
+                            )}
                           />
                         </td>
-                        <td className="border border-slate-300 p-0 align-top">
+                        <td className={samplingCellClass(index, "cellsVisualized")}>
                           <OptionSelectField
                             options={yesNoOptions}
                             value={sampling.cellsVisualized}
@@ -5624,6 +5674,11 @@ export function TwoPQFormFlow({
                             }
                             placeholder={t("Not set")}
                             emptyLabel={t("Not set")}
+                          />
+                          <FieldError
+                            message={errorFor(
+                              `samplingInformation.${index}.cellsVisualized`
+                            )}
                           />
                         </td>
                         <td className="border border-slate-300 p-0 align-top">
@@ -5643,6 +5698,9 @@ export function TwoPQFormFlow({
                     ))}
                   </tbody>
                 </table>
+                <p className="px-3 py-2 text-xs text-slate-600">
+                  {t("(*): Required field")}
+                </p>
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-5 text-sm text-muted-foreground">
