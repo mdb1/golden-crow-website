@@ -157,7 +157,11 @@
       "habitsDescription": "Creá asignaciones de hábitos para los clientes.",
       "chatTitle": "Chat",
       "chatDescription": "Respondé las conversaciones con tus clientes."
-    }
+    },
+    "unassignedSoonTitle": "Sin nada asignado esta semana",
+    "unassignedSoonSubtitle": "Clientes activos sin entrenamiento ni hábito activo en los próximos 4 días.",
+    "unassignedSoonEmpty": "Todo al día — cada cliente activo tiene algo asignado.",
+    "unassignedSoonAssignCta": "Asignar"
   },
   "notifications": {
     "title": "Notificaciones",

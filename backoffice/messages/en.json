@@ -157,7 +157,11 @@
       "habitsDescription": "Create habit assignments for clients.",
       "chatTitle": "Chat",
       "chatDescription": "Reply to client conversations."
-    }
+    },
+    "unassignedSoonTitle": "Nothing assigned this week",
+    "unassignedSoonSubtitle": "Active clients with no workout or active habit in the next 4 days.",
+    "unassignedSoonEmpty": "All caught up — every active client has something assigned.",
+    "unassignedSoonAssignCta": "Assign"
   },
   "notifications": {
     "title": "Notifications",
