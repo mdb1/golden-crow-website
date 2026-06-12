@@ -815,7 +815,28 @@
       "assigning": "Asignando…",
       "cancel": "Cancelar",
       "assignedToast": "{count} asignados.",
-      "assignFailed": "Falló la asignación."
+      "assignFailed": "Falló la asignación.",
+      "scheduleLabel": "Recurrencia",
+      "scheduleHint": "Por defecto usa la programación guardada del hábito. Cambiala para asignar una recurrencia distinta a cada cliente seleccionado.",
+      "scheduleTypeLabel": "Tipo",
+      "scheduleTypeRecurring": "Recurrente",
+      "scheduleTypeOneTime": "Una sola vez",
+      "cadenceLabel": "Frecuencia",
+      "cadenceDaily": "Diario",
+      "cadenceWeekly": "Semanal",
+      "cadenceMonthly": "Mensual",
+      "weekdaysLabel": "Días de la semana",
+      "monthDaysLabel": "Días del mes",
+      "monthDaysHint": "Seleccioná uno o más días (ejemplo: 12 y 25).",
+      "weekdayShort": {
+        "mon": "Lun",
+        "tue": "Mar",
+        "wed": "Mié",
+        "thu": "Jue",
+        "fri": "Vie",
+        "sat": "Sáb",
+        "sun": "Dom"
+      }
     },
     "compliance": {
       "scheduledInfo": "Porcentaje de días programados completados desde que empezó el hábito (los días anteriores a la fecha de inicio y los días no programados no cuentan).",

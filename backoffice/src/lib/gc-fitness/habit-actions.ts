@@ -1595,6 +1595,27 @@ export async function assignHabitTemplate(input: unknown): Promise<{
       // cell, the habit should begin on that cell's day rather than inheriting
       // the template's own startsOn.
       startsOn: z.string().trim().min(1).optional(),
+      // Optional RECURRENCE override (#176). When present, the chosen schedule
+      // replaces the template's own schedule fields on every created habit doc
+      // — same wire shape the single-client HabitForm writes (and iOS/Android
+      // already consume via the HabitSchedule / isHabitScheduledOn predicate).
+      // When absent, behavior is unchanged: each habit inherits the template's
+      // schedule. The selector in BulkAssignHabitDialog defaults to the
+      // template's schedule, so "no override" and "override == template" both
+      // yield the previous output.
+      schedule: z
+        .object({
+          scheduleType: z.enum(["recurring", "one-time"]),
+          scheduleCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
+          scheduleWeekdays: z
+            .array(z.number().int().min(1).max(7))
+            .optional(),
+          scheduleMonthDays: z
+            .array(z.number().int().min(1).max(31))
+            .optional(),
+          endsOn: z.string().trim().min(1).optional(),
+        })
+        .optional(),
     })
     .parse(input);
 
@@ -1618,6 +1639,61 @@ export async function assignHabitTemplate(input: unknown): Promise<{
   for (const clientId of parsed.clientIds) {
     await assertTrainerOwnsClient(trainer.uid, clientId);
   }
+
+  // Resolve the schedule fields ONCE (identical for every client in the batch).
+  // If an override is supplied, normalize it the same way HabitForm.onSubmit
+  // does — only carry the cadence-relevant arrays, drop empties, mirror the
+  // first monthDay into scheduleDayOfMonth (iOS/Android read whichever exists).
+  const scheduleFields: Record<string, unknown> = (() => {
+    const override = parsed.schedule;
+    if (!override) {
+      // No override → inherit the template's schedule (previous behavior).
+      return {
+        scheduleType: template.scheduleType ?? "recurring",
+        ...(template.endsOn ? { endsOn: template.endsOn } : {}),
+        ...(template.scheduleCadence
+          ? { scheduleCadence: template.scheduleCadence }
+          : { scheduleCadence: "daily" }),
+        ...(template.scheduleWeekdays
+          ? { scheduleWeekdays: template.scheduleWeekdays }
+          : {}),
+        ...(template.scheduleDayOfMonth !== undefined
+          ? { scheduleDayOfMonth: template.scheduleDayOfMonth }
+          : {}),
+        ...(template.scheduleMonthDays
+          ? { scheduleMonthDays: template.scheduleMonthDays }
+          : {}),
+      };
+    }
+    if (override.scheduleType === "one-time") {
+      // One-time habits carry no cadence/weekday/monthday recurrence fields.
+      return {
+        scheduleType: "one-time",
+        ...(override.endsOn ? { endsOn: override.endsOn } : {}),
+      };
+    }
+    const cadence = override.scheduleCadence ?? "daily";
+    const out: Record<string, unknown> = {
+      scheduleType: "recurring",
+      scheduleCadence: cadence,
+      ...(override.endsOn ? { endsOn: override.endsOn } : {}),
+    };
+    if (cadence === "weekly") {
+      const weekdays = (override.scheduleWeekdays ?? []).filter(
+        (d) => Number.isInteger(d) && d >= 1 && d <= 7,
+      );
+      if (weekdays.length > 0) out.scheduleWeekdays = weekdays;
+    } else if (cadence === "monthly") {
+      const monthDays = (override.scheduleMonthDays ?? []).filter(
+        (d) => Number.isInteger(d) && d >= 1 && d <= 31,
+      );
+      if (monthDays.length > 0) {
+        out.scheduleMonthDays = monthDays;
+        out.scheduleDayOfMonth = monthDays[0];
+      }
+    }
+    return out;
+  })();
 
   const batch = db.batch();
   const assignedHabits: Array<{ docId: string; clientId: string }> = [];
@@ -1647,21 +1723,8 @@ export async function assignHabitTemplate(input: unknown): Promise<{
       ...(template.reminderMonthDays
         ? { reminderMonthDays: template.reminderMonthDays }
         : {}),
-      scheduleType: template.scheduleType ?? "recurring",
       startsOn: parsed.startsOn ?? template.startsOn ?? todayCivilDateUTC(),
-      ...(template.endsOn ? { endsOn: template.endsOn } : {}),
-      ...(template.scheduleCadence
-        ? { scheduleCadence: template.scheduleCadence }
-        : { scheduleCadence: "daily" }),
-      ...(template.scheduleWeekdays
-        ? { scheduleWeekdays: template.scheduleWeekdays }
-        : {}),
-      ...(template.scheduleDayOfMonth !== undefined
-        ? { scheduleDayOfMonth: template.scheduleDayOfMonth }
-        : {}),
-      ...(template.scheduleMonthDays
-        ? { scheduleMonthDays: template.scheduleMonthDays }
-        : {}),
+      ...scheduleFields,
       reminderEnabled: template.reminderEnabled,
       sourceTemplateId: template.id,
       deleted: false,

@@ -815,7 +815,28 @@
       "assigning": "Assigning…",
       "cancel": "Cancel",
       "assignedToast": "{count} assigned.",
-      "assignFailed": "Assignment failed."
+      "assignFailed": "Assignment failed.",
+      "scheduleLabel": "Recurrence",
+      "scheduleHint": "Defaults to the habit's saved schedule. Change it to assign a different recurrence to every selected client.",
+      "scheduleTypeLabel": "Type",
+      "scheduleTypeRecurring": "Recurring",
+      "scheduleTypeOneTime": "One-time",
+      "cadenceLabel": "Cadence",
+      "cadenceDaily": "Daily",
+      "cadenceWeekly": "Weekly",
+      "cadenceMonthly": "Monthly",
+      "weekdaysLabel": "Weekdays",
+      "monthDaysLabel": "Days of month",
+      "monthDaysHint": "Select one or more days (example: 12 and 25).",
+      "weekdayShort": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      }
     },
     "compliance": {
       "scheduledInfo": "Percentage of scheduled days completed since the habit started (days before the start date and non-scheduled days don't count).",

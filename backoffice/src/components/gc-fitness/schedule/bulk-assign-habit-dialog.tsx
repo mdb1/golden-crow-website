@@ -19,8 +19,17 @@
 // The server action `assignHabitTemplate` already creates one per-client
 // /habits doc per clientId, copying the template (description/photoUrl/
 // youtubeUrl/sourceTemplateId/schedule). This dialog is the UI entry point.
+//
+// #176 (Round 2): the dialog now also exposes an explicit RECURRENCE selector
+// (mirrors the single-client HabitForm schedule UI). It is seeded from the
+// picked template's schedule, so the prior behavior is the default; the trainer
+// can override the recurrence (one-time / daily / weekly weekdays / monthly
+// days) before assigning, and the chosen schedule flows through
+// `assignHabitTemplate({ schedule })` into every created habit doc in the exact
+// wire format iOS/Android consume (scheduleType / scheduleCadence /
+// scheduleWeekdays / scheduleMonthDays / scheduleDayOfMonth / endsOn).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,6 +55,54 @@ import {
 export interface BulkAssignClient {
   uid: string;
   displayName: string;
+}
+
+type ScheduleCadence = "daily" | "weekly" | "monthly";
+
+// Mirrors HabitForm's WEEKDAY_KEYS — 1=Mon … 7=Sun (the wire values iOS/Android
+// expect in scheduleWeekdays).
+const WEEKDAY_KEYS = [
+  { value: 1, key: "mon" },
+  { value: 2, key: "tue" },
+  { value: 3, key: "wed" },
+  { value: 4, key: "thu" },
+  { value: 5, key: "fri" },
+  { value: 6, key: "sat" },
+  { value: 7, key: "sun" },
+] as const;
+const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => index + 1);
+
+/**
+ * The schedule the bulk dialog will send. Seeded from the picked template, then
+ * editable. Sent to `assignHabitTemplate` as the `schedule` override.
+ */
+interface BulkSchedule {
+  scheduleType: "recurring" | "one-time";
+  scheduleCadence: ScheduleCadence;
+  scheduleWeekdays: number[];
+  scheduleMonthDays: number[];
+  endsOn?: string;
+}
+
+function scheduleFromTemplate(tpl: HabitTemplateRow): BulkSchedule {
+  const scheduleType = tpl.scheduleType === "one-time" ? "one-time" : "recurring";
+  const scheduleCadence: ScheduleCadence =
+    tpl.scheduleCadence === "weekly" || tpl.scheduleCadence === "monthly"
+      ? tpl.scheduleCadence
+      : "daily";
+  return {
+    scheduleType,
+    scheduleCadence,
+    scheduleWeekdays: Array.isArray(tpl.scheduleWeekdays)
+      ? [...tpl.scheduleWeekdays]
+      : [],
+    scheduleMonthDays: Array.isArray(tpl.scheduleMonthDays)
+      ? [...tpl.scheduleMonthDays]
+      : typeof tpl.scheduleDayOfMonth === "number"
+        ? [tpl.scheduleDayOfMonth]
+        : [],
+    endsOn: tpl.endsOn,
+  };
 }
 
 interface BulkAssignHabitDialogProps {
@@ -78,12 +135,24 @@ export function BulkAssignHabitDialog({
     () => new Set(),
   );
   const [startsOn, setStartsOn] = useState<string>(() => todayCivilDate());
+  const [schedule, setSchedule] = useState<BulkSchedule | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Seed the recurrence selector from the picked template's schedule, so the
+  // current "inherit the template" behavior is the default. Re-seeds whenever
+  // the trainer picks a different template (and clears when they go back to the
+  // picker). Trainer edits then live in `schedule` until the next template swap.
+  useEffect(() => {
+    setSchedule(
+      selectedTemplate ? scheduleFromTemplate(selectedTemplate) : null,
+    );
+  }, [selectedTemplate]);
 
   function reset() {
     setSelectedTemplate(null);
     setSelectedClientIds(new Set());
     setStartsOn(todayCivilDate());
+    setSchedule(null);
     setSubmitting(false);
   }
 
@@ -121,6 +190,25 @@ export function BulkAssignHabitDialog({
         templateId: selectedTemplate.id,
         clientIds: Array.from(selectedClientIds),
         startsOn,
+        ...(schedule
+          ? {
+              schedule: {
+                scheduleType: schedule.scheduleType,
+                ...(schedule.scheduleType === "recurring"
+                  ? {
+                      scheduleCadence: schedule.scheduleCadence,
+                      ...(schedule.scheduleCadence === "weekly"
+                        ? { scheduleWeekdays: schedule.scheduleWeekdays }
+                        : {}),
+                      ...(schedule.scheduleCadence === "monthly"
+                        ? { scheduleMonthDays: schedule.scheduleMonthDays }
+                        : {}),
+                    }
+                  : {}),
+                ...(schedule.endsOn ? { endsOn: schedule.endsOn } : {}),
+              },
+            }
+          : {}),
       });
       toast.success(t("assignedToast", { count: result.created }));
       onAssigned();
@@ -236,6 +324,184 @@ export function BulkAssignHabitDialog({
             />
             <p className="text-xs text-muted-foreground">{t("startsOnHint")}</p>
           </div>
+
+          {/* Step 4 — recurrence (#176). Seeded from the template; editable. */}
+          {selectedTemplate && schedule ? (
+            <div className="flex flex-col gap-3 rounded-md border p-3">
+              <div className="flex flex-col gap-1.5">
+                <p className="text-sm font-medium">{t("scheduleLabel")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("scheduleHint")}
+                </p>
+              </div>
+
+              {/* Type: recurring vs one-time */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("scheduleTypeLabel")}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {(["recurring", "one-time"] as const).map((value) => {
+                    const active = schedule.scheduleType === value;
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        size="sm"
+                        aria-pressed={active}
+                        onClick={() =>
+                          setSchedule((prev) =>
+                            prev ? { ...prev, scheduleType: value } : prev,
+                          )
+                        }
+                      >
+                        {value === "recurring"
+                          ? t("scheduleTypeRecurring")
+                          : t("scheduleTypeOneTime")}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {schedule.scheduleType === "recurring" ? (
+                <>
+                  {/* Cadence */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("cadenceLabel")}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {(["daily", "weekly", "monthly"] as const).map(
+                        (cadence) => {
+                          const active = schedule.scheduleCadence === cadence;
+                          return (
+                            <Button
+                              key={cadence}
+                              type="button"
+                              variant={active ? "default" : "outline"}
+                              size="sm"
+                              aria-pressed={active}
+                              onClick={() =>
+                                setSchedule((prev) => {
+                                  if (!prev) return prev;
+                                  const next: BulkSchedule = {
+                                    ...prev,
+                                    scheduleCadence: cadence,
+                                  };
+                                  // Seed a sensible default day when switching
+                                  // to monthly with nothing chosen yet.
+                                  if (
+                                    cadence === "monthly" &&
+                                    next.scheduleMonthDays.length === 0
+                                  ) {
+                                    next.scheduleMonthDays = [1];
+                                  }
+                                  return next;
+                                })
+                              }
+                            >
+                              {cadence === "daily"
+                                ? t("cadenceDaily")
+                                : cadence === "weekly"
+                                  ? t("cadenceWeekly")
+                                  : t("cadenceMonthly")}
+                            </Button>
+                          );
+                        },
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Weekly → weekday chips */}
+                  {schedule.scheduleCadence === "weekly" ? (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {t("weekdaysLabel")}
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {WEEKDAY_KEYS.map((weekday) => {
+                          const active = schedule.scheduleWeekdays.includes(
+                            weekday.value,
+                          );
+                          return (
+                            <Button
+                              key={weekday.value}
+                              type="button"
+                              variant={active ? "default" : "outline"}
+                              size="sm"
+                              aria-pressed={active}
+                              onClick={() =>
+                                setSchedule((prev) => {
+                                  if (!prev) return prev;
+                                  const set = new Set(prev.scheduleWeekdays);
+                                  if (set.has(weekday.value))
+                                    set.delete(weekday.value);
+                                  else set.add(weekday.value);
+                                  return {
+                                    ...prev,
+                                    scheduleWeekdays: Array.from(set).sort(
+                                      (a, b) => a - b,
+                                    ),
+                                  };
+                                })
+                              }
+                            >
+                              {t(`weekdayShort.${weekday.key}`)}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Monthly → day-of-month chips */}
+                  {schedule.scheduleCadence === "monthly" ? (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {t("monthDaysLabel")}
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {MONTH_DAY_OPTIONS.map((monthDay) => {
+                          const active =
+                            schedule.scheduleMonthDays.includes(monthDay);
+                          return (
+                            <Button
+                              key={monthDay}
+                              type="button"
+                              variant={active ? "default" : "outline"}
+                              size="sm"
+                              aria-pressed={active}
+                              onClick={() =>
+                                setSchedule((prev) => {
+                                  if (!prev) return prev;
+                                  const set = new Set(prev.scheduleMonthDays);
+                                  if (set.has(monthDay)) set.delete(monthDay);
+                                  else set.add(monthDay);
+                                  return {
+                                    ...prev,
+                                    scheduleMonthDays: Array.from(set).sort(
+                                      (a, b) => a - b,
+                                    ),
+                                  };
+                                })
+                              }
+                            >
+                              {monthDay}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("monthDaysHint")}
+                      </p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter>
