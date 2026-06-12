@@ -14,6 +14,7 @@
     "seed:gc-fitness-standard-gifs": "node --experimental-transform-types scripts/sync-standard-exercise-gifs.ts",
     "merge:gc-fitness-standard-exercises": "node --experimental-transform-types scripts/merge-standard-exercises.ts",
     "archive:gc-fitness-legacy-standard-duplicates": "node --experimental-transform-types scripts/archive-legacy-standard-duplicates.ts",
+    "restore:gc-fitness-legacy-standard-duplicates": "node --experimental-transform-types scripts/restore-legacy-standard-duplicates.ts",
     "migrate:gc-fitness-standard-exercise-names": "node --experimental-transform-types scripts/migrate-standard-exercise-names.ts",
     "bump:version": "python3 scripts/bump-sidebar-version.py",
     "check:no-default-app": "bash ../scripts/check-no-default-app.sh"
