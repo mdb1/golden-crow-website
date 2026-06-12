@@ -255,18 +255,15 @@ export function WorkoutAssignmentEditDialog({
         const raw = r.kg.trim();
         return raw === "" ? NaN : Number(raw);
       });
-      const hasAnyWeight = weightsRaw.some((n) => Number.isFinite(n));
       // 260610-j67 (issue #159) — when "Sin peso" is on, ALWAYS emit the
       // explicit empty-array sentinel `[]` (reps-only), regardless of any
-      // stray typed kg. Otherwise keep the legacy derivation (weights when
-      // present, else [] = bodyweight per the original behavior).
+      // stray typed kg. Otherwise an empty kg input means 0kg, not "no load".
       const weightBySetKg = draft.noWeight
         ? []
-        : hasAnyWeight
-          ? weightsRaw.map((n) =>
-              Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : 0,
-            )
-          : [];
+        : Array.from({ length: repsBySet.length || 1 }, (_, i) => {
+            const n = weightsRaw[i];
+            return Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : 0;
+          });
       const rest = Number(draft.rest);
       return {
         exerciseId: draft.exerciseId,

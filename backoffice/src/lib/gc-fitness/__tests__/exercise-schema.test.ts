@@ -22,6 +22,9 @@ const VALID_INPUT = {
   equipment: ["barbell", "bench"],
   mediaURL: null,
   thumbnailURL: null,
+  keywords: ["bench press"],
+  tags: ["standard-library"],
+  variations: ["Incline Bench Press"],
   source: "trainer" as const,
   ownerId: "trainer-uid-1",
   version: 1,
@@ -171,5 +174,17 @@ describe("exerciseSchema", () => {
   it("normalizes a deselected single-select ([\"\"]) to bodyweight", () => {
     const parsed = exerciseSchema.parse({ ...VALID_INPUT, equipment: [""] });
     expect(parsed.equipment).toEqual(["bodyweight"]);
+  });
+
+  it("accepts keywords, tags and variations arrays", () => {
+    const parsed = exerciseSchema.parse({
+      ...VALID_INPUT,
+      keywords: ["shoulder press", "overhead press"],
+      tags: ["standard-library"],
+      variations: ["Seated Shoulder Press"],
+    });
+    expect(parsed.keywords).toEqual(["shoulder press", "overhead press"]);
+    expect(parsed.tags).toEqual(["standard-library"]);
+    expect(parsed.variations).toEqual(["Seated Shoulder Press"]);
   });
 });

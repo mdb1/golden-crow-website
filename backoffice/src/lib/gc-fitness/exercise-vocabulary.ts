@@ -15,7 +15,7 @@
 //  - no duplicates
 //  - no empty strings
 //  - muscleGroups: 17 items (Pitfall 5 ceiling: ≤24)
-//  - equipment: 13 items
+//  - equipment: 15 items
 //
 // CONSUMERS:
 //  - backoffice Zod schema for `exercises` documents (planned P03-05)
@@ -53,8 +53,10 @@ export const EQUIPMENT = [
   "medicine_ball",
   "none",
   "pull_up_bar",
+  "discs",
   "resistance_band",
   "rope",
+  "smith",
   "swiss_ball",
 ] as const;
 

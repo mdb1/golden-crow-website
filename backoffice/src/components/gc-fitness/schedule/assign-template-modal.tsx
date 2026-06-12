@@ -355,12 +355,13 @@ export function AssignTemplateModal({
           .map((n) => (Number.isFinite(n) ? n : 0));
         const finalWeightsRaw = weightBySetKg.slice(0, finalSets);
         // 260610-j67 (issue #159) — when "Sin peso" is on, force no weights
-        // (finalWeights = null) so the override emits weightBySetKg: [].
-        const hasAnyWeight =
-          !draft.noWeight && finalWeightsRaw.some((n) => Number.isFinite(n));
-        const finalWeights = hasAnyWeight
-          ? finalWeightsRaw.map((n) => (Number.isFinite(n) ? n : 0))
-          : null;
+        // (`weightBySetKg: []`). Otherwise an empty kg field means 0kg,
+        // not a reps-only prescription.
+        const finalWeights = draft.noWeight
+          ? []
+          : Array.from({ length: finalSets }, (_, i) =>
+              Number.isFinite(finalWeightsRaw[i]) ? finalWeightsRaw[i] : 0,
+            );
         // 26-03 — Final duration array for time exercises.
         const finalDurationBySetSeconds = durationBySetSeconds
           .slice(0, finalSets)
@@ -386,10 +387,9 @@ export function AssignTemplateModal({
         const changedRepsBySet =
           finalRepsBySet.length !== baseRepsBySet.length ||
           finalRepsBySet.some((v, i) => v !== baseRepsBySet[i]);
-        const changedWeights = finalWeights
-          ? finalWeights.length !== baseWeightBySetKg.length ||
-            finalWeights.some((v, i) => v !== baseWeightBySetKg[i])
-          : baseWeightBySetKg.length > 0;
+        const changedWeights =
+          finalWeights.length !== baseWeightBySetKg.length ||
+          finalWeights.some((v, i) => v !== baseWeightBySetKg[i]);
         const changedRest =
           Number.isFinite(nextRest) && nextRest !== exercise.rest_seconds;
         const changedTransitionRest =
@@ -429,10 +429,7 @@ export function AssignTemplateModal({
           ...(effectiveMetric === "reps" && changedRepsBySet
             ? { repsBySet: finalRepsBySet }
             : {}),
-          ...(changedWeights && finalWeights
-            ? { weightBySetKg: finalWeights }
-            : {}),
-          ...(changedWeights && !finalWeights ? { weightBySetKg: [] } : {}),
+          ...(changedWeights ? { weightBySetKg: finalWeights } : {}),
           ...(changedRest
             ? { rest_seconds: Math.max(0, Math.min(600, Math.round(nextRest))) }
             : {}),

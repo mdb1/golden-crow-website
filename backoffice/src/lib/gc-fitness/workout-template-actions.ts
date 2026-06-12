@@ -39,6 +39,7 @@ import {
 } from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 import { estimateTemplateDurationMinutesFromRaw } from "./workout-duration-estimate";
+import { resolveExerciseDocsById } from "./exercise-resolution";
 
 const COLLECTION = FirestoreCollections.workoutTemplates;
 
@@ -478,17 +479,8 @@ export async function getWorkoutTemplateForAssignment(templateId: string): Promi
   const exerciseIds = exercises
     .map((exercise) => exercise.exerciseId)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
-  const exerciseDocs =
-    exerciseIds.length > 0
-      ? await db.getAll(
-          ...exerciseIds.map((id) =>
-            db.collection(FirestoreCollections.exercises).doc(id),
-          ),
-        )
-      : [];
-  const exerciseMap = new Map(
-    exerciseDocs.map((doc) => [doc.id, doc.data() as Record<string, unknown>]),
-  );
+  const exerciseMap: Map<string, Record<string, unknown>> =
+    exerciseIds.length > 0 ? await resolveExerciseDocsById(db, exerciseIds) : new Map();
 
   return {
     id: snap.id,

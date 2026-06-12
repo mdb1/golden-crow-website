@@ -196,8 +196,8 @@ export async function updateExercise(
     source?: string;
     ownerId?: string | null;
   };
-  if (existing.source === "wger") {
-    throw new Error("wger-seeded exercises are read-only.");
+  if (existing.source !== "trainer") {
+    throw new Error("library exercises are read-only.");
   }
   if (existing.ownerId !== trainer.uid) {
     throw new Error("Not your exercise.");
@@ -242,8 +242,8 @@ export async function softDeleteExercise(
     source?: string;
     ownerId?: string | null;
   };
-  if (existing.source === "wger") {
-    throw new Error("Cannot delete wger-seeded exercises.");
+  if (existing.source !== "trainer") {
+    throw new Error("Cannot delete library exercises.");
   }
   if (existing.ownerId !== trainer.uid) {
     throw new Error("Not your exercise.");
@@ -280,11 +280,12 @@ export async function duplicateExercise(
     throw new Error("Not found");
   }
   const data = original.data() as Record<string, unknown>;
+  const { tags: _tags, ...copyable } = data;
 
   const newId = `custom-${trainer.uid}-${randomUUID()}`;
   const newRef = db.collection(COLLECTION).doc(newId);
   await newRef.set({
-    ...data,
+    ...copyable,
     id: newId,
     source: "trainer",
     ownerId: trainer.uid,

@@ -33,6 +33,7 @@ import { FieldValue } from "firebase-admin/firestore";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { coachVisibleClientName } from "./client-name";
+import { resolveExerciseDocsById } from "./exercise-resolution";
 
 import {
   assignTemplateSchema,
@@ -143,17 +144,8 @@ async function templateSnapshotForAssignment(
   const exerciseIds = exercises
     .map((exercise) => exercise.exerciseId)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
-  const exerciseDocs =
-    exerciseIds.length > 0
-      ? await db.getAll(
-          ...exerciseIds.map((id) =>
-            db.collection(FirestoreCollections.exercises).doc(id),
-          ),
-        )
-      : [];
-  const exerciseMap = new Map(
-    exerciseDocs.map((doc) => [doc.id, doc.data() as Record<string, unknown>]),
-  );
+  const exerciseMap: Map<string, Record<string, unknown>> =
+    exerciseIds.length > 0 ? await resolveExerciseDocsById(db, exerciseIds) : new Map();
 
   return {
     ...template,
@@ -260,6 +252,26 @@ function applyExerciseOverrides(
     ...templateSnapshot,
     exercises,
   };
+}
+
+function normalizeEditedWeights(opts: {
+  raw: unknown;
+  setCount: number;
+  noWeight: boolean;
+  fallbackCount?: number;
+}): number[] {
+  if (opts.noWeight) return [];
+  const raw = Array.isArray(opts.raw) ? opts.raw : [];
+  const length = Math.max(
+    1,
+    Math.min(10, opts.setCount || opts.fallbackCount || raw.length || 1),
+  );
+  return Array.from({ length }, (_, i) => {
+    const n = raw[i];
+    return typeof n === "number" && Number.isFinite(n)
+      ? Math.max(0, Math.min(500, n))
+      : 0;
+  });
 }
 
 /**
@@ -1747,9 +1759,15 @@ export async function editAssignmentExercises(
         const repsBySet = Array.isArray(edit.repsBySet)
           ? (edit.repsBySet as number[])
           : [];
-        const weightBySetKg = Array.isArray(edit.weightBySetKg)
-          ? (edit.weightBySetKg as number[])
-          : [];
+        const noWeight = edit.noWeight === true;
+        const weightBySetKg = normalizeEditedWeights({
+          raw: edit.weightBySetKg,
+          setCount: repsBySet.length,
+          noWeight,
+          fallbackCount: Array.isArray((current as { weightBySetKg?: unknown }).weightBySetKg)
+            ? ((current as { weightBySetKg?: unknown }).weightBySetKg as unknown[]).length
+            : 0,
+        });
         const restSeconds = Number(edit.rest_seconds);
         const transitionRestSeconds =
           edit.transition_rest_seconds !== undefined
@@ -1761,7 +1779,7 @@ export async function editAssignmentExercises(
           sets: repsBySet.length,
           reps: repsBySet[0] ?? 0,
           repsBySet,
-          weightBySetKg, // [] = bodyweight / no load
+          weightBySetKg, // [] only when the explicit noWeight flag is on
           rest_seconds: Number.isFinite(restSeconds) ? restSeconds : 60,
           ...(Number.isFinite(transitionRestSeconds)
             ? { transition_rest_seconds: transitionRestSeconds }
@@ -1811,9 +1829,15 @@ export async function editAssignmentExercises(
       const repsBySet = Array.isArray(edit.repsBySet)
         ? (edit.repsBySet as number[])
         : [];
-      const weightBySetKg = Array.isArray(edit.weightBySetKg)
-        ? (edit.weightBySetKg as number[])
-        : [];
+      const noWeight = edit.noWeight === true;
+      const weightBySetKg = normalizeEditedWeights({
+        raw: edit.weightBySetKg,
+        setCount: repsBySet.length,
+        noWeight,
+        fallbackCount: Array.isArray(current?.weightBySetKg)
+          ? (current?.weightBySetKg as unknown[]).length
+          : 0,
+      });
       const restSeconds = Number(edit.rest_seconds);
       const transitionRestSeconds =
         edit.transition_rest_seconds !== undefined
@@ -1829,7 +1853,6 @@ export async function editAssignmentExercises(
           : null;
       const supersetGroup =
         typeof edit.supersetGroup === "string" ? edit.supersetGroup : null;
-      const noWeight = edit.noWeight === true;
       const merged: Record<string, unknown> = {
         ...(current ?? {}),
         exerciseId,
@@ -1843,11 +1866,11 @@ export async function editAssignmentExercises(
               gifUrl: previewUrl,
               imageUrl: previewUrl,
               thumbnailURL: previewUrl,
-            }),
+        }),
         sets: repsBySet.length,
         reps: repsBySet[0] ?? 0,
         repsBySet,
-        weightBySetKg, // [] = bodyweight / no load
+        weightBySetKg, // [] only when the explicit noWeight flag is on
         rest_seconds: Number.isFinite(restSeconds) ? restSeconds : 60,
         notes: typeof edit.notes === "string" ? edit.notes : "",
         metric,
@@ -1858,7 +1881,7 @@ export async function editAssignmentExercises(
       if (Number.isFinite(transitionRestSeconds)) {
         merged.transition_rest_seconds = transitionRestSeconds;
       }
-      if (noWeight || weightBySetKg.length === 0) {
+      if (noWeight) {
         merged.hasExplicitNoWeightPrescription = true;
       } else {
         delete merged.hasExplicitNoWeightPrescription;

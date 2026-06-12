@@ -22,6 +22,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { resolveExercisePreviewUrl } from "@/lib/gc-fitness/exercise-preview-url";
 
 const HOVER_DELAY_MS = 1000;
 
@@ -59,8 +60,10 @@ export function ExercisePreviewThumb({
     }
   }
 
+  const resolvedSrc = resolveExercisePreviewUrl(src);
+
   function handleEnter() {
-    if (!src) return;
+    if (!resolvedSrc) return;
     cancelTimer();
     timerRef.current = window.setTimeout(() => {
       setOpen(true);
@@ -92,9 +95,9 @@ export function ExercisePreviewThumb({
       )}
       style={{ width, height }}
     >
-      {src ? (
+      {resolvedSrc ? (
         <Image
-          src={src}
+          src={resolvedSrc}
           alt={alt}
           width={width}
           height={height}
@@ -108,7 +111,7 @@ export function ExercisePreviewThumb({
     </span>
   );
 
-  if (!src) return thumb;
+  if (!resolvedSrc) return thumb;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       {/* Anchor without making the thumb a PopoverTrigger — clicks bubble
@@ -123,7 +126,7 @@ export function ExercisePreviewThumb({
         onMouseLeave={handleLeave}
       >
         <Image
-          src={src}
+          src={resolvedSrc}
           alt={alt}
           width={320}
           height={180}

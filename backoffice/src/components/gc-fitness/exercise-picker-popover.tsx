@@ -45,14 +45,15 @@
 // sentinel guard.
 //
 // BILINGUAL SEARCH (260522-hi5 Task C): the Command fuzzy-search `value`
-// concatenates the EN name, ES name (committed to Firestore by Task B),
-// and muscle group tokens, then runs them through `normalizeSearchText`
-// (lowercases + strips Latin diacritics) so typing "sentadilla" matches
-// "Sentadílla" / "SENTADILLA" / "Sentadilla". Each row visibly displays
-// the EN name as the primary label and the ES name as a secondary muted
-// line below — only when the ES name is non-empty AND different from the
-// EN name (so legitimately-same-in-both-languages survivors like "Plank"
-// don't render a redundant duplicate line).
+// now concatenates the canonical names, muscle groups, keywords, tags, and
+// variations, then runs them through `normalizeSearchText` (lowercases +
+// strips Latin diacritics) so typing "sentadilla" or "shoulder press"
+// surfaces the standard-library rows even if the stored name is
+// "Military Standing Press". Each row visibly displays the EN name as the
+// primary label and the ES name as a secondary muted line below — only when
+// the ES name is non-empty AND different from the EN name (so
+// legitimately-same-in-both-languages survivors like "Plank" don't render
+// a redundant duplicate line).
 
 import { useMemo, useState } from "react";
 import { ChevronsUpDown, Copy, Search, X } from "lucide-react";
@@ -80,6 +81,7 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
+import { exerciseSearchHaystack } from "@/lib/gc-fitness/exercise-search";
 import {
   useExerciseFilters,
   applyFilters,
@@ -248,13 +250,6 @@ export function fuzzyTokenMatch(query: string, haystack: string): boolean {
   return fuzzyTokenScore(query, haystack) > 0;
 }
 
-function previewUrl(url?: string | null): string | null {
-  if (typeof url === "string" && /^https?:\/\//.test(url)) {
-    return url;
-  }
-  return null;
-}
-
 // 260522-mo2 Task D: preview source resolution now prefers gifUrl >
 // imageUrl > thumbnailURL. BOTH the inner `src=` prop AND the OUTER
 // conditional in the popover row + trigger-selected blocks reference
@@ -263,11 +258,7 @@ function previewUrl(url?: string | null): string | null {
 function previewSrc(
   row: Pick<ExerciseRow, "gifUrl" | "imageUrl" | "thumbnailURL">,
 ): string | null {
-  return (
-    previewUrl(row.gifUrl) ??
-    previewUrl(row.imageUrl) ??
-    previewUrl(row.thumbnailURL)
-  );
+  return row.gifUrl ?? row.imageUrl ?? row.thumbnailURL ?? null;
 }
 
 // Retained for API parity with `columns.tsx` and possible future
@@ -335,10 +326,7 @@ export function ExercisePickerPopover({
     if (!needle) return false;
     if (visible.length === 0) return true;
     return !visible.some((ex) =>
-      fuzzyTokenMatch(
-        needle,
-        [ex.name.en, ex.name.es, ex.muscleGroups.join(" ")].join(" "),
-      ),
+      fuzzyTokenMatch(needle, exerciseSearchHaystack(ex)),
     );
   }, [search, visible]);
 

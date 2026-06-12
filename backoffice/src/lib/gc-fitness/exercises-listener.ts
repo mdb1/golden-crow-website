@@ -61,6 +61,12 @@ export interface ExerciseRow {
   mediaURL?: string | null;
   thumbnailURL?: string | null;
   youtubeURL?: string | null;
+  /** Search aliases and alternate names, used for fuzzy discovery. */
+  keywords?: string[];
+  /** Semantic tags such as `standard-library`. */
+  tags?: string[];
+  /** Alternate movement names / variations surfaced in the preview page. */
+  variations?: string[];
   /**
    * 260522-mo2 Revision fix #1 (Blocker): 3-way union — `"free-exercise-db"`
    * is the on-the-wire source value seeded by Task C. PRIOR to 260522-mo2
@@ -134,7 +140,7 @@ function canTrainerAccessExercise(
   row: Pick<ExerciseRow, "source" | "ownerId">,
   trainerUid: string | null,
 ): boolean {
-  if (row.source === "wger" || row.source === "free-exercise-db") return true;
+  if (row.source !== "trainer") return true;
   if (!trainerUid) return false;
   return row.ownerId === trainerUid;
 }
@@ -190,6 +196,9 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     mediaURL: data.mediaURL ?? null,
     thumbnailURL: data.thumbnailURL ?? null,
     youtubeURL: data.youtubeURL ?? null,
+    keywords: Array.isArray(data.keywords) ? data.keywords : [],
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    variations: Array.isArray(data.variations) ? data.variations : [],
     source,
     ownerId: typeof data.ownerId === "string" ? data.ownerId : null,
     version: typeof data.version === "number" ? data.version : 1,

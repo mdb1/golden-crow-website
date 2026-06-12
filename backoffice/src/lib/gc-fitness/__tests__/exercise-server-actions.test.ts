@@ -95,13 +95,14 @@ function fakeTokens(opts: {
 
 function fakeSnapshot(opts: {
   exists: boolean;
-  source?: "wger" | "trainer";
+  source?: "wger" | "trainer" | "free-exercise-db";
   ownerId?: string | null;
   name?: { en: string; es: string };
   description?: { en: string; es: string };
   muscleGroups?: string[];
   equipment?: string[];
   mediaURL?: string | null;
+  tags?: string[];
 }) {
   const data = {
     source: opts.source,
@@ -114,6 +115,7 @@ function fakeSnapshot(opts: {
     muscleGroups: opts.muscleGroups ?? ["chest"],
     equipment: opts.equipment ?? ["bodyweight"],
     mediaURL: opts.mediaURL ?? null,
+    tags: opts.tags,
   };
   return {
     exists: opts.exists,
@@ -260,7 +262,25 @@ describe("updateExercise", () => {
       updateExercise("wger-abc", {
         name: { en: "Edited", es: "Edited" },
       }),
-    ).rejects.toThrow(/wger-seeded exercises are read-only/i);
+    ).rejects.toThrow(/library exercises are read-only/i);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects when target doc has source=free-exercise-db", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(
+      fakeSnapshot({
+        exists: true,
+        source: "free-exercise-db",
+        ownerId: null,
+      }),
+    );
+
+    await expect(
+      updateExercise("fexd-abc", {
+        name: { en: "Edited", es: "Edited" },
+      }),
+    ).rejects.toThrow(/library exercises are read-only/i);
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -321,7 +341,7 @@ describe("softDeleteExercise", () => {
     );
 
     await expect(softDeleteExercise("wger-abc")).rejects.toThrow(
-      /cannot delete wger-seeded exercises/i,
+      /cannot delete library exercises/i,
     );
     expect(mockUpdate).not.toHaveBeenCalled();
   });
@@ -405,6 +425,7 @@ describe("duplicateExercise", () => {
         description: { en: "Push.", es: "Empuja." },
         muscleGroups: ["chest"],
         equipment: ["barbell", "bench"],
+        tags: ["standard-library", "strength"],
         mediaURL: "gs://gcfitness-3476b.firebasestorage.app/exercises/wger-abc.mp4",
       }),
     );
@@ -419,6 +440,7 @@ describe("duplicateExercise", () => {
     expect(payload.name).toEqual({ en: "Bench Press", es: "Press de Banca" });
     expect(payload.muscleGroups).toEqual(["chest"]);
     expect(payload.equipment).toEqual(["barbell", "bench"]);
+    expect(payload.tags).toBeUndefined();
     expect(payload.mediaURL).toBe(
       "gs://gcfitness-3476b.firebasestorage.app/exercises/wger-abc.mp4",
     );

@@ -45,6 +45,7 @@ import {
   computeDurationSeconds,
   computeTotalVolumeKg,
 } from "./live-workout-volume";
+import { resolveExerciseDocsById } from "./exercise-resolution";
 import type {
   ActiveSession,
   ActiveWorkoutSummary,
@@ -143,13 +144,8 @@ async function buildSessionExercises(
   const ids = raw
     .map((e) => e.exerciseId)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
-  const docs = shouldResolveMedia && ids.length
-    ? await db.getAll(...ids.map((id) => db.collection(EXERCISES).doc(id)))
-    : [];
-  const srcMap = shouldResolveMedia
-    ? new Map(
-        docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
-      )
+  const srcMap: Map<string, Record<string, unknown>> = shouldResolveMedia && ids.length
+    ? await resolveExerciseDocsById(db, ids)
     : new Map<string, Record<string, unknown>>();
 
   const built = await Promise.all(
@@ -172,7 +168,7 @@ async function buildSessionExercises(
         : [null, null];
       return {
         exerciseId,
-        name: localized(e.name ?? src.name, exerciseId),
+        name: localized(src.name ?? e.name, exerciseId),
         sets: num(e.sets, 1),
         reps: num(e.reps, 0),
         restSeconds: num(e.restSeconds ?? e.rest_seconds, 60),
@@ -787,12 +783,10 @@ async function enrichEditedExercises(
   const ids = edited
     .map((e) => e.exerciseId)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
-  const docs = ids.length
-    ? await db.getAll(...ids.map((id) => db.collection(EXERCISES).doc(id)))
-    : [];
-  const srcMap = new Map(
-    docs.map((d) => [d.id, (d.data() ?? {}) as Record<string, unknown>]),
-  );
+  const docs: Map<string, Record<string, unknown>> = ids.length
+    ? await resolveExerciseDocsById(db, ids)
+    : new Map<string, Record<string, unknown>>();
+  const srcMap = docs;
 
   return edited.map((e) => {
     const src = srcMap.get(e.exerciseId) ?? {};
