@@ -54,7 +54,7 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
-import { exerciseSearchHaystack } from "@/lib/gc-fitness/exercise-search";
+import { searchExercises } from "@/lib/gc-fitness/exercise-search";
 import {
   softDeleteExercise,
   duplicateExercise,
@@ -85,15 +85,9 @@ function matchesFilters(
   f: ExerciseFiltersState,
   trainerUid: string,
 ): boolean {
-  // Search — case-insensitive substring match on EN and ES name + EN
-  // description + keywords + tags. Trainers expect to search by either
-  // language; lower-casing both sides handles ES accents reasonably (full
-  // normalization deferred until i18n in P12).
-  if (f.search.trim().length > 0) {
-    const needle = f.search.trim().toLowerCase();
-    const hay = exerciseSearchHaystack(row).toLowerCase();
-    if (!hay.includes(needle)) return false;
-  }
+  // Search is handled SEPARATELY by searchExercises in the rows memo (issue
+  // #291) — normalized (hyphen/diacritic/plural) AND name-aware ranked. This
+  // predicate only handles the chip/select filters below.
 
   // Muscle filter — array-contains-any semantics (row matches if it contains
   // ANY of the selected groups). Mirrors Firestore `array-contains-any`,
@@ -144,7 +138,10 @@ export function ExerciseLibraryClient({
 
   const rows = useMemo(() => {
     const all = (data ?? []).filter((r) => r.deleted !== true);
-    return all.filter((r) => matchesFilters(r, filters, trainerUid));
+    // Apply the non-search chip/select filters first, THEN rank + search
+    // (issue #291): normalized, plural/hyphen-tolerant, best-match-first.
+    const filtered = all.filter((r) => matchesFilters(r, filters, trainerUid));
+    return searchExercises(filtered, filters.search);
   }, [data, filters, trainerUid]);
 
   const handleDuplicate = useCallback(

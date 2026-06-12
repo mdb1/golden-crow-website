@@ -81,7 +81,19 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
-import { exerciseSearchHaystack } from "@/lib/gc-fitness/exercise-search";
+import {
+  searchExercises,
+  normalizeSearchText,
+} from "@/lib/gc-fitness/exercise-search";
+// Re-export the legacy helper names so existing consumers that import them
+// from THIS component keep working (exercise-multi-add-dialog.tsx and the
+// legacy src/lib/gc-fitness/__tests__/exercise-picker-popover.test.tsx).
+// The implementations now live in exercise-search.ts (issue #291).
+export {
+  normalizeSearchText,
+  fuzzyTokenScore,
+  fuzzyTokenMatch,
+} from "@/lib/gc-fitness/exercise-search";
 import {
   useExerciseFilters,
   applyFilters,
@@ -152,104 +164,6 @@ export function displayEs(row: ExerciseRow): string {
   return es;
 }
 
-/**
- * Lowercases + strips Latin diacritics + collapses whitespace. Used both
- * inside the Command `value` prop (so the fuzzy-matcher sees normalized
- * input AND normalized haystack) and in `displayEs` to decide whether the
- * ES line is meaningfully different from EN.
- *
- * Examples:
- *   "Sentadílla"        -> "sentadilla"
- *   "Press de banca"    -> "press de banca"
- *   "  Squat  "         -> "squat"
- */
-export function normalizeSearchText(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    // Hyphens, underscores, slashes all behave as word separators so
-    // "Pull-Ups" matches a "pull ups" query and "wide_grip" matches
-    // "wide grip". This also fixes the case where the trainer types
-    // a hyphenated name and the haystack stores it un-hyphenated.
-    .replace(/[-_/]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * Score how well a query matches a haystack on a 0..1 scale.
- *
- * Token-based and ORDER-INDEPENDENT: each query token is matched against
- * any haystack word (startsWith preferred, contains as a fallback). The
- * caller's typed token order is intentionally ignored so "incline bench
- * dum" surfaces "Incline Dumbbell Press" even though the query mixes a
- * non-existent middle token ("bench") and a different order than the
- * exercise name.
- *
- * Returns:
- *   - 0          → no useful match (less than 60% of query tokens land)
- *   - 0 < s ≤ 1  → matched. Score = matchedTokens / totalTokens, with a
- *                  small bonus for exact-word startsWith hits over loose
- *                  contains-only hits.
- *
- * Threshold tuning: 60% is permissive enough to forgive one missing
- * token in a 3-token query (2/3 = 0.66 ≥ 0.6), but still rejects
- * "incline xyz xyz" (1/3 = 0.33 < 0.6) so unrelated typos don't pollute
- * the result list. Single-token queries always require a full match
- * (1/1 = 1.0).
- */
-export function fuzzyTokenScore(query: string, haystack: string): number {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return 1;
-  const tokens = normalizedQuery.split(" ").filter(Boolean);
-  if (tokens.length === 0) return 1;
-  const words = normalizeSearchText(haystack).split(" ").filter(Boolean);
-  if (words.length === 0) return 0;
-
-  let strongHits = 0;
-  let weakHits = 0;
-  for (const token of tokens) {
-    let matched: "strong" | "weak" | null = null;
-    for (const word of words) {
-      if (word.startsWith(token)) {
-        matched = "strong";
-        break;
-      }
-    }
-    if (!matched) {
-      for (const word of words) {
-        if (word.includes(token)) {
-          matched = "weak";
-          break;
-        }
-      }
-    }
-    if (matched === "strong") strongHits += 1;
-    else if (matched === "weak") weakHits += 1;
-  }
-
-  const matchedRatio = (strongHits + weakHits) / tokens.length;
-  // 60% threshold: tolerates one missing token in a 3-token query, but
-  // rejects 1-of-3 noise. Single-token queries require a full hit (1.0).
-  if (matchedRatio < 0.6) return 0;
-  // Strong matches outweigh weak ones — exact-word startsWith ranks above
-  // a mid-word contains match.
-  return Math.min(
-    1,
-    (strongHits + weakHits * 0.6) / tokens.length,
-  );
-}
-
-/**
- * Backward-compat boolean wrapper used by the multi-add dialog +
- * picker's "Exercise not found?" check. Returns true when the score is
- * above zero (i.e., the threshold-passing match in fuzzyTokenScore).
- */
-export function fuzzyTokenMatch(query: string, haystack: string): boolean {
-  return fuzzyTokenScore(query, haystack) > 0;
-}
-
 // 260522-mo2 Task D: preview source resolution now prefers gifUrl >
 // imageUrl > thumbnailURL. BOTH the inner `src=` prop AND the OUTER
 // conditional in the popover row + trigger-selected blocks reference
@@ -300,14 +214,20 @@ export function ExercisePickerPopover({
   // Codex MEDIUM render-window cap: when the filtered set exceeds 100
   // rows, render only the first 100 and surface a "+ N more — refine
   // filter" indicator so the user knows to narrow.
+  // 260612-r8l (issue #291): search now runs BEFORE the render cap. The old
+  // code sliced to RENDER_CAP first and let cmdk's internal filter match only
+  // the rendered rows, so a row past position 100 in updatedAt-desc order was
+  // never surfaced. We apply the chip filters, THEN searchExercises (filter +
+  // name-aware rank), THEN cap. The `<Command shouldFilter={false}>` below
+  // disables cmdk's internal matcher so it renders exactly the rows we pass.
   const { visible, overflow } = useMemo(() => {
     const live = (data ?? []).filter((r) => r.deleted !== true);
-    const filtered = applyFilters(live, filters);
+    const ranked = searchExercises(applyFilters(live, filters), search);
     return {
-      visible: filtered.slice(0, RENDER_CAP),
-      overflow: Math.max(0, filtered.length - RENDER_CAP),
+      visible: ranked.slice(0, RENDER_CAP),
+      overflow: Math.max(0, ranked.length - RENDER_CAP),
     };
-  }, [data, filters]);
+  }, [data, filters, search]);
 
   // Kept for the empty-state branch: distinguishes "no rows in cache" from
   // "filters narrowed to zero".
@@ -317,17 +237,13 @@ export function ExercisePickerPopover({
   );
 
   // Whether the trainer's search yields ZERO matches — drives the inline
-  // "Exercise not found. Quick create" panel below. We re-run fuzzy match
-  // ourselves so it stays in sync with what cmdk's internal matcher
-  // produces (both go through normalizeSearchText so a hyphenated needle
-  // like "pull up" matches "Pull-Ups").
+  // "Exercise not found. Quick create" panel below. Search is now applied to
+  // `visible` upstream (via searchExercises), so an empty `visible` with a
+  // non-blank needle IS the no-match signal — no per-row re-check needed.
   const noMatches = useMemo(() => {
     const needle = search.trim();
     if (!needle) return false;
-    if (visible.length === 0) return true;
-    return !visible.some((ex) =>
-      fuzzyTokenMatch(needle, exerciseSearchHaystack(ex)),
-    );
+    return visible.length === 0;
   }, [search, visible]);
 
   const selected = useMemo(
@@ -465,13 +381,13 @@ export function ExercisePickerPopover({
           onClear={clearFilters}
         />
         <Command
-          // 260527-is1 — override cmdk's default character-subsequence
-          // scorer with our token-based, order-independent fuzzy match.
-          // Without this, typing "incline bench dum" failed to surface
-          // "Incline Dumbbell Press" because cmdk requires the typed
-          // characters to appear as an in-order subsequence of the value
-          // and "bench" never appears in that exercise's value at all.
-          filter={(value, search) => fuzzyTokenScore(search, value)}
+          // 260612-r8l (issue #291) — filtering + ranking now happen
+          // EXTERNALLY (searchExercises, applied before the render cap in the
+          // `visible` memo). cmdk must NOT re-filter the rows we pass, or it
+          // would (a) re-apply its own character-subsequence matcher and (b)
+          // only ever see the capped 100 rows. `shouldFilter={false}` makes
+          // cmdk render exactly `visible`.
+          shouldFilter={false}
         >
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
