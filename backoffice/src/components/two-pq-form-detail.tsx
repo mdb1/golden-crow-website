@@ -77,48 +77,10 @@ const STUDY_PREVIOUS_TEST_FIELDS: FieldSpec[] = [
   { key: "karyotypeFileSize", label: "Tamaño archivo cariotipo" },
 ];
 
-const STUDY_REQUESTED_TEST_FIELDS: FieldSpec[] = [
-  { key: "pgtAFast", label: "PGT-A FAST", type: "boolean" },
-  {
-    key: "pgtAFastReportsMosaicism",
-    label: "PGT-A FAST informa mosaicismo",
-    type: "boolean",
-  },
-  {
-    key: "pgtAFastReportsSex",
-    label: "PGT-A FAST informa sexo",
-    type: "boolean",
-  },
-  { key: "pgtAStandard", label: "PGT-A STANDARD", type: "boolean" },
-  {
-    key: "pgtAStandardReportsMosaicism",
-    label: "PGT-A STANDARD informa mosaicismo",
-    type: "boolean",
-  },
-  {
-    key: "pgtAStandardReportsSex",
-    label: "PGT-A STANDARD informa sexo",
-    type: "boolean",
-  },
-  { key: "pgtSr", label: "PGT-SR", type: "boolean" },
-  {
-    key: "pgtSrReportsMosaicism",
-    label: "PGT-SR informa mosaicismo",
-    type: "boolean",
-  },
-  { key: "pgtSrReportsSex", label: "PGT-SR informa sexo", type: "boolean" },
-];
-
 const SAMPLE_LINKED_STUDY_REQUEST_FIELDS: FieldSpec[] = [
   { key: "linkedStudyRequestFormId", label: "Linked study request form" },
   { key: "createdAt", label: "Form creation date", type: "datetime" },
   { key: "updatedAt", label: "Last update", type: "datetime" },
-];
-
-const SAMPLE_REQUESTED_TEST_FIELDS: FieldSpec[] = [
-  { key: "selectedRequestedTest", label: "Selected requested test" },
-  { key: "reportsMosaicism", label: "Reports mosaicism", type: "boolean" },
-  { key: "reportsSex", label: "Reports sex", type: "boolean" },
 ];
 
 const SAMPLE_INFORMATION_FIELDS: FieldSpec[] = [
@@ -163,13 +125,6 @@ const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "notes", label: "Comments" },
 ];
 
-const REQUESTED_TEST_LABEL_BY_KEY: Record<string, string> = {
-  pgtAFast: "PGT A fast",
-  pgtAStandard: "PGT A standard",
-  pgtA: "PGT-A",
-  pgtSr: "PGT SR",
-};
-
 const SAMPLE_TYPE_LABEL_BY_VALUE: Record<string, string> = {
   "biopsia de trofoectodermo": "Trophectoderm biopsy",
   "rebiopsia de trofoectodermo": "Trophectoderm rebiopsy",
@@ -195,6 +150,30 @@ const PERSON_STATUS_LABEL_BY_VALUE: Record<string, string> = {
   inactive: "Inactive",
 };
 
+const REQUESTED_TEST_SEGMENTS = [
+  {
+    key: "pgtAFast",
+    title: "PGT-A FAST",
+    requestedKey: "pgtAFast",
+    mosaicismKey: "pgtAFastReportsMosaicism",
+    sexKey: "pgtAFastReportsSex",
+  },
+  {
+    key: "pgtAStandard",
+    title: "PGT-A STANDARD",
+    requestedKey: "pgtAStandard",
+    mosaicismKey: "pgtAStandardReportsMosaicism",
+    sexKey: "pgtAStandardReportsSex",
+  },
+  {
+    key: "pgtSr",
+    title: "PGT-SR",
+    requestedKey: "pgtSr",
+    mosaicismKey: "pgtSrReportsMosaicism",
+    sexKey: "pgtSrReportsSex",
+  },
+] as const;
+
 function isYesAnswer(value: unknown) {
   if (value === true) return true;
   if (typeof value !== "string") return false;
@@ -218,18 +197,33 @@ function selectedRequestedTestKeyFromRecord(
   return "";
 }
 
-function requestedTestReportValue(
+function requestedTestSegmentRequestedValue(
   data: Record<string, unknown> | undefined,
+  segment: (typeof REQUESTED_TEST_SEGMENTS)[number],
+  selectedKey: string
+) {
+  const directValue = data?.[segment.requestedKey];
+  if (directValue !== null && typeof directValue !== "undefined") {
+    return directValue;
+  }
+  return selectedKey ? segment.key === selectedKey : undefined;
+}
+
+function requestedTestSegmentReportValue(
+  data: Record<string, unknown> | undefined,
+  segment: (typeof REQUESTED_TEST_SEGMENTS)[number],
   selectedKey: string,
   report: "Mosaicism" | "Sex"
 ) {
-  if (!data) return undefined;
-  if (selectedKey === "pgtAFast") return data[`pgtAFastReports${report}`];
-  if (selectedKey === "pgtAStandard") {
-    return data[`pgtAStandardReports${report}`];
+  const fieldKey = report === "Mosaicism" ? segment.mosaicismKey : segment.sexKey;
+  const directValue = data?.[fieldKey];
+  if (directValue !== null && typeof directValue !== "undefined") {
+    return directValue;
   }
-  if (selectedKey === "pgtSr") return data[`pgtSrReports${report}`];
-  return data[`reports${report}`];
+  if (selectedKey === segment.key) {
+    return data?.[`reports${report}`];
+  }
+  return undefined;
 }
 
 function formatDate(value: string, language: AppLanguage, includeTime = false) {
@@ -348,6 +342,80 @@ function DetailSection({
           );
         })}
       </dl>
+    </section>
+  );
+}
+
+function RequestedTestDetailSection({
+  data,
+}: {
+  data?: Record<string, unknown>;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const selectedKey = selectedRequestedTestKeyFromRecord(data);
+
+  return (
+    <section className="rounded-sm bg-white px-6 py-6 text-black shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/10 sm:px-8">
+      <div className="border-b border-black/12 pb-4">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-black/45">
+          2pq_forms
+        </p>
+        <h2 className="mt-1 font-heading text-lg font-semibold text-black">
+          {t("Requested test")}
+        </h2>
+      </div>
+      <div className="mt-5 grid gap-6 lg:grid-cols-3">
+        {REQUESTED_TEST_SEGMENTS.map((segment) => (
+          <section
+            key={segment.key}
+            className="border-t border-black/12 pt-4 first:border-t-0 first:pt-0 lg:border-t-0 lg:border-l lg:pl-5 lg:first:border-l-0 lg:first:pl-0"
+          >
+            <h3 className="font-heading text-sm font-semibold text-black">
+              {segment.title}
+            </h3>
+            <dl className="mt-4 grid gap-y-4">
+              {[
+                {
+                  label: t("Requested"),
+                  value: requestedTestSegmentRequestedValue(
+                    data,
+                    segment,
+                    selectedKey
+                  ),
+                },
+                {
+                  label: t("Reports mosaicism"),
+                  value: requestedTestSegmentReportValue(
+                    data,
+                    segment,
+                    selectedKey,
+                    "Mosaicism"
+                  ),
+                },
+                {
+                  label: t("Reports sex"),
+                  value: requestedTestSegmentReportValue(
+                    data,
+                    segment,
+                    selectedKey,
+                    "Sex"
+                  ),
+                },
+              ].map((field) => (
+                <div key={`${segment.key}-${field.label}`}>
+                  <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+                    {field.label}
+                  </dt>
+                  <dd className="mt-1 min-h-8 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
+                    {formatValue(field.value, language, t, "boolean")}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </div>
     </section>
   );
 }
@@ -562,24 +630,6 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const authorEmail = form.authorEmail ?? form.createdByEmail;
-  const selectedSampleRequestedTestKey = selectedRequestedTestKeyFromRecord(
-    form.requestedTest
-  );
-  const sampleRequestedTestData: Record<string, unknown> = {
-    selectedRequestedTest: selectedSampleRequestedTestKey
-      ? t(REQUESTED_TEST_LABEL_BY_KEY[selectedSampleRequestedTestKey])
-      : getTextValue(form.requestedTest, "testName"),
-    reportsMosaicism: requestedTestReportValue(
-      form.requestedTest,
-      selectedSampleRequestedTestKey,
-      "Mosaicism"
-    ),
-    reportsSex: requestedTestReportValue(
-      form.requestedTest,
-      selectedSampleRequestedTestKey,
-      "Sex"
-    ),
-  };
   const sampleLinkedStudyRequestData: Record<string, unknown> = {
     linkedStudyRequestFormId: form.linkedStudyRequestFormId,
     createdAt: form.createdAt,
@@ -668,11 +718,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             fields={REQUESTING_DOCTOR_FIELDS}
             data={sampleRequestingDoctorData}
           />
-          <DetailSection
-            title={t("Requested test")}
-            fields={SAMPLE_REQUESTED_TEST_FIELDS}
-            data={sampleRequestedTestData}
-          />
+          <RequestedTestDetailSection data={form.requestedTest} />
           <DetailSection
             title={t("Biopsy form information")}
             fields={SAMPLE_INFORMATION_FIELDS}
@@ -712,11 +758,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             fields={STUDY_PREVIOUS_TEST_FIELDS}
             data={form.previousGeneticTests}
           />
-          <DetailSection
-            title={t("Requested test")}
-            fields={STUDY_REQUESTED_TEST_FIELDS}
-            data={form.requestedTest}
-          />
+          <RequestedTestDetailSection data={form.requestedTest} />
           <DetailSection
             title={t("Institution information")}
             fields={INSTITUTION_FIELDS}

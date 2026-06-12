@@ -159,6 +159,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Medical information": "Información médica",
   "Previous genetic tests": "Pruebas genéticas previas",
   "Requested test": "Test solicitado",
+  Requested: "Solicitado",
   "Institution information": "Información de institución",
   "Preview and signature": "Vista previa y firma",
   "Pick linked study request form": "Elegir formulario de solicitud linkeado",
