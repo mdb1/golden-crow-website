@@ -5575,11 +5575,11 @@ export function TwoPQFormFlow({
         ) : null}
 
         {currentStep === "samplingInformation" ? (
-          <div className="space-y-4">
+          <div className="min-w-0 max-w-full space-y-4">
             {state.samplingTableGenerated ? (
               <>
-                <div className="overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
-                <table className="min-w-[88rem] border-collapse bg-white text-sm">
+                <div className="w-full min-w-0 max-w-full overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
+                  <table className="min-w-[88rem] border-collapse bg-white text-sm">
                   <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
                     <tr>
                       <th className="min-w-36 border border-slate-300 px-3 py-2">
