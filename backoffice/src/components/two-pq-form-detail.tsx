@@ -318,25 +318,35 @@ function DetailSection({
   const t = (text: string) => appText(language, text);
 
   return (
-    <section className="glass-panel flex flex-col gap-4 px-5 py-5">
-      <div>
-        <p className="section-eyebrow">2pq_forms</p>
-        <h2 className="font-heading text-xl font-semibold text-foreground">{title}</h2>
+    <section className="rounded-sm bg-white px-6 py-6 text-black shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/10 sm:px-8">
+      <div className="border-b border-black/12 pb-4">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-black/45">
+          2pq_forms
+        </p>
+        <h2 className="mt-1 font-heading text-lg font-semibold text-black">
+          {title}
+        </h2>
       </div>
-      <dl className="grid gap-3 md:grid-cols-2">
-        {fields.map((field) => (
-          <div
-            key={field.key}
-            className="rounded-xl border border-border/70 bg-background/58 px-4 py-3"
-          >
-            <dt className="text-xs font-medium uppercase text-muted-foreground">
-              {t(field.label)}
-            </dt>
-            <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-              {formatValue(data?.[field.key], language, t, field.type)}
-            </dd>
-          </div>
-        ))}
+      <dl className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        {fields.map((field) => {
+          const isWideField =
+            field.key.toLowerCase().includes("notes") ||
+            field.key === "otherBackground";
+
+          return (
+            <div
+              key={field.key}
+              className={isWideField ? "sm:col-span-2" : undefined}
+            >
+              <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+                {t(field.label)}
+              </dt>
+              <dd className="mt-1 min-h-8 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
+                {formatValue(data?.[field.key], language, t, field.type)}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </section>
   );
