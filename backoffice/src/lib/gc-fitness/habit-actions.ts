@@ -198,6 +198,14 @@ export interface HabitRow {
   reminderWeekdays?: number[];
   reminderDayOfMonth?: number;
   reminderMonthDays?: number[];
+  /**
+   * ISO of the habit's `reminderUpdatedAt` audit stamp (260611-ugu). The
+   * iOS/Android client stamps this whenever the CLIENT edits their own habit
+   * reminder. Read straight off the habit doc (no extra query/index).
+   * PRESENCE gates the coach-facing "client changed reminder" indicator —
+   * the twin of the workout reminderEditedAt treatment shipped in PR #152.
+   */
+  reminderEditedAt?: string | null;
   scheduleType: HabitScheduleType;
   startsOn: string;
   endsOn?: string;
@@ -402,6 +410,9 @@ function projectHabitRow(
       : typeof data.scheduleDayOfMonth === "number"
         ? [data.scheduleDayOfMonth]
         : undefined,
+    // 260611-ugu: presence gates the coach-facing client-edit indicator on
+    // the habits table ReminderCell. Read off the doc — no new query/index.
+    reminderEditedAt: toIso(data.reminderUpdatedAt),
     skippedDates: Array.isArray(data.skippedDates)
       ? (data.skippedDates as unknown[]).filter(
           (d): d is string => typeof d === "string",

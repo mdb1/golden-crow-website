@@ -8,7 +8,7 @@
 // backoffice reads as one app. No per-item rainbow colors: a single muted
 // `secondary` badge for the type, quiet `outline` badges for metadata.
 
-import { CalendarDays, Clock, Repeat } from "lucide-react";
+import { Bell, BellOff, CalendarDays, Clock, Repeat } from "lucide-react";
 import type { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
@@ -75,22 +75,65 @@ export function RecurrencePill({ rec, t }: { rec: HabitRecurrence; t: TFn }) {
   );
 }
 
-export function ReminderCell({
+// Amber "client changed reminder" note — twin of the workout treatment shipped
+// in PR #152 (ClientDailyTimeline reminderNoteFor). Mirrors that component's
+// inline-Spanish copy (NO i18n keys) so both surfaces read identically.
+const CLIENT_EDIT_BADGE =
+  "gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300";
+
+/**
+ * Coach-facing label for a CLIENT-edited habit reminder. Only rendered when
+ * `reminderEditedAt` is present (the client stamped reminderUpdatedAt from the
+ * app). Same wording as the workout note in ClientDailyTimeline.reminderNoteFor.
+ */
+export function habitReminderEditNote({
   reminderEnabled,
   reminderTime,
 }: {
   reminderEnabled: boolean;
   reminderTime?: string;
-}) {
-  if (reminderEnabled && reminderTime) {
-    return (
-      <Badge variant="outline" className={META_BADGE}>
-        <Clock />
-        {reminderTime}
-      </Badge>
-    );
+}): string {
+  if (!reminderEnabled) return "El cliente desactivó el recordatorio";
+  if (reminderTime && reminderTime.length > 0) {
+    return `El cliente cambió el recordatorio a las ${reminderTime}`;
   }
-  return <span className="text-muted-foreground">—</span>;
+  return "El cliente cambió el recordatorio";
+}
+
+export function ReminderCell({
+  reminderEnabled,
+  reminderTime,
+  reminderEditedAt,
+}: {
+  reminderEnabled: boolean;
+  reminderTime?: string;
+  // 260611-ugu: ISO of reminderUpdatedAt — PRESENCE gates the amber client-edit
+  // badge below. Mirrors PR #152's workout reminder visibility for habits.
+  reminderEditedAt?: string | null;
+}) {
+  const edited = Boolean(reminderEditedAt);
+  const note = edited
+    ? habitReminderEditNote({ reminderEnabled, reminderTime })
+    : null;
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {reminderEnabled && reminderTime ? (
+        <Badge variant="outline" className={META_BADGE}>
+          <Clock />
+          {reminderTime}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      )}
+      {note ? (
+        <Badge variant="outline" className={CLIENT_EDIT_BADGE} title={note}>
+          {reminderEnabled ? <Bell /> : <BellOff />}
+          {note}
+        </Badge>
+      ) : null}
+    </div>
+  );
 }
 
 export function ScopePill({ isGlobal, t }: { isGlobal: boolean; t: TFn }) {

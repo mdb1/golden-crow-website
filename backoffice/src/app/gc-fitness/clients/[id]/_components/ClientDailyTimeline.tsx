@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRightLeft,
+  Bell,
+  BellOff,
   CalendarDays,
   Camera,
   CheckCircle2,
@@ -251,7 +253,11 @@ export function ClientDailyTimeline({
               <Empty>{t("restOrNone")}</Empty>
             ) : (
               <ul className="space-y-2 text-sm">
-                {selected.workouts.map((workout) => (
+                {selected.workouts.map((workout) => {
+                  const reminderNote = workout.reminderEditedAt
+                    ? reminderNoteFor(workout)
+                    : null;
+                  return (
                   <li key={workout.id} className="rounded-md bg-muted px-3 py-2">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -294,13 +300,24 @@ export function ClientDailyTimeline({
                         </span>
                       </p>
                     ) : null}
+                    {reminderNote ? (
+                      <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                        {reminderNote.disabled ? (
+                          <BellOff className="size-3" aria-hidden="true" />
+                        ) : (
+                          <Bell className="size-3" aria-hidden="true" />
+                        )}
+                        <span>{reminderNote.text}</span>
+                      </p>
+                    ) : null}
                     {workout.meetingNotes ? (
                       <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
                         {workout.meetingNotes}
                       </p>
                     ) : null}
                   </li>
-                ))}
+                  );
+                })}
                 {selected.workoutLogs.map((log) => (
                   <li key={log.id} className="rounded-md bg-muted px-3 py-2">
                     <span className="font-medium">{t("loggedPrefix", { name: log.name })}</span>
@@ -478,6 +495,34 @@ function formatTimelineCivilDate(civilDate: string, locale: string): string {
     },
     locale,
   );
+}
+
+/**
+ * 260611-t1y — coach-facing note for a CLIENT-edited workout reminder. Mirrors
+ * the inline-Spanish-string approach of the reschedule note above (NO i18n
+ * keys). Only called when workout.reminderEditedAt is truthy.
+ *
+ *   - reminderEnabled === false           → "El cliente desactivó el recordatorio"
+ *   - else explicit reminderTime present  → "El cliente cambió el recordatorio a las HH:mm"
+ *   - else (edited, neither)              → "El cliente cambió el recordatorio"
+ *   - reminderScope === "series"          → append " (toda la serie)"
+ */
+function reminderNoteFor(
+  workout: ClientDailyTimelineDay["workouts"][number],
+): { text: string; disabled: boolean } {
+  const disabled = workout.reminderEnabled === false;
+  let text: string;
+  if (disabled) {
+    text = "El cliente desactivó el recordatorio";
+  } else if (typeof workout.reminderTime === "string" && workout.reminderTime.length > 0) {
+    text = `El cliente cambió el recordatorio a las ${workout.reminderTime}`;
+  } else {
+    text = "El cliente cambió el recordatorio";
+  }
+  if (workout.reminderScope === "series") {
+    text += " (toda la serie)";
+  }
+  return { text, disabled };
 }
 
 function hasActivity(day: ClientDailyTimelineDay): boolean {

@@ -20,6 +20,7 @@ export type RecentLogCategory =
   | "habit"
   | "workout"
   | "reschedule"
+  | "reminder"
   | "photo"
   | "weight"
   | "signup"
@@ -334,6 +335,14 @@ async function buildRecentLogs(params: {
   // Set in page mode: true when any time-series source returned a FULL page,
   // i.e. there may be older rows beyond this window.
   let anySourceFull = false;
+  // 260611-t1y — the page-mode category filter, visible to the in-memory
+  // derivation blocks below. reschedule + reminder now share the same fetched
+  // assignment docs, so when ONE category is selected we must gate each
+  // derivation to its own category (else the other leaks in). Null ⇒ legacy
+  // mode / "all": both derivations run.
+  const pageTypeFilter = pageMode?.typeFilter ?? null;
+  const wantCategory = (cat: RecentLogCategory) =>
+    !pageTypeFilter || pageTypeFilter === cat;
 
   if (pageMode) {
     // 260531-fwc — time-cursor window, fanned out PER client across the roster
@@ -426,7 +435,10 @@ async function buildRecentLogs(params: {
       : Promise.resolve([] as Array<FirebaseFirestore.QuerySnapshot | null>);
     // Reschedules order/cursor by `scheduledFor` (a "YYYY-MM-DD" civil string,
     // lexically sortable) as a proxy for `updatedAt` — see boundary caveats.
-    const assignSnapsP = want("reschedule")
+    // 260611-t1y: reminder rows are ALSO derived from these same assignment docs
+    // (in-memory, no extra query/index), so fetch them when EITHER category is
+    // wanted.
+    const assignSnapsP = want("reschedule") || want("reminder")
       ? Promise.all(
           clients.map((c) => {
             let q: FirebaseFirestore.Query = db
@@ -999,7 +1011,7 @@ async function buildRecentLogs(params: {
   // via the calendar long-press or the "start and move to today" flow).
   // We surface this as its own feed entry so the trainer sees the
   // change without having to compare days manually.
-  trainerAssignmentsSnap.docs.forEach((doc) => {
+  if (wantCategory("reschedule")) trainerAssignmentsSnap.docs.forEach((doc) => {
     const data = doc.data();
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId || !nameByClientId.has(clientId)) return;
@@ -1034,6 +1046,82 @@ async function buildRecentLogs(params: {
       workoutLogId: null,
     });
   });
+
+  // 260611-t1y (issue mdb1/gc-fitness#200 item 4, companion PR #274) — reminder
+  // activity. When a client edits a workout's reminder from iOS, the iOS write
+  // stamps reminderUpdatedAt (+ reminderEnabled/reminderTime/reminderScope) onto
+  // the workout_assignments doc. We surface that to the coach as its own feed
+  // row, derived in-memory from the SAME trainerAssignmentsSnap.docs the
+  // reschedule pass above uses — presence of reminderUpdatedAt is the gate.
+  //
+  // DEPLOY-SAFETY: reminder rows are derived purely from the workout_assignments
+  // docs this feed ALREADY fetches (legacy trainerId scan + paged per-client
+  // scheduledFor window). We do NOT add a reminderUpdatedAt-ordered query or any
+  // new composite index. A reminder edit on a far-FUTURE assignment that falls
+  // outside the feed's scheduledFor window won't appear here — accepted limitation.
+  //
+  // BOTH feed paths populate trainerAssignmentsSnap.docs — the legacy
+  // listRecentLogsForTrainer trainerId scan AND the paged buildRecentLogs
+  // page-mode per-client scan — so this single derivation block covers BOTH; no
+  // per-path special-casing needed.
+  //
+  // SERIES DEDUPE: a series-scope edit is batched onto N docs sharing seriesId
+  // with the SAME reminderUpdatedAt. We key by `${seriesId}:${eventAt}` for
+  // series edits (keeping the first doc seen) so a batched write yields ONE row;
+  // non-series edits key on the doc id.
+  const reminderRowsByKey = new Map<string, RecentLogRow>();
+  if (wantCategory("reminder")) trainerAssignmentsSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    const clientId = typeof data.clientId === "string" ? data.clientId : "";
+    if (!clientId || !nameByClientId.has(clientId)) return;
+    const eventAt = asIso(data.reminderUpdatedAt);
+    if (!eventAt) return; // gate: presence means the client edited the reminder
+
+    const reminderEnabled =
+      typeof data.reminderEnabled === "boolean" ? data.reminderEnabled : null;
+    const reminderTime =
+      typeof data.reminderTime === "string" ? data.reminderTime : null;
+    const reminderScope =
+      data.reminderScope === "series" || data.reminderScope === "single"
+        ? data.reminderScope
+        : null;
+    const seriesId = typeof data.seriesId === "string" ? data.seriesId : null;
+    const templateName = localizedText(
+      (data.templateSnapshot as { name?: unknown } | undefined)?.name,
+      "Workout",
+    );
+    const clientName = nameByClientId.get(clientId) ?? clientId;
+
+    const groupingKey =
+      seriesId && reminderScope === "series"
+        ? `${seriesId}:${eventAt}`
+        : doc.id;
+    if (reminderRowsByKey.has(groupingKey)) return; // keep first doc per series
+
+    const isSeries = reminderScope === "series";
+    const seriesSuffix = isSeries ? " (toda la serie)" : "";
+    let detail: string;
+    if (reminderEnabled === false) {
+      detail = `El cliente desactivó el recordatorio de ${templateName}${seriesSuffix}`;
+    } else if (reminderTime) {
+      detail = `El cliente cambió el recordatorio de ${templateName} a las ${reminderTime}${seriesSuffix}`;
+    } else {
+      detail = `El cliente cambió el recordatorio de ${templateName}${seriesSuffix}`;
+    }
+
+    reminderRowsByKey.set(groupingKey, {
+      id: `reminder:${groupingKey}`,
+      category: "reminder",
+      eventAt,
+      clientId,
+      clientName,
+      clientPhotoURL: photoByClientId.get(clientId) ?? null,
+      title: `${clientName} cambió el recordatorio de ${templateName}`,
+      detail,
+      workoutLogId: null,
+    });
+  });
+  reminderRowsByKey.forEach((row) => rows.push(row));
 
   // 260528 — iterate the LATEST log per (habitId, civilDate) instead of
   // every raw habit_log doc. Duplicates from legacy auto-id writes were

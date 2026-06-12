@@ -31,6 +31,15 @@ export interface ClientDailyTimelineDay {
     // (Task B). Consumers use presence to decide whether to render the
     // recurring radio in WorkoutAssignmentDeleteDialog.
     seriesId?: string | null;
+    // 260611-t1y (issue #200 item 4 / companion gc-fitness PR #274): the
+    // CLIENT can edit this workout's reminder from iOS. These four fields are
+    // read straight off the assignment doc (no extra query/index). Presence of
+    // reminderEditedAt is the surface gate — when set, the timeline cell shows
+    // a coach-facing note describing what the client changed.
+    reminderEnabled?: boolean | null; // false ⇒ client turned the reminder OFF
+    reminderTime?: string | null; // explicit client-chosen "HH:mm", else null
+    reminderScope?: "single" | "series" | null; // 'series' ⇒ batched onto the series
+    reminderEditedAt?: string | null; // ISO of reminderUpdatedAt — PRESENCE gates the note
   }>;
   workoutLogs: Array<{
     id: string;
@@ -287,6 +296,14 @@ export async function getClientDailyTimeline(
       scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
       meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
       seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
+      reminderEnabled:
+        typeof data.reminderEnabled === "boolean" ? data.reminderEnabled : null,
+      reminderTime: typeof data.reminderTime === "string" ? data.reminderTime : null,
+      reminderScope:
+        data.reminderScope === "series" || data.reminderScope === "single"
+          ? data.reminderScope
+          : null,
+      reminderEditedAt: toIso(data.reminderUpdatedAt),
     });
   });
 
@@ -399,6 +416,12 @@ export async function getClientDailyTimeline(
                 : "pending",
         future,
       });
+      // DEPLOY-SAFETY (260611-ugu): the coach-facing "client changed reminder"
+      // indicator for HABITS ships on the habits table ReminderCell (gated on
+      // habit reminderUpdatedAt — no new query/index). It is NOT added to this
+      // timeline `reminders` array because ClientDailyTimeline.tsx does not
+      // render that array (only workouts/habits/logs/photos), so threading the
+      // habit reminderUpdatedAt here would be dead data. No new index introduced.
       if (habit.reminderEnabled === true) {
         row.reminders.push({
           id: `${habitId}-${day}`,
@@ -530,6 +553,14 @@ export async function getClientDailyTimelineDay(
       scheduledTime: typeof data.scheduledTime === "string" ? data.scheduledTime : null,
       meetingNotes: typeof data.meetingNotes === "string" ? data.meetingNotes : null,
       seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
+      reminderEnabled:
+        typeof data.reminderEnabled === "boolean" ? data.reminderEnabled : null,
+      reminderTime: typeof data.reminderTime === "string" ? data.reminderTime : null,
+      reminderScope:
+        data.reminderScope === "series" || data.reminderScope === "single"
+          ? data.reminderScope
+          : null,
+      reminderEditedAt: toIso(data.reminderUpdatedAt),
     });
   });
 

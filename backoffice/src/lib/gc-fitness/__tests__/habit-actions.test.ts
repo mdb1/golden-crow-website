@@ -166,6 +166,10 @@ function fakeQuerySnapshot(
     type?: "binary";
     deleted?: boolean;
     reminderEnabled?: boolean;
+    reminderTime?: string;
+    // 260611-ugu: when set, the projection exposes reminderEditedAt (the coach
+    // habits-table client-edit indicator gate).
+    reminderUpdatedAt?: Date;
   }>,
 ): QuerySnapshot {
   return {
@@ -177,6 +181,10 @@ function fakeQuerySnapshot(
         type: d.type ?? "binary",
         name: { en: d.id, es: d.id },
         reminderEnabled: d.reminderEnabled ?? false,
+        ...(d.reminderTime ? { reminderTime: d.reminderTime } : {}),
+        ...(d.reminderUpdatedAt
+          ? { reminderUpdatedAt: { toDate: () => d.reminderUpdatedAt } }
+          : {}),
         deleted: d.deleted ?? false,
         updatedAt: { toDate: () => new Date("2026-05-19T00:00:00Z") },
         createdAt: { toDate: () => new Date("2026-05-19T00:00:00Z") },
@@ -535,6 +543,38 @@ describe("listHabitsForTrainer", () => {
     mockedGetTokens.mockResolvedValue(null);
     await expect(listHabitsForTrainer()).rejects.toThrow(/forbidden/i);
     expect(mockQueryGet).not.toHaveBeenCalled();
+  });
+
+  // 260611-ugu — reminderEditedAt projected from the habit's reminderUpdatedAt
+  // stamp; this presence gates the coach habits-table client-edit indicator.
+  it("260611-ugu — projects reminderEditedAt (ISO) when reminderUpdatedAt is present", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockQueryGet.mockResolvedValue(
+      fakeQuerySnapshot([
+        {
+          id: "hab-edited",
+          trainerId: ALLOWED_UID,
+          reminderEnabled: true,
+          reminderTime: "08:15",
+          reminderUpdatedAt: new Date("2026-06-11T09:30:00Z"),
+        },
+      ]),
+    );
+
+    const result = await listHabitsForTrainer();
+    expect(result[0].reminderEditedAt).toBe("2026-06-11T09:30:00.000Z");
+  });
+
+  // 260611-ugu — when the client never edited the reminder, reminderEditedAt is
+  // null so the coach indicator stays hidden (no false positives).
+  it("260611-ugu — reminderEditedAt is null when reminderUpdatedAt is absent", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockQueryGet.mockResolvedValue(
+      fakeQuerySnapshot([{ id: "hab-untouched", trainerId: ALLOWED_UID }]),
+    );
+
+    const result = await listHabitsForTrainer();
+    expect(result[0].reminderEditedAt).toBeNull();
   });
 });
 
