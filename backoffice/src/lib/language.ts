@@ -554,6 +554,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Specialty: "Especialidad",
   "License number": "Matrícula",
   "Sample type": "Tipo de muestra",
+  "Processed by first name": "Procesado por nombre",
+  "Processed by last name": "Procesado por apellido",
   "Number of biopsies": "Número de biopsias",
   "Generate table": "Generar tabla",
   "Generate the biopsy table from the previous step.":
@@ -657,6 +659,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "No changes from linked study request.":
     "Sin cambios respecto de la solicitud de estudio vinculada.",
   "Study creation date": "Fecha de creación del estudio",
+  "Form creation date": "Fecha de creación del formulario",
+  "Last update": "Última actualización",
   "Apply filters": "Aplicar filtros",
   "Clear filters": "Limpiar filtros",
   "Newest first": "Más nuevos primero",

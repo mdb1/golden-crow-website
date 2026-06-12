@@ -24,7 +24,16 @@ import { appText, type AppLanguage } from "@/lib/language";
 type FieldSpec = {
   key: string;
   label: string;
-  type?: "boolean" | "date" | "datetime" | "gameteSource" | "miscarriages";
+  type?:
+    | "boolean"
+    | "date"
+    | "datetime"
+    | "gameteSource"
+    | "miscarriages"
+    | "sampleType"
+    | "caseStatus"
+    | "priority"
+    | "personStatus";
 };
 
 const PATIENT_FIELDS: FieldSpec[] = [
@@ -100,39 +109,46 @@ const STUDY_REQUESTED_TEST_FIELDS: FieldSpec[] = [
   { key: "pgtSrReportsSex", label: "PGT-SR informa sexo", type: "boolean" },
 ];
 
+const SAMPLE_LINKED_STUDY_REQUEST_FIELDS: FieldSpec[] = [
+  { key: "linkedStudyRequestFormId", label: "Linked study request form" },
+  { key: "createdAt", label: "Form creation date", type: "datetime" },
+  { key: "updatedAt", label: "Last update", type: "datetime" },
+];
+
 const SAMPLE_REQUESTED_TEST_FIELDS: FieldSpec[] = [
-  { key: "pgtA", label: "PGT-A", type: "boolean" },
-  { key: "pgtSr", label: "PGT-SR", type: "boolean" },
+  { key: "selectedRequestedTest", label: "Selected requested test" },
+  { key: "reportsMosaicism", label: "Reports mosaicism", type: "boolean" },
+  { key: "reportsSex", label: "Reports sex", type: "boolean" },
 ];
 
 const SAMPLE_INFORMATION_FIELDS: FieldSpec[] = [
-  { key: "fivCenter", label: "CENTRO FIV" },
-  { key: "centerCode", label: "CODIGO CENTRO" },
-  { key: "requestingDoctorId", label: "MEDICO SOLICITANTE ID" },
-  { key: "requestingDoctorInstitutionId", label: "MEDICO SOLICITANTE institution ID" },
-  { key: "requestingDoctorFullName", label: "MEDICO SOLICITANTE full name" },
-  { key: "requestingDoctorAuthEmail", label: "MEDICO SOLICITANTE auth email" },
-  { key: "requestingDoctorAuthUid", label: "MEDICO SOLICITANTE auth uid" },
-  { key: "requestingDoctorSpecialty", label: "MEDICO SOLICITANTE specialty" },
-  { key: "requestingDoctorLicenseNumber", label: "MEDICO SOLICITANTE license number" },
-  { key: "requestingDoctorContactPhone", label: "MEDICO SOLICITANTE contact phone" },
-  { key: "requestingDoctorStatus", label: "MEDICO SOLICITANTE status" },
-  { key: "requestingDoctorNotes", label: "MEDICO SOLICITANTE notes" },
-  { key: "sampleType", label: "TIPO DE MUESTRA" },
-  { key: "processedByFirstName", label: "PROCESADO POR nombre" },
-  { key: "processedByLastName", label: "PROCESADO POR apellido" },
-  { key: "processDate", label: "FECHA PROCESO", type: "date" },
-  { key: "boxCode", label: "CODIGO CAJA" },
+  { key: "boxCode", label: "Box code" },
+  { key: "sampleType", label: "Sample type", type: "sampleType" },
+  { key: "processDate", label: "Process date", type: "date" },
+  { key: "processedByFirstName", label: "Processed by first name" },
+  { key: "processedByLastName", label: "Processed by last name" },
+  { key: "biopsyCount", label: "Number of biopsies" },
+];
+
+const REQUESTING_DOCTOR_FIELDS: FieldSpec[] = [
+  { key: "requestingDoctorId", label: "Doctor ID" },
+  { key: "requestingDoctorInstitutionId", label: "Institution ID" },
+  { key: "requestingDoctorFullName", label: "Full name" },
+  { key: "requestingDoctorAuthEmail", label: "Auth email" },
+  { key: "requestingDoctorAuthUid", label: "Auth UID" },
+  { key: "requestingDoctorSpecialty", label: "Specialty" },
+  { key: "requestingDoctorLicenseNumber", label: "License number" },
+  { key: "requestingDoctorContactPhone", label: "Contact phone" },
+  { key: "requestingDoctorStatus", label: "Status", type: "personStatus" },
+  { key: "requestingDoctorNotes", label: "Notes" },
 ];
 
 const CASE_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "caseLabel", label: "Case label" },
-  { key: "caseStatus", label: "Case status" },
+  { key: "caseStatus", label: "Case status", type: "caseStatus" },
   { key: "caseType", label: "Case type" },
-  { key: "priority", label: "Priority" },
-  { key: "trackingNumber", label: "Tracking number" },
+  { key: "priority", label: "Priority", type: "priority" },
   { key: "requestedAt", label: "Requested at", type: "date" },
-  { key: "dueAt", label: "Due at", type: "date" },
   { key: "notes", label: "Notes" },
 ];
 
@@ -146,6 +162,75 @@ const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "cellsVisualized", label: "Cells visualized?", type: "boolean" },
   { key: "notes", label: "Comments" },
 ];
+
+const REQUESTED_TEST_LABEL_BY_KEY: Record<string, string> = {
+  pgtAFast: "PGT A fast",
+  pgtAStandard: "PGT A standard",
+  pgtA: "PGT-A",
+  pgtSr: "PGT SR",
+};
+
+const SAMPLE_TYPE_LABEL_BY_VALUE: Record<string, string> = {
+  "biopsia de trofoectodermo": "Trophectoderm biopsy",
+  "rebiopsia de trofoectodermo": "Trophectoderm rebiopsy",
+  otro: "Other",
+};
+
+const CASE_STATUS_LABEL_BY_VALUE: Record<string, string> = {
+  intake: "Intake",
+  active: "Active",
+  blocked: "Blocked",
+  reporting: "Reporting",
+  delivered: "Delivered",
+};
+
+const PRIORITY_LABEL_BY_VALUE: Record<string, string> = {
+  routine: "Routine",
+  priority: "Priority",
+  urgent: "Urgent",
+};
+
+const PERSON_STATUS_LABEL_BY_VALUE: Record<string, string> = {
+  active: "Active",
+  inactive: "Inactive",
+};
+
+function isYesAnswer(value: unknown) {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  return ["si", "sí", "yes", "true", "1"].includes(value.trim().toLowerCase());
+}
+
+function selectedRequestedTestKeyFromRecord(
+  data: Record<string, unknown> | undefined
+) {
+  if (!data) return "";
+  if (isYesAnswer(data.pgtAFast)) return "pgtAFast";
+  if (isYesAnswer(data.pgtAStandard)) return "pgtAStandard";
+  if (isYesAnswer(data.pgtSr)) return "pgtSr";
+  if (isYesAnswer(data.pgtA)) return "pgtA";
+
+  const testName = getTextValue(data, "testName")?.toUpperCase() ?? "";
+  if (testName.includes("FAST")) return "pgtAFast";
+  if (testName.includes("STANDARD")) return "pgtAStandard";
+  if (testName.includes("PGT SR") || testName.includes("PGT-SR")) return "pgtSr";
+  if (testName.includes("PGT A") || testName.includes("PGT-A")) return "pgtA";
+  return "";
+}
+
+function requestedTestReportValue(
+  data: Record<string, unknown> | undefined,
+  selectedKey: string,
+  report: "Mosaicism" | "Sex"
+) {
+  if (!data) return undefined;
+  if (selectedKey === "pgtAFast") return data[`pgtAFastReports${report}`];
+  if (selectedKey === "pgtAStandard") {
+    return data[`pgtAStandardReports${report}`];
+  }
+  if (selectedKey === "pgtSr") return data[`pgtSrReports${report}`];
+  return data[`reports${report}`];
+}
 
 function formatDate(value: string, language: AppLanguage, includeTime = false) {
   const dateSource =
@@ -201,6 +286,18 @@ function formatValue(
       if (value === "3_or_more" || value === "recurrent") {
         return "3 o más (recurrente)";
       }
+    }
+    if (type === "sampleType") {
+      return t(SAMPLE_TYPE_LABEL_BY_VALUE[value] ?? value);
+    }
+    if (type === "caseStatus") {
+      return t(CASE_STATUS_LABEL_BY_VALUE[value] ?? value);
+    }
+    if (type === "priority") {
+      return t(PRIORITY_LABEL_BY_VALUE[value] ?? value);
+    }
+    if (type === "personStatus") {
+      return t(PERSON_STATUS_LABEL_BY_VALUE[value] ?? value);
     }
     return value;
   }
@@ -454,11 +551,42 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
 export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const requestedTestFields =
-    form.formType === "study_request"
-      ? STUDY_REQUESTED_TEST_FIELDS
-      : SAMPLE_REQUESTED_TEST_FIELDS;
   const authorEmail = form.authorEmail ?? form.createdByEmail;
+  const selectedSampleRequestedTestKey = selectedRequestedTestKeyFromRecord(
+    form.requestedTest
+  );
+  const sampleRequestedTestData: Record<string, unknown> = {
+    selectedRequestedTest: selectedSampleRequestedTestKey
+      ? t(REQUESTED_TEST_LABEL_BY_KEY[selectedSampleRequestedTestKey])
+      : getTextValue(form.requestedTest, "testName"),
+    reportsMosaicism: requestedTestReportValue(
+      form.requestedTest,
+      selectedSampleRequestedTestKey,
+      "Mosaicism"
+    ),
+    reportsSex: requestedTestReportValue(
+      form.requestedTest,
+      selectedSampleRequestedTestKey,
+      "Sex"
+    ),
+  };
+  const sampleLinkedStudyRequestData: Record<string, unknown> = {
+    linkedStudyRequestFormId: form.linkedStudyRequestFormId,
+    createdAt: form.createdAt,
+    updatedAt: form.updatedAt,
+  };
+  const sampleRequestingDoctorData: Record<string, unknown> = {
+    ...(form.sampleInformation ?? {}),
+    requestingDoctorId:
+      form.selectedRequestingDoctorId ||
+      getTextValue(form.sampleInformation, "requestingDoctorId") ||
+      form.doctorId ||
+      getTextValue(form.patientInformation, "doctorId"),
+    requestingDoctorInstitutionId:
+      getTextValue(form.sampleInformation, "requestingDoctorInstitutionId") ||
+      form.institutionId ||
+      getTextValue(form.patientInformation, "institutionId"),
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -511,55 +639,35 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       </section>
 
       {form.formType === "sample" ? (
-        <LinkedRecordsSection form={form} />
-      ) : null}
-
-      {form.formType === "sample" ? null : (
         <>
-      <PatientLinkSection form={form} />
-      <RequestingDoctorLinkSection form={form} />
-
-      <DetailSection
-        title={t("Patient information")}
-        fields={PATIENT_FIELDS}
-        data={form.patientInformation}
-      />
-
-      {form.formType === "study_request" ? (
-        <>
+          <LinkedRecordsSection form={form} />
+          <PatientLinkSection form={form} />
+          <RequestingDoctorLinkSection form={form} />
           <DetailSection
-            title={t("Medical information")}
-            fields={STUDY_MEDICAL_FIELDS}
-            data={form.medicalInformation}
+            title={t("Linked study request form")}
+            fields={SAMPLE_LINKED_STUDY_REQUEST_FIELDS}
+            data={sampleLinkedStudyRequestData}
           />
           <DetailSection
-            title={t("Previous genetic tests")}
-            fields={STUDY_PREVIOUS_TEST_FIELDS}
-            data={form.previousGeneticTests}
+            title={t("Patient information")}
+            fields={PATIENT_FIELDS}
+            data={form.patientInformation}
           />
-        </>
-      ) : null}
-
-      <DetailSection
-        title={t("Requested test")}
-        fields={requestedTestFields}
-        data={form.requestedTest}
-      />
-
-      {form.formType === "study_request" ? (
-        <DetailSection
-          title={t("Institution information")}
-          fields={INSTITUTION_FIELDS}
-          data={form.institutionInformation}
-        />
-      ) : (
-        <>
           <DetailSection
-            title={t("Sample information")}
+            title={t("Requesting doctor")}
+            fields={REQUESTING_DOCTOR_FIELDS}
+            data={sampleRequestingDoctorData}
+          />
+          <DetailSection
+            title={t("Requested test")}
+            fields={SAMPLE_REQUESTED_TEST_FIELDS}
+            data={sampleRequestedTestData}
+          />
+          <DetailSection
+            title={t("Biopsy form information")}
             fields={SAMPLE_INFORMATION_FIELDS}
             data={form.sampleInformation}
           />
-          <LinkedRecordsSection form={form} />
           {form.caseInformation ? (
             <DetailSection
               title={t("2PQ Case")}
@@ -576,7 +684,34 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             />
           ))}
         </>
-      )}
+      ) : (
+        <>
+          <PatientLinkSection form={form} />
+          <DetailSection
+            title={t("Patient information")}
+            fields={PATIENT_FIELDS}
+            data={form.patientInformation}
+          />
+          <DetailSection
+            title={t("Medical information")}
+            fields={STUDY_MEDICAL_FIELDS}
+            data={form.medicalInformation}
+          />
+          <DetailSection
+            title={t("Previous genetic tests")}
+            fields={STUDY_PREVIOUS_TEST_FIELDS}
+            data={form.previousGeneticTests}
+          />
+          <DetailSection
+            title={t("Requested test")}
+            fields={STUDY_REQUESTED_TEST_FIELDS}
+            data={form.requestedTest}
+          />
+          <DetailSection
+            title={t("Institution information")}
+            fields={INSTITUTION_FIELDS}
+            data={form.institutionInformation}
+          />
         </>
       )}
     </div>
