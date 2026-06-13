@@ -245,7 +245,12 @@ export async function forkStandardWorkoutTemplate(
   await docRef.set({
     name: source.name ?? { en: "", es: "" },
     description: source.description ?? { en: "", es: "" },
-    endsOn: typeof source.endsOn === "string" ? source.endsOn : undefined,
+    // `endsOn` is OPTIONAL — most templates (incl. every standard template)
+    // don't carry it. The Admin SDK rejects an explicit `undefined` value
+    // ("Cannot use 'undefined' as a Firestore value"), so include the key
+    // ONLY when the source actually has a string. Writing `endsOn: undefined`
+    // unconditionally crashed forking any endsOn-less standard template.
+    ...(typeof source.endsOn === "string" ? { endsOn: source.endsOn } : {}),
     tag: sourceTags[0] ?? "custom",
     tags: sourceTags,
     exercises: Array.isArray(source.exercises) ? source.exercises : [],
@@ -299,7 +304,9 @@ export async function duplicateWorkoutTemplate(
   await docRef.set({
     name: suffixedName,
     description: source.description ?? { en: "", es: "" },
-    endsOn: typeof source.endsOn === "string" ? source.endsOn : undefined,
+    // See forkStandardWorkoutTemplate — omit `endsOn` entirely when the
+    // source lacks it; the Admin SDK rejects an explicit `undefined`.
+    ...(typeof source.endsOn === "string" ? { endsOn: source.endsOn } : {}),
     tag: sourceTags[0] ?? "custom",
     tags: sourceTags,
     exercises: Array.isArray(source.exercises) ? source.exercises : [],

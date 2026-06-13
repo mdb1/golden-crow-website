@@ -99,6 +99,7 @@ import {
   updateWorkoutTemplate,
   softDeleteWorkoutTemplate,
   listWorkoutTemplates,
+  forkStandardWorkoutTemplate,
 } from "../workout-template-actions";
 import { getTokens } from "next-firebase-auth-edge";
 
@@ -357,6 +358,64 @@ describe("updateWorkoutTemplate", () => {
     // T-04-14 / 15: immutable fields never echoed in the patch.
     expect(patch.trainerId).toBeUndefined();
     expect(patch.createdAt).toBeUndefined();
+  });
+});
+
+// Standard-template fork. Regression: the Admin SDK rejects an explicit
+// `undefined` value, so forking a standard template that lacks `endsOn`
+// (every standard template does) crashed with "Cannot use 'undefined' as a
+// Firestore value". The fork must OMIT the `endsOn` key entirely when the
+// source has none, and copy it through when present.
+describe("forkStandardWorkoutTemplate", () => {
+  function fakeStandardSnapshot(opts: { endsOn?: string }) {
+    return {
+      exists: true,
+      id: "tpl-kXZSqc-std-resistance-b",
+      data: () => ({
+        trainerId: "__standard__",
+        isStandard: true,
+        version: 2,
+        deleted: false,
+        name: { en: "RESISTANCE B", es: "RESISTANCE B" },
+        tag: "custom",
+        exercises: [
+          { exerciseId: "0157", sets: 3, reps: 0, rest_seconds: 30, order: 0, metric: "time", durationSeconds: 40 },
+        ],
+        ...(opts.endsOn ? { endsOn: opts.endsOn } : {}),
+        createdAt: { toDate: () => new Date("2026-01-01T00:00:00Z") },
+        updatedAt: { toDate: () => new Date("2026-01-01T00:00:00Z") },
+      }),
+    } as unknown as DocumentSnapshot;
+  }
+
+  it("forks an endsOn-less standard template WITHOUT writing endsOn: undefined", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeStandardSnapshot({}));
+    mockSet.mockResolvedValue(undefined);
+
+    const result = await forkStandardWorkoutTemplate("tpl-kXZSqc-std-resistance-b");
+
+    expect(mockSet).toHaveBeenCalledTimes(1);
+    const payload = mockSet.mock.calls[0][0];
+    // The key must be ABSENT — not present-with-undefined (which the Admin
+    // SDK rejects). Time-based exercises copy through verbatim.
+    expect(Object.prototype.hasOwnProperty.call(payload, "endsOn")).toBe(false);
+    expect(payload.trainerId).toBe(ALLOWED_UID);
+    expect(payload.isStandard).toBe(false);
+    expect(payload.sourceTemplateId).toBe("tpl-kXZSqc-std-resistance-b");
+    expect(payload.exercises[0].metric).toBe("time");
+    expect(result.id).toContain(`tpl-${ALLOWED_UID}-`);
+  });
+
+  it("copies endsOn through when the standard source has one", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeStandardSnapshot({ endsOn: "2026-12-31" }));
+    mockSet.mockResolvedValue(undefined);
+
+    await forkStandardWorkoutTemplate("tpl-kXZSqc-std-resistance-b");
+
+    const payload = mockSet.mock.calls[0][0];
+    expect(payload.endsOn).toBe("2026-12-31");
   });
 });
 
