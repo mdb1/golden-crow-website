@@ -1,13 +1,19 @@
 /**
  * rebuild-standard-templates.cjs
  *
- * Rebuilds the 16 SHARED standard workout templates (`trainerId:
- * "__standard__"`, `isStandard: true`) so every one is exactly 6 exercises ×
- * 3 sets × 12 reps, drawn EXCLUSIVELY from the NEW curated standard exercise
- * library (`tags` contains "standard-library"). Rest is set per exercise tier
- * (heavy compound 120s / compound 90s / isolation 60s / core·mobility 45s),
- * following the hypertrophy rest-interval consensus (compounds 90–120s,
- * isolation 30–60s — Schoenfeld et al.; see PR description for sources).
+ * Canonical definition + writer for the SHARED standard workout templates
+ * (`trainerId: "__standard__"`, `isStandard: true`). Every strength template
+ * is 6 exercises × 3 sets × 12 reps, drawn EXCLUSIVELY from the NEW curated
+ * standard exercise library (`tags` contains "standard-library"). Rest is set
+ * per exercise tier (heavy compound 120s / compound 90s / isolation 60s /
+ * core·mobility 45s), following the hypertrophy rest-interval consensus
+ * (compounds 90–120s, isolation 30–60s — Schoenfeld et al.; see PR for sources).
+ *
+ * Two template families are NOT reps-based:
+ *   - MOBILITY A–D: rep-based core + mobility circuits (3×12, 45s rest).
+ *   - RESISTANCE A–D: TIME-based conditioning — each exercise is a timed work
+ *     interval (`metric: "time"`, `durationSeconds`) with short rest. reps=0
+ *     ("no fixed count") per the schema's open-rep convention.
  *
  * WHY: the standard templates still referenced LEGACY catalog exercises
  * (fexd-* / wger-*) which we retired from the picker (see
@@ -19,11 +25,12 @@
  *   - Resolves every exercise by EXACT English name against the live
  *     standard-library set, failing loudly if any name is missing or lacks
  *     media — never writes a dangling exerciseId.
- *   - Backs up the current 16 docs to scripts/backups/ before any write.
- *   - --dry-run prints the resolved plan and writes the backup, but performs
- *     no Firestore writes.
- *   - Updates ONLY exercises[] + version + updatedAt; name / trainerId /
- *     isStandard / tags are preserved.
+ *   - Backs up existing docs to scripts/backups/ before any write.
+ *   - --dry-run prints the resolved plan + writes the backup, no Firestore writes.
+ *   - IDEMPOTENT: a template whose resolved exercises[] already equals the live
+ *     content is skipped (no version bump). Missing standard docs are CREATED
+ *     (used for the added MOBILITY C/D + RESISTANCE C/D); existing ones are
+ *     updated in place (exercises[] + version + updatedAt only).
  *   - Admin SDK is REQUIRED: Firestore rules forbid trainers from updating
  *     `isStandard` templates, so this must run server-side with the admin
  *     service account (.env.local).
@@ -48,10 +55,34 @@ const SETS = 3;
 const REPS = 12;
 const TRANSITION_REST_SECONDS = 60; // rest between exercises
 
+// Doc-id prefix for standard templates (the seeding trainer's uid; the
+// trainerId FIELD is "__standard__"). Reused for newly-created templates so
+// they sit alongside their siblings.
+const STD_DOC_PREFIX = "tpl-kXZSqc5HS6e28Tj68QKLUya1nvs2-";
+
+// Slugs that may not exist yet — created as full docs when absent.
+const CREATABLE_SLUGS = new Set([
+  "std-mobility-c",
+  "std-mobility-d",
+  "std-resistance-c",
+  "std-resistance-d",
+]);
+
+// Display names for created docs (existing docs keep their own name).
+const CREATE_NAMES = {
+  "std-mobility-c": "MOBILITY C",
+  "std-mobility-d": "MOBILITY D",
+  "std-resistance-c": "RESISTANCE C",
+  "std-resistance-d": "RESISTANCE D",
+};
+
 // ---------------------------------------------------------------------------
-// Routine design. Each entry: [exact English exercise name, rest_seconds].
-// Rest tiers: 120 heavy compound · 90 compound · 60 isolation · 45 core/mobility.
-// Names are resolved to live standard-library doc ids at runtime (fail-loud).
+// Routine design. Entry shapes:
+//   [name, rest_seconds]              → reps-based  (3 × 12)
+//   [name, rest_seconds, workSeconds] → time-based  (3 × workSeconds, reps=0)
+// Rest tiers (reps): 120 heavy compound · 90 compound · 60 isolation · 45 core.
+// Time-based (RESISTANCE): 40s work, short rest (30s loaded / 20s light).
+// Names resolve to live standard-library doc ids at runtime (fail-loud).
 // ---------------------------------------------------------------------------
 const TEMPLATE_DESIGN = {
   "std-bodyweight-only-a": [
@@ -168,22 +199,55 @@ const TEMPLATE_DESIGN = {
     ["Side Plank (Bodyweight)", 45],
     ["Crunch (Bodyweight)", 45],
   ],
-  // RESISTANCE = full-body conditioning; short rest to keep it metabolic.
-  "std-resistance-a": [
-    ["Burpee (Bodyweight)", 60],
-    ["Thruster (Dumbbell)", 60],
-    ["Walking Lunge (Bodyweight)", 60],
-    ["Push-Up (Bodyweight)", 60],
+  "std-mobility-c": [
+    ["Glute Bridge (Bodyweight)", 45],
+    ["Dead Bug (Bodyweight)", 45],
+    ["Cobra Stretch (Bodyweight)", 45],
+    ["Russian Twist (Bodyweight)", 45],
+    ["V-Up (Bodyweight)", 45],
+    ["Side Plank (Bodyweight)", 45],
+  ],
+  "std-mobility-d": [
+    ["Sit-Up (Bodyweight)", 45],
+    ["Reverse Crunch (Bodyweight)", 45],
     ["Mountain Climber (Bodyweight)", 45],
+    ["Hollow Hold (Bodyweight)", 45],
+    ["Leg Raise (Bodyweight)", 45],
     ["Plank (Bodyweight)", 45],
   ],
+  // RESISTANCE = TIME-based full-body conditioning. [name, rest, workSeconds].
+  // 40s work intervals; short rest (30s loaded / 20s light) to keep it metabolic.
+  "std-resistance-a": [
+    ["Burpee (Bodyweight)", 30, 40],
+    ["Thruster (Dumbbell)", 30, 40],
+    ["Walking Lunge (Bodyweight)", 30, 40],
+    ["Push-Up (Bodyweight)", 20, 40],
+    ["Mountain Climber (Bodyweight)", 20, 40],
+    ["Plank (Bodyweight)", 20, 40],
+  ],
   "std-resistance-b": [
-    ["Kettlebell Swing (Kettlebell)", 60],
-    ["Thruster (Dumbbell)", 60],
-    ["Reverse Lunge (Bodyweight)", 60],
-    ["Close Grip Push-Up (Bodyweight)", 60],
-    ["High Knees (Bodyweight)", 45],
-    ["Hollow Hold (Bodyweight)", 45],
+    ["Kettlebell Swing (Kettlebell)", 30, 40],
+    ["Thruster (Dumbbell)", 30, 40],
+    ["Reverse Lunge (Bodyweight)", 30, 40],
+    ["Close Grip Push-Up (Bodyweight)", 20, 40],
+    ["High Knees (Bodyweight)", 20, 40],
+    ["Hollow Hold (Bodyweight)", 20, 40],
+  ],
+  "std-resistance-c": [
+    ["Burpee (Bodyweight)", 30, 40],
+    ["Medicine Ball Slam (Medicine Ball)", 30, 40],
+    ["Walking Lunge (Bodyweight)", 30, 40],
+    ["Jump Rope (Rope)", 20, 40],
+    ["Mountain Climber (Bodyweight)", 20, 40],
+    ["Side Plank (Bodyweight)", 20, 40],
+  ],
+  "std-resistance-d": [
+    ["Thruster (Dumbbell)", 30, 40],
+    ["Kettlebell Swing (Kettlebell)", 30, 40],
+    ["Bear Crawl (Bodyweight)", 30, 40],
+    ["High Knees (Bodyweight)", 20, 40],
+    ["Push-Up (Bodyweight)", 20, 40],
+    ["Plank (Bodyweight)", 20, 40],
   ],
 };
 
@@ -262,14 +326,59 @@ function resolveName(byName, name) {
 }
 
 function buildExercises(byName, design) {
-  return design.map(([name, rest], index) => ({
-    exerciseId: resolveName(byName, name),
-    sets: SETS,
-    reps: REPS,
-    rest_seconds: rest,
-    transition_rest_seconds: TRANSITION_REST_SECONDS,
-    order: index,
-  }));
+  return design.map(([name, rest, workSeconds], index) => {
+    const base = {
+      exerciseId: resolveName(byName, name),
+      sets: SETS,
+      rest_seconds: rest,
+      transition_rest_seconds: TRANSITION_REST_SECONDS,
+      order: index,
+      notes: null,
+    };
+    if (typeof workSeconds === "number") {
+      // Time-based: reps=0 ("no fixed count"), metric "time" + a scalar
+      // duration fallback (schema requires durationSeconds > 0 when time).
+      return {
+        ...base,
+        reps: 0,
+        metric: "time",
+        durationSeconds: workSeconds,
+      };
+    }
+    return { ...base, reps: REPS };
+  });
+}
+
+// Compare resolved exercises[] against the live doc content to keep writes
+// idempotent (skip no-op updates / version bumps). Compares only the fields
+// this script owns.
+function exercisesEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+    return false;
+  }
+  const norm = (e) => ({
+    exerciseId: e.exerciseId,
+    sets: Number(e.sets),
+    reps: Number(e.reps ?? 0),
+    rest_seconds: Number(e.rest_seconds),
+    order: Number(e.order),
+    metric: e.metric ?? null,
+    durationSeconds:
+      e.durationSeconds == null ? null : Number(e.durationSeconds),
+  });
+  return a.every((e, i) => {
+    const x = norm(e);
+    const y = norm(b[i]);
+    return (
+      x.exerciseId === y.exerciseId &&
+      x.sets === y.sets &&
+      x.reps === y.reps &&
+      x.rest_seconds === y.rest_seconds &&
+      x.order === y.order &&
+      x.metric === y.metric &&
+      x.durationSeconds === y.durationSeconds
+    );
+  });
 }
 
 async function main() {
@@ -298,43 +407,47 @@ async function main() {
     if (m) bySlug.set(m[1], doc);
   }
 
-  // 2) Resolve every template; fail loudly before any write.
+  // 2) Resolve every template; fail loudly before any write. Each entry is
+  // either an UPDATE (doc exists) or a CREATE (creatable slug, doc absent).
   const plan = [];
   for (const [slug, design] of Object.entries(TEMPLATE_DESIGN)) {
-    const doc = bySlug.get(slug);
-    if (!doc) {
-      throw new Error(`Standard template doc not found for slug "${slug}".`);
-    }
     if (design.length !== 6) {
       throw new Error(`Template "${slug}" must have 6 exercises, has ${design.length}.`);
     }
+    const doc = bySlug.get(slug);
     const exercises = buildExercises(byName, design);
-    plan.push({ slug, doc, exercises, currentVersion: doc.data().version ?? 1 });
+    if (doc) {
+      plan.push({ slug, doc, exercises, mode: "update" });
+    } else if (CREATABLE_SLUGS.has(slug)) {
+      plan.push({ slug, doc: null, exercises, mode: "create" });
+    } else {
+      throw new Error(`Standard template doc not found for slug "${slug}" (not creatable).`);
+    }
   }
 
-  if (bySlug.size !== Object.keys(TEMPLATE_DESIGN).length) {
-    console.warn(
-      `  ⚠ found ${bySlug.size} standard docs, design covers ${Object.keys(TEMPLATE_DESIGN).length}`,
-    );
-  }
-
-  // 3) Backup current docs.
+  // 3) Backup existing docs that the plan touches.
   const backupDir = path.resolve(process.cwd(), "scripts/backups");
   fs.mkdirSync(backupDir, { recursive: true });
   const stamp = process.env.BACKUP_STAMP || "manual";
   const backupPath = path.join(backupDir, `standard-templates-${stamp}.json`);
-  const backup = plan.map((p) => ({ id: p.doc.id, data: p.doc.data() }));
+  const backup = plan
+    .filter((p) => p.doc)
+    .map((p) => ({ id: p.doc.id, data: p.doc.data() }));
   fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2));
-  console.log(`Backup written: ${backupPath}\n`);
+  console.log(`Backup written: ${backupPath} (${backup.length} existing docs)\n`);
 
   // 4) Print the plan.
   for (const p of plan) {
-    const name = p.doc.data().name?.en ?? p.slug;
-    console.log(`=== ${name} (${p.doc.id}) ===`);
+    const name = p.doc ? p.doc.data().name?.en ?? p.slug : CREATE_NAMES[p.slug];
+    console.log(`=== ${name} (${p.mode.toUpperCase()}) ===`);
     p.exercises.forEach((ex, i) => {
       const [exName] = TEMPLATE_DESIGN[p.slug][i];
+      const scheme =
+        ex.metric === "time"
+          ? `${ex.sets}×${ex.durationSeconds}s`
+          : `${ex.sets}×${ex.reps}`;
       console.log(
-        `   ${ex.order}. ${exName} → ${ex.exerciseId}  ${ex.sets}×${ex.reps} rest ${ex.rest_seconds}s`,
+        `   ${ex.order}. ${exName} → ${ex.exerciseId}  ${scheme} rest ${ex.rest_seconds}s`,
       );
     });
   }
@@ -344,17 +457,46 @@ async function main() {
     return;
   }
 
-  // 5) Apply: update exercises[] + version + updatedAt only.
-  let written = 0;
+  // 5) Apply. Updates are idempotent (skip when content unchanged); creates
+  // write a full standard doc matching its siblings' shape.
+  let updated = 0;
+  let created = 0;
+  let skipped = 0;
   for (const p of plan) {
-    await p.doc.ref.update({
-      exercises: p.exercises,
-      version: FieldValue.increment(1),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    written += 1;
+    if (p.mode === "update") {
+      const current = p.doc.data().exercises;
+      if (exercisesEqual(current, p.exercises)) {
+        skipped += 1;
+        continue;
+      }
+      await p.doc.ref.update({
+        exercises: p.exercises,
+        version: FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      updated += 1;
+    } else {
+      const name = CREATE_NAMES[p.slug];
+      const ref = db.collection(TEMPLATES).doc(`${STD_DOC_PREFIX}${p.slug}`);
+      await ref.set({
+        name: { en: name, es: name },
+        description: { en: `${name} standard plan`, es: `${name} plan estándar` },
+        tag: "custom",
+        source: "standard-v2",
+        isStandard: true,
+        trainerId: STANDARD_TRAINER_ID,
+        deleted: false,
+        version: 1,
+        exercises: p.exercises,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      created += 1;
+    }
   }
-  console.log(`\n✓ Updated ${written} standard templates.\n`);
+  console.log(
+    `\n✓ Done — created ${created}, updated ${updated}, skipped ${skipped} (unchanged).\n`,
+  );
 }
 
 main().catch((error) => {
