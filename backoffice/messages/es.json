@@ -547,12 +547,24 @@
       "untitled": "(sin título)",
       "actionsAria": "Acciones",
       "edit": "Editar",
+      "view": "Ver",
       "duplicate": "Duplicar",
       "delete": "Eliminar",
       "draftUntitled": "(borrador sin título)",
       "draftBadgeTooltip": "Borrador incompleto — no se puede asignar hasta completarse",
       "draftResumeCta": "Continuar borrador",
       "draftPendingLabel": "Borrador"
+    },
+    "viewPage": {
+      "standardBadge": "Standard",
+      "exercisesHeading": "Ejercicios",
+      "restLabel": "descanso {seconds}s",
+      "setsRepsLabel": "{sets} × {reps}",
+      "setsTimeLabel": "{sets} × {seconds}s",
+      "backCta": "Volver",
+      "duplicateCta": "Duplicar",
+      "duplicatedToast": "Plantilla duplicada.",
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
     },
     "editPage": {
       "title": "Editar plantilla",
