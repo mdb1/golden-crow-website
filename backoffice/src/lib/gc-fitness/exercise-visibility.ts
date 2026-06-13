@@ -21,7 +21,7 @@
 //   HIDDEN   = 400 legacy live docs (237 free-exercise-db + 139 wger + 24
 //   standard_alias) with no standard-library tag.
 //
-// ⚠️ THE ownerId GUARD IS LOad-bearing. `snapToRow` (exercises-listener.ts)
+// ⚠️ THE ownerId GUARD IS LOAD-BEARING. `snapToRow` (exercises-listener.ts)
 // coerces ANY unknown wire `source` — including the 24 `"standard_alias"` docs
 // — to `"trainer"`. A bare `source === "trainer"` check would therefore WRONGLY
 // keep those alias docs pickable. All 24 alias docs have `ownerId: null`; all
