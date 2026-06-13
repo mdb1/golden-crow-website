@@ -66,6 +66,7 @@ import {
 } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
+import { fuzzyTokenScore } from "@/lib/gc-fitness/exercise-search";
 import type { TemplateListRow } from "@/components/gc-fitness/templates/columns";
 
 // Tag → human label (kept local — small, list-only).
@@ -206,22 +207,30 @@ export function TemplatesLibraryClient({
         (row) => row.trainerId === trainerUid && !row.isStandard,
       );
     }
-    const needle = tagFilter.trim().toLowerCase();
+    const needle = tagFilter.trim();
     if (needle) {
-      // Any-of substring match across the row name(s) plus the canonical
-      // tags[] list. Falls back to the legacy `tag` field for rows authored
-      // before multi-tag landed.
-      list = list.filter((row) => {
-        const all = row.tags && row.tags.length > 0
-          ? row.tags
-          : row.tag
-            ? [row.tag]
-            : [];
-        const haystack = [row.name.en, row.name.es, ...all]
-          .filter((value): value is string => typeof value === "string")
-          .map((value) => value.toLowerCase());
-        return haystack.some((value) => value.includes(needle));
-      });
+      // Normalized, token-based, order-independent match + relevance rank
+      // (same matcher as the exercise search). A plain substring `includes`
+      // failed multi-word queries because punctuation in the name breaks the
+      // span — e.g. "nete etapa" didn't match "Nete - Etapa 3 - Dia 1" since
+      // the " - " sits between the two words. fuzzyTokenScore normalizes both
+      // sides (hyphens/punctuation → spaces) and matches each query token
+      // against any name/tag word, then ranks best-match first.
+      const scored = list
+        .map((row) => {
+          const all = row.tags && row.tags.length > 0
+            ? row.tags
+            : row.tag
+              ? [row.tag]
+              : [];
+          const haystack = [row.name.en, row.name.es, ...all]
+            .filter((value): value is string => typeof value === "string")
+            .join(" ");
+          return { row, score: fuzzyTokenScore(needle, haystack) };
+        })
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score);
+      list = scored.map((entry) => entry.row);
     }
     return draftRow ? [draftRow, ...list] : list;
   }, [data, mineOnly, trainerUid, tagFilter, draftRow]);
