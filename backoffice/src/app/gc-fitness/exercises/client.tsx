@@ -56,6 +56,12 @@ import {
 } from "@/lib/gc-fitness/exercises-listener";
 import { searchExercises } from "@/lib/gc-fitness/exercise-search";
 import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
+import { useFavorites } from "@/lib/gc-fitness/use-favorites";
+import {
+  favoriteIdSet,
+  filterFavoritesOnly,
+  sortFavoritesFirst,
+} from "@/lib/gc-fitness/favorites";
 import {
   softDeleteExercise,
   duplicateExercise,
@@ -73,6 +79,7 @@ const EMPTY_FILTERS: ExerciseFiltersState = {
   equipment: [],
   source: [],
   mineOnly: false,
+  favoritesOnly: false,
 };
 
 interface ExerciseLibraryClientProps {
@@ -132,18 +139,33 @@ export function ExerciseLibraryClient({
   const router = useRouter();
   const t = useTranslations("exercises.list");
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery(trainerUid);
+  const { favorites } = useFavorites();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<ExerciseFiltersState>(EMPTY_FILTERS);
   const [confirmDelete, setConfirmDelete] = useState<ExerciseRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+
+  const favIds = useMemo(
+    () => favoriteIdSet(favorites, "exercise"),
+    [favorites],
+  );
 
   const rows = useMemo(() => {
     const all = (data ?? []).filter(isPickableExercise);
     // Apply the non-search chip/select filters first, THEN rank + search
     // (issue #291): normalized, plural/hyphen-tolerant, best-match-first.
     const filtered = all.filter((r) => matchesFilters(r, filters, trainerUid));
-    return searchExercises(filtered, filters.search);
-  }, [data, filters, trainerUid]);
+    const searched = searchExercises(filtered, filters.search);
+    // #297 — favorites: optionally keep only starred rows, then always float
+    // favorites to the top (stable within each group).
+    const scoped = filterFavoritesOnly(
+      searched,
+      (r) => r.id,
+      favIds,
+      filters.favoritesOnly,
+    );
+    return sortFavoritesFirst(scoped, (r) => r.id, favIds);
+  }, [data, filters, trainerUid, favIds]);
 
   const handleDuplicate = useCallback(
     async (row: ExerciseRow) => {

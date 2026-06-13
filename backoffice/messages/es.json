@@ -1161,6 +1161,9 @@
       "muscleGroupsPlaceholder": "Grupos musculares",
       "muscleGroupsPlaceholderCount": "Grupos musculares ({count})",
       "muscleGroupsAria": "Filtrar por grupos musculares",
+      "focusLabel": "Foco",
+      "favoritesOnlyLabel": "Favoritos",
+      "favoritesOnlyAria": "Mostrar solo favoritos",
       "equipmentPlaceholder": "Equipamiento",
       "equipmentPlaceholderCount": "Equipamiento ({count})",
       "equipmentAria": "Filtrar por equipamiento",
@@ -1577,6 +1580,7 @@
     "multiAddSelectedCount": "{count} elegidos",
     "multiAddConfirm": "Agregar {count}",
     "multiAddCreateNew": "Crear «{term}»",
+    "filterFocus": "Foco",
     "filterMuscles": "Músculo",
     "filterEquipment": "Equipo",
     "filterLevel": "Nivel",
@@ -1588,6 +1592,10 @@
     "mechanicCompound": "Compuesto",
     "mechanicIsolation": "Aislamiento",
     "overflowMore": "+ {count} más — refiná filtro"
+  },
+  "favorites": {
+    "add": "Agregar a favoritos",
+    "remove": "Quitar de favoritos"
   },
   "dialogs": {
     "deleteAssignment": {

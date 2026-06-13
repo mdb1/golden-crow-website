@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 import { EQUIPMENT, MUSCLE_GROUPS } from "@/lib/gc-fitness/exercise-vocabulary";
 import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
+import { useFavorites } from "@/lib/gc-fitness/use-favorites";
 import { STANDARD_LIBRARY_TAG } from "@/lib/gc-fitness/exercise-visibility";
 import { createWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateInput } from "@/lib/gc-fitness/workout-template-schema";
@@ -67,6 +68,13 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
   const s = useGeneratorStrings();
   const localized = useLocalized();
   const { data: library, isLoading } = useExercisesQuery();
+  // #297 — the engine prefers the coach's favorited exercises within each
+  // muscle bucket.
+  const { favorites } = useFavorites();
+  const favoriteExerciseIds = useMemo(
+    () => favorites.exerciseIds,
+    [favorites],
+  );
 
   // Generator pool = the NEW curated standard library only.
   const pool: GeneratorExercise[] = useMemo(
@@ -202,6 +210,7 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
       workoutType,
       seed: nextSeed,
       focusLabel,
+      favoriteExerciseIds,
     };
   }
 

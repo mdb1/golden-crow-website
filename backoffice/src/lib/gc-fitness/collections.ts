@@ -98,6 +98,18 @@ export const FirestoreCollections = {
   habitTemplateHidden: "habit_template_hidden",
 
   /**
+   * Per-trainer favorites (#297). Doc id = trainer uid; shape
+   * `{ exerciseIds: string[], workoutTemplateIds: string[],
+   * habitTemplateIds: string[], updatedAt }`. A coach stars exercises, workout
+   * templates, and habit templates so they sort first / can be filtered to in
+   * every authoring list & search, and so the workout generator prefers them.
+   * One read fetches all of a coach's favorites. Owner-scoped rule: only the
+   * trainer whose uid is the doc id can read/write it (mirrors
+   * `habitTemplateHidden`).
+   */
+  coachFavorites: "coach_favorites",
+
+  /**
    * Coach-authored short/medium/long-term goals visible to clients.
    */
   clientGoals: "client_goals",

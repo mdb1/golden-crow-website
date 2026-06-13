@@ -54,6 +54,11 @@ export interface GeneratorInput {
   /** Optional human label used to build the default workout name (e.g. the
    *  muscle-preset label the trainer picked, "Push"). */
   focusLabel?: { en: string; es: string };
+  /** Exercise ids the coach has favorited (#297). When provided, the engine
+   *  PREFERS these within each muscle bucket (favorites are picked before
+   *  non-favorites) without changing equipment/muscle eligibility — a favorite
+   *  that fails the hard equipment rule is still excluded. */
+  favoriteExerciseIds?: string[];
 }
 
 /** A candidate swap for a generated slot. Always equipment-eligible. */

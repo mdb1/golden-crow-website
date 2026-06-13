@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ import {
   MUSCLE_GROUPS,
   EQUIPMENT,
 } from "@/lib/gc-fitness/exercise-vocabulary";
+import { MusclePresetChips } from "@/components/gc-fitness/muscle-preset-chips";
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
 
 const STORAGE_KEY = "gc-fitness:exercise-filters";
@@ -36,6 +37,7 @@ export interface ExerciseFiltersState {
   equipment: string[];
   source: string[]; // subset of ['Standard', 'Custom']
   mineOnly: boolean;
+  favoritesOnly: boolean;
 }
 
 const EMPTY: ExerciseFiltersState = {
@@ -44,6 +46,7 @@ const EMPTY: ExerciseFiltersState = {
   equipment: [],
   source: [],
   mineOnly: false,
+  favoritesOnly: false,
 };
 
 function readFromStorage(): ExerciseFiltersState | null {
@@ -68,6 +71,7 @@ function readFromStorage(): ExerciseFiltersState | null {
         : [],
       source: normalizedSource,
       mineOnly: parsed.mineOnly === true,
+      favoritesOnly: parsed.favoritesOnly === true,
     };
   } catch {
     // Corrupted entry — wipe + start clean.
@@ -137,7 +141,8 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
     state.muscleGroups.length +
     state.equipment.length +
     state.source.length +
-    (state.mineOnly ? 1 : 0);
+    (state.mineOnly ? 1 : 0) +
+    (state.favoritesOnly ? 1 : 0);
   const showClear = activeCount > 0 || state.search.length > 0;
 
   return (
@@ -193,6 +198,45 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             {t("mineOnlyLabel")}
           </button>
         </div>
+        {/* #297 — favorites-only toggle. Independent of the All/Mine pill. */}
+        <button
+          type="button"
+          onClick={() =>
+            setState((s) => ({ ...s, favoritesOnly: !s.favoritesOnly }))
+          }
+          aria-pressed={state.favoritesOnly}
+          aria-label={t("favoritesOnlyAria")}
+          className={cn(
+            "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            state.favoritesOnly
+              ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-400/15 dark:text-amber-300"
+              : "bg-muted/70 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Star
+            className={cn(
+              "h-4 w-4",
+              state.favoritesOnly ? "fill-amber-400 text-amber-500" : "",
+            )}
+            aria-hidden="true"
+          />
+          {t("favoritesOnlyLabel")}
+        </button>
+      </div>
+
+      {/* Muscle "focus" presets (#299): one tap selects a group's muscles, e.g.
+          Push → chest + shoulders + triceps. Drives the same `muscleGroups`
+          selection as the combobox below (two-tier, like the generator). */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-muted-foreground">
+          {t("focusLabel")}
+        </span>
+        <MusclePresetChips
+          value={state.muscleGroups}
+          onChange={(next) =>
+            setState((s) => ({ ...s, muscleGroups: next }))
+          }
+        />
       </div>
 
       {/* Advanced filters: muscle / equipment / source comboboxes + clear */}
