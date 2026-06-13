@@ -187,6 +187,29 @@ function clearDraft(key: string) {
     /* ignore */
   }
 }
+
+/**
+ * The per-set weight array after a trainer CLEARS the weight field of set
+ * `setIdx`. Clearing means "0 kg for this set" — it MUST NOT collapse the
+ * array to `[]`, because an empty `weightBySetKg: []` is the reserved "Sin
+ * peso" (reps-only) sentinel set exclusively by the explicit toggle. The
+ * previous `current.slice(0, setIdx)` truncated set 1 (setIdx 0) to `[]`, so
+ * a trainer who typed reps×weight then cleared the weight had the exercise
+ * silently saved as reps-only (the Front Raise bug). This zero-fills the
+ * cleared slot and keeps the array length aligned so the weight column lives.
+ */
+export function weightArrayAfterClear(
+  current: number[],
+  setIdx: number,
+): number[] {
+  const safeLen = Math.max(setIdx + 1, current.length);
+  const out = Array.from({ length: safeLen }, (_, i) =>
+    Number.isFinite(current[i]) ? current[i] : 0,
+  );
+  out[setIdx] = 0;
+  return out;
+}
+
 function InfoTooltip({ text, label }: { text: string; label: string }) {
   return (
     <TooltipProvider>
@@ -1822,8 +1845,12 @@ export function TemplateForm({
                                     const raw = setWeightDraft[setKey];
                                     const current = toFiniteNumberArray(form.getValues(weightPath));
                                     if (raw === "") {
-                                      const trimmed = current.slice(0, Math.max(setIdx, 0));
-                                      form.setValue(weightPath, trimmed, { shouldDirty: true });
+                                      // Clearing a per-set weight = "0 kg for
+                                      // this set", NEVER the no-weight sentinel
+                                      // (`[]`, reserved for the explicit "Sin
+                                      // peso" toggle). See weightArrayAfterClear.
+                                      const zeroed = weightArrayAfterClear(current, setIdx);
+                                      form.setValue(weightPath, zeroed, { shouldDirty: true });
                                       setSetWeightDraft((prev) => {
                                         const next = { ...prev };
                                         delete next[setKey];
