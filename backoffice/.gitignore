@@ -36,3 +36,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Firestore backups from one-off admin scripts (not for VCS)
+scripts/backups/
