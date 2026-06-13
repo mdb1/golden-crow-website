@@ -327,3 +327,89 @@ describe("ExercisePickerPopover render-window cap (Task 3 Case 5, Codex MEDIUM)"
     expect(allRows.length).toBe(100);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Case 6 (issue #291) — search applies BEFORE the render cap. The ONLY
+// matching row is LAST in data order (position 120 of 120), past the
+// 100-row cap. Before the fix the cap sliced it off and cmdk only filtered
+// the rendered rows, so the match was never surfaced. With search-before-cap
+// + shouldFilter={false}, typing "incline press" must surface the row.
+// ---------------------------------------------------------------------------
+
+describe("ExercisePickerPopover search-before-cap (issue #291 Case 6)", () => {
+  it("finds a matching row beyond the 100-row cap via the search input", () => {
+    const rows: ExerciseRow[] = [];
+    // 119 filler rows that do NOT match "incline press".
+    for (let i = 0; i < 119; i++) {
+      rows.push(
+        makeRow({
+          id: `filler-${i}`,
+          name: { en: `Exercise ${i}`, es: `Ejercicio ${i}` },
+        }),
+      );
+    }
+    // The ONLY match, LAST in data order (index 119).
+    rows.push(
+      makeRow({
+        id: "incline-db",
+        name: { en: "Incline Dumbbell Press", es: "Press inclinado" },
+      }),
+    );
+    mockUseExercisesQuery.mockReturnValue({
+      data: rows,
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+
+    // Before searching, the last-in-order row is NOT rendered (capped out).
+    expect(
+      screen.queryByTestId("exercise-picker-row-incline-db"),
+    ).not.toBeInTheDocument();
+
+    // Type into the cmdk CommandInput.
+    const input = screen.getByPlaceholderText("Search exercises…");
+    fireEvent.change(input, { target: { value: "incline press" } });
+
+    // Search ran BEFORE the cap → the only match is now rendered.
+    expect(
+      screen.getByTestId("exercise-picker-row-incline-db"),
+    ).toBeInTheDocument();
+  });
+
+  it('ranks "Bench Press (Barbell)" above "Incline Bench Press" in DOM order', () => {
+    const rows: ExerciseRow[] = [
+      makeRow({
+        id: "incline-bench",
+        name: { en: "Incline Bench Press", es: "Press de banca inclinado" },
+      }),
+      makeRow({
+        id: "bench-barbell",
+        name: { en: "Bench Press (Barbell)", es: "Press de banca (Barra)" },
+      }),
+    ];
+    mockUseExercisesQuery.mockReturnValue({
+      data: rows,
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+
+    const input = screen.getByPlaceholderText("Search exercises…");
+    fireEvent.change(input, { target: { value: "bench press" } });
+
+    const barbell = screen.getByTestId("exercise-picker-row-bench-barbell");
+    const incline = screen.getByTestId("exercise-picker-row-incline-bench");
+    // The barbell row must precede the incline row in document order.
+    expect(
+      barbell.compareDocumentPosition(incline) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});

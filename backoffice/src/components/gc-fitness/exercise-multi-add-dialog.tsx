@@ -32,13 +32,12 @@ import {
   EXERCISES_QUERY_KEY,
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
-import { exerciseSearchHaystack } from "@/lib/gc-fitness/exercise-search";
+import { searchExercises } from "@/lib/gc-fitness/exercise-search";
 
 import {
   ChipRow,
   FilterChip,
   displayEs,
-  fuzzyTokenMatch,
 } from "./exercise-picker-popover";
 import {
   QuickCreateExercise,
@@ -126,14 +125,12 @@ export function ExerciseMultiAddDialog({
     [data],
   );
 
+  // 260612-r8l (issue #291): apply the chip filters first, THEN searchExercises
+  // (filter by relevance AND name-aware rank). Replaces the old coarse
+  // fuzzyTokenMatch pass so the multi-add list is ranked best-first and shares
+  // the exact normalization/ranking the picker + library use.
   const filtered = useMemo(() => {
-    const needle = search.trim();
-    const bySearch = needle
-      ? exercises.filter((ex) => {
-          return fuzzyTokenMatch(needle, exerciseSearchHaystack(ex));
-        })
-      : exercises;
-    return applyFilters(bySearch, filters);
+    return searchExercises(applyFilters(exercises, filters), search);
   }, [exercises, search, filters]);
 
   function toggle(id: string) {
