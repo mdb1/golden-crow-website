@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StorageImagePreview } from "@/components/gc-fitness/StorageImagePreview";
+import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
 import type { HabitTemplateRow } from "@/lib/gc-fitness/habit-actions";
 import { ScopePill } from "./habit-pills";
 
@@ -61,6 +62,7 @@ export function HabitLibraryTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-10" />
             <TableHead className="w-16">
               <span className="sr-only">{t("photo")}</span>
             </TableHead>
@@ -78,7 +80,7 @@ export function HabitLibraryTable({
           {isLoading ? (
             <TableRow>
               <TableCell
-                colSpan={3}
+                colSpan={4}
                 className="h-24 text-center text-muted-foreground"
               >
                 {loadingText}
@@ -86,7 +88,7 @@ export function HabitLibraryTable({
             </TableRow>
           ) : templates.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className="h-32 text-center">
+              <TableCell colSpan={4} className="h-32 text-center">
                 <p className="text-sm text-muted-foreground">{emptyText}</p>
               </TableCell>
             </TableRow>
@@ -101,6 +103,9 @@ export function HabitLibraryTable({
                   onClick={() => onRowClick(tpl)}
                   className="cursor-pointer"
                 >
+                  <TableCell className="py-2">
+                    <FavoriteStarButton kind="habitTemplate" id={tpl.id} />
+                  </TableCell>
                   <TableCell className="py-2">
                     <HabitThumb photoUrl={tpl.photoUrl} />
                   </TableCell>

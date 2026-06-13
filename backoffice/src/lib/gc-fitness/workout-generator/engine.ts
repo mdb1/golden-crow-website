@@ -241,13 +241,25 @@ function selectExercises(
   selectedMuscleOrder: readonly string[],
   targetCount: number,
   seed: number,
+  favoriteIds: ReadonlySet<string>,
 ): EligibleEntry[] {
   const rand = mulberry32(seed >>> 0);
-  // Bucket candidates by primary muscle, shuffled deterministically.
+  // Bucket candidates by primary muscle, shuffled deterministically. Within a
+  // bucket, favorited exercises (#297) are floated ahead of the rest while
+  // KEEPING the deterministic shuffled order inside each group — so the coach's
+  // starred exercises are picked first, ties broken by the same seeded shuffle.
   const buckets = new Map<string, EligibleEntry[]>();
   for (const muscle of selectedMuscleOrder) {
     const inMuscle = eligible.filter((e) => e.primaryMuscle === muscle);
-    if (inMuscle.length > 0) buckets.set(muscle, seededShuffle(inMuscle, rand));
+    if (inMuscle.length === 0) continue;
+    const shuffled = seededShuffle(inMuscle, rand);
+    if (favoriteIds.size > 0) {
+      const favs = shuffled.filter((e) => favoriteIds.has(e.exercise.id));
+      const rest = shuffled.filter((e) => !favoriteIds.has(e.exercise.id));
+      buckets.set(muscle, [...favs, ...rest]);
+    } else {
+      buckets.set(muscle, shuffled);
+    }
   }
   const musclesWithCandidates = selectedMuscleOrder.filter((m) =>
     buckets.has(m),
@@ -298,6 +310,7 @@ export function generateWorkout(
     input.muscleGroups,
     targetCount,
     seed,
+    new Set(input.favoriteExerciseIds ?? []),
   );
 
   const usedIds = new Set(chosen.map((c) => c.exercise.id));

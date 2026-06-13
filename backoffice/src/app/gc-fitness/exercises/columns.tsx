@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
+import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
 import type { ExerciseRow } from "@/lib/gc-fitness/exercises-listener";
 
 // Difficulty level → semantic Badge variant per the redesign doc
@@ -87,6 +88,15 @@ export function makeColumns(
   t: TFn,
 ): ColumnDef<ExerciseRow>[] {
   return [
+    {
+      id: "favorite",
+      header: "",
+      cell: ({ row }) => (
+        <FavoriteStarButton kind="exercise" id={row.original.id} />
+      ),
+      enableSorting: false,
+      size: 40,
+    },
     {
       id: "thumbnail",
       header: "",

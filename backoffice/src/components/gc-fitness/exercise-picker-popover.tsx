@@ -101,11 +101,15 @@ import {
   type ExerciseFilters,
 } from "@/lib/gc-fitness/exercise-filter-state";
 import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/gc-fitness/exercise-vocabulary";
+import { useFavorites } from "@/lib/gc-fitness/use-favorites";
+import { favoriteIdSet, sortFavoritesFirst } from "@/lib/gc-fitness/favorites";
+import { FavoriteStarButton } from "./favorite-star-button";
 import {
   QuickCreateExercise,
   type QuickCreateSeed,
 } from "./exercise-quick-create";
 import { ExercisePreviewThumb } from "./exercise-preview-thumb";
+import { MusclePresetChips } from "./muscle-preset-chips";
 
 // Phase 24-06 Task 3 — render-window cap (Codex MEDIUM). Even with
 // lazy GIFs, rendering 250+ rows + 250 inline images strains the popover.
@@ -209,6 +213,11 @@ export function ExercisePickerPopover({
   }, [search]);
   const queryClient = useQueryClient();
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
+  const { favorites } = useFavorites();
+  const favIds = useMemo(
+    () => favoriteIdSet(favorites, "exercise"),
+    [favorites],
+  );
 
   // Phase 24-06 Task 3 — filter chip state (muscle/equipment/level/mechanic).
   // Hook owns the immutable Set update contract (Codex MEDIUM); every
@@ -233,11 +242,13 @@ export function ExercisePickerPopover({
   const { visible, overflow } = useMemo(() => {
     const live = (data ?? []).filter(isPickableExercise);
     const ranked = searchExercises(applyFilters(live, filters), search);
+    // #297 — favorites always sort first (incl. in search results), then cap.
+    const ordered = sortFavoritesFirst(ranked, (r) => r.id, favIds);
     return {
-      visible: ranked.slice(0, RENDER_CAP),
-      overflow: Math.max(0, ranked.length - RENDER_CAP),
+      visible: ordered.slice(0, RENDER_CAP),
+      overflow: Math.max(0, ordered.length - RENDER_CAP),
     };
-  }, [data, filters, search]);
+  }, [data, filters, search, favIds]);
 
   // Kept for the empty-state branch: distinguishes "no rows in cache" from
   // "filters narrowed to zero".
@@ -310,6 +321,12 @@ export function ExercisePickerPopover({
       else next.add(value);
       return { ...prev, equipment: next };
     });
+  }
+  // #299 — muscle "focus" presets replace the whole muscle selection from the
+  // preset chips (which toggle the union in/out). A fresh Set keeps the
+  // immutable-update contract above.
+  function setMuscleSelection(nextMuscles: string[]) {
+    setFilters((prev) => ({ ...prev, muscles: new Set(nextMuscles) }));
   }
   function toggleLevel(value: string) {
     setFilters((prev) => ({
@@ -384,6 +401,7 @@ export function ExercisePickerPopover({
         <ExercisePickerFilters
           filters={filters}
           toggleMuscle={toggleMuscle}
+          setMuscleSelection={setMuscleSelection}
           toggleEquipment={toggleEquipment}
           toggleLevel={toggleLevel}
           toggleMechanic={toggleMechanic}
@@ -458,6 +476,11 @@ export function ExercisePickerPopover({
                               {ex.muscleGroups.map(formatLabel).join(", ")}
                             </span>
                           )}
+                        </span>
+                        <span
+                          onPointerDown={(event) => event.stopPropagation()}
+                        >
+                          <FavoriteStarButton kind="exercise" id={ex.id} />
                         </span>
                         <button
                           type="button"
@@ -538,6 +561,7 @@ export function ExercisePickerPopover({
 interface ExercisePickerFiltersProps {
   filters: ExerciseFilters;
   toggleMuscle: (value: string) => void;
+  setMuscleSelection: (next: string[]) => void;
   toggleEquipment: (value: string) => void;
   toggleLevel: (value: string) => void;
   toggleMechanic: (value: string) => void;
@@ -548,6 +572,7 @@ interface ExercisePickerFiltersProps {
 function ExercisePickerFilters({
   filters,
   toggleMuscle,
+  setMuscleSelection,
   toggleEquipment,
   toggleLevel,
   toggleMechanic,
@@ -558,6 +583,19 @@ function ExercisePickerFilters({
 
   return (
     <div className="border-b p-2">
+      {/* Muscle "focus" presets (#299) — one tap selects a group's muscles
+          (e.g. Push → chest + shoulders + triceps), driving the same
+          `filters.muscles` set as the individual chips below. */}
+      <ChipRow
+        testId="exercise-picker-chip-group-focus"
+        label={t("filterFocus")}
+      >
+        <MusclePresetChips
+          value={[...filters.muscles]}
+          onChange={setMuscleSelection}
+        />
+      </ChipRow>
+
       {/* Muscles (multi-select) */}
       <ChipRow
         testId="exercise-picker-chip-group-muscles"

@@ -24,6 +24,7 @@ import {
   RotateCcw,
   Search,
   SlidersHorizontal,
+  Star,
   Trash2,
   Users,
 } from "lucide-react";
@@ -67,6 +68,12 @@ import {
   type HabitRow,
   type HabitTemplateRow,
 } from "@/lib/gc-fitness/habit-actions";
+import { useFavorites } from "@/lib/gc-fitness/use-favorites";
+import {
+  favoriteIdSet,
+  filterFavoritesOnly,
+  sortFavoritesFirst,
+} from "@/lib/gc-fitness/favorites";
 import { HabitLibraryTable } from "./_components/HabitLibraryTable";
 import { HabitTemplateDetailDialog } from "./_components/HabitTemplateDetailDialog";
 import { RecurrencePill, ReminderCell } from "./_components/habit-pills";
@@ -106,6 +113,7 @@ export function HabitsLibraryClient({
   const t = useTranslations("habits.list");
   const columnsT = useTranslations("habits.columns");
   const tTypeLabels = useTranslations("habits.list.typeLabels");
+  const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
   const [view, setView] = useState<HabitsView>("assignments");
   const [createOpen, setCreateOpen] = useState(false);
@@ -119,6 +127,13 @@ export function HabitsLibraryClient({
   // B5 — reveal toggle for the per-trainer hidden GLOBAL templates.
   const [showHidden, setShowHidden] = useState(false);
   const [restorePendingId, setRestorePendingId] = useState<string | null>(null);
+  // #297 — favorites-only toggle for the Biblioteca (template library).
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const { favorites } = useFavorites();
+  const favTemplateIds = useMemo(
+    () => favoriteIdSet(favorites, "habitTemplate"),
+    [favorites],
+  );
 
   const { data, isLoading, error } = useQuery({
     queryKey: HABITS_BASE_KEY,
@@ -217,14 +232,23 @@ export function HabitsLibraryClient({
   const filteredTemplates = useMemo(() => {
     const all = templates as HabitTemplateRow[];
     const needle = search.trim().toLowerCase();
-    return all.filter((tpl) => {
+    const searched = all.filter((tpl) => {
       if (needle.length > 0) {
         const hay = `${tpl.name.en} ${tpl.name.es}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [templates, search]);
+    // #297 — favorites: optionally keep only starred templates, then float
+    // favorites to the top.
+    const scoped = filterFavoritesOnly(
+      searched,
+      (tpl) => tpl.id,
+      favTemplateIds,
+      favoritesOnly,
+    );
+    return sortFavoritesFirst(scoped, (tpl) => tpl.id, favTemplateIds);
+  }, [templates, search, favTemplateIds, favoritesOnly]);
 
   // B5 — friendly labels for the hidden GLOBAL ids. `listHabitTemplates`
   // excludes hidden globals from `templates`, so their names aren't in that
@@ -473,6 +497,30 @@ export function HabitsLibraryClient({
 
       {view === "library" ? (
         <div className="flex flex-col gap-4">
+          {/* #297 — favorites-only toggle for the template library. */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((v) => !v)}
+              aria-pressed={favoritesOnly}
+              aria-label={tFilters("favoritesOnlyAria")}
+              className={cn(
+                "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                favoritesOnly
+                  ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-400/15 dark:text-amber-300"
+                  : "bg-muted/70 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Star
+                className={cn(
+                  "h-4 w-4",
+                  favoritesOnly ? "fill-amber-400 text-amber-500" : "",
+                )}
+                aria-hidden="true"
+              />
+              {tFilters("favoritesOnlyLabel")}
+            </button>
+          </div>
           <HabitLibraryTable
             templates={filteredTemplates}
             isLoading={templatesLoading}

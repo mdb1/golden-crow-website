@@ -36,6 +36,23 @@ jest.mock("@/lib/gc-fitness/exercises-listener", () => ({
   EXERCISES_QUERY_KEY: ["gc-fitness", "exercises"],
 }));
 
+// #297 — the picker now reads favorites (star + favorites-first sort). Stub the
+// hook so the smoke tests don't pull the favorites Server Action (→
+// firebase-admin) into the bundle, and don't need a QueryClientProvider.
+jest.mock("@/lib/gc-fitness/use-favorites", () => ({
+  useFavorites: () => ({
+    favorites: {
+      exerciseIds: [],
+      workoutTemplateIds: [],
+      habitTemplateIds: [],
+    },
+    isLoading: false,
+    isFavorite: () => false,
+    toggle: jest.fn(),
+    isToggling: false,
+  }),
+}));
+
 // 260529 — the picker now calls useQueryClient() (to invalidate the
 // one-shot exercises feed after quick-create). Stub it so the smoke tests
 // don't need a real QueryClientProvider wrapper.

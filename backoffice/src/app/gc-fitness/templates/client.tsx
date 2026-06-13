@@ -23,6 +23,7 @@ import {
   Search,
   Sparkles,
   SlidersHorizontal,
+  Star,
   Trash2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -68,6 +69,13 @@ import {
 import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actions";
 import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
 import { fuzzyTokenScore } from "@/lib/gc-fitness/exercise-search";
+import { useFavorites } from "@/lib/gc-fitness/use-favorites";
+import {
+  favoriteIdSet,
+  filterFavoritesOnly,
+  sortFavoritesFirst,
+} from "@/lib/gc-fitness/favorites";
+import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
 import type { TemplateListRow } from "@/components/gc-fitness/templates/columns";
 
 // Tag → human label (kept local — small, list-only).
@@ -135,9 +143,16 @@ export function TemplatesLibraryClient({
   const queryClient = useQueryClient();
   const [tagFilter, setTagFilter] = useState("");
   const [mineOnly, setMineOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [confirmDelete, setConfirmDelete] =
     useState<WorkoutTemplateRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+
+  const { favorites } = useFavorites();
+  const favIds = useMemo(
+    () => favoriteIdSet(favorites, "workoutTemplate"),
+    [favorites],
+  );
 
   // Pull the entire roster from the server (the trainer surface tops out at a
   // few dozen templates, so paging server-side adds latency without saving
@@ -233,8 +248,13 @@ export function TemplatesLibraryClient({
         .sort((a, b) => b.score - a.score);
       list = scored.map((entry) => entry.row);
     }
+    // #297 — favorites: optionally keep only starred templates, then always
+    // float favorites to the top. The in-progress draft row is added AFTER, so
+    // it stays pinned at the very top regardless of favorites.
+    list = filterFavoritesOnly(list, (r) => r.id, favIds, favoritesOnly);
+    list = sortFavoritesFirst(list, (r) => r.id, favIds);
     return draftRow ? [draftRow, ...list] : list;
-  }, [data, mineOnly, trainerUid, tagFilter, draftRow]);
+  }, [data, mineOnly, trainerUid, tagFilter, draftRow, favIds, favoritesOnly]);
 
   const handlers = useMemo(
     () => ({
@@ -295,7 +315,7 @@ export function TemplatesLibraryClient({
     }
   }, [confirmDelete, queryClient, t]);
 
-  const hasFilter = tagFilter.trim().length > 0 || mineOnly;
+  const hasFilter = tagFilter.trim().length > 0 || mineOnly || favoritesOnly;
   const isUnfilteredEmpty = !isLoading && !hasFilter && rows.length === 0;
   const isFilteredEmpty = !isLoading && hasFilter && rows.length === 0;
 
@@ -380,6 +400,28 @@ export function TemplatesLibraryClient({
             {tFilters("mineOnlyLabel")}
           </button>
         </div>
+        {/* #297 — favorites-only toggle. */}
+        <button
+          type="button"
+          onClick={() => setFavoritesOnly((v) => !v)}
+          aria-pressed={favoritesOnly}
+          aria-label={tFilters("favoritesOnlyAria")}
+          className={cn(
+            "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            favoritesOnly
+              ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-400/15 dark:text-amber-300"
+              : "bg-muted/70 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Star
+            className={cn(
+              "h-4 w-4",
+              favoritesOnly ? "fill-amber-400 text-amber-500" : "",
+            )}
+            aria-hidden="true"
+          />
+          {tFilters("favoritesOnlyLabel")}
+        </button>
       </div>
 
       {error && (
@@ -471,6 +513,13 @@ export function TemplatesLibraryClient({
                           {columnsT("draftBadgeTooltip")}
                         </TooltipContent>
                       </Tooltip>
+                    ) : null}
+
+                    {!row.__isDraft ? (
+                      <FavoriteStarButton
+                        kind="workoutTemplate"
+                        id={row.id}
+                      />
                     ) : null}
 
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">

@@ -541,3 +541,57 @@ describe("computeReplacements", () => {
     expect(computeReplacements(eligible, "chest", new Set(), 1, 2)).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateWorkout — favorites preference (#297)
+// ---------------------------------------------------------------------------
+
+describe("generateWorkout — favorites preference (#297)", () => {
+  // core has TWO equally-eligible bodyweight candidates (plank, hollow-hold),
+  // so the single picked exercise is decided by the seeded shuffle — unless a
+  // favorite tips it. Asserting BOTH directions proves the favorite wins
+  // regardless of which one the shuffle would have chosen.
+  const coreInput = (favoriteExerciseIds?: string[]): GeneratorInput =>
+    input({
+      equipment: ["bodyweight"],
+      muscleGroups: ["core"],
+      exerciseCount: 1,
+      favoriteExerciseIds,
+    });
+
+  it("picks the favorited exercise over an equally-eligible non-favorite", () => {
+    const withPlank = generateWorkout(coreInput(["plank"]), POOL);
+    expect(withPlank.exercises.map((e) => e.exerciseId)).toEqual(["plank"]);
+
+    const withHollow = generateWorkout(coreInput(["hollow-hold"]), POOL);
+    expect(withHollow.exercises.map((e) => e.exerciseId)).toEqual([
+      "hollow-hold",
+    ]);
+  });
+
+  it("never overrides the hard equipment rule — a favorite needing absent equipment stays excluded", () => {
+    // Favorite a barbell+bench chest press while only bodyweight is selected.
+    // The only eligible bodyweight chest exercise is pushup; the favorite must
+    // NOT appear.
+    const workout = generateWorkout(
+      input({
+        equipment: ["bodyweight"],
+        muscleGroups: ["chest"],
+        exerciseCount: 1,
+        favoriteExerciseIds: ["bench-press-bb"],
+      }),
+      POOL,
+    );
+    const ids = workout.exercises.map((e) => e.exerciseId);
+    expect(ids).not.toContain("bench-press-bb");
+    expect(ids).toEqual(["pushup"]);
+  });
+
+  it("is a no-op when no favorites are supplied (back-compat)", () => {
+    const a = generateWorkout(coreInput(), POOL);
+    const b = generateWorkout(coreInput([]), POOL);
+    expect(a.exercises.map((e) => e.exerciseId)).toEqual(
+      b.exercises.map((e) => e.exerciseId),
+    );
+  });
+});
