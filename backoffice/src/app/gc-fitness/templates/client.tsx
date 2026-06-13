@@ -21,6 +21,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -311,14 +312,25 @@ export function TemplatesLibraryClient({
             <p className="text-sm text-muted-foreground">{t("pageSubtitle")}</p>
           </div>
         )}
-        <Button
-          type="button"
-          onClick={() => router.push("/gc-fitness/templates/new")}
-          className="gap-2 rounded-full"
-        >
-          <Plus className="h-4 w-4" />
-          {t("newTemplateCta")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/gc-fitness/templates/generate")}
+            className="gap-2 rounded-full"
+          >
+            <Sparkles className="h-4 w-4" />
+            {t("generateCta")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => router.push("/gc-fitness/templates/new")}
+            className="gap-2 rounded-full"
+          >
+            <Plus className="h-4 w-4" />
+            {t("newTemplateCta")}
+          </Button>
+        </div>
       </div>
 
       {/* Search row — rounded input with leading icon + filter affordance +

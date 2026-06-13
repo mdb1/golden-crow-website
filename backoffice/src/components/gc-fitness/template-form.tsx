@@ -133,6 +133,26 @@ export interface TemplateFormProps {
    * the edit surface. If omitted, draft autosave is disabled.
    */
   draftKey?: string;
+  /**
+   * Optional create-mode hook. When provided, a successful CREATE calls this
+   * with the new template id INSTEAD of the default `router.back()` navigation
+   * — letting an embedding flow (e.g. the workout generator) keep the form on
+   * screen and transition to its own success/assign step. No effect in edit
+   * mode. Backwards-compatible: when omitted, create navigates back as before.
+   */
+  onCreated?: (id: string) => void;
+  /**
+   * Optional per-exercise extras rendered UNDER each exercise row in the
+   * "pick exercises" step. The workout generator uses this to render
+   * replacement pills (the normal create/edit flow passes nothing, so the
+   * layout is unchanged). `onReplace` swaps the row's exercise id.
+   */
+  renderExerciseExtras?: (ctx: {
+    index: number;
+    exerciseId: string;
+    allExerciseIds: string[];
+    onReplace: (exerciseId: string) => void;
+  }) => React.ReactNode;
 }
 
 const DRAFT_STORAGE_PREFIX = "gc-fitness:template-draft:";
@@ -296,6 +316,8 @@ export function TemplateForm({
   defaultValues,
   onSubmit,
   draftKey,
+  onCreated,
+  renderExerciseExtras,
 }: TemplateFormProps) {
   const t = useTranslations("templates.form");
   const router = useRouter();
@@ -526,14 +548,21 @@ export function TemplateForm({
       form.getValues(`exercises.${index}.durationSeconds` as const) ?? 60,
     );
     const currentReps = toFiniteNumberArray(form.getValues(repsPath));
-    const currentWeight = toFiniteNumberArray(form.getValues(weightPath));
+    const rawWeight = form.getValues(weightPath);
+    // Distinguish the EXPLICIT "Sin peso" sentinel (`[]`, set by the toggle)
+    // from "no weights typed yet" (undefined). Resizing the set count must
+    // NEVER fabricate a `[]` from the latter — doing so silently flips the
+    // exercise to Sin peso (the "changing Series + Tab switched Arnold Press to
+    // Sin peso" bug). `toFiniteNumberArray` collapses both to `[]`, so we read
+    // the raw value here to keep the distinction.
+    const hasExplicitNoWeight = Array.isArray(rawWeight) && rawWeight.length === 0;
+    const currentWeight = toFiniteNumberArray(rawWeight);
     const currentDurations = toFiniteNumberArray(form.getValues(durationPath));
 
     const nextReps = Array.from({ length: safeSets }, (_, i) => {
       const v = currentReps[i];
       return Number.isFinite(v) ? v : repsFallback;
     });
-    const nextWeight = currentWeight.slice(0, safeSets);
     // Only persist the duration array when at least one entry is present
     // — keeps reps-based exercises clean (no stray `durationBySetSeconds:
     // []` on Firestore docs).
@@ -546,7 +575,16 @@ export function TemplateForm({
         : undefined;
 
     form.setValue(repsPath, nextReps, { shouldDirty: true });
-    form.setValue(weightPath, nextWeight, { shouldDirty: true });
+    if (hasExplicitNoWeight) {
+      // Preserve the explicit Sin-peso prescription across a set-count change.
+      form.setValue(weightPath, [], { shouldDirty: true });
+    } else if (currentWeight.length === 0) {
+      // No weights entered yet — keep the field undefined (NOT `[]`) so the
+      // exercise stays "weight × reps" with an empty weight column.
+      form.setValue(weightPath, undefined as unknown as number[], { shouldDirty: true });
+    } else {
+      form.setValue(weightPath, currentWeight.slice(0, safeSets), { shouldDirty: true });
+    }
     if (nextDurations !== undefined) {
       form.setValue(durationPath, nextDurations, { shouldDirty: true });
     }
@@ -722,6 +760,12 @@ export function TemplateForm({
         if (draftKey) clearDraft(draftKey);
         if (mode === "create" && result?.id) {
           toast.success(t("createdToast"));
+          // An embedding flow (e.g. the workout generator) can take over the
+          // post-create navigation to show its own success/assign step.
+          if (onCreated) {
+            onCreated(result.id);
+            return;
+          }
           // 260524 — go back in nav after create (same UX as exercise + habit forms).
           router.back();
           return;
@@ -1041,30 +1085,46 @@ export function TemplateForm({
           {step === 1 ? (
             <ul className="flex flex-col gap-2">
               {fields.map((field, index) => (
-                <li key={field.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">{t("exerciseNumber", { index: index + 1 })}</p>
-                    <div className="mt-1">
-                      <ExercisePickerPopover
-                        value={form.getValues(`exercises.${index}.exerciseId` as const) ?? ""}
-                        onChange={(value) =>
-                          form.setValue(`exercises.${index}.exerciseId` as const, value, { shouldDirty: true })
-                        }
-                        ariaLabel={t("pickExerciseAria", { index: index + 1 })}
-                      />
+                <li key={field.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-muted-foreground">{t("exerciseNumber", { index: index + 1 })}</p>
+                      <div className="mt-1">
+                        <ExercisePickerPopover
+                          value={form.getValues(`exercises.${index}.exerciseId` as const) ?? ""}
+                          onChange={(value) =>
+                            form.setValue(`exercises.${index}.exerciseId` as const, value, { shouldDirty: true })
+                          }
+                          ariaLabel={t("pickExerciseAria", { index: index + 1 })}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
+                      <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1}>
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
-                      <ArrowUp className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1}>
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {/* Generator-only replacement pills (no-op in the normal flow). */}
+                  {renderExerciseExtras
+                    ? renderExerciseExtras({
+                        index,
+                        exerciseId: watchedExercises[index]?.exerciseId ?? "",
+                        allExerciseIds: watchedExercises
+                          .map((e) => e?.exerciseId ?? "")
+                          .filter((id): id is string => Boolean(id)),
+                        onReplace: (value) =>
+                          form.setValue(`exercises.${index}.exerciseId` as const, value, {
+                            shouldDirty: true,
+                          }),
+                      })
+                    : null}
                 </li>
               ))}
             </ul>
