@@ -79,6 +79,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 import {
@@ -362,9 +372,15 @@ export function TemplateForm({
   }, [draftKey]);
 
   const draftTimerRef = useRef<number | null>(null);
+  // Set when the trainer explicitly Cancels (Discard). It short-circuits the
+  // unmount + pagehide draft flushes below so an explicit discard isn't
+  // immediately re-persisted by the navigation that follows it — that
+  // re-write was the bug where Cancel left the changes for the next edit.
+  const cancellingRef = useRef(false);
   useEffect(() => {
     if (!draftKey) return;
     const subscription = form.watch((value) => {
+      if (cancellingRef.current) return;
       if (draftTimerRef.current !== null) {
         window.clearTimeout(draftTimerRef.current);
       }
@@ -376,13 +392,17 @@ export function TemplateForm({
     // If the trainer navigates away within DRAFT_DEBOUNCE_MS of the last
     // keystroke, the pending timer is cancelled by cleanup and the draft is
     // lost. FLUSH the latest snapshot synchronously on unmount so the
-    // /templates list can surface the draft on the next visit.
+    // /templates list can surface the draft on the next visit — UNLESS the
+    // trainer explicitly Cancelled (then the draft was just cleared and must
+    // stay cleared).
     return () => {
       subscription.unsubscribe();
       if (draftTimerRef.current !== null) {
         window.clearTimeout(draftTimerRef.current);
         draftTimerRef.current = null;
-        writeDraft(draftKey, form.getValues());
+        if (!cancellingRef.current) {
+          writeDraft(draftKey, form.getValues());
+        }
       }
     };
   }, [draftKey, form]);
@@ -394,6 +414,7 @@ export function TemplateForm({
     if (!draftKey) return;
     const key = draftKey; // capture for closure (TS narrowing lost in nested fn)
     function flush() {
+      if (cancellingRef.current) return;
       if (draftTimerRef.current !== null) {
         window.clearTimeout(draftTimerRef.current);
         draftTimerRef.current = null;
@@ -413,6 +434,31 @@ export function TemplateForm({
     clearDraft(draftKey);
     form.reset(buildDefaults(defaultValues, mode));
     setDraftRestored(false);
+  }
+
+  // Cancel flow. Explicit Cancel DISCARDS — clears any autosaved draft and
+  // navigates away. When there are unsaved changes (dirty this session OR a
+  // draft was restored from a prior session) we confirm first so the trainer
+  // doesn't lose work by accident.
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  function performCancel() {
+    cancellingRef.current = true;
+    if (draftTimerRef.current !== null) {
+      window.clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    if (draftKey) clearDraft(draftKey);
+    setShowCancelConfirm(false);
+    router.back();
+  }
+
+  function handleCancelClick() {
+    if (form.formState.isDirty || draftRestored) {
+      setShowCancelConfirm(true);
+      return;
+    }
+    performCancel();
   }
   // ------------------------------------------------------------------------
 
@@ -2209,7 +2255,7 @@ export function TemplateForm({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => router.back()}
+            onClick={handleCancelClick}
             disabled={pending}
           >
             {t("cancel")}
@@ -2219,6 +2265,28 @@ export function TemplateForm({
           </Button>
         </div>
       </form>
+
+      {/* Unsaved-changes guard — explicit Cancel discards the autosaved draft,
+          so confirm before throwing away in-progress edits. */}
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("discardDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("discardDialogBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("discardDialogKeepEditing")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={performCancel}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("discardDialogConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Form>
   );
 }

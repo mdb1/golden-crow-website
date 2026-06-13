@@ -696,7 +696,11 @@
       "savedToast": "Plantilla guardada.",
       "saveFailed": "No se pudo guardar.",
       "submitErrorsHeadline": "Falta completar antes de guardar:",
-      "submitErrorExercisePrefix": "Ejercicio #{index}"
+      "submitErrorExercisePrefix": "Ejercicio #{index}",
+      "discardDialogTitle": "¿Descartar cambios?",
+      "discardDialogBody": "Si cancelás, se perderán los cambios no guardados de esta rutina.",
+      "discardDialogConfirm": "Descartar cambios",
+      "discardDialogKeepEditing": "Seguir editando"
     }
   },
   "habits": {

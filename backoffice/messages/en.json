@@ -696,7 +696,11 @@
       "savedToast": "Template saved.",
       "saveFailed": "Couldn't save.",
       "submitErrorsHeadline": "Fix these before saving:",
-      "submitErrorExercisePrefix": "Exercise #{index}"
+      "submitErrorExercisePrefix": "Exercise #{index}",
+      "discardDialogTitle": "Discard changes?",
+      "discardDialogBody": "If you cancel, your unsaved changes to this template will be lost.",
+      "discardDialogConfirm": "Discard changes",
+      "discardDialogKeepEditing": "Keep editing"
     }
   },
   "habits": {
