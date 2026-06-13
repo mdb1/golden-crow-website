@@ -55,7 +55,7 @@
 // legitimately-same-in-both-languages survivors like "Plank" don't render
 // a redundant duplicate line).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronsUpDown, Copy, Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -198,6 +198,15 @@ export function ExercisePickerPopover({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [seed, setSeed] = useState<QuickCreateSeed | null>(null);
+  // Keep the results list pinned to the TOP whenever the query changes. cmdk
+  // preserves its highlighted item and scrolls it into view; since our ranked
+  // search re-orders the list on every keystroke, that item could be mid-list,
+  // making the popover auto-scroll DOWN and hide the best (top) matches. Reset
+  // the scroll position after each search change so the first results show.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [search]);
   const queryClient = useQueryClient();
   const { data, isLoading, error, hasSnapshot } = useExercisesQuery();
 
@@ -399,7 +408,7 @@ export function ExercisePickerPopover({
               className="h-10 border-0 focus:ring-0"
             />
           </div>
-          <CommandList>
+          <CommandList ref={listRef}>
             {isLoading || !hasSnapshot ? (
               <CommandEmpty>{t("loadingExercises")}</CommandEmpty>
             ) : error ? (
