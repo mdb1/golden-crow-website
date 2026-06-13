@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Copy,
   Dumbbell,
+  Eye,
   Pencil,
   Plus,
   Search,
@@ -229,6 +230,11 @@ export function TemplatesLibraryClient({
     () => ({
       onEdit: (row: WorkoutTemplateRow) =>
         router.push(`/gc-fitness/templates/${row.id}/edit`),
+      // Standard/library templates open a read-only VIEW instead of /edit —
+      // /edit on a non-owned standard template would auto-fork and silently
+      // create duplicates. The trainer forks explicitly from the view page.
+      onView: (row: WorkoutTemplateRow) =>
+        router.push(`/gc-fitness/templates/${row.id}/view`),
       onDelete: (row: WorkoutTemplateRow) => setConfirmDelete(row),
       onResumeDraft: () => router.push("/gc-fitness/templates/new"),
       // P21 — duplicate trainer-owned template. Triggers a Server Action
@@ -410,14 +416,18 @@ export function TemplatesLibraryClient({
                     onClick={() =>
                       row.__isDraft
                         ? handlers.onResumeDraft()
-                        : handlers.onEdit(row)
+                        : row.isStandard
+                          ? handlers.onView(row)
+                          : handlers.onEdit(row)
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         row.__isDraft
                           ? handlers.onResumeDraft()
-                          : handlers.onEdit(row);
+                          : row.isStandard
+                            ? handlers.onView(row)
+                            : handlers.onEdit(row);
                       }
                     }}
                     className={cn(
@@ -490,14 +500,29 @@ export function TemplatesLibraryClient({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handlers.onEdit(row)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              {row.isStandard
-                                ? columnsT("duplicate")
-                                : columnsT("edit")}
-                            </DropdownMenuItem>
-                            {!row.isStandard ? (
+                            {row.isStandard ? (
                               <>
+                                <DropdownMenuItem
+                                  onClick={() => handlers.onView(row)}
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  {columnsT("view")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handlers.onDuplicate(row)}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  {columnsT("duplicate")}
+                                </DropdownMenuItem>
+                              </>
+                            ) : (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => handlers.onEdit(row)}
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  {columnsT("edit")}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handlers.onDuplicate(row)}
                                 >
@@ -512,7 +537,7 @@ export function TemplatesLibraryClient({
                                   {columnsT("delete")}
                                 </DropdownMenuItem>
                               </>
-                            ) : null}
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
