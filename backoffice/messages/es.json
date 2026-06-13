@@ -589,6 +589,7 @@
       "pageHeading": "Plantillas de entrenamiento",
       "pageSubtitle": "Diseñá plantillas push / pull / piernas y asignalas desde la vista de agenda.",
       "newTemplateCta": "Nueva plantilla",
+      "generateCta": "Generador de Plantillas",
       "filterPlaceholder": "Filtrar por nombre o etiqueta",
       "loadError": "No se pudieron cargar las plantillas.",
       "loadErrorDescription": "Revisá tu conexión e intentá de nuevo.",

@@ -589,6 +589,7 @@
       "pageHeading": "Workout Templates",
       "pageSubtitle": "Author push / pull / legs templates and assign them from the schedule view.",
       "newTemplateCta": "New template",
+      "generateCta": "Template Generator",
       "filterPlaceholder": "Filter by name or tag",
       "loadError": "Couldn't load templates.",
       "loadErrorDescription": "Check your connection and try again.",
