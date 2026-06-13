@@ -33,6 +33,7 @@ import {
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
 import { searchExercises } from "@/lib/gc-fitness/exercise-search";
+import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
 
 import {
   ChipRow,
@@ -121,7 +122,7 @@ export function ExerciseMultiAddDialog({
   }
 
   const exercises = useMemo(
-    () => (data ?? []).filter((r) => r.deleted !== true),
+    () => (data ?? []).filter(isPickableExercise),
     [data],
   );
 

@@ -71,6 +71,12 @@ function makeRow(overrides: Partial<ExerciseRow> = {}): ExerciseRow {
     thumbnailURL: null,
     youtubeURL: null,
     source: "free-exercise-db",
+    // Legacy exercise retirement: isPickableExercise now hides non-trainer rows
+    // that lack the standard-library tag. The pre-existing picker smoke tests
+    // (chips / cap / search) seed rows that should remain VISIBLE, so the
+    // fixture default now carries the tag. Tests asserting legacy-hidden
+    // behavior override `tags` (and `source`/`ownerId`) explicitly.
+    tags: ["standard-library"],
     ownerId: null,
     version: 1,
     updatedAt: "2026-05-25T00:00:00.000Z",
@@ -411,5 +417,80 @@ describe("ExercisePickerPopover search-before-cap (issue #291 Case 6)", () => {
       barbell.compareDocumentPosition(incline) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Legacy exercise retirement — isPickableExercise filter.
+//
+// (A) A legacy catalog row (source "wger", no standard-library tag) must NOT
+//     appear in the open picker list, while a standard-library row does.
+// (B) Selected-resolution invariant: rendering the picker with `value` set to a
+//     legacy row's id must STILL show that legacy row's name in the trigger,
+//     because the `selected` memo resolves over the FULL unfiltered data so
+//     existing template/assignment rows that reference a now-hidden exercise
+//     keep rendering its name + thumbnail.
+// ---------------------------------------------------------------------------
+
+describe("ExercisePickerPopover legacy retirement filter", () => {
+  it("hides a legacy wger row but shows a standard-library row in the list", () => {
+    const legacy = makeRow({
+      id: "wger-legacy",
+      name: { en: "Legacy Wger Curl", es: "Curl Wger Legado" },
+      source: "wger",
+      ownerId: null,
+      tags: [],
+    });
+    const library = makeRow({
+      id: "std-bench",
+      name: { en: "Standard Bench Press", es: "Press de banca estándar" },
+      source: "wger",
+      ownerId: null,
+      tags: ["standard-library"],
+    });
+    mockUseExercisesQuery.mockReturnValue({
+      data: [legacy, library],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+
+    // Standard-library row is pickable.
+    expect(
+      screen.getByTestId("exercise-picker-row-std-bench"),
+    ).toBeInTheDocument();
+    // Legacy row is filtered out of the choice list.
+    expect(
+      screen.queryByTestId("exercise-picker-row-wger-legacy"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still renders a hidden legacy exercise's name in the trigger when it is the selected value", () => {
+    const legacy = makeRow({
+      id: "wger-legacy",
+      name: { en: "Legacy Wger Curl", es: "Curl Wger Legado" },
+      source: "wger",
+      ownerId: null,
+      tags: [],
+    });
+    mockUseExercisesQuery.mockReturnValue({
+      data: [legacy],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    // value points at the legacy id — mirrors an existing template row that
+    // references a now-hidden exercise.
+    render(
+      <ExercisePickerPopover value="wger-legacy" onChange={() => {}} />,
+    );
+
+    // The trigger resolves the legacy row over the FULL unfiltered data, so its
+    // name still renders even though it is hidden from the pickable list.
+    expect(screen.getByText("Legacy Wger Curl")).toBeInTheDocument();
   });
 });
