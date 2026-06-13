@@ -85,6 +85,7 @@ import {
   searchExercises,
   normalizeSearchText,
 } from "@/lib/gc-fitness/exercise-search";
+import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
 // Re-export the legacy helper names so existing consumers that import them
 // from THIS component keep working (exercise-multi-add-dialog.tsx and the
 // legacy src/lib/gc-fitness/__tests__/exercise-picker-popover.test.tsx).
@@ -221,7 +222,7 @@ export function ExercisePickerPopover({
   // name-aware rank), THEN cap. The `<Command shouldFilter={false}>` below
   // disables cmdk's internal matcher so it renders exactly the rows we pass.
   const { visible, overflow } = useMemo(() => {
-    const live = (data ?? []).filter((r) => r.deleted !== true);
+    const live = (data ?? []).filter(isPickableExercise);
     const ranked = searchExercises(applyFilters(live, filters), search);
     return {
       visible: ranked.slice(0, RENDER_CAP),
@@ -232,7 +233,7 @@ export function ExercisePickerPopover({
   // Kept for the empty-state branch: distinguishes "no rows in cache" from
   // "filters narrowed to zero".
   const liveCount = useMemo(
-    () => (data ?? []).filter((r) => r.deleted !== true).length,
+    () => (data ?? []).filter(isPickableExercise).length,
     [data],
   );
 

@@ -55,6 +55,7 @@ import {
   type ExerciseRow,
 } from "@/lib/gc-fitness/exercises-listener";
 import { searchExercises } from "@/lib/gc-fitness/exercise-search";
+import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
 import {
   softDeleteExercise,
   duplicateExercise,
@@ -137,7 +138,7 @@ export function ExerciseLibraryClient({
   const [deletePending, setDeletePending] = useState(false);
 
   const rows = useMemo(() => {
-    const all = (data ?? []).filter((r) => r.deleted !== true);
+    const all = (data ?? []).filter(isPickableExercise);
     // Apply the non-search chip/select filters first, THEN rank + search
     // (issue #291): normalized, plural/hyphen-tolerant, best-match-first.
     const filtered = all.filter((r) => matchesFilters(r, filters, trainerUid));
