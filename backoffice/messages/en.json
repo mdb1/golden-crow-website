@@ -547,12 +547,24 @@
       "untitled": "(untitled)",
       "actionsAria": "Actions",
       "edit": "Edit",
+      "view": "View",
       "duplicate": "Duplicate",
       "delete": "Delete",
       "draftUntitled": "(untitled draft)",
       "draftBadgeTooltip": "Incomplete draft — cannot be assigned until completed",
       "draftResumeCta": "Continue draft",
       "draftPendingLabel": "Draft"
+    },
+    "viewPage": {
+      "standardBadge": "Standard",
+      "exercisesHeading": "Exercises",
+      "restLabel": "rest {seconds}s",
+      "setsRepsLabel": "{sets} × {reps}",
+      "setsTimeLabel": "{sets} × {seconds}s",
+      "backCta": "Back",
+      "duplicateCta": "Duplicate",
+      "duplicatedToast": "Template duplicated.",
+      "duplicateFailedToast": "Couldn't duplicate. Please try again."
     },
     "editPage": {
       "title": "Edit template",
