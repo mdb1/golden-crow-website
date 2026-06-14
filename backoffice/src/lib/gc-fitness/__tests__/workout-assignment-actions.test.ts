@@ -283,6 +283,31 @@ describe("assignTemplate", () => {
     expect(payload.updatedAt).toBe("SERVER_TIMESTAMP_SENTINEL");
   });
 
+  it("applies a reps→time metric override (metric + per-set + fallback duration) into the snapshot", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
+    mockSet.mockResolvedValue(undefined);
+
+    await assignTemplate({
+      templateId: "tpl-abc",
+      clientId: CLIENT_UID,
+      scheduledFor: "2026-06-01",
+      exerciseOverrides: [
+        {
+          index: 0,
+          metric: "time",
+          durationBySetSeconds: [30, 30, 45],
+          durationSeconds: 30,
+        },
+      ],
+    });
+
+    const ex = mockSet.mock.calls[0][0].templateSnapshot.exercises[0];
+    expect(ex.metric).toBe("time");
+    expect(ex.durationBySetSeconds).toEqual([30, 30, 45]);
+    expect(ex.durationSeconds).toBe(30);
+  });
+
   it("writes scheduledFor verbatim as a string (Pitfall 1 — no Timestamp conversion)", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockGet.mockResolvedValue(fakeTemplateSnap({ exists: true }));
