@@ -1251,6 +1251,7 @@
       "deleteMessageDeleting": "Deleting…",
       "messageDeleted": "Message deleted.",
       "messageDeleteFailed": "Couldn't delete the message.",
+      "seen": "Seen",
       "reactionAdd": "Add a reaction",
       "reactionFailed": "Couldn't save the reaction."
     },
