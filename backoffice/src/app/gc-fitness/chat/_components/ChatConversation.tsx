@@ -112,6 +112,18 @@ export function ChatConversation({
     });
   }, [data]);
   const newestMessageId = messages.length ? messages[messages.length - 1].id : null;
+  // "Visto" goes under the trainer's MOST RECENT own message, and only when the
+  // client (chatId == client uid) has read it. Mirrors iMessage / the mobile
+  // apps: the receipt never hops to an older message while newer ones are still
+  // unread, so it doesn't float orphaned high up the thread.
+  const seenReceiptId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].senderId === trainerUid) {
+        return messages[i].readBy?.[chatId] ? messages[i].id : null;
+      }
+    }
+    return null;
+  }, [messages, trainerUid, chatId]);
   const queryClient = useQueryClient();
 
   const partnerEntry = useMemo(
@@ -346,6 +358,7 @@ export function ChatConversation({
                   chatId={chatId}
                   message={row.message}
                   isOwn={row.message.senderId === trainerUid}
+                  showSeen={row.message.id === seenReceiptId}
                   timezone={timezone}
                   trainerUid={trainerUid}
                   partnerName={partnerName}
@@ -405,6 +418,9 @@ interface MessageBubbleProps {
   chatId: string;
   message: MessageRow;
   isOwn: boolean;
+  /** True only for the trainer's most recent own message once the client has
+   * read it — renders the "Seen"/"Visto" receipt (iMessage behavior). */
+  showSeen: boolean;
   timezone: string;
   /** quick-260603-p1p — signed-in trainer uid (resolves "You" in quotes). */
   trainerUid: string;
@@ -422,6 +438,7 @@ function MessageBubble({
   chatId,
   message,
   isOwn,
+  showSeen,
   timezone,
   trainerUid,
   partnerName,
@@ -613,6 +630,11 @@ function MessageBubble({
           />
         ) : null}
         <TimeStamp iso={message.createdAt} isOwn={isOwn} timezone={timezone} />
+        {isOwn && showSeen ? (
+          <p className="mt-0.5 text-right text-[11px] text-primary-foreground/70">
+            {t("seen")}
+          </p>
+        ) : null}
       </div>
       {!isOwn ? (
         <>
