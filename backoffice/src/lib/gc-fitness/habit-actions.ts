@@ -127,41 +127,38 @@ async function rehomeDraftHabitPhotoIfNeeded(input: {
   return `gs://${parsed.bucket}/${finalObject}`;
 }
 
-// Global habit templates are BINARY-ONLY (yes/no) now. The former numeric
-// (water/sleep/steps/protein) and multi-choice (energy) templates were
-// dropped when the product collapsed to binary habits; "Water intake" is kept
-// as a yes/no "Drink water" habit so the seed list stays useful.
+// Global habit templates are BINARY-ONLY (yes/no) now.
 const GLOBAL_HABIT_TEMPLATES = [
   {
-    id: "global-water",
+    id: "global-healthy-dinner",
     type: "binary",
-    name: { en: "Drink water", es: "Beber agua" },
-    description: {
-      en: "Did you hit your daily hydration goal?",
-      es: "¿Cumpliste tu objetivo diario de hidratación?",
-    },
+    name: { en: "Healthy Dinner", es: "Cena saludable" },
+    description: { en: "Did you eat a healthy dinner?", es: "¿Cenaste saludable?" },
     reminderEnabled: false,
   },
   {
-    id: "global-mobility",
+    id: "global-healthy-lunch",
     type: "binary",
-    name: { en: "Mobility", es: "Movilidad" },
-    description: {
-      en: "Complete your mobility block.",
-      es: "Completa tu bloque de movilidad.",
-    },
+    name: { en: "Healthy Lunch", es: "Almuerzo saludable" },
+    description: { en: "Did you eat a healthy lunch?", es: "¿Almorzaste saludable?" },
     reminderEnabled: false,
   },
   {
-    id: "global-walk",
+    id: "global-no-snacks",
     type: "binary",
-    name: { en: "30-minute walk", es: "Caminata de 30 minutos" },
+    name: { en: "No Snacks", es: "Sin snacks" },
     reminderEnabled: false,
   },
   {
-    id: "global-food-log",
+    id: "global-no-food-delivery",
     type: "binary",
-    name: { en: "Food log", es: "Registro de comidas" },
+    name: { en: "No Food Delivery", es: "Sin delivery" },
+    reminderEnabled: false,
+  },
+  {
+    id: "global-50-pushups-during-day",
+    type: "binary",
+    name: { en: "50 push-ups (during the day)", es: "50 flexiones (durante el día)" },
     reminderEnabled: false,
   },
 ] satisfies Array<{
@@ -171,6 +168,26 @@ const GLOBAL_HABIT_TEMPLATES = [
   description?: { en: string; es: string };
   reminderEnabled: boolean;
 }>;
+
+const LEGACY_GLOBAL_HABIT_TEMPLATE_NAMES = new Set([
+  "steps",
+  "sleep",
+  "protein",
+  "food log",
+  "energy check",
+  "pasos",
+  "sueno",
+  "sueño",
+  "proteina",
+  "proteína",
+  "registro de comidas",
+  "chequeo de energia",
+  "chequeo de energía",
+]);
+
+function normalizeHabitTemplateName(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 /**
  * Shape returned by `listHabitsForTrainer` and `listHabitsForClient` —
@@ -489,6 +506,15 @@ function projectHabitTemplateRow(
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
+}
+
+function isLegacyGlobalHabitTemplate(row: HabitTemplateRow): boolean {
+  if (row.scope !== "global") return false;
+  return LEGACY_GLOBAL_HABIT_TEMPLATE_NAMES.has(
+    normalizeHabitTemplateName(row.name.en),
+  ) || LEGACY_GLOBAL_HABIT_TEMPLATE_NAMES.has(
+    normalizeHabitTemplateName(row.name.es),
+  );
 }
 
 async function assertTrainerOwnsClient(
@@ -1229,7 +1255,10 @@ export async function listHabitTemplates(): Promise<HabitTemplateRow[]> {
     .filter((row) => !row.deleted)
     // B5 — drop GLOBAL templates this trainer has hidden. Trainer-scoped rows
     // are unaffected (they soft-delete via `deleted` instead).
-    .filter((row) => !(row.scope === "global" && hidden.has(row.id)));
+    .filter((row) => !(row.scope === "global" && hidden.has(row.id)))
+    // 260613 — legacy global templates stay hidden even if the shared docs
+    // still exist in Firestore. The new global seed set supersedes them.
+    .filter((row) => !isLegacyGlobalHabitTemplate(row));
 }
 
 /**

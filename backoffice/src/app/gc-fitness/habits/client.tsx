@@ -256,10 +256,11 @@ export function HabitsLibraryClient({
   // fallback for any future global id.
   const hiddenGlobals = useMemo(() => {
     const labels: Record<string, string> = {
-      "global-water": "Beber agua",
-      "global-mobility": "Movilidad",
-      "global-walk": "Caminata de 30 minutos",
-      "global-food-log": "Registro de comidas",
+      "global-healthy-dinner": "Cena saludable",
+      "global-healthy-lunch": "Almuerzo saludable",
+      "global-no-snacks": "Sin snacks",
+      "global-no-food-delivery": "Sin delivery",
+      "global-50-pushups-during-day": "50 flexiones (durante el día)",
     };
     return (hiddenIds as string[]).map((id) => ({
       id,
