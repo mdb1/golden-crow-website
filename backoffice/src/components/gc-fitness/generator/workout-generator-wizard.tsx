@@ -31,6 +31,7 @@ import { EQUIPMENT, MUSCLE_GROUPS } from "@/lib/gc-fitness/exercise-vocabulary";
 import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
 import { useFavorites } from "@/lib/gc-fitness/use-favorites";
 import { STANDARD_LIBRARY_TAG } from "@/lib/gc-fitness/exercise-visibility";
+import { dedupeExercisesByDisplayName } from "@/lib/gc-fitness/exercise-dedupe";
 import { createWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
 import type { WorkoutTemplateInput } from "@/lib/gc-fitness/workout-template-schema";
 import type { ClientRosterEntry } from "@/lib/gc-fitness/client-roster";
@@ -76,13 +77,16 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
     [favorites],
   );
 
-  // Generator pool = the NEW curated standard library only.
+  // Generator pool = the NEW curated standard library only. Dedupe the
+  // double-seeded duplicates (numeric-id doc + its broken-media `std-*` twin)
+  // so each exercise appears once in the pool, replacements, and output.
   const pool: GeneratorExercise[] = useMemo(
     () =>
-      (library ?? [])
-        .filter(
+      dedupeExercisesByDisplayName(
+        (library ?? []).filter(
           (r) => r.deleted !== true && Array.isArray(r.tags) && r.tags.includes(STANDARD_LIBRARY_TAG),
-        )
+        ),
+      )
         .map((r) => ({
           id: r.id,
           name: r.name,
