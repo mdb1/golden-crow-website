@@ -57,7 +57,7 @@ async function main() {
           source: "wger",
           ownerId: null,
           version: 1,
-          metric: "reps",
+          metric: exercise.metric,
           deleted: false,
           updatedAt: FieldValue.serverTimestamp(),
           createdAt: FieldValue.serverTimestamp(),
