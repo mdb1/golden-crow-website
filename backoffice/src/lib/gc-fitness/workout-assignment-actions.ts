@@ -40,6 +40,8 @@ import {
   assignTemplateRecurringSchema,
   bulkAssignSchema,
   editAssignmentSchema,
+  recurrenceSchema,
+  CIVIL_DATE_REGEX,
   MAX_CLIENTS_PER_BATCH,
   MAX_OPS_PER_BATCH,
   OPS_PER_ASSIGNMENT,
@@ -1982,6 +1984,191 @@ export async function editAssignmentExercises(
   await batch.commit();
 
   return { ok: true, updatedCount: targets.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// editAssignmentRecurrence — change which days a recurring series lands on,
+// "from this occurrence forward" (de aquí en adelante).
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The trainer opens ONE occurrence of a recurring series in the detail dialog
+// (e.g. "Mon/Wed/Fri") and wants to switch it to "Mon/Fri" going forward
+// without disturbing what already happened. Because a recurring assignment is
+// not a single parent doc but a fan-out of per-date docs that share a
+// `seriesId` (see assignTemplateRecurring), "edit the recurrence" is modeled as
+// delete-future-scheduled + re-expand the new rule, mirroring the cascade-delete
+// semantics of deleteAssignment(id, {cascadeFromDate}):
+//
+//   cutoff       = the viewed occurrence's scheduledFor (same anchor the delete
+//                  dialog uses for "this and all future occurrences"). The detail
+//                  dialog only surfaces this action for scheduled/started
+//                  occurrences, so the cutoff is today-or-future in practice.
+//   seriesStart  = earliest scheduledFor in the series — the anchor that keeps
+//                  every_n_days phase stable across the edit.
+//   windowEnd    = latest scheduledFor in the series — preserves the original
+//                  horizon (no endDate is persisted on the docs, so the existing
+//                  span IS the source of truth for "how far out").
+//
+// Past / started / completed / missed docs are never touched (status filter,
+// exactly like the cascade delete). Per-occurrence exercise edits on future
+// docs are intentionally NOT preserved — a recurrence change is structural; the
+// new docs are seeded from the viewed occurrence's snapshot (the workout the
+// trainer is looking at). Weight-prefill freshness anchors
+// (prescriptionUpdatedAt[ByExerciseId]) are carried over from the anchor so an
+// unchanged prescription does NOT reset the client's per-exercise weight prefill.
+const editAssignmentRecurrenceSchema = z.object({
+  recurrence: recurrenceSchema,
+});
+
+export async function editAssignmentRecurrence(
+  id: string,
+  inputRaw: unknown,
+): Promise<{ ok: true; removedCount: number; createdCount: number }> {
+  const trainer = await getCurrentTrainer();
+  const input = editAssignmentRecurrenceSchema.parse(inputRaw);
+
+  // "single" collapses a series to one date — that's a delete, not a recurrence
+  // edit. The UI never offers it; reject defensively.
+  if (input.recurrence.kind === "single") {
+    throw new Error("Choose a recurring cadence (not a single date).");
+  }
+  const recurrence = input.recurrence as ExpandableRecurrence;
+
+  const db = gcFitnessFirestore();
+  const ref = db.collection(ASSIGNMENTS).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Not found");
+  const anchor = snap.data() as {
+    trainerId?: string;
+    clientId?: string | null;
+    pendingEmail?: string | null;
+    templateId?: string;
+    templateSnapshot?: unknown;
+    scheduledFor?: string;
+    scheduledTime?: string | null;
+    meetingNotes?: string | null;
+    timezone?: string | null;
+    seriesId?: string | null;
+    prescriptionUpdatedAt?: unknown;
+    prescriptionUpdatedAtByExerciseId?: unknown;
+  };
+  if (anchor.trainerId !== trainer.uid) {
+    throw new Error("Not your assignment.");
+  }
+  if (!anchor.seriesId || typeof anchor.seriesId !== "string") {
+    throw new Error("This workout is not recurring — nothing to reschedule.");
+  }
+  const cutoff =
+    typeof anchor.scheduledFor === "string" ? anchor.scheduledFor : "";
+  if (!CIVIL_DATE_REGEX.test(cutoff)) {
+    throw new Error("Assignment is missing a valid scheduled date.");
+  }
+
+  // Load the whole series for this trainer to derive the original window AND the
+  // set of future-scheduled docs to replace.
+  const seriesSnap = await db
+    .collection(ASSIGNMENTS)
+    .where("trainerId", "==", trainer.uid)
+    .where("seriesId", "==", anchor.seriesId)
+    .get();
+
+  let seriesStart = cutoff;
+  let windowEnd = cutoff;
+  const toDelete: FirebaseFirestore.DocumentReference[] = [];
+  const keptDates: string[] = [];
+  for (const d of seriesSnap.docs) {
+    const dd = d.data() as { scheduledFor?: string; status?: string };
+    const when = typeof dd.scheduledFor === "string" ? dd.scheduledFor : "";
+    if (!CIVIL_DATE_REGEX.test(when)) continue;
+    if (when < seriesStart) seriesStart = when;
+    if (when > windowEnd) windowEnd = when;
+    const isFutureScheduled =
+      when >= cutoff && (!dd.status || dd.status === "scheduled");
+    if (isFutureScheduled) {
+      toDelete.push(d.ref);
+    } else {
+      // Untouched docs (past, or started/completed/missed) keep their dates —
+      // they form part of the post-edit series picture for the activity log.
+      keptDates.push(when);
+    }
+  }
+
+  // Re-expand the NEW rule over the original span, anchored at the series start
+  // (keeps every_n_days phase), then keep only dates at/after the cutoff.
+  const newDates = expandRecurrenceDates(
+    recurrence,
+    seriesStart,
+    windowEnd,
+  ).filter((date) => date >= cutoff);
+  if (newDates.length === 0) {
+    throw new Error(
+      "The new recurrence produces no upcoming dates in this series.",
+    );
+  }
+
+  const recurrencePayload: Record<string, unknown> = recurrence;
+  const clientId = anchor.clientId ?? null;
+  const idSegment =
+    typeof clientId === "string" && clientId ? clientId : "pending";
+
+  const batch = db.batch();
+  for (const delRef of toDelete) {
+    batch.delete(delRef);
+  }
+  for (const date of newDates) {
+    const ymd = date.replace(/-/g, "");
+    const docId = `asg-${idSegment}-${ymd}-${randomUUID()}`;
+    const docRef = db.collection(ASSIGNMENTS).doc(docId);
+    batch.set(docRef, {
+      templateId: anchor.templateId ?? null,
+      templateSnapshot: anchor.templateSnapshot ?? null,
+      clientId,
+      pendingEmail: anchor.pendingEmail ?? null,
+      trainerId: trainer.uid,
+      scheduledFor: date,
+      scheduledTime: anchor.scheduledTime ?? null,
+      meetingNotes: anchor.meetingNotes ?? null,
+      timezone: anchor.timezone ?? null,
+      status: "scheduled" as const,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      // Carry the prescription-freshness anchor so an unchanged prescription
+      // does NOT reset the client's per-exercise weight prefill (the recurrence
+      // change is structural, not a re-prescription).
+      prescriptionUpdatedAt:
+        anchor.prescriptionUpdatedAt ?? FieldValue.serverTimestamp(),
+      ...(anchor.prescriptionUpdatedAtByExerciseId !== undefined
+        ? {
+            prescriptionUpdatedAtByExerciseId:
+              anchor.prescriptionUpdatedAtByExerciseId,
+          }
+        : {}),
+      recurrence: recurrencePayload,
+      seriesId: anchor.seriesId,
+    });
+  }
+  await batch.commit();
+
+  // Re-record the series event so My Activity reflects the new date set. Same
+  // eventId (`asg:${seriesId}`) → recordCoachActivityEvent merges in place.
+  await recordCoachActivityEvent(
+    db,
+    seriesAssignmentEvent({
+      trainerId: trainer.uid,
+      seriesId: anchor.seriesId,
+      templateName: (anchor.templateSnapshot as { name?: unknown })?.name,
+      clientId,
+      pendingEmail: anchor.pendingEmail ?? null,
+      recurrence: recurrencePayload,
+      dates: [...keptDates, ...newDates],
+    }),
+  );
+
+  return {
+    ok: true,
+    removedCount: toDelete.length,
+    createdCount: newDates.length,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
