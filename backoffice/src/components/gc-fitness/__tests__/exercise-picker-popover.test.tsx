@@ -271,10 +271,12 @@ describe("ExercisePickerPopover level chip exclusivity (Task 3 Case 3)", () => {
 
 describe("ExercisePickerPopover lazy GIFs (Task 3 Case 4)", () => {
   it("every <img> rendered inside the picker carries loading='lazy'", () => {
+    // Distinct names so the same-name dedupe (exercise-dedupe.ts) keeps all
+    // three rows — real exercises never share a display name.
     const rows = [
-      makeRow({ id: "a", gifUrl: "https://example.com/a.gif" }),
-      makeRow({ id: "b", gifUrl: "https://example.com/b.gif" }),
-      makeRow({ id: "c", gifUrl: "https://example.com/c.gif" }),
+      makeRow({ id: "a", name: { en: "Exercise A", es: "Ejercicio A" }, gifUrl: "https://example.com/a.gif" }),
+      makeRow({ id: "b", name: { en: "Exercise B", es: "Ejercicio B" }, gifUrl: "https://example.com/b.gif" }),
+      makeRow({ id: "c", name: { en: "Exercise C", es: "Ejercicio C" }, gifUrl: "https://example.com/c.gif" }),
     ];
     mockUseExercisesQuery.mockReturnValue({
       data: rows,

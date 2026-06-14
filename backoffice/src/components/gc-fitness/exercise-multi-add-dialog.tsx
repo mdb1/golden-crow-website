@@ -34,6 +34,7 @@ import {
 } from "@/lib/gc-fitness/exercises-listener";
 import { searchExercises } from "@/lib/gc-fitness/exercise-search";
 import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
+import { dedupeExercisesByDisplayName } from "@/lib/gc-fitness/exercise-dedupe";
 
 import {
   ChipRow,
@@ -122,7 +123,9 @@ export function ExerciseMultiAddDialog({
   }
 
   const exercises = useMemo(
-    () => (data ?? []).filter(isPickableExercise),
+    // Collapse the double-seeded standard-library duplicates (numeric-id doc +
+    // its broken-media `std-*` twin) so each exercise appears once.
+    () => dedupeExercisesByDisplayName((data ?? []).filter(isPickableExercise)),
     [data],
   );
 

@@ -66,6 +66,11 @@ export const MUSCLE_PRESETS: readonly MusclePreset[] = [
     label: { en: "Core", es: "Core" },
     muscles: ["abs", "core"],
   },
+  {
+    id: "flexibility",
+    label: { en: "Stretching / Mobility", es: "Estiramiento / Movilidad" },
+    muscles: ["flexibility"],
+  },
 ];
 
 /** Expand a set of selected preset ids into the union of their muscle groups. */

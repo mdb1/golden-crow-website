@@ -87,6 +87,13 @@ describe("muscle presets", () => {
     expect(push.muscles).toEqual(expect.arrayContaining(["chest", "shoulders", "triceps"]));
   });
 
+  it("exposes a flexibility preset that builds a stretching-only routine", () => {
+    const flex = MUSCLE_PRESETS.find((p) => p.id === "flexibility")!;
+    expect(flex).toBeDefined();
+    expect(flex.muscles).toEqual(["flexibility"]);
+    expect(expandMusclePresets(["flexibility"])).toEqual(["flexibility"]);
+  });
+
   it("expandMusclePresets unions and dedupes", () => {
     const expanded = expandMusclePresets(["push", "pull"]);
     expect(expanded).toContain("chest");

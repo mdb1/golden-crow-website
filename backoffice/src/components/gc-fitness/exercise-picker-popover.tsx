@@ -86,6 +86,7 @@ import {
   normalizeSearchText,
 } from "@/lib/gc-fitness/exercise-search";
 import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
+import { dedupeExercisesByDisplayName } from "@/lib/gc-fitness/exercise-dedupe";
 // Re-export the legacy helper names so existing consumers that import them
 // from THIS component keep working (exercise-multi-add-dialog.tsx and the
 // legacy src/lib/gc-fitness/__tests__/exercise-picker-popover.test.tsx).
@@ -240,7 +241,11 @@ export function ExercisePickerPopover({
   // name-aware rank), THEN cap. The `<Command shouldFilter={false}>` below
   // disables cmdk's internal matcher so it renders exactly the rows we pass.
   const { visible, overflow } = useMemo(() => {
-    const live = (data ?? []).filter(isPickableExercise);
+    // Collapse the double-seeded standard-library duplicates so each exercise
+    // appears once (numeric-id doc wins over its broken-media `std-*` twin).
+    const live = dedupeExercisesByDisplayName(
+      (data ?? []).filter(isPickableExercise),
+    );
     const ranked = searchExercises(applyFilters(live, filters), search);
     // #297 — favorites always sort first (incl. in search results), then cap.
     const ordered = sortFavoritesFirst(ranked, (r) => r.id, favIds);
@@ -253,7 +258,9 @@ export function ExercisePickerPopover({
   // Kept for the empty-state branch: distinguishes "no rows in cache" from
   // "filters narrowed to zero".
   const liveCount = useMemo(
-    () => (data ?? []).filter(isPickableExercise).length,
+    () =>
+      dedupeExercisesByDisplayName((data ?? []).filter(isPickableExercise))
+        .length,
     [data],
   );
 
