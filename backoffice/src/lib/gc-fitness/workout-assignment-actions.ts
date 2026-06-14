@@ -219,6 +219,9 @@ function applyExerciseOverrides(
         notes?: string;
         weightBySetKg?: number[];
         repsBySet?: number[];
+        metric?: "reps" | "time";
+        durationBySetSeconds?: number[];
+        durationSeconds?: number;
       }>
     | undefined,
 ) {
@@ -245,6 +248,16 @@ function applyExerciseOverrides(
         : {}),
       ...(override.repsBySet !== undefined
         ? { repsBySet: override.repsBySet }
+        : {}),
+      // 26-03 — reps↔time at assignment time. Consumers branch on `metric`,
+      // so writing it (plus the per-set + fallback durations) is enough to
+      // switch an exercise to time-based; the stale reps array stays inert.
+      ...(override.metric !== undefined ? { metric: override.metric } : {}),
+      ...(override.durationBySetSeconds !== undefined
+        ? { durationBySetSeconds: override.durationBySetSeconds }
+        : {}),
+      ...(override.durationSeconds !== undefined
+        ? { durationSeconds: override.durationSeconds }
         : {}),
     };
   }

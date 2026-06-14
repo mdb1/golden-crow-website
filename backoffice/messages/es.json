@@ -1553,6 +1553,8 @@
       "exerciseOverridesRepsPlaceholder": "Reps",
       "exerciseOverridesKgPlaceholder": "Kg",
       "exerciseOverridesSeconds": "Segundos",
+      "exerciseOverridesMetricReps": "Por reps",
+      "exerciseOverridesMetricTime": "Por tiempo",
       "exerciseOverridesDurationPlaceholder": "60",
       "exerciseOverridesAddSet": "Agregar serie",
       "exerciseOverridesCopyToAll": "Copiar a todas",

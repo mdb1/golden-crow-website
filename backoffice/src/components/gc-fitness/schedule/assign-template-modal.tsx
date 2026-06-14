@@ -166,6 +166,11 @@ export function AssignTemplateModal({
         // template exercise's hasExplicitNoWeightPrescription; ON → the
         // override writes weightBySetKg: [] + hides the kg column.
         noWeight: boolean;
+        // The trainer can switch an exercise between reps- and time-based at
+        // assignment time. Undefined → inherit the template/exercise metric;
+        // set → the chosen metric. The override emits `metric` + per-set
+        // duration when this differs from the template's effective metric.
+        metric?: "reps" | "time";
       }
     >
   >({});
@@ -223,6 +228,7 @@ export function AssignTemplateModal({
             notes: string;
             setRows: Array<{ reps: string; kg: string; duration?: string }>;
             noWeight: boolean;
+            metric?: "reps" | "time";
           }>>((acc, exercise) => {
             // Reconstruct one row per prescribed set. Pull reps from
             // repsBySet[i] if present, otherwise from the exercise-level
@@ -315,8 +321,13 @@ export function AssignTemplateModal({
         if (!draft) return null;
 
         // 26-03 — effective metric per PATTERNS.md §17 + Shared 1.
-        const effectiveMetric: "reps" | "time" =
+        // The trainer's per-assignment toggle (draft.metric) wins over the
+        // template's metric; falls back to template ?? source ?? "reps".
+        const templateMetric: "reps" | "time" =
           exercise.metric ?? exercise.sourceMetric ?? "reps";
+        const effectiveMetric: "reps" | "time" =
+          draft.metric ?? templateMetric;
+        const changedMetric = effectiveMetric !== templateMetric;
 
         // setRows → reps[] + kg[] + sets count, cleaning non-finite entries.
         const repsBySet = draft.setRows
@@ -412,7 +423,8 @@ export function AssignTemplateModal({
           !changedRest &&
           !changedTransitionRest &&
           !changedNotes &&
-          !changedDurations
+          !changedDurations &&
+          !changedMetric
         ) {
           return null;
         }
@@ -442,9 +454,18 @@ export function AssignTemplateModal({
               }
             : {}),
           ...(changedNotes ? { notes: nextNotes } : {}),
-          // 26-03 — Duration override write (time exercises only).
-          ...(effectiveMetric === "time" && changedDurations
-            ? { durationBySetSeconds: finalDurationBySetSeconds }
+          // Emit the chosen metric when the trainer flipped reps↔time so the
+          // assignment snapshot carries the new metric (consumers branch on it).
+          ...(changedMetric ? { metric: effectiveMetric } : {}),
+          // 26-03 — Duration override write (time exercises only). Also writes
+          // on a reps→time flip (base durations are empty → changedDurations).
+          // durationSeconds is the exercise-level fallback (the time analog of
+          // `reps`) so the snapshot satisfies "metric=time needs a duration".
+          ...(effectiveMetric === "time" && (changedDurations || changedMetric)
+            ? {
+                durationBySetSeconds: finalDurationBySetSeconds,
+                durationSeconds: finalDurationBySetSeconds[0] ?? 60,
+              }
             : {}),
         };
       })
@@ -471,6 +492,32 @@ export function AssignTemplateModal({
       return {
         ...prev,
         [exerciseIndex]: { ...cur, setRows: next },
+      };
+    });
+  }
+
+  // Flip an exercise between reps- and time-based at assignment time. When
+  // switching to "time", seed each set row's `duration` (so the seconds inputs
+  // start populated instead of empty); `fallbackDuration` is the template's
+  // exercise-level duration when present, else 60s.
+  function setExerciseMetric(
+    exerciseIndex: number,
+    metric: "reps" | "time",
+    fallbackDuration: number,
+  ) {
+    setOverrideDrafts((prev) => {
+      const cur = prev[exerciseIndex];
+      if (!cur) return prev;
+      const setRows =
+        metric === "time"
+          ? cur.setRows.map((row) => ({
+              ...row,
+              duration: row.duration ?? String(fallbackDuration),
+            }))
+          : cur.setRows;
+      return {
+        ...prev,
+        [exerciseIndex]: { ...cur, metric, setRows },
       };
     });
   }
@@ -914,9 +961,10 @@ export function AssignTemplateModal({
               if (!draft) return null;
               // 26-03 — effective metric cascade per PATTERNS.md §17.
               // Drives the SEGUNDOS↔REPS header swap + per-row input
-              // field bind below.
+              // field bind below. The trainer's per-assignment toggle
+              // (draft.metric) wins over the template's metric.
               const effectiveMetric: "reps" | "time" =
-                exercise.metric ?? exercise.sourceMetric ?? "reps";
+                draft.metric ?? exercise.metric ?? exercise.sourceMetric ?? "reps";
               const group = exercise.supersetGroup ?? null;
               const prevGroup =
                 idx > 0
@@ -981,6 +1029,50 @@ export function AssignTemplateModal({
                       >
                         {t("exerciseOverridesNoWeight")}
                       </button>
+                      {/* Reps↔time toggle — lets the trainer switch this
+                          exercise to time-based (seconds/holds, e.g. for
+                          stretches) at assignment time, regardless of the
+                          template's metric. */}
+                      <div className="inline-flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-pressed={effectiveMetric === "reps"}
+                          onClick={() =>
+                            setExerciseMetric(
+                              exercise.index,
+                              "reps",
+                              exercise.durationSeconds ?? 60,
+                            )
+                          }
+                          className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-medium ${
+                            effectiveMetric === "reps"
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                          }`}
+                        >
+                          {t("exerciseOverridesMetricReps")}
+                        </button>
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-pressed={effectiveMetric === "time"}
+                          onClick={() =>
+                            setExerciseMetric(
+                              exercise.index,
+                              "time",
+                              exercise.durationSeconds ?? 60,
+                            )
+                          }
+                          className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-medium ${
+                            effectiveMetric === "time"
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+                          }`}
+                        >
+                          {t("exerciseOverridesMetricTime")}
+                        </button>
+                      </div>
                     </div>
                     <div className="min-w-0 sm:w-[16rem]">
                       <label className="min-w-0 text-[11px] font-medium text-muted-foreground">
