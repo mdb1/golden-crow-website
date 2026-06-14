@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Pencil,
   Play,
+  Repeat,
   Trash2,
   User,
 } from "lucide-react";
@@ -53,6 +54,7 @@ import {
 import { WorkoutLogDetailView } from "@/components/gc-fitness/workout-log-detail-view";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 import { WorkoutAssignmentEditDialog } from "./workout-assignment-edit-dialog";
+import { WorkoutRecurrenceEditDialog } from "./workout-recurrence-edit-dialog";
 
 interface WorkoutDetailDialogProps {
   open: boolean;
@@ -105,6 +107,7 @@ export function WorkoutDetailDialog({
 }: WorkoutDetailDialogProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["assignment-detail", assignmentId],
@@ -132,8 +135,17 @@ export function WorkoutDetailDialog({
     if (!open) {
       setDeleteOpen(false);
       setEditOpen(false);
+      setRecurrenceOpen(false);
     }
   }, [open]);
+
+  // "Editar recurrencia" only applies to a recurring series (seriesId set) that
+  // still has upcoming occurrences — i.e. scheduled or started, not a finished
+  // (completed/missed) one. Single assignments have no recurrence to change.
+  const canEditRecurrence =
+    Boolean(data?.seriesId) &&
+    data?.status !== "completed" &&
+    data?.status !== "missed";
 
   return (
     <>
@@ -226,6 +238,17 @@ export function WorkoutDetailDialog({
                 </Link>
               </Button>
             ) : null}
+            {canEditRecurrence ? (
+              <Button
+                variant="outline"
+                disabled={!data || isLoading}
+                onClick={() => setRecurrenceOpen(true)}
+                className="gap-1"
+              >
+                <Repeat className="size-4" />
+                Editar recurrencia
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               disabled={!data || isLoading}
@@ -255,6 +278,21 @@ export function WorkoutDetailDialog({
           assignmentId={data.id}
           onSaved={() => {
             setEditOpen(false);
+            onOpenChange(false);
+            onDeleted();
+          }}
+        />
+      ) : null}
+
+      {data && recurrenceOpen ? (
+        <WorkoutRecurrenceEditDialog
+          open={recurrenceOpen}
+          onOpenChange={(o) => setRecurrenceOpen(o)}
+          assignmentId={data.id}
+          scheduledFor={data.scheduledFor}
+          recurrence={data.recurrence}
+          onSaved={() => {
+            setRecurrenceOpen(false);
             onOpenChange(false);
             onDeleted();
           }}
