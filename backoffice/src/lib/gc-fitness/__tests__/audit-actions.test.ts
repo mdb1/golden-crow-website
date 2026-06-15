@@ -12,12 +12,10 @@ jest.mock("@/lib/gc-fitness/auth-helpers", () => ({
 }));
 
 const mockCollection = jest.fn();
-const mockGetAll = jest.fn();
 
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: jest.fn(() => ({
     collection: mockCollection,
-    getAll: mockGetAll,
   })),
   gcFitnessAuth: jest.fn(),
 }));
@@ -147,20 +145,19 @@ beforeEach(() => {
       where: () => builder,
       limit: () => builder,
       get: () => (queryGet[name] ? queryGet[name]() : Promise.resolve({ docs: [] })),
-      doc: (id: string) => ({ id, __col: name }),
+      // resolveUsers now point-reads each referenced user via `.doc(id).get()`
+      // (no getAll/batchGet — see audit-actions.ts).
+      doc: (id: string) => ({
+        id,
+        get: async () => ({
+          id,
+          exists: usersById.has(id),
+          data: () => usersById.get(id) ?? {},
+        }),
+      }),
     };
     return builder;
   });
-
-  mockGetAll.mockImplementation((...refs: Array<{ id: string }>) =>
-    Promise.resolve(
-      refs.map((r) => ({
-        id: r.id,
-        exists: usersById.has(r.id),
-        data: () => usersById.get(r.id) ?? {},
-      })),
-    ),
-  );
 });
 
 describe("listAuditTimeline", () => {
