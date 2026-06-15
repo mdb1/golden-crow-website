@@ -63,6 +63,42 @@ function safeString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+/**
+ * Firestore rejects document IDs matching `/^__.*__$/` ("reserved"). The shared
+ * standard workout templates use the `__standard__` sentinel as their owner
+ * (`trainerId: "__standard__"`), so resolving one through
+ * `db.collection('users').doc(trainerId)` throws
+ *   `INVALID_ARGUMENT: Resource id "__standard__" is invalid because it is reserved`
+ * — which previously killed the ENTIRE hygiene scan (all four loaders run under
+ * one `Promise.all`).
+ *
+ * Treat any reserved owner/reference id as a VALID system owner: never
+ * point-read it (that throws) and never flag it as an orphan (a `__standard__`
+ * template is legitimately system-owned, not structurally broken).
+ */
+function isReservedId(value: string | null | undefined): boolean {
+  return typeof value === "string" && /^__.+__$/.test(value);
+}
+
+/**
+ * Resolve a referenced user by id through `cache`, falling back to a single
+ * point read (cached). Returns the sentinel `"reserved"` for Firestore reserved
+ * ids (e.g. `__standard__`) so callers skip the existence/role validation
+ * instead of point-reading (which throws) or false-flagging it as missing.
+ */
+async function resolveUserRef(
+  db: FirebaseFirestore.Firestore,
+  cache: Map<string, Record<string, unknown> | null>,
+  id: string,
+): Promise<Record<string, unknown> | null | "reserved"> {
+  if (isReservedId(id)) return "reserved";
+  if (cache.has(id)) return cache.get(id) ?? null;
+  const snap = await db.collection(FirestoreCollections.users).doc(id).get();
+  const data = snap.exists ? (snap.data() as Record<string, unknown>) : null;
+  cache.set(id, data);
+  return data;
+}
+
 function normalizeScanSort(iso: string | null): string {
   return iso ?? "";
 }
@@ -166,7 +202,7 @@ async function loadUserAnomalies(): Promise<DataHygieneRow[]> {
     if (role === "client") {
       if (!coachId) {
         issues.push("Missing coachId");
-      } else {
+      } else if (!isReservedId(coachId)) {
         let coach = liveByUid.get(coachId);
         if (!coach) {
           const coachSnap = await db.collection(FirestoreCollections.users).doc(coachId).get();
@@ -236,35 +272,25 @@ async function loadChatAnomalies(): Promise<DataHygieneRow[]> {
     if (!clientId) {
       issues.push("Missing clientId");
     } else {
-      let clientDoc = userMap.get(clientId) ?? null;
-      if (!clientDoc) {
-        const clientSnap = await db.collection(FirestoreCollections.users).doc(clientId).get();
-        clientDoc = clientSnap.exists ? (clientSnap.data() as Record<string, unknown>) : null;
-        if (clientDoc) {
-          userMap.set(clientId, clientDoc);
+      const clientDoc = await resolveUserRef(db, userMap, clientId);
+      if (clientDoc !== "reserved") {
+        if (!clientDoc) {
+          issues.push("Client doc missing");
+        } else if (clientDoc.role !== "client") {
+          issues.push("Client doc has the wrong role");
         }
-      }
-      if (!clientDoc) {
-        issues.push("Client doc missing");
-      } else if (clientDoc.role !== "client") {
-        issues.push("Client doc has the wrong role");
       }
     }
     if (!coachId) {
       issues.push("Missing coachId");
     } else {
-      let coachDoc = userMap.get(coachId) ?? null;
-      if (!coachDoc) {
-        const coachSnap = await db.collection(FirestoreCollections.users).doc(coachId).get();
-        coachDoc = coachSnap.exists ? (coachSnap.data() as Record<string, unknown>) : null;
-        if (coachDoc) {
-          userMap.set(coachId, coachDoc);
+      const coachDoc = await resolveUserRef(db, userMap, coachId);
+      if (coachDoc !== "reserved") {
+        if (!coachDoc) {
+          issues.push("Coach doc missing");
+        } else if (coachDoc.role !== "trainer") {
+          issues.push("Coach doc has the wrong role");
         }
-      }
-      if (!coachDoc) {
-        issues.push("Coach doc missing");
-      } else if (coachDoc.role !== "trainer") {
-        issues.push("Coach doc has the wrong role");
       }
     }
     if (!safeString(data.createdAt) && !toIso(data.createdAt)) {
@@ -334,18 +360,13 @@ async function loadPhotoAnomalies(): Promise<DataHygieneRow[]> {
     if (!clientId) {
       issues.push("Missing clientId");
     } else {
-      let clientDoc = userMap.get(clientId) ?? null;
-      if (!clientDoc) {
-        const clientSnap = await db.collection(FirestoreCollections.users).doc(clientId).get();
-        clientDoc = clientSnap.exists ? (clientSnap.data() as Record<string, unknown>) : null;
-        if (clientDoc) {
-          userMap.set(clientId, clientDoc);
+      const clientDoc = await resolveUserRef(db, userMap, clientId);
+      if (clientDoc !== "reserved") {
+        if (!clientDoc) {
+          issues.push("Client doc missing");
+        } else if (clientDoc.role !== "client") {
+          issues.push("Client doc has the wrong role");
         }
-      }
-      if (!clientDoc) {
-        issues.push("Client doc missing");
-      } else if (clientDoc.role !== "client") {
-        issues.push("Client doc has the wrong role");
       }
     }
     if (!storagePath) {
@@ -401,18 +422,15 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     if (!trainerId) {
       issues.push("Missing trainerId");
     } else {
-      let trainerDoc = userMap.get(trainerId) ?? null;
-      if (!trainerDoc) {
-        const trainerSnap = await db.collection(FirestoreCollections.users).doc(trainerId).get();
-        trainerDoc = trainerSnap.exists ? (trainerSnap.data() as Record<string, unknown>) : null;
-        if (trainerDoc) {
-          userMap.set(trainerId, trainerDoc);
+      const trainerDoc = await resolveUserRef(db, userMap, trainerId);
+      // "reserved" → the `__standard__` system owner of a shared standard
+      // template; legitimately not a real trainer doc, so not an anomaly.
+      if (trainerDoc !== "reserved") {
+        if (!trainerDoc) {
+          issues.push("Trainer doc missing");
+        } else if (trainerDoc.role !== "trainer") {
+          issues.push("Trainer doc has the wrong role");
         }
-      }
-      if (!trainerDoc) {
-        issues.push("Trainer doc missing");
-      } else if (trainerDoc.role !== "trainer") {
-        issues.push("Trainer doc has the wrong role");
       }
     }
     if (issues.length === 0) continue;
@@ -436,35 +454,25 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     if (!trainerId) {
       issues.push("Missing trainerId");
     } else {
-      let trainerDoc = userMap.get(trainerId) ?? null;
-      if (!trainerDoc) {
-        const trainerSnap = await db.collection(FirestoreCollections.users).doc(trainerId).get();
-        trainerDoc = trainerSnap.exists ? (trainerSnap.data() as Record<string, unknown>) : null;
-        if (trainerDoc) {
-          userMap.set(trainerId, trainerDoc);
+      const trainerDoc = await resolveUserRef(db, userMap, trainerId);
+      if (trainerDoc !== "reserved") {
+        if (!trainerDoc) {
+          issues.push("Trainer doc missing");
+        } else if (trainerDoc.role !== "trainer") {
+          issues.push("Trainer doc has the wrong role");
         }
-      }
-      if (!trainerDoc) {
-        issues.push("Trainer doc missing");
-      } else if (trainerDoc.role !== "trainer") {
-        issues.push("Trainer doc has the wrong role");
       }
     }
     if (!clientId) {
       issues.push("Missing clientId");
     } else {
-      let clientDoc = userMap.get(clientId) ?? null;
-      if (!clientDoc) {
-        const clientSnap = await db.collection(FirestoreCollections.users).doc(clientId).get();
-        clientDoc = clientSnap.exists ? (clientSnap.data() as Record<string, unknown>) : null;
-        if (clientDoc) {
-          userMap.set(clientId, clientDoc);
+      const clientDoc = await resolveUserRef(db, userMap, clientId);
+      if (clientDoc !== "reserved") {
+        if (!clientDoc) {
+          issues.push("Client doc missing");
+        } else if (clientDoc.role !== "client") {
+          issues.push("Client doc has the wrong role");
         }
-      }
-      if (!clientDoc) {
-        issues.push("Client doc missing");
-      } else if (clientDoc.role !== "client") {
-        issues.push("Client doc has the wrong role");
       }
     }
     if (issues.length === 0) continue;
@@ -490,22 +498,19 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     if (!trainerId) {
       issues.push("Missing trainerId");
     } else {
-      let trainerDoc = userMap.get(trainerId) ?? null;
-      if (!trainerDoc) {
-        const trainerSnap = await db.collection(FirestoreCollections.users).doc(trainerId).get();
-        trainerDoc = trainerSnap.exists ? (trainerSnap.data() as Record<string, unknown>) : null;
-        if (trainerDoc) {
-          userMap.set(trainerId, trainerDoc);
+      const trainerDoc = await resolveUserRef(db, userMap, trainerId);
+      if (trainerDoc !== "reserved") {
+        if (!trainerDoc) {
+          issues.push("Trainer doc missing");
+        } else if (trainerDoc.role !== "trainer") {
+          issues.push("Trainer doc has the wrong role");
         }
-      }
-      if (!trainerDoc) {
-        issues.push("Trainer doc missing");
-      } else if (trainerDoc.role !== "trainer") {
-        issues.push("Trainer doc has the wrong role");
       }
     }
     if (!clientId) {
       issues.push("Missing clientId");
+    } else if (isReservedId(clientId)) {
+      // System sentinel owner — not an anomaly.
     } else if (!userMap.has(clientId)) {
       issues.push("Client doc missing");
     } else if (userMap.get(clientId)?.role !== "client") {
@@ -545,6 +550,8 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     if (source === "trainer") {
       if (!ownerId) {
         issues.push("Missing ownerId");
+      } else if (isReservedId(ownerId)) {
+        // System/standard-library sentinel owner — not an anomaly.
       } else if (!userMap.has(ownerId)) {
         issues.push("Trainer doc missing");
       } else if (userMap.get(ownerId)?.role !== "trainer") {
