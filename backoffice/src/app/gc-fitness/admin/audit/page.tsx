@@ -50,6 +50,7 @@ const SOURCE_OPTIONS: Array<{ value: "all" | AuditSource; label: string }> = [
   { value: "all", label: "All sources" },
   { value: "coach_activity", label: "Coach activity" },
   { value: "admin_operations", label: "Admin operations" },
+  { value: "audit_log", label: "Firestore writes (audit log)" },
 ];
 
 function str(value: string | string[] | undefined): string {
@@ -94,7 +95,9 @@ export default async function AuditPage({
   const tab = str(sp.tab) === "deletions" ? "deletions" : "timeline";
   const source = (() => {
     const v = str(sp.source);
-    return v === "coach_activity" || v === "admin_operations" ? v : "all";
+    return v === "coach_activity" || v === "admin_operations" || v === "audit_log"
+      ? v
+      : "all";
   })();
   const action = (() => {
     const v = str(sp.action);

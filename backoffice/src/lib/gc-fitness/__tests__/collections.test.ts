@@ -54,6 +54,10 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
     expect(FirestoreCollections.appConfig).toBe("app_config");
   });
 
+  it("auditLog is 'audit_log' (#312 PR2 — server/functions-only, no Swift twin)", () => {
+    expect(FirestoreCollections.auditLog).toBe("audit_log");
+  });
+
   it("every value is lowercase snake_case", () => {
     for (const [key, value] of Object.entries(FirestoreCollections)) {
       expect(value).toBe(value.toLowerCase());

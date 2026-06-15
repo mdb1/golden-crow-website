@@ -17,10 +17,19 @@
 //                          transfer) with `actorUid`, `mode`, `status`,
 //                          `summary`, `errorMessage`.
 //
-// SCOPE (PR1): a read-only dashboard over what is ALREADY logged. It is blind to
-// raw Firestore-console edits, maintenance-script writes, and direct iOS/Android
-// client writes — capturing those needs the Cloud Functions `audit_log` layer,
-// which is a deliberate FOLLOW-UP (PR2). No new collections, no new indexes.
+//   - `audit_log`        — (PR2) the immutable DB-layer trail written by the
+//                          `onAuditableWrite` Cloud Functions: one entry per
+//                          create/update/delete on a monitored collection,
+//                          capturing raw Firestore-console edits, maintenance-
+//                          script writes, and direct iOS/Android client writes
+//                          that the two app-level trails above are blind to.
+//                          Its actor is "system" (background triggers have no
+//                          auth context; a best-effort `actorUid` may still be
+//                          stamped on the doc).
+//
+// No new indexes (single-field range + matching orderBy per source). audit_log
+// can be high-volume (max-fidelity capture), so it is read newest-first under
+// the same bounded per-source cap as the other two.
 //
 // Query strategy: a date range (when set) is applied IN-QUERY on the single time
 // field (`occurredAt` / `createdAt`) — a single-field range + matching orderBy
@@ -37,7 +46,7 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 
-export type AuditSource = "coach_activity" | "admin_operations";
+export type AuditSource = "coach_activity" | "admin_operations" | "audit_log";
 
 export type AuditAction =
   | "create"
@@ -55,8 +64,12 @@ export interface AuditEntry {
   actorUid: string | null;
   actorName: string | null;
   actorEmail: string | null;
-  /** Who-kind: coach_activity events are coach actions; admin_operations are admin actions. */
-  actorRole: "coach" | "admin";
+  /**
+   * Who-kind: coach_activity events are coach actions; admin_operations are
+   * admin actions; audit_log is a DB-layer capture with no auth context, so its
+   * actor is "system" (best-effort actorUid may still be resolved from the doc).
+   */
+  actorRole: "coach" | "admin" | "system";
   /** Raw event/operation kind (e.g. "exercise", "delete_coach_cascade"). */
   kind: string;
   action: AuditAction;
@@ -318,6 +331,83 @@ async function fetchAdminOperationEntries(
   });
 }
 
+const OP_PAST: Record<string, string> = {
+  create: "Created",
+  update: "Updated",
+  delete: "Deleted",
+};
+
+/** "workout_assignments" → "workout assignment" (singular-ish, for titles). */
+function humanCollection(collection: string): string {
+  const spaced = collection.replace(/_/g, " ");
+  return spaced.endsWith("s") ? spaced.slice(0, -1) : spaced;
+}
+
+async function fetchAuditLogEntries(
+  db: Firestore,
+  from: Date | null,
+  to: Date | null,
+): Promise<
+  Array<{
+    id: string;
+    collection: string;
+    docId: string;
+    op: string;
+    changedFields: string[];
+    changedFieldCount: number;
+    actorUid: string | null;
+    clientId: string | null;
+    occurredAtISO: string | null;
+  }>
+> {
+  let q = db
+    .collection(FirestoreCollections.auditLog)
+    .orderBy("occurredAt", "desc") as FirebaseFirestore.Query;
+  if (from) q = q.where("occurredAt", ">=", Timestamp.fromDate(from));
+  if (to) q = q.where("occurredAt", "<=", Timestamp.fromDate(to));
+  const snap = await q
+    .limit(PER_SOURCE_CAP)
+    .get()
+    .catch((err) => {
+      console.warn("[gc-fitness/audit] audit_log query failed", err);
+      return null;
+    });
+  if (!snap) return [];
+
+  return snap.docs.map((doc) => {
+    const data = doc.data() as {
+      collection?: string;
+      docId?: string;
+      op?: string;
+      changedFields?: unknown;
+      changedFieldCount?: number;
+      actorUid?: string | null;
+      clientId?: string | null;
+      occurredAt?: unknown;
+      eventTime?: unknown;
+    };
+    const changedFields = Array.isArray(data.changedFields)
+      ? data.changedFields.filter((f): f is string => typeof f === "string")
+      : [];
+    return {
+      id: `audit_log:${doc.id}`,
+      collection: typeof data.collection === "string" ? data.collection : "?",
+      docId: typeof data.docId === "string" ? data.docId : "?",
+      op: typeof data.op === "string" ? data.op : "update",
+      changedFields,
+      changedFieldCount:
+        typeof data.changedFieldCount === "number"
+          ? data.changedFieldCount
+          : changedFields.length,
+      actorUid: typeof data.actorUid === "string" ? data.actorUid : null,
+      clientId: typeof data.clientId === "string" ? data.clientId : null,
+      // `occurredAt` is the server write time; `eventTime` is the CloudEvent
+      // time — prefer occurredAt, fall back to eventTime.
+      occurredAtISO: toIso(data.occurredAt) ?? toIso(data.eventTime),
+    };
+  });
+}
+
 /** Batch-resolve uid → { name, email } from the users collection (chunked getAll). */
 async function resolveUsers(
   db: Firestore,
@@ -358,9 +448,10 @@ async function collectAuditEntries(
   to: Date | null,
 ): Promise<AuditEntry[]> {
   const db = gcFitnessFirestore();
-  const [coachRaw, adminRaw] = await Promise.all([
+  const [coachRaw, adminRaw, auditRaw] = await Promise.all([
     fetchCoachActivityEntries(db, from, to),
     fetchAdminOperationEntries(db, from, to),
+    fetchAuditLogEntries(db, from, to),
   ]);
 
   const uids = new Set<string>();
@@ -371,6 +462,10 @@ async function collectAuditEntries(
   for (const r of adminRaw) {
     if (r.actorUid) uids.add(r.actorUid);
     if (r.targetUid) uids.add(r.targetUid);
+  }
+  for (const r of auditRaw) {
+    if (r.actorUid) uids.add(r.actorUid);
+    if (r.clientId) uids.add(r.clientId);
   }
   const userById = await resolveUsers(db, uids);
 
@@ -420,6 +515,34 @@ async function collectAuditEntries(
       isDeletion: r.kind !== "transfer_client",
       status: r.status,
       mode: r.mode,
+    });
+  }
+
+  for (const r of auditRaw) {
+    const actor = r.actorUid ? userById.get(r.actorUid) : undefined;
+    const clientUser = r.clientId ? userById.get(r.clientId) : undefined;
+    const op = (["create", "update", "delete"].includes(r.op)
+      ? r.op
+      : "update") as AuditAction;
+    const fieldList = r.changedFields.slice(0, 8).join(", ");
+    const moreFields = r.changedFieldCount > 8 ? "…" : "";
+    entries.push({
+      id: r.id,
+      source: "audit_log",
+      occurredAtISO: r.occurredAtISO,
+      actorUid: r.actorUid,
+      actorName: actor?.name ?? null,
+      actorEmail: actor?.email ?? null,
+      actorRole: "system",
+      kind: r.collection,
+      action: op,
+      title: `${OP_PAST[r.op] ?? r.op} ${humanCollection(r.collection)}`,
+      detail: fieldList ? `${r.docId} · ${fieldList}${moreFields}` : r.docId,
+      clientId: r.clientId,
+      clientLabel: clientUser?.email ?? null,
+      isDeletion: r.op === "delete",
+      status: null,
+      mode: null,
     });
   }
 

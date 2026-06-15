@@ -267,3 +267,82 @@ describe("listDeletionHistory", () => {
     expect(rows.map((r) => r.id)).toEqual(["coach_activity:asg:s1"]);
   });
 });
+
+describe("audit_log as a third source (#312 PR2)", () => {
+  // Default mock has no audit_log docs; each test seeds them so the existing
+  // coach_activity / admin_operations assertions above stay exact.
+  beforeEach(() => {
+    queryGet.audit_log = async () => ({
+      docs: [
+        doc("aud1", {
+          collection: "exercises",
+          docId: "ex-7",
+          op: "create",
+          changedFields: ["name", "trainerId"],
+          changedFieldCount: 2,
+          actorUid: null,
+          clientId: null,
+          occurredAt: ts("2026-06-15T13:00:00.000Z"),
+        }),
+        doc("aud2", {
+          collection: "users",
+          docId: "client1",
+          op: "update",
+          changedFields: ["coachId"],
+          changedFieldCount: 1,
+          actorUid: "admin1",
+          clientId: "client1",
+          occurredAt: ts("2026-06-15T11:30:00.000Z"),
+        }),
+        doc("aud3", {
+          collection: "workout_logs",
+          docId: "log-1",
+          op: "delete",
+          changedFields: ["sets", "status", "clientId", "totalVolumeKg", "prs"],
+          changedFieldCount: 5,
+          actorUid: null,
+          clientId: "client2",
+          occurredAt: ts("2026-06-09T10:00:00.000Z"),
+        }),
+      ],
+    });
+  });
+
+  it("maps audit_log docs to system-actor entries with op→action + resolved identities", async () => {
+    const rows = await listAuditTimeline();
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+
+    expect(byId["audit_log:aud1"].source).toBe("audit_log");
+    expect(byId["audit_log:aud1"].action).toBe("create");
+    expect(byId["audit_log:aud1"].actorRole).toBe("system");
+    expect(byId["audit_log:aud1"].title).toBe("Created exercise");
+    expect(byId["audit_log:aud1"].actorUid).toBeNull();
+
+    // Best-effort actorUid resolves to a user identity.
+    expect(byId["audit_log:aud2"].action).toBe("update");
+    expect(byId["audit_log:aud2"].title).toBe("Updated user");
+    expect(byId["audit_log:aud2"].actorName).toBe("Admin");
+    expect(byId["audit_log:aud2"].clientLabel).toBe("client1@x.com");
+    expect(byId["audit_log:aud2"].detail).toBe("client1 · coachId");
+
+    expect(byId["audit_log:aud3"].action).toBe("delete");
+    expect(byId["audit_log:aud3"].isDeletion).toBe(true);
+  });
+
+  it("source=audit_log returns only audit_log entries", async () => {
+    const rows = await listAuditTimeline({ source: "audit_log" });
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.source === "audit_log")).toBe(true);
+  });
+
+  it("deletion history includes audit_log deletes alongside the others", async () => {
+    const rows = await listDeletionHistory();
+    expect(rows.every((r) => r.isDeletion)).toBe(true);
+    expect(rows.map((r) => r.id).sort()).toEqual([
+      "admin_operations:op1",
+      "admin_operations:op3",
+      "audit_log:aud3",
+      "coach_activity:asg:s1",
+    ]);
+  });
+});
