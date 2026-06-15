@@ -47,6 +47,23 @@ describe("exerciseSchema", () => {
     expect(parsed.source).toBe("trainer");
   });
 
+  // 26-vol (#243) — bodyweightLoadFactor is optional/nullable, clamped 0..5.
+  it("accepts a bodyweightLoadFactor in range and rejects out-of-range / wrong type", () => {
+    expect(
+      exerciseSchema.parse({ ...VALID_INPUT, bodyweightLoadFactor: 0.64 })
+        .bodyweightLoadFactor,
+    ).toBe(0.64);
+    // Absent → undefined (optional); the listener/snapToRow normalizes to null.
+    expect(exerciseSchema.parse(VALID_INPUT).bodyweightLoadFactor).toBeUndefined();
+    expect(
+      exerciseSchema.safeParse({ ...VALID_INPUT, bodyweightLoadFactor: 6 }).success,
+    ).toBe(false);
+    expect(
+      exerciseSchema.safeParse({ ...VALID_INPUT, bodyweightLoadFactor: "0.5" })
+        .success,
+    ).toBe(false);
+  });
+
   // T2: nameEn empty → verbatim UI-SPEC copy
   it("rejects empty name.en with the exact UI-SPEC copy", () => {
     expect(firstError({ ...VALID_INPUT, name: { en: "", es: "x" } })).toBe(

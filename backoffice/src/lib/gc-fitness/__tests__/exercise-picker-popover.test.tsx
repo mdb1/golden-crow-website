@@ -100,6 +100,8 @@ function makeRow(overrides: Partial<ExerciseRow> = {}): ExerciseRow {
     // `metric` became a required ExerciseRow field (Phase 26-02); the fixture
     // predated it. Default to "reps"; `...overrides` can still flip it.
     metric: "reps",
+    // 26-vol (#243) — bodyweightLoadFactor is a required ExerciseRow field.
+    bodyweightLoadFactor: null,
     ...overrides,
   };
 }

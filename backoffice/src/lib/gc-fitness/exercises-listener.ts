@@ -128,6 +128,13 @@ export interface ExerciseRow {
    * active-workout UIs in 26-03 / 26-04.
    */
   metric: "reps" | "time";
+  /**
+   * 26-vol (#243) — fraction of the client's body weight this movement loads,
+   * for bodyweight-aware volume. `null`/absent = pure external load (free
+   * weights); `~1.0` = ~full body weight (pull-up, dip). Twin of iOS/Android
+   * `Exercise.bodyweightLoadFactor`.
+   */
+  bodyweightLoadFactor: number | null;
 }
 
 // Re-exported from a firebase-free module so non-listener call sites (e.g.
@@ -231,6 +238,12 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     force: typeof data.force === "string" ? data.force : null,
     // Phase 26-02 — forgiving fallback to "reps" on absent/unknown wire value.
     metric: data.metric === "time" ? "time" : "reps",
+    // 26-vol (#243) — forgiving: only a finite number survives; else null.
+    bodyweightLoadFactor:
+      typeof data.bodyweightLoadFactor === "number" &&
+      Number.isFinite(data.bodyweightLoadFactor)
+        ? data.bodyweightLoadFactor
+        : null,
   };
 }
 

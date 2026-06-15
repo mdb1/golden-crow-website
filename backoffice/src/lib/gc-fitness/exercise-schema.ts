@@ -196,6 +196,11 @@ export const exerciseSchema = z.object({
   ownerId: z.string().nullable(),
   version: z.number().int().min(1).default(1),
   metric: metricSchema,
+  // 26-vol (#243) — fraction of the client's body weight this movement loads,
+  // for bodyweight-aware volume. 0 (or absent) = pure external load (free
+  // weights/machines) → body weight contributes nothing; ~1.0 = ~full body
+  // weight (pull-up, dip). Twin of iOS/Android `Exercise.bodyweightLoadFactor`.
+  bodyweightLoadFactor: z.number().min(0).max(5).optional().nullable(),
 });
 
 // Partial — used by `updateExercise` which patches subsets of the shape.
