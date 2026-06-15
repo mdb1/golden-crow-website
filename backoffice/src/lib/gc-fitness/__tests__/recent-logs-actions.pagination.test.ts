@@ -241,8 +241,8 @@ describe("listRecentLogsForClient — omits unfinished workout logs", () => {
     const res = await listRecentLogsForClient("c1", null, 20);
 
     expect(res.logs).toHaveLength(1);
-    expect(res.logs[0].title).toContain("Workout completed");
-    expect(res.logs[0].title).not.toContain("Workout started");
+    expect(res.logs[0].title).toContain("Entrenamiento completado");
+    expect(res.logs[0].title).not.toContain("Entrenamiento iniciado");
   });
 });
 
