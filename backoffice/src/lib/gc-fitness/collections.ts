@@ -180,6 +180,20 @@ export const FirestoreCollections = {
    * `FirestoreCollections.appConfig` (same-commit invariant, Pitfall 7).
    */
   appConfig: "app_config",
+
+  /**
+   * Immutable Firestore-mutation audit trail (issue #312, PR2). One entry per
+   * create/update/delete on a monitored high-risk collection, written
+   * EXCLUSIVELY by the `onAuditableWrite` Cloud Functions (one onDocumentWritten
+   * trigger per monitored collection) via the Admin SDK. Captures the mutations
+   * the app-level `coach_activity` / `admin_operations` trails miss (raw console
+   * edits, maintenance-script writes, direct mobile-client writes). Read ONLY by
+   * the backoffice monitoring dashboard via the Admin SDK; firestore.rules denies
+   * all client access. No Swift twin — the iOS/watch surfaces never touch it (the
+   * functions repo uses a local `AUDIT_LOG_COLLECTION` string), same backoffice/
+   * server-only status as `adminOperations` / `coachAllowlist`.
+   */
+  auditLog: "audit_log",
 } as const;
 
 /**
