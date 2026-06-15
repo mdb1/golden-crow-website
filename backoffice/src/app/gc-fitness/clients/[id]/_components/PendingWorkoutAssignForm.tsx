@@ -198,7 +198,7 @@ export function PendingWorkoutAssignForm({
 
       {showWeekdays ? (
         <fieldset className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Weekdays</span>
+          <span className="font-medium">Días de la semana</span>
           <div className="flex flex-wrap gap-2">
             {WEEKDAYS.map((day) => (
               <label
