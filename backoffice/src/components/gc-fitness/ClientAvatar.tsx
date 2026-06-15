@@ -86,8 +86,17 @@ export function ClientAvatar({
     <div
       aria-hidden="true"
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 font-medium text-primary",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium",
         SIZE_CLASS[size],
+        // Initials-only styling (a photo covers the circle entirely, so photo
+        // avatars keep their bare look). The old `bg-primary/10` + `text-primary`
+        // was gold-on-gold: it vanished on the gold `bg-primary` chip these
+        // avatars render in when SELECTED (recent-logs / schedule / checklist
+        // client filters), and the translucent fill also blended into the
+        // `bg-muted` UNSELECTED chips. An opaque muted fill + foreground initials
+        // + an inset ring keep the initials legible and the circle delineated on
+        // white, gold, muted, and in dark mode — on any background.
+        !showImage && "bg-muted text-foreground ring-1 ring-inset ring-border",
         className,
       )}
     >
