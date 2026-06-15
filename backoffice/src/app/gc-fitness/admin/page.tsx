@@ -279,6 +279,21 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-xl">Monitoring &amp; observability</CardTitle>
+          <CardDescription>
+            Unified, time-ordered trail of coach actions and admin operations, plus a
+            deletion history (who removed what, and when) for incident traceability.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/gc-fitness/admin/audit">Open monitoring dashboard</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-xl">Data hygiene</CardTitle>
           <CardDescription>Scan for orphaned users, chats, images, workouts and other suspicious records.</CardDescription>
         </CardHeader>
