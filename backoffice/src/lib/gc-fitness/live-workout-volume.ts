@@ -6,23 +6,42 @@
 //
 // Volume contract (mirrors iOS):
 //   - WARMUP sets are EXCLUDED from total volume.
-//   - reps-based set:  weightKg * reps
-//   - time-based set:  weightKg * (durationSeconds / 60)   — a bodyweight
-//     plank (weightKg = 0) contributes 0, which is correct.
+//   - effective per-rep load = weightKg + bodyWeightKg × bodyweightLoadFactor
+//   - reps-based set:  effectiveLoad × reps
+//   - time-based set:  effectiveLoad × (durationSeconds / 60)
 //   A set counts as time-based when it carries a positive durationSeconds.
+//
+// 26-vol (#243) — bodyweight-aware volume. The per-exercise
+// `bodyweightLoadFactor` (0 = pure external load; ~1.0 = full body weight) and
+// the client's `bodyWeightKg` are OPTIONAL inputs: when omitted (or 0, or no
+// factor for an exercise), the math degrades EXACTLY to the previous
+// load-only behavior (a bodyweight push-up at 0 kg → 0). Forward-only: callers
+// pass real values only at finalize once the client has a logged body weight.
 
 import type { SessionSetLog } from "./live-workout-types";
 
-/** Σ working volume in kg. Warmups excluded; time sets use weight·minutes. */
-export function computeTotalVolumeKg(sets: SessionSetLog[]): number {
+/**
+ * Σ working volume in kg. Warmups excluded; time sets use load·minutes.
+ *
+ * @param bodyWeightKg client's body weight (0 → no body-weight contribution).
+ * @param bodyweightLoadFactorByExerciseId per-exercise fraction of body weight
+ *   the movement loads; missing exercise → 0 (pure external load).
+ */
+export function computeTotalVolumeKg(
+  sets: SessionSetLog[],
+  bodyWeightKg = 0,
+  bodyweightLoadFactorByExerciseId: Record<string, number> = {},
+): number {
   let total = 0;
   for (const set of sets) {
     if (set.isWarmup) continue;
+    const factor = bodyweightLoadFactorByExerciseId[set.exerciseId] ?? 0;
+    const effectiveLoad = set.weightKg + bodyWeightKg * factor;
     const duration = set.durationSeconds ?? 0;
     if (duration > 0) {
-      total += set.weightKg * (duration / 60);
+      total += effectiveLoad * (duration / 60);
     } else {
-      total += set.weightKg * set.reps;
+      total += effectiveLoad * set.reps;
     }
   }
   // Round to 2 decimals to avoid float dust on the wire (iOS stores a Double;

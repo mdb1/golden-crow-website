@@ -162,6 +162,10 @@ async function templateSnapshotForAssignment(
         Number.isFinite(transitionRestSecondsRaw)
           ? Math.max(0, Math.min(600, transitionRestSecondsRaw))
           : 60;
+      // 26-vol (#243) — denormalize the exercise's bodyweightLoadFactor into
+      // the frozen snapshot (like name/license) so workout finalize can compute
+      // bodyweight-aware volume without re-reading the live exercise doc.
+      const bodyweightLoadFactor = source?.bodyweightLoadFactor;
       return {
         ...exercise,
         transition_rest_seconds: transitionRestSeconds,
@@ -169,6 +173,10 @@ async function templateSnapshotForAssignment(
           (source?.name as { en: string; es: string } | undefined) ??
           ({ en: exerciseId, es: "" } as const),
         ...(source?.license ? { license: source.license } : {}),
+        ...(typeof bodyweightLoadFactor === "number" &&
+        Number.isFinite(bodyweightLoadFactor)
+          ? { bodyweightLoadFactor }
+          : {}),
       };
     }),
   };

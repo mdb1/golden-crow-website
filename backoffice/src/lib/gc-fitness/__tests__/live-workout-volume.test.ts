@@ -62,6 +62,46 @@ describe("computeTotalVolumeKg", () => {
       computeTotalVolumeKg([set({ weightKg: 10, durationSeconds: 100 })]),
     ).toBe(16.67);
   });
+
+  // 26-vol (#243) — bodyweight-aware volume.
+  describe("bodyweight-aware (#243)", () => {
+    it("adds bodyWeight × factor × reps for a bodyweight movement", () => {
+      // Pull-up: 80 kg bodyweight × 1.0 × 10 reps = 800.
+      const sets = [set({ exerciseId: "pullup", weightKg: 0, reps: 10 })];
+      expect(computeTotalVolumeKg(sets, 80, { pullup: 1.0 })).toBe(800);
+    });
+
+    it("adds the added weight on top of bodyweight load (weighted pull-up)", () => {
+      // (80 × 1.0 + 20) × 5 = 500.
+      const sets = [set({ exerciseId: "pullup", weightKg: 20, reps: 5 })];
+      expect(computeTotalVolumeKg(sets, 80, { pullup: 1.0 })).toBe(500);
+    });
+
+    it("uses the per-movement fraction (push-up ~0.64)", () => {
+      // 70 × 0.64 × 10 = 448.
+      const sets = [set({ exerciseId: "pushup", weightKg: 0, reps: 10 })];
+      expect(computeTotalVolumeKg(sets, 70, { pushup: 0.64 })).toBe(448);
+    });
+
+    it("counts a bodyweight time hold (plank) via load·minutes", () => {
+      // 70 × 0.6 × (120/60) = 84.
+      const sets = [
+        set({ exerciseId: "plank", weightKg: 0, durationSeconds: 120 }),
+      ];
+      expect(computeTotalVolumeKg(sets, 70, { plank: 0.6 })).toBe(84);
+    });
+
+    it("degrades to load-only when bodyWeight is 0 (no logged weight)", () => {
+      const sets = [set({ exerciseId: "pullup", weightKg: 0, reps: 10 })];
+      expect(computeTotalVolumeKg(sets, 0, { pullup: 1.0 })).toBe(0);
+    });
+
+    it("ignores bodyweight for a free-weight exercise with no factor", () => {
+      // Barbell row at 60 kg × 8, no factor entry → 480 (bodyweight irrelevant).
+      const sets = [set({ exerciseId: "row", weightKg: 60, reps: 8 })];
+      expect(computeTotalVolumeKg(sets, 80, {})).toBe(480);
+    });
+  });
 });
 
 describe("computeDurationSeconds", () => {
