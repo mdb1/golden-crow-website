@@ -93,7 +93,7 @@ export function PendingHabitPreloadForm({
             ))}
           </select>
           <span className="text-xs text-muted-foreground">
-            Si elegís un hábito existente, se ignoran los campos de abajo y se pre-carga ese template.
+            Si elegís un hábito existente, se ignoran los campos de abajo y se pre-carga esa plantilla.
           </span>
         </label>
       </div>

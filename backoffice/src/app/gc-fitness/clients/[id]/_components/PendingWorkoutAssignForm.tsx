@@ -75,13 +75,13 @@ export function PendingWorkoutAssignForm({
     <form ref={formRef} action={handleSubmit} className="flex flex-col gap-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Template</span>
+          <span className="font-medium">Plantilla</span>
           <select
             name="templateId"
             required
             className="rounded border bg-background px-3 py-2 text-sm"
           >
-            <option value="">Elegí un template…</option>
+            <option value="">Elegí una plantilla…</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}

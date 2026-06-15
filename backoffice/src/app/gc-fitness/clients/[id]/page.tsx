@@ -352,7 +352,7 @@ function PendingClientView({
           primera vez. Cuando lo haga con la cuenta de Google asociada a{" "}
           <code className="rounded bg-muted px-1 py-0.5">{email}</code>, se
           va a crear su perfil canónico automáticamente y vas a poder
-          asignarle workouts, hábitos, mandarle mensajes y ver su
+          asignarle entrenamientos, hábitos, mandarle mensajes y ver su
           progreso desde acá.
         </p>
       </section>
