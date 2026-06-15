@@ -717,7 +717,7 @@ async function buildRecentLogs(params: {
     snap.docs.forEach((doc) => {
       const data = doc.data();
       rows.push({ ...data, id: doc.id });
-      habitNames.set(doc.id, localizedText(data.name, "Habit"));
+      habitNames.set(doc.id, localizedText(data.name, "Hábito"));
     });
     habitsByClientId.set(client.uid, rows);
   });
@@ -733,7 +733,7 @@ async function buildRecentLogs(params: {
     const docs = await db.getAll(...refs);
     docs.forEach((doc) => {
       if (!doc.exists) return;
-      habitNames.set(doc.id, localizedText(doc.get("name"), "Habit"));
+      habitNames.set(doc.id, localizedText(doc.get("name"), "Hábito"));
     });
   }
 
@@ -876,8 +876,8 @@ async function buildRecentLogs(params: {
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
-      title: `${nameByClientId.get(clientId) ?? clientId} completed first sign-in`,
-      detail: "Pending client converted to active user",
+      title: `${nameByClientId.get(clientId) ?? clientId} completó su primer ingreso`,
+      detail: "Cliente pendiente convertido en usuario activo",
       workoutLogId: null,
     });
   });
@@ -900,19 +900,19 @@ async function buildRecentLogs(params: {
       const fieldLabels = changedFields.map((field) => {
         switch (field) {
           case "displayName":
-            return "name";
+            return "nombre";
           case "photoURL":
-            return "photo";
+            return "foto";
           case "birthDate":
-            return "birthday";
+            return "cumpleaños";
           default:
             return field;
         }
       });
       const detail =
         fieldLabels.length > 0
-          ? `Updated ${fieldLabels.join(", ")}`
-          : "Updated profile";
+          ? `Actualizó ${fieldLabels.join(", ")}`
+          : "Actualizó el perfil";
       rows.push({
         id: `profile:${clientId}:${doc.id}`,
         category: "profile",
@@ -920,7 +920,7 @@ async function buildRecentLogs(params: {
         clientId,
         clientName: nameByClientId.get(clientId) ?? clientId,
         clientPhotoURL: photoByClientId.get(clientId) ?? null,
-        title: `${nameByClientId.get(clientId) ?? clientId} - Profile updated`,
+        title: `${nameByClientId.get(clientId) ?? clientId} - Perfil actualizado`,
         detail,
         workoutLogId: null,
         profile: { changedFields },
@@ -960,7 +960,7 @@ async function buildRecentLogs(params: {
     if (!completedAt) return;
     const templateName = localizedText(
       (data.templateSnapshot as { name?: unknown } | undefined)?.name,
-      "Workout",
+      "Entrenamiento",
     );
     const sets = Array.isArray(data.sets) ? data.sets.length : 0;
     const snapshotExercises = (
@@ -984,7 +984,7 @@ async function buildRecentLogs(params: {
     const source =
       data.source === "coach" ? "coach" : "client";
     const setsLabel =
-      plannedSets > 0 ? `${sets}/${plannedSets} sets` : `${sets} sets`;
+      plannedSets > 0 ? `${sets}/${plannedSets} series` : `${sets} series`;
 
     rows.push({
       id: `workout:${doc.id}`,
@@ -993,7 +993,7 @@ async function buildRecentLogs(params: {
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
-      title: `${nameByClientId.get(clientId) ?? clientId} - Workout completed: ${templateName}`,
+      title: `${nameByClientId.get(clientId) ?? clientId} - Entrenamiento completado: ${templateName}`,
       detail: `${templateName} · ${setsLabel}`,
       workoutLogId: doc.id,
       workout: {
@@ -1031,7 +1031,7 @@ async function buildRecentLogs(params: {
     if (!eventAt) return;
     const templateName = localizedText(
       (data.templateSnapshot as { name?: unknown } | undefined)?.name,
-      "Workout",
+      "Entrenamiento",
     );
     const fromLabel = formatCivilDateEsAr(originallyScheduledFor);
     const toLabel = formatCivilDateEsAr(scheduledFor);
@@ -1042,8 +1042,8 @@ async function buildRecentLogs(params: {
       clientId,
       clientName: nameByClientId.get(clientId) ?? clientId,
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
-      title: `${nameByClientId.get(clientId) ?? clientId} moved ${templateName} from ${fromLabel} to ${toLabel}`,
-      detail: `Originally ${fromLabel} → ${toLabel}`,
+      title: `${nameByClientId.get(clientId) ?? clientId} movió ${templateName} de ${fromLabel} a ${toLabel}`,
+      detail: `Originalmente ${fromLabel} → ${toLabel}`,
       workoutLogId: null,
     });
   });
@@ -1089,7 +1089,7 @@ async function buildRecentLogs(params: {
     const seriesId = typeof data.seriesId === "string" ? data.seriesId : null;
     const templateName = localizedText(
       (data.templateSnapshot as { name?: unknown } | undefined)?.name,
-      "Workout",
+      "Entrenamiento",
     );
     const clientName = nameByClientId.get(clientId) ?? clientId;
 
@@ -1155,7 +1155,7 @@ async function buildRecentLogs(params: {
     if (!eventAt) return;
 
     const habitId = typeof data.habitId === "string" ? data.habitId : "";
-    const habitName = habitNames.get(habitId) ?? "Habit";
+    const habitName = habitNames.get(habitId) ?? "Hábito";
     const completed = boolCompleted(data.value);
     // Use the LOG's civilDate (not "today") so historical rows reflect
     // their own day's status — never today's. This was the BUG: a Tuesday
@@ -1171,12 +1171,12 @@ async function buildRecentLogs(params: {
     let titlePrefix = "";
     let titleSuffix = "";
     if (progress && isToday) {
-      titleSuffix = `. ${progress.done}/${progress.total} habits done today`;
+      titleSuffix = `. ${progress.done}/${progress.total} hábitos completados hoy`;
       if (isPerfectDay) titlePrefix = "🎯 ";
     } else if (isPerfectDay) {
       // Past day that hit 100% — celebrate, but no partial counts on history.
       titlePrefix = "🎯 ";
-      titleSuffix = `. All ${progress!.total} habits done that day`;
+      titleSuffix = `. Todos los ${progress!.total} hábitos completados ese día`;
     }
 
     // BACKDATED detection — the iOS app lets clients tick PAST-day habits, so a
@@ -1201,9 +1201,9 @@ async function buildRecentLogs(params: {
       clientName: nameByClientId.get(clientId) ?? clientId,
       clientPhotoURL: photoByClientId.get(clientId) ?? null,
       title: completed
-        ? `${titlePrefix}${nameByClientId.get(clientId) ?? clientId} completed: ${habitName}${titleSuffix}`
-        : `${nameByClientId.get(clientId) ?? clientId} updated: ${habitName}${titleSuffix}`,
-      detail: completed ? "Completed" : "Pending update",
+        ? `${titlePrefix}${nameByClientId.get(clientId) ?? clientId} completó: ${habitName}${titleSuffix}`
+        : `${nameByClientId.get(clientId) ?? clientId} actualizó: ${habitName}${titleSuffix}`,
+      detail: completed ? "Completado" : "Actualización pendiente",
       workoutLogId: null,
       forCivilDate,
     });
@@ -1282,7 +1282,7 @@ async function buildRecentLogs(params: {
       clientId: bucket.clientId,
       clientName: nameByClientId.get(bucket.clientId) ?? bucket.clientId,
       clientPhotoURL: photoByClientId.get(bucket.clientId) ?? null,
-      title: `${nameByClientId.get(bucket.clientId) ?? bucket.clientId} - Uploaded progress photos`,
+      title: `${nameByClientId.get(bucket.clientId) ?? bucket.clientId} - Subió fotos de progreso`,
       detail,
       workoutLogId: null,
     });
@@ -1306,7 +1306,7 @@ async function buildRecentLogs(params: {
         clientId: client.uid,
         clientName: nameByClientId.get(client.uid) ?? client.uid,
         clientPhotoURL: photoByClientId.get(client.uid) ?? null,
-        title: `${nameByClientId.get(client.uid) ?? client.uid} - Logged body weight`,
+        title: `${nameByClientId.get(client.uid) ?? client.uid} - Registró peso corporal`,
         detail: `${kg.toFixed(1)} kg`,
         workoutLogId: null,
       });
@@ -1708,7 +1708,7 @@ async function buildWorkoutLogDetail(
 
   const workoutName = localizedText(
     (data.templateSnapshot as { name?: unknown } | undefined)?.name,
-    "Workout",
+    "Entrenamiento",
   );
   const startedAt = asIso(data.startedAt);
   const completedAt = asIso(data.completedAt);
