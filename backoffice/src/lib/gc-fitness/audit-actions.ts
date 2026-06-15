@@ -408,32 +408,55 @@ async function fetchAuditLogEntries(
   });
 }
 
-/** Batch-resolve uid → { name, email } from the users collection (chunked getAll). */
+/**
+ * Firestore rejects document ids matching `/^__.*__$/` ("reserved"); the shared
+ * standard templates use the `__standard__` sentinel owner. `.doc("__standard__")`
+ * throws, so reserved ids are dropped before any point read (mirrors the
+ * data-hygiene scan's guard). See `firestore-reserved-id-standard-sentinel`.
+ */
+function isReservedId(value: string): boolean {
+  return /^__.+__$/.test(value);
+}
+
+/**
+ * Resolve uid → { name, email } from the users collection.
+ *
+ * Uses INDIVIDUAL point reads (`.doc(id).get()`), NOT `getAll`/batchGet. The
+ * batchGet streaming RPC proved unreliable in the Vercel serverless runtime — it
+ * rejected, the rejection was swallowed by the catch, and EVERY actor/client in
+ * the dashboard fell back to a raw uid (no names/emails ever resolved). The
+ * unary get path is the one the other admin readers (`listRecentCoachActivity`,
+ * the hygiene scan) use successfully in the same runtime. Unique uids per page
+ * are bounded (tens), so N parallel point reads are cheap. Each read is
+ * fail-soft so one bad id never blanks the rest.
+ */
 async function resolveUsers(
   db: Firestore,
   uids: Set<string>,
 ): Promise<Map<string, { name: string; email: string }>> {
   const out = new Map<string, { name: string; email: string }>();
-  const ids = Array.from(uids).filter((u) => u.length > 0);
+  const ids = Array.from(uids).filter((u) => u.length > 0 && !isReservedId(u));
   if (ids.length === 0) return out;
 
   const usersCol = db.collection(FirestoreCollections.users);
-  // getAll has no hard arg cap, but chunk defensively to keep request size sane.
-  for (let i = 0; i < ids.length; i += 200) {
-    const chunk = ids.slice(i, i + 200);
-    const refs = chunk.map((id) => usersCol.doc(id));
-    const snaps = await db.getAll(...refs).catch((err) => {
-      console.warn("[gc-fitness/audit] user resolve chunk failed", err);
-      return [] as FirebaseFirestore.DocumentSnapshot[];
+  const snaps = await Promise.all(
+    ids.map((id) =>
+      usersCol
+        .doc(id)
+        .get()
+        .catch((err) => {
+          console.warn(`[gc-fitness/audit] user resolve failed for ${id}`, err);
+          return null;
+        }),
+    ),
+  );
+  for (const snap of snaps) {
+    if (!snap || !snap.exists) continue;
+    const data = snap.data() as { displayName?: string; email?: string };
+    out.set(snap.id, {
+      name: (data.displayName ?? data.email ?? snap.id) || snap.id,
+      email: data.email ?? "",
     });
-    for (const snap of snaps) {
-      if (!snap.exists) continue;
-      const data = snap.data() as { displayName?: string; email?: string };
-      out.set(snap.id, {
-        name: (data.displayName ?? data.email ?? snap.id) || snap.id,
-        email: data.email ?? "",
-      });
-    }
   }
   return out;
 }
