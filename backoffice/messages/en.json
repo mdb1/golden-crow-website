@@ -901,7 +901,8 @@
       },
       "scope": "Scope",
       "scopeGlobal": "Global",
-      "scopeMine": "Mine"
+      "scopeMine": "Mine",
+      "assignmentCount": "{count, plural, one {# assignment} other {# assignments}}"
     },
     "detail": {
       "untitled": "(untitled)",

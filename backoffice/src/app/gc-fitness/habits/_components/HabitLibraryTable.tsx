@@ -14,6 +14,7 @@
 import { ImageIcon } from "lucide-react";
 import { useLocale, type useTranslations } from "next-intl";
 
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -50,6 +51,7 @@ export function HabitLibraryTable({
   emptyText,
   loadingText,
   onRowClick,
+  assignmentCounts,
 }: {
   templates: HabitTemplateRow[];
   isLoading: boolean;
@@ -57,6 +59,8 @@ export function HabitLibraryTable({
   emptyText: string;
   loadingText: string;
   onRowClick: (template: HabitTemplateRow) => void;
+  /** `templateId` → number of live assignments created from that template. */
+  assignmentCounts?: Record<string, number>;
 }) {
   const locale = useLocale();
   return (
@@ -101,6 +105,7 @@ export function HabitLibraryTable({
                 locale,
               );
               const isGlobal = tpl.scope === "global";
+              const assignmentCount = assignmentCounts?.[tpl.id] ?? 0;
               return (
                 <TableRow
                   key={tpl.id}
@@ -120,6 +125,13 @@ export function HabitLibraryTable({
                       </span>
                       {/* Recurrence is intentionally NOT shown here: it's a
                           per-assignment property, not a library/template one. */}
+                      {assignmentCount > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge variant="violet" className="font-normal">
+                            {t("assignmentCount", { count: assignmentCount })}
+                          </Badge>
+                        </div>
+                      ) : null}
                       {secondary ? (
                         <span className="text-xs text-muted-foreground">
                           {secondary}
