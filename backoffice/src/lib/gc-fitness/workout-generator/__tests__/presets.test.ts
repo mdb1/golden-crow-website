@@ -13,8 +13,10 @@ import {
   isGroupFullySelected,
 } from "@/lib/gc-fitness/workout-generator/equipment-groups";
 import {
+  MUSCLE_LABELS,
   MUSCLE_PRESETS,
   expandMusclePresets,
+  muscleLabelsCoverVocab,
   musclePresetsReferenceValidVocab,
 } from "@/lib/gc-fitness/workout-generator/muscle-presets";
 import {
@@ -99,6 +101,14 @@ describe("muscle presets", () => {
     expect(expanded).toContain("chest");
     expect(expanded).toContain("back");
     expect(new Set(expanded).size).toBe(expanded.length);
+  });
+
+  it("MUSCLE_LABELS covers every muscle group with both languages", () => {
+    expect(muscleLabelsCoverVocab()).toBe(true);
+    for (const m of MUSCLE_GROUPS) {
+      expect(MUSCLE_LABELS[m]?.en).toBeTruthy();
+      expect(MUSCLE_LABELS[m]?.es).toBeTruthy();
+    }
   });
 });
 

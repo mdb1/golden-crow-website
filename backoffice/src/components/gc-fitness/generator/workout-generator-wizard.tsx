@@ -40,6 +40,7 @@ import { TemplateForm } from "@/components/gc-fitness/template-form";
 
 import {
   EQUIPMENT_GROUPS,
+  MUSCLE_LABELS,
   MUSCLE_PRESETS,
   WORKOUT_TYPE_PRESETS,
   computeReplacements,
@@ -204,7 +205,9 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
     if (match) return match.label;
     if (muscles.size === 1) {
       const only = [...muscles][0];
-      return { en: humanize(only), es: humanize(only) };
+      // Use the bilingual muscle label so the generated workout name reads in
+      // the coach's language (e.g. "Cuádriceps · Hipertrofia"), not the raw id.
+      return MUSCLE_LABELS[only] ?? { en: humanize(only), es: humanize(only) };
     }
     return undefined;
   }, [muscles]);
