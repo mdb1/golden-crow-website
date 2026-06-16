@@ -202,6 +202,8 @@ export interface HabitRow {
   id: string;
   clientId: string;
   trainerId: string;
+  /** Back-link to the habit template this assignment was created from. */
+  sourceTemplateId?: string;
   type: HabitType;
   name: { en: string; es: string };
   description?: { en: string; es: string };
@@ -376,6 +378,10 @@ function projectHabitRow(
     id,
     clientId: resolvedClientId,
     trainerId: (data.trainerId as string) ?? "",
+    sourceTemplateId:
+      typeof data.sourceTemplateId === "string"
+        ? data.sourceTemplateId
+        : undefined,
     type: (data.type as HabitType) ?? "binary",
     name: (data.name as { en: string; es: string }) ?? { en: "", es: "" },
     description: data.description as { en: string; es: string } | undefined,

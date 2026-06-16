@@ -146,6 +146,7 @@ export function TemplatesLibraryClient({
   const queryClient = useQueryClient();
   // TODOS = the template list (default); Asignaciones = grouped by template.
   const [view, setView] = useState<"all" | "assignments">("all");
+  const [sortByAssignments, setSortByAssignments] = useState(false);
   const [tagFilter, setTagFilter] = useState("");
   const [mineOnly, setMineOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -259,8 +260,25 @@ export function TemplatesLibraryClient({
     // it stays pinned at the very top regardless of favorites.
     list = filterFavoritesOnly(list, (r) => r.id, favIds, favoritesOnly);
     list = sortFavoritesFirst(list, (r) => r.id, favIds);
+    // "Más asignaciones": stable-sort by today/future assignment-series count.
+    if (sortByAssignments) {
+      list = [...list].sort(
+        (a, b) =>
+          (assignmentCounts?.[b.id] ?? 0) - (assignmentCounts?.[a.id] ?? 0),
+      );
+    }
     return draftRow ? [draftRow, ...list] : list;
-  }, [data, mineOnly, trainerUid, tagFilter, draftRow, favIds, favoritesOnly]);
+  }, [
+    data,
+    mineOnly,
+    trainerUid,
+    tagFilter,
+    draftRow,
+    favIds,
+    favoritesOnly,
+    sortByAssignments,
+    assignmentCounts,
+  ]);
 
   const handlers = useMemo(
     () => ({
@@ -456,6 +474,19 @@ export function TemplatesLibraryClient({
             aria-hidden="true"
           />
           {tFilters("favoritesOnlyLabel")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSortByAssignments((v) => !v)}
+          aria-pressed={sortByAssignments}
+          className={cn(
+            "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            sortByAssignments
+              ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+              : "bg-muted/70 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {t("sortMostAssigned")}
         </button>
       </div>
 

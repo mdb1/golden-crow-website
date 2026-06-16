@@ -617,7 +617,8 @@
       "assignmentsEmpty": "No hay asignaciones próximas.",
       "assignmentsClientCount": "{count, plural, one {# cliente} other {# clientes}}",
       "assignmentsSessions": "{count, plural, one {# sesión} other {# sesiones}}",
-      "assignmentsNext": "Próxima: {date}"
+      "assignmentsNext": "Próxima: {date}",
+      "sortMostAssigned": "Más asignaciones"
     },
     "form": {
       "nameEn": "Nombre (inglés)",
@@ -741,6 +742,7 @@
       "bulkAssignCta": "Asignar a clientes",
       "tabAssignments": "Asignaciones",
       "tabLibrary": "TODOS",
+      "sortMostAssigned": "Más asignaciones",
       "libraryEmpty": "Aún no tenés hábitos en tu biblioteca.",
       "habitCreatedToast": "Hábito creado.",
       "detailTitle": "Detalle del hábito",
@@ -1105,7 +1107,8 @@
       "deletedToast": "Ejercicio eliminado.",
       "deleteFailedToast": "No se pudo eliminar. Probá de nuevo.",
       "duplicatedToast": "Ejercicio duplicado. Editá tu copia ahora.",
-      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo.",
+      "sortMostUsed": "Más usados"
     },
     "form": {
       "newPageHeading": "Nuevo ejercicio",

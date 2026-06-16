@@ -617,7 +617,8 @@
       "assignmentsEmpty": "No upcoming assignments.",
       "assignmentsClientCount": "{count, plural, one {# client} other {# clients}}",
       "assignmentsSessions": "{count, plural, one {# session} other {# sessions}}",
-      "assignmentsNext": "Next: {date}"
+      "assignmentsNext": "Next: {date}",
+      "sortMostAssigned": "Most assignments"
     },
     "form": {
       "nameEn": "Name (English)",
@@ -741,6 +742,7 @@
       "bulkAssignCta": "Assign to clients",
       "tabAssignments": "Assignments",
       "tabLibrary": "All",
+      "sortMostAssigned": "Most assignments",
       "libraryEmpty": "No habits in your library yet.",
       "habitCreatedToast": "Habit created.",
       "detailTitle": "Habit details",
@@ -1100,7 +1102,8 @@
       "deletedToast": "Exercise deleted.",
       "deleteFailedToast": "Couldn't delete. Please try again.",
       "duplicatedToast": "Exercise duplicated. Edit your copy now.",
-      "duplicateFailedToast": "Couldn't duplicate. Please try again."
+      "duplicateFailedToast": "Couldn't duplicate. Please try again.",
+      "sortMostUsed": "Most used"
     },
     "viewExercise": "View exercise",
     "empty": {
