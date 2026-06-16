@@ -1,17 +1,10 @@
 import type { Metadata } from "next";
 import { getLocale } from "next-intl/server";
-import { BookOpen, PlayCircle, Video } from "lucide-react";
+import { BookOpen, Video } from "lucide-react";
 
 import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
-import { Badge } from "@/components/ui/badge";
-import {
-  WIKI_COPY,
-  WIKI_GROUPS,
-  loomEmbedUrl,
-  loomShareUrl,
-  pick,
-  type WikiVideo,
-} from "./wiki-data";
+import { WIKI_COPY, WIKI_GROUPS, pick } from "./wiki-data";
+import { WikiSections } from "./wiki-sections";
 
 // The Coach Wiki is intentionally PUBLIC — no getCurrentTrainer() call, anyone
 // with the link can read it. It's added to HIDDEN_SHELL_PATHS so it renders
@@ -30,7 +23,7 @@ export default async function WikiPage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Standalone brand bar (this page has no coach sidebar). */}
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[1800px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-foreground shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -51,7 +44,7 @@ export default async function WikiPage() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Hero */}
         <div className="space-y-2">
           <p className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
@@ -85,29 +78,8 @@ export default async function WikiPage() {
             </div>
           </aside>
 
-          {/* Content */}
-          <main className="min-w-0 space-y-12">
-            {WIKI_GROUPS.map((group) => (
-              <section
-                key={group.id}
-                id={group.id}
-                className="scroll-mt-24 space-y-5"
-              >
-                <h2 className="font-heading text-lg font-bold sm:text-xl">
-                  {pick(locale, group.title)}
-                </h2>
-                <div className="space-y-6">
-                  {group.videos.map((video) => (
-                    <VideoCard key={video.id} video={video} locale={locale} />
-                  ))}
-                </div>
-              </section>
-            ))}
-
-            <p className="border-t border-border/70 pt-8 text-sm text-muted-foreground">
-              {t("footer")}
-            </p>
-          </main>
+          {/* Content — client island: only one video plays at a time. */}
+          <WikiSections locale={locale} />
         </div>
       </div>
     </div>
@@ -143,65 +115,3 @@ function Toc({ locale }: { locale: string }) {
   );
 }
 
-function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
-  const comingSoon = !video.loomId;
-  return (
-    <article
-      id={video.id}
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2 px-5 pt-5">
-        <div className="min-w-0">
-          <h3 className="font-heading text-base font-bold sm:text-lg">
-            {pick(locale, video.title)}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {pick(locale, video.description)}
-          </p>
-        </div>
-        {comingSoon ? (
-          <Badge variant="warning" className="shrink-0">
-            {pick(locale, WIKI_COPY.comingSoon)}
-          </Badge>
-        ) : null}
-      </div>
-
-      <div className="px-5 pb-5 pt-4">
-        {video.loomId ? (
-          <>
-            <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
-              <div className="aspect-video">
-                <iframe
-                  src={loomEmbedUrl(video.loomId)}
-                  title={pick(locale, video.title)}
-                  allowFullScreen
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full"
-                />
-              </div>
-            </div>
-            <a
-              href={loomShareUrl(video.loomId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              <PlayCircle className="h-4 w-4" />
-              {pick(locale, WIKI_COPY.openInLoom)}
-            </a>
-          </>
-        ) : (
-          <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-center">
-            <Video className="h-7 w-7 text-muted-foreground" />
-            <p className="text-sm font-medium">
-              {pick(locale, WIKI_COPY.comingSoon)}
-            </p>
-            <p className="max-w-xs px-4 text-xs text-muted-foreground">
-              {pick(locale, WIKI_COPY.comingSoonHint)}
-            </p>
-          </div>
-        )}
-      </div>
-    </article>
-  );
-}

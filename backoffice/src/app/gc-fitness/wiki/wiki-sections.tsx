@@ -1,0 +1,145 @@
+"use client";
+
+import { useState } from "react";
+import { Play, PlayCircle, Video } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import {
+  WIKI_COPY,
+  WIKI_GROUPS,
+  loomEmbedUrl,
+  loomShareUrl,
+  loomThumbnailUrl,
+  pick,
+  type WikiVideo,
+} from "./wiki-data";
+
+// Client island that owns the "only one video plays at a time" state. Each video
+// renders a lightweight click-to-play POSTER until activated; activating one sets
+// it as the single active id, which UNMOUNTS every other iframe — so nothing else
+// can keep playing. (It's also far lighter than mounting ~8 Loom iframes at once.)
+export function WikiSections({ locale }: { locale: string }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  return (
+    <main className="min-w-0 space-y-12">
+      {WIKI_GROUPS.map((group) => (
+        <section key={group.id} id={group.id} className="scroll-mt-24 space-y-5">
+          <h2 className="font-heading text-lg font-bold sm:text-xl">
+            {pick(locale, group.title)}
+          </h2>
+          <div className="grid gap-6 xl:grid-cols-2">
+            {group.videos.map((video) => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                locale={locale}
+                isActive={activeId === video.id}
+                onActivate={() => setActiveId(video.id)}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <p className="border-t border-border/70 pt-8 text-sm text-muted-foreground">
+        {pick(locale, WIKI_COPY.footer)}
+      </p>
+    </main>
+  );
+}
+
+function VideoCard({
+  video,
+  locale,
+  isActive,
+  onActivate,
+}: {
+  video: WikiVideo;
+  locale: string;
+  isActive: boolean;
+  onActivate: () => void;
+}) {
+  const comingSoon = !video.loomId;
+  const title = pick(locale, video.title);
+
+  return (
+    <article
+      id={video.id}
+      className="flex scroll-mt-24 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2 px-5 pt-5">
+        <div className="min-w-0">
+          <h3 className="font-heading text-base font-bold sm:text-lg">{title}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {pick(locale, video.description)}
+          </p>
+        </div>
+        {comingSoon ? (
+          <Badge variant="warning" className="shrink-0">
+            {pick(locale, WIKI_COPY.comingSoon)}
+          </Badge>
+        ) : null}
+      </div>
+
+      <div className="mt-auto px-5 pb-5 pt-4">
+        {video.loomId ? (
+          <>
+            {isActive ? (
+              <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
+                <div className="aspect-video">
+                  <iframe
+                    src={loomEmbedUrl(video.loomId, { autoplay: true })}
+                    title={title}
+                    allowFullScreen
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    className="absolute inset-0 h-full w-full"
+                  />
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onActivate}
+                aria-label={`${pick(locale, WIKI_COPY.openInLoom)} — ${title}`}
+                className="group relative block aspect-video w-full overflow-hidden rounded-xl border border-border bg-black bg-cover bg-center"
+                style={{
+                  backgroundImage: `url(${loomThumbnailUrl(video.loomId)})`,
+                }}
+              >
+                <span className="absolute inset-0 bg-black/30 transition-colors group-hover:bg-black/15" />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex size-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-105">
+                    <Play
+                      className="h-7 w-7 translate-x-0.5 text-black"
+                      fill="currentColor"
+                    />
+                  </span>
+                </span>
+              </button>
+            )}
+            <a
+              href={loomShareUrl(video.loomId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <PlayCircle className="h-4 w-4" />
+              {pick(locale, WIKI_COPY.openInLoom)}
+            </a>
+          </>
+        ) : (
+          <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-center">
+            <Video className="h-7 w-7 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              {pick(locale, WIKI_COPY.comingSoon)}
+            </p>
+            <p className="max-w-xs px-4 text-xs text-muted-foreground">
+              {pick(locale, WIKI_COPY.comingSoonHint)}
+            </p>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
