@@ -554,7 +554,8 @@
       "draftUntitled": "(untitled draft)",
       "draftBadgeTooltip": "Incomplete draft — cannot be assigned until completed",
       "draftResumeCta": "Continue draft",
-      "draftPendingLabel": "Draft"
+      "draftPendingLabel": "Draft",
+      "assignmentCount": "{count, plural, one {# assignment} other {# assignments}}"
     },
     "viewPage": {
       "standardBadge": "Standard",
@@ -1060,7 +1061,8 @@
       "duplicate": "Duplicate",
       "delete": "Delete",
       "wgerReadOnlyTooltip": "Library exercises are read-only. Duplicate to customize.",
-      "metricTimeBadgeTitle": "Time-based exercise"
+      "metricTimeBadgeTitle": "Time-based exercise",
+      "usageRoutines": "{count, plural, one {# routine} other {# routines}}"
     },
     "editPage": {
       "title": "Edit exercise",

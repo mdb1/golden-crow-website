@@ -554,7 +554,8 @@
       "draftUntitled": "(borrador sin título)",
       "draftBadgeTooltip": "Borrador incompleto — no se puede asignar hasta completarse",
       "draftResumeCta": "Continuar borrador",
-      "draftPendingLabel": "Borrador"
+      "draftPendingLabel": "Borrador",
+      "assignmentCount": "{count, plural, one {# asignación} other {# asignaciones}}"
     },
     "viewPage": {
       "standardBadge": "Standard",
@@ -1065,7 +1066,8 @@
       "duplicate": "Duplicar",
       "delete": "Eliminar",
       "wgerReadOnlyTooltip": "Los ejercicios de la biblioteca son de solo lectura. Duplicalos para personalizarlos.",
-      "metricTimeBadgeTitle": "Ejercicio por tiempo"
+      "metricTimeBadgeTitle": "Ejercicio por tiempo",
+      "usageRoutines": "{count, plural, one {# rutina} other {# rutinas}}"
     },
     "editPage": {
       "title": "Editar ejercicio",

@@ -61,6 +61,10 @@ import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 import { civilDateFormat } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
+import {
+  tallyTemplateAssignments,
+  type AssignmentForUsage,
+} from "./library-usage-counts";
 
 const TEMPLATES = FirestoreCollections.workoutTemplates;
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
@@ -2198,4 +2202,38 @@ export async function listAssignmentsForTrainerDay(
     id: string;
     data: () => Record<string, unknown>;
   }>).map(snapToRow);
+}
+
+/**
+ * Map of `templateId` → number of assignment series scheduled today or later,
+ * scoped to this trainer. A recurring assignment counts as ONE (collapsed by
+ * `seriesId`); past-only assignments are ignored. Powers the "N asignaciones"
+ * pill on the workout-template library rows.
+ *
+ * Index-light: a single `trainerId ==` equality (auto-indexed); the
+ * today/future filter + series collapse run in memory (see
+ * `tallyTemplateAssignments`). "Today" is the trainer's civil date.
+ */
+export async function countTemplateAssignments(): Promise<
+  Record<string, number>
+> {
+  const trainer = await getCurrentTrainer();
+  const tz = await getTrainerTimezone();
+  const today = civilDateFormat(new Date(), tz);
+  const db = gcFitnessFirestore();
+  const snap = await db
+    .collection(ASSIGNMENTS)
+    .where("trainerId", "==", trainer.uid)
+    .get();
+  const assignments: AssignmentForUsage[] = snap.docs.map((d) => {
+    const data = d.data() as Record<string, unknown>;
+    return {
+      id: d.id,
+      templateId: typeof data.templateId === "string" ? data.templateId : null,
+      scheduledFor:
+        typeof data.scheduledFor === "string" ? data.scheduledFor : null,
+      seriesId: typeof data.seriesId === "string" ? data.seriesId : null,
+    };
+  });
+  return tallyTemplateAssignments(assignments, today);
 }

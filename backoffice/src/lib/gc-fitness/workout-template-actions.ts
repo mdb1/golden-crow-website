@@ -40,6 +40,10 @@ import {
 import { FirestoreCollections } from "./collections";
 import { estimateTemplateDurationMinutesFromRaw } from "./workout-duration-estimate";
 import { resolveExerciseDocsById } from "./exercise-resolution";
+import {
+  tallyExerciseUsage,
+  type TemplateForUsage,
+} from "./library-usage-counts";
 
 const COLLECTION = FirestoreCollections.workoutTemplates;
 
@@ -584,4 +588,35 @@ function extractPreviewUrl(
   const pick = (raw: unknown): string | null =>
     typeof raw === "string" && raw.trim().length > 0 ? raw : null;
   return pick(source.gifUrl) ?? pick(source.imageUrl) ?? pick(source.thumbnailURL);
+}
+
+/**
+ * Map of `exerciseId` → number of templates that use it, across the trainer's
+ * own templates + the shared standard library (non-deleted). Powers the
+ * "in N routines" pill on the exercise-library rows. Reuses the same
+ * index-light ownership/standard queries as `listWorkoutTemplates`.
+ */
+export async function countExerciseTemplateUsage(): Promise<
+  Record<string, number>
+> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const [ownSnap, standardSnap] = await Promise.all([
+    db.collection(COLLECTION).where("trainerId", "==", trainer.uid).get(),
+    db.collection(COLLECTION).where("isStandard", "==", true).get(),
+  ]);
+  const dedup = new Map(
+    [...ownSnap.docs, ...standardSnap.docs].map((d) => [d.id, d]),
+  );
+  const templates: TemplateForUsage[] = [...dedup.values()].map((d) => {
+    const data = d.data() as Record<string, unknown>;
+    return {
+      id: d.id,
+      deleted: data.deleted === true,
+      exercises: Array.isArray(data.exercises)
+        ? (data.exercises as Array<{ exerciseId?: string | null }>)
+        : [],
+    };
+  });
+  return tallyExerciseUsage(templates);
 }
