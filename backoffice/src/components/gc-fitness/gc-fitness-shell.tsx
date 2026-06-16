@@ -176,7 +176,12 @@ export function GCFitnessShell({
   const coachName = trainerEmail ? deriveName(trainerEmail) : t("appName");
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      // Widen the collapsed (icon-only) rail from the shadcn default 3rem so the
+      // larger, touch-friendly 44px nav buttons (see SidebarNavLink) sit centered
+      // with breathing room instead of cramped 32px icons in a 48px strip.
+      style={{ "--sidebar-width-icon": "3.75rem" } as React.CSSProperties}
+    >
       <div className="gc-shell-bg flex min-h-screen w-full bg-background">
         <Sidebar collapsible="icon">
           <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-2">
@@ -313,7 +318,15 @@ function SidebarNavLink({
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
-    <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+    <SidebarMenuButton
+      asChild
+      isActive={isActive}
+      tooltip={label}
+      // Collapsed (icon-only) rail: bump the shadcn default 32px square button to
+      // a 44px circular hit target with a 20px icon so it's easy to tap and reads
+      // as a proper icon rail. Expanded state is unchanged.
+      className="group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:[&_svg]:size-5"
+    >
       <Link
         href={href}
         onClick={() => {
