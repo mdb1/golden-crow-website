@@ -129,12 +129,18 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
   it("T1: renders the core fields + Save + Cancel in create mode", () => {
     render(<ExerciseForm mode="create" />);
 
-    expect(screen.getByLabelText(/name \(english\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/description \(english\)/i)).toBeInTheDocument();
+    // 26-09 — while collapsed, labels carry NO language suffix (the language
+    // is implied by the coach's UI locale); they gain "(English)/(Spanish)"
+    // only once "Add translation" is clicked.
+    expect(screen.getByLabelText(/^name$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^description$/i)).toBeInTheDocument();
     // Coach-language-first: the other-language fields stay hidden behind the
     // "Add translation" toggle until the coach asks for them.
     expect(
       screen.queryByLabelText(/name \(spanish\)/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/name \(english\)/i),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /add translation/i }),
@@ -158,9 +164,11 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Name in English is required."),
-      ).toBeInTheDocument();
+      // 26-09 — the required error now renders as a single localized message
+      // on the visible (collapsed) field rather than the raw Zod copy, so the
+      // Spanish-primary coach sees the error even though the schema-required
+      // language is the hidden English mirror.
+      expect(screen.getByText("Enter a name.")).toBeInTheDocument();
     });
     // Description is now optional — no description-required error surfaces.
     expect(
@@ -177,11 +185,11 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     render(<ExerciseForm mode="create" />);
 
     await user.type(
-      screen.getByLabelText(/name \(english\)/i),
+      screen.getByLabelText(/^name$/i),
       "Barbell Bench Press",
     );
     await user.type(
-      screen.getByLabelText(/description \(english\)/i),
+      screen.getByLabelText(/^description$/i),
       "Lie on a flat bench and press the bar.",
     );
     // Open muscle Combobox and select "chest".
@@ -211,11 +219,11 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     render(<ExerciseForm mode="create" />);
 
     await user.type(
-      screen.getByLabelText(/name \(english\)/i),
+      screen.getByLabelText(/^name$/i),
       "No Equipment Drill",
     );
     await user.type(
-      screen.getByLabelText(/description \(english\)/i),
+      screen.getByLabelText(/^description$/i),
       "Move with control.",
     );
     await user.click(screen.getByRole("combobox", { name: /muscle groups/i }));

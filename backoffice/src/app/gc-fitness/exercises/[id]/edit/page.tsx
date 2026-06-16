@@ -102,6 +102,10 @@ export default async function EditExercisePage({ params }: PageParams) {
     source: "trainer",
     ownerId: trainer.uid,
     version: typeof data.version === "number" ? data.version : 1,
+    // Prescription type — load both so the chooser reflects the stored state
+    // (without these the chip would reset to "reps × weight" on every edit).
+    metric: data.metric === "time" ? "time" : "reps",
+    tracksWeight: data.tracksWeight === false ? false : true,
   };
 
   const previewHref = pickPreviewSrc(data);

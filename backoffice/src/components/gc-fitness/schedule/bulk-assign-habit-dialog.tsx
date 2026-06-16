@@ -33,7 +33,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+
+import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 
 import {
   Dialog,
@@ -129,6 +131,7 @@ export function BulkAssignHabitDialog({
   onAssigned,
 }: BulkAssignHabitDialogProps) {
   const t = useTranslations("habits.bulkAssign");
+  const locale = useLocale();
   const [selectedTemplate, setSelectedTemplate] =
     useState<HabitTemplateRow | null>(null);
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(
@@ -238,7 +241,7 @@ export function BulkAssignHabitDialog({
                 {selectedTemplate ? (
                   <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
                     <span className="min-w-0 truncate text-sm font-medium">
-                      {selectedTemplate.name.en || selectedTemplate.name.es}
+                      {localizedNamePair(selectedTemplate.name, locale).primary}
                     </span>
                     <button
                       type="button"
@@ -541,6 +544,7 @@ function BulkHabitPicker({
   onPick: (tpl: HabitTemplateRow) => void;
 }) {
   const t = useTranslations("habits.bulkAssign");
+  const locale = useLocale();
   const [search, setSearch] = useState("");
 
   const { data: templates = [], isLoading } = useQuery({
@@ -579,8 +583,7 @@ function BulkHabitPicker({
           </li>
         ) : (
           filtered.map((tpl) => {
-            const esName =
-              tpl.name.es && tpl.name.es !== tpl.name.en ? tpl.name.es : null;
+            const { primary, secondary } = localizedNamePair(tpl.name, locale);
             return (
               <li key={tpl.id}>
                 <button
@@ -590,11 +593,11 @@ function BulkHabitPicker({
                 >
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">
-                      {tpl.name.en || tpl.name.es}
+                      {primary}
                     </span>
-                    {esName ? (
+                    {secondary ? (
                       <span className="truncate text-xs italic text-muted-foreground">
-                        {esName}
+                        {secondary}
                       </span>
                     ) : null}
                   </span>

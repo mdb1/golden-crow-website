@@ -128,6 +128,17 @@ export interface ExerciseRow {
    * active-workout UIs in 26-03 / 26-04.
    */
   metric: "reps" | "time";
+  /**
+   * Phase 26-09 — bodyweight authoring default. `false` means the exercise is
+   * prescribed "reps without weight" (push-ups, pull-ups…). The template
+   * builder reads this on ADD to seed the per-set "Sin peso" sentinel
+   * (`weightBySetKg: []`). Absent / non-false → `true` (tracks external
+   * weight) so every legacy exercise keeps the weight column. The mobile
+   * clients ignore this field; they read the resolved `weightBySetKg`.
+   * Optional on the row type so legacy fixtures decode without it; only an
+   * explicit `=== false` opts out (see `exerciseNoWeightById`).
+   */
+  tracksWeight?: boolean;
 }
 
 // Re-exported from a firebase-free module so non-listener call sites (e.g.
@@ -231,6 +242,9 @@ export function snapToRow(d: QueryDocumentSnapshot<DocumentData>): ExerciseRow {
     force: typeof data.force === "string" ? data.force : null,
     // Phase 26-02 — forgiving fallback to "reps" on absent/unknown wire value.
     metric: data.metric === "time" ? "time" : "reps",
+    // Phase 26-09 — bodyweight default; only an explicit `false` opts out of
+    // the weight column (legacy docs without the field track weight).
+    tracksWeight: data.tracksWeight === false ? false : true,
   };
 }
 

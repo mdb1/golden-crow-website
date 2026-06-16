@@ -62,8 +62,10 @@ const thumbnailUrlSchema = z.preprocess(
     .string()
     .trim()
     .regex(
+      // gs:// is still accepted (the upload dropzone writes it); the message
+      // only guides the manual-paste case, which is always an https link.
       /^(gs:\/\/|https?:\/\/)/i,
-      "Enter a gs:// or https:// URL.",
+      "Enter a valid image link (https://…).",
     )
     .nullable()
     .optional(),
@@ -107,6 +109,18 @@ const tipsSchema = z
 // a clear ZodError, not silently coerce the value to "reps" and ship a
 // wrong-shape doc into Firestore.
 const metricSchema = z.enum(["reps", "time"]).default("reps");
+
+// 26-09 — Authoring DEFAULT for whether this exercise is loaded with external
+// weight. `true` = classic "reps × weight" (or time) prescription; `false` =
+// "reps without weight" (bodyweight movements like push-ups / pull-ups). This
+// is ORTHOGONAL to `metric` and is a BACKOFFICE-ONLY authoring hint: when the
+// trainer drops the exercise into a workout template, a `false` value seeds
+// the per-set "Sin peso" sentinel (`weightBySetKg: []`) — the EXISTING wire
+// contract the iOS/Android apps already honor (ExerciseRef
+// .hasExplicitNoWeightPrescription). The mobile clients never read this field
+// directly; they read the resolved `weightBySetKg` on the template/snapshot.
+// Defaults to `true` so every legacy exercise keeps showing the weight column.
+const tracksWeightSchema = z.boolean().default(true);
 
 // Phase 24-06 — widened to 3-way to match the ExerciseRow union
 // (exercises-listener.ts:80) + the iOS Source enum (Exercise.swift).
@@ -196,6 +210,7 @@ export const exerciseSchema = z.object({
   ownerId: z.string().nullable(),
   version: z.number().int().min(1).default(1),
   metric: metricSchema,
+  tracksWeight: tracksWeightSchema,
 });
 
 // Partial — used by `updateExercise` which patches subsets of the shape.

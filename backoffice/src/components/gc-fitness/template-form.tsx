@@ -391,6 +391,16 @@ export function TemplateForm({
     }
     return m;
   }, [exerciseLibrary]);
+  // 26-09 — exercises authored as "reps without weight" (tracksWeight:false)
+  // seed the per-set "Sin peso" sentinel (`weightBySetKg: []`) when dropped
+  // into a template, so the trainer doesn't have to toggle it by hand.
+  const exerciseNoWeightById = useMemo(() => {
+    const s = new Set<string>();
+    for (const ex of exerciseLibrary ?? []) {
+      if (ex.tracksWeight === false) s.add(ex.id);
+    }
+    return s;
+  }, [exerciseLibrary]);
   const watchedExercises = form.watch("exercises") ?? [];
   const supersetGroupOptions = useMemo(
     () => listSupersetGroupOptions(watchedExercises),
@@ -911,6 +921,11 @@ export function TemplateForm({
         transition_rest_seconds: 60,
         notes: "",
         order: fields.length + idx + 1,
+        // 26-09 — seed the "Sin peso" sentinel for bodyweight exercises so the
+        // weight column starts hidden (the trainer can still flip it per row).
+        ...(exerciseNoWeightById.has(exerciseId)
+          ? { weightBySetKg: [] as number[] }
+          : {}),
       })),
     );
   }
@@ -1062,9 +1077,19 @@ export function TemplateForm({
                       <div className="mt-1">
                         <ExercisePickerPopover
                           value={form.getValues(`exercises.${index}.exerciseId` as const) ?? ""}
-                          onChange={(value) =>
-                            form.setValue(`exercises.${index}.exerciseId` as const, value, { shouldDirty: true })
-                          }
+                          onChange={(value) => {
+                            form.setValue(`exercises.${index}.exerciseId` as const, value, { shouldDirty: true });
+                            // 26-09 — picking a bodyweight exercise seeds the
+                            // "Sin peso" sentinel so the weight column starts
+                            // hidden (matching the exercise's authoring default).
+                            if (exerciseNoWeightById.has(value)) {
+                              form.setValue(
+                                `exercises.${index}.weightBySetKg` as const,
+                                [],
+                                { shouldDirty: true },
+                              );
+                            }
+                          }}
                           ariaLabel={t("pickExerciseAria", { index: index + 1 })}
                         />
                       </div>

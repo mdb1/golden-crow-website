@@ -18,7 +18,10 @@
 
 import { useId, useMemo, useState } from "react";
 import { ChevronLeft, Plus, Search } from "lucide-react";
+import { useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
+
+import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 
 import {
   Dialog,
@@ -306,6 +309,7 @@ function ExistingHabitPicker({
   onCreateNew: (name: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const locale = useLocale();
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["habit-templates", "calendar-picker"],
@@ -359,8 +363,7 @@ function ExistingHabitPicker({
           </li>
         ) : (
           filtered.map((tpl) => {
-            const esName =
-              tpl.name.es && tpl.name.es !== tpl.name.en ? tpl.name.es : null;
+            const { primary, secondary } = localizedNamePair(tpl.name, locale);
             return (
               <li key={tpl.id}>
                 <button
@@ -370,11 +373,11 @@ function ExistingHabitPicker({
                 >
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">
-                      {tpl.name.en || tpl.name.es}
+                      {primary}
                     </span>
-                    {esName ? (
+                    {secondary ? (
                       <span className="truncate text-xs italic text-muted-foreground">
-                        {esName}
+                        {secondary}
                       </span>
                     ) : null}
                   </span>
