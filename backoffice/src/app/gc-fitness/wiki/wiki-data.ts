@@ -173,16 +173,28 @@ export const WIKI_GROUPS: WikiGroup[] = [
         loomId: "ff4f7b3d6a724effb971f5f2b1742aa0",
       },
       {
-        id: "generador-entrenamientos",
+        id: "crear-entrenamiento",
         title: {
-          es: "Generador y creación de entrenamientos",
-          en: "Workout generator & creation",
+          es: "Crear entrenamiento",
+          en: "Create a workout",
         },
         description: {
-          es: "Generá entrenamientos automáticamente o creálos a mano desde cero.",
-          en: "Auto-generate workouts or build them by hand from scratch.",
+          es: "Armá un entrenamiento a mano desde cero, ejercicio por ejercicio.",
+          en: "Build a workout by hand from scratch, exercise by exercise.",
         },
-        // Pendiente de grabación.
+        loomId: "fd2087071c4e4c3eb1c8c3487c8db39b",
+      },
+      {
+        id: "generador-entrenamientos",
+        title: {
+          es: "Generador de entrenamientos",
+          en: "Workout generator",
+        },
+        description: {
+          es: "Generá entrenamientos automáticamente eligiendo equipo, músculos, duración y estilo.",
+          en: "Auto-generate workouts by choosing equipment, muscles, duration, and style.",
+        },
+        loomId: "10a9e60ad71a449a84b3499fb8f52b7e",
       },
       {
         id: "crear-ejercicio",
