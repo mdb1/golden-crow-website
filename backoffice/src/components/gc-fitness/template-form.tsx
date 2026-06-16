@@ -158,6 +158,15 @@ export interface TemplateFormProps {
     allExerciseIds: string[];
     onReplace: (exerciseId: string) => void;
   }) => React.ReactNode;
+  /**
+   * Force the initial collapsed/expanded state of the translation fields,
+   * overriding the default "expand when the record is already bilingual" rule.
+   * The workout generator pre-fills BOTH languages of the name, which would
+   * otherwise auto-expand both panes; passing `false` keeps the coach-language-
+   * first single field (with the "add translation" toggle) like every other
+   * create flow. The pre-filled other-language value is preserved until edited.
+   */
+  initialShowTranslation?: boolean;
 }
 
 const DRAFT_STORAGE_PREFIX = "gc-fitness:template-draft:";
@@ -328,6 +337,7 @@ export function TemplateForm({
   draftKey,
   onCreated,
   renderExerciseExtras,
+  initialShowTranslation,
 }: TemplateFormProps) {
   const t = useTranslations("templates.form");
   const router = useRouter();
@@ -352,8 +362,9 @@ export function TemplateForm({
   // Coach-language-first: open the translation fields only when the record is
   // already bilingual (edit of a translated template).
   const [showSpanishFields, setShowSpanishFields] = useState(
-    hasDistinctTranslation(defaultValues?.name) ||
-      hasDistinctTranslation(defaultValues?.description),
+    initialShowTranslation ??
+      (hasDistinctTranslation(defaultValues?.name) ||
+        hasDistinctTranslation(defaultValues?.description)),
   );
   const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
   const initialDefaults = buildDefaults(defaultValues, mode);
