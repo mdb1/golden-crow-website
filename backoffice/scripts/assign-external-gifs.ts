@@ -47,7 +47,7 @@ const BROWSER_UA =
 const EXTERNAL_GIFS: Record<string, string | GifSource> = {
   "Hollow Hold (Bodyweight)":
     "https://fitcron.com/wp-content/uploads/2024/05/12461301-Hollow-Hold_Waist_720.gif",
-  "Bodyweight Squat (Bodyweight)": {
+  "Squat (Bodyweight)": {
     url: "https://www.inspireusafoundation.org/wp-content/uploads/2021/06/bodyweight-squat-2.gif",
     headers: {
       "User-Agent": BROWSER_UA,
