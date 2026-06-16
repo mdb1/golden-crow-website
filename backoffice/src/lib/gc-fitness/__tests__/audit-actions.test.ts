@@ -343,3 +343,49 @@ describe("audit_log as a third source (#312 PR2)", () => {
     ]);
   });
 });
+
+describe("audit_log recurring-series collapse + actor attribution", () => {
+  const UUID = "010cc42d-5608-42f1-bd9d-2a150f22cfbc";
+
+  function recurringDoc(date: string) {
+    return doc(`aud-${date}`, {
+      collection: "workout_assignments",
+      docId: `asg-choqBshr7PewXYbns1EKerc8bVk1-${date}-${UUID}`,
+      op: "update",
+      changedFields: ["templateSnapshot", "updatedAt"],
+      changedFieldCount: 2,
+      actorUid: null, // background trigger — no auth principal
+      trainerId: "coach1", // owner stamped on the doc
+      clientId: "client1",
+      occurredAt: ts("2026-06-15T23:33:17.000Z"),
+    });
+  }
+
+  beforeEach(() => {
+    queryGet.audit_log = async () => ({
+      docs: [
+        recurringDoc("20270503"),
+        recurringDoc("20270104"),
+        recurringDoc("20261214"),
+      ],
+    });
+  });
+
+  it("collapses one recurring edit into a SINGLE row with an occurrence count", async () => {
+    const rows = await listAuditTimeline({ source: "audit_log" });
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    expect(row.occurrenceCount).toBe(3);
+    expect(row.title).toBe("Updated workout assignment · recurring");
+    expect(row.detail).toContain("asg-choqBshr7PewXYbns1EKerc8bVk1");
+    expect(row.detail).toContain("3 occurrences");
+    expect(row.detail).toContain("2026-12-14 → 2027-05-03");
+  });
+
+  it("attributes the trigger write to the owning trainer (not a bare system blank)", async () => {
+    const rows = await listAuditTimeline({ source: "audit_log" });
+    expect(rows[0].actorUid).toBe("coach1");
+    expect(rows[0].actorName).toBe("Coach One");
+    expect(rows[0].actorEmail).toBe("coach1@x.com");
+  });
+});

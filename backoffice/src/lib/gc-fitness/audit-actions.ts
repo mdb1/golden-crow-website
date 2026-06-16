@@ -42,6 +42,10 @@
 import { Timestamp, type Firestore } from "firebase-admin/firestore";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  dateRangeLabel,
+  groupRecurringAuditEntries,
+} from "@/lib/gc-fitness/audit-grouping";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -84,6 +88,13 @@ export interface AuditEntry {
   status: string | null;
   /** admin_operations only: "dry_run" | "execute". */
   mode: string | null;
+  /**
+   * audit_log only: when a single coach edit re-wrote a recurring workout
+   * series, the DB-layer capture emits one entry per future occurrence. We
+   * collapse those into ONE row; this is how many occurrences it represents
+   * (>1). Absent/undefined for ordinary single-doc entries.
+   */
+  occurrenceCount?: number;
 }
 
 export interface AuditFilters {
@@ -356,6 +367,8 @@ async function fetchAuditLogEntries(
     changedFields: string[];
     changedFieldCount: number;
     actorUid: string | null;
+    trainerId: string | null;
+    coachId: string | null;
     clientId: string | null;
     occurredAtISO: string | null;
   }>
@@ -382,6 +395,8 @@ async function fetchAuditLogEntries(
       changedFields?: unknown;
       changedFieldCount?: number;
       actorUid?: string | null;
+      trainerId?: string | null;
+      coachId?: string | null;
       clientId?: string | null;
       occurredAt?: unknown;
       eventTime?: unknown;
@@ -400,6 +415,8 @@ async function fetchAuditLogEntries(
           ? data.changedFieldCount
           : changedFields.length,
       actorUid: typeof data.actorUid === "string" ? data.actorUid : null,
+      trainerId: typeof data.trainerId === "string" ? data.trainerId : null,
+      coachId: typeof data.coachId === "string" ? data.coachId : null,
       clientId: typeof data.clientId === "string" ? data.clientId : null,
       // `occurredAt` is the server write time; `eventTime` is the CloudEvent
       // time — prefer occurredAt, fall back to eventTime.
@@ -488,6 +505,11 @@ async function collectAuditEntries(
   }
   for (const r of auditRaw) {
     if (r.actorUid) uids.add(r.actorUid);
+    // Background triggers carry no auth principal, so attribute the DB-layer
+    // capture to the owning trainer/coach stamped on the doc — that's the
+    // "whose data changed" answer (far more useful than a bare "system").
+    if (r.trainerId) uids.add(r.trainerId);
+    if (r.coachId) uids.add(r.coachId);
     if (r.clientId) uids.add(r.clientId);
   }
   const userById = await resolveUsers(db, uids);
@@ -541,31 +563,54 @@ async function collectAuditEntries(
     });
   }
 
-  for (const r of auditRaw) {
-    const actor = r.actorUid ? userById.get(r.actorUid) : undefined;
-    const clientUser = r.clientId ? userById.get(r.clientId) : undefined;
-    const op = (["create", "update", "delete"].includes(r.op)
-      ? r.op
+  // Collapse recurring-series writes into one row each (auditRaw is newest-first;
+  // the grouping preserves that order and exposes the newest member as `head`).
+  for (const g of groupRecurringAuditEntries(auditRaw)) {
+    const head = g.head;
+    // No auth context on the trigger → attribute to the doc's owner (trainer,
+    // then coach), falling back to any explicitly-stamped actor field.
+    const effectiveActorUid =
+      head.actorUid ?? head.trainerId ?? head.coachId ?? null;
+    const actor = effectiveActorUid ? userById.get(effectiveActorUid) : undefined;
+    const clientUser = head.clientId ? userById.get(head.clientId) : undefined;
+    const op = (["create", "update", "delete"].includes(head.op)
+      ? head.op
       : "update") as AuditAction;
-    const fieldList = r.changedFields.slice(0, 8).join(", ");
-    const moreFields = r.changedFieldCount > 8 ? "…" : "";
+    const fieldList = head.changedFields.slice(0, 8).join(", ");
+    const moreFields = head.changedFieldCount > 8 ? "…" : "";
+    const baseTitle = `${OP_PAST[head.op] ?? head.op} ${humanCollection(head.collection)}`;
+
+    let title = baseTitle;
+    let detail: string;
+    if (g.count > 1 && g.root) {
+      const range = dateRangeLabel(g.dates);
+      title = `${baseTitle} · recurring`;
+      const bits = [g.root, `${g.count} occurrences`];
+      if (range) bits.push(range);
+      if (fieldList) bits.push(`${fieldList}${moreFields}`);
+      detail = bits.join(" · ");
+    } else {
+      detail = fieldList ? `${head.docId} · ${fieldList}${moreFields}` : head.docId;
+    }
+
     entries.push({
-      id: r.id,
+      id: head.id,
       source: "audit_log",
-      occurredAtISO: r.occurredAtISO,
-      actorUid: r.actorUid,
+      occurredAtISO: head.occurredAtISO,
+      actorUid: effectiveActorUid,
       actorName: actor?.name ?? null,
       actorEmail: actor?.email ?? null,
       actorRole: "system",
-      kind: r.collection,
+      kind: head.collection,
       action: op,
-      title: `${OP_PAST[r.op] ?? r.op} ${humanCollection(r.collection)}`,
-      detail: fieldList ? `${r.docId} · ${fieldList}${moreFields}` : r.docId,
-      clientId: r.clientId,
+      title,
+      detail,
+      clientId: head.clientId,
       clientLabel: clientUser?.email ?? null,
-      isDeletion: r.op === "delete",
+      isDeletion: head.op === "delete",
       status: null,
       mode: null,
+      occurrenceCount: g.count > 1 ? g.count : undefined,
     });
   }
 
