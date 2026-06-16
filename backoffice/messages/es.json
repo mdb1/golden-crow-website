@@ -901,7 +901,8 @@
       },
       "scope": "Alcance",
       "scopeGlobal": "Global",
-      "scopeMine": "Mía"
+      "scopeMine": "Mía",
+      "assignmentCount": "{count, plural, one {# asignación} other {# asignaciones}}"
     },
     "detail": {
       "untitled": "(sin título)",

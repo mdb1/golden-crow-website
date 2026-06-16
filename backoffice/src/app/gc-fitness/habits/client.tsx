@@ -574,6 +574,7 @@ export function HabitsLibraryClient({
             emptyText={t("libraryEmpty")}
             loadingText={t("loading")}
             onRowClick={setSelectedTemplate}
+            assignmentCounts={assignmentCountByTemplate}
           />
 
           {/* B5 — reversible path: reveal + restore hidden GLOBAL templates so
