@@ -12,6 +12,7 @@
     "seed:gc-fitness-library": "node scripts/seed-gc-fitness-library.cjs",
     "seed:gc-fitness-standard-library": "node --experimental-transform-types scripts/sync-standard-exercise-library.ts",
     "seed:gc-fitness-standard-gifs": "node --experimental-transform-types scripts/sync-standard-exercise-gifs.ts",
+    "seed:gc-fitness-external-gifs": "node --experimental-transform-types scripts/assign-external-gifs.ts",
     "merge:gc-fitness-standard-exercises": "node --experimental-transform-types scripts/merge-standard-exercises.ts",
     "archive:gc-fitness-legacy-standard-duplicates": "node --experimental-transform-types scripts/archive-legacy-standard-duplicates.ts",
     "archive:gc-fitness-legacy-habit-templates": "node scripts/archive-legacy-gc-fitness-habit-templates.cjs",
