@@ -40,7 +40,7 @@ import {
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   DndContext,
   type DragEndEvent,
@@ -72,6 +72,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  LocalizedTextField,
+  mirrorLocalizedBlank,
+  hasDistinctTranslation,
+} from "@/components/gc-fitness/localized-field";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Tooltip,
@@ -339,9 +344,18 @@ export function TemplateForm({
     Record<string, string>
   >({});
   const [step, setStep] = useState<1 | 2>(1);
-  const [showSpanishFields, setShowSpanishFields] = useState(false);
+  // Coach-language-first: open the translation fields only when the record is
+  // already bilingual (edit of a translated template).
+  const [showSpanishFields, setShowSpanishFields] = useState(
+    hasDistinctTranslation(defaultValues?.name) ||
+      hasDistinctTranslation(defaultValues?.description),
+  );
   const [quickCreated, setQuickCreated] = useState<Array<{ id: string; name: string }>>([]);
   const initialDefaults = buildDefaults(defaultValues, mode);
+  const locale = useLocale();
+  const esPrimary = locale.startsWith("es");
+  const primaryLang = esPrimary ? "es" : "en";
+  const otherLang = esPrimary ? "en" : "es";
 
   const form = useForm<WorkoutTemplateInput>({
     // Same `as any` resolver cast as `ExerciseForm` — `zodResolver` widens
@@ -655,6 +669,9 @@ export function TemplateForm({
             : [values.tag || "custom"];
           const normalized: WorkoutTemplateInput = {
           ...values,
+          // "No translation" ⇒ store the coach's text in every language.
+          name: mirrorLocalizedBlank(values.name),
+          description: mirrorLocalizedBlank(values.description),
           tag: tagsClean[0] ?? "custom",
           tags: tagsClean,
           exercises: values.exercises.map((ex, idx) => {
@@ -923,92 +940,45 @@ export function TemplateForm({
             </Button>
           </div>
         ) : null}
-        {/* Name EN + ES */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="name.en"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEn")}</FormLabel>
-                <FormControl>
-                  <Input placeholder={t("namePlaceholderEn")} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {showSpanishFields ? (
-            <FormField
-              control={form.control}
-              name="name.es"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("nameEs")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={t("namePlaceholderEs")}
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
-                  <FormDescription>{t("nameEsHint")}</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ) : (
-            <div className="flex items-end">
-              <Button type="button" variant="outline" onClick={() => setShowSpanishFields(true)}>
-                Add Spanish translation fields
-              </Button>
-            </div>
-          )}
-        </div>
+        {/* Name — coach language first; optional translation toggle. */}
+        <LocalizedTextField
+          form={form}
+          base="name"
+          primaryLang={primaryLang}
+          otherLang={otherLang}
+          showTranslation={showSpanishFields}
+          primaryLabel={esPrimary ? t("nameEs") : t("nameEn")}
+          otherLabel={esPrimary ? t("nameEn") : t("nameEs")}
+          placeholder={esPrimary ? t("namePlaceholderEs") : t("namePlaceholderEn")}
+        />
+        {!showSpanishFields ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-fit"
+            onClick={() => setShowSpanishFields(true)}
+          >
+            {t("addTranslation")}
+          </Button>
+        ) : null}
 
-        {/* Description EN + ES */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="description.en"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEn")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder={t("descriptionPlaceholderEn")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {showSpanishFields ? (
-            <FormField
-              control={form.control}
-              name="description.es"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("descriptionEs")}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={3}
-                      placeholder={t("descriptionPlaceholderEs")}
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ) : (
-            <div className="hidden sm:block" />
-          )}
-        </div>
+        {/* Description — coach language first; optional translation. */}
+        <LocalizedTextField
+          form={form}
+          base="description"
+          primaryLang={primaryLang}
+          otherLang={otherLang}
+          showTranslation={showSpanishFields}
+          primaryLabel={esPrimary ? t("descriptionEs") : t("descriptionEn")}
+          otherLabel={esPrimary ? t("descriptionEn") : t("descriptionEs")}
+          placeholder={
+            esPrimary
+              ? t("descriptionPlaceholderEs")
+              : t("descriptionPlaceholderEn")
+          }
+          multiline
+          rows={3}
+        />
 
         {/* Tags (multi). Existing templates power the suggestion strip
             below the input so the trainer's vocabulary stays consistent

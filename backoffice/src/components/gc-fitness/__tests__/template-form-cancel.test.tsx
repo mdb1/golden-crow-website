@@ -30,6 +30,7 @@ jest.mock("next/navigation", () => ({
 // useTranslations(ns) → t(key) returns the key verbatim so we can query by it.
 jest.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => "en",
 }));
 
 // Heavy data hooks — stub to safe empty shapes (no Firestore).
