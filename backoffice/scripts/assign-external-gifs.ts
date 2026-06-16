@@ -1,17 +1,19 @@
 /**
  * Assign exercise gifs that DON'T live in the Desktop CSV/assets dataset used by
  * `sync-standard-exercise-gifs.ts`. Some standard-library exercises (e.g. Hollow
- * Hold) have no clip in the free-exercise-db CSV, so the fuzzy matcher there would
- * pick an unrelated movement. For those we host a hand-picked external gif:
- * download it, upload to the SAME public-read `exercises/library-gifs/` namespace,
- * and point the exercise doc's `gifUrl` at the `gs://` path (the apps' media
- * resolver turns that into a tokenless download URL — the library-gifs path is
- * public-read, so no `?token=` is baked in and re-uploads don't 403).
+ * Hold, Bodyweight Squat) have no clip in the free-exercise-db CSV, so the fuzzy
+ * matcher there would pick an unrelated movement (or nothing). For those we host a
+ * hand-picked external gif: download it, upload to the SAME public-read
+ * `exercises/library-gifs/` namespace, and point the exercise doc's `gifUrl` at the
+ * `gs://` path (the apps' media resolver turns that into a tokenless download URL —
+ * the library-gifs path is public-read, so no `?token=` is baked in and re-uploads
+ * don't 403).
  *
  * Keyed by `name.en` so the exercise doc id is resolved from the single source of
  * truth (`STANDARD_LIBRARY_EXERCISES`), exactly like the CSV sync. The matching
  * entry in `sync-standard-exercise-gifs.ts` OVERRIDES is set to `null` so a full
- * gif re-sync never clobbers what we set here.
+ * gif re-sync never clobbers what we set here. Entries may carry custom request
+ * `headers` (some sources hotlink-protect and 403 without a browser UA + Referer).
  *
  *   node --experimental-transform-types scripts/assign-external-gifs.ts [--dry-run]
  *
@@ -31,13 +33,27 @@ const DEFAULT_BUCKET = "gcfitness-3476b.firebasestorage.app";
 const COLLECTION = "exercises";
 const REMOTE_PREFIX = "exercises/library-gifs";
 
+type GifSource = { url: string; headers?: Record<string, string> };
+
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
 /**
- * `name.en` → externally hosted gif URL. The remote object is named after the
- * exercise slug so it never collides with the 4-digit CSV ids.
+ * `name.en` → externally hosted gif (string URL, or {url, headers} for sources
+ * that need a browser UA / same-site Referer to bypass hotlink protection). The
+ * remote object is named after the exercise slug so it never collides with the
+ * 4-digit CSV ids.
  */
-const EXTERNAL_GIFS: Record<string, string> = {
+const EXTERNAL_GIFS: Record<string, string | GifSource> = {
   "Hollow Hold (Bodyweight)":
     "https://fitcron.com/wp-content/uploads/2024/05/12461301-Hollow-Hold_Waist_720.gif",
+  "Bodyweight Squat (Bodyweight)": {
+    url: "https://www.inspireusafoundation.org/wp-content/uploads/2021/06/bodyweight-squat-2.gif",
+    headers: {
+      "User-Agent": BROWSER_UA,
+      Referer: "https://www.inspireusafoundation.org/exercise/bodyweight-squat/",
+    },
+  },
 };
 
 function loadEnv() {
@@ -81,10 +97,18 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-async function downloadToTemp(url: string, slug: string): Promise<string> {
-  const res = await fetch(url);
+function normalizeSource(source: string | GifSource): GifSource {
+  return typeof source === "string" ? { url: source } : source;
+}
+
+async function downloadToTemp(source: GifSource, slug: string): Promise<string> {
+  const res = await fetch(source.url, { headers: source.headers });
   if (!res.ok) {
-    throw new Error(`Download failed (${res.status}) for ${url}`);
+    throw new Error(`Download failed (${res.status}) for ${source.url}`);
+  }
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("image/gif")) {
+    throw new Error(`Unexpected content-type "${contentType}" for ${source.url}`);
   }
   const buf = Buffer.from(await res.arrayBuffer());
   const tmpPath = path.join(os.tmpdir(), `ext-gif-${slug}.gif`);
@@ -113,7 +137,8 @@ async function main() {
 
   const results: Array<Record<string, unknown>> = [];
 
-  for (const [nameEn, url] of Object.entries(EXTERNAL_GIFS)) {
+  for (const [nameEn, rawSource] of Object.entries(EXTERNAL_GIFS)) {
+    const source = normalizeSource(rawSource);
     const exercise = STANDARD_LIBRARY_EXERCISES.find((e) => e.name.en === nameEn);
     if (!exercise) {
       results.push({ nameEn, status: "SKIP — no exercise with that name.en" });
@@ -139,14 +164,14 @@ async function main() {
         nameEn,
         exerciseId: exercise.exerciseId,
         currentGifUrl: snap.get("gifUrl") ?? null,
-        wouldUpload: url,
+        wouldUpload: source.url,
         wouldSetGifUrl: `gs://${getBucketName()}/${remotePath}`,
         status: "DRY RUN",
       });
       continue;
     }
 
-    const tmpPath = await downloadToTemp(url, slug);
+    const tmpPath = await downloadToTemp(source, slug);
     const gifUrl = await uploadGif(tmpPath, remotePath);
     fs.rmSync(tmpPath, { force: true });
     await docRef.set(

@@ -472,6 +472,18 @@ const GROUPS: Array<{ slug: string; families: FamilySpec[] }> = [
     slug: "legs",
     families: [
       family({
+        baseEn: "Bodyweight Squat",
+        baseEs: "Sentadilla",
+        equipments: ["bodyweight"],
+        aliases: ["Air Squat", "Free Squat", "Sentadilla libre"],
+        overview: "Foundational bodyweight squat pattern, no equipment needed.",
+        bodyPart: "LEGS",
+        muscleGroups: ["legs", "quadriceps", "glutes"],
+        targetMuscles: ["Quadriceps", "Glutes"],
+        secondaryMuscles: ["Hamstrings", "Core"],
+        variations: ["Back Squat", "Split Squat", "Jump Squat"],
+      }),
+      family({
         baseEn: "Back Squat",
         baseEs: "Sentadilla trasera",
         equipments: ["barbell", "smith", "machine"],
