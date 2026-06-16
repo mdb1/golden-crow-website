@@ -206,7 +206,7 @@ export const WIKI_GROUPS: WikiGroup[] = [
           es: "Explorá la biblioteca de ejercicios y agregá los tuyos propios con su GIF.",
           en: "Browse the exercise library and add your own, GIF included.",
         },
-        // Pendiente de grabación.
+        loomId: "48c6c522e6a94e3eb3236725631f2b18",
       },
       {
         id: "crear-habito",
@@ -218,7 +218,7 @@ export const WIKI_GROUPS: WikiGroup[] = [
           es: "Definí hábitos para asignar a tus clientes y armá los tuyos propios.",
           en: "Define habits to assign to your clients and build your own.",
         },
-        // Pendiente de grabación.
+        loomId: "fc35b781c2984795b9799a732f74f33e",
       },
     ],
   },
@@ -227,13 +227,37 @@ export const WIKI_GROUPS: WikiGroup[] = [
     title: { es: "App de clientes", en: "Client app" },
     videos: [
       {
-        id: "demo-app",
-        title: { es: "Demo de la app de clientes", en: "Client app demo" },
-        description: {
-          es: "Un recorrido por la experiencia que viven tus clientes en la app móvil.",
-          en: "A walkthrough of the experience your clients get in the mobile app.",
+        id: "demo-inicio-entrenamiento-chat",
+        title: {
+          es: "Inicio, entrenamiento activo y chat",
+          en: "Home, active workout & chat",
         },
-        // Pendiente de grabación.
+        description: {
+          es: "La pantalla de inicio del cliente, cómo registra un entrenamiento en vivo y el chat con su coach.",
+          en: "The client's home screen, how they log a live workout, and the chat with their coach.",
+        },
+        loomId: "f2388fa7f4bb47618dc7d771db521180",
+      },
+      {
+        id: "demo-calendario-mover",
+        title: {
+          es: "Calendario y mover entrenamientos",
+          en: "Calendar & moving workouts",
+        },
+        description: {
+          es: "Cómo ve el cliente su semana en el calendario y mueve entrenamientos a otro día.",
+          en: "How the client sees their week on the calendar and moves workouts to a different day.",
+        },
+        loomId: "0e275ef1546d448aa50a62ecf74ccecb",
+      },
+      {
+        id: "demo-progreso",
+        title: { es: "Progreso", en: "Progress" },
+        description: {
+          es: "La sección de progreso: peso corporal, fotos y la evolución de sus entrenamientos.",
+          en: "The progress section: body weight, photos, and how their training evolves.",
+        },
+        loomId: "e9e477bae8b549a0b45572e498c084ca",
       },
     ],
   },
