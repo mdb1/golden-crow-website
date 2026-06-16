@@ -11,7 +11,7 @@
 import { useMemo, useState } from "react";
 import { EyeOff, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -48,6 +48,10 @@ import {
 } from "@/lib/gc-fitness/habit-actions";
 import { recurrenceLabel, ReminderCell, ScopePill } from "./habit-pills";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
+import {
+  mirrorLocalizedBlank,
+  hasDistinctTranslation,
+} from "@/components/gc-fitness/localized-field";
 
 export function HabitTemplateDetailDialog({
   open,
@@ -67,7 +71,12 @@ export function HabitTemplateDetailDialog({
   const t = useTranslations("habits.list");
   const tc = useTranslations("habits.columns");
   const tf = useTranslations("habits.form");
+  const locale = useLocale();
+  const esPrimary = locale.startsWith("es");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Coach-language-first: show one language with an "add translation" toggle.
+  // Opened by default only when the template already carries a real translation.
+  const [showTranslations, setShowTranslations] = useState(false);
 
   // B6 — READ-ONLY impact lookup for the delete confirm dialog: which clients
   // still have this library habit assigned (linked via sourceTemplateId).
@@ -133,14 +142,29 @@ export function HabitTemplateDetailDialog({
 
   function startEdit() {
     if (!template) return;
-    setNameEn(template.name.en ?? "");
-    setNameEs(template.name.es ?? "");
-    setDescEn(template.description?.en ?? "");
-    setDescEs(template.description?.es ?? "");
+    // Mirror a single-language record into both languages on LOAD so the coach
+    // always sees existing content in their own language (an English-only
+    // template must not render an empty Spanish field). Save already mirrors.
+    const seedName = mirrorLocalizedBlank({
+      en: template.name.en ?? "",
+      es: template.name.es ?? "",
+    });
+    const seedDesc = mirrorLocalizedBlank({
+      en: template.description?.en ?? "",
+      es: template.description?.es ?? "",
+    });
+    setNameEn(seedName.en);
+    setNameEs(seedName.es);
+    setDescEn(seedDesc.en);
+    setDescEs(seedDesc.es);
     setYoutubeUrl(template.youtubeUrl ?? "");
     setPhotoUrl(template.photoUrl ?? "");
     setReminderEnabled(template.reminderEnabled);
     setReminderTime(template.reminderTime ?? "");
+    setShowTranslations(
+      hasDistinctTranslation(template.name) ||
+        hasDistinctTranslation(template.description),
+    );
     setEditing(true);
   }
 
@@ -154,11 +178,14 @@ export function HabitTemplateDetailDialog({
     setPending(true);
     try {
       const hasDesc = descEn.trim().length > 0 || descEs.trim().length > 0;
+      // "No translation" ⇒ store the coach's text in every language.
+      const name = mirrorLocalizedBlank({ en: nameEn.trim(), es: nameEs.trim() });
+      const description = hasDesc
+        ? mirrorLocalizedBlank({ en: descEn.trim(), es: descEs.trim() })
+        : undefined;
       await updateHabitTemplate(template.id, {
-        name: { en: nameEn.trim(), es: nameEs.trim() },
-        description: hasDesc
-          ? { en: descEn.trim(), es: descEs.trim() }
-          : undefined,
+        name,
+        description,
         youtubeUrl: youtubeUrl.trim() || undefined,
         photoUrl: photoUrl.trim() || undefined,
         reminderEnabled,
@@ -245,7 +272,9 @@ export function HabitTemplateDetailDialog({
     }
   }
 
-  const canSave = nameEn.trim().length > 0 && nameEs.trim().length > 0;
+  // Coach only needs to fill their own language; the blank mirror is filled on
+  // save. While collapsed, typing already mirrors into the hidden language.
+  const canSave = (esPrimary ? nameEs : nameEn).trim().length > 0;
 
   return (
     <>
@@ -266,44 +295,124 @@ export function HabitTemplateDetailDialog({
 
           {editing ? (
             <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto px-1">
+              {/* Coach-language-first: one language by default, with a toggle
+                  to reveal the other. While collapsed, typing mirrors into the
+                  hidden language so both are populated on save. */}
+              {!showTranslations ? (
+                <div className="flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => setShowTranslations(true)}
+                  >
+                    {tf("addTranslation")}
+                  </Button>
+                </div>
+              ) : null}
+
+              {/* Name — primary (coach) language */}
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tpl-name-en">{tf("nameEn")}</Label>
+                <Label htmlFor="tpl-name-primary">
+                  {showTranslations
+                    ? esPrimary
+                      ? tf("nameEs")
+                      : tf("nameEn")
+                    : tf("nameLabel")}
+                </Label>
                 <Input
-                  id="tpl-name-en"
-                  value={nameEn}
-                  onChange={(e) => setNameEn(e.target.value)}
-                  placeholder={tf("namePlaceholderEn")}
+                  id="tpl-name-primary"
+                  value={esPrimary ? nameEs : nameEn}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (esPrimary) setNameEs(v);
+                    else setNameEn(v);
+                    if (!showTranslations) {
+                      if (esPrimary) setNameEn(v);
+                      else setNameEs(v);
+                    }
+                  }}
+                  placeholder={
+                    esPrimary
+                      ? tf("namePlaceholderEs")
+                      : tf("namePlaceholderEn")
+                  }
                 />
               </div>
+              {showTranslations ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="tpl-name-other">
+                    {esPrimary ? tf("nameEn") : tf("nameEs")}
+                  </Label>
+                  <Input
+                    id="tpl-name-other"
+                    value={esPrimary ? nameEn : nameEs}
+                    onChange={(e) =>
+                      esPrimary
+                        ? setNameEn(e.target.value)
+                        : setNameEs(e.target.value)
+                    }
+                    placeholder={
+                      esPrimary
+                        ? tf("namePlaceholderEn")
+                        : tf("namePlaceholderEs")
+                    }
+                  />
+                </div>
+              ) : null}
+
+              {/* Description — primary (coach) language */}
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tpl-name-es">{tf("nameEs")}</Label>
-                <Input
-                  id="tpl-name-es"
-                  value={nameEs}
-                  onChange={(e) => setNameEs(e.target.value)}
-                  placeholder={tf("namePlaceholderEs")}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tpl-desc-en">{tf("descriptionEn")}</Label>
+                <Label htmlFor="tpl-desc-primary">
+                  {showTranslations
+                    ? esPrimary
+                      ? tf("descriptionEs")
+                      : tf("descriptionEn")
+                    : tf("descriptionLabel")}
+                </Label>
                 <Textarea
-                  id="tpl-desc-en"
-                  value={descEn}
-                  onChange={(e) => setDescEn(e.target.value)}
-                  placeholder={tf("descriptionPlaceholderEn")}
+                  id="tpl-desc-primary"
+                  value={esPrimary ? descEs : descEn}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (esPrimary) setDescEs(v);
+                    else setDescEn(v);
+                    if (!showTranslations) {
+                      if (esPrimary) setDescEn(v);
+                      else setDescEs(v);
+                    }
+                  }}
+                  placeholder={
+                    esPrimary
+                      ? tf("descriptionPlaceholderEs")
+                      : tf("descriptionPlaceholderEn")
+                  }
                   rows={2}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tpl-desc-es">{tf("descriptionEs")}</Label>
-                <Textarea
-                  id="tpl-desc-es"
-                  value={descEs}
-                  onChange={(e) => setDescEs(e.target.value)}
-                  placeholder={tf("descriptionPlaceholderEs")}
-                  rows={2}
-                />
-              </div>
+              {showTranslations ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="tpl-desc-other">
+                    {esPrimary ? tf("descriptionEn") : tf("descriptionEs")}
+                  </Label>
+                  <Textarea
+                    id="tpl-desc-other"
+                    value={esPrimary ? descEn : descEs}
+                    onChange={(e) =>
+                      esPrimary
+                        ? setDescEn(e.target.value)
+                        : setDescEs(e.target.value)
+                    }
+                    placeholder={
+                      esPrimary
+                        ? tf("descriptionPlaceholderEn")
+                        : tf("descriptionPlaceholderEs")
+                    }
+                    rows={2}
+                  />
+                </div>
+              ) : null}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="tpl-youtube">{tf("youtubeUrlLabel")}</Label>
                 <Input

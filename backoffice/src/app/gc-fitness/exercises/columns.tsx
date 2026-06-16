@@ -167,7 +167,7 @@ export function makeColumns(
                   </Badge>
                 ) : null}
                 {usageCount > 0 ? (
-                  <Badge variant="outline" className="font-normal">
+                  <Badge variant="violet" className="font-normal">
                     {t("usageRoutines", { count: usageCount })}
                   </Badge>
                 ) : null}

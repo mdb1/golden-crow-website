@@ -305,11 +305,16 @@ function buildDefaults(
         ? [passed.tag]
         : [];
   return {
-    name: {
+    // Mirror a single-language record into both languages on LOAD so the
+    // coach always sees existing content in their own language (an English-
+    // only template must not render an empty Spanish field). Save-time
+    // `mirrorLocalizedBlank` already does this on write; doing it on read
+    // keeps the form consistent. Both-blank (create) stays both-blank.
+    name: mirrorLocalizedBlank({
       en: passed?.name?.en ?? "",
       es: passed?.name?.es ?? "",
-    },
-    description: passed?.description ?? { en: "", es: "" },
+    }),
+    description: mirrorLocalizedBlank(passed?.description ?? { en: "", es: "" }),
     tag: passed?.tag ?? restoredTags[0] ?? "custom",
     tags: restoredTags,
     exercises: withTransitionRestDefault(passed?.exercises),
