@@ -55,6 +55,17 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
+    // The Coach Wiki is intentionally PUBLIC — anyone with the link can read it
+    // (no trainer session required). The page itself runs no auth check and
+    // renders standalone (HIDDEN_SHELL_PATHS), so the only gate to lift is this
+    // middleware. Prefix-match so any future wiki sub-page stays public too.
+    if (
+      pathname === "/gc-fitness/wiki" ||
+      pathname.startsWith("/gc-fitness/wiki/")
+    ) {
+      return NextResponse.next();
+    }
+
     // Legacy pending-client URL compatibility:
     //   /gc-fitness/clients/mirror:{email}
     // -> /gc-fitness/clients/pending/{email}
