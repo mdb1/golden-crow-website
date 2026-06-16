@@ -56,6 +56,7 @@ import {
 } from "@/lib/gc-fitness/exercises-listener";
 import { searchExercises } from "@/lib/gc-fitness/exercise-search";
 import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
+import { dedupeExercisesByDisplayName } from "@/lib/gc-fitness/exercise-dedupe";
 import { useFavorites } from "@/lib/gc-fitness/use-favorites";
 import {
   favoriteIdSet,
@@ -151,7 +152,14 @@ export function ExerciseLibraryClient({
   );
 
   const rows = useMemo(() => {
-    const all = (data ?? []).filter(isPickableExercise);
+    // Collapse the double-seeded standard-library twins (numeric-id + std-*
+    // docs of the same exercise) BEFORE filter/search, so the library list +
+    // search show ONE row per exercise — the same render-dedupe the pickers
+    // and generator already apply. Prefers owned > renderable-media >
+    // canonical id > recency; the duplicate docs stay in Firestore.
+    const all = dedupeExercisesByDisplayName(
+      (data ?? []).filter(isPickableExercise),
+    );
     // Apply the non-search chip/select filters first, THEN rank + search
     // (issue #291): normalized, plural/hyphen-tolerant, best-match-first.
     const filtered = all.filter((r) => matchesFilters(r, filters, trainerUid));
