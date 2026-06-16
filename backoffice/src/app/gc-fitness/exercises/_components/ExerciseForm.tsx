@@ -110,14 +110,18 @@ function buildDefaults(
   passed?: Partial<ExerciseInput>,
 ): ExerciseInput {
   return {
-    name: {
+    // Mirror a single-language record into both languages on LOAD so the coach
+    // always sees existing content in their own language (an English-only
+    // exercise must not render an empty Spanish field). Save-time
+    // mirrorLocalizedBlank does the same on write. Both-blank stays both-blank.
+    name: mirrorLocalizedBlank({
       en: passed?.name?.en ?? "",
       es: passed?.name?.es ?? "",
-    },
-    description: {
+    }),
+    description: mirrorLocalizedBlank({
       en: passed?.description?.en ?? "",
       es: passed?.description?.es ?? "",
-    },
+    }),
     muscleGroups: passed?.muscleGroups ?? [],
     equipment: passed?.equipment ?? [],
     mediaURL: passed?.mediaURL ?? null,
@@ -126,7 +130,7 @@ function buildDefaults(
     // 14-02 — optional demo video + bilingual tips. Defaulting `tips` to
     // a populated `{ en: '', es: '' }` (rather than null) keeps RHF's
     // controlled inputs happy from the first render onward.
-    tips: passed?.tips ?? { en: "", es: "" },
+    tips: mirrorLocalizedBlank(passed?.tips ?? { en: "", es: "" }),
     // In create mode the server force-sets source/ownerId regardless of what
     // we send, but Zod requires the fields to be present in the shape — seed
     // a sentinel that satisfies the enum.

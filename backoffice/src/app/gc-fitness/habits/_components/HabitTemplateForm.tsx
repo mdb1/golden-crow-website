@@ -44,11 +44,14 @@ function buildDefaults(
 ): HabitTemplateCreateInput {
   return {
     type: "binary",
-    name: {
+    // Mirror a single-language record into both languages on LOAD so the coach
+    // always sees existing content in their own language. Save-time
+    // mirrorLocalizedBlank does the same on write. Both-blank stays both-blank.
+    name: mirrorLocalizedBlank({
       en: passed?.name?.en ?? "",
       es: passed?.name?.es ?? "",
-    },
-    description: passed?.description,
+    }),
+    description: mirrorLocalizedBlank(passed?.description),
     photoUrl: passed?.photoUrl,
     youtubeUrl: passed?.youtubeUrl,
     reminderTime: passed?.reminderTime,

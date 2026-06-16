@@ -142,10 +142,21 @@ export function HabitTemplateDetailDialog({
 
   function startEdit() {
     if (!template) return;
-    setNameEn(template.name.en ?? "");
-    setNameEs(template.name.es ?? "");
-    setDescEn(template.description?.en ?? "");
-    setDescEs(template.description?.es ?? "");
+    // Mirror a single-language record into both languages on LOAD so the coach
+    // always sees existing content in their own language (an English-only
+    // template must not render an empty Spanish field). Save already mirrors.
+    const seedName = mirrorLocalizedBlank({
+      en: template.name.en ?? "",
+      es: template.name.es ?? "",
+    });
+    const seedDesc = mirrorLocalizedBlank({
+      en: template.description?.en ?? "",
+      es: template.description?.es ?? "",
+    });
+    setNameEn(seedName.en);
+    setNameEs(seedName.es);
+    setDescEn(seedDesc.en);
+    setDescEs(seedDesc.es);
     setYoutubeUrl(template.youtubeUrl ?? "");
     setPhotoUrl(template.photoUrl ?? "");
     setReminderEnabled(template.reminderEnabled);

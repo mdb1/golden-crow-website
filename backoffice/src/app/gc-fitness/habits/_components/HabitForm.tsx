@@ -144,11 +144,15 @@ function buildDefaults(
   return {
     clientId: passed?.clientId ?? "",
     type: "binary",
-    name: {
+    // Mirror a single-language record into both languages on LOAD so the coach
+    // always sees existing content in their own language (an English-only habit
+    // must not render an empty Spanish field). Save-time mirrorLocalizedBlank
+    // already does this on write. Both-blank (create) stays both-blank.
+    name: mirrorLocalizedBlank({
       en: passed?.name?.en ?? "",
       es: passed?.name?.es ?? "",
-    },
-    description: passed?.description,
+    }),
+    description: mirrorLocalizedBlank(passed?.description),
     photoUrl: passed?.photoUrl,
     youtubeUrl: passed?.youtubeUrl,
     reminderTime: passed?.reminderTime,
