@@ -58,3 +58,22 @@ describe("exerciseSchema.metric (26-01 time-based-exercises seam)", () => {
     expect(parsed.metric).toBe("reps");
   });
 });
+
+describe("exerciseSchema.tracksWeight (26-09 reps-without-weight authoring)", () => {
+  // Default true so every legacy doc keeps showing the weight column.
+  it("defaults tracksWeight to true when absent", () => {
+    const parsed = exerciseSchema.parse(VALID_INPUT);
+    expect(parsed.tracksWeight).toBe(true);
+  });
+
+  // false = "reps without weight": the template builder seeds weightBySetKg:[].
+  it("parses tracksWeight: false (bodyweight) without modification", () => {
+    const parsed = exerciseSchema.parse({ ...VALID_INPUT, tracksWeight: false });
+    expect(parsed.tracksWeight).toBe(false);
+  });
+
+  it("parses tracksWeight: true without modification", () => {
+    const parsed = exerciseSchema.parse({ ...VALID_INPUT, tracksWeight: true });
+    expect(parsed.tracksWeight).toBe(true);
+  });
+});

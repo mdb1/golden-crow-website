@@ -12,7 +12,7 @@
 // /template one (backlog B2).
 
 import { ImageIcon } from "lucide-react";
-import type { useTranslations } from "next-intl";
+import { useLocale, type useTranslations } from "next-intl";
 
 import {
   Table,
@@ -25,6 +25,7 @@ import {
 import { StorageImagePreview } from "@/components/gc-fitness/StorageImagePreview";
 import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
 import type { HabitTemplateRow } from "@/lib/gc-fitness/habit-actions";
+import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 import { ScopePill } from "./habit-pills";
 
 type TFn = ReturnType<typeof useTranslations>;
@@ -57,6 +58,7 @@ export function HabitLibraryTable({
   loadingText: string;
   onRowClick: (template: HabitTemplateRow) => void;
 }) {
+  const locale = useLocale();
   return (
     <div className="min-w-0 overflow-x-auto rounded-md border bg-card">
       <Table>
@@ -94,8 +96,10 @@ export function HabitLibraryTable({
             </TableRow>
           ) : (
             templates.map((tpl) => {
-              const showEs =
-                tpl.name.es && tpl.name.es !== tpl.name.en ? tpl.name.es : null;
+              const { primary, secondary } = localizedNamePair(
+                tpl.name,
+                locale,
+              );
               const isGlobal = tpl.scope === "global";
               return (
                 <TableRow
@@ -112,13 +116,13 @@ export function HabitLibraryTable({
                   <TableCell>
                     <div className="flex flex-col gap-1.5">
                       <span className="font-medium">
-                        {tpl.name.en || tpl.name.es || t("untitled")}
+                        {primary || t("untitled")}
                       </span>
                       {/* Recurrence is intentionally NOT shown here: it's a
                           per-assignment property, not a library/template one. */}
-                      {showEs ? (
+                      {secondary ? (
                         <span className="text-xs text-muted-foreground">
-                          {showEs}
+                          {secondary}
                         </span>
                       ) : null}
                     </div>
