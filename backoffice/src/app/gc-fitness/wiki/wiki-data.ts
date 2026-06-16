@@ -31,14 +31,31 @@ export function pick(locale: string, value: Localized): string {
   return locale.startsWith("en") ? value.en : value.es;
 }
 
-/** Build the Loom embed URL from a share id. */
-export function loomEmbedUrl(loomId: string): string {
-  return `https://www.loom.com/embed/${loomId}?hide_owner=true&hideEmbedTopBar=true`;
+/** Build the Loom embed URL from a share id. `autoplay` starts it on mount. */
+export function loomEmbedUrl(
+  loomId: string,
+  opts?: { autoplay?: boolean },
+): string {
+  const params = new URLSearchParams({
+    hide_owner: "true",
+    hideEmbedTopBar: "true",
+  });
+  if (opts?.autoplay) params.set("autoplay", "1");
+  return `https://www.loom.com/embed/${loomId}?${params.toString()}`;
 }
 
 /** Build the public Loom share URL (the "open in Loom" fallback link). */
 export function loomShareUrl(loomId: string): string {
   return `https://www.loom.com/share/${loomId}`;
+}
+
+/**
+ * Loom-hosted poster frame for a video, used on the click-to-play facade. Loaded
+ * as a CSS background so a miss degrades gracefully to the dark poster + play
+ * button (no broken-image icon).
+ */
+export function loomThumbnailUrl(loomId: string): string {
+  return `https://cdn.loom.com/sessions/thumbnails/${loomId}-with-play.jpg`;
 }
 
 export const WIKI_GROUPS: WikiGroup[] = [
