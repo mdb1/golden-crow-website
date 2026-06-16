@@ -17,7 +17,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -206,10 +206,11 @@ export function ExerciseLibraryClient({
   );
 
   const columnsT = useTranslations("exercises.columns");
+  const locale = useLocale();
   const { data: usageCounts } = useExerciseUsageCounts();
   const columns = useMemo(
-    () => makeColumns(handlers, columnsT, usageCounts),
-    [handlers, columnsT, usageCounts],
+    () => makeColumns(handlers, columnsT, usageCounts, locale),
+    [handlers, columnsT, usageCounts, locale],
   );
 
   const table = useReactTable({

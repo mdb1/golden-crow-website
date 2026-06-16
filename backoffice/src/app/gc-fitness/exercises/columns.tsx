@@ -87,7 +87,11 @@ export function makeColumns(
   handlers: ExerciseColumnHandlers,
   t: TFn,
   usageCounts?: Record<string, number>,
+  locale?: string,
 ): ColumnDef<ExerciseRow>[] {
+  // Spanish coaches read the ES name first: show the coach-locale name on top
+  // and the other language below (muted). Falls back to whichever exists.
+  const esFirst = (locale ?? "").startsWith("es");
   return [
     {
       id: "favorite",
@@ -128,10 +132,15 @@ export function makeColumns(
       header: t("name"),
       cell: ({ row }) => {
         const usageCount = usageCounts?.[row.original.id] ?? 0;
+        const en = row.original.name.en?.trim() ?? "";
+        const es = row.original.name.es?.trim() ?? "";
+        const primary = esFirst ? es || en : en || es;
+        const secondaryRaw = esFirst ? en : es;
+        const secondary = secondaryRaw && secondaryRaw !== primary ? secondaryRaw : "";
         return (
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="font-medium">{row.original.name.en || t("untitled")}</span>
+              <span className="font-medium">{primary || t("untitled")}</span>
               {row.original.metric === "time" ? (
                 <Badge
                   variant="outline"
@@ -142,11 +151,9 @@ export function makeColumns(
                 </Badge>
               ) : null}
             </div>
-            {row.original.name.es && (
-              <span className="text-xs text-muted-foreground">
-                {row.original.name.es}
-              </span>
-            )}
+            {secondary ? (
+              <span className="text-xs text-muted-foreground">{secondary}</span>
+            ) : null}
             {row.original.tags?.length || usageCount > 0 ? (
               <div className="mt-1 flex flex-wrap gap-1">
                 {row.original.tags?.slice(0, 2).map((tag) => (

@@ -546,7 +546,7 @@ export function TemplatesLibraryClient({
                           ))}
                           {!row.__isDraft &&
                           (assignmentCounts?.[row.id] ?? 0) > 0 ? (
-                            <Badge variant="outline" className="font-normal">
+                            <Badge variant="violet" className="font-normal">
                               {columnsT("assignmentCount", {
                                 count: assignmentCounts?.[row.id] ?? 0,
                               })}
