@@ -259,7 +259,7 @@ export default async function AuditPage({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[60rem]">
               <TableHeader>
                 <TableRow>
                   <TableHead>When (UTC)</TableHead>
@@ -289,36 +289,43 @@ export default async function AuditPage({
                       key={row.id}
                       className={row.isDeletion ? "bg-destructive/5" : undefined}
                     >
-                      <TableCell className="whitespace-nowrap text-xs">
+                      <TableCell className="whitespace-nowrap align-top text-xs">
                         {row.occurredAtISO
                           ? row.occurredAtISO.replace("T", " ").replace(/\.\d+Z$/, "Z")
                           : "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         <div className="font-medium">{row.actorName ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs break-all text-muted-foreground">
                           {row.actorEmail || row.actorUid || "—"}
                         </div>
                         <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
-                          {row.actorRole}
+                          {row.source === "audit_log" ? "Firestore write" : row.actorRole}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         <div className="flex flex-col gap-1">
-                          <Badge variant={actionBadgeVariant(row.action)} className="w-fit">
-                            {row.action}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant={actionBadgeVariant(row.action)} className="w-fit">
+                              {row.action}
+                            </Badge>
+                            {row.occurrenceCount ? (
+                              <Badge variant="secondary" className="w-fit">
+                                ×{row.occurrenceCount} recurrence
+                              </Badge>
+                            ) : null}
+                          </div>
                           <span className="text-sm">{row.title}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[22rem] text-xs text-muted-foreground">
+                      <TableCell className="max-w-[24rem] align-top whitespace-normal text-xs text-muted-foreground [overflow-wrap:anywhere]">
                         {row.detail ?? "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         {row.clientId || row.clientLabel ? (
                           <div className="space-y-0.5">
-                            <div className="text-xs">{row.clientLabel ?? "—"}</div>
-                            <div className="font-mono text-[11px] text-muted-foreground">
+                            <div className="text-xs break-all">{row.clientLabel ?? "—"}</div>
+                            <div className="font-mono text-[11px] break-all text-muted-foreground">
                               {row.clientId ?? "—"}
                             </div>
                           </div>
@@ -326,8 +333,10 @@ export default async function AuditPage({
                           "—"
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        <div>{row.kind}</div>
+                      <TableCell className="align-top text-xs text-muted-foreground">
+                        <div className="whitespace-normal [overflow-wrap:anywhere]">
+                          {row.kind}
+                        </div>
                         {row.status ? (
                           <Badge
                             variant={row.status === "failed" ? "destructive" : "secondary"}
