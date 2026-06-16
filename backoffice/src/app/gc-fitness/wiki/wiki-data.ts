@@ -27,6 +27,22 @@ export type WikiGroup = {
   videos: WikiVideo[];
 };
 
+export type WikiLink = {
+  /** Stable anchor id used for the table-of-contents deep links (#id). */
+  id: string;
+  label: Localized;
+  description: Localized;
+  /** Absolute URL (http(s) or mailto:). Always opened in a new tab. */
+  href: string;
+};
+
+export type WikiFaq = {
+  /** Stable anchor id used for the table-of-contents deep links (#id). */
+  id: string;
+  question: Localized;
+  answer: Localized;
+};
+
 export function pick(locale: string, value: Localized): string {
   return locale.startsWith("en") ? value.en : value.es;
 }
@@ -211,6 +227,68 @@ export const WIKI_GROUPS: WikiGroup[] = [
   },
 ];
 
+// Useful links — each opens in a new tab. Order matters (rendered as-is).
+export const WIKI_LINKS: WikiLink[] = [
+  {
+    id: "link-dashboard",
+    label: { es: "Dashboard de GC Fitness", en: "GC Fitness dashboard" },
+    description: {
+      es: "El portal de coaches donde gestionás a tus clientes, entrenamientos y hábitos.",
+      en: "The coach portal where you manage your clients, workouts, and habits.",
+    },
+    href: "https://golden-crow-backoffice.vercel.app/gc-fitness",
+  },
+  {
+    id: "link-support",
+    label: { es: "Soporte: support@goldencrowvs.com", en: "Support: support@goldencrowvs.com" },
+    description: {
+      es: "Escribinos por cualquier duda, consulta o pedido de una nueva función.",
+      en: "Email us with any question, issue, or feature request.",
+    },
+    href: "mailto:support@goldencrowvs.com",
+  },
+  {
+    id: "link-app-store",
+    label: {
+      es: "App de clientes para iPhone (App Store)",
+      en: "Client app for iPhone (App Store)",
+    },
+    description: {
+      es: "Para iPhone: descargá GC Fitness desde la App Store.",
+      en: "For iPhone: download GC Fitness from the App Store.",
+    },
+    href: "https://apps.apple.com/us/app/gc-fitness/id6771836254",
+  },
+  {
+    id: "link-play-store",
+    label: {
+      es: "App de clientes para Android (Google Play)",
+      en: "Client app for Android (Google Play)",
+    },
+    description: {
+      es: "Para Android: descargá GC Fitness desde Google Play.",
+      en: "For Android: download GC Fitness from Google Play.",
+    },
+    href: "https://play.google.com/store/apps/details?id=com.goldencrow.fitness",
+  },
+];
+
+// Frequently asked questions. Answers may contain newlines (rendered with
+// `whitespace-pre-line`).
+export const WIKI_FAQ: WikiFaq[] = [
+  {
+    id: "faq-cliente-no-aparece",
+    question: {
+      es: "Mi cliente entró a la app pero no lo veo en el dashboard.",
+      en: "My client signed into the app but I can't see them in my dashboard.",
+    },
+    answer: {
+      es: "Si el cliente inició sesión con un email distinto al que vos pre-cargaste, queda asignado a un coach general en lugar de a tu cuenta. Esto también pasa con “Iniciar sesión con Apple” cuando usan la opción de ocultar el email (Apple genera un email “relay” distinto al real). Para moverlo a tu cuenta, contactá a un miembro de GC Fitness o escribí a support@goldencrowvs.com y transferimos a ese cliente a tu cuenta.",
+      en: "If the client signed in with an email different from the one you pre-loaded, they get assigned to a general coach instead of your account. This also happens with “Sign in with Apple” when they choose to hide their email (Apple issues a “relay” address that differs from the real one). To move them to your account, contact a GC Fitness team member or email support@goldencrowvs.com and we'll transfer that client to your account.",
+    },
+  },
+];
+
 export const WIKI_COPY = {
   brand: { es: "GC Fitness", en: "GC Fitness" },
   eyebrow: { es: "Centro de ayuda", en: "Help center" },
@@ -220,6 +298,12 @@ export const WIKI_COPY = {
     en: "Short videos explaining how to use every section of the coach portal.",
   },
   tocTitle: { es: "Secciones", en: "Sections" },
+  linksTitle: { es: "Links útiles", en: "Useful links" },
+  linksSubtitle: {
+    es: "Cada link abre en una pestaña nueva.",
+    en: "Each link opens in a new tab.",
+  },
+  faqTitle: { es: "Preguntas frecuentes", en: "FAQ" },
   comingSoon: { es: "Próximamente", en: "Coming soon" },
   comingSoonHint: {
     es: "Estamos grabando este video. Vuelve pronto.",

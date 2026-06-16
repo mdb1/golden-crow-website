@@ -1,9 +1,11 @@
-import { PlayCircle, Video } from "lucide-react";
+import { ChevronDown, ExternalLink, PlayCircle, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
   WIKI_COPY,
+  WIKI_FAQ,
   WIKI_GROUPS,
+  WIKI_LINKS,
   loomEmbedUrl,
   loomShareUrl,
   pick,
@@ -30,6 +32,64 @@ export function WikiSections({ locale }: { locale: string }) {
           </div>
         </section>
       ))}
+
+      {/* Useful links — each opens in a new tab. */}
+      <section id="links-utiles" className="scroll-mt-24 space-y-5">
+        <div className="space-y-1">
+          <h2 className="font-heading text-lg font-bold sm:text-xl">
+            {pick(locale, WIKI_COPY.linksTitle)}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {pick(locale, WIKI_COPY.linksSubtitle)}
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {WIKI_LINKS.map((link) => (
+            <a
+              key={link.id}
+              id={link.id}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex scroll-mt-24 items-start gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/50"
+            >
+              <div className="min-w-0 flex-1">
+                <h3 className="font-heading text-base font-bold transition-colors group-hover:text-primary sm:text-lg">
+                  {pick(locale, link.label)}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {pick(locale, link.description)}
+                </p>
+              </div>
+              <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ — native disclosure, no JS. */}
+      <section id="faq" className="scroll-mt-24 space-y-5">
+        <h2 className="font-heading text-lg font-bold sm:text-xl">
+          {pick(locale, WIKI_COPY.faqTitle)}
+        </h2>
+        <div className="space-y-3">
+          {WIKI_FAQ.map((item) => (
+            <details
+              key={item.id}
+              id={item.id}
+              className="group scroll-mt-24 rounded-2xl border border-border bg-card p-5 shadow-sm"
+            >
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3 font-heading text-base font-semibold [&::-webkit-details-marker]:hidden">
+                {pick(locale, item.question)}
+                <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                {pick(locale, item.answer)}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
 
       <p className="border-t border-border/70 pt-8 text-sm text-muted-foreground">
         {pick(locale, WIKI_COPY.footer)}
