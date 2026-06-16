@@ -5,9 +5,9 @@
 // Client orchestrator for `/gc-fitness/habits`. Two views via a segmented
 // toggle:
 //
-//   - "Asignaciones" — the per-client habit assignments table (default).
 //   - "Biblioteca"   — the reusable habit templates (global + own), WITHOUT
-//                      any per-client assignment.
+//                      any per-client assignment (default — shown first).
+//   - "Asignaciones" — the per-client habit assignments table.
 //
 // A "Crear hábito" button opens the SAME create flow used on the calendar
 // (NewHabitDialog), in roster mode so the trainer picks the client + start
@@ -115,7 +115,9 @@ export function HabitsLibraryClient({
   const tTypeLabels = useTranslations("habits.list.typeLabels");
   const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
-  const [view, setView] = useState<HabitsView>("assignments");
+  // Default to the reusable template library; per-client assignments are the
+  // secondary view (user request — open the Biblioteca first).
+  const [view, setView] = useState<HabitsView>("library");
   const [createOpen, setCreateOpen] = useState(false);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string>("all");
@@ -403,8 +405,8 @@ export function HabitsLibraryClient({
       <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 p-1 text-sm">
         {(
           [
-            ["assignments", t("tabAssignments")],
             ["library", t("tabLibrary")],
+            ["assignments", t("tabAssignments")],
           ] as const
         ).map(([value, label]) => (
           <button
