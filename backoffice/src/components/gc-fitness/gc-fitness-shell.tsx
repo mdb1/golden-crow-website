@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
+  BookOpen,
   CalendarDays,
   ClipboardCheck,
   Home,
@@ -43,6 +44,9 @@ import { Badge } from "@/components/ui/badge";
 const HIDDEN_SHELL_PATHS = new Set([
   "/gc-fitness/login",
   "/gc-fitness/forbidden",
+  // The Coach Wiki is a public, standalone page (its own brand bar, no coach
+  // sidebar) — it's also linked from the nav below, opening in a new tab.
+  "/gc-fitness/wiki",
 ]);
 
 // Routes that keep the consolidated "Biblioteca" nav item highlighted. The
@@ -64,6 +68,8 @@ type NavLeaf = {
   icon: React.ComponentType<{ className?: string }>;
   /** Extra paths that should also light up this item. */
   matchPaths?: string[];
+  /** Renders as an anchor that opens in a new tab (e.g. the public Wiki). */
+  external?: boolean;
 };
 type NavSection = { sectionKey: string; items: NavLeaf[] };
 
@@ -97,7 +103,15 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     sectionKey: "accountGroup",
-    items: [{ labelKey: "settings", href: "/gc-fitness/settings", icon: Settings }],
+    items: [
+      { labelKey: "settings", href: "/gc-fitness/settings", icon: Settings },
+      {
+        labelKey: "wiki",
+        href: "/gc-fitness/wiki",
+        icon: BookOpen,
+        external: true,
+      },
+    ],
   },
 ];
 
@@ -166,6 +180,7 @@ export function GCFitnessShell({
     : NAV_SECTIONS;
 
   function isItemActive(item: NavLeaf): boolean {
+    if (item.external) return false;
     if (inLiveWorkout) return false;
     const candidates = item.matchPaths ?? [item.href];
     return candidates.some(
@@ -250,6 +265,7 @@ export function GCFitnessShell({
                           isActive={isItemActive(item)}
                           icon={<item.icon className="h-4 w-4" />}
                           badge={navBadges[item.href] > 0 ? navBadges[item.href] : null}
+                          external={item.external}
                         />
                       </SidebarMenuItem>
                     ))}
@@ -309,14 +325,30 @@ function SidebarNavLink({
   isActive,
   icon,
   badge,
+  external = false,
 }: {
   href: string;
   label: string;
   isActive: boolean;
   icon: React.ReactNode;
   badge: number | null;
+  external?: boolean;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
+  const inner = (
+    <>
+      {icon}
+      <span>{label}</span>
+      {badge !== null ? (
+        <Badge
+          variant="destructive"
+          className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+        >
+          {badge}
+        </Badge>
+      ) : null}
+    </>
+  );
   return (
     <SidebarMenuButton
       asChild
@@ -327,23 +359,29 @@ function SidebarNavLink({
       // as a proper icon rail. Expanded state is unchanged.
       className="group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:[&_svg]:size-5"
     >
-      <Link
-        href={href}
-        onClick={() => {
-          if (isMobile) setOpenMobile(false);
-        }}
-      >
-        {icon}
-        <span>{label}</span>
-        {badge !== null ? (
-          <Badge
-            variant="destructive"
-            className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
-          >
-            {badge}
-          </Badge>
-        ) : null}
-      </Link>
+      {external ? (
+        // The Wiki is a public standalone page — open it in a new tab so the
+        // coach keeps their place in the portal.
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            if (isMobile) setOpenMobile(false);
+          }}
+        >
+          {inner}
+        </a>
+      ) : (
+        <Link
+          href={href}
+          onClick={() => {
+            if (isMobile) setOpenMobile(false);
+          }}
+        >
+          {inner}
+        </Link>
+      )}
     </SidebarMenuButton>
   );
 }
