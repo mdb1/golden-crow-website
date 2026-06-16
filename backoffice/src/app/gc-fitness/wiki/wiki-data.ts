@@ -386,6 +386,39 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "The library includes shared standard content (ready-made exercises and workout templates) so you don't have to start from scratch. That content is read-only — it can't be edited directly.\n\nIf you want to start from a standard template and adapt it, use “Duplicate”: that creates your own editable copy, which you can modify and assign without affecting the shared original.",
     },
   },
+  {
+    id: "faq-superseries-descanso",
+    question: {
+      es: "¿Cómo funcionan las superseries y el descanso?",
+      en: "How do supersets and rest work?",
+    },
+    answer: {
+      es: "Cuando agrupás ejercicios en una superserie, el cliente los hace encadenados, alternando entre ellos sin descanso en el medio: por ejemplo A serie 1 → B serie 1, y recién ahí descansa, después A serie 2 → B serie 2, y así.\n\nEs decir: dentro de la ronda no hay descanso entre los ejercicios de la superserie; el temporizador de descanso recién arranca al completar la ronda (la última serie del último ejercicio del grupo en ese nivel). Así el cliente entrena la superserie como un bloque y descansa una sola vez por ronda.",
+      en: "When you group exercises into a superset, the client does them back to back, alternating between them with no rest in between: e.g. A set 1 → B set 1, and only then they rest, then A set 2 → B set 2, and so on.\n\nIn other words: within a round there's no rest between the superset's exercises; the rest timer only starts once the round is complete (the last set of the last exercise in the group at that level). That way the client trains the superset as one block and rests once per round.",
+    },
+  },
+  {
+    id: "faq-edicion-cliente-rutina",
+    question: {
+      es: "¿Qué puede modificar el cliente de una rutina durante el entrenamiento?",
+      en: "What can the client change in a workout while training?",
+    },
+    answer: {
+      es: "Durante el entrenamiento el cliente tiene cierto margen para adaptarse al día, pero sin romper tu plan:\n\n• PUEDE ajustar los descansos (alargarlos o acortarlos) y agregar series extra a un ejercicio.\n• NO PUEDE agregar ejercicios nuevos ni cambiar/intercambiar los ejercicios que vos planificaste.\n\nAsí, la estructura del entrenamiento que armaste se mantiene: el cliente solo afina volumen y descanso, pero la selección de ejercicios sigue siendo tuya.",
+      en: "During a workout the client has some room to adapt to the day, without breaking your plan:\n\n• They CAN adjust rest times (longer or shorter) and add extra sets to an exercise.\n• They CANNOT add new exercises or change/swap the exercises you planned.\n\nThat way the workout structure you built stays intact: the client only fine-tunes volume and rest, but the exercise selection remains yours.",
+    },
+  },
+  {
+    id: "faq-rutina-incompleta",
+    question: {
+      es: "¿El cliente puede terminar una rutina sin completar todos los ejercicios?",
+      en: "Can a client finish a workout without completing every exercise?",
+    },
+    answer: {
+      es: "Sí. El cliente puede dar por terminado el entrenamiento aunque no haya completado todas las series o ejercicios. La app le avisa que está terminando una rutina incompleta y le pide confirmar antes de cerrarla.\n\nEl entrenamiento queda registrado con lo que efectivamente hizo, así que en el portal vas a ver qué series sí completó y cuáles quedaron sin hacer. Es útil para días en que el cliente no puede terminar todo, sin perder el registro de lo que sí logró.",
+      en: "Yes. The client can finish a workout even if they haven't completed every set or exercise. The app warns them that they're finishing an incomplete routine and asks them to confirm before closing it.\n\nThe workout is logged with what they actually did, so in the portal you'll see which sets they completed and which were left undone. It's handy for days when the client can't finish everything, without losing the record of what they did get done.",
+    },
+  },
 ];
 
 export const WIKI_COPY = {
