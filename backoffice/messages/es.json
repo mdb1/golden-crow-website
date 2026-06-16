@@ -621,6 +621,9 @@
       "sortMostAssigned": "Más asignaciones"
     },
     "form": {
+      "nameLabel": "Nombre",
+      "nameRequired": "Ingresá un nombre.",
+      "descriptionLabel": "Descripción",
       "nameEn": "Nombre (inglés)",
       "nameEs": "Nombre (español)",
       "namePlaceholderEn": "Push Day",

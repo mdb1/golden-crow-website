@@ -621,6 +621,9 @@
       "sortMostAssigned": "Most assignments"
     },
     "form": {
+      "nameLabel": "Name",
+      "nameRequired": "Enter a name.",
+      "descriptionLabel": "Description",
       "nameEn": "Name (English)",
       "nameEs": "Name (Spanish)",
       "namePlaceholderEn": "Push Day",
