@@ -611,7 +611,13 @@
       "deletedToast": "Template deleted.",
       "deleteFailedToast": "Couldn't delete.",
       "duplicatedToast": "Template duplicated.",
-      "duplicateFailedToast": "Couldn't duplicate. Please try again."
+      "duplicateFailedToast": "Couldn't duplicate. Please try again.",
+      "tabAll": "All",
+      "tabAssignments": "Assignments",
+      "assignmentsEmpty": "No upcoming assignments.",
+      "assignmentsClientCount": "{count, plural, one {# client} other {# clients}}",
+      "assignmentsSessions": "{count, plural, one {# session} other {# sessions}}",
+      "assignmentsNext": "Next: {date}"
     },
     "form": {
       "nameEn": "Name (English)",

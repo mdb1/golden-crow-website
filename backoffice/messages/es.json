@@ -611,7 +611,13 @@
       "deletedToast": "Plantilla eliminada.",
       "deleteFailedToast": "No se pudo eliminar.",
       "duplicatedToast": "Plantilla duplicada.",
-      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo.",
+      "tabAll": "TODOS",
+      "tabAssignments": "Asignaciones",
+      "assignmentsEmpty": "No hay asignaciones próximas.",
+      "assignmentsClientCount": "{count, plural, one {# cliente} other {# clientes}}",
+      "assignmentsSessions": "{count, plural, one {# sesión} other {# sesiones}}",
+      "assignmentsNext": "Próxima: {date}"
     },
     "form": {
       "nameEn": "Nombre (inglés)",

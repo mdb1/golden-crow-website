@@ -2237,3 +2237,139 @@ export async function countTemplateAssignments(): Promise<
   });
   return tallyTemplateAssignments(assignments, today);
 }
+
+export interface WorkoutAssignmentGroupClient {
+  uid: string;
+  name: string;
+  photoURL: string | null;
+  /** Count of today/future scheduled occurrences for this client+template. */
+  sessions: number;
+  nextScheduledFor: string;
+}
+
+export interface WorkoutAssignmentGroup {
+  templateId: string;
+  templateName: { en: string; es: string };
+  clientCount: number;
+  clients: WorkoutAssignmentGroupClient[];
+}
+
+/**
+ * Today/future workout assignments for the trainer, grouped by template and
+ * then by client — the data behind the Entrenamientos "Asignaciones" view
+ * (mirrors the habits assignments grouping). Only `scheduled` occurrences on
+ * or after today count; a client's recurring series collapses into a session
+ * count + the next date. Names resolved via point reads (db.getAll is
+ * unreliable on Vercel — see the audit-dashboard incident).
+ */
+export async function listWorkoutAssignmentGroups(): Promise<
+  WorkoutAssignmentGroup[]
+> {
+  const trainer = await getCurrentTrainer();
+  const db = gcFitnessFirestore();
+  const today = civilDateFormat(new Date(), await getTrainerTimezone());
+  const snap = await db
+    .collection(ASSIGNMENTS)
+    .where("trainerId", "==", trainer.uid)
+    .get();
+
+  type Bucket = { sessions: number; earliest: string };
+  const byTemplate = new Map<string, Map<string, Bucket>>();
+  for (const doc of snap.docs) {
+    const d = doc.data() as {
+      templateId?: string;
+      clientId?: string;
+      scheduledFor?: string;
+      status?: string;
+    };
+    const templateId = typeof d.templateId === "string" ? d.templateId : "";
+    const clientId = typeof d.clientId === "string" ? d.clientId : "";
+    const scheduledFor =
+      typeof d.scheduledFor === "string" ? d.scheduledFor : "";
+    if (!templateId || !clientId || !scheduledFor) continue;
+    if (scheduledFor < today) continue;
+    if (d.status && d.status !== "scheduled") continue;
+    let clients = byTemplate.get(templateId);
+    if (!clients) {
+      clients = new Map();
+      byTemplate.set(templateId, clients);
+    }
+    const bucket = clients.get(clientId) ?? { sessions: 0, earliest: scheduledFor };
+    bucket.sessions += 1;
+    if (scheduledFor < bucket.earliest) bucket.earliest = scheduledFor;
+    clients.set(clientId, bucket);
+  }
+
+  if (byTemplate.size === 0) return [];
+
+  const templateIds = [...byTemplate.keys()];
+  const clientIds = [
+    ...new Set([...byTemplate.values()].flatMap((m) => [...m.keys()])),
+  ];
+  const [templateDocs, clientDocs] = await Promise.all([
+    Promise.all(templateIds.map((id) => db.collection(TEMPLATES).doc(id).get())),
+    Promise.all(
+      clientIds.map((id) =>
+        db.collection(FirestoreCollections.users).doc(id).get(),
+      ),
+    ),
+  ]);
+
+  const templateNameById = new Map<string, { en: string; es: string }>();
+  for (const doc of templateDocs) {
+    if (!doc.exists) continue;
+    const data = doc.data() as { name?: { en?: string; es?: string } };
+    templateNameById.set(doc.id, {
+      en: data.name?.en ?? "",
+      es: data.name?.es ?? "",
+    });
+  }
+
+  const clientById = new Map<string, { name: string; photoURL: string | null }>();
+  for (const doc of clientDocs) {
+    if (!doc.exists) continue;
+    const data = doc.data() as {
+      displayName?: string;
+      email?: string;
+      coachNickname?: string;
+      photoURL?: string;
+    };
+    clientById.set(doc.id, {
+      name: coachVisibleClientName({
+        uid: doc.id,
+        displayName: data.displayName ?? data.email ?? doc.id,
+        email: data.email ?? "",
+        coachNickname: data.coachNickname ?? null,
+      }),
+      photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
+    });
+  }
+
+  return templateIds
+    .map((templateId): WorkoutAssignmentGroup => {
+      const clientsMap = byTemplate.get(templateId)!;
+      const clients = [...clientsMap.entries()]
+        .map(([uid, b]) => ({
+          uid,
+          name: clientById.get(uid)?.name ?? uid,
+          photoURL: clientById.get(uid)?.photoURL ?? null,
+          sessions: b.sessions,
+          nextScheduledFor: b.earliest,
+        }))
+        .sort((a, b) => a.nextScheduledFor.localeCompare(b.nextScheduledFor));
+      const tn = templateNameById.get(templateId);
+      return {
+        templateId,
+        templateName: { en: tn?.en ?? "", es: tn?.es ?? "" },
+        clientCount: clients.length,
+        clients,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.clientCount - a.clientCount ||
+        (a.templateName.es || a.templateName.en).localeCompare(
+          b.templateName.es || b.templateName.en,
+        ),
+    );
+}
