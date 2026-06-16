@@ -1,7 +1,4 @@
-"use client";
-
-import { useState } from "react";
-import { Play, PlayCircle, Video } from "lucide-react";
+import { PlayCircle, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,18 +6,16 @@ import {
   WIKI_GROUPS,
   loomEmbedUrl,
   loomShareUrl,
-  loomThumbnailUrl,
   pick,
   type WikiVideo,
 } from "./wiki-data";
 
-// Client island that owns the "only one video plays at a time" state. Each video
-// renders a lightweight click-to-play POSTER until activated; activating one sets
-// it as the single active id, which UNMOUNTS every other iframe — so nothing else
-// can keep playing. (It's also far lighter than mounting ~8 Loom iframes at once.)
+// Full-width 2-up layout. Every walkthrough renders as a live Loom embed so all
+// posters/thumbnails are visible at once — no click-to-play facade and no
+// "only one plays at a time" gating (that hid thumbnails when a poster image
+// 404'd). Loom lazy-loads each iframe, so nothing autoplays until the coach
+// presses play inside a player.
 export function WikiSections({ locale }: { locale: string }) {
-  const [activeId, setActiveId] = useState<string | null>(null);
-
   return (
     <main className="min-w-0 space-y-12">
       {WIKI_GROUPS.map((group) => (
@@ -30,13 +25,7 @@ export function WikiSections({ locale }: { locale: string }) {
           </h2>
           <div className="grid gap-6 xl:grid-cols-2">
             {group.videos.map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                locale={locale}
-                isActive={activeId === video.id}
-                onActivate={() => setActiveId(video.id)}
-              />
+              <VideoCard key={video.id} video={video} locale={locale} />
             ))}
           </div>
         </section>
@@ -49,17 +38,7 @@ export function WikiSections({ locale }: { locale: string }) {
   );
 }
 
-function VideoCard({
-  video,
-  locale,
-  isActive,
-  onActivate,
-}: {
-  video: WikiVideo;
-  locale: string;
-  isActive: boolean;
-  onActivate: () => void;
-}) {
+function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
   const comingSoon = !video.loomId;
   const title = pick(locale, video.title);
 
@@ -85,39 +64,17 @@ function VideoCard({
       <div className="mt-auto px-5 pb-5 pt-4">
         {video.loomId ? (
           <>
-            {isActive ? (
-              <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
-                <div className="aspect-video">
-                  <iframe
-                    src={loomEmbedUrl(video.loomId, { autoplay: true })}
-                    title={title}
-                    allowFullScreen
-                    allow="autoplay; fullscreen; picture-in-picture"
-                    className="absolute inset-0 h-full w-full"
-                  />
-                </div>
+            <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
+              <div className="aspect-video">
+                <iframe
+                  src={loomEmbedUrl(video.loomId)}
+                  title={title}
+                  allowFullScreen
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full"
+                />
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={onActivate}
-                aria-label={`${pick(locale, WIKI_COPY.openInLoom)} — ${title}`}
-                className="group relative block aspect-video w-full overflow-hidden rounded-xl border border-border bg-black bg-cover bg-center"
-                style={{
-                  backgroundImage: `url(${loomThumbnailUrl(video.loomId)})`,
-                }}
-              >
-                <span className="absolute inset-0 bg-black/30 transition-colors group-hover:bg-black/15" />
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex size-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-105">
-                    <Play
-                      className="h-7 w-7 translate-x-0.5 text-black"
-                      fill="currentColor"
-                    />
-                  </span>
-                </span>
-              </button>
-            )}
+            </div>
             <a
               href={loomShareUrl(video.loomId)}
               target="_blank"
