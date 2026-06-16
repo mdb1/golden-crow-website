@@ -57,6 +57,7 @@ import {
 import { searchExercises } from "@/lib/gc-fitness/exercise-search";
 import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
 import { useFavorites } from "@/lib/gc-fitness/use-favorites";
+import { useExerciseUsageCounts } from "@/lib/gc-fitness/library-usage-listeners";
 import {
   favoriteIdSet,
   filterFavoritesOnly,
@@ -197,7 +198,11 @@ export function ExerciseLibraryClient({
   );
 
   const columnsT = useTranslations("exercises.columns");
-  const columns = useMemo(() => makeColumns(handlers, columnsT), [handlers, columnsT]);
+  const { data: usageCounts } = useExerciseUsageCounts();
+  const columns = useMemo(
+    () => makeColumns(handlers, columnsT, usageCounts),
+    [handlers, columnsT, usageCounts],
+  );
 
   const table = useReactTable({
     data: rows,

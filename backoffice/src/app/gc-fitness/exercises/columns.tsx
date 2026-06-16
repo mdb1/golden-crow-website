@@ -86,6 +86,7 @@ type TFn = ReturnType<typeof useTranslations>;
 export function makeColumns(
   handlers: ExerciseColumnHandlers,
   t: TFn,
+  usageCounts?: Record<string, number>,
 ): ColumnDef<ExerciseRow>[] {
   return [
     {
@@ -125,41 +126,49 @@ export function makeColumns(
     {
       accessorKey: "name.en",
       header: t("name"),
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium">{row.original.name.en || t("untitled")}</span>
-            {row.original.metric === "time" ? (
-              <Badge
-                variant="outline"
-                className="px-1.5 py-0 text-[10px]"
-                title={t("metricTimeBadgeTitle")}
-              >
-                {"⏱"}
-              </Badge>
-            ) : null}
-          </div>
-          {row.original.name.es && (
-            <span className="text-xs text-muted-foreground">
-              {row.original.name.es}
-            </span>
-          )}
-          {row.original.tags?.length ? (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {row.original.tags.slice(0, 2).map((tag) => (
-                <Badge key={tag} variant="secondary" className="font-normal">
-                  {formatLabel(tag)}
-                </Badge>
-              ))}
-              {row.original.tags.length > 2 ? (
-                <Badge variant="secondary" className="font-normal">
-                  +{row.original.tags.length - 2}
+      cell: ({ row }) => {
+        const usageCount = usageCounts?.[row.original.id] ?? 0;
+        return (
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium">{row.original.name.en || t("untitled")}</span>
+              {row.original.metric === "time" ? (
+                <Badge
+                  variant="outline"
+                  className="px-1.5 py-0 text-[10px]"
+                  title={t("metricTimeBadgeTitle")}
+                >
+                  {"⏱"}
                 </Badge>
               ) : null}
             </div>
-          ) : null}
-        </div>
-      ),
+            {row.original.name.es && (
+              <span className="text-xs text-muted-foreground">
+                {row.original.name.es}
+              </span>
+            )}
+            {row.original.tags?.length || usageCount > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {row.original.tags?.slice(0, 2).map((tag) => (
+                  <Badge key={tag} variant="secondary" className="font-normal">
+                    {formatLabel(tag)}
+                  </Badge>
+                ))}
+                {row.original.tags && row.original.tags.length > 2 ? (
+                  <Badge variant="secondary" className="font-normal">
+                    +{row.original.tags.length - 2}
+                  </Badge>
+                ) : null}
+                {usageCount > 0 ? (
+                  <Badge variant="outline" className="font-normal">
+                    {t("usageRoutines", { count: usageCount })}
+                  </Badge>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: "category",

@@ -70,6 +70,7 @@ import type { WorkoutTemplateRow } from "@/lib/gc-fitness/workout-template-actio
 import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
 import { fuzzyTokenScore } from "@/lib/gc-fitness/exercise-search";
 import { useFavorites } from "@/lib/gc-fitness/use-favorites";
+import { useTemplateAssignmentCounts } from "@/lib/gc-fitness/library-usage-listeners";
 import {
   favoriteIdSet,
   filterFavoritesOnly,
@@ -160,6 +161,7 @@ export function TemplatesLibraryClient({
   // both names and tags, so a query like "Pull" surfaces "PULL Manu" as well
   // as rows tagged "Pull".
   const { data, isLoading, error } = useWorkoutTemplates();
+  const { data: assignmentCounts } = useTemplateAssignmentCounts();
 
   // Read the in-progress "new" draft from localStorage so we can surface it as
   // a virtual row at the top of the list. Re-read on the `storage` event so a
@@ -542,6 +544,14 @@ export function TemplatesLibraryClient({
                               {TAG_LABELS[raw] ?? raw}
                             </Badge>
                           ))}
+                          {!row.__isDraft &&
+                          (assignmentCounts?.[row.id] ?? 0) > 0 ? (
+                            <Badge variant="outline" className="font-normal">
+                              {columnsT("assignmentCount", {
+                                count: assignmentCounts?.[row.id] ?? 0,
+                              })}
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
                       <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
