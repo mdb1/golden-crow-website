@@ -878,8 +878,12 @@ export function TemplateForm({
   const submitErrorMessages = useMemo(() => {
     const out: string[] = [];
     const errs = form.formState.errors;
-    if (errs.name?.en?.message) out.push(String(errs.name.en.message));
-    if (errs.name?.es?.message) out.push(String(errs.name.es.message));
+    // Collapse the per-language name errors into ONE localized line — the
+    // schema-required language may be the hidden mirror, so showing the raw
+    // "Name in English is required." is confusing for a Spanish coach.
+    if (errs.name?.en?.message || errs.name?.es?.message) {
+      out.push(t("nameRequired"));
+    }
     if (errs.description?.en?.message)
       out.push(String(errs.description.en.message));
     if (errs.description?.es?.message)
@@ -955,27 +959,37 @@ export function TemplateForm({
             </Button>
           </div>
         ) : null}
-        {/* Name — coach language first; optional translation toggle. */}
+        {/* Single top-right translation toggle for the whole form. While
+            hidden, localized fields show just the coach-language input (no
+            "(language)" suffix); revealing it adds the qualifiers + secondary
+            inputs. */}
+        {!showSpanishFields ? (
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => setShowSpanishFields(true)}
+            >
+              {t("addTranslation")}
+            </Button>
+          </div>
+        ) : null}
+
+        {/* Name — coach language first; optional translation. */}
         <LocalizedTextField
           form={form}
           base="name"
           primaryLang={primaryLang}
           otherLang={otherLang}
           showTranslation={showSpanishFields}
+          plainLabel={t("nameLabel")}
           primaryLabel={esPrimary ? t("nameEs") : t("nameEn")}
           otherLabel={esPrimary ? t("nameEn") : t("nameEs")}
           placeholder={esPrimary ? t("namePlaceholderEs") : t("namePlaceholderEn")}
+          requiredMessage={t("nameRequired")}
         />
-        {!showSpanishFields ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-fit"
-            onClick={() => setShowSpanishFields(true)}
-          >
-            {t("addTranslation")}
-          </Button>
-        ) : null}
 
         {/* Description — coach language first; optional translation. */}
         <LocalizedTextField
@@ -984,6 +998,7 @@ export function TemplateForm({
           primaryLang={primaryLang}
           otherLang={otherLang}
           showTranslation={showSpanishFields}
+          plainLabel={t("descriptionLabel")}
           primaryLabel={esPrimary ? t("descriptionEs") : t("descriptionEn")}
           otherLabel={esPrimary ? t("descriptionEn") : t("descriptionEs")}
           placeholder={
