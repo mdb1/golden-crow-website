@@ -20,6 +20,7 @@
 // selected set, or it appears neither in the workout nor any pill.
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Dumbbell, RefreshCw, Sparkles } from "lucide-react";
@@ -39,6 +40,7 @@ import { TemplateForm } from "@/components/gc-fitness/template-form";
 
 import {
   EQUIPMENT_GROUPS,
+  MUSCLE_LABELS,
   MUSCLE_PRESETS,
   WORKOUT_TYPE_PRESETS,
   computeReplacements,
@@ -68,6 +70,10 @@ function humanize(id: string): string {
 export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
   const s = useGeneratorStrings();
   const localized = useLocalized();
+  // Reuse the shared vocabulary catalog (same source the exercise form uses) so
+  // the per-item equipment/muscle chips render in the coach's language instead
+  // of raw English identifiers.
+  const tVocab = useTranslations("exercises.vocabulary");
   const { data: library, isLoading } = useExercisesQuery();
   // #297 — the engine prefers the coach's favorited exercises within each
   // muscle bucket.
@@ -199,7 +205,9 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
     if (match) return match.label;
     if (muscles.size === 1) {
       const only = [...muscles][0];
-      return { en: humanize(only), es: humanize(only) };
+      // Use the bilingual muscle label so the generated workout name reads in
+      // the coach's language (e.g. "Cuádriceps · Hipertrofia"), not the raw id.
+      return MUSCLE_LABELS[only] ?? { en: humanize(only), es: humanize(only) };
     }
     return undefined;
   }, [muscles]);
@@ -373,6 +381,9 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
           key={`gen-${genVersion}`}
           mode="create"
           defaultValues={generated}
+          // Coach-language-first: show one name field + "add translation"
+          // toggle, even though the generator pre-fills both languages.
+          initialShowTranslation={false}
           onSubmit={(input) => createWorkoutTemplate(input)}
           onCreated={(id) => {
             setSavedId(id);
@@ -423,7 +434,7 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
           <div className="flex flex-wrap gap-2">
             {EQUIPMENT.map((id) => (
               <Chip key={id} active={equipment.has(id)} onClick={() => toggle(setEquipment, id)}>
-                {humanize(id)}
+                {tVocab(`equipment.${id}`)}
               </Chip>
             ))}
           </div>
@@ -449,7 +460,7 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
           <div className="flex flex-wrap gap-2">
             {MUSCLE_GROUPS.map((id) => (
               <Chip key={id} active={muscles.has(id)} onClick={() => toggle(setMuscles, id)}>
-                {humanize(id)}
+                {tVocab(`muscle.${id}`)}
               </Chip>
             ))}
           </div>

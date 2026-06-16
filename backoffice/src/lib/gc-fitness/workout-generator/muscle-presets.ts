@@ -73,6 +73,41 @@ export const MUSCLE_PRESETS: readonly MusclePreset[] = [
   },
 ];
 
+/**
+ * Bilingual display label for each canonical muscle group. Needed to build the
+ * generated workout's default NAME (which carries both languages) when the
+ * coach picks a SINGLE muscle that doesn't match any preset — otherwise the
+ * name fell back to the raw English id (e.g. "Quadriceps · Hipertrofia").
+ * Mirrors the `exercises.vocabulary.muscle` next-intl catalog; the per-locale
+ * chip UI reads that catalog directly, while the engine's name builder is
+ * locale-agnostic and needs both languages here. `muscle-presets.test.ts`
+ * asserts this map covers every `MUSCLE_GROUPS` id so the two can't drift.
+ */
+export const MUSCLE_LABELS: Readonly<Record<string, { en: string; es: string }>> = {
+  abs: { en: "Abs", es: "Abdominales" },
+  arms: { en: "Arms", es: "Brazos" },
+  back: { en: "Back", es: "Espalda" },
+  biceps: { en: "Biceps", es: "Bíceps" },
+  calves: { en: "Calves", es: "Pantorrillas" },
+  cardio: { en: "Cardio", es: "Cardio" },
+  chest: { en: "Chest", es: "Pecho" },
+  core: { en: "Core", es: "Core" },
+  flexibility: { en: "Flexibility", es: "Flexibilidad" },
+  forearms: { en: "Forearms", es: "Antebrazos" },
+  full_body: { en: "Full body", es: "Cuerpo completo" },
+  glutes: { en: "Glutes", es: "Glúteos" },
+  hamstrings: { en: "Hamstrings", es: "Isquiotibiales" },
+  legs: { en: "Legs", es: "Piernas" },
+  quadriceps: { en: "Quadriceps", es: "Cuádriceps" },
+  shoulders: { en: "Shoulders", es: "Hombros" },
+  triceps: { en: "Triceps", es: "Tríceps" },
+};
+
+/** Validate that `MUSCLE_LABELS` covers every canonical `MUSCLE_GROUPS` id. */
+export function muscleLabelsCoverVocab(): boolean {
+  return (MUSCLE_GROUPS as readonly string[]).every((m) => m in MUSCLE_LABELS);
+}
+
 /** Expand a set of selected preset ids into the union of their muscle groups. */
 export function expandMusclePresets(presetIds: readonly string[]): string[] {
   const out = new Set<string>();

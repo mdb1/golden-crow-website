@@ -134,6 +134,35 @@ describe("inferAuxiliaryEquipment (name-based bench inference)", () => {
   });
 });
 
+describe("inferAuxiliaryEquipment (name-based pull-up-bar inference)", () => {
+  it("infers a pull-up bar for pull-up / chin-up / muscle-up movements (ES)", () => {
+    expect(inferAuxiliaryEquipment({ en: "", es: "Dominadas" })).toEqual(["pull_up_bar"]);
+    expect(inferAuxiliaryEquipment({ en: "", es: "Dominadas supinas" })).toEqual(["pull_up_bar"]);
+  });
+
+  it("infers a pull-up bar for English names too", () => {
+    expect(inferAuxiliaryEquipment({ en: "Pull-Ups", es: "" })).toEqual(["pull_up_bar"]);
+    expect(inferAuxiliaryEquipment({ en: "Pull Up", es: "" })).toEqual(["pull_up_bar"]);
+    expect(inferAuxiliaryEquipment({ en: "Chin-Up", es: "" })).toEqual(["pull_up_bar"]);
+    expect(inferAuxiliaryEquipment({ en: "Muscle-Up", es: "" })).toEqual(["pull_up_bar"]);
+  });
+
+  it("does NOT infer a pull-up bar for pulldowns / rows (cable or machine)", () => {
+    expect(inferAuxiliaryEquipment({ en: "Lat Pulldown", es: "Jalón al pecho" })).toEqual([]);
+    expect(inferAuxiliaryEquipment({ en: "Seated Row", es: "Remo sentado" })).toEqual([]);
+  });
+
+  it("a bodyweight-tagged pull-up still REQUIRES the bar via effectiveEquipment", () => {
+    // The real-world bug: a "Dominadas" exercise tagged only ["bodyweight"]
+    // must not slip into a bodyweight-only (no-bar) generation.
+    const pullup = ex("dom", ["back", "biceps"], ["bodyweight"]);
+    pullup.name = { en: "Pull-Ups", es: "Dominadas" };
+    expect(effectiveEquipment(pullup).sort()).toEqual(["bodyweight", "pull_up_bar"]);
+    expect(isEquipmentAllowed(pullup, new Set(["bodyweight"]))).toBe(false);
+    expect(isEquipmentAllowed(pullup, new Set(["bodyweight", "pull_up_bar"]))).toBe(true);
+  });
+});
+
 describe("isEquipmentAllowed (THE rule)", () => {
   it("allows an exercise when all its equipment is selected", () => {
     const allowed = isEquipmentAllowed(
