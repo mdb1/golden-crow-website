@@ -122,6 +122,10 @@ const OVERRIDES: Record<string, string | null> = {
   "Inchworm (Bodyweight)": "1471",
   "World's Greatest Stretch (Bodyweight)": "1604",
   "Glute Bridge March (Bodyweight)": "3561",
+  // No hollow-hold clip exists in the CSV dataset — the fuzzy matcher would pick
+  // an unrelated movement. Skip here; the correct gif is hosted externally and
+  // assigned by `assign-external-gifs.ts`.
+  "Hollow Hold (Bodyweight)": null,
   "General Warm-up (None)": null,
   "Cardio Warm-up (None)": null,
   "Jumping Jacks (Bodyweight)": null,
