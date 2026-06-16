@@ -5,9 +5,9 @@
 // Client orchestrator for `/gc-fitness/habits`. Two views via a segmented
 // toggle:
 //
-//   - "Asignaciones" — the per-client habit assignments table (default).
 //   - "Biblioteca"   — the reusable habit templates (global + own), WITHOUT
-//                      any per-client assignment.
+//                      any per-client assignment (default — shown first).
+//   - "Asignaciones" — the per-client habit assignments table.
 //
 // A "Crear hábito" button opens the SAME create flow used on the calendar
 // (NewHabitDialog), in roster mode so the trainer picks the client + start
@@ -112,10 +112,12 @@ export function HabitsLibraryClient({
   const router = useRouter();
   const t = useTranslations("habits.list");
   const columnsT = useTranslations("habits.columns");
-  const tTypeLabels = useTranslations("habits.list.typeLabels");
   const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
-  const [view, setView] = useState<HabitsView>("assignments");
+  // Default to the reusable template library; per-client assignments are the
+  // secondary view (user request — open the Biblioteca first).
+  const [view, setView] = useState<HabitsView>("library");
+  const [sortByAssignments, setSortByAssignments] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string>("all");
@@ -229,6 +231,19 @@ export function HabitsLibraryClient({
     );
   }, [rows, columnsT]);
 
+  // Count of assignments per source template (from the trainer's assignment
+  // feed) — powers the "Más asignaciones" sort in the TODOS view.
+  const assignmentCountByTemplate = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as HabitRow[]) {
+      const tid = row.sourceTemplateId;
+      if (typeof tid === "string" && tid) {
+        counts[tid] = (counts[tid] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [data]);
+
   const filteredTemplates = useMemo(() => {
     const all = templates as HabitTemplateRow[];
     const needle = search.trim().toLowerCase();
@@ -247,8 +262,23 @@ export function HabitsLibraryClient({
       favTemplateIds,
       favoritesOnly,
     );
-    return sortFavoritesFirst(scoped, (tpl) => tpl.id, favTemplateIds);
-  }, [templates, search, favTemplateIds, favoritesOnly]);
+    const ranked = sortFavoritesFirst(scoped, (tpl) => tpl.id, favTemplateIds);
+    if (sortByAssignments) {
+      return [...ranked].sort(
+        (a, b) =>
+          (assignmentCountByTemplate[b.id] ?? 0) -
+          (assignmentCountByTemplate[a.id] ?? 0),
+      );
+    }
+    return ranked;
+  }, [
+    templates,
+    search,
+    favTemplateIds,
+    favoritesOnly,
+    sortByAssignments,
+    assignmentCountByTemplate,
+  ]);
 
   // B5 — friendly labels for the hidden GLOBAL ids. `listHabitTemplates`
   // excludes hidden globals from `templates`, so their names aren't in that
@@ -403,8 +433,8 @@ export function HabitsLibraryClient({
       <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 p-1 text-sm">
         {(
           [
-            ["assignments", t("tabAssignments")],
             ["library", t("tabLibrary")],
+            ["assignments", t("tabAssignments")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -442,6 +472,21 @@ export function HabitsLibraryClient({
             className="h-10 rounded-full pl-9"
           />
         </div>
+        {view === "library" ? (
+          <button
+            type="button"
+            onClick={() => setSortByAssignments((v) => !v)}
+            aria-pressed={sortByAssignments}
+            className={cn(
+              "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              sortByAssignments
+                ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+                : "bg-muted/70 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t("sortMostAssigned")}
+          </button>
+        ) : null}
         {view === "assignments" ? (
           <Select value={clientFilter} onValueChange={(v) => setClientFilter(v)}>
             <SelectTrigger className="h-10 w-full rounded-full sm:w-56">
@@ -612,9 +657,6 @@ export function HabitsLibraryClient({
                   <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                     {group.title}
                   </h3>
-                  <Badge variant="violet" className="shrink-0 font-medium">
-                    {tTypeLabels(group.rows[0].type)}
-                  </Badge>
                 </div>
                 <ul className="divide-y divide-border">
                   {group.rows.map((row) => {

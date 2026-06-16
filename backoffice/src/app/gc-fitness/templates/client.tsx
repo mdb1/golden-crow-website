@@ -26,7 +26,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -78,6 +78,7 @@ import {
 } from "@/lib/gc-fitness/favorites";
 import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
 import type { TemplateListRow } from "@/components/gc-fitness/templates/columns";
+import { TemplateAssignmentsView } from "./_components/TemplateAssignmentsView";
 
 // Tag → human label (kept local — small, list-only).
 const TAG_LABELS: Record<string, string> = {
@@ -141,7 +142,11 @@ export function TemplatesLibraryClient({
   const router = useRouter();
   const t = useTranslations("templates.list");
   const tFilters = useTranslations("exercises.filters");
+  const locale = useLocale();
   const queryClient = useQueryClient();
+  // TODOS = the template list (default); Asignaciones = grouped by template.
+  const [view, setView] = useState<"all" | "assignments">("all");
+  const [sortByAssignments, setSortByAssignments] = useState(false);
   const [tagFilter, setTagFilter] = useState("");
   const [mineOnly, setMineOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -255,8 +260,25 @@ export function TemplatesLibraryClient({
     // it stays pinned at the very top regardless of favorites.
     list = filterFavoritesOnly(list, (r) => r.id, favIds, favoritesOnly);
     list = sortFavoritesFirst(list, (r) => r.id, favIds);
+    // "Más asignaciones": stable-sort by today/future assignment-series count.
+    if (sortByAssignments) {
+      list = [...list].sort(
+        (a, b) =>
+          (assignmentCounts?.[b.id] ?? 0) - (assignmentCounts?.[a.id] ?? 0),
+      );
+    }
     return draftRow ? [draftRow, ...list] : list;
-  }, [data, mineOnly, trainerUid, tagFilter, draftRow, favIds, favoritesOnly]);
+  }, [
+    data,
+    mineOnly,
+    trainerUid,
+    tagFilter,
+    draftRow,
+    favIds,
+    favoritesOnly,
+    sortByAssignments,
+    assignmentCounts,
+  ]);
 
   const handlers = useMemo(
     () => ({
@@ -355,6 +377,35 @@ export function TemplatesLibraryClient({
         </div>
       </div>
 
+      {/* View toggle: TODOS (the template list) vs Asignaciones (grouped). */}
+      <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 p-1 text-sm">
+        {(
+          [
+            ["all", t("tabAll")],
+            ["assignments", t("tabAssignments")],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setView(value)}
+            data-active={view === value}
+            className={cn(
+              "min-h-9 rounded-full px-4 py-1.5 font-medium transition-colors",
+              view === value
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "assignments" ? (
+        <TemplateAssignmentsView locale={locale} />
+      ) : (
+        <>
       {/* Search row — rounded input with leading icon + filter affordance +
           Todos / Creados por mí pill toggle. */}
       <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-border bg-card px-3 py-2.5 shadow-sm">
@@ -423,6 +474,19 @@ export function TemplatesLibraryClient({
             aria-hidden="true"
           />
           {tFilters("favoritesOnlyLabel")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSortByAssignments((v) => !v)}
+          aria-pressed={sortByAssignments}
+          className={cn(
+            "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            sortByAssignments
+              ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+              : "bg-muted/70 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {t("sortMostAssigned")}
         </button>
       </div>
 
@@ -546,7 +610,7 @@ export function TemplatesLibraryClient({
                           ))}
                           {!row.__isDraft &&
                           (assignmentCounts?.[row.id] ?? 0) > 0 ? (
-                            <Badge variant="outline" className="font-normal">
+                            <Badge variant="violet" className="font-normal">
                               {columnsT("assignmentCount", {
                                 count: assignmentCounts?.[row.id] ?? 0,
                               })}
@@ -653,6 +717,8 @@ export function TemplatesLibraryClient({
           </CardContent>
         </Card>
       ) : null}
+        </>
+      )}
 
       <AlertDialog
         open={confirmDelete !== null}

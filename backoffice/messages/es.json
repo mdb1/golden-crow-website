@@ -611,12 +611,20 @@
       "deletedToast": "Plantilla eliminada.",
       "deleteFailedToast": "No se pudo eliminar.",
       "duplicatedToast": "Plantilla duplicada.",
-      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo.",
+      "tabAll": "TODOS",
+      "tabAssignments": "Asignaciones",
+      "assignmentsEmpty": "No hay asignaciones próximas.",
+      "assignmentsClientCount": "{count, plural, one {# cliente} other {# clientes}}",
+      "assignmentsSessions": "{count, plural, one {# sesión} other {# sesiones}}",
+      "assignmentsNext": "Próxima: {date}",
+      "sortMostAssigned": "Más asignaciones"
     },
     "form": {
       "nameEn": "Nombre (inglés)",
       "nameEs": "Nombre (español)",
       "namePlaceholderEn": "Push Day",
+      "addTranslation": "Agregar traducción",
       "namePlaceholderEs": "Día de empuje",
       "nameEsHint": "Dejá en blanco para marcar como “necesita traducción.”",
       "descriptionEn": "Descripción (inglés)",
@@ -734,7 +742,8 @@
       "createHabitCta": "Crear hábito",
       "bulkAssignCta": "Asignar a clientes",
       "tabAssignments": "Asignaciones",
-      "tabLibrary": "Biblioteca",
+      "tabLibrary": "TODOS",
+      "sortMostAssigned": "Más asignaciones",
       "libraryEmpty": "Aún no tenés hábitos en tu biblioteca.",
       "habitCreatedToast": "Hábito creado.",
       "detailTitle": "Detalle del hábito",
@@ -966,6 +975,7 @@
       "descriptionPlaceholderEn": "Opcional — ¿cómo se ve este hábito en la práctica?",
       "descriptionPlaceholderEs": "Opcional",
       "descriptionOptionalHint": "Opcional. Dejá ambos en blanco para omitir.",
+      "addTranslation": "Agregar traducción",
       "optionsHeading": "Opciones",
       "optionsCount": "{count}/8",
       "optionsHelp": "Los hábitos de opción múltiple necesitan al menos 2 opciones. El cliente elige una al registrar el hábito.",
@@ -1099,7 +1109,8 @@
       "deletedToast": "Ejercicio eliminado.",
       "deleteFailedToast": "No se pudo eliminar. Probá de nuevo.",
       "duplicatedToast": "Ejercicio duplicado. Editá tu copia ahora.",
-      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
+      "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo.",
+      "sortMostUsed": "Más usados"
     },
     "form": {
       "newPageHeading": "Nuevo ejercicio",
@@ -1122,6 +1133,7 @@
       "descriptionEs": "Descripción (español)",
       "descriptionMarkdownHint": "Acepta Markdown. Usá viñetas, negrita y enlaces.",
       "tipsHeading": "Consejos de entrenamiento (opcional)",
+      "addTranslation": "Agregar traducción",
       "tipsEn": "Consejos (inglés)",
       "tipsEs": "Consejos (español)",
       "tipsEnHint": "Cues cortos para el cliente (ej., “Activá el core con fuerza en la parte baja”).",

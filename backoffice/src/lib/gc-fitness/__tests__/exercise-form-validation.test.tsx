@@ -130,9 +130,15 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     render(<ExerciseForm mode="create" />);
 
     expect(screen.getByLabelText(/name \(english\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/name \(spanish\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description \(english\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/description \(spanish\)/i)).toBeInTheDocument();
+    // Coach-language-first: the other-language fields stay hidden behind the
+    // "Add translation" toggle until the coach asks for them.
+    expect(
+      screen.queryByLabelText(/name \(spanish\)/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /add translation/i }),
+    ).toBeInTheDocument();
     // Muscle groups + Equipment render as Combobox triggers — assert by aria-label.
     expect(
       screen.getByRole("combobox", { name: /muscle groups/i }),

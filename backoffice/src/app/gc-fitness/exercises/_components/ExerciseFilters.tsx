@@ -3,15 +3,13 @@
 // ExerciseFilters.tsx
 //
 // Filter bar above the TanStack Table: search + 3 multi-select comboboxes
-// (muscle / equipment / source) + Clear button. State is mirrored into
-// localStorage under the key `gc-fitness:exercise-filters` so the trainer's
-// filter selection survives reloads / new tabs (UI-SPEC + 03-CONTEXT.md).
+// (muscle / equipment / source) + Clear button.
 //
-// Hydration safety: localStorage is unavailable during SSR. We hydrate the
-// initial state from localStorage inside a `useEffect` (post-mount), with
-// try/catch around `JSON.parse` so a corrupted/upgraded payload doesn't
-// trip the entire route. The empty-default render hits the server fine;
-// the post-hydration update lands one render later.
+// Filters do NOT persist across visits (user request): every time the
+// Biblioteca is entered the bar starts EMPTY — a stale "squat" search from a
+// previous visit was confusing. State lives in component state only. The
+// `?owner=mine` URL param still seeds the "Created by me" filter on first
+// mount so the dashboard "Custom exercises" tile lands on the filtered view.
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -28,7 +26,6 @@ import {
 import { MusclePresetChips } from "@/components/gc-fitness/muscle-preset-chips";
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
 
-const STORAGE_KEY = "gc-fitness:exercise-filters";
 const SEARCH_DEBOUNCE_MS = 200;
 
 export interface ExerciseFiltersState {
@@ -49,50 +46,6 @@ const EMPTY: ExerciseFiltersState = {
   favoritesOnly: false,
 };
 
-function readFromStorage(): ExerciseFiltersState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ExerciseFiltersState>;
-    const normalizedSource = Array.isArray(parsed.source)
-      ? parsed.source
-          .filter((v): v is string => typeof v === "string")
-          .map((v) => (v === "wger" ? "Standard" : v))
-      : [];
-    // Shallow-validate the shape — drop unknown fields, default missing.
-    return {
-      search: typeof parsed.search === "string" ? parsed.search : "",
-      muscleGroups: Array.isArray(parsed.muscleGroups)
-        ? parsed.muscleGroups.filter((v): v is string => typeof v === "string")
-        : [],
-      equipment: Array.isArray(parsed.equipment)
-        ? parsed.equipment.filter((v): v is string => typeof v === "string")
-        : [],
-      source: normalizedSource,
-      mineOnly: parsed.mineOnly === true,
-      favoritesOnly: parsed.favoritesOnly === true,
-    };
-  } catch {
-    // Corrupted entry — wipe + start clean.
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore — quota / disabled */
-    }
-    return null;
-  }
-}
-
-function writeToStorage(state: ExerciseFiltersState) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* quota / private mode — accept silently */
-  }
-}
-
 export interface ExerciseFiltersProps {
   onChange: (next: ExerciseFiltersState) => void;
 }
@@ -104,28 +57,15 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
   const [state, setState] = useState<ExerciseFiltersState>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
 
-  // 1. Hydrate from localStorage post-mount (SSR safety). `?owner=mine` in
-  //    the URL always wins over a stale stored preference so the dashboard
-  //    "Custom exercises" tile reliably lands on the filtered view.
+  // Start EMPTY on every mount (no persistence). `?owner=mine` seeds the
+  // "Created by me" filter so the dashboard "Custom exercises" tile lands
+  // on the filtered view.
   useEffect(() => {
-    const stored = readFromStorage();
-    const base = stored ?? EMPTY;
-    if (ownerParam === "mine") {
-      setState({ ...base, mineOnly: true });
-    } else {
-      setState(base);
-    }
+    setState(ownerParam === "mine" ? { ...EMPTY, mineOnly: true } : EMPTY);
     setHydrated(true);
   }, [ownerParam]);
 
-  // 2. Persist + notify parent on every change. Debounce search-text writes
-  //    only — array selects fire on user click, so flush immediately.
-  useEffect(() => {
-    if (!hydrated) return;
-    writeToStorage(state);
-  }, [state, hydrated]);
-
-  // 3. Debounce the search input → onChange so the table doesn't re-filter
+  // Debounce the search input → onChange so the table doesn't re-filter
   //    on every keystroke. Other filters fire immediately.
   useEffect(() => {
     if (!hydrated) return;

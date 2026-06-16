@@ -10,7 +10,13 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { countExerciseTemplateUsage } from "./workout-template-actions";
-import { countTemplateAssignments } from "./workout-assignment-actions";
+import {
+  countTemplateAssignments,
+  listWorkoutAssignmentGroups,
+  type WorkoutAssignmentGroup,
+} from "./workout-assignment-actions";
+
+export type { WorkoutAssignmentGroup } from "./workout-assignment-actions";
 
 export const EXERCISE_USAGE_QUERY_KEY = [
   "gc-fitness",
@@ -39,5 +45,21 @@ export function useTemplateAssignmentCounts() {
     queryFn: () => countTemplateAssignments(),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+  });
+}
+
+export const WORKOUT_ASSIGNMENT_GROUPS_QUERY_KEY = [
+  "gc-fitness",
+  "workout-assignment-groups",
+] as const;
+
+/** Today/future workout assignments grouped by template → client (lazy). */
+export function useWorkoutAssignmentGroups(enabled: boolean) {
+  return useQuery<WorkoutAssignmentGroup[]>({
+    queryKey: WORKOUT_ASSIGNMENT_GROUPS_QUERY_KEY,
+    queryFn: () => listWorkoutAssignmentGroups(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    enabled,
   });
 }

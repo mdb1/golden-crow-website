@@ -17,7 +17,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +59,7 @@ import { isPickableExercise } from "@/lib/gc-fitness/exercise-visibility";
 import { dedupeExercisesByDisplayName } from "@/lib/gc-fitness/exercise-dedupe";
 import { useFavorites } from "@/lib/gc-fitness/use-favorites";
 import { useExerciseUsageCounts } from "@/lib/gc-fitness/library-usage-listeners";
+import { cn } from "@/lib/utils";
 import {
   favoriteIdSet,
   filterFavoritesOnly,
@@ -146,6 +147,8 @@ export function ExerciseLibraryClient({
   const [filters, setFilters] = useState<ExerciseFiltersState>(EMPTY_FILTERS);
   const [confirmDelete, setConfirmDelete] = useState<ExerciseRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+  const [sortByUsage, setSortByUsage] = useState(false);
+  const { data: usageCounts } = useExerciseUsageCounts();
 
   const favIds = useMemo(
     () => favoriteIdSet(favorites, "exercise"),
@@ -173,8 +176,15 @@ export function ExerciseLibraryClient({
       favIds,
       filters.favoritesOnly,
     );
-    return sortFavoritesFirst(scoped, (r) => r.id, favIds);
-  }, [data, filters, trainerUid, favIds]);
+    const ranked = sortFavoritesFirst(scoped, (r) => r.id, favIds);
+    // "Más usados": stable-sort by routine-usage count desc when toggled on.
+    if (sortByUsage) {
+      return [...ranked].sort(
+        (a, b) => (usageCounts?.[b.id] ?? 0) - (usageCounts?.[a.id] ?? 0),
+      );
+    }
+    return ranked;
+  }, [data, filters, trainerUid, favIds, sortByUsage, usageCounts]);
 
   const handleDuplicate = useCallback(
     async (row: ExerciseRow) => {
@@ -206,10 +216,10 @@ export function ExerciseLibraryClient({
   );
 
   const columnsT = useTranslations("exercises.columns");
-  const { data: usageCounts } = useExerciseUsageCounts();
+  const locale = useLocale();
   const columns = useMemo(
-    () => makeColumns(handlers, columnsT, usageCounts),
-    [handlers, columnsT, usageCounts],
+    () => makeColumns(handlers, columnsT, usageCounts, locale),
+    [handlers, columnsT, usageCounts, locale],
   );
 
   const table = useReactTable({
@@ -269,6 +279,22 @@ export function ExerciseLibraryClient({
         </div>
 
         <ExerciseFilters onChange={setFilters} />
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setSortByUsage((v) => !v)}
+            aria-pressed={sortByUsage}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              sortByUsage
+                ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+                : "bg-muted/70 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t("sortMostUsed")}
+          </button>
+        </div>
 
         {error && (
           <Alert variant="destructive">
