@@ -66,22 +66,47 @@ const BENCH_NAME_KEYWORDS = [
   "preacher",
 ];
 
+// Name keywords that imply a pull-up bar is needed. Same gap as the bench: a
+// pull-up / chin-up / muscle-up is usually tagged only "bodyweight" (it needs
+// no external load), so "bodyweight only" (no bar) would wrongly surface them.
+// Inferring the bar from the name closes the hole structurally — when the coach
+// hasn't selected `pull_up_bar`, these movements are excluded. ES + EN keywords.
+// Kept narrow to clear bar movements; "jalón"/"pulldown" (cable/machine) and
+// rows must NOT match.
+const PULL_UP_BAR_NAME_KEYWORDS = [
+  "dominada", // ES: pull-up / chin-up
+  "pull-up",
+  "pull up",
+  "pullup",
+  "chin-up",
+  "chin up",
+  "chinup",
+  "muscle-up",
+  "muscle up",
+  "muscleup",
+];
+
 /**
  * Auxiliary equipment inferred from the exercise NAME that the data doesn't
- * tag. Today: a bench for bench/incline/decline/preacher movements. The floor
- * press ("Press de suelo" / "floor press") is explicitly bench-FREE, so it's
- * guarded even though no current keyword matches it.
+ * tag: a bench for bench/incline/decline/preacher movements, and a pull-up bar
+ * for pull-up/chin-up/muscle-up movements. The floor press ("Press de suelo" /
+ * "floor press") is explicitly bench-FREE, so it's guarded even though no
+ * current keyword matches it.
  */
 export function inferAuxiliaryEquipment(name: {
   en?: string | null;
   es?: string | null;
 }): string[] {
   const hay = `${name.en ?? ""} ${name.es ?? ""}`.toLowerCase();
+  const inferred: string[] = [];
   const isFloor = hay.includes("suelo") || hay.includes("floor");
   if (!isFloor && BENCH_NAME_KEYWORDS.some((k) => hay.includes(k))) {
-    return ["bench"];
+    inferred.push("bench");
   }
-  return [];
+  if (PULL_UP_BAR_NAME_KEYWORDS.some((k) => hay.includes(k))) {
+    inferred.push("pull_up_bar");
+  }
+  return inferred;
 }
 
 /** Full equipment an exercise needs = its tagged implement(s) PLUS any
