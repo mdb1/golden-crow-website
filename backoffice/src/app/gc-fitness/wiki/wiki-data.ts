@@ -420,7 +420,9 @@ export const WIKI_COPY = {
     es: "Estamos grabando este video. Vuelve pronto.",
     en: "We're still recording this one. Check back soon.",
   },
-  openInLoom: { es: "Ver en Loom", en: "Open in Loom" },
+  copyLink: { es: "Copiar", en: "Copy" },
+  copiedLink: { es: "¡Copiado!", en: "Copied!" },
+  openLink: { es: "Abrir en una pestaña nueva", en: "Open in a new tab" },
   footer: {
     es: "¿Tenés dudas que no están acá? Escribinos por chat.",
     en: "Got a question that isn't covered here? Reach out on chat.",
