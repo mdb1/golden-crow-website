@@ -327,8 +327,8 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "How do progress photos work?",
     },
     answer: {
-      es: "Las fotos de progreso las saca y sube únicamente el cliente desde la app; el coach no puede subir ni borrar fotos. Se organizan por check-in (una fecha) y por ángulo: frente, perfil y espalda.\n\nAl principio el cliente puede subir libremente para armar su línea base. Una vez establecida, la app habilita un nuevo check-in cada 7 días, para tener una cadencia pareja de comparación.\n\nVos ves todas las fotos de tus clientes desde el portal, con un comparador “antes/después” y filtros por ángulo. Las fotos son privadas: solo las pueden ver el cliente y su coach asignado (regla de seguridad reforzada en Firestore y Storage). No están vinculadas al peso corporal: son un seguimiento visual aparte.",
-      en: "Progress photos are taken and uploaded only by the client from the app; the coach can't upload or delete photos. They're organized by check-in (a date) and by angle: front, side, and back.\n\nAt first the client can upload freely to build their baseline. Once that's set, the app opens a new check-in every 7 days, to keep a steady comparison cadence.\n\nYou see all of your clients' photos in the portal, with a “before/after” comparator and angle filters. Photos are private: only the client and their assigned coach can see them (enforced in both Firestore and Storage rules). They're not tied to body weight — they're a separate visual record.",
+      es: "Las fotos de progreso las saca y sube únicamente el cliente desde la app; el coach no puede subir ni borrar fotos. Se organizan por check-in (una fecha) y por ángulo: frente, perfil y espalda.\n\nAl principio el cliente puede subir libremente para armar su línea base. Una vez establecida, la app habilita un nuevo check-in cada 7 días, para tener una cadencia pareja de comparación.\n\nVos ves todas las fotos de tus clientes desde el portal, con un comparador “antes/después” y filtros por ángulo. Las fotos son privadas: solo las pueden ver el cliente y su coach asignado, protegidas por la seguridad de GC Fitness. No están vinculadas al peso corporal: son un seguimiento visual aparte.",
+      en: "Progress photos are taken and uploaded only by the client from the app; the coach can't upload or delete photos. They're organized by check-in (a date) and by angle: front, side, and back.\n\nAt first the client can upload freely to build their baseline. Once that's set, the app opens a new check-in every 7 days, to keep a steady comparison cadence.\n\nYou see all of your clients' photos in the portal, with a “before/after” comparator and angle filters. Photos are private: only the client and their assigned coach can see them, protected by GC Fitness security. They're not tied to body weight — they're a separate visual record.",
     },
   },
   {
@@ -349,8 +349,8 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "How does the Apple Watch integration work?",
     },
     answer: {
-      es: "El cliente puede hacer todo el entrenamiento desde el Apple Watch: ver el entrenamiento del día, registrar series y repeticiones, y usar el temporizador de descanso, sin tocar el teléfono durante la sesión.\n\nAhora bien, el reloj no escribe directamente en la base de datos: le pasa los datos al iPhone. Por eso, al terminar, el cliente tiene que abrir la app de iPhone para que el entrenamiento termine de sincronizarse y quede guardado (es el iPhone el que confirma y guarda el entrenamiento final). Si solo usa el reloj y nunca abre el iPhone, el entrenamiento puede quedar pendiente de sincronizar y no te va a aparecer todavía en el portal.",
-      en: "The client can do the whole workout from the Apple Watch: see the day's workout, log sets and reps, and use the rest timer, without touching the phone during the session.\n\nThat said, the watch doesn't write to the database directly — it hands the data off to the iPhone. So when they finish, the client needs to open the iPhone app for the workout to finish syncing and be saved (the iPhone is what confirms and stores the final workout). If they only use the watch and never open the iPhone, the workout may stay pending sync and won't show up in your portal yet.",
+      es: "El cliente puede hacer todo el entrenamiento desde el Apple Watch: ver el entrenamiento del día, registrar series y repeticiones, y usar el temporizador de descanso, sin tocar el teléfono durante la sesión.\n\nAhora bien, el reloj le pasa los datos al iPhone. Por eso, al terminar, el cliente tiene que abrir la app de iPhone para que el entrenamiento termine de sincronizarse y quede guardado (es el iPhone el que confirma y guarda el entrenamiento final). Si solo usa el reloj y nunca abre el iPhone, el entrenamiento puede quedar pendiente de sincronizar y no te va a aparecer todavía en el portal.",
+      en: "The client can do the whole workout from the Apple Watch: see the day's workout, log sets and reps, and use the rest timer, without touching the phone during the session.\n\nThat said, the watch hands the data off to the iPhone. So when they finish, the client needs to open the iPhone app for the workout to finish syncing and be saved (the iPhone is what confirms and stores the final workout). If they only use the watch and never open the iPhone, the workout may stay pending sync and won't show up in your portal yet.",
     },
   },
   {
@@ -384,6 +384,39 @@ export const WIKI_FAQ: WikiFaq[] = [
     answer: {
       es: "La biblioteca incluye contenido estándar compartido (ejercicios y plantillas de entrenamiento ya armados) para que no tengas que empezar de cero. Ese contenido es de solo lectura: no se puede editar directamente.\n\nSi querés partir de una plantilla estándar y adaptarla, usá “Duplicar”: eso crea una copia tuya, editable, que podés modificar y asignar sin afectar el original compartido.",
       en: "The library includes shared standard content (ready-made exercises and workout templates) so you don't have to start from scratch. That content is read-only — it can't be edited directly.\n\nIf you want to start from a standard template and adapt it, use “Duplicate”: that creates your own editable copy, which you can modify and assign without affecting the shared original.",
+    },
+  },
+  {
+    id: "faq-superseries-descanso",
+    question: {
+      es: "¿Cómo funcionan las superseries y el descanso?",
+      en: "How do supersets and rest work?",
+    },
+    answer: {
+      es: "Cuando agrupás ejercicios en una superserie, el cliente los hace encadenados, alternando entre ellos sin descanso en el medio: por ejemplo A serie 1 → B serie 1, y recién ahí descansa, después A serie 2 → B serie 2, y así.\n\nEs decir: dentro de la ronda no hay descanso entre los ejercicios de la superserie; el temporizador de descanso recién arranca al completar la ronda (la última serie del último ejercicio del grupo en ese nivel). Así el cliente entrena la superserie como un bloque y descansa una sola vez por ronda.",
+      en: "When you group exercises into a superset, the client does them back to back, alternating between them with no rest in between: e.g. A set 1 → B set 1, and only then they rest, then A set 2 → B set 2, and so on.\n\nIn other words: within a round there's no rest between the superset's exercises; the rest timer only starts once the round is complete (the last set of the last exercise in the group at that level). That way the client trains the superset as one block and rests once per round.",
+    },
+  },
+  {
+    id: "faq-edicion-cliente-rutina",
+    question: {
+      es: "¿Qué puede modificar el cliente de una rutina durante el entrenamiento?",
+      en: "What can the client change in a workout while training?",
+    },
+    answer: {
+      es: "Durante el entrenamiento el cliente tiene cierto margen para adaptarse al día, pero sin romper tu plan:\n\n• PUEDE ajustar los descansos (alargarlos o acortarlos) y agregar series extra a un ejercicio.\n• NO PUEDE agregar ejercicios nuevos ni cambiar/intercambiar los ejercicios que vos planificaste.\n\nAsí, la estructura del entrenamiento que armaste se mantiene: el cliente solo afina volumen y descanso, pero la selección de ejercicios sigue siendo tuya.",
+      en: "During a workout the client has some room to adapt to the day, without breaking your plan:\n\n• They CAN adjust rest times (longer or shorter) and add extra sets to an exercise.\n• They CANNOT add new exercises or change/swap the exercises you planned.\n\nThat way the workout structure you built stays intact: the client only fine-tunes volume and rest, but the exercise selection remains yours.",
+    },
+  },
+  {
+    id: "faq-rutina-incompleta",
+    question: {
+      es: "¿El cliente puede terminar una rutina sin completar todos los ejercicios?",
+      en: "Can a client finish a workout without completing every exercise?",
+    },
+    answer: {
+      es: "Sí. El cliente puede dar por terminado el entrenamiento aunque no haya completado todas las series o ejercicios. La app le avisa que está terminando una rutina incompleta y le pide confirmar antes de cerrarla.\n\nEl entrenamiento queda registrado con lo que efectivamente hizo, así que en el portal vas a ver qué series sí completó y cuáles quedaron sin hacer. Es útil para días en que el cliente no puede terminar todo, sin perder el registro de lo que sí logró.",
+      en: "Yes. The client can finish a workout even if they haven't completed every set or exercise. The app warns them that they're finishing an incomplete routine and asks them to confirm before closing it.\n\nThe workout is logged with what they actually did, so in the portal you'll see which sets they completed and which were left undone. It's handy for days when the client can't finish everything, without losing the record of what they did get done.",
     },
   },
 ];
