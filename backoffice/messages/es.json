@@ -1131,6 +1131,7 @@
       "descriptionEs": "Descripción (español)",
       "descriptionMarkdownHint": "Acepta Markdown. Usá viñetas, negrita y enlaces.",
       "tipsHeading": "Consejos de entrenamiento (opcional)",
+      "addTranslation": "Agregar traducción",
       "tipsEn": "Consejos (inglés)",
       "tipsEs": "Consejos (español)",
       "tipsEnHint": "Cues cortos para el cliente (ej., “Activá el core con fuerza en la parte baja”).",

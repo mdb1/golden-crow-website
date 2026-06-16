@@ -1131,6 +1131,7 @@
       "descriptionEs": "Description (Spanish)",
       "descriptionMarkdownHint": "Markdown supported. Use bullets, bold, and links.",
       "tipsHeading": "Coaching tips (optional)",
+      "addTranslation": "Add translation",
       "tipsEn": "Tips (English)",
       "tipsEs": "Tips (Spanish)",
       "tipsEnHint": "Short coaching cues for the client (e.g., “Brace your core hard at the bottom”).",

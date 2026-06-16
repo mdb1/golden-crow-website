@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 import {
   Form,
@@ -35,6 +35,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  LocalizedTextField,
+  mirrorLocalizedBlank,
+  hasDistinctTranslation,
+} from "@/components/gc-fitness/localized-field";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -174,15 +179,37 @@ export function ExerciseForm({
   // Zod schema's output type. We cast through `unknown` so the form's
   // explicit `ExerciseInput` type parameter doesn't fight RHF's resolver
   // generic — see https://github.com/react-hook-form/resolvers/issues/271.
+  const formDefaults = useMemo(
+    () => buildDefaults(mode, defaultValues),
+    [mode, defaultValues],
+  );
   const form = useForm<ExerciseInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(exerciseSchema as any) as unknown as any,
-    defaultValues: buildDefaults(mode, defaultValues),
+    defaultValues: formDefaults,
     mode: "onSubmit",
   });
+  const locale = useLocale();
+  const esPrimary = locale.startsWith("es");
+  const primaryLang = esPrimary ? "es" : "en";
+  const otherLang = esPrimary ? "en" : "es";
+  // Open the translation fields by default only when the record already has a
+  // real translation (edit of an already-bilingual exercise).
+  const [showTranslations, setShowTranslations] = useState(
+    hasDistinctTranslation(formDefaults.name) ||
+      hasDistinctTranslation(formDefaults.description) ||
+      hasDistinctTranslation(formDefaults.tips),
+  );
 
-  const onSubmit = form.handleSubmit((values) => {
+  const onSubmit = form.handleSubmit((raw) => {
     if (isView) return;
+    // "No translation" ⇒ store the coach's text in every language.
+    const values = {
+      ...raw,
+      name: mirrorLocalizedBlank(raw.name),
+      description: mirrorLocalizedBlank(raw.description),
+      tips: mirrorLocalizedBlank(raw.tips),
+    };
     startTransition(async () => {
       try {
         if (mode === "create") {
@@ -272,133 +299,60 @@ export function ExerciseForm({
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
-        {/* Name EN + ES */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="name.en"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEn")}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={t("namePlaceholderEn")}
-                    disabled={isView}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="name.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEs")}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={t("namePlaceholderEs")}
-                    disabled={isView}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormDescription>{t("nameEsHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {/* Name — coach language first; optional translation toggle. */}
+        <LocalizedTextField
+          form={form}
+          base="name"
+          primaryLang={primaryLang}
+          otherLang={otherLang}
+          showTranslation={showTranslations}
+          primaryLabel={esPrimary ? t("nameEs") : t("nameEn")}
+          otherLabel={esPrimary ? t("nameEn") : t("nameEs")}
+          placeholder={esPrimary ? t("namePlaceholderEs") : t("namePlaceholderEn")}
+          disabled={isView}
+        />
+        {!showTranslations && !isView ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-fit"
+            onClick={() => setShowTranslations(true)}
+          >
+            {t("addTranslation")}
+          </Button>
+        ) : null}
 
-        {/* Description EN + ES */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="description.en"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEn")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={6}
-                    disabled={isView}
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>{t("descriptionMarkdownHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="description.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEs")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={6}
-                    disabled={isView}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormDescription>{t("descriptionMarkdownHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {/* Description — coach language first; optional translation. */}
+        <LocalizedTextField
+          form={form}
+          base="description"
+          primaryLang={primaryLang}
+          otherLang={otherLang}
+          showTranslation={showTranslations}
+          primaryLabel={esPrimary ? t("descriptionEs") : t("descriptionEn")}
+          otherLabel={esPrimary ? t("descriptionEn") : t("descriptionEs")}
+          hint={t("descriptionMarkdownHint")}
+          multiline
+          rows={6}
+          disabled={isView}
+        />
 
-        {/* 14-02 — Coaching tips EN + ES. Bilingual free-text cues
-            separate from the numbered instructions list. Both fields
-            optional; both textareas render with value coerced to ""
-            because the schema accepts nullable + optional. */}
+        {/* 14-02 — Coaching tips. Coach language first; optional translation. */}
         <div className="flex flex-col gap-3">
           <h3 className="text-sm font-medium">{t("tipsHeading")}</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="tips.en"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("tipsEn")}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={4}
-                      disabled={isView}
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
-                  <FormDescription>{t("tipsEnHint")}</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="tips.es"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("tipsEs")}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={4}
-                      disabled={isView}
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
-                  <FormDescription>{t("tipsEsHint")}</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          <LocalizedTextField
+            form={form}
+            base="tips"
+            primaryLang={primaryLang}
+            otherLang={otherLang}
+            showTranslation={showTranslations}
+            primaryLabel={esPrimary ? t("tipsEs") : t("tipsEn")}
+            otherLabel={esPrimary ? t("tipsEn") : t("tipsEs")}
+            hint={esPrimary ? t("tipsEsHint") : t("tipsEnHint")}
+            multiline
+            rows={4}
+            disabled={isView}
+          />
         </div>
 
         {/* 26-02 — Metric chooser: two-chip selector that tags the exercise
