@@ -112,7 +112,6 @@ export function HabitsLibraryClient({
   const router = useRouter();
   const t = useTranslations("habits.list");
   const columnsT = useTranslations("habits.columns");
-  const tTypeLabels = useTranslations("habits.list.typeLabels");
   const tFilters = useTranslations("exercises.filters");
   const queryClient = useQueryClient();
   // Default to the reusable template library; per-client assignments are the
@@ -614,9 +613,6 @@ export function HabitsLibraryClient({
                   <h3 className="min-w-0 truncate text-base font-semibold text-foreground">
                     {group.title}
                   </h3>
-                  <Badge variant="violet" className="shrink-0 font-medium">
-                    {tTypeLabels(group.rows[0].type)}
-                  </Badge>
                 </div>
                 <ul className="divide-y divide-border">
                   {group.rows.map((row) => {

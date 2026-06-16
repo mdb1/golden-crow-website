@@ -734,7 +734,7 @@
       "createHabitCta": "Create habit",
       "bulkAssignCta": "Assign to clients",
       "tabAssignments": "Assignments",
-      "tabLibrary": "Library",
+      "tabLibrary": "All",
       "libraryEmpty": "No habits in your library yet.",
       "habitCreatedToast": "Habit created.",
       "detailTitle": "Habit details",
