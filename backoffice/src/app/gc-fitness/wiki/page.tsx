@@ -6,6 +6,14 @@ import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-log
 import { WIKI_COPY, WIKI_GROUPS, pick } from "./wiki-data";
 import { WikiSections } from "./wiki-sections";
 
+// Standalone (non-video) sections appended after the walkthrough groups in both
+// the table of contents and the content column. Their ids match the anchors in
+// wiki-sections.tsx.
+const WIKI_EXTRA_SECTIONS = [
+  { id: "links-utiles", title: WIKI_COPY.linksTitle },
+  { id: "faq", title: WIKI_COPY.faqTitle },
+] as const;
+
 // The Coach Wiki is intentionally PUBLIC — no getCurrentTrainer() call, anyone
 // with the link can read it. It's added to HIDDEN_SHELL_PATHS so it renders
 // standalone (no coach sidebar / no sign-in chrome). The logged-in portal links
@@ -109,6 +117,16 @@ function Toc({ locale }: { locale: string }) {
               </li>
             ))}
           </ul>
+        </div>
+      ))}
+      {WIKI_EXTRA_SECTIONS.map((section) => (
+        <div key={section.id}>
+          <a
+            href={`#${section.id}`}
+            className="block font-medium text-foreground transition-colors hover:text-primary"
+          >
+            {pick(locale, section.title)}
+          </a>
         </div>
       ))}
     </nav>
