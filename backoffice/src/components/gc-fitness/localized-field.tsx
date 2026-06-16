@@ -11,7 +11,7 @@
 // from the other — so "no translation" means every language carries the
 // coach's text (per product decision).
 
-import type { UseFormReturn } from "react-hook-form";
+import { useFormState, type UseFormReturn } from "react-hook-form";
 
 import {
   FormControl,
@@ -36,10 +36,22 @@ export interface LocalizedTextFieldProps {
   /** When false, the secondary (other-language) field is hidden and the
    *  primary value mirrors into it on every keystroke. */
   showTranslation: boolean;
+  /** Label WITHOUT a language suffix — shown while the translation is hidden
+   *  (the single-language case). The language is implied by the coach's UI
+   *  locale, so we don't clutter it with "(Spanish)". Falls back to
+   *  `primaryLabel` when omitted. */
+  plainLabel?: string;
+  /** Language-qualified label (e.g. "Name (Spanish)") — shown for the primary
+   *  field ONLY once the translation pane is revealed. */
   primaryLabel: string;
   otherLabel: string;
   placeholder?: string;
   hint?: string;
+  /** When set, a validation error on EITHER language surfaces this localized
+   *  message inline under the field (instead of the raw English Zod text).
+   *  Critically, while collapsed, the schema-required language is the HIDDEN
+   *  mirror; this makes that error visible on the one field the coach sees. */
+  requiredMessage?: string;
   multiline?: boolean;
   rows?: number;
   disabled?: boolean;
@@ -51,14 +63,34 @@ export function LocalizedTextField({
   primaryLang,
   otherLang,
   showTranslation,
+  plainLabel,
   primaryLabel,
   otherLabel,
   placeholder,
   hint,
+  requiredMessage,
   multiline = false,
   rows = 3,
   disabled = false,
 }: LocalizedTextFieldProps) {
+  // Subscribe to the form's error map so this field re-renders when either
+  // language's validation state changes (the hidden mirror included).
+  const { errors } = useFormState({ control: form.control });
+  // base is a single path segment here ("name" | "description" | "tips").
+  const groupErrors = (errors as Record<string, unknown>)?.[base] as
+    | Record<string, { message?: string } | undefined>
+    | undefined;
+  const primaryError = groupErrors?.[primaryLang];
+  const otherError = groupErrors?.[otherLang];
+
+  // Collapsed: the visible primary field must also report the hidden
+  // (other-language) error, since the schema-required language is mirrored
+  // and may be the only one that fails.
+  const primaryVisibleError =
+    primaryError ?? (!showTranslation ? otherError : undefined);
+
+  const collapsedLabel = plainLabel ?? primaryLabel;
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <FormField
@@ -77,7 +109,9 @@ export function LocalizedTextField({
           };
           return (
             <FormItem>
-              <FormLabel>{primaryLabel}</FormLabel>
+              <FormLabel>
+                {showTranslation ? primaryLabel : collapsedLabel}
+              </FormLabel>
               <FormControl>
                 {multiline ? (
                   <Textarea
@@ -99,7 +133,15 @@ export function LocalizedTextField({
                 )}
               </FormControl>
               {hint ? <FormDescription>{hint}</FormDescription> : null}
-              <FormMessage />
+              {requiredMessage ? (
+                primaryVisibleError ? (
+                  <p className="text-sm font-medium text-destructive">
+                    {requiredMessage}
+                  </p>
+                ) : null
+              ) : (
+                <FormMessage />
+              )}
             </FormItem>
           );
         }}
@@ -129,7 +171,15 @@ export function LocalizedTextField({
                   />
                 )}
               </FormControl>
-              <FormMessage />
+              {requiredMessage ? (
+                otherError ? (
+                  <p className="text-sm font-medium text-destructive">
+                    {requiredMessage}
+                  </p>
+                ) : null
+              ) : (
+                <FormMessage />
+              )}
             </FormItem>
           )}
         />

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 
 import {
@@ -16,9 +16,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import {
+  LocalizedTextField,
+  mirrorLocalizedBlank,
+  hasDistinctTranslation,
+} from "@/components/gc-fitness/localized-field";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
 import {
   habitTemplateCreateSchema,
@@ -73,6 +77,15 @@ export function HabitTemplateForm({
   const t = useTranslations("habits.form");
   const [pending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const locale = useLocale();
+  const esPrimary = locale.startsWith("es");
+  const primaryLang = esPrimary ? "es" : "en";
+  const otherLang = esPrimary ? "en" : "es";
+  // Coach-language-first: open translations only for an already-bilingual edit.
+  const [showTranslations, setShowTranslations] = useState(
+    hasDistinctTranslation(defaultValues?.name) ||
+      hasDistinctTranslation(defaultValues?.description),
+  );
 
   const form = useForm<HabitTemplateCreateInput>({
     resolver: zodResolver(habitTemplateCreateSchema as any) as unknown as any,
@@ -88,7 +101,8 @@ export function HabitTemplateForm({
       try {
         const cleaned: HabitTemplateCreateInput = {
           type: "binary",
-          name: values.name,
+          // "No translation" ⇒ store the coach's text in every language.
+          name: mirrorLocalizedBlank(values.name),
           reminderEnabled: values.reminderEnabled,
           photoUrl: values.photoUrl,
           youtubeUrl: values.youtubeUrl,
@@ -121,74 +135,55 @@ export function HabitTemplateForm({
   return (
     <Form {...form}>
       <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="name.en"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEn")}</FormLabel>
-                <FormControl>
-                  <Input placeholder={t("namePlaceholderEn")} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="name.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("nameEs")}</FormLabel>
-                <FormControl>
-                  <Input placeholder={t("namePlaceholderEs")} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {/* Single top-right translation toggle for the whole form. While
+            hidden, localized fields show just the coach-language input. */}
+        {!showTranslations ? (
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => setShowTranslations(true)}
+            >
+              {t("addTranslation")}
+            </Button>
+          </div>
+        ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="description.en"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEn")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder={t("descriptionPlaceholderEn")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormDescription>{t("descriptionOptionalHint")}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="description.es"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("descriptionEs")}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder={t("descriptionPlaceholderEs")}
-                    {...field}
-                    value={field.value ?? ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {/* Name — coach language first; optional translation. */}
+        <LocalizedTextField
+          form={form}
+          base="name"
+          primaryLang={primaryLang}
+          otherLang={otherLang}
+          showTranslation={showTranslations}
+          plainLabel={t("nameLabel")}
+          primaryLabel={esPrimary ? t("nameEs") : t("nameEn")}
+          otherLabel={esPrimary ? t("nameEn") : t("nameEs")}
+          placeholder={esPrimary ? t("namePlaceholderEs") : t("namePlaceholderEn")}
+          requiredMessage={t("nameRequired")}
+        />
+
+        {/* Description (optional) — coach language first; optional translation. */}
+        <LocalizedTextField
+          form={form}
+          base="description"
+          primaryLang={primaryLang}
+          otherLang={otherLang}
+          showTranslation={showTranslations}
+          plainLabel={t("descriptionLabel")}
+          primaryLabel={esPrimary ? t("descriptionEs") : t("descriptionEn")}
+          otherLabel={esPrimary ? t("descriptionEn") : t("descriptionEs")}
+          placeholder={
+            esPrimary
+              ? t("descriptionPlaceholderEs")
+              : t("descriptionPlaceholderEn")
+          }
+          hint={t("descriptionOptionalHint")}
+          multiline
+          rows={3}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField

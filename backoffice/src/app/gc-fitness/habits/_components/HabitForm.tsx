@@ -391,6 +391,22 @@ export function HabitForm({
   return (
     <Form {...form}>
       <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+        {/* Single top-right translation toggle for the whole form. While
+            hidden, localized fields show just the coach-language input. */}
+        {!showTranslations ? (
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => setShowTranslations(true)}
+            >
+              {t("addTranslation")}
+            </Button>
+          </div>
+        ) : null}
+
         {/* Client picker — disabled in edit mode (FK immutable post-create) */}
         <FormField
           control={form.control}
@@ -424,27 +440,19 @@ export function HabitForm({
           )}
         />
 
-        {/* Name — coach language first; optional translation toggle. */}
+        {/* Name — coach language first; optional translation. */}
         <LocalizedTextField
           form={form}
           base="name"
           primaryLang={primaryLang}
           otherLang={otherLang}
           showTranslation={showTranslations}
+          plainLabel={t("nameLabel")}
           primaryLabel={esPrimary ? t("nameEs") : t("nameEn")}
           otherLabel={esPrimary ? t("nameEn") : t("nameEs")}
           placeholder={esPrimary ? t("namePlaceholderEs") : t("namePlaceholderEn")}
+          requiredMessage={t("nameRequired")}
         />
-        {!showTranslations ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-fit"
-            onClick={() => setShowTranslations(true)}
-          >
-            {t("addTranslation")}
-          </Button>
-        ) : null}
 
         {/* Description (optional) — coach language first; optional translation. */}
         <LocalizedTextField
@@ -453,6 +461,7 @@ export function HabitForm({
           primaryLang={primaryLang}
           otherLang={otherLang}
           showTranslation={showTranslations}
+          plainLabel={t("descriptionLabel")}
           primaryLabel={esPrimary ? t("descriptionEs") : t("descriptionEn")}
           otherLabel={esPrimary ? t("descriptionEn") : t("descriptionEs")}
           placeholder={

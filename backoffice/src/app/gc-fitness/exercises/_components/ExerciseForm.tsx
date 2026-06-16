@@ -138,6 +138,10 @@ function buildDefaults(
     // metric-chooser UI lands) round-trips through the form unchanged.
     // The metric chooser radio chips ship in Plan 26-02.
     metric: passed?.metric ?? "reps",
+    // 26-09 — bodyweight default. `true` (tracks external weight) keeps the
+    // legacy "reps × weight" behavior; `false` authors the exercise as
+    // "reps without weight" (seeds the template "Sin peso" sentinel on add).
+    tracksWeight: passed?.tracksWeight ?? true,
   };
 }
 
@@ -152,6 +156,11 @@ export function ExerciseForm({
   const router = useRouter();
   const queryClient = useQueryClient();
   const t = useTranslations("exercises.form");
+  // 26-09 — translated labels for the muscle-group / equipment option lists
+  // (the canonical vocabulary values are lowercase English identifiers).
+  const tVocab = useTranslations("exercises.vocabulary");
+  const formatMuscleLabel = (key: string) => tVocab(`muscle.${key}`);
+  const formatEquipmentLabel = (key: string) => tVocab(`equipment.${key}`);
   const [pending, startTransition] = useTransition();
 
   // 260529 — useExercisesQuery is now a one-shot read (no live listener), so
@@ -299,28 +308,40 @@ export function ExerciseForm({
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
-        {/* Name — coach language first; optional translation toggle. */}
+        {/* 26-09 — single top-right translation toggle for the whole form.
+            While hidden, every localized field shows just its coach-language
+            input (the language is implied by the UI locale); revealing it
+            adds the "(English)/(Spanish)" qualifiers + the secondary inputs. */}
+        {!isView ? (
+          <div className="flex items-center justify-end">
+            {!showTranslations ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => setShowTranslations(true)}
+              >
+                {t("addTranslation")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Name — coach language first; optional translation. */}
         <LocalizedTextField
           form={form}
           base="name"
           primaryLang={primaryLang}
           otherLang={otherLang}
           showTranslation={showTranslations}
+          plainLabel={t("nameLabel")}
           primaryLabel={esPrimary ? t("nameEs") : t("nameEn")}
           otherLabel={esPrimary ? t("nameEn") : t("nameEs")}
           placeholder={esPrimary ? t("namePlaceholderEs") : t("namePlaceholderEn")}
+          requiredMessage={t("nameRequired")}
           disabled={isView}
         />
-        {!showTranslations && !isView ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-fit"
-            onClick={() => setShowTranslations(true)}
-          >
-            {t("addTranslation")}
-          </Button>
-        ) : null}
 
         {/* Description — coach language first; optional translation. */}
         <LocalizedTextField
@@ -329,6 +350,7 @@ export function ExerciseForm({
           primaryLang={primaryLang}
           otherLang={otherLang}
           showTranslation={showTranslations}
+          plainLabel={t("descriptionLabel")}
           primaryLabel={esPrimary ? t("descriptionEs") : t("descriptionEn")}
           otherLabel={esPrimary ? t("descriptionEn") : t("descriptionEs")}
           hint={t("descriptionMarkdownHint")}
@@ -346,59 +368,92 @@ export function ExerciseForm({
             primaryLang={primaryLang}
             otherLang={otherLang}
             showTranslation={showTranslations}
+            plainLabel={t("tipsLabel")}
             primaryLabel={esPrimary ? t("tipsEs") : t("tipsEn")}
             otherLabel={esPrimary ? t("tipsEn") : t("tipsEs")}
-            hint={esPrimary ? t("tipsEsHint") : t("tipsEnHint")}
+            hint={t("tipsHint")}
             multiline
             rows={4}
             disabled={isView}
           />
         </div>
 
-        {/* 26-02 — Metric chooser: two-chip selector that tags the exercise
-            as reps-based (current model) or time-based (planks, wall sits,
-            dead hangs). Renders in create + edit; disabled in view. Defaults
-            to "reps" via buildDefaults so legacy exercises pre-select the
-            reps option (PATTERNS.md §19 Pattern C). i18n migrated in 26-07. */}
+        {/* 26-02 / 26-09 — Prescription-type chooser. Three chips spanning two
+            orthogonal fields:
+              - "Reps × Weight"  → metric:"reps", tracksWeight:true
+              - "Reps (no weight)" → metric:"reps", tracksWeight:false  (#14)
+              - "Time (sec)"     → metric:"time", tracksWeight:true
+            `tracksWeight:false` is the bodyweight authoring default that seeds
+            the template "Sin peso" sentinel (weightBySetKg:[]) on add — the
+            wire contract iOS/Android already honor. Renders in create + edit;
+            disabled in view. Defaults to reps×weight via buildDefaults. */}
         <FormField
           control={form.control}
           name="metric"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("metricLabel")}</FormLabel>
-              <FormControl>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={isView}
-                    onClick={() => field.onChange("reps")}
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      field.value === "reps"
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border/70 bg-background text-foreground hover:border-foreground/30"
-                    }`}
-                    aria-pressed={field.value === "reps"}
-                  >
-                    {t("metricRepsCta")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isView}
-                    onClick={() => field.onChange("time")}
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      field.value === "time"
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border/70 bg-background text-foreground hover:border-foreground/30"
-                    }`}
-                    aria-pressed={field.value === "time"}
-                  >
-                    {t("metricTimeCta")}
-                  </button>
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const tracksWeight = form.watch("tracksWeight") !== false;
+            const isRepsWeighted = field.value === "reps" && tracksWeight;
+            const isRepsNoWeight = field.value === "reps" && !tracksWeight;
+            const isTime = field.value === "time";
+            const chipClass = (active: boolean) =>
+              `inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                active
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border/70 bg-background text-foreground hover:border-foreground/30"
+              }`;
+            return (
+              <FormItem>
+                <FormLabel>{t("metricLabel")}</FormLabel>
+                <FormControl>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={isView}
+                      onClick={() => {
+                        field.onChange("reps");
+                        form.setValue("tracksWeight", true, {
+                          shouldDirty: true,
+                        });
+                      }}
+                      className={chipClass(isRepsWeighted)}
+                      aria-pressed={isRepsWeighted}
+                    >
+                      {t("metricRepsCta")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isView}
+                      onClick={() => {
+                        field.onChange("reps");
+                        form.setValue("tracksWeight", false, {
+                          shouldDirty: true,
+                        });
+                      }}
+                      className={chipClass(isRepsNoWeight)}
+                      aria-pressed={isRepsNoWeight}
+                    >
+                      {t("metricRepsNoWeightCta")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isView}
+                      onClick={() => {
+                        field.onChange("time");
+                        form.setValue("tracksWeight", true, {
+                          shouldDirty: true,
+                        });
+                      }}
+                      className={chipClass(isTime)}
+                      aria-pressed={isTime}
+                    >
+                      {t("metricTimeCta")}
+                    </button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
 
         {/* Muscle Groups + Equipment */}
@@ -414,6 +469,7 @@ export function ExerciseForm({
                     options={MUSCLE_GROUPS}
                     value={field.value ?? []}
                     onChange={field.onChange}
+                    formatLabel={formatMuscleLabel}
                     placeholder={t("muscleGroupsPlaceholder")}
                     ariaLabel={t("muscleGroupsAria")}
                     max={8}
@@ -436,6 +492,7 @@ export function ExerciseForm({
                     options={EQUIPMENT}
                     value={field.value ?? []}
                     onChange={field.onChange}
+                    formatLabel={formatEquipmentLabel}
                     placeholder={t("equipmentPlaceholder")}
                     ariaLabel={t("equipmentAria")}
                     max={8}
