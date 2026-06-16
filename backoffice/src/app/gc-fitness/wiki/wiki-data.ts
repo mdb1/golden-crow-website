@@ -173,16 +173,28 @@ export const WIKI_GROUPS: WikiGroup[] = [
         loomId: "ff4f7b3d6a724effb971f5f2b1742aa0",
       },
       {
-        id: "generador-entrenamientos",
+        id: "crear-entrenamiento",
         title: {
-          es: "Generador y creación de entrenamientos",
-          en: "Workout generator & creation",
+          es: "Crear entrenamiento",
+          en: "Create a workout",
         },
         description: {
-          es: "Generá entrenamientos automáticamente o creálos a mano desde cero.",
-          en: "Auto-generate workouts or build them by hand from scratch.",
+          es: "Armá un entrenamiento a mano desde cero, ejercicio por ejercicio.",
+          en: "Build a workout by hand from scratch, exercise by exercise.",
         },
-        // Pendiente de grabación.
+        loomId: "fd2087071c4e4c3eb1c8c3487c8db39b",
+      },
+      {
+        id: "generador-entrenamientos",
+        title: {
+          es: "Generador de entrenamientos",
+          en: "Workout generator",
+        },
+        description: {
+          es: "Generá entrenamientos automáticamente eligiendo equipo, músculos, duración y estilo.",
+          en: "Auto-generate workouts by choosing equipment, muscles, duration, and style.",
+        },
+        loomId: "10a9e60ad71a449a84b3499fb8f52b7e",
       },
       {
         id: "crear-ejercicio",
@@ -441,7 +453,9 @@ export const WIKI_COPY = {
     es: "Estamos grabando este video. Vuelve pronto.",
     en: "We're still recording this one. Check back soon.",
   },
-  openInLoom: { es: "Ver en Loom", en: "Open in Loom" },
+  copyLink: { es: "Copiar", en: "Copy" },
+  copiedLink: { es: "¡Copiado!", en: "Copied!" },
+  openLink: { es: "Abrir en una pestaña nueva", en: "Open in a new tab" },
   footer: {
     es: "¿Tenés dudas que no están acá? Escribinos por chat.",
     en: "Got a question that isn't covered here? Reach out on chat.",

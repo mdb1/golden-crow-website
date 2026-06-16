@@ -1,16 +1,15 @@
-import { ChevronDown, ExternalLink, PlayCircle, Video } from "lucide-react";
+import { ChevronDown, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
   WIKI_COPY,
   WIKI_FAQ,
   WIKI_GROUPS,
-  WIKI_LINKS,
   loomEmbedUrl,
-  loomShareUrl,
   pick,
   type WikiVideo,
 } from "./wiki-data";
+import { WikiLinkCards } from "./wiki-link-cards";
 
 // Full-width 2-up layout. Every walkthrough renders as a live Loom embed so all
 // posters/thumbnails are visible at once — no click-to-play facade and no
@@ -43,28 +42,7 @@ export function WikiSections({ locale }: { locale: string }) {
             {pick(locale, WIKI_COPY.linksSubtitle)}
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {WIKI_LINKS.map((link) => (
-            <a
-              key={link.id}
-              id={link.id}
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex scroll-mt-24 items-start gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/50"
-            >
-              <div className="min-w-0 flex-1">
-                <h3 className="font-heading text-base font-bold transition-colors group-hover:text-primary sm:text-lg">
-                  {pick(locale, link.label)}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {pick(locale, link.description)}
-                </p>
-              </div>
-              <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-            </a>
-          ))}
-        </div>
+        <WikiLinkCards locale={locale} />
       </section>
 
       {/* FAQ — native disclosure, no JS. */}
@@ -123,28 +101,17 @@ function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
 
       <div className="mt-auto px-5 pb-5 pt-4">
         {video.loomId ? (
-          <>
-            <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
-              <div className="aspect-video">
-                <iframe
-                  src={loomEmbedUrl(video.loomId)}
-                  title={title}
-                  allowFullScreen
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full"
-                />
-              </div>
+          <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
+            <div className="aspect-video">
+              <iframe
+                src={loomEmbedUrl(video.loomId)}
+                title={title}
+                allowFullScreen
+                loading="lazy"
+                className="absolute inset-0 h-full w-full"
+              />
             </div>
-            <a
-              href={loomShareUrl(video.loomId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              <PlayCircle className="h-4 w-4" />
-              {pick(locale, WIKI_COPY.openInLoom)}
-            </a>
-          </>
+          </div>
         ) : (
           <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-center">
             <Video className="h-7 w-7 text-muted-foreground" />
