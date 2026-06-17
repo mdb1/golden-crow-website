@@ -1296,6 +1296,7 @@
       "backToThreads": "Conversaciones"
     },
     "conversation": {
+      "openSchedule": "Abrir agenda de este cliente",
       "loadingMessages": "Cargando mensajes…",
       "loadError": "No se pudieron cargar los mensajes.",
       "noMessagesYet": "Aún no hay mensajes. Saludá a {name}.",

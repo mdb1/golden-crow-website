@@ -35,7 +35,7 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useMutation } from "@tanstack/react-query";
-import { Trash2, CornerUpLeft, SmilePlus } from "lucide-react";
+import { Trash2, CornerUpLeft, SmilePlus, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -317,11 +317,23 @@ export function ChatConversation({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
         <ClientAvatar name={partnerName} photoURL={partnerPhotoURL} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="truncate text-base font-semibold text-foreground">
             {partnerName}
           </div>
         </div>
+        {/* quick-260617 — open this client's schedule (agenda) in a new tab,
+            preselected via ?clientIds=<client uid> (chatId == client uid). */}
+        <a
+          href={`/gc-fitness/schedule?clientIds=${encodeURIComponent(chatId)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t("openSchedule")}
+          aria-label={t("openSchedule")}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/70 text-foreground ring-1 ring-border transition hover:bg-background"
+        >
+          <CalendarDays className="h-4 w-4" />
+        </a>
       </div>
       <div
         ref={scrollContainerRef}

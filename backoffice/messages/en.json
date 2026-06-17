@@ -1296,6 +1296,7 @@
       "backToThreads": "Threads"
     },
     "conversation": {
+      "openSchedule": "Open this client's schedule",
       "loadingMessages": "Loading messages…",
       "loadError": "Couldn't load messages.",
       "noMessagesYet": "No messages yet. Say hi to {name}.",
