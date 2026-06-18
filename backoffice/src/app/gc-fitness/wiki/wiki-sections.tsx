@@ -86,14 +86,16 @@ function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
       id={video.id}
       className="flex scroll-mt-24 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2 px-5 pt-5">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-3 px-5 pt-5">
+        <div className="min-w-0 flex-1">
           <h3 className="font-heading text-base font-bold sm:text-lg">{title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             {pick(locale, video.description)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Top-right controls, pinned (no flex-wrap) so the share button lands
+            in the same spot on every card regardless of description length. */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
           {comingSoon ? (
             <Badge variant="warning">{pick(locale, WIKI_COPY.comingSoon)}</Badge>
           ) : null}
