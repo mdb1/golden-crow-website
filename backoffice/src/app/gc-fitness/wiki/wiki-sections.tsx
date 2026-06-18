@@ -10,6 +10,7 @@ import {
   type WikiVideo,
 } from "./wiki-data";
 import { WikiLinkCards } from "./wiki-link-cards";
+import { WikiVideoShare } from "./wiki-video-share";
 
 // Full-width 2-up layout. Every walkthrough renders as a live Loom embed so all
 // posters/thumbnails are visible at once — no click-to-play facade and no
@@ -92,11 +93,14 @@ function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
             {pick(locale, video.description)}
           </p>
         </div>
-        {comingSoon ? (
-          <Badge variant="warning" className="shrink-0">
-            {pick(locale, WIKI_COPY.comingSoon)}
-          </Badge>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {comingSoon ? (
+            <Badge variant="warning">{pick(locale, WIKI_COPY.comingSoon)}</Badge>
+          ) : null}
+          {/* Per-video deep link (#349) — copies the Wiki URL + this card's
+              anchor so a coach can share a single walkthrough. */}
+          <WikiVideoShare anchorId={video.id} locale={locale} />
+        </div>
       </div>
 
       <div className="mt-auto px-5 pb-5 pt-4">

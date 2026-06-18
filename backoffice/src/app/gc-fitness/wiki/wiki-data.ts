@@ -478,6 +478,7 @@ export const WIKI_COPY = {
     en: "We're still recording this one. Check back soon.",
   },
   copyLink: { es: "Copiar", en: "Copy" },
+  copyVideoLink: { es: "Copiar link", en: "Copy link" },
   copiedLink: { es: "¡Copiado!", en: "Copied!" },
   openLink: { es: "Abrir en una pestaña nueva", en: "Open in a new tab" },
   footer: {
