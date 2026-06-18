@@ -424,6 +424,7 @@
         "empty": "Aún no hay hábitos asignados.",
         "unnamed": "(hábito sin nombre)",
         "daysCompleted": "días completados",
+        "noScheduled": "Sin días programados en este rango",
         "streakTooltip": "Racha de {count} cumplimientos en días programados",
         "rangeAll": "Todo",
         "range90": "90d",
