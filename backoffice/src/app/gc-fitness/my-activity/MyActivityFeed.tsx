@@ -41,7 +41,8 @@ import {
 const TYPE_OPTION_KEYS: string[] = [
   "all",
   "workout_assignment",
-  "workout_rest_edited",
+  // `workout_rest_edited` is a CLIENT action (they edit their own rests); it's
+  // excluded from "Mi Actividad", so it's not offered as a filter here.
   "habit_assignment",
   "progress_photo_request",
   "weight_request",
