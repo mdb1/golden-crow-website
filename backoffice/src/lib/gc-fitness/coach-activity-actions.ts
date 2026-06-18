@@ -155,6 +155,11 @@ export async function listMyCoachActivityPage(
       occurredAt?: unknown;
     };
     const evKind = (typeof data.kind === "string" ? data.kind : "workout_assignment") as CoachActivityKind;
+    // `workout_rest_edited` is written by the iOS `editAssignmentRests` function
+    // when the CLIENT edits their own rest times — it's the client's action, not
+    // the coach's, so it doesn't belong in the coach's "Mi Actividad". (It still
+    // lives in coach_activity for the admin audit dashboard.)
+    if (evKind === "workout_rest_edited") continue;
     // When BOTH clientId and kind filters are set, clientId was applied
     // server-side; apply kind here in memory.
     if (clientId && kindFilter && kindFilter !== "chat" && evKind !== kindFilter) {
