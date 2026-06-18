@@ -1554,7 +1554,8 @@
         "thursday": "Jueves",
         "friday": "Viernes",
         "saturday": "Sábado"
-      }
+      },
+      "recurrencePreviewCount": "{count, plural, =0 {Todavía no hay fechas} one {# fecha marcada en el calendario} other {# fechas marcadas en el calendario}}"
     },
     "bulkConfirm": {
       "titleSingular": "¿Asignar “{template}” a {count} cliente el {date}?",
@@ -1635,7 +1636,8 @@
       "errorPickTemplate": "Elegí primero una plantilla.",
       "errorFallback": "Falló la asignación.",
       "successOnce": "Plantilla asignada.",
-      "successRecurring": "Asignación recurrente creada ({count} entrenamientos)."
+      "successRecurring": "Asignación recurrente creada ({count} entrenamientos).",
+      "recurrencePreviewCount": "{count, plural, =0 {Todavía no hay fechas} one {# fecha marcada en el calendario} other {# fechas marcadas en el calendario}}"
     }
   },
   "picker": {

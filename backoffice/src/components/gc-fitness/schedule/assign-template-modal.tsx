@@ -59,6 +59,16 @@ import {
   END_DATE_PRESET_MONTHS,
   inferEndDatePresetMonths,
 } from "@/lib/gc-fitness/end-date-presets";
+import {
+  expandRecurrenceDates,
+  type ExpandableRecurrence,
+} from "@/lib/gc-fitness/recurrence-expansion";
+
+// #294 — class applied to every day cell the recurrence will land on, so the
+// trainer previews the series on the calendar before submitting. The anchor
+// (selected) day keeps its solid `selected` styling on top of this.
+const RECURRENCE_PREVIEW_CLASS =
+  "rounded-md bg-primary/15 font-semibold text-primary";
 
 interface AssignTemplateModalProps {
   open: boolean;
@@ -474,6 +484,45 @@ export function AssignTemplateModal({
           item !== null,
       );
   }, [overrideDrafts, templateDetail]);
+
+  // #294 — civil dates the recurrence will land on, for the calendar preview.
+  // Mirrors the rule built in `onSubmit` and expands it with the SAME
+  // `expandRecurrenceDates` the assignTemplateRecurring action uses, so the
+  // highlighted days are exactly the sessions that will be created. "once" →
+  // no extra highlight (just the single selected day).
+  const previewDates = useMemo<Date[]>(() => {
+    if (mode === "once") return [];
+    let recurrence: ExpandableRecurrence;
+    if (mode === "daily") {
+      recurrence = { kind: "daily" };
+    } else if (mode === "everyN") {
+      recurrence = { kind: "every_n_days", everyN: recurringEveryN };
+    } else if (mode === "monthly") {
+      recurrence = {
+        kind: "monthly",
+        dayOfMonth: parseCivilToLocalDate(civilDate).getDate(),
+      };
+    } else {
+      const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
+      recurrence =
+        weekdays.length === 1
+          ? { kind: "weekly", weekday: weekdays[0] }
+          : { kind: "weekly_days", weekdays };
+    }
+    const dates = expandRecurrenceDates(
+      recurrence,
+      civilDate,
+      recurringEndEnabled ? recurringEndDate : undefined,
+    );
+    return dates.map(parseCivilToLocalDate);
+  }, [
+    mode,
+    recurringWeekdays,
+    recurringEveryN,
+    civilDate,
+    recurringEndEnabled,
+    recurringEndDate,
+  ]);
 
   function copyFirstSetToAll(exerciseIndex: number, metric: "reps" | "time") {
     setOverrideDrafts((prev) => {
@@ -909,10 +958,17 @@ export function AssignTemplateModal({
               onSelect={(d) => {
                 if (d) setCivilDate(formatLocalDateToCivil(d));
               }}
+              modifiers={{ recurrence: previewDates }}
+              modifiersClassNames={{ recurrence: RECURRENCE_PREVIEW_CLASS }}
             />
             <p className="text-xs text-muted-foreground">
               {t("scheduledFor", { date: civilDate })}
             </p>
+            {mode !== "once" ? (
+              <p className="text-xs font-medium text-primary">
+                {t("recurrencePreviewCount", { count: previewDates.length })}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

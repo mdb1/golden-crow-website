@@ -1554,7 +1554,8 @@
         "thursday": "Thursday",
         "friday": "Friday",
         "saturday": "Saturday"
-      }
+      },
+      "recurrencePreviewCount": "{count, plural, =0 {No dates match yet} one {# date highlighted on the calendar} other {# dates highlighted on the calendar}}"
     },
     "bulkConfirm": {
       "titleSingular": "Assign “{template}” to {count} client on {date}?",
@@ -1635,7 +1636,8 @@
       "errorPickTemplate": "Pick a template first.",
       "errorFallback": "Assignment failed.",
       "successOnce": "Template assigned.",
-      "successRecurring": "Recurring assignment created ({count} workouts)."
+      "successRecurring": "Recurring assignment created ({count} workouts).",
+      "recurrencePreviewCount": "{count, plural, =0 {No dates match yet} one {# date highlighted on the calendar} other {# dates highlighted on the calendar}}"
     }
   },
   "picker": {

@@ -65,12 +65,16 @@ import {
   tallyTemplateAssignments,
   type AssignmentForUsage,
 } from "./library-usage-counts";
+import {
+  MAX_RECURRING_OCCURRENCES,
+  NO_END_HORIZON_DAYS,
+  expandRecurrenceDates,
+  type ExpandableRecurrence,
+} from "./recurrence-expansion";
 
 const TEMPLATES = FirestoreCollections.workoutTemplates;
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
 const LOGS = FirestoreCollections.workoutLogs;
-const MAX_RECURRING_OCCURRENCES = 104; // ~2 years weekly cap
-const NO_END_HORIZON_DAYS = 365; // "no end" operational horizon (rolling)
 
 /**
  * Row shape returned by the list queries. Firestore Timestamps are converted
@@ -332,76 +336,12 @@ function nextCivilForWeekdayOnOrAfter(civilDate: string, weekday: number): strin
 //
 // 260612-e9t (#175): `assignTemplateRecurring` and `bulkAssignTemplate` must
 // expand a `RecurrenceRule` into the SAME set of civil dates for the SAME
-// startDate/endDate — otherwise the two surfaces would silently drift. The
-// matcher + civil-day walk below is the SINGLE source of truth; both client
-// call sites invoke `expandRecurrenceDates`. (The inline matcher inside
-// `assignTemplateRecurring*ToPending` is a separate pending-mirror path; this
-// shared helper covers the canonical client paths.)
-
-type ExpandableRecurrence =
-  | { kind: "single" }
-  | { kind: "daily" }
-  | { kind: "weekly"; weekday: number }
-  | { kind: "weekly_days"; weekdays: number[] }
-  | { kind: "every_n_days"; everyN: number }
-  | { kind: "monthly"; dayOfMonth: number };
-
-/** True when `date` (a civil-date string) matches `recurrence` anchored at `startDate`. */
-function matchesRecurrence(
-  recurrence: ExpandableRecurrence,
-  startDate: string,
-  date: string,
-  dayIndex: number,
-): boolean {
-  switch (recurrence.kind) {
-    case "single":
-      return date === startDate;
-    case "daily":
-      return true;
-    case "weekly":
-      return dayIndex === recurrence.weekday;
-    case "weekly_days":
-      return recurrence.weekdays.includes(dayIndex);
-    case "every_n_days": {
-      const [y0, m0, d0] = startDate.split("-").map(Number);
-      const [y1, m1, d1] = date.split("-").map(Number);
-      const diff =
-        (Date.UTC(y1, m1 - 1, d1) - Date.UTC(y0, m0 - 1, d0)) / 86_400_000;
-      return diff >= 0 && diff % recurrence.everyN === 0;
-    }
-    case "monthly": {
-      const [y, m, d] = date.split("-").map(Number);
-      const target = recurrence.dayOfMonth;
-      const lastDayOfMonth = new Date(y, m, 0).getDate();
-      const clamped = Math.min(target, lastDayOfMonth);
-      return d === clamped;
-    }
-  }
-}
-
-/**
- * Expand a recurrence rule into the matching civil dates in
- * `[startDate, endDate ?? startDate + NO_END_HORIZON_DAYS]`, capped at
- * `MAX_RECURRING_OCCURRENCES`. Returns the dates in ascending order.
- */
-function expandRecurrenceDates(
-  recurrence: ExpandableRecurrence,
-  startDate: string,
-  endDate?: string,
-): string[] {
-  const hardWindowEnd = addCivilDays(startDate, NO_END_HORIZON_DAYS);
-  const windowEnd = endDate ?? hardWindowEnd;
-  const dates: string[] = [];
-  for (let date = startDate; date <= windowEnd; date = addCivilDays(date, 1)) {
-    if (
-      matchesRecurrence(recurrence, startDate, date, dayOfWeekFromCivil(date))
-    ) {
-      dates.push(date);
-      if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
-    }
-  }
-  return dates;
-}
+// startDate/endDate. 260618 (#294): the matcher + civil-day walk now lives in
+// the pure `./recurrence-expansion` module (imported above) so the client-side
+// calendar PREVIEW expands dates identically to what these actions write — one
+// source of truth across the server write path and the form preview. (The
+// inline matcher inside `assignTemplateRecurring*ToPending` is a separate
+// pending-mirror path; this shared helper covers the canonical client paths.)
 
 /**
  * Hard ceiling on total docs a single bulk-recurring submit may write
