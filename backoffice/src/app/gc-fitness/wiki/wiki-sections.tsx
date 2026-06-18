@@ -59,8 +59,13 @@ export function WikiSections({ locale }: { locale: string }) {
               className="group scroll-mt-24 rounded-2xl border border-border bg-card p-5 shadow-sm"
             >
               <summary className="flex cursor-pointer list-none items-start justify-between gap-3 font-heading text-base font-semibold [&::-webkit-details-marker]:hidden">
-                {pick(locale, item.question)}
-                <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                <span className="min-w-0 flex-1">{pick(locale, item.question)}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {/* Per-question deep link (#349) — copies the Wiki URL +
+                      this FAQ's anchor without toggling the disclosure. */}
+                  <WikiVideoShare anchorId={item.id} locale={locale} />
+                  <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                </span>
               </summary>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {pick(locale, item.answer)}

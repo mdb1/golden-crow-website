@@ -12,7 +12,7 @@
 // `window.location` at click time rather than hardcoding an origin, so it works
 // the same on localhost, preview deploys, and prod.
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { Check, Link2 } from "lucide-react";
 
 import { WIKI_COPY, pick } from "./wiki-data";
@@ -26,7 +26,11 @@ export function WikiVideoShare({
 }) {
   const [copied, setCopied] = useState(false);
 
-  async function copy() {
+  async function copy(event: MouseEvent) {
+    // This control can live inside a <summary> (FAQ) — prevent the click from
+    // toggling the disclosure and from bubbling further.
+    event.preventDefault();
+    event.stopPropagation();
     // Strip any existing hash, then append this video's anchor.
     const base = window.location.href.split("#")[0];
     const deepLink = `${base}#${anchorId}`;
