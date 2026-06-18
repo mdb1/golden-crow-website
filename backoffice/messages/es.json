@@ -1052,7 +1052,9 @@
         "rejectNoId": "Guardá el hábito primero y luego agregá una foto.",
         "successToast": "Foto subida.",
         "failToast": "No se pudo subir la foto. Intentá de nuevo."
-      }
+      },
+      "schedulePreviewHeading": "Vista previa en el calendario",
+      "schedulePreviewCount": "{count, plural, =0 {Todavía no hay días activos} one {# día activo marcado} other {# días activos marcados}}"
     }
   },
   "exercises": {

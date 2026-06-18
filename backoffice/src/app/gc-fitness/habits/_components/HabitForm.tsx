@@ -15,7 +15,7 @@
 // (immutable post-create per the schema doc + rule layer enforcement); the
 // value still appears in the form so the trainer sees what they're editing.
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,7 +62,26 @@ import {
   inferEndDatePresetWeeks,
   localDateToCivil,
 } from "@/lib/gc-fitness/end-date-presets";
+import { Calendar } from "@/components/ui/calendar";
+import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
+import {
+  addCivilDays,
+  MAX_RECURRING_OCCURRENCES,
+  NO_END_HORIZON_DAYS,
+} from "@/lib/gc-fitness/recurrence-expansion";
 import { HabitPhotoDropzone } from "./HabitPhotoDropzone";
+
+// #294 — class applied to every day cell the habit will be active on, so the
+// trainer previews the schedule on the calendar before assigning. Matches the
+// workout assign forms.
+const HABIT_PREVIEW_CLASS =
+  "rounded-md bg-primary/15 font-semibold text-primary";
+
+/** "YYYY-MM-DD" → local-time Date at midnight (no UTC shift). */
+function parseCivilToLocalDate(civil: string): Date {
+  const [y, m, d] = civil.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 export type HabitFormMode = "create" | "edit";
 
@@ -241,6 +260,43 @@ export function HabitForm({
     useWatch({ control: form.control, name: "scheduleWeekdays" }) ?? [];
   const watchedScheduleMonthDays =
     useWatch({ control: form.control, name: "scheduleMonthDays" }) ?? [];
+
+  // #294 — civil dates this habit will be active on, for the calendar preview.
+  // Walks the schedule window through `isHabitScheduledOn` (the SAME predicate
+  // the app + backoffice use to decide whether a habit shows on a given day),
+  // so the highlighted days are exactly when the client will see the habit.
+  // No end date → bounded to the rolling horizon and capped, same as workouts.
+  const previewDates = useMemo<Date[]>(() => {
+    const startsOn = watchedStartsOn;
+    if (!startsOn) return [];
+    const horizonEnd = addCivilDays(startsOn, NO_END_HORIZON_DAYS);
+    const windowEnd =
+      watchedEndsOn && watchedEndsOn < horizonEnd ? watchedEndsOn : horizonEnd;
+    const habit = {
+      scheduleType: watchedScheduleType,
+      startsOn,
+      endsOn: watchedEndsOn || undefined,
+      scheduleCadence: watchedScheduleCadence,
+      scheduleWeekdays: watchedScheduleWeekdays,
+      scheduleMonthDays: watchedScheduleMonthDays,
+    };
+    const dates: Date[] = [];
+    for (let d = startsOn; d <= windowEnd; d = addCivilDays(d, 1)) {
+      if (isHabitScheduledOn(habit, d)) {
+        dates.push(parseCivilToLocalDate(d));
+        if (dates.length >= MAX_RECURRING_OCCURRENCES) break;
+      }
+    }
+    return dates;
+  }, [
+    watchedScheduleType,
+    watchedStartsOn,
+    watchedEndsOn,
+    watchedScheduleCadence,
+    watchedScheduleWeekdays,
+    watchedScheduleMonthDays,
+  ]);
+
   const initialStartsOn =
     typeof initialDefaults.startsOn === "string" ? initialDefaults.startsOn : "";
   const initialEndsOn =
@@ -804,6 +860,23 @@ export function HabitForm({
               ) : null}
             </div>
           )}
+
+          {/* #294 — read-only calendar preview of the active days. */}
+          {watchedStartsOn ? (
+            <div className="flex flex-col gap-1.5 border-t pt-4">
+              <FormLabel>{t("schedulePreviewHeading")}</FormLabel>
+              <Calendar
+                mode="single"
+                selected={parseCivilToLocalDate(watchedStartsOn)}
+                defaultMonth={parseCivilToLocalDate(watchedStartsOn)}
+                modifiers={{ habit: previewDates }}
+                modifiersClassNames={{ habit: HABIT_PREVIEW_CLASS }}
+              />
+              <p className="text-xs font-medium text-primary">
+                {t("schedulePreviewCount", { count: previewDates.length })}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
