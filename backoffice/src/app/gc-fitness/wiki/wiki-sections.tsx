@@ -11,6 +11,7 @@ import {
 } from "./wiki-data";
 import { WikiLinkCards } from "./wiki-link-cards";
 import { WikiVideoShare } from "./wiki-video-share";
+import { WikiHashOpener } from "./wiki-hash-opener";
 
 // Full-width 2-up layout. Every walkthrough renders as a live Loom embed so all
 // posters/thumbnails are visible at once — no click-to-play facade and no
@@ -20,6 +21,7 @@ import { WikiVideoShare } from "./wiki-video-share";
 export function WikiSections({ locale }: { locale: string }) {
   return (
     <main className="min-w-0 space-y-12">
+      <WikiHashOpener />
       {WIKI_GROUPS.map((group) => (
         <section key={group.id} id={group.id} className="scroll-mt-24 space-y-5">
           <h2 className="font-heading text-lg font-bold sm:text-xl">
