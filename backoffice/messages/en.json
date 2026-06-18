@@ -424,6 +424,7 @@
         "empty": "No habits assigned yet.",
         "unnamed": "(unnamed habit)",
         "daysCompleted": "days completed",
+        "noScheduled": "Not scheduled in this range",
         "streakTooltip": "{count}-occurrence streak on scheduled days",
         "rangeAll": "All",
         "range90": "90d",

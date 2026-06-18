@@ -99,9 +99,11 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
         );
         const completed = scheduled.filter((d) => completedDates.has(d)).length;
         const denom = scheduled.length;
-        // No scheduled days in the window → 100% (nothing was due), matching
-        // the iOS surface + the previous compliance widget.
-        const ratio = denom === 0 ? 1 : completed / denom;
+        // No scheduled days in the window → NO data (not 100%). #341: a habit
+        // with nothing due in the range was rendering as 100% (0/0). The client
+        // renders "—" when scheduled === 0 so it doesn't read as fully complete.
+        // Matches the shared computeAdherence (0/0 → 0).
+        const ratio = denom === 0 ? 0 : completed / denom;
         byRange[range.key] = {
           pct: Math.round(Math.max(0, Math.min(1, ratio)) * 100),
           completed,
@@ -129,6 +131,7 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
         title: t("title"),
         empty: t("empty"),
         daysCompleted: t("daysCompleted"),
+        noScheduled: t("noScheduled"),
         ranges: {
           all: t("rangeAll"),
           "90": t("range90"),

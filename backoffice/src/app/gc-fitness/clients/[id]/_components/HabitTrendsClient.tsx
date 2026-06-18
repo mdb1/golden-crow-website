@@ -33,6 +33,7 @@ export interface HabitTrendsClientProps {
     title: string;
     empty: string;
     daysCompleted: string;
+    noScheduled: string;
     ranges: Record<TrendRangeKey, string>;
   };
 }
@@ -56,6 +57,9 @@ export function HabitTrendsClient({ rows, labels }: HabitTrendsClientProps) {
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {sorted.map((row) => {
             const cell = row.byRange[range];
+            // #341 — nothing was scheduled in this range: show "—", not a
+            // misleading 100% (or 0%).
+            const noData = cell.scheduled === 0;
             return (
               <li
                 key={row.id}
@@ -76,12 +80,14 @@ export function HabitTrendsClient({ rows, labels }: HabitTrendsClientProps) {
                     ) : null}
                   </div>
                   <Badge variant="secondary" className="tabular-nums">
-                    {cell.pct}%
+                    {noData ? "—" : `${cell.pct}%`}
                   </Badge>
                 </div>
-                <Progress value={cell.pct} className="h-2.5 w-full" />
+                <Progress value={noData ? 0 : cell.pct} className="h-2.5 w-full" />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {cell.completed}/{cell.scheduled || 0} {labels.daysCompleted}
+                  {noData
+                    ? labels.noScheduled
+                    : `${cell.completed}/${cell.scheduled || 0} ${labels.daysCompleted}`}
                 </p>
               </li>
             );
