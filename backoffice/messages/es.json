@@ -1052,7 +1052,9 @@
         "rejectNoId": "Guardá el hábito primero y luego agregá una foto.",
         "successToast": "Foto subida.",
         "failToast": "No se pudo subir la foto. Intentá de nuevo."
-      }
+      },
+      "schedulePreviewHeading": "Vista previa en el calendario",
+      "schedulePreviewCount": "{count, plural, =0 {Todavía no hay días activos} one {# día activo marcado} other {# días activos marcados}}"
     }
   },
   "exercises": {
@@ -1554,7 +1556,8 @@
         "thursday": "Jueves",
         "friday": "Viernes",
         "saturday": "Sábado"
-      }
+      },
+      "recurrencePreviewCount": "{count, plural, =0 {Todavía no hay fechas} one {# fecha marcada en el calendario} other {# fechas marcadas en el calendario}}"
     },
     "bulkConfirm": {
       "titleSingular": "¿Asignar “{template}” a {count} cliente el {date}?",
@@ -1635,7 +1638,8 @@
       "errorPickTemplate": "Elegí primero una plantilla.",
       "errorFallback": "Falló la asignación.",
       "successOnce": "Plantilla asignada.",
-      "successRecurring": "Asignación recurrente creada ({count} entrenamientos)."
+      "successRecurring": "Asignación recurrente creada ({count} entrenamientos).",
+      "recurrencePreviewCount": "{count, plural, =0 {Todavía no hay fechas} one {# fecha marcada en el calendario} other {# fechas marcadas en el calendario}}"
     }
   },
   "picker": {

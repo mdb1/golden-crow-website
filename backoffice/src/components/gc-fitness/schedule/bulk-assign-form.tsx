@@ -48,9 +48,19 @@ import {
   addCivilMonths,
   END_DATE_PRESET_MONTHS,
 } from "@/lib/gc-fitness/end-date-presets";
+import {
+  expandRecurrenceDates,
+  type ExpandableRecurrence,
+} from "@/lib/gc-fitness/recurrence-expansion";
 import type { ClientRosterEntry } from "@/lib/gc-fitness/client-roster";
 
 import { BulkConfirmModal } from "./bulk-confirm-modal";
+
+// #294 — class applied to every day cell the recurrence will land on, so the
+// trainer previews the series on the calendar before submitting. The anchor
+// (selected) day keeps its solid `selected` styling on top of this.
+const RECURRENCE_PREVIEW_CLASS =
+  "rounded-md bg-primary/15 font-semibold text-primary";
 
 interface BulkAssignFormProps {
   clients: ClientRosterEntry[];
@@ -172,6 +182,29 @@ export function BulkAssignForm({
     return t("summaryWeekly", { days: labels });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, recurringEveryN, recurringWeekdays, civilDate, t]);
+
+  // #294 — civil dates the recurrence will land on, for the calendar preview.
+  // Uses the SAME `expandRecurrenceDates` the bulkAssignTemplate action uses to
+  // write the series, so what the trainer sees highlighted is exactly what gets
+  // created. "once" → just the single picked day (no extra highlight).
+  const previewDates = useMemo<Date[]>(() => {
+    const recurrence = buildRecurrence();
+    if (!recurrence) return [];
+    const dates = expandRecurrenceDates(
+      recurrence as ExpandableRecurrence,
+      civilDate,
+      recurringEndEnabled ? recurringEndDate : undefined,
+    );
+    return dates.map(parseCivilToLocalDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    recurringWeekdays,
+    recurringEveryN,
+    civilDate,
+    recurringEndEnabled,
+    recurringEndDate,
+  ]);
 
   const selectedClients = useMemo(
     () => clients.filter((c) => selectedUids.has(c.uid)),
@@ -311,10 +344,17 @@ export function BulkAssignForm({
               onSelect={(d) => {
                 if (d) setCivilDate(formatLocalDateToCivil(d));
               }}
+              modifiers={{ recurrence: previewDates }}
+              modifiersClassNames={{ recurrence: RECURRENCE_PREVIEW_CLASS }}
             />
             <p className="text-xs text-muted-foreground">
               {t("scheduledFor", { date: civilDate })}
             </p>
+            {mode !== "once" ? (
+              <p className="text-xs font-medium text-primary">
+                {t("recurrencePreviewCount", { count: previewDates.length })}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 gap-3">

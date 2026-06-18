@@ -10,6 +10,8 @@ import {
   type WikiVideo,
 } from "./wiki-data";
 import { WikiLinkCards } from "./wiki-link-cards";
+import { WikiVideoShare } from "./wiki-video-share";
+import { WikiHashOpener } from "./wiki-hash-opener";
 
 // Full-width 2-up layout. Every walkthrough renders as a live Loom embed so all
 // posters/thumbnails are visible at once — no click-to-play facade and no
@@ -19,6 +21,7 @@ import { WikiLinkCards } from "./wiki-link-cards";
 export function WikiSections({ locale }: { locale: string }) {
   return (
     <main className="min-w-0 space-y-12">
+      <WikiHashOpener />
       {WIKI_GROUPS.map((group) => (
         <section key={group.id} id={group.id} className="scroll-mt-24 space-y-5">
           <h2 className="font-heading text-lg font-bold sm:text-xl">
@@ -58,8 +61,13 @@ export function WikiSections({ locale }: { locale: string }) {
               className="group scroll-mt-24 rounded-2xl border border-border bg-card p-5 shadow-sm"
             >
               <summary className="flex cursor-pointer list-none items-start justify-between gap-3 font-heading text-base font-semibold [&::-webkit-details-marker]:hidden">
-                {pick(locale, item.question)}
-                <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                <span className="min-w-0 flex-1">{pick(locale, item.question)}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {/* Per-question deep link (#349) — copies the Wiki URL +
+                      this FAQ's anchor without toggling the disclosure. */}
+                  <WikiVideoShare anchorId={item.id} locale={locale} />
+                  <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                </span>
               </summary>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {pick(locale, item.answer)}
@@ -85,18 +93,23 @@ function VideoCard({ video, locale }: { video: WikiVideo; locale: string }) {
       id={video.id}
       className="flex scroll-mt-24 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2 px-5 pt-5">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-3 px-5 pt-5">
+        <div className="min-w-0 flex-1">
           <h3 className="font-heading text-base font-bold sm:text-lg">{title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             {pick(locale, video.description)}
           </p>
         </div>
-        {comingSoon ? (
-          <Badge variant="warning" className="shrink-0">
-            {pick(locale, WIKI_COPY.comingSoon)}
-          </Badge>
-        ) : null}
+        {/* Top-right controls, pinned (no flex-wrap) so the share button lands
+            in the same spot on every card regardless of description length. */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {comingSoon ? (
+            <Badge variant="warning">{pick(locale, WIKI_COPY.comingSoon)}</Badge>
+          ) : null}
+          {/* Per-video deep link (#349) — copies the Wiki URL + this card's
+              anchor so a coach can share a single walkthrough. */}
+          <WikiVideoShare anchorId={video.id} locale={locale} />
+        </div>
       </div>
 
       <div className="mt-auto px-5 pb-5 pt-4">

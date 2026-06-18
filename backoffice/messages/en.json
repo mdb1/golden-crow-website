@@ -1052,7 +1052,9 @@
         "rejectNoId": "Save the habit first, then add a photo.",
         "successToast": "Photo uploaded.",
         "failToast": "Photo upload failed. Try again."
-      }
+      },
+      "schedulePreviewHeading": "Calendar preview",
+      "schedulePreviewCount": "{count, plural, =0 {No active days yet} one {# active day highlighted} other {# active days highlighted}}"
     }
   },
   "exercises": {
@@ -1554,7 +1556,8 @@
         "thursday": "Thursday",
         "friday": "Friday",
         "saturday": "Saturday"
-      }
+      },
+      "recurrencePreviewCount": "{count, plural, =0 {No dates match yet} one {# date highlighted on the calendar} other {# dates highlighted on the calendar}}"
     },
     "bulkConfirm": {
       "titleSingular": "Assign “{template}” to {count} client on {date}?",
@@ -1635,7 +1638,8 @@
       "errorPickTemplate": "Pick a template first.",
       "errorFallback": "Assignment failed.",
       "successOnce": "Template assigned.",
-      "successRecurring": "Recurring assignment created ({count} workouts)."
+      "successRecurring": "Recurring assignment created ({count} workouts).",
+      "recurrencePreviewCount": "{count, plural, =0 {No dates match yet} one {# date highlighted on the calendar} other {# dates highlighted on the calendar}}"
     }
   },
   "picker": {
