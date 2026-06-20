@@ -1095,6 +1095,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Global scope": "Alcance global",
   "Grouped parent-child entities for the new flow: sequencing batches, cases, and sampling records.":
     "Entidades padre-hijo agrupadas para el nuevo flujo: lotes de secuenciación, casos y registros de muestreo.",
+  "Cases and biopsy records stay grouped here for the medical workflow.":
+    "Los casos y registros de biopsia quedan agrupados acá para el flujo médico.",
   "Human-readable case identifier.": "Identificador de caso legible.",
   "Human-readable sequencing batch label.": "Etiqueta legible del lote de secuenciación.",
   "Identity, stats, activity visibility, and nested events.":
@@ -1559,6 +1561,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Searchable patient index with scoped visibility by institution and scoped edit rights by doctor ownership.":
     "Índice de pacientes buscable con visibilidad por institución y edición acotada por titularidad médica.",
   "Secondary workflow surfaces": "Superficies secundarias de flujo",
+  "Shipment operations stay available as the supporting area for this role.":
+    "Las operaciones de envíos quedan disponibles como área de soporte para este rol.",
   Sent: "Enviado",
   "Select a doctor for this patient.": "Seleccioná un médico para este paciente.",
   "Select an institution for this doctor.":

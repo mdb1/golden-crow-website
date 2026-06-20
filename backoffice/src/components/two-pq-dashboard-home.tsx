@@ -52,12 +52,26 @@ export function TwoPQDashboardHome({
   formDraft?: TwoPQFormDraftRecord | null;
 }) {
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
+  const isDoctorDashboard = adminContext.role === "institution_doctor";
+  const visibleLinkedEntityKeys = new Set(
+    isDoctorDashboard ? ["cases", "sampling"] : Array.from(linkedEntityKeys)
+  );
   const t = (text: string) => appText(language, text);
   const translatedAreas = TWO_PQ_AREA_CONFIGS.map((area) =>
     translateTwoPQAreaConfig(area, language)
   );
-  const linkedEntityAreas = translatedAreas.filter((area) => linkedEntityKeys.has(area.key));
-  const secondaryAreas = translatedAreas.filter((area) => !linkedEntityKeys.has(area.key));
+  const linkedEntityAreas = translatedAreas.filter((area) =>
+    visibleLinkedEntityKeys.has(area.key)
+  );
+  const secondaryAreas = translatedAreas.filter(
+    (area) => !linkedEntityKeys.has(area.key) && (!isDoctorDashboard || area.key === "shipments")
+  );
+  const linkedEntityGridClassName =
+    linkedEntityAreas.length <= 2 ? "grid gap-4 md:grid-cols-2" : "grid gap-4 md:grid-cols-3";
+  const secondaryGridClassName =
+    secondaryAreas.length <= 1
+      ? "grid max-w-xl gap-4"
+      : "grid gap-4 md:grid-cols-2 xl:grid-cols-3";
   const draftHref = formDraft
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
@@ -272,11 +286,15 @@ export function TwoPQDashboardHome({
               {t("Linked entities")}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-emerald-900/70 dark:text-emerald-50/72">
-              {t("Grouped parent-child entities for the new flow: sequencing batches, cases, and sampling records.")}
+              {t(
+                isDoctorDashboard
+                  ? "Cases and biopsy records stay grouped here for the medical workflow."
+                  : "Grouped parent-child entities for the new flow: sequencing batches, cases, and sampling records."
+              )}
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className={linkedEntityGridClassName}>
             {linkedEntityAreas.map((area) => (
               <article
                 key={area.key}
@@ -334,11 +352,15 @@ export function TwoPQDashboardHome({
             {t("Secondary workflow surfaces")}
           </h2>
           <p className="max-w-4xl text-sm text-muted-foreground">
-            {t("Shipment, reporting, and client operations stay here as separate supporting areas.")}
+            {t(
+              isDoctorDashboard
+                ? "Shipment operations stay available as the supporting area for this role."
+                : "Shipment, reporting, and client operations stay here as separate supporting areas."
+            )}
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={secondaryGridClassName}>
           {secondaryAreas.map((area) => (
             <article key={area.key} className="glass-panel flex flex-col gap-4 px-5 py-5">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
