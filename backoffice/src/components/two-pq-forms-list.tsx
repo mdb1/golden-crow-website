@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type ComponentProps, type FormEvent, useState } from "react";
 import {
   Archive,
   ArrowDownToLine,
   ArrowRight,
   ArrowUpDown,
   CalendarDays,
-  FileText,
+  CircleDot,
+  ClipboardList,
   Filter,
+  type LucideIcon,
   Loader2,
   Search,
   Trash2,
@@ -49,6 +51,7 @@ import type {
 import { getTwoPQFormDisplayTitle } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
 import { appText } from "@/lib/language";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -153,6 +156,41 @@ function formTypeLabel(type: FormTypeFilter, t: (text: string) => string) {
   return t("All types");
 }
 
+const FORM_TYPE_VISUALS: Record<
+  TwoPQFormType,
+  {
+    Icon: LucideIcon;
+    articleClass: string;
+    badgeVariant: ComponentProps<typeof Badge>["variant"];
+    iconClass: string;
+  }
+> = {
+  study_request: {
+    Icon: ClipboardList,
+    articleClass:
+      "border-sky-200/90 bg-sky-50/70 shadow-[0_12px_32px_rgba(125,211,252,0.14)] dark:border-sky-300/18 dark:bg-sky-500/8",
+    badgeVariant: "brand",
+    iconClass:
+      "flex size-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-400/14 dark:text-sky-100",
+  },
+  sample: {
+    Icon: CircleDot,
+    articleClass:
+      "border-emerald-200/90 bg-emerald-50/70 shadow-[0_12px_32px_rgba(110,231,183,0.14)] dark:border-emerald-300/18 dark:bg-emerald-500/8",
+    badgeVariant: "success",
+    iconClass:
+      "flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/14 dark:text-emerald-100",
+  },
+  withdrawal_request: {
+    Icon: ArrowDownToLine,
+    articleClass:
+      "border-amber-200/90 bg-amber-50/70 shadow-[0_12px_32px_rgba(251,191,36,0.14)] dark:border-amber-300/18 dark:bg-amber-500/8",
+    badgeVariant: "warning",
+    iconClass:
+      "flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-400/14 dark:text-amber-100",
+  },
+};
+
 export function TwoPQFormsList({
   forms,
   initialCursor = null,
@@ -200,10 +238,6 @@ export function TwoPQFormsList({
     tone === "indigo"
       ? "flex flex-col gap-3 rounded-2xl border border-indigo-100/90 bg-white/68 px-4 py-3 shadow-[0_12px_32px_rgba(99,102,241,0.12)] md:flex-row md:items-center md:justify-between dark:border-indigo-300/18 dark:bg-indigo-950/28"
       : "flex flex-col gap-3 rounded-2xl border border-border/75 bg-background/64 px-4 py-3 md:flex-row md:items-center md:justify-between";
-  const iconClass =
-    tone === "indigo"
-      ? "flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-400/14 dark:text-indigo-100"
-      : "flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/12 text-indigo-700 dark:text-indigo-200";
   const canDeleteForms = adminContext.role === "full_admin";
   const canArchiveForms =
     adminContext.role === "full_admin" ||
@@ -475,16 +509,18 @@ export function TwoPQFormsList({
             const authorEmail = form.authorEmail ?? form.createdByEmail;
             const isArchived = Boolean(form.archivedAt);
             const displayTitle = getTwoPQFormDisplayTitle(form, language);
+            const formVisuals = FORM_TYPE_VISUALS[form.formType];
+            const FormIcon = formVisuals.Icon;
 
             return (
               <article
                 key={form.id}
-                className={articleClass}
+                className={cn(articleClass, formVisuals.articleClass)}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={iconClass}>
-                      <FileText className="size-4" />
+                    <span className={formVisuals.iconClass}>
+                      <FormIcon className="size-4" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground">
@@ -505,7 +541,7 @@ export function TwoPQFormsList({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                  <Badge variant="brand">
+                  <Badge variant={formVisuals.badgeVariant}>
                     {formTypeLabel(form.formType, t)}
                   </Badge>
                   {isArchived ? (
