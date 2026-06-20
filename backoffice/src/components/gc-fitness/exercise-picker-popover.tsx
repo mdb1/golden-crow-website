@@ -101,7 +101,11 @@ import {
   applyFilters,
   type ExerciseFilters,
 } from "@/lib/gc-fitness/exercise-filter-state";
-import { MUSCLE_GROUPS, EQUIPMENT } from "@/lib/gc-fitness/exercise-vocabulary";
+import {
+  MUSCLE_GROUPS,
+  EQUIPMENT,
+  isMuscleGroup,
+} from "@/lib/gc-fitness/exercise-vocabulary";
 import { useFavorites } from "@/lib/gc-fitness/use-favorites";
 import { favoriteIdSet, sortFavoritesFirst } from "@/lib/gc-fitness/favorites";
 import { FavoriteStarButton } from "./favorite-star-button";
@@ -199,6 +203,10 @@ export function ExercisePickerPopover({
   ariaLabel,
 }: ExercisePickerPopoverProps) {
   const t = useTranslations("picker");
+  // Localized muscle labels for the per-row hint line (issue #360). Row
+  // muscleGroups are data-driven, so guard with isMuscleGroup and fall back to
+  // the English title-caser for any legacy value outside the catalog.
+  const tVocab = useTranslations("exercises.vocabulary");
   const effectivePlaceholder = placeholder ?? t("triggerPlaceholder");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -480,7 +488,13 @@ export function ExercisePickerPopover({
                           )}
                           {ex.muscleGroups.length > 0 && (
                             <span className="truncate text-xs text-muted-foreground">
-                              {ex.muscleGroups.map(formatLabel).join(", ")}
+                              {ex.muscleGroups
+                                .map((m) =>
+                                  isMuscleGroup(m)
+                                    ? tVocab(`muscle.${m}`)
+                                    : formatLabel(m),
+                                )
+                                .join(", ")}
                             </span>
                           )}
                         </span>
@@ -587,6 +601,11 @@ function ExercisePickerFilters({
   onClear,
 }: ExercisePickerFiltersProps) {
   const t = useTranslations("picker");
+  // Muscle/equipment chip values are the canonical lowercase English vocabulary
+  // ids (MUSCLE_GROUPS / EQUIPMENT); render their localized labels from the
+  // shared exercises.vocabulary catalog (issue #360) instead of the raw
+  // English-only formatLabel() title-caser. Mirrors ExerciseForm + the wizard.
+  const tVocab = useTranslations("exercises.vocabulary");
 
   return (
     <div className="border-b p-2">
@@ -614,7 +633,7 @@ function ExercisePickerFilters({
             active={filters.muscles.has(m)}
             onClick={() => toggleMuscle(m)}
             testId={`exercise-picker-chip-muscles-${m}`}
-            label={formatLabel(m)}
+            label={tVocab(`muscle.${m}`)}
           />
         ))}
       </ChipRow>
@@ -630,7 +649,7 @@ function ExercisePickerFilters({
             active={filters.equipment.has(e)}
             onClick={() => toggleEquipment(e)}
             testId={`exercise-picker-chip-equipment-${e}`}
-            label={formatLabel(e)}
+            label={tVocab(`equipment.${e}`)}
           />
         ))}
       </ChipRow>
