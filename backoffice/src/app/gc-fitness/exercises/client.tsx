@@ -216,10 +216,13 @@ export function ExerciseLibraryClient({
   );
 
   const columnsT = useTranslations("exercises.columns");
+  // Localized muscle/equipment/category labels for the table's Categoría +
+  // Equipo columns (same catalog the picker + exercise form use).
+  const vocabT = useTranslations("exercises.vocabulary");
   const locale = useLocale();
   const columns = useMemo(
-    () => makeColumns(handlers, columnsT, usageCounts, locale),
-    [handlers, columnsT, usageCounts, locale],
+    () => makeColumns(handlers, columnsT, vocabT, usageCounts, locale),
+    [handlers, columnsT, vocabT, usageCounts, locale],
   );
 
   const table = useReactTable({
