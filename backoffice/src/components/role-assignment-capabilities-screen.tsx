@@ -28,6 +28,14 @@ const ROLE_TABS: AdminRole[] = [
   "patient",
 ];
 
+function getVisibleRoleTabs(currentRole: AdminRole): AdminRole[] {
+  if (currentRole === "institution_doctor") {
+    return ["institution_doctor"];
+  }
+
+  return ROLE_TABS;
+}
+
 const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant"]> = {
   full_admin: "destructive",
   institution_admin: "brand",
@@ -258,9 +266,15 @@ export function RoleAssignmentCapabilitiesScreen({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const activeEntry = entries.find((entry) => entry.role === selectedRole) ?? entries[0];
+  const visibleRoleTabs = getVisibleRoleTabs(currentRole);
+  const activeRole = visibleRoleTabs.includes(selectedRole) ? selectedRole : visibleRoleTabs[0];
+  const activeEntry =
+    entries.find((entry) => entry.role === activeRole) ??
+    entries.find((entry) => visibleRoleTabs.includes(entry.role)) ??
+    entries[0];
   const activeScope = scopeMeta[activeEntry.scope];
   const activeItems = ROLE_ASSIGNMENT_ITEMS[activeEntry.role];
+  const hasSingleVisibleRole = visibleRoleTabs.length === 1;
 
   return (
     <div className="flex flex-col gap-6">
@@ -286,15 +300,19 @@ export function RoleAssignmentCapabilitiesScreen({
         <div className="flex flex-col gap-1">
           <p className="section-eyebrow">{t("Tabs")}</p>
           <h2 className="font-heading text-xl font-semibold text-foreground">
-            {t("Four role assignment lanes")}
+            {t(hasSingleVisibleRole ? "Current role assignment lane" : "Four role assignment lanes")}
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            {t("Each tab explains the scope and operating limits for one role assignment type.")}
+            {t(
+              hasSingleVisibleRole
+                ? "Only your current role lane is visible from this account."
+                : "Each tab explains the scope and operating limits for one role assignment type."
+            )}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {ROLE_TABS.map((role) => {
+          {visibleRoleTabs.map((role) => {
             const isActive = role === activeEntry.role;
 
             return (
