@@ -758,9 +758,16 @@ function buildPatientAdditionalInformation(
 
 function normalizeInstitutionInformation(input: InstitutionInformationInput) {
   return compactRecord({
+    code: normalizeOptionalString(input.code),
     name: normalizeRequiredString(input.name, "Institution name"),
+    legalName: normalizeOptionalString(input.legalName),
     contactEmail: normalizeOptionalEmail(input.contactEmail),
     contactPhone: normalizeOptionalString(input.contactPhone),
+    addressLine1: normalizeOptionalString(input.addressLine1),
+    addressLine2: normalizeOptionalString(input.addressLine2),
+    city: normalizeOptionalString(input.city),
+    state: normalizeOptionalString(input.state),
+    country: normalizeOptionalString(input.country),
     notes: normalizeOptionalString(input.notes),
   });
 }

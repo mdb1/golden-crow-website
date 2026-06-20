@@ -2873,8 +2873,16 @@ export function TwoPQFormFlow({
           value: previewSelectedInstitution,
         },
         {
+          label: t("Institution code"),
+          value: previewValue(state.institutionInformation.code),
+        },
+        {
           label: t("Institution name"),
           value: previewValue(state.institutionInformation.name),
+        },
+        {
+          label: t("Legal name"),
+          value: previewValue(state.institutionInformation.legalName),
         },
         {
           label: t("Contact email"),
@@ -2883,6 +2891,26 @@ export function TwoPQFormFlow({
         {
           label: t("Contact phone"),
           value: previewValue(state.institutionInformation.contactPhone),
+        },
+        {
+          label: t("Address line 1"),
+          value: previewValue(state.institutionInformation.addressLine1),
+        },
+        {
+          label: t("Address line 2"),
+          value: previewValue(state.institutionInformation.addressLine2),
+        },
+        {
+          label: t("City"),
+          value: previewValue(state.institutionInformation.city),
+        },
+        {
+          label: t("State / region"),
+          value: previewValue(state.institutionInformation.state),
+        },
+        {
+          label: t("Country"),
+          value: previewValue(state.institutionInformation.country),
         },
         {
           label: t("Notes"),
@@ -3077,8 +3105,16 @@ export function TwoPQFormFlow({
           value: previewSelectedInstitution,
         },
         {
+          label: t("Institution code"),
+          value: previewValue(state.institutionInformation.code),
+        },
+        {
           label: t("Institution name"),
           value: previewValue(state.institutionInformation.name),
+        },
+        {
+          label: t("Legal name"),
+          value: previewValue(state.institutionInformation.legalName),
         },
         {
           label: t("Contact email"),
@@ -3087,6 +3123,26 @@ export function TwoPQFormFlow({
         {
           label: t("Contact phone"),
           value: previewValue(state.institutionInformation.contactPhone),
+        },
+        {
+          label: t("Address line 1"),
+          value: previewValue(state.institutionInformation.addressLine1),
+        },
+        {
+          label: t("Address line 2"),
+          value: previewValue(state.institutionInformation.addressLine2),
+        },
+        {
+          label: t("City"),
+          value: previewValue(state.institutionInformation.city),
+        },
+        {
+          label: t("State / region"),
+          value: previewValue(state.institutionInformation.state),
+        },
+        {
+          label: t("Country"),
+          value: previewValue(state.institutionInformation.country),
         },
         {
           label: t("Notes"),
@@ -5774,11 +5830,25 @@ export function TwoPQFormFlow({
               </div>
             )}
             <Field
+              id="form-institution-code"
+              label={t("Institution code")}
+              value={state.institutionInformation.code}
+              onChange={(code) => updateInstitutionInformation({ code })}
+            />
+            <Field
               id="form-institution-name"
               label={t("Institution name")}
               value={state.institutionInformation.name}
               onChange={(name) => updateInstitutionInformation({ name })}
               error={errorFor("institutionInformation.name")}
+            />
+            <Field
+              id="form-institution-legal-name"
+              label={t("Legal name")}
+              value={state.institutionInformation.legalName}
+              onChange={(legalName) =>
+                updateInstitutionInformation({ legalName })
+              }
             />
             <Field
               id="form-institution-email"
@@ -5796,6 +5866,42 @@ export function TwoPQFormFlow({
               onChange={(contactPhone) =>
                 updateInstitutionInformation({ contactPhone })
               }
+            />
+            <Field
+              id="form-institution-address-line-1"
+              label={t("Address line 1")}
+              value={state.institutionInformation.addressLine1}
+              onChange={(addressLine1) =>
+                updateInstitutionInformation({ addressLine1 })
+              }
+            />
+            <Field
+              id="form-institution-address-line-2"
+              label={t("Address line 2")}
+              value={state.institutionInformation.addressLine2}
+              onChange={(addressLine2) =>
+                updateInstitutionInformation({ addressLine2 })
+              }
+            />
+            <Field
+              id="form-institution-city"
+              label={t("City")}
+              value={state.institutionInformation.city}
+              onChange={(city) => updateInstitutionInformation({ city })}
+            />
+            <Field
+              id="form-institution-state"
+              label={t("State / region")}
+              value={state.institutionInformation.state}
+              onChange={(stateValue) =>
+                updateInstitutionInformation({ state: stateValue })
+              }
+            />
+            <Field
+              id="form-institution-country"
+              label={t("Country")}
+              value={state.institutionInformation.country}
+              onChange={(country) => updateInstitutionInformation({ country })}
             />
             <div className="md:col-span-2">
               <TextAreaField

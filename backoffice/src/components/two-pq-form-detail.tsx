@@ -52,9 +52,16 @@ const PATIENT_FIELDS: FieldSpec[] = [
 ];
 
 const INSTITUTION_FIELDS: FieldSpec[] = [
+  { key: "code", label: "Institution code" },
   { key: "name", label: "Institution name" },
+  { key: "legalName", label: "Legal name" },
   { key: "contactEmail", label: "Contact email" },
   { key: "contactPhone", label: "Contact phone" },
+  { key: "addressLine1", label: "Address line 1" },
+  { key: "addressLine2", label: "Address line 2" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State / region" },
+  { key: "country", label: "Country" },
   { key: "notes", label: "Notes" },
 ];
 
