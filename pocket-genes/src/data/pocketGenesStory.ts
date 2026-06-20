@@ -69,42 +69,42 @@ const copy: Record<Lang, StoryCopy> = {
     nav: [
       { label: 'Misión', path: '/pocket-genes', slug: 'mission' },
       { label: 'EPOF', path: '/pocket-genes/rare-disease', slug: 'rare-disease' },
-      { label: 'Acompañante', path: '/pocket-genes/companion', slug: 'companion' },
+      { label: 'Mi espacio', path: '/pocket-genes/companion', slug: 'companion' },
       { label: 'RareFriends™', path: '/pocket-genes/community', slug: 'community' },
       { label: 'Integración', path: '/pocket-genes/integration' },
     ],
     pages: {
       mission: {
-        title: 'Pocket Genes - Acompañante genómico para familias',
+        title: 'Pocket Genes - Información genética más clara para familias',
         navLabel: 'Secciones de Pocket Genes',
         eyebrow: 'Pocket Genes',
-        heroTitle: 'Un acompañante genómico para navegar la incertidumbre.',
+        heroTitle: 'Pocket Genes: genética más clara, organizada y accesible.',
         heroLead:
-          'Pocket Genes ayuda a personas y familias a reunir información genética dispersa, entender conceptos complejos, preparar mejores conversaciones médicas y encontrar apoyo cuando el camino es raro, largo o confuso.',
+          'Pocket Genes ayuda a personas y familias a reunir información genética dispersa, entender conceptos complejos, preparar conversaciones médicas y encontrar apoyo cuando el recorrido es largo, raro o confuso.',
         heroImage: '/mobile1.webp',
         heroImageAlt: 'Pocket Genes en un teléfono móvil',
-        primaryActionLabel: 'Explorar la misión EPOF',
+        primaryActionLabel: 'Explorar EPOF',
         primaryActionHref: '/pocket-genes/rare-disease',
         secondaryActionLabel: 'Ver integración para proveedores',
         secondaryActionHref: '/pocket-genes/integration',
         introEyebrow: 'El cambio de enfoque',
-        introTitle: 'No es solo un visor de reportes. Es una forma de convertir datos genéticos en contexto útil.',
+        introTitle: 'No es solo un visor de informes. Es una forma de convertir información genética en contexto útil.',
         introBody: [
           'La integración con laboratorios y proveedores sigue siendo una parte importante del producto. Pero la propuesta completa empieza antes y termina después del PDF: en la vida diaria de una familia que intenta entender qué se analizó, qué falta, qué significa una variante y qué debería preguntar en la próxima consulta.',
-          'Pocket Genes está pensado para ordenar reportes, paneles, proveedores, historial de estudios, conceptos de herencia y próximos pasos posibles en un lugar claro. El objetivo no es reemplazar al médico ni al genetista, sino ayudar a que las personas lleguen mejor preparadas.',
+          'Pocket Genes está pensado para ordenar informes, paneles, proveedores, historial de estudios, conceptos de herencia y próximos pasos posibles en un lugar claro. El objetivo no es reemplazar al médico ni al genetista, sino ayudar a que las personas lleguen mejor preparadas.',
         ],
         stats: [
-          { value: '1', label: 'lugar para reportes, paneles y PDFs' },
+          { value: '1', label: 'lugar para informes, paneles y PDFs' },
           { value: '0', label: 'diagnósticos o indicaciones clínicas dentro de la app' },
           { value: '24/7', label: 'información organizada para revisar antes de una consulta' },
         ],
-        pillarsTitle: 'Lo que Pocket Genes debe resolver',
+        pillarsTitle: 'Lo que Pocket Genes ayuda a resolver',
         pillarsSubtitle:
           'La experiencia se organiza alrededor de necesidades reales de familias que conviven con preguntas genéticas difíciles.',
         pillars: [
           {
             title: 'Organizar información',
-            body: 'Reunir reportes, archivos, paneles, laboratorios, fechas, genes analizados y notas familiares para que nada importante quede perdido.',
+            body: 'Reunir informes, archivos, paneles, laboratorios, fechas, genes analizados y notas familiares para que nada importante quede perdido.',
           },
           {
             title: 'Entender conceptos',
@@ -112,7 +112,7 @@ const copy: Record<Lang, StoryCopy> = {
           },
           {
             title: 'Preparar conversaciones',
-            body: 'Ayudar a identificar qué fue analizado, qué podría faltar y qué preguntas conviene llevar a un médico o asesor genético.',
+            body: 'Ayudar a identificar qué fue analizado, qué podría faltar y qué preguntas conviene llevar a un médico o profesional de genética.',
           },
           {
             title: 'Encontrar apoyo',
@@ -126,7 +126,7 @@ const copy: Record<Lang, StoryCopy> = {
             body:
               'Muchas familias llegan a la genética después de años de síntomas, derivaciones, estudios y PDFs difíciles de comparar. Pocket Genes convierte esa acumulación en una línea de tiempo consultable.',
             image: '/integrate1.webp',
-            imageAlt: 'Interfaz de reportes genómicos organizada',
+            imageAlt: 'Interfaz de informes genéticos organizada',
             items: [
               {
                 title: 'Historial de estudios',
@@ -146,7 +146,7 @@ const copy: Record<Lang, StoryCopy> = {
             eyebrow: 'Para el ecosistema',
             title: 'Un puente entre pacientes, proveedores y comunidad',
             body:
-              'La misma base que permite integrar reportes también puede ayudar a comparar cobertura, explicar resultados, ordenar recursos y acercar a las familias a redes de apoyo.',
+              'La misma base que permite integrar informes también puede ayudar a comparar cobertura, explicar resultados, ordenar recursos y acercar a las familias a redes de apoyo.',
             image: '/mobile2.webp',
             imageAlt: 'Teléfono junto a una pipeta en laboratorio',
             items: [
@@ -167,16 +167,16 @@ const copy: Record<Lang, StoryCopy> = {
         ],
         ethicsTitle: 'Límites clínicos claros',
         ethicsBody:
-          'Pocket Genes no diagnostica, no prescribe y no reemplaza a profesionales de salud. Su rol es ayudar a organizar información, explicar conceptos y preparar mejores conversaciones.',
+          'Pocket Genes no diagnostica, no prescribe y no reemplaza a profesionales de salud. Su rol es ayudar a organizar información, explicar conceptos y preparar conversaciones más claras.',
         ethicsItems: [
           'Lenguaje educativo, no indicaciones médicas.',
-          'Separa hallazgos reportados de interpretaciones pendientes.',
+          'Separa hallazgos informados de interpretaciones pendientes.',
           'Promueve la consulta con médicos, genetistas y asesores genéticos.',
         ],
         ctaTitle: 'Dos narrativas, una misma plataforma',
         ctaBody:
-          'Las familias necesitan claridad y acompañamiento. Los proveedores necesitan una forma seria de entregar reportes móviles. Pocket Genes conecta esas dos necesidades sin mezclarlas.',
-        ctaPrimaryLabel: 'Ver viaje EPOF',
+          'Las familias necesitan claridad y acompañamiento. Los proveedores necesitan una forma seria de entregar informes desde el celular. Pocket Genes conecta esas dos necesidades sin mezclarlas.',
+        ctaPrimaryLabel: 'Ver recorrido EPOF',
         ctaPrimaryHref: '/pocket-genes/rare-disease',
         ctaSecondaryLabel: 'Ver integración',
         ctaSecondaryHref: '/pocket-genes/integration',
@@ -187,22 +187,22 @@ const copy: Record<Lang, StoryCopy> = {
         eyebrow: 'EPOF',
         heroTitle: 'Cuando la condición es poco frecuente, la información no puede estar fragmentada.',
         heroLead:
-          'Las familias que atraviesan una EPOF suelen cargar con reportes dispersos, términos difíciles, años de derivaciones y pocas personas que entiendan su experiencia. Pocket Genes apunta a ordenar ese camino.',
+          'Las familias que atraviesan una EPOF suelen cargar con informes dispersos, términos difíciles, años de derivaciones y pocas personas que entiendan su experiencia. Pocket Genes ayuda a ordenar ese camino.',
         heroImage: '/mobile2.webp',
         heroImageAlt: 'Laboratorio genético con teléfono móvil',
-        primaryActionLabel: 'Ver acompañante genómico',
+        primaryActionLabel: 'Ver espacio personal',
         primaryActionHref: '/pocket-genes/companion',
         secondaryActionLabel: 'Volver a Pocket Genes',
         secondaryActionHref: '/pocket-genes',
         introEyebrow: 'El problema humano',
         introTitle: 'La odisea diagnóstica también es una odisea de información.',
         introBody: [
-          'En enfermedades poco frecuentes, una familia puede pasar por pediatras, especialistas, laboratorios, estudios de panel, exomas, segundas opiniones y reportes que no hablan el mismo idioma. El resultado es una carpeta llena de datos, pero poca claridad práctica.',
-          'Pocket Genes propone una experiencia donde la información genética se vuelve trazable: qué se estudió, por qué se pidió, qué variantes se reportaron, qué significan los términos y qué temas conviene revisar con profesionales.',
+          'En enfermedades poco frecuentes, una familia puede pasar por pediatras, especialistas, laboratorios, estudios de panel, exomas, segundas opiniones e informes que no hablan el mismo idioma. El resultado es una carpeta llena de datos, pero poca claridad práctica.',
+          'Pocket Genes propone una experiencia donde la información genética se vuelve trazable: qué se estudió, por qué se pidió, qué variantes se informaron, qué significan los términos y qué temas conviene revisar con profesionales.',
         ],
         stats: [
           { value: 'EPOF', label: 'enfermedades poco frecuentes como foco central' },
-          { value: 'PDF', label: 'reportes que pueden ordenarse y contextualizarse' },
+          { value: 'PDF', label: 'informes que pueden ordenarse y contextualizarse' },
           { value: '3', label: 'capas: información, preparación y apoyo' },
         ],
         pillarsTitle: 'Necesidades concretas en una búsqueda rara',
@@ -215,7 +215,7 @@ const copy: Record<Lang, StoryCopy> = {
           },
           {
             title: 'Entender qué preguntar',
-            body: 'Preparar preguntas sobre herencia, familiares, nuevas pruebas, reanálisis, asesoría genética y seguimiento.',
+            body: 'Preparar preguntas sobre herencia, familiares, nuevas pruebas, reanálisis, asesoramiento genético y seguimiento.',
           },
           {
             title: 'Encontrar recursos',
@@ -237,7 +237,7 @@ const copy: Record<Lang, StoryCopy> = {
             items: [
               {
                 title: 'Estudios y reanálisis',
-                body: 'Registrar versiones de reportes y mantener visible cuando un resultado podría necesitar revisarse.',
+                body: 'Registrar versiones de informes y mantener visible cuando un resultado podría necesitar revisarse.',
               },
               {
                 title: 'Preguntas pendientes',
@@ -272,51 +272,51 @@ const copy: Record<Lang, StoryCopy> = {
         ],
         ethicsTitle: 'Acompañamiento sin invadir el acto médico',
         ethicsBody:
-          'La página EPOF debe dejar claro que Pocket Genes acompaña la organización y la alfabetización genética, pero no entrega diagnósticos ni decisiones terapéuticas.',
+          'Pocket Genes acompaña la organización y la alfabetización genética, pero no entrega diagnósticos ni decisiones terapéuticas.',
         ethicsItems: [
-          'No reemplaza asesoría genética.',
+          'No reemplaza el asesoramiento genético.',
           'No decide qué estudio corresponde.',
           'No interpreta variantes fuera del contexto clínico profesional.',
         ],
         ctaTitle: 'De la incertidumbre a una consulta mejor preparada',
         ctaBody:
           'El objetivo es que una familia llegue a la siguiente conversación con más orden, mejores preguntas y menos carga mental.',
-        ctaPrimaryLabel: 'Ver acompañante',
+        ctaPrimaryLabel: 'Ver espacio personal',
         ctaPrimaryHref: '/pocket-genes/companion',
         ctaSecondaryLabel: 'Ver RareFriends™',
         ctaSecondaryHref: '/pocket-genes/community',
       },
       companion: {
-        title: 'Pocket Genes - Acompañante genómico personal',
+        title: 'Pocket Genes - Espacio personal para información genética',
         navLabel: 'Secciones de Pocket Genes',
-        eyebrow: 'Acompañante genómico',
-        heroTitle: 'Tu información genética, organizada para conversaciones reales.',
+        eyebrow: 'Espacio personal',
+        heroTitle: 'Un espacio personal para ordenar tu información genética.',
         heroLead:
-          'Pocket Genes convierte reportes, paneles y conceptos complejos en un espacio personal para revisar, aprender, preparar preguntas y compartir información con cuidado.',
+          'Pocket Genes te ayuda a guardar informes, registrar proveedores, entender conceptos básicos y preparar preguntas para tus consultas.',
         heroImage: '/integrate1.webp',
-        heroImageAlt: 'Pantallas móviles con reportes genómicos',
+        heroImageAlt: 'Pantallas móviles con informes genéticos',
         primaryActionLabel: 'Ver RareFriends™',
         primaryActionHref: '/pocket-genes/community',
         secondaryActionLabel: 'Ver integración',
         secondaryActionHref: '/pocket-genes/integration',
         introEyebrow: 'Más que visualización',
-        introTitle: 'Un reporte bonito ayuda. Un acompañante ordenado cambia como se usa la información.',
+        introTitle: 'Un informe claro ayuda. Tener la información ordenada cambia cómo se usa.',
         introBody: [
-          'La experiencia móvil debe mostrar datos de manera clara, pero también debe responder preguntas prácticas: dónde está mi reporte, qué significa este término, qué genes cubrió este panel, qué debería revisar antes de ver al especialista y qué puedo compartir.',
-          'El acompañante personal organiza la información en capas: documentos, conceptos, variantes reportadas, historial, notas y próximas preguntas.',
+          'La experiencia móvil debe mostrar datos de manera clara, pero también debe responder preguntas prácticas: dónde está mi informe, qué significa este término, qué genes cubrió este panel, qué debería revisar antes de ver al especialista y qué puedo compartir.',
+          'El espacio personal organiza la información en capas: documentos, conceptos, variantes informadas, historial, notas y próximas preguntas.',
         ],
         stats: [
-          { value: 'PDF+', label: 'reportes convertidos en información navegable' },
-          { value: 'QA', label: 'preguntas preparadas para consulta' },
-          { value: 'Share', label: 'intercambio controlado con familiares o profesionales' },
+          { value: 'PDF+', label: 'informes convertidos en información navegable' },
+          { value: 'Consultas', label: 'preguntas preparadas para consulta' },
+          { value: 'Control', label: 'intercambio cuidado con familiares o profesionales' },
         ],
-        pillarsTitle: 'Capas del acompañante',
+        pillarsTitle: 'Capas del espacio personal',
         pillarsSubtitle:
           'Cada capa responde a una necesidad concreta durante el recorrido genético.',
         pillars: [
           {
             title: 'Biblioteca personal',
-            body: 'Reportes, paneles, documentos, fechas, laboratorios y notas en un espacio persistente.',
+            body: 'Informes, paneles, documentos, fechas, laboratorios y notas en un espacio persistente.',
           },
           {
             title: 'Glosario contextual',
@@ -346,7 +346,7 @@ const copy: Record<Lang, StoryCopy> = {
               },
               {
                 title: 'Diferenciar certeza de duda',
-                body: 'Separar datos reportados, interpretaciones clínicas y preguntas que requieren un profesional.',
+                body: 'Separar datos informados, interpretaciones clínicas y preguntas que requieren un profesional.',
               },
               {
                 title: 'Lenguaje familiar',
@@ -362,7 +362,7 @@ const copy: Record<Lang, StoryCopy> = {
             items: [
               {
                 title: 'Qué llevar',
-                body: 'Reportes, fechas, estudios previos, antecedentes y notas listos para compartir.',
+                body: 'Informes, fechas, estudios previos, antecedentes y notas listos para compartir.',
               },
               {
                 title: 'Qué preguntar',
@@ -377,7 +377,7 @@ const copy: Record<Lang, StoryCopy> = {
         ],
         ethicsTitle: 'Diseño responsable',
         ethicsBody:
-          'Un acompañante genómico debe ser cuidadoso con lenguaje, privacidad y expectativas. Claridad no significa simplificar de más ni hacer promesas clínicas.',
+          'Un espacio personal de información genética debe ser cuidadoso con lenguaje, privacidad y expectativas. Claridad no significa simplificar de más ni hacer promesas clínicas.',
         ethicsItems: [
           'Evita lenguaje alarmista.',
           'Mantiene la privacidad como configuración central.',
@@ -395,9 +395,9 @@ const copy: Record<Lang, StoryCopy> = {
         title: 'RareFriends™ - Comunidad segura para EPOF',
         navLabel: 'Secciones de Pocket Genes',
         eyebrow: 'RareFriends™',
-        heroTitle: 'RareFriends™: encontrá tu círculo en el camino EPOF.',
+        heroTitle: 'RareFriends™: pequeños círculos para no atravesar el camino en soledad.',
         heroLead:
-          'Un espacio seguro y opt-in para que personas y familias afectadas por enfermedades poco frecuentes puedan encontrar a otros, participar en círculos más pequeños y compartir solo lo que elijan.',
+          'Una comunidad segura y voluntaria para que personas y familias con enfermedades poco frecuentes puedan encontrar a otros, participar en círculos pequeños y compartir solo la información que elijan.',
         heroImage: '/integrate2.webp',
         heroImageAlt: 'Pantallas de Pocket Genes sobre un fondo de ADN',
         primaryActionLabel: 'Descargar Pocket Genes',
@@ -407,20 +407,20 @@ const copy: Record<Lang, StoryCopy> = {
         introEyebrow: 'Qué es RareFriends™',
         introTitle: 'Pocket Genes organiza la información. RareFriends™ ayuda a encontrar personas.',
         introBody: [
-          'RareFriends™ no reemplaza la atención médica, la asesoría genética ni el trabajo de asociaciones de pacientes. Es una capa de comunidad entre pares, pensada para que las personas se sientan menos solas y encuentren a otros que atraviesan preguntas parecidas.',
-          'Las organizaciones conectan recursos, programas y esfuerzos colectivos. RareFriends™ conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores, y miembros que quieren aprender genética sin miedo.',
+          'RareFriends™ no reemplaza la atención médica, el asesoramiento genético ni el trabajo de asociaciones de pacientes. Complementa ese ecosistema con un espacio más personal, cuidado y voluntario.',
+          'No tenés que contar todo para pertenecer. RareFriends™ conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores y miembros que quieren aprender genética sin miedo.',
         ],
         stats: [
-          { value: 'Opt-in', label: 'participación y conexiones solo con consentimiento' },
+          { value: 'Voluntario', label: 'participación y conexiones solo con consentimiento' },
           { value: 'Círculos', label: 'espacios pequeños por etapa, rol, tema o ubicación' },
-          { value: 'Privado', label: 'reportes genéticos y datos sensibles nunca públicos por defecto' },
+          { value: 'Privado', label: 'informes genéticos y datos sensibles nunca públicos por defecto' },
         ],
         pillarsTitle: 'Círculos pequeños, no un foro gigante',
         pillarsSubtitle:
           'RareFriends™ se organiza alrededor de grupos más cuidados, con reglas claras, moderación y control de privacidad.',
         pillars: [
           {
-            title: 'Buscando diagnóstico',
+            title: 'En búsqueda diagnóstica',
             body: 'Para familias que todavía intentan ordenar estudios, síntomas, derivaciones y próximos pasos.',
           },
           {
@@ -441,13 +441,13 @@ const copy: Record<Lang, StoryCopy> = {
             eyebrow: 'Control',
             title: 'Tu historia, tu control',
             body:
-              'RareFriends™ permite participar con un apodo, mostrar solo el rol o etapa del camino, ocultar detalles diagnósticos y mantener los reportes genéticos privados.',
+              'RareFriends™ permite participar con un apodo, mostrar solo el rol o etapa del camino, ocultar detalles diagnósticos y mantener los informes genéticos privados.',
             image: '/integrate1.webp',
-            imageAlt: 'Pantallas móviles de Pocket Genes con reportes genéticos',
+            imageAlt: 'Pantallas móviles de Pocket Genes con informes genéticos',
             items: [
               {
                 title: 'Privado para mí',
-                body: 'Reportes, archivos, variantes, historia clínica completa y datos sensibles.',
+                body: 'Informes, archivos, variantes, historia clínica completa y datos sensibles.',
               },
               {
                 title: 'Visible en círculos',
@@ -463,19 +463,19 @@ const copy: Record<Lang, StoryCopy> = {
             eyebrow: 'Pocket Genes',
             title: 'La app como punto de entrada seguro',
             body:
-              'Pocket Genes es una herramienta dentro del ecosistema RareFriends™: ayuda a ordenar reportes, aprender conceptos básicos y crear resúmenes más seguros para participar en comunidad.',
+              'Pocket Genes es una herramienta dentro del ecosistema RareFriends™: ayuda a ordenar informes, aprender conceptos básicos y crear resúmenes más seguros para participar en comunidad.',
             items: [
               {
-                title: 'Organizador de reportes',
-                body: 'Subir y ordenar PDFs, paneles, proveedores, fechas y notas.',
+                title: 'Organizador de informes',
+                body: 'Guardar y ordenar PDFs, paneles, proveedores, fechas y notas.',
               },
               {
-                title: 'Genetics Learn',
+                title: 'Aprendizaje genético',
                 body: 'Entender variantes, paneles, herencia, VUS, portadores y secuenciación.',
               },
               {
                 title: 'Preguntas para consulta',
-                body: 'Preparar mejores preguntas para médicos, asesores genéticos u organizaciones de pacientes.',
+                body: 'Preparar mejores preguntas para médicos, profesionales de genética u organizaciones de pacientes.',
               },
             ],
           },
@@ -487,8 +487,8 @@ const copy: Record<Lang, StoryCopy> = {
               'La comunidad existe para acompañar, no para exponer. Cada nivel de visibilidad debe ser claro, reversible y fácil de entender antes de compartir.',
             items: [
               {
-                title: 'Reportes privados',
-                body: 'Los reportes genéticos, variantes exactas, teléfono, dirección, DNI e historia clínica completa no se publican por defecto.',
+                title: 'Informes privados',
+                body: 'Los informes genéticos, variantes exactas, teléfono, dirección, DNI e historia clínica completa no se publican por defecto.',
               },
               {
                 title: 'Resumen seguro',
@@ -505,14 +505,14 @@ const copy: Record<Lang, StoryCopy> = {
         ethicsBody:
           'RareFriends™ no diagnostica, no prescribe tratamientos y no permite que la comunidad reemplace conversaciones con profesionales de salud.',
         ethicsItems: [
-          'No diagnósticos, tratamientos, curas milagrosas ni presión médica.',
+          'No se permiten diagnósticos, tratamientos, curas milagrosas ni presión médica.',
           'No compartir información médica de otras personas.',
-          'Reportes genéticos privados por defecto, con consentimiento explícito para cualquier conexión.',
+          'Informes genéticos privados por defecto, con consentimiento explícito para cualquier conexión.',
           'Moderación contra acoso, desinformación y exposición de datos sensibles.',
         ],
         ctaTitle: 'Entrá a RareFriends™ desde Pocket Genes',
         ctaBody:
-          'Descargá Pocket Genes para empezar a organizar reportes y preparar una participación comunitaria más segura.',
+          'Descargá Pocket Genes para empezar a organizar informes y preparar una participación comunitaria más segura.',
         ctaPrimaryLabel: 'Descargar la app',
         ctaPrimaryHref: '/pocket-genes/download',
         ctaSecondaryLabel: 'Ver integración para proveedores',
