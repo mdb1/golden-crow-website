@@ -100,6 +100,7 @@ import {
   useExerciseFilters,
   applyFilters,
   type ExerciseFilters,
+  type InitialExerciseFilters,
 } from "@/lib/gc-fitness/exercise-filter-state";
 import {
   MUSCLE_GROUPS,
@@ -147,6 +148,13 @@ export interface ExercisePickerPopoverProps {
   className?: string;
   /** Optional aria-label for the trigger (a11y in dense rows). */
   ariaLabel?: string;
+  /**
+   * Optional initial muscle/equipment filter selection applied when the
+   * popover first mounts. The workout generator passes the routine's selected
+   * equipment + muscle groups so a swap opens already scoped to the same
+   * filters (issue #361). Omitted in the normal create/edit flow → unfiltered.
+   */
+  initialFilters?: InitialExerciseFilters;
 }
 
 function formatLabel(s: string): string {
@@ -201,6 +209,7 @@ export function ExercisePickerPopover({
   disabled,
   className,
   ariaLabel,
+  initialFilters,
 }: ExercisePickerPopoverProps) {
   const t = useTranslations("picker");
   // Localized muscle labels for the per-row hint line (issue #360). Row
@@ -232,7 +241,7 @@ export function ExercisePickerPopover({
   // Hook owns the immutable Set update contract (Codex MEDIUM); every
   // chip click below goes through setFilters() with `new Set(...)`.
   const { filters, setFilters, isEmpty: filtersEmpty, clear: clearFilters } =
-    useExerciseFilters();
+    useExerciseFilters(initialFilters);
 
   // Filter soft-deleted out + apply the chip filters. The trainer's
   // previously-selected exercise (if it has since been deleted) still

@@ -390,6 +390,12 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
             setStep(6);
           }}
           renderExerciseExtras={renderExerciseExtras}
+          // #361 — opening the picker to swap an exercise pre-applies the
+          // routine's own equipment + muscle-group selection as filters.
+          pickerInitialFilters={{
+            muscles: [...muscles],
+            equipment: [...equipment],
+          }}
         />
       </div>
     );
