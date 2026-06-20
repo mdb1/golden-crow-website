@@ -195,7 +195,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Volver a Pocket Genes',
         secondaryActionHref: '/pocket-genes',
         introEyebrow: 'El problema humano',
-        introTitle: 'Cuando el diagnóstico tarda, ordenar la información importa.',
+        introTitle: 'Llegar a la próxima consulta con más claridad y mejores preguntas.',
         introBody: [
           'En enfermedades poco frecuentes, una familia puede pasar por pediatras, especialistas, laboratorios, estudios de panel, exomas, segundas opiniones e informes que no hablan el mismo idioma. El resultado es una carpeta llena de datos, pero poca claridad práctica.',
           'Pocket Genes propone una experiencia donde la información genética se vuelve trazable: qué se estudió, por qué se pidió, qué variantes se informaron, qué significan los términos y qué temas conviene revisar con profesionales.',
@@ -405,7 +405,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Cómo funciona la privacidad',
         secondaryActionHref: '#privacy',
         introEyebrow: 'Qué es RareFriends™',
-        introTitle: 'Círculos cuidados para encontrar personas que entienden el recorrido.',
+        introTitle: 'Acompañarse entre pares sin exponer información sensible.',
         introBody: [
           'RareFriends™ no reemplaza la atención médica, el asesoramiento genético ni el trabajo de asociaciones de pacientes. Complementa ese ecosistema con un espacio más personal, cuidado y voluntario.',
           'No tenés que contar todo para pertenecer. RareFriends™ conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores y miembros que quieren aprender genética sin miedo.',
