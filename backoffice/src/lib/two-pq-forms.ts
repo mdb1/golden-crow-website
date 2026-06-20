@@ -233,3 +233,88 @@ export function getTwoPQFormTypeFromSlug(slug: string): TwoPQFormType | null {
   if (slug === "withdrawal-request") return "withdrawal_request";
   return null;
 }
+
+type FormDisplayLanguage = "en" | "es";
+
+function getStringField(data: Record<string, unknown> | undefined, key: string) {
+  const value = data?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function toThreeLetterCode(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(normalized)) {
+    return normalized;
+  }
+
+  const caseLabelMatch = normalized.match(/^([A-Z]{3})XXX$/);
+  return caseLabelMatch?.[1] ?? null;
+}
+
+function withdrawalCaseCode(caseRecord: Record<string, unknown>) {
+  return (
+    toThreeLetterCode(getStringField(caseRecord, "three_letter_code")) ??
+    toThreeLetterCode(getStringField(caseRecord, "boxCode")) ??
+    toThreeLetterCode(getStringField(caseRecord, "caseLabel")) ??
+    toThreeLetterCode(getStringField(caseRecord, "id"))
+  );
+}
+
+function formatConjoinedList(items: string[], language: FormDisplayLanguage) {
+  if (items.length <= 1) {
+    return items[0] ?? "";
+  }
+
+  const connector = language === "es" ? " y " : " and ";
+  if (items.length === 2) {
+    return `${items[0]}${connector}${items[1]}`;
+  }
+
+  const head = items.slice(0, -1).join(", ");
+  const last = items[items.length - 1];
+  return language === "es" ? `${head}${connector}${last}` : `${head},${connector}${last}`;
+}
+
+export function getWithdrawalRequestTitle(
+  form: Pick<TwoPQFormRecord, "linkedCaseIds" | "withdrawalCases">,
+  language: FormDisplayLanguage
+) {
+  const uniqueCodes = new Set<string>();
+
+  for (const caseRecord of form.withdrawalCases ?? []) {
+    const code = withdrawalCaseCode(caseRecord);
+    if (code) {
+      uniqueCodes.add(code);
+    }
+  }
+
+  for (const caseId of form.linkedCaseIds ?? []) {
+    const code = toThreeLetterCode(caseId);
+    if (code) {
+      uniqueCodes.add(code);
+    }
+  }
+
+  const prefix = language === "es" ? "Solicitud de retiro de" : "Withdrawal request for";
+  const codes = Array.from(uniqueCodes);
+  if (codes.length === 0) {
+    return language === "es" ? "Solicitud de retiro" : "Withdrawal request";
+  }
+
+  return `${prefix} ${formatConjoinedList(codes, language)}`;
+}
+
+export function getTwoPQFormDisplayTitle(
+  form: TwoPQFormRecord,
+  language: FormDisplayLanguage
+) {
+  if (form.formType === "withdrawal_request") {
+    return getWithdrawalRequestTitle(form, language);
+  }
+
+  return form.patientName ?? (language === "es" ? "Paciente sin nombre" : "Unnamed patient");
+}

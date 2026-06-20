@@ -46,6 +46,7 @@ import type {
   TwoPQFormsOrder,
   TwoPQFormType,
 } from "@/lib/two-pq-forms";
+import { getTwoPQFormDisplayTitle } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
 import { appText } from "@/lib/language";
 
@@ -473,6 +474,7 @@ export function TwoPQFormsList({
           visibleForms.map((form) => {
             const authorEmail = form.authorEmail ?? form.createdByEmail;
             const isArchived = Boolean(form.archivedAt);
+            const displayTitle = getTwoPQFormDisplayTitle(form, language);
 
             return (
               <article
@@ -486,7 +488,7 @@ export function TwoPQFormsList({
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground">
-                        {form.patientName ?? t("Unnamed patient")}
+                        {displayTitle}
                       </p>
                       <p className="font-mono text-xs text-muted-foreground">{form.id}</p>
                     </div>

@@ -16,6 +16,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
+  getTwoPQFormDisplayTitle,
   type TwoPQFormRecord,
 } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
@@ -834,10 +835,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       form.institutionId ||
       getTextValue(form.patientInformation, "institutionId"),
   };
-  const formTitle =
-    form.formType === "withdrawal_request"
-      ? t("Withdrawal request form")
-      : form.patientName ?? t("Unnamed patient");
+  const formTitle = getTwoPQFormDisplayTitle(form, language);
 
   return (
     <div className="flex flex-col gap-5">
