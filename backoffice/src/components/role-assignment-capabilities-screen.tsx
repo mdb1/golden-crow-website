@@ -25,7 +25,6 @@ const ROLE_TABS: AdminRole[] = [
   "full_admin",
   "institution_admin",
   "institution_doctor",
-  "patient",
 ];
 
 function getVisibleRoleTabs(currentRole: AdminRole): AdminRole[] {
@@ -300,7 +299,7 @@ export function RoleAssignmentCapabilitiesScreen({
         <div className="flex flex-col gap-1">
           <p className="section-eyebrow">{t("Tabs")}</p>
           <h2 className="font-heading text-xl font-semibold text-foreground">
-            {t(hasSingleVisibleRole ? "Current role assignment lane" : "Four role assignment lanes")}
+            {t(hasSingleVisibleRole ? "Current role assignment lane" : "Role assignment lanes")}
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
             {t(

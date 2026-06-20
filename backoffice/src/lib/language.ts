@@ -1464,6 +1464,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Current role assignment lane": "Carril de asignación de rol actual",
   "Only your current role lane is visible from this account.":
     "Desde esta cuenta solo se muestra el carril de tu rol actual.",
+  "Role assignment lanes": "Carriles de asignación de rol",
   "Role assignment created.": "Asignación de rol creada.",
   "Role assignment operations": "Operaciones de asignación de rol",
   "Role assignment saved.": "Asignación de rol guardada.",
