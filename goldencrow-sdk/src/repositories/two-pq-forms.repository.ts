@@ -1541,6 +1541,21 @@ export async function createTwoPQFormForContext(
     const institutionId = String(primaryCase.institutionId);
     const doctorId = String(primaryCase.doctorId);
     const selectedInstitution = await getInstitutionById(institutionId);
+    const institutionInformation = normalizeInstitutionInformation(
+      payload.institutionInformation ?? {
+        name: selectedInstitution?.name,
+        code: selectedInstitution?.code,
+        legalName: selectedInstitution?.legalName,
+        contactEmail: selectedInstitution?.contactEmail,
+        contactPhone: selectedInstitution?.contactPhone,
+        addressLine1: selectedInstitution?.addressLine1,
+        addressLine2: selectedInstitution?.addressLine2,
+        city: selectedInstitution?.city,
+        state: selectedInstitution?.state,
+        country: selectedInstitution?.country,
+        notes: selectedInstitution?.notes,
+      }
+    );
     const formId = await getNextFormId();
     const document = {
       id: formId,
@@ -1553,7 +1568,10 @@ export async function createTwoPQFormForContext(
       selectedRequestingDoctorId: null,
       patientName: `Solicitud de retiro (${withdrawalCases.length})`,
       patientEmail: null,
-      institutionName: selectedInstitution?.name ?? null,
+      institutionName:
+        normalizeOptionalString(institutionInformation.name) ??
+        selectedInstitution?.name ??
+        null,
       requestedTestName: "Solicitud de retiro",
       linkedStudyRequestFormId: null,
       linkedCaseIds,
@@ -1562,6 +1580,7 @@ export async function createTwoPQFormForContext(
       linkedSamplingIds: [],
       patientInformation: {},
       requestedTest: {},
+      institutionInformation,
       withdrawalCases,
       createdAt: now,
       updatedAt: now,

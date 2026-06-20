@@ -209,6 +209,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Create the scoped patient from step 1 and link it to the stored form.":
     "Crear el paciente desde el paso 1 y vincularlo al formulario almacenado.",
   "Link selected institution": "Vincular institución seleccionada",
+  "These fields are saved only on this withdrawal request and do not update the original institution record.":
+    "Estos campos se guardan solo en esta solicitud de retiro y no actualizan el registro original de la institución.",
   "Create scoped institution": "Crear institución",
   "Use institution": "Usar institución",
   "for the request.": "para la solicitud.",

@@ -126,6 +126,7 @@ const SAMPLE_STEPS: StepKey[] = [
 
 const WITHDRAWAL_REQUEST_STEPS: StepKey[] = [
   "linkedWithdrawalCases",
+  "institutionInformation",
   "previewAndSignature",
 ];
 
@@ -2307,6 +2308,61 @@ export function TwoPQFormFlow({
     (doctors.length === 1 && doctors[0]?.institutionId === defaultInstitutionId
       ? doctors[0]?.id ?? ""
       : "");
+
+  function withdrawalInstitutionSnapshot(caseRecord: TwoPQListItem) {
+    const institution = institutions.find(
+      (candidate) => candidate.id === caseRecord.institutionId
+    );
+
+    return institution
+      ? institutionToFormState(institution)
+      : {
+          ...emptyInstitution(),
+          name: caseRecord.institutionName ?? "",
+        };
+  }
+
+  function withWithdrawalInstitutionScope(
+    flowState: FlowState,
+    linkedCaseIds: string[]
+  ): FlowState {
+    const linkedCase = linkedCaseIds
+      .map((caseId) => cases.find((caseRecord) => caseRecord.id === caseId))
+      .find((caseRecord): caseRecord is TwoPQListItem => Boolean(caseRecord));
+
+    if (!linkedCase) {
+      return {
+        ...flowState,
+        linkedWithdrawalCaseIds: linkedCaseIds,
+        selectedInstitutionId: "",
+        institutionInformation: emptyInstitution(),
+        patientInformation: {
+          ...flowState.patientInformation,
+          institutionId: "",
+          doctorId: "",
+        },
+      };
+    }
+
+    const shouldLoadInstitutionSnapshot =
+      flowState.selectedInstitutionId !== linkedCase.institutionId ||
+      !flowState.institutionInformation.name.trim();
+
+    return {
+      ...flowState,
+      linkedWithdrawalCaseIds: linkedCaseIds,
+      selectedInstitutionId: linkedCase.institutionId,
+      institutionInformation: shouldLoadInstitutionSnapshot
+        ? withdrawalInstitutionSnapshot(linkedCase)
+        : flowState.institutionInformation,
+      patientInformation: {
+        ...flowState.patientInformation,
+        institutionId: linkedCase.institutionId,
+        doctorId: linkedCase.doctorId,
+      },
+    };
+  }
+
   const initialStepIndex = useMemo(
     () => resolveDraftStepIndex(matchingDraft, steps),
     [matchingDraft, steps]
@@ -2322,15 +2378,25 @@ export function TwoPQFormFlow({
         matchingDraft
       );
 
-      return scopedInstitutionId
+      const scopedState = scopedInstitutionId
         ? applyScopedInstitutionSelection(hydratedState, defaultInstitution)
         : hydratedState;
+
+      return formType === "withdrawal_request"
+        ? withWithdrawalInstitutionScope(
+            scopedState,
+            scopedState.linkedWithdrawalCaseIds
+          )
+        : scopedState;
     },
     [
+      cases,
       defaultDoctorId,
       defaultInstitution,
       defaultInstitution?.contactEmail,
       defaultInstitutionId,
+      formType,
+      institutions,
       matchingDraft,
       scopedInstitutionId,
     ]
@@ -3004,6 +3070,32 @@ export function TwoPQFormFlow({
   ];
   const withdrawalPreviewSections: PreviewSectionData[] = [
     {
+      title: t("Institution data"),
+      fields: [
+        {
+          label: t("Linked institution"),
+          value: previewSelectedInstitution,
+        },
+        {
+          label: t("Institution name"),
+          value: previewValue(state.institutionInformation.name),
+        },
+        {
+          label: t("Contact email"),
+          value: previewValue(state.institutionInformation.contactEmail),
+        },
+        {
+          label: t("Contact phone"),
+          value: previewValue(state.institutionInformation.contactPhone),
+        },
+        {
+          label: t("Notes"),
+          value: previewValue(state.institutionInformation.notes),
+          wide: true,
+        },
+      ],
+    },
+    {
       title: t("Selected 2PQ cases"),
       fields:
         selectedWithdrawalCases.length > 0
@@ -3099,7 +3191,7 @@ export function TwoPQFormFlow({
     ((formType === "study_request" && currentStep === "institutionInformation") ||
       (formType === "sample" && currentStep === "samplingInformation") ||
       (formType === "withdrawal_request" &&
-        currentStep === "linkedWithdrawalCases")) &&
+        currentStep === "institutionInformation")) &&
     previewStepIndex >= 0;
   const processDialogOpen =
     Boolean(wholeDataValidationReport) || storageProcessingSteps.length > 0;
@@ -3423,20 +3515,24 @@ export function TwoPQFormFlow({
   }
 
   function addWithdrawalCase(caseId: string) {
-    setState((current) =>
-      current.linkedWithdrawalCaseIds.includes(caseId)
-        ? current
-        : {
-            ...current,
-            linkedWithdrawalCaseIds: [
-              ...current.linkedWithdrawalCaseIds,
-              caseId,
-            ],
-          }
-    );
+    setState((current) => {
+      if (current.linkedWithdrawalCaseIds.includes(caseId)) {
+        return current;
+      }
+
+      const linkedWithdrawalCaseIds = [
+        ...current.linkedWithdrawalCaseIds,
+        caseId,
+      ];
+
+      return withWithdrawalInstitutionScope(current, linkedWithdrawalCaseIds);
+    });
     setFieldErrors((current) => {
       const next = { ...current };
       delete next.linkedWithdrawalCaseIds;
+      delete next.selectedInstitutionId;
+      delete next["institutionInformation.name"];
+      delete next["institutionInformation.contactEmail"];
       return next;
     });
     setWithdrawalCaseDialogOpen(false);
@@ -3444,12 +3540,19 @@ export function TwoPQFormFlow({
   }
 
   function removeWithdrawalCase(caseId: string) {
-    setState((current) => ({
-      ...current,
-      linkedWithdrawalCaseIds: current.linkedWithdrawalCaseIds.filter(
+    setState((current) => {
+      const linkedWithdrawalCaseIds = current.linkedWithdrawalCaseIds.filter(
         (linkedCaseId) => linkedCaseId !== caseId
-      ),
-    }));
+      );
+
+      return withWithdrawalInstitutionScope(
+        {
+          ...current,
+          linkedWithdrawalCaseIds,
+        },
+        linkedWithdrawalCaseIds
+      );
+    });
   }
 
   function selectLinkedStudyRequestForm(formId: string) {
@@ -4020,6 +4123,7 @@ export function TwoPQFormFlow({
             ? {
                 formType,
                 linkedCaseIds: submissionState.linkedWithdrawalCaseIds,
+                institutionInformation: submissionState.institutionInformation,
               }
           : {
               formType,
@@ -5639,18 +5743,36 @@ export function TwoPQFormFlow({
 
         {currentStep === "institutionInformation" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label>{t("Pick existing institution")}</Label>
-              <OptionSelectField
-                options={institutionOptions}
-                value={state.selectedInstitutionId}
-                onChange={selectInstitution}
-                placeholder={t("Select institution")}
-                emptyLabel={t("Manual institution information")}
-                disabled={Boolean(scopedInstitutionId)}
-              />
-              <FieldError message={errorFor("selectedInstitutionId")} />
-            </div>
+            {formType === "withdrawal_request" ? (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/45 px-4 py-3 md:col-span-2 dark:border-indigo-300/18 dark:bg-indigo-950/20">
+                <p className="text-xs font-semibold uppercase text-indigo-700 dark:text-indigo-200">
+                  {t("Linked institution")}
+                </p>
+                <p className="mt-1 font-heading text-lg font-semibold text-indigo-950 dark:text-indigo-50">
+                  {selectedInstitution?.name ||
+                    state.institutionInformation.name ||
+                    t("Not provided")}
+                </p>
+                <p className="mt-1 text-sm text-indigo-950/70 dark:text-indigo-50/72">
+                  {t(
+                    "These fields are saved only on this withdrawal request and do not update the original institution record."
+                  )}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 md:col-span-2">
+                <Label>{t("Pick existing institution")}</Label>
+                <OptionSelectField
+                  options={institutionOptions}
+                  value={state.selectedInstitutionId}
+                  onChange={selectInstitution}
+                  placeholder={t("Select institution")}
+                  emptyLabel={t("Manual institution information")}
+                  disabled={Boolean(scopedInstitutionId)}
+                />
+                <FieldError message={errorFor("selectedInstitutionId")} />
+              </div>
+            )}
             <Field
               id="form-institution-name"
               label={t("Institution name")}
@@ -6319,15 +6441,13 @@ export function TwoPQFormFlow({
                 }
               >
                 {currentStep === "institutionInformation" &&
-                formType === "study_request"
+                (formType === "study_request" ||
+                  formType === "withdrawal_request")
                   ? t("Continue to preview")
                   : currentStep === "sampleInformation" && formType === "sample"
                     ? t("Generate table")
                     : currentStep === "samplingInformation" && formType === "sample"
                       ? t("Continue to preview")
-                      : currentStep === "linkedWithdrawalCases" &&
-                          formType === "withdrawal_request"
-                        ? t("Continue to preview")
                   : t("Continue")}
                 <ArrowRight className="size-4" />
               </Button>

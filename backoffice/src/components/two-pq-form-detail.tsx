@@ -872,6 +872,11 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
         <>
           <WithdrawalCasesSection form={form} />
           <DetailSection
+            title={t("Institution information")}
+            fields={INSTITUTION_FIELDS}
+            data={form.institutionInformation}
+          />
+          <DetailSection
             title={t("Withdrawal request")}
             fields={[
               { key: "createdAt", label: "Created at", type: "datetime" },

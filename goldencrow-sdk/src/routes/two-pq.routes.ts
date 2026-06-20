@@ -269,6 +269,7 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   z.object({
     formType: z.literal("withdrawal_request"),
     linkedCaseIds: z.array(z.string().min(1)).min(1),
+    institutionInformation: TwoPQInstitutionInformationSchema,
   }),
 ]);
 
