@@ -56,6 +56,12 @@ const AREA_MANAGER_ROLES: AdminRole[] = [
   "institution_operator",
 ];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
+const OPERATOR_MISSION_HREFS = new Set([
+  "/2pq-dashboard",
+  "/2pq-dashboard/forms",
+  "/2pq-dashboard/shipments",
+  "/2pq-dashboard/contact",
+]);
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
@@ -991,6 +997,40 @@ export function getVisibleAdminNav(role: AdminRole) {
   return ADMIN_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
 }
 
+function getMyDnaMapNav(role: AdminRole) {
+  const visibleNav = ADMIN_NAV.filter(
+    (item) => !item.visibleRoles || item.visibleRoles.includes(role)
+  );
+
+  if (role !== "institution_operator") {
+    return visibleNav;
+  }
+
+  return visibleNav.filter((item) => {
+    if (item.section === "areas") {
+      return false;
+    }
+
+    if (item.section === "mission") {
+      return OPERATOR_MISSION_HREFS.has(item.href);
+    }
+
+    return true;
+  });
+}
+
+function getMyDnaMapSections(role: AdminRole) {
+  const visibleSections = SECTION_DESCRIPTORS.filter(
+    (section) => !section.visibleRoles || section.visibleRoles.includes(role)
+  );
+
+  if (role !== "institution_operator") {
+    return visibleSections;
+  }
+
+  return visibleSections.filter((section) => section.key !== "areas");
+}
+
 export function getProjectNav(project: ProjectKey, role: AdminRole): AdminNavItem[] {
   if (project === "gc-fitness") {
     return GC_FITNESS_NAV.filter(
@@ -1000,7 +1040,7 @@ export function getProjectNav(project: ProjectKey, role: AdminRole): AdminNavIte
   if (project === "pocket-gyms") {
     return GYM_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
   }
-  return ADMIN_NAV.filter((item) => !item.visibleRoles || item.visibleRoles.includes(role));
+  return getMyDnaMapNav(role);
 }
 
 export function getProjectSections(project: ProjectKey, role: AdminRole): SectionDescriptor[] {
@@ -1014,9 +1054,7 @@ export function getProjectSections(project: ProjectKey, role: AdminRole): Sectio
       (section) => !section.visibleRoles || section.visibleRoles.includes(role)
     );
   }
-  return SECTION_DESCRIPTORS.filter(
-    (section) => !section.visibleRoles || section.visibleRoles.includes(role)
-  );
+  return getMyDnaMapSections(role);
 }
 
 export function getCollectionConfig(collectionKey: CollectionKey) {
