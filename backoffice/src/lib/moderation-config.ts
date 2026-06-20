@@ -49,6 +49,8 @@ const AREA_ROLES: AdminRole[] = [
   "institution_admin",
   "institution_doctor",
 ];
+const AREA_MANAGER_ROLES: AdminRole[] = ["full_admin", "institution_admin"];
+const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
@@ -714,7 +716,9 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: area.route,
     description: `${area.collectionKey} CRUD screen`,
     icon: area.icon,
-    visibleRoles: AREA_ROLES,
+    visibleRoles: DOCTOR_VISIBLE_TWO_PQ_AREAS.has(area.key)
+      ? AREA_ROLES
+      : AREA_MANAGER_ROLES,
   })),
   {
     section: "mission",
@@ -722,7 +726,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/2pq-dashboard/contact",
     description: "2PQ website, phone, and email contact channels",
     icon: Mail,
-    visibleRoles: AREA_ROLES,
+    visibleRoles: AREA_MANAGER_ROLES,
   },
   {
     section: "mission",
@@ -730,7 +734,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/",
     description: "Operations snapshot",
     icon: LayoutDashboard,
-    visibleRoles: AREA_ROLES,
+    visibleRoles: AREA_MANAGER_ROLES,
   },
   {
     section: "accounts",
@@ -850,7 +854,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/areas/institutions",
     description: "Institution list and scoped institution operations",
     icon: Building2,
-    visibleRoles: AREA_ROLES,
+    visibleRoles: AREA_MANAGER_ROLES,
   },
   {
     section: "areas",
