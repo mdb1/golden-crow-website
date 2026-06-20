@@ -280,4 +280,35 @@ describe("applyFilters (Phase 24-06 Task 2)", () => {
     // The OLD Set must NOT have been mutated to size 0.
     expect(oneMuscle.size).toBe(1);
   });
+
+  // Issue #361 — the generator passes the routine's muscle/equipment
+  // selection so a swap opens the picker already scoped to those filters.
+  it("#361: seeds muscles + equipment from initialFilters on mount", () => {
+    const { result } = renderHook(() =>
+      useExerciseFilters({ muscles: ["shoulders"], equipment: ["dumbbell"] }),
+    );
+
+    expect([...result.current.filters.muscles]).toEqual(["shoulders"]);
+    expect([...result.current.filters.equipment]).toEqual(["dumbbell"]);
+    expect(result.current.isEmpty).toBe(false);
+  });
+
+  // The trainer can still fully clear a pre-seeded picker.
+  it("#361: clear() resets a pre-seeded picker to empty", () => {
+    const { result } = renderHook(() =>
+      useExerciseFilters({ muscles: ["shoulders"], equipment: ["dumbbell"] }),
+    );
+
+    act(() => result.current.clear());
+
+    expect(result.current.filters.muscles.size).toBe(0);
+    expect(result.current.filters.equipment.size).toBe(0);
+    expect(result.current.isEmpty).toBe(true);
+  });
+
+  // Backwards compatible: no argument → empty filters, as before.
+  it("#361: defaults to empty when no initialFilters is passed", () => {
+    const { result } = renderHook(() => useExerciseFilters());
+    expect(result.current.isEmpty).toBe(true);
+  });
 });

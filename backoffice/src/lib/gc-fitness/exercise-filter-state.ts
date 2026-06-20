@@ -60,6 +60,28 @@ const EMPTY: ExerciseFilters = {
   mechanic: null,
 };
 
+/**
+ * Optional seed for the picker's filter chips. The workout generator passes
+ * the routine's selected muscle groups + equipment so that swapping an
+ * exercise opens the picker already scoped to the same filters (issue #361).
+ * Array-shaped (not Set) so callers can pass plain serializable values.
+ */
+export interface InitialExerciseFilters {
+  muscles?: string[];
+  equipment?: string[];
+  level?: string | null;
+  mechanic?: string | null;
+}
+
+function fromInitial(initial: InitialExerciseFilters): ExerciseFilters {
+  return {
+    muscles: new Set(initial.muscles ?? []),
+    equipment: new Set(initial.equipment ?? []),
+    level: initial.level ?? null,
+    mechanic: initial.mechanic ?? null,
+  };
+}
+
 const MUSCLE_FILTER_ALIASES: Record<string, string[]> = {
   legs: ["legs", "quadriceps", "hamstrings", "glutes", "calves"],
 };
@@ -76,8 +98,13 @@ const MUSCLE_FILTER_ALIASES: Record<string, string[]> = {
  *   - `isEmpty`: true when ALL fields are at their default (no chips active)
  *   - `clear`: resets to EMPTY in a single state transition
  */
-export function useExerciseFilters() {
-  const [filters, setFilters] = useState<ExerciseFilters>(EMPTY);
+export function useExerciseFilters(initial?: InitialExerciseFilters) {
+  // Seed once on mount via the lazy initializer; later edits (chip toggles,
+  // clear) own the state. `clear` always resets to EMPTY so a pre-seeded
+  // picker can still be fully cleared by the trainer.
+  const [filters, setFilters] = useState<ExerciseFilters>(() =>
+    initial ? fromInitial(initial) : EMPTY,
+  );
 
   const isEmpty = useMemo(
     () =>

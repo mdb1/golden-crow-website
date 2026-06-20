@@ -167,6 +167,14 @@ export interface TemplateFormProps {
    * create flow. The pre-filled other-language value is preserved until edited.
    */
   initialShowTranslation?: boolean;
+  /**
+   * Optional initial muscle/equipment filters for the per-exercise picker
+   * popover. The workout generator passes the routine's selected equipment +
+   * muscle groups so swapping an exercise opens the picker already scoped to
+   * the same filters (issue #361). Omitted in the normal create/edit flow →
+   * the picker opens unfiltered as before.
+   */
+  pickerInitialFilters?: { muscles?: string[]; equipment?: string[] };
 }
 
 const DRAFT_STORAGE_PREFIX = "gc-fitness:template-draft:";
@@ -338,6 +346,7 @@ export function TemplateForm({
   onCreated,
   renderExerciseExtras,
   initialShowTranslation,
+  pickerInitialFilters,
 }: TemplateFormProps) {
   const t = useTranslations("templates.form");
   const router = useRouter();
@@ -1279,6 +1288,7 @@ export function TemplateForm({
                               value={pickerField.value ?? ""}
                               onChange={pickerField.onChange}
                               ariaLabel={t("pickExerciseAria", { index: index + 1 })}
+                              initialFilters={pickerInitialFilters}
                             />
                           </FormControl>
                           <FormMessage />
