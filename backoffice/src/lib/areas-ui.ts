@@ -5,14 +5,14 @@ import type {
   PatientListItem,
   RoleManagementRecord,
 } from "@/lib/admin-areas";
-import { getAssignableRoleOptions } from "@/lib/admin-areas";
+import { getAssignableRoleOptions, isInstitutionManagerRole } from "@/lib/admin-areas";
 
 export function getRoleBadgeVariant(role: AdminRole) {
   if (role === "full_admin") {
     return "destructive" as const;
   }
 
-  if (role === "institution_admin") {
+  if (isInstitutionManagerRole(role)) {
     return "brand" as const;
   }
 
@@ -37,7 +37,7 @@ export function canEditInstitutionUi(
 ) {
   return (
     context.role === "full_admin" ||
-    (context.role === "institution_admin" &&
+    (isInstitutionManagerRole(context.role) &&
       context.institutionId === institutionId)
   );
 }
@@ -58,7 +58,7 @@ export function canCreateDoctorUi(
   }
 
   return (
-    context.role === "institution_admin" &&
+    isInstitutionManagerRole(context.role) &&
     (!institutionId || context.institutionId === institutionId)
   );
 }
@@ -71,7 +71,7 @@ export function canEditDoctorUi(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === doctor.institutionId;
   }
 
@@ -86,7 +86,7 @@ export function canDeleteDoctorUi(
     return true;
   }
 
-  return context.role === "institution_admin" && context.institutionId === doctor.institutionId;
+  return isInstitutionManagerRole(context.role) && context.institutionId === doctor.institutionId;
 }
 
 export function canCreatePatientUi(
@@ -98,7 +98,7 @@ export function canCreatePatientUi(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return !institutionId || context.institutionId === institutionId;
   }
 
@@ -117,7 +117,7 @@ export function canEditPatientUi(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === patient.institutionId;
   }
 
@@ -156,7 +156,7 @@ export function canEditRoleUi(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return (
       roleRecord.role !== "full_admin" &&
       Boolean(roleRecord.institutionId) &&
@@ -188,9 +188,9 @@ export function getRoleEditRestrictionMessage(
     return "Bootstrap role assignments are locked in the UI and stay outside the normal reassignment flow.";
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     if (roleRecord.role === "full_admin") {
-      return "Institution admins cannot modify full-admin role assignments.";
+      return "Institution managers cannot modify full-admin role assignments.";
     }
 
     return "This role assignment sits outside your institution scope.";
@@ -223,7 +223,12 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   institution_admin: [
     "Can see and edit only one institution.",
     "Can create doctors and patients inside that institution.",
-    "Can assign institution-admin, institution-doctor, and patient roles inside that institution only.",
+    "Can assign institution-admin, institution-operator, institution-doctor, and patient roles inside that institution only.",
+  ],
+  institution_operator: [
+    "Can see and edit only one institution.",
+    "Can create doctors and patients inside that institution.",
+    "Can assign institution-admin, institution-operator, institution-doctor, and patient roles inside that institution only.",
   ],
   institution_doctor: [
     "Can read the institution and all doctors inside it.",

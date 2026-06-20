@@ -20,8 +20,25 @@ const USER_ROLES_COLLECTION = "user_roles";
 const BOOTSTRAP_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 
 const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
-  full_admin: ["full_admin", "institution_admin", "institution_doctor", "patient"],
-  institution_admin: ["institution_admin", "institution_doctor", "patient"],
+  full_admin: [
+    "full_admin",
+    "institution_admin",
+    "institution_operator",
+    "institution_doctor",
+    "patient",
+  ],
+  institution_admin: [
+    "institution_admin",
+    "institution_operator",
+    "institution_doctor",
+    "patient",
+  ],
+  institution_operator: [
+    "institution_admin",
+    "institution_operator",
+    "institution_doctor",
+    "patient",
+  ],
   institution_doctor: ["patient"],
   patient: [],
 };
@@ -29,8 +46,13 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
 const BACKOFFICE_ROLES = new Set<AdminRole>([
   "full_admin",
   "institution_admin",
+  "institution_operator",
   "institution_doctor",
 ]);
+
+function isInstitutionManagerRole(role: AdminRole) {
+  return role === "institution_admin" || role === "institution_operator";
+}
 
 export function normalizeRoleEmail(email: string) {
   return email.trim().toLowerCase();
@@ -110,6 +132,7 @@ function isAdminRole(value: string): value is AdminRole {
   return (
     value === "full_admin" ||
     value === "institution_admin" ||
+    value === "institution_operator" ||
     value === "institution_doctor" ||
     value === "patient"
   );
@@ -193,7 +216,7 @@ async function validateLinkedRoleEntities(
     return "The selected institution does not exist.";
   }
 
-  if (payload.role === "institution_admin") {
+  if (isInstitutionManagerRole(payload.role)) {
     return null;
   }
 
@@ -367,7 +390,7 @@ export function getAdminCapabilities(context: AdminContext): string[] {
     ];
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return [
       ...base,
       "institutions:read:own",
@@ -419,7 +442,7 @@ export function canEditInstitution(context: AdminContext, institutionId: string)
     return true;
   }
 
-  return context.role === "institution_admin" && context.institutionId === institutionId;
+  return isInstitutionManagerRole(context.role) && context.institutionId === institutionId;
 }
 
 export function canDeleteInstitution(context: AdminContext, _institutionId: string) {
@@ -431,7 +454,7 @@ export function canCreateDoctor(context: AdminContext, institutionId: string) {
     return true;
   }
 
-  return context.role === "institution_admin" && context.institutionId === institutionId;
+  return isInstitutionManagerRole(context.role) && context.institutionId === institutionId;
 }
 
 export function canViewDoctor(context: AdminContext, doctor: Pick<DoctorRecord, "id" | "institutionId">) {
@@ -447,7 +470,7 @@ export function canEditDoctor(context: AdminContext, doctor: Pick<DoctorRecord, 
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === doctor.institutionId;
   }
 
@@ -462,7 +485,7 @@ export function canDeleteDoctor(
     return true;
   }
 
-  return context.role === "institution_admin" && context.institutionId === doctor.institutionId;
+  return isInstitutionManagerRole(context.role) && context.institutionId === doctor.institutionId;
 }
 
 export function canCreatePatient(
@@ -474,7 +497,7 @@ export function canCreatePatient(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === institutionId;
   }
 
@@ -504,7 +527,7 @@ export function canEditPatient(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === patient.institutionId;
   }
 
@@ -527,7 +550,7 @@ export function canViewRoleRecord(context: AdminContext, record: UserRoleRecord)
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return (
       record.role !== "full_admin" && record.institutionId === context.institutionId
     );

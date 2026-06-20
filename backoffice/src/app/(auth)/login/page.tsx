@@ -105,7 +105,7 @@ type SignupEligibility = {
   eligible: boolean;
   viaAllowlist: boolean;
   viaRoleAssignment: boolean;
-  role?: "full_admin" | "institution_admin" | "institution_doctor" | "patient";
+  role?: "full_admin" | "institution_admin" | "institution_operator" | "institution_doctor" | "patient";
   accountExists: boolean;
   accountHasGoogle?: boolean;
   accountHasPassword?: boolean;
@@ -116,6 +116,7 @@ type SignupEligibility = {
 const ROLE_LABELS: Record<NonNullable<SignupEligibility["role"]>, string> = {
   full_admin: "full admin",
   institution_admin: "institution admin",
+  institution_operator: "institution operator",
   institution_doctor: "institution doctor",
   patient: "patient",
 };

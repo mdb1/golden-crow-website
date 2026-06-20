@@ -38,6 +38,10 @@ const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
 const SEQUENCES_COLLECTION = "admin_sequences";
 
+function isInstitutionManagerRole(role: AdminContext["role"]) {
+  return role === "institution_admin" || role === "institution_operator";
+}
+
 type PatientInformationInput = {
   institutionId?: string;
   doctorId?: string;
@@ -1183,7 +1187,7 @@ function canWriteWithdrawalCase(
   if (context.role === "full_admin") {
     return true;
   }
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === record.institutionId;
   }
   return (
@@ -1222,7 +1226,7 @@ function canViewTwoPQForm(
     return true;
   }
 
-  if (context.role === "institution_admin" || context.role === "institution_doctor") {
+  if (isInstitutionManagerRole(context.role) || context.role === "institution_doctor") {
     return context.institutionId === form.institutionId;
   }
 
@@ -1635,7 +1639,7 @@ export async function createTwoPQFormForContext(
     payload.patientInformation ?? {}
   );
   const institutionId =
-    context.role === "institution_admin" || context.role === "institution_doctor"
+    isInstitutionManagerRole(context.role) || context.role === "institution_doctor"
       ? context.institutionId ?? patientInformation.institutionId
       : patientInformation.institutionId;
   const doctorId =

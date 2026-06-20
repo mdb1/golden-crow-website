@@ -1,6 +1,7 @@
 export type AdminRole =
   | "full_admin"
   | "institution_admin"
+  | "institution_operator"
   | "institution_doctor"
   | "patient";
 
@@ -207,6 +208,7 @@ export interface ChangeMyAccountEmailResponse {
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   full_admin: "Full admin",
   institution_admin: "Institution admin",
+  institution_operator: "Institution operator",
   institution_doctor: "Institution doctor",
   patient: "Patient",
 };
@@ -214,6 +216,7 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
 export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   full_admin: "Global control over institutions, users, roles, and the legacy moderation tools.",
   institution_admin: "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
+  institution_operator: "Institution-scoped operations over one institution, its doctors, its patients, and local role assignments.",
   institution_doctor: "Read access to the institution, full control over the doctor's own profile, and CRUD on the doctor's own patients.",
   patient: "Informational role record only. Patients do not enter the backoffice.",
 };
@@ -221,6 +224,7 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
 export const ROLE_OPTIONS: Array<{ value: AdminRole; label: string }> = [
   { value: "full_admin", label: "Full admin" },
   { value: "institution_admin", label: "Institution admin" },
+  { value: "institution_operator", label: "Institution operator" },
   { value: "institution_doctor", label: "Institution doctor" },
   { value: "patient", label: "Patient" },
 ];
@@ -235,10 +239,11 @@ export function getAssignableRoleOptions(role: AdminRole) {
     return ROLE_OPTIONS;
   }
 
-  if (role === "institution_admin") {
+  if (isInstitutionManagerRole(role)) {
     return ROLE_OPTIONS.filter(
       (option) =>
         option.value === "institution_admin" ||
+        option.value === "institution_operator" ||
         option.value === "institution_doctor" ||
         option.value === "patient"
     );
@@ -249,4 +254,8 @@ export function getAssignableRoleOptions(role: AdminRole) {
   }
 
   return [];
+}
+
+export function isInstitutionManagerRole(role: AdminRole) {
+  return role === "institution_admin" || role === "institution_operator";
 }

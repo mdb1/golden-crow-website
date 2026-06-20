@@ -19,7 +19,7 @@ import type {
   DoctorRecord,
   InstitutionRecord,
 } from "@/lib/admin-areas";
-import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
+import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import {
   canDeletePatientUi,
   canCreatePatientUi,
@@ -79,7 +79,7 @@ export function DoctorWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const scopedInstitutionId =
-    adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
+    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
       ? adminContext.institutionId
       : undefined;
   const defaultInstitutionId =

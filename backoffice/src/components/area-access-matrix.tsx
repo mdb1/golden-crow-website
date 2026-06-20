@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant"]> = {
   full_admin: "destructive",
   institution_admin: "brand",
+  institution_operator: "secondary",
   institution_doctor: "success",
   patient: "outline",
 };
@@ -110,7 +111,7 @@ export function AreaAccessMatrix({
       <div
         className={cn(
           "grid gap-3",
-          compact ? "md:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-4"
+          compact ? "md:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-5"
         )}
       >
         {entries.map((entry) => (

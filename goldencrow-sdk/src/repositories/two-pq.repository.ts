@@ -348,6 +348,10 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function isInstitutionManagerRole(role: AdminContext["role"]) {
+  return role === "institution_admin" || role === "institution_operator";
+}
+
 function normalizeStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -730,7 +734,7 @@ function canWriteTwoPQRecord(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === record.institutionId;
   }
 
@@ -750,7 +754,7 @@ function canCreateTwoPQRecord(
     return true;
   }
 
-  if (context.role === "institution_admin") {
+  if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === institutionId;
   }
 
@@ -767,7 +771,7 @@ function resolveScopedIds(
   payload: TwoPQMutationInput
 ) {
   const institutionId =
-    context.role === "institution_admin" || context.role === "institution_doctor"
+    isInstitutionManagerRole(context.role) || context.role === "institution_doctor"
       ? context.institutionId ?? normalizeOptionalString(payload.institutionId) ?? current?.institutionId
       : normalizeOptionalString(payload.institutionId) ?? current?.institutionId;
   const doctorId =

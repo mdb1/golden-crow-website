@@ -20,6 +20,7 @@ import type { AdminRole } from "@/lib/admin-areas";
 const AREA_ADMIN_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
+  "institution_operator",
   "institution_doctor",
 ];
 const FULL_ADMIN_ROLES: AdminRole[] = ["full_admin"];
@@ -39,6 +40,34 @@ export interface RoleAccessSpec {
   scope: AccessScope;
   capabilities: CrudCapability[];
   note: string;
+}
+
+function institutionOperatorNote(note: string) {
+  return note
+    .replace(/Institution admins/g, "Institution operators")
+    .replace(/Institution admin/g, "Institution operator")
+    .replace(/institution admins/g, "institution operators")
+    .replace(/institution admin/g, "institution operator");
+}
+
+function withInstitutionOperatorAccess(entries: RoleAccessSpec[]): RoleAccessSpec[] {
+  if (entries.some((entry) => entry.role === "institution_operator")) {
+    return entries;
+  }
+
+  return entries.flatMap((entry) =>
+    entry.role === "institution_admin"
+      ? [
+          entry,
+          {
+            ...entry,
+            role: "institution_operator" as const,
+            capabilities: [...entry.capabilities],
+            note: institutionOperatorNote(entry.note),
+          },
+        ]
+      : [entry]
+  );
 }
 
 export interface TwoPQRouteLink {
@@ -99,7 +128,7 @@ export interface AdminSurfaceSpec {
   roleAccess: RoleAccessSpec[];
 }
 
-export const TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
+const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
   {
     key: "dashboard",
     label: "Dashboard",
@@ -1090,7 +1119,7 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   {
     key: "roles",
     label: "Roles & Permissions",
-    description: "Email-based access tree for full admins, institution admins, doctors, and patients.",
+    description: "Email-based access tree for full admins, institution admins, institution operators, doctors, and patients.",
     href: "/roles",
     icon: KeyRound,
     tone: "slate",
@@ -1099,7 +1128,7 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   },
 ];
 
-export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
+const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
   {
     key: "institutions",
     label: "Institutions",
@@ -1216,7 +1245,7 @@ export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         role: "institution_admin",
         scope: "institution",
         capabilities: ["create", "read", "update"],
-        note: "Institution admins can create and edit local institution, doctor, and patient roles inside their own scope.",
+        note: "Institution admins can create and edit local institution admin, institution operator, institution doctor, and patient roles inside their own scope.",
       },
       {
         role: "institution_doctor",
@@ -1233,6 +1262,18 @@ export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
     ],
   },
 ];
+
+export const TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] =
+  BASE_TWO_PQ_WORKFLOW_AREAS.map((area) => ({
+    ...area,
+    roleAccess: withInstitutionOperatorAccess(area.roleAccess),
+  }));
+
+export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] =
+  BASE_ADMIN_SURFACE_SPECS.map((surface) => ({
+    ...surface,
+    roleAccess: withInstitutionOperatorAccess(surface.roleAccess),
+  }));
 
 export function canAccessTwoPQRoute(
   role: AdminRole,

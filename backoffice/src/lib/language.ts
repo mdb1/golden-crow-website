@@ -28,6 +28,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Pocket Genes Admin": "Administración Pocket Genes",
   "Full admin": "Administrador total",
   "Institution admin": "Administrador de institución",
+  "Institution operator": "Operador de institución",
   "Institution doctor": "Médico de institución",
   Patient: "Paciente",
   "Light mode": "Modo claro",
@@ -80,6 +81,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los administradores totales pueden acceder a las superficies globales de moderación y al modelo por institución desde la misma consola.",
   "Institution admins stay scoped to one institution, its doctors, its patients, and local role assignments.":
     "Los administradores de institución permanecen limitados a una institución, sus médicos, sus pacientes y sus roles locales.",
+  "Institution operators stay scoped to one institution, its doctors, its patients, and local role assignments.":
+    "Los operadores de institución permanecen limitados a una institución, sus médicos, sus pacientes y sus roles locales.",
   "Institution doctors stay scoped to one institution, their own doctor record, and their own patients.":
     "Los médicos de institución permanecen limitados a una institución, su propio registro médico y sus propios pacientes.",
   Mission: "Misión",
@@ -1028,14 +1031,22 @@ const SPANISH_TEXT: Record<string, string> = {
   "Email-based role assignment": "Asignación de rol por email",
   "Email-based role assignments with a clear hierarchy: full admin, institution admin, institution doctor, and patient.":
     "Asignaciones de rol por email con una jerarquía clara: administrador total, administrador de institución, médico de institución y paciente.",
+  "Email-based role assignments with a clear hierarchy: full admin, institution admin, institution operator, institution doctor, and patient.":
+    "Asignaciones de rol por email con una jerarquía clara: administrador total, administrador de institución, operador de institución, médico de institución y paciente.",
   "Email-scoped access control records with institution, doctor, and patient boundaries.":
     "Registros de control de acceso por email con límites de institución, médico y paciente.",
   "Email-scoped access tree for full admins, institution admins, doctors, and patients.":
     "Árbol de acceso por email para administradores totales, administradores de institución, médicos y pacientes.",
+  "Email-scoped access tree for full admins, institution admins, institution operators, doctors, and patients.":
+    "Árbol de acceso por email para administradores totales, administradores de institución, operadores de institución, médicos y pacientes.",
+  "Email-based access tree for full admins, institution admins, institution operators, doctors, and patients.":
+    "Árbol de acceso por email para administradores totales, administradores de institución, operadores de institución, médicos y pacientes.",
   "Entity Created": "Entidad creada",
   events: "eventos",
   "Every institution-scoped role, doctor, and patient record hangs off one institution. Full admins can create new institutions; institution admins and doctors stay inside their single institution boundary.":
     "Cada rol, médico y paciente con alcance institucional depende de una institución. Los administradores totales pueden crear instituciones; administradores de institución y médicos permanecen dentro de su límite institucional único.",
+  "Every institution-scoped role, doctor, and patient record hangs off one institution. Full admins can create new institutions; institution admins, institution operators, and doctors stay inside their single institution boundary.":
+    "Cada rol, médico y paciente con alcance institucional depende de una institución. Los administradores totales pueden crear instituciones; administradores de institución, operadores de institución y médicos permanecen dentro de su límite institucional único.",
   "Every sampling record writes to Firestore and keeps the institution-doctor-patient linkage explicit.":
     "Cada registro de muestreo escribe en Firestore y mantiene explícito el vínculo institución-médico-paciente.",
   Exception: "Excepción",
@@ -1256,6 +1267,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "en su propia pantalla antes de abrir un registro activo.",
   "Only full admins and institution admins can create doctors.":
     "Solo administradores totales y administradores de institución pueden dar de alta médicos.",
+  "Only full admins, institution admins, and institution operators can create doctors.":
+    "Solo administradores totales, administradores de institución y operadores de institución pueden dar de alta médicos.",
   "Only full admins and institution admins can delete doctors in scope.":
     "Solo administradores totales y administradores de institución pueden eliminar médicos dentro de su alcance.",
   "Only full admins can create institution roots.":
@@ -1272,6 +1285,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Solo administradores totales pueden abrir, publicar o actualizar documentos file_storage desde esta sección.",
   "Only full admins, institution admins, and scoped institution doctors can create patients.":
     "Solo administradores totales, administradores de institución y médicos de institución dentro de alcance pueden dar de alta pacientes.",
+  "Only full admins, institution admins, institution operators, and scoped institution doctors can create patients.":
+    "Solo administradores totales, administradores de institución, operadores de institución y médicos de institución dentro de alcance pueden dar de alta pacientes.",
   "Open area": "Abrir área",
   "Open doctor": "Abrir médico",
   "Open Doctors": "Abrir médicos",
@@ -1940,6 +1955,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Puede inspeccionar el carril, pero no cambiar sus registros.",
   "Can inspect the local permission map":
     "Puede inspeccionar el mapa local de permisos",
+  "Can assign institution-admin, institution-operator, institution-doctor, and patient roles inside that institution only.":
+    "Puede asignar roles de administrador de institución, operador de institución, médico de institución y paciente solo dentro de esa institución.",
   "Can manage local role assignments":
     "Puede gestionar asignaciones locales de rol",
   "Can manage patient-facing role assignments":
@@ -1947,6 +1964,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Can operate across every lane": "Puede operar en todos los carriles",
   "Can review the surrounding context":
     "Puede revisar el contexto circundante",
+  "Can see and edit only one institution.":
+    "Puede ver y editar solo una institución.",
+  "Can create doctors and patients inside that institution.":
+    "Puede crear médicos y pacientes dentro de esa institución.",
   "Can staff their institution": "Puede administrar el equipo de su institución",
   "Can stay inside one doctor lane":
     "Puede permanecer dentro de un carril médico",
@@ -1969,14 +1990,48 @@ const SPANISH_TEXT: Record<string, string> = {
     "Incluso con alcance global, cada asignación de rol necesita las referencias correctas de institución, médico y paciente.",
   "Full admins can create and update full admin, institution admin, institution doctor, and patient role assignments.":
     "Los administradores totales pueden crear y actualizar asignaciones de administrador total, administrador de institución, médico de institución y paciente.",
+  "Full admins can create and update full admin, institution admin, institution operator, institution doctor, and patient role assignments.":
+    "Los administradores totales pueden crear y actualizar asignaciones de administrador total, administrador de institución, operador de institución, médico de institución y paciente.",
   "Global control over institutions, users, roles, and the legacy moderation tools.":
     "Control global sobre instituciones, usuarios, roles y herramientas históricas de moderación.",
   "Institution admins can create and update institution admin, institution doctor, and patient assignments inside their own institution.":
     "Los administradores de institución pueden crear y actualizar asignaciones de administrador de institución, médico de institución y paciente dentro de su propia institución.",
+  "Institution admins can create and update institution admin, institution operator, institution doctor, and patient assignments inside their own institution.":
+    "Los administradores de institución pueden crear y actualizar asignaciones de administrador de institución, operador de institución, médico de institución y paciente dentro de su propia institución.",
+  "Institution operators can create and update institution admin, institution operator, institution doctor, and patient assignments inside their own institution.":
+    "Los operadores de institución pueden crear y actualizar asignaciones de administrador de institución, operador de institución, médico de institución y paciente dentro de su propia institución.",
+  "Institution operators can inspect the full 2PQ map, but every linked action stays inside one institution.":
+    "Los operadores de institución pueden revisar todo el mapa 2PQ, pero cada acción vinculada permanece dentro de una institución.",
+  "Institution operators can run case operations inside one institution boundary.":
+    "Los operadores de institución pueden operar casos dentro del límite de una institución.",
+  "Institution operators can run sample operations for their institution end to end.":
+    "Los operadores de institución pueden gestionar operaciones de biopsias de punta a punta para su institución.",
+  "Institution operators can coordinate shipment activity for their institution, but destructive cleanup should stay deliberate.":
+    "Los operadores de institución pueden coordinar envíos para su institución, pero las acciones destructivas deben seguir siendo deliberadas.",
+  "Institution operators can coordinate run state for their institution but should not own platform cleanup globally.":
+    "Los operadores de institución pueden coordinar el estado de corridas para su institución, pero no deben asumir limpieza global de plataforma.",
+  "Institution operators can understand report state from 2PQ, but the live reports module stays full-admin only today.":
+    "Los operadores de institución pueden entender el estado de reportes desde 2PQ, pero el módulo vivo de reportes sigue reservado a administradores totales.",
+  "Institution operators can manage client-facing records inside their institution.":
+    "Los operadores de institución pueden gestionar registros orientados a clientes dentro de su institución.",
+  "Institution operators can edit only their own institution root.":
+    "Los operadores de institución pueden editar solo la raíz de su propia institución.",
+  "Institution operators can manage and delete doctors inside their institution.":
+    "Los operadores de institución pueden gestionar y eliminar médicos dentro de su institución.",
+  "Institution operators can CRUD patients inside their institution.":
+    "Los operadores de institución pueden hacer CRUD de pacientes dentro de su institución.",
+  "Institution operators can create and edit local institution admin, institution operator, institution doctor, and patient roles inside their own scope.":
+    "Los operadores de institución pueden crear y editar roles locales de administrador de institución, operador de institución, médico de institución y paciente dentro de su propio alcance.",
+  "Institution operators can fully manage records inside one institution boundary.":
+    "Los operadores de institución pueden gestionar completamente registros dentro del límite de una institución.",
   "Institution doctors can use the backoffice only for their own doctor profile and the patients attached to that doctor id.":
     "Los médicos de institución solo pueden usar el backoffice para su propio perfil médico y los pacientes asociados a ese ID de médico.",
+  "Institution managers cannot modify full-admin role assignments.":
+    "Los managers de institución no pueden modificar asignaciones de administrador total.",
   "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.":
     "Control con alcance institucional sobre una institución, sus médicos, sus pacientes y sus asignaciones locales de rol.",
+  "Institution-scoped operations over one institution, its doctors, its patients, and local role assignments.":
+    "Operación con alcance institucional sobre una institución, sus médicos, sus pacientes y sus asignaciones locales de rol.",
   "Informational role record only. Patients do not enter the backoffice.":
     "Registro de rol solo informativo. Los pacientes no ingresan al backoffice.",
   "Patient assignments are informational boundaries, not operator accounts with delegation rights.":
@@ -1995,6 +2050,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Pueden inspeccionar la institución y el listado de médicos necesarios para entender dónde se ubican sus pacientes en la jerarquía.",
   "They can pair role changes with doctor and patient maintenance for the institution they administer.":
     "Pueden combinar cambios de rol con mantenimiento de médicos y pacientes de la institución que administran.",
+  "They can pair role changes with doctor and patient maintenance for the institution they operate.":
+    "Pueden combinar cambios de rol con mantenimiento de médicos y pacientes de la institución que operan.",
   "They can review and adjust role assignments across all institutions, doctors, and patient-linked records.":
     "Pueden revisar y ajustar asignaciones de rol en todas las instituciones, médicos y registros vinculados a pacientes.",
   "They can review which emails are attached to their institution and how those assignments map to the doctor and patient hierarchy.":

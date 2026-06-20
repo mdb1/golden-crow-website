@@ -129,10 +129,15 @@ export function AppSidebar({
                 language,
                 "Institution admins stay scoped to one institution, its doctors, its patients, and local role assignments."
               )
-            : appText(
-                language,
-                "Institution doctors stay scoped to one institution, their own doctor record, and their own patients."
-              )}
+            : adminContext.role === "institution_operator"
+              ? appText(
+                  language,
+                  "Institution operators stay scoped to one institution, its doctors, its patients, and local role assignments."
+                )
+              : appText(
+                  language,
+                  "Institution doctors stay scoped to one institution, their own doctor record, and their own patients."
+                )}
       </SidebarFooter>
     </Sidebar>
   );

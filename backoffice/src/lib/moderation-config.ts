@@ -47,9 +47,14 @@ const FULL_ADMIN_ROLES: AdminRole[] = ["full_admin"];
 const AREA_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
+  "institution_operator",
   "institution_doctor",
 ];
-const AREA_MANAGER_ROLES: AdminRole[] = ["full_admin", "institution_admin"];
+const AREA_MANAGER_ROLES: AdminRole[] = [
+  "full_admin",
+  "institution_admin",
+  "institution_operator",
+];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 
 export const SECTION_DESCRIPTORS: SectionDescriptor[] = [

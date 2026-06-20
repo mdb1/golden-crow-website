@@ -20,6 +20,7 @@ export type AdminUserSex =
 export type AdminRole =
   | "full_admin"
   | "institution_admin"
+  | "institution_operator"
   | "institution_doctor"
   | "patient";
 

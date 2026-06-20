@@ -17,6 +17,7 @@ import {
   ADMIN_ROLE_DESCRIPTIONS,
   ADMIN_ROLE_LABELS,
   getAssignableRoleOptions,
+  isInstitutionManagerRole,
   type DoctorListItem,
   type InstitutionRecord,
   type PatientListItem,
@@ -88,7 +89,7 @@ export function RoleWorkbench({
     () => ({
       email: initialEmail?.trim() || undefined,
       institutionId:
-        adminContext.role === "institution_admin" ||
+        isInstitutionManagerRole(adminContext.role) ||
         adminContext.role === "institution_doctor"
           ? adminContext.institutionId
           : undefined,
@@ -182,11 +183,11 @@ export function RoleWorkbench({
       }
 
       const institutionId =
-        adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
+        isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
           ? adminContext.institutionId ?? current.institutionId
           : current.institutionId;
 
-      if (nextRole === "institution_admin") {
+      if (isInstitutionManagerRole(nextRole)) {
         return {
           ...current,
           role: nextRole,
@@ -430,7 +431,7 @@ export function RoleWorkbench({
                 emptyLabel={t("No institution")}
                 disabled={
                   !isEditable ||
-                  adminContext.role === "institution_admin" ||
+                  isInstitutionManagerRole(adminContext.role) ||
                   adminContext.role === "institution_doctor"
                 }
               />

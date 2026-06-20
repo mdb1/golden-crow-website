@@ -40,7 +40,7 @@ import type {
   InstitutionListItem,
   PatientListItem,
 } from "@/lib/admin-areas";
-import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
+import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import { appText, type AppLanguage } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
@@ -2339,7 +2339,7 @@ export function TwoPQFormFlow({
         : WITHDRAWAL_REQUEST_STEPS;
   const matchingDraft = initialDraft?.formType === formType ? initialDraft : null;
   const scopedInstitutionId =
-    adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
+    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
       ? adminContext.institutionId ?? ""
       : "";
   const scopedDoctorId =

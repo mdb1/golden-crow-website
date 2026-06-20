@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ADMIN_ROLE_LABELS,
+  isInstitutionManagerRole,
   type AdminContextRecord,
   type AdminRole,
 } from "@/lib/admin-areas";
@@ -89,6 +90,7 @@ const capabilityClasses: Record<CrudCapability, string> = {
 const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant"]> = {
   full_admin: "destructive",
   institution_admin: "brand",
+  institution_operator: "secondary",
   institution_doctor: "success",
   patient: "outline",
 };
@@ -111,7 +113,7 @@ function getRoleScopeSummary(adminContext: AdminContextRecord) {
     return "Global lane";
   }
 
-  if (adminContext.role === "institution_admin") {
+  if (isInstitutionManagerRole(adminContext.role)) {
     return adminContext.institutionId
       ? `Institution · ${adminContext.institutionId}`
       : "Institution scoped";
@@ -675,25 +677,25 @@ export function TwoPQDashboard({
                   label: "Institutions",
                   href: "/areas/institutions",
                   tone: "blue",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
                 },
                 {
                   label: "Doctors",
                   href: "/areas/doctors",
                   tone: "mint",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
                 },
                 {
                   label: "Patients",
                   href: "/areas/patients",
                   tone: "amber",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
                 },
                 {
                   label: "Roles & permissions",
                   href: "/roles",
                   tone: "slate",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
                 },
               ]}
             />

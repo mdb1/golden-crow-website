@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sdkFetch } from "@/lib/sdk-client";
+import { isInstitutionManagerRole } from "@/lib/admin-areas";
 import type {
   TwoPQFormRecord,
   TwoPQFormsOrder,
@@ -241,7 +242,7 @@ export function TwoPQFormsList({
   const canDeleteForms = adminContext.role === "full_admin";
   const canArchiveForms =
     adminContext.role === "full_admin" ||
-    adminContext.role === "institution_admin" ||
+    isInstitutionManagerRole(adminContext.role) ||
     adminContext.role === "institution_doctor";
 
   async function loadForms(

@@ -58,6 +58,10 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function isInstitutionManagerRole(role: unknown) {
+  return role === "institution_admin" || role === "institution_operator";
+}
+
 function normalizeRequiredString(value: unknown, label: string) {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
@@ -287,6 +291,7 @@ async function loadScopedRoleRecords(context: AdminContext) {
         role:
           data.role === "full_admin" ||
           data.role === "institution_admin" ||
+          data.role === "institution_operator" ||
           data.role === "institution_doctor" ||
           data.role === "patient"
             ? data.role
@@ -532,7 +537,7 @@ export async function listInstitutionsForContext(
 
   const institutionAdminCounts = new Map<string, number>();
   roleRecords.forEach((record) => {
-    if (record.role !== "institution_admin" || !record.institutionId || !record.isActive) {
+    if (!isInstitutionManagerRole(record.role) || !record.institutionId || !record.isActive) {
       return;
     }
 
@@ -640,6 +645,7 @@ export async function getInstitutionDetailForContext(
       role:
         data.role === "full_admin" ||
         data.role === "institution_admin" ||
+        data.role === "institution_operator" ||
         data.role === "institution_doctor" ||
         data.role === "patient"
           ? data.role
@@ -676,7 +682,7 @@ export async function getInstitutionDetailForContext(
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 
   const institutionAdmins = roleRecords
-    .filter((record) => record.role === "institution_admin")
+    .filter((record) => isInstitutionManagerRole(record.role))
     .map((record) =>
       toRoleManagementRecord(record, {
         institutionName: institution.name,
@@ -864,7 +870,7 @@ export async function createDoctorForContext(
   }
 ): Promise<DoctorRecord> {
   const institutionId =
-    context.role === "institution_admin"
+    isInstitutionManagerRole(context.role)
       ? context.institutionId ?? payload.institutionId
       : payload.institutionId;
 
@@ -941,6 +947,7 @@ export async function getDoctorDetailForContext(
           role:
             data.role === "full_admin" ||
             data.role === "institution_admin" ||
+            data.role === "institution_operator" ||
             data.role === "institution_doctor" ||
             data.role === "patient"
               ? data.role
@@ -1149,7 +1156,7 @@ export async function createPatientForContext(
   }
 ): Promise<PatientRecord> {
   const institutionId =
-    context.role === "institution_admin" || context.role === "institution_doctor"
+    isInstitutionManagerRole(context.role) || context.role === "institution_doctor"
       ? context.institutionId ?? payload.institutionId
       : payload.institutionId;
   const doctorId =

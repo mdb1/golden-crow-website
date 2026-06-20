@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
+import { isInstitutionManagerRole } from "@/lib/admin-areas";
 import {
   type TwoPQAreaConfig,
   type TwoPQAreaKey,
@@ -929,7 +930,7 @@ export function TwoPQRecordWorkbench({
   const adminContext = useAdminContext();
   const router = useRouter();
   const scopedInstitutionId =
-    adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
+    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
       ? adminContext.institutionId
       : undefined;
   const scopedDoctorId =

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   getAssignableRoleOptions,
+  isInstitutionManagerRole,
   type AdminContextRecord,
 } from "@/lib/admin-areas";
 import {
@@ -28,7 +29,7 @@ function canSeeScopeCard(role: AdminContextRecord["role"], key: ScopeCardKey) {
     return key === "patients" || key === "roles";
   }
 
-  if (role === "institution_admin") {
+  if (isInstitutionManagerRole(role)) {
     return key !== "institutions";
   }
 
@@ -53,6 +54,8 @@ export function TwoPQDashboardHome({
 }) {
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
   const isDoctorDashboard = adminContext.role === "institution_doctor";
+  const isOperatorDashboard = adminContext.role === "institution_operator";
+  const shouldShowOnlyShipments = isDoctorDashboard || isOperatorDashboard;
   const visibleLinkedEntityKeys = new Set(
     isDoctorDashboard ? ["cases", "sampling"] : Array.from(linkedEntityKeys)
   );
@@ -64,7 +67,7 @@ export function TwoPQDashboardHome({
     visibleLinkedEntityKeys.has(area.key)
   );
   const secondaryAreas = translatedAreas.filter(
-    (area) => !linkedEntityKeys.has(area.key) && (!isDoctorDashboard || area.key === "shipments")
+    (area) => !linkedEntityKeys.has(area.key) && (!shouldShowOnlyShipments || area.key === "shipments")
   );
   const linkedEntityGridClassName =
     linkedEntityAreas.length <= 2 ? "grid gap-4 md:grid-cols-2" : "grid gap-4 md:grid-cols-3";
@@ -98,7 +101,7 @@ export function TwoPQDashboardHome({
       browseLabel: "Open Doctors",
       browseHref: "/areas/doctors",
       canCreate: canCreateDoctorUi(adminContext),
-      disabledTitle: "Only full admins and institution admins can create doctors.",
+      disabledTitle: "Only full admins, institution admins, and institution operators can create doctors.",
     },
     {
       key: "patients",
@@ -111,7 +114,7 @@ export function TwoPQDashboardHome({
       browseHref: "/areas/patients",
       canCreate: canCreatePatientUi(adminContext),
       disabledTitle:
-        "Only full admins, institution admins, and scoped institution doctors can create patients.",
+        "Only full admins, institution admins, institution operators, and scoped institution doctors can create patients.",
     },
     {
       key: "roles",
@@ -363,7 +366,7 @@ export function TwoPQDashboardHome({
           </h2>
           <p className="max-w-4xl text-sm text-muted-foreground">
             {t(
-              isDoctorDashboard
+              shouldShowOnlyShipments
                 ? "Shipment operations stay available as the supporting area for this role."
                 : "Shipment, reporting, and client operations stay here as separate supporting areas."
             )}

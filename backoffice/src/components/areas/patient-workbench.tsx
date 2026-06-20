@@ -31,7 +31,7 @@ import type {
   PatientDetailRecord,
   PatientRecord,
 } from "@/lib/admin-areas";
-import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
+import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import {
   canEditPatientUi,
   getStatusBadgeVariant,
@@ -96,7 +96,7 @@ export function PatientWorkbench({
   const t = (text: string) => appText(language, text);
   const router = useRouter();
   const scopedInstitutionId =
-    adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
+    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
       ? adminContext.institutionId
       : undefined;
   const scopedDoctorId =

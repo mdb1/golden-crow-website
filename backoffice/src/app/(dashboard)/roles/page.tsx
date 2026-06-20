@@ -23,7 +23,7 @@ export default async function RolesPage() {
       <PageHero
         eyebrow={t("Access")}
         title={t("Roles & permissions")}
-        description={t("Email-based role assignments with a clear hierarchy: full admin, institution admin, institution doctor, and patient.")}
+        description={t("Email-based role assignments with a clear hierarchy: full admin, institution admin, institution operator, institution doctor, and patient.")}
       />
       <HelperBanner title={t("The permission tree must stay explicit.")} tone="blue">
         {t("Full admins can create anything. Institution admins stay inside one institution. Institution doctors can only create patient-facing records and patient roles tied to their own doctor scope.")}

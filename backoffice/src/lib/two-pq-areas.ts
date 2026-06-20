@@ -183,6 +183,12 @@ const ASSIGNED_SCOPE_ACCESS: RoleAccessSpec[] = [
     note: "Institution admins can fully manage records inside one institution boundary.",
   },
   {
+    role: "institution_operator",
+    scope: "institution",
+    capabilities: ["create", "read", "update", "delete"],
+    note: "Institution operators can fully manage records inside one institution boundary.",
+  },
+  {
     role: "institution_doctor",
     scope: "assigned",
     capabilities: ["create", "read", "update", "delete"],

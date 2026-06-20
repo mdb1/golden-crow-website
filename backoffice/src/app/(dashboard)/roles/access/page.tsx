@@ -8,6 +8,7 @@ function isAdminRole(value: string | undefined): value is AdminRole {
   return (
     value === "full_admin" ||
     value === "institution_admin" ||
+    value === "institution_operator" ||
     value === "institution_doctor" ||
     value === "patient"
   );
