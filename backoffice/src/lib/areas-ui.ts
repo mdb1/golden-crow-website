@@ -159,6 +159,7 @@ export function canEditRoleUi(
   if (isInstitutionManagerRole(context.role)) {
     return (
       roleRecord.role !== "full_admin" &&
+      !(context.role === "institution_operator" && roleRecord.role === "institution_admin") &&
       Boolean(roleRecord.institutionId) &&
       context.institutionId === roleRecord.institutionId
     );
@@ -191,6 +192,10 @@ export function getRoleEditRestrictionMessage(
   if (isInstitutionManagerRole(context.role)) {
     if (roleRecord.role === "full_admin") {
       return "Institution managers cannot modify full-admin role assignments.";
+    }
+
+    if (context.role === "institution_operator" && roleRecord.role === "institution_admin") {
+      return "Institution operators cannot modify institution-admin role assignments.";
     }
 
     return "This role assignment sits outside your institution scope.";
@@ -228,7 +233,8 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   institution_operator: [
     "Can see and edit only one institution.",
     "Can create doctors and patients inside that institution.",
-    "Can assign institution-admin, institution-operator, institution-doctor, and patient roles inside that institution only.",
+    "Can assign institution-operator, institution-doctor, and patient roles inside that institution only.",
+    "Cannot assign institution-admin roles.",
   ],
   institution_doctor: [
     "Can read the institution and all doctors inside it.",

@@ -34,7 +34,6 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
     "patient",
   ],
   institution_operator: [
-    "institution_admin",
     "institution_operator",
     "institution_doctor",
     "patient",

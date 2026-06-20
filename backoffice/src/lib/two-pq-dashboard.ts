@@ -1248,6 +1248,12 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         note: "Institution admins can create and edit local institution admin, institution operator, institution doctor, and patient roles inside their own scope.",
       },
       {
+        role: "institution_operator",
+        scope: "institution",
+        capabilities: ["create", "read", "update"],
+        note: "Institution operators can create and edit local institution operator, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.",
+      },
+      {
         role: "institution_doctor",
         scope: "assigned",
         capabilities: ["create", "read", "update"],

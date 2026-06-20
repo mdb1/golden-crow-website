@@ -239,10 +239,19 @@ export function getAssignableRoleOptions(role: AdminRole) {
     return ROLE_OPTIONS;
   }
 
-  if (isInstitutionManagerRole(role)) {
+  if (role === "institution_admin") {
     return ROLE_OPTIONS.filter(
       (option) =>
         option.value === "institution_admin" ||
+        option.value === "institution_operator" ||
+        option.value === "institution_doctor" ||
+        option.value === "patient"
+    );
+  }
+
+  if (role === "institution_operator") {
+    return ROLE_OPTIONS.filter(
+      (option) =>
         option.value === "institution_operator" ||
         option.value === "institution_doctor" ||
         option.value === "patient"

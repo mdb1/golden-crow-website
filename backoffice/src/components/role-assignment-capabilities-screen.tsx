@@ -193,7 +193,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       tone: "allow",
       title: "Can manage local role assignments",
       description:
-        "Institution operators can create and update institution admin, institution operator, institution doctor, and patient assignments inside their own institution.",
+        "Institution operators can create and update institution operator, institution doctor, and patient assignments inside their own institution.",
     },
     {
       tone: "allow",
@@ -212,6 +212,12 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Cannot create full admins",
       description:
         "Promotion into the global admin lane stays reserved for existing full admins only.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot create institution admins",
+      description:
+        "Institution operator accounts cannot create, update, or promote users into the institution admin lane.",
     },
     {
       tone: "limit",
