@@ -398,8 +398,8 @@ const copy: Record<Lang, StoryCopy> = {
         heroTitle: 'RareFriends™: encontrá tu círculo en el camino EPOF.',
         heroLead:
           'Un espacio seguro y opt-in para que personas y familias afectadas por enfermedades poco frecuentes puedan encontrar a otros, participar en círculos más pequeños y compartir solo lo que elijan.',
-        heroImage: '/aboutus2.webp',
-        heroImageAlt: 'Personas conversando alrededor de una mesa',
+        heroImage: '/integrate2.webp',
+        heroImageAlt: 'Pantallas de Pocket Genes sobre un fondo de ADN',
         primaryActionLabel: 'Descargar Pocket Genes',
         primaryActionHref: '/pocket-genes/download',
         secondaryActionLabel: 'Cómo funciona la privacidad',
@@ -442,8 +442,8 @@ const copy: Record<Lang, StoryCopy> = {
             title: 'Tu historia, tu control',
             body:
               'RareFriends™ permite participar con un apodo, mostrar solo el rol o etapa del camino, ocultar detalles diagnósticos y mantener los reportes genéticos privados.',
-            image: '/aboutus3.webp',
-            imageAlt: 'Personas conversando en una mesa de trabajo',
+            image: '/integrate1.webp',
+            imageAlt: 'Pantallas móviles de Pocket Genes con reportes genéticos',
             items: [
               {
                 title: 'Privado para mí',
@@ -853,8 +853,8 @@ const copy: Record<Lang, StoryCopy> = {
         heroTitle: 'RareFriends™: find your circle in the rare disease journey.',
         heroLead:
           'A safe, opt-in space for people and families affected by rare diseases to find others, join smaller circles, and share only what they choose.',
-        heroImage: '/aboutus2.webp',
-        heroImageAlt: 'People talking around a table',
+        heroImage: '/integrate2.webp',
+        heroImageAlt: 'Pocket Genes screens over a DNA background',
         primaryActionLabel: 'Download Pocket Genes',
         primaryActionHref: '/pocket-genes/download',
         secondaryActionLabel: 'How privacy works',
@@ -897,8 +897,8 @@ const copy: Record<Lang, StoryCopy> = {
             title: 'Your story, your control',
             body:
               'RareFriends™ lets members participate with a nickname, show only their role or journey stage, hide diagnosis details, and keep genetic reports private.',
-            image: '/aboutus3.webp',
-            imageAlt: 'People talking at a work table',
+            image: '/integrate1.webp',
+            imageAlt: 'Pocket Genes mobile screens with genetic reports',
             items: [
               {
                 title: 'Private to me',
