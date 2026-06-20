@@ -1248,6 +1248,15 @@
         "rope": "Rope",
         "smith": "Smith machine",
         "swiss_ball": "Swiss ball"
+      },
+      "category": {
+        "strength": "Strength",
+        "powerlifting": "Powerlifting",
+        "plyometrics": "Plyometrics",
+        "cardio": "Cardio",
+        "olympic_weightlifting": "Olympic weightlifting",
+        "stretching": "Stretching",
+        "strongman": "Strongman"
       }
     },
     "mediaUpload": {

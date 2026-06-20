@@ -1248,6 +1248,15 @@
         "rope": "Soga",
         "smith": "Máquina Smith",
         "swiss_ball": "Pelota suiza"
+      },
+      "category": {
+        "strength": "Fuerza",
+        "powerlifting": "Powerlifting",
+        "plyometrics": "Pliometría",
+        "cardio": "Cardio",
+        "olympic_weightlifting": "Halterofilia",
+        "stretching": "Estiramiento",
+        "strongman": "Strongman"
       }
     },
     "mediaUpload": {

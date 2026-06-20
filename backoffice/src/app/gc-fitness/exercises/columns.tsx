@@ -30,6 +30,23 @@ import {
 import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
 import { FavoriteStarButton } from "@/components/gc-fitness/favorite-star-button";
 import type { ExerciseRow } from "@/lib/gc-fitness/exercises-listener";
+import {
+  isMuscleGroup,
+  isEquipment,
+} from "@/lib/gc-fitness/exercise-vocabulary";
+
+// FEXD exercise `category` enum values that have a dedicated label in the
+// exercises.vocabulary.category catalog. Anything outside this set (and not a
+// muscle-group fallback) falls back to the humanized English title-caser.
+const KNOWN_CATEGORIES = new Set([
+  "strength",
+  "powerlifting",
+  "plyometrics",
+  "cardio",
+  "olympic_weightlifting",
+  "stretching",
+  "strongman",
+]);
 
 // Difficulty level → semantic Badge variant per the redesign doc
 // (beginner → success, intermediate → brand, expert/advanced → violet).
@@ -83,9 +100,25 @@ function formatLabel(s: string): string {
 
 type TFn = ReturnType<typeof useTranslations>;
 
+// Localize a "category" cell value. It is either a muscle-group key (the
+// fallback for rows without a FEXD category) or a FEXD category enum. Unknown
+// legacy values keep the English humanized form.
+function categoryLabel(raw: string, tVocab: TFn): string {
+  if (isMuscleGroup(raw)) return tVocab(`muscle.${raw}`);
+  if (KNOWN_CATEGORIES.has(raw)) return tVocab(`category.${raw}`);
+  return formatLabel(raw);
+}
+
+// Localize an equipment key. Unknown legacy values (e.g. the raw FEXD
+// "body only") keep the English humanized form.
+function equipmentLabel(raw: string, tVocab: TFn): string {
+  return isEquipment(raw) ? tVocab(`equipment.${raw}`) : formatLabel(raw);
+}
+
 export function makeColumns(
   handlers: ExerciseColumnHandlers,
   t: TFn,
+  tVocab: TFn,
   usageCounts?: Record<string, number>,
   locale?: string,
 ): ColumnDef<ExerciseRow>[] {
@@ -190,7 +223,7 @@ export function makeColumns(
         }
         return (
           <Badge variant="brand" className="font-medium">
-            {formatLabel(raw)}
+            {categoryLabel(raw, tVocab)}
           </Badge>
         );
       },
@@ -206,7 +239,7 @@ export function makeColumns(
           <div className="flex flex-wrap gap-1">
             {visible.map((e) => (
               <Badge key={e} variant="outline" className="font-normal">
-                {formatLabel(e)}
+                {equipmentLabel(e, tVocab)}
               </Badge>
             ))}
             {overflow > 0 && (
