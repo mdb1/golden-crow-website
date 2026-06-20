@@ -227,58 +227,64 @@ export function TwoPQDashboardHome({
         </div>
 
         <div className={scopeGridClassName}>
-          {visibleScopeCards.map((card) => (
-            <article key={card.key} className="glass-panel flex flex-col px-4 py-4">
-              <p className="section-eyebrow">{t(card.eyebrow)}</p>
-              <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
-                {card.value}
-              </p>
-              <p className="text-sm text-muted-foreground">{t(card.description)}</p>
+          {visibleScopeCards.map((card) => {
+            const showCreateAction = !(isDoctorDashboard && card.key === "roles");
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {card.canCreate ? (
+            return (
+              <article key={card.key} className="glass-panel flex flex-col px-4 py-4">
+                <p className="section-eyebrow">{t(card.eyebrow)}</p>
+                <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
+                  {card.value}
+                </p>
+                <p className="text-sm text-muted-foreground">{t(card.description)}</p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {showCreateAction ? (
+                    card.canCreate ? (
+                      <Button
+                        size="sm"
+                        className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
+                        asChild
+                      >
+                        <Link href={card.createHref}>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <PlusCircle className="h-4 w-4" />
+                            <span className="truncate">{card.createLabel}</span>
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 opacity-70" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
+                        disabled
+                        title={t(card.disabledTitle)}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <PlusCircle className="h-4 w-4" />
+                          <span className="truncate">{card.createLabel}</span>
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 opacity-70" />
+                      </Button>
+                    )
+                  ) : null}
+
                   <Button
+                    variant="outline"
                     size="sm"
                     className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
                     asChild
                   >
-                    <Link href={card.createHref}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <PlusCircle className="h-4 w-4" />
-                        <span className="truncate">{card.createLabel}</span>
-                      </span>
+                    <Link href={card.browseHref}>
+                      <span className="truncate">{t(card.browseLabel)}</span>
                       <ArrowRight className="h-3.5 w-3.5 opacity-70" />
                     </Link>
                   </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
-                    disabled
-                    title={t(card.disabledTitle)}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <PlusCircle className="h-4 w-4" />
-                      <span className="truncate">{card.createLabel}</span>
-                    </span>
-                    <ArrowRight className="h-3.5 w-3.5 opacity-70" />
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
-                  asChild
-                >
-                  <Link href={card.browseHref}>
-                    <span className="truncate">{t(card.browseLabel)}</span>
-                    <ArrowRight className="h-3.5 w-3.5 opacity-70" />
-                  </Link>
-                </Button>
-              </div>
-            </article>
-          ))}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
 
