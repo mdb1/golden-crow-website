@@ -43,7 +43,7 @@ export const es: Translations = {
     project1GooglePlay: '',
     project1Website: '/stronger-u',
     project2Title: 'PocketGenes',
-    project2Desc: 'App revolucionaria de análisis genómico que pone información personalizada de salud en tu bolsillo. Visualización avanzada de datos de ADN y recomendaciones de salud.',
+    project2Desc: 'Acompañante genómico para ayudar a personas y familias a organizar reportes, entender conceptos complejos, preparar conversaciones médicas y encontrar apoyo frente a la incertidumbre de enfermedades poco frecuentes.',
     project2Image: '/mobile1.webp',
     project2Tags: ['iOS'] as unknown as string[],
     project2AppStore: '',
@@ -169,10 +169,11 @@ export const es: Translations = {
 
   // Pocket Genes page
   pocketGenes: {
-    title: 'Pocket Genes - Explorá Tu ADN',
-    ctaTitle: '¿Listo para Empezar?',
-    ctaDesc: 'Contactanos para saber más sobre cómo integrar Pocket Genes en tu plataforma.',
-    ctaButton: 'Contactanos',
+    title: 'Pocket Genes - Acompañante Genómico para Familias',
+    integrationTitle: 'Pocket Genes Integración - Reportes Genómicos Móviles',
+    integrationCtaTitle: '¿Listo para integrar Pocket Genes?',
+    integrationCtaDesc: 'Contactanos para saber más sobre cómo convertir tus reportes genómicos en una experiencia móvil para tus usuarios.',
+    integrationCtaButton: 'Contactanos',
   },
 
   // StrongerU page

@@ -1,0 +1,645 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getLocalizedPath } from '../i18n/index';
+import { defaultLang, type Lang } from '../i18n/ui';
+import {
+  getPocketGenesStoryNav,
+  getPocketGenesStoryPage,
+  type PocketGenesStorySlug,
+} from '../data/pocketGenesStory';
+
+interface Props {
+  slug: PocketGenesStorySlug;
+}
+
+const { slug } = Astro.props;
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+const page = getPocketGenesStoryPage(lang, slug);
+const navItems = getPocketGenesStoryNav(lang);
+
+function localPath(path: string) {
+  return getLocalizedPath(path, lang);
+}
+---
+
+<BaseLayout title={page.title}>
+  <main class="pg-story">
+    <section class="pg-hero" style={`--hero-image: url("${page.heroImage}")`}>
+      <div class="pg-hero-inner">
+        <p class="pg-eyebrow">{page.eyebrow}</p>
+        <h1>{page.heroTitle}</h1>
+        <p class="pg-hero-lead">{page.heroLead}</p>
+        <div class="pg-actions">
+          <a class="pg-button pg-button-primary" href={localPath(page.primaryActionHref)}>
+            {page.primaryActionLabel}
+          </a>
+          <a class="pg-button pg-button-secondary" href={localPath(page.secondaryActionHref)}>
+            {page.secondaryActionLabel}
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <nav class="pg-story-nav" aria-label={page.navLabel}>
+      <div class="pg-story-nav-inner">
+        {navItems.map((item) => (
+          <a
+            href={localPath(item.path)}
+            class:list={['pg-story-nav-link', { active: item.slug === slug }]}
+            aria-current={item.slug === slug ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </nav>
+
+    <section class="pg-intro">
+      <div class="pg-container pg-intro-grid">
+        <div>
+          <p class="pg-section-eyebrow">{page.introEyebrow}</p>
+          <h2>{page.introTitle}</h2>
+        </div>
+        <div class="pg-intro-copy">
+          {page.introBody.map((paragraph) => <p>{paragraph}</p>)}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-stats" aria-label={page.pillarsTitle}>
+      <div class="pg-container pg-stats-grid">
+        {page.stats.map((stat) => (
+          <div class="pg-stat">
+            <strong>{stat.value}</strong>
+            <span>{stat.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="pg-pillars">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <h2>{page.pillarsTitle}</h2>
+          <p>{page.pillarsSubtitle}</p>
+        </div>
+        <div class="pg-card-grid">
+          {page.pillars.map((pillar) => (
+            <article class="pg-card">
+              <h3>{pillar.title}</h3>
+              <p>{pillar.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {page.sections.map((section, index) => (
+      <section class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1 }]}>
+        <div class="pg-container pg-deep-grid">
+          <div class="pg-deep-copy">
+            <p class="pg-section-eyebrow">{section.eyebrow}</p>
+            <h2>{section.title}</h2>
+            <p>{section.body}</p>
+            <div class="pg-list-grid">
+              {section.items.map((item) => (
+                <article class="pg-list-item">
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+          {section.image && (
+            <figure class="pg-image-panel">
+              <img src={section.image} alt={section.imageAlt || page.heroImageAlt} loading="lazy" />
+            </figure>
+          )}
+        </div>
+      </section>
+    ))}
+
+    <section class="pg-ethics">
+      <div class="pg-container pg-ethics-grid">
+        <div>
+          <p class="pg-section-eyebrow">{page.ethicsTitle}</p>
+          <h2>{page.ethicsBody}</h2>
+        </div>
+        <ul>
+          {page.ethicsItems.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <section class="pg-final-cta">
+      <div class="pg-container pg-final-inner">
+        <h2>{page.ctaTitle}</h2>
+        <p>{page.ctaBody}</p>
+        <div class="pg-actions">
+          <a class="pg-button pg-button-primary" href={localPath(page.ctaPrimaryHref)}>
+            {page.ctaPrimaryLabel}
+          </a>
+          <a class="pg-button pg-button-secondary" href={localPath(page.ctaSecondaryHref)}>
+            {page.ctaSecondaryLabel}
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .pg-story {
+    --pg-ink: #14213d;
+    --pg-slate: #526073;
+    --pg-border: #d9e2ec;
+    --pg-soft: #f4f8fb;
+    --pg-teal: #1d8f8f;
+    --pg-rose: #d85b7f;
+    --pg-gold: #af8232;
+    background: #ffffff;
+    color: var(--pg-ink);
+  }
+
+  .pg-container {
+    width: min(1120px, calc(100% - 2rem));
+    margin: 0 auto;
+  }
+
+  .pg-hero {
+    min-height: 620px;
+    display: flex;
+    align-items: center;
+    padding: 8rem 0 3.5rem;
+    background-image:
+      linear-gradient(90deg, rgba(12, 24, 42, 0.88) 0%, rgba(12, 24, 42, 0.72) 48%, rgba(12, 24, 42, 0.2) 100%),
+      var(--hero-image);
+    background-size: cover;
+    background-position: center;
+  }
+
+  .pg-hero-inner {
+    width: min(1120px, calc(100% - 2rem));
+    margin: 0 auto;
+    color: #ffffff;
+  }
+
+  .pg-eyebrow,
+  .pg-section-eyebrow {
+    margin: 0 0 1rem;
+    color: var(--pg-teal);
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .pg-hero .pg-eyebrow {
+    color: #79e0d4;
+  }
+
+  .pg-hero h1 {
+    max-width: 780px;
+    margin: 0;
+    font-size: 3.95rem;
+    line-height: 1.02;
+    font-weight: 850;
+    letter-spacing: 0;
+  }
+
+  .pg-hero-lead {
+    max-width: 720px;
+    margin: 1.5rem 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.18rem;
+    line-height: 1.65;
+  }
+
+  .pg-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 2rem;
+  }
+
+  .pg-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0.85rem 1.35rem;
+    border-radius: 999px;
+    font-weight: 750;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  }
+
+  .pg-button:hover {
+    transform: translateY(-2px);
+  }
+
+  .pg-button-primary {
+    background: var(--pg-rose);
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(216, 91, 127, 0.28);
+  }
+
+  .pg-button-primary:hover {
+    background: #c64f73;
+  }
+
+  .pg-button-secondary {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.48);
+    color: #ffffff;
+  }
+
+  .pg-final-cta .pg-button-secondary {
+    background: #ffffff;
+    border-color: var(--pg-border);
+    color: var(--pg-ink);
+  }
+
+  .pg-story-nav {
+    position: sticky;
+    top: 5.75rem;
+    z-index: 20;
+    background: rgba(255, 255, 255, 0.92);
+    border-bottom: 1px solid var(--pg-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .pg-story-nav-inner {
+    width: min(1120px, calc(100% - 2rem));
+    min-height: 62px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pg-story-nav-inner::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pg-story-nav-link {
+    flex: 0 0 auto;
+    padding: 0.7rem 0.85rem;
+    border-radius: 999px;
+    color: var(--pg-slate);
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .pg-story-nav-link:hover,
+  .pg-story-nav-link.active {
+    background: #e9f7f5;
+    color: #0f6868;
+  }
+
+  .pg-intro,
+  .pg-pillars,
+  .pg-deep-section,
+  .pg-ethics,
+  .pg-final-cta {
+    padding: 5.5rem 0;
+  }
+
+  .pg-intro {
+    background: #ffffff;
+  }
+
+  .pg-intro-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: 4rem;
+    align-items: start;
+  }
+
+  .pg-intro h2,
+  .pg-section-heading h2,
+  .pg-deep-copy h2,
+  .pg-ethics h2,
+  .pg-final-inner h2 {
+    margin: 0;
+    font-size: 2.65rem;
+    line-height: 1.12;
+    letter-spacing: 0;
+  }
+
+  .pg-intro-copy p,
+  .pg-section-heading p,
+  .pg-deep-copy > p,
+  .pg-final-inner > p {
+    margin: 0;
+    color: var(--pg-slate);
+    font-size: 1.08rem;
+    line-height: 1.75;
+  }
+
+  .pg-intro-copy {
+    display: grid;
+    gap: 1.1rem;
+  }
+
+  .pg-stats {
+    background: var(--pg-ink);
+    color: #ffffff;
+  }
+
+  .pg-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .pg-stat {
+    min-height: 150px;
+    padding: 2rem;
+    background: var(--pg-ink);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .pg-stat strong {
+    display: block;
+    color: #79e0d4;
+    font-size: 2.75rem;
+    line-height: 1;
+  }
+
+  .pg-stat span {
+    display: block;
+    max-width: 240px;
+    margin-top: 0.65rem;
+    color: rgba(255, 255, 255, 0.82);
+    font-weight: 650;
+  }
+
+  .pg-pillars {
+    background: var(--pg-soft);
+  }
+
+  .pg-section-heading {
+    max-width: 760px;
+    margin-bottom: 2rem;
+  }
+
+  .pg-section-heading p {
+    margin-top: 1rem;
+  }
+
+  .pg-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .pg-card,
+  .pg-list-item {
+    min-height: 100%;
+    background: #ffffff;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    padding: 1.35rem;
+    box-shadow: 0 14px 36px rgba(20, 33, 61, 0.06);
+  }
+
+  .pg-card h3,
+  .pg-list-item h3 {
+    margin: 0 0 0.65rem;
+    font-size: 1.05rem;
+    line-height: 1.25;
+  }
+
+  .pg-card p,
+  .pg-list-item p {
+    margin: 0;
+    color: var(--pg-slate);
+    line-height: 1.65;
+  }
+
+  .pg-deep-section {
+    background: #ffffff;
+  }
+
+  .pg-deep-section.is-reversed {
+    background: #fbfcfd;
+  }
+
+  .pg-deep-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+    gap: 3.5rem;
+    align-items: center;
+  }
+
+  .pg-deep-section.is-reversed .pg-deep-copy {
+    order: 2;
+  }
+
+  .pg-deep-section.is-reversed .pg-image-panel {
+    order: 1;
+  }
+
+  .pg-deep-copy > p {
+    margin-top: 1rem;
+  }
+
+  .pg-list-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+    margin-top: 1.5rem;
+  }
+
+  .pg-image-panel {
+    margin: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid var(--pg-border);
+    background: var(--pg-soft);
+    box-shadow: 0 18px 48px rgba(20, 33, 61, 0.12);
+  }
+
+  .pg-image-panel img {
+    display: block;
+    width: 100%;
+    height: 430px;
+    object-fit: cover;
+  }
+
+  .pg-ethics {
+    background: #13233a;
+    color: #ffffff;
+  }
+
+  .pg-ethics .pg-section-eyebrow {
+    color: #f3c16f;
+  }
+
+  .pg-ethics-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .pg-ethics h2 {
+    max-width: 760px;
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 2.2rem;
+    font-weight: 700;
+  }
+
+  .pg-ethics ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .pg-ethics li {
+    position: relative;
+    padding-left: 1.4rem;
+    color: rgba(255, 255, 255, 0.84);
+    line-height: 1.65;
+  }
+
+  .pg-ethics li::before {
+    content: "";
+    position: absolute;
+    top: 0.7rem;
+    left: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--pg-rose);
+  }
+
+  .pg-final-cta {
+    background: linear-gradient(135deg, #eef8f7 0%, #fff5f8 100%);
+    text-align: center;
+  }
+
+  .pg-final-inner {
+    max-width: 820px;
+  }
+
+  .pg-final-inner > p {
+    margin-top: 1rem;
+  }
+
+  .pg-final-inner .pg-actions {
+    justify-content: center;
+  }
+
+  @media (max-width: 1100px) {
+    .pg-hero h1 {
+      font-size: 3.25rem;
+    }
+
+    .pg-card-grid,
+    .pg-list-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 820px) {
+    .pg-hero {
+      min-height: 560px;
+      padding: 7.5rem 0 3rem;
+      background-image:
+        linear-gradient(180deg, rgba(12, 24, 42, 0.9) 0%, rgba(12, 24, 42, 0.76) 64%, rgba(12, 24, 42, 0.42) 100%),
+        var(--hero-image);
+    }
+
+    .pg-hero h1 {
+      font-size: 2.65rem;
+      line-height: 1.08;
+    }
+
+    .pg-hero-lead {
+      font-size: 1.05rem;
+      line-height: 1.65;
+    }
+
+    .pg-story-nav {
+      top: 5.25rem;
+    }
+
+    .pg-intro,
+    .pg-pillars,
+    .pg-deep-section,
+    .pg-ethics,
+    .pg-final-cta {
+      padding: 4rem 0;
+    }
+
+    .pg-intro-grid,
+    .pg-deep-grid,
+    .pg-ethics-grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .pg-deep-section.is-reversed .pg-deep-copy,
+    .pg-deep-section.is-reversed .pg-image-panel {
+      order: initial;
+    }
+
+    .pg-intro h2,
+    .pg-section-heading h2,
+    .pg-deep-copy h2,
+    .pg-final-inner h2 {
+      font-size: 2.1rem;
+    }
+
+    .pg-ethics h2 {
+      font-size: 1.7rem;
+    }
+
+    .pg-stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-stat {
+      min-height: 120px;
+    }
+
+    .pg-image-panel img {
+      height: 320px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .pg-hero {
+      min-height: 600px;
+    }
+
+    .pg-card-grid,
+    .pg-list-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-button {
+      width: 100%;
+    }
+
+    .pg-actions {
+      width: 100%;
+    }
+
+    .pg-story-nav-link {
+      font-size: 0.9rem;
+      padding: 0.65rem 0.75rem;
+    }
+  }
+</style>

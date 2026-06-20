@@ -41,7 +41,7 @@ export const en = {
     project1GooglePlay: '',
     project1Website: '/en/stronger-u',
     project2Title: 'PocketGenes',
-    project2Desc: 'Revolutionary genomic analysis app that puts personalized health insights in your pocket. Advanced DNA data visualization and health recommendations.',
+    project2Desc: 'A genomic companion that helps people and families organize genetic reports, understand complex concepts, prepare medical conversations, and find support around rare disease uncertainty.',
     project2Image: '/mobile1.webp',
     project2Tags: ['iOS'] as unknown as string[],
     project2AppStore: '',
@@ -167,10 +167,11 @@ export const en = {
 
   // Pocket Genes page
   pocketGenes: {
-    title: 'Pocket Genes - Explore Your DNA',
-    ctaTitle: 'Ready to Get Started?',
-    ctaDesc: 'Contact us to learn more about integrating Pocket Genes into your platform.',
-    ctaButton: 'Contact Us',
+    title: 'Pocket Genes - Genomic Companion for Rare Disease Families',
+    integrationTitle: 'Pocket Genes Integration - Mobile Genomic Reports',
+    integrationCtaTitle: 'Ready to integrate Pocket Genes?',
+    integrationCtaDesc: 'Contact us to learn more about turning your genomic reports into a mobile experience for your users.',
+    integrationCtaButton: 'Contact Us',
   },
 
   // StrongerU page
