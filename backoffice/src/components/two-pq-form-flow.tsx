@@ -4743,15 +4743,18 @@ export function TwoPQFormFlow({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="section-eyebrow text-indigo-700 dark:text-indigo-200">
-                    {t("Selected 2PQ cases")}
+                    {t("Withdrawal request")}
                   </p>
                   <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
-                    {selectedWithdrawalCases.length} {t("cases selected")}
+                    {selectedWithdrawalCases.length}{" "}
+                    {t(
+                      selectedWithdrawalCases.length === 1
+                        ? "box requested for pick up"
+                        : "boxes requested for pick up"
+                    )}
                   </h3>
                   <p className="mt-1 text-sm text-indigo-950/70 dark:text-indigo-50/72">
-                    {t(
-                      "Every selected case will be marked as Awaiting pick up when the form is signed."
-                    )}
+                    {t("These are the 2PQ boxes included in this withdrawal request.")}
                   </p>
                 </div>
                 <Button

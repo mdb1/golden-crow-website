@@ -663,6 +663,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Not provided": "No informado",
   "Store form": "Guardar formulario",
   "Storing...": "Guardando...",
+  Add: "Agregar",
   Continue: "Continuar",
   "No stored forms yet.": "Todavía no hay formularios guardados.",
   "Add 2PQ case": "Agregar caso 2PQ",
@@ -671,6 +672,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "No 2PQ cases match this search.":
     "No hay casos 2PQ que coincidan con esta búsqueda.",
   "Selected 2PQ cases": "Casos 2PQ seleccionados",
+  "box requested for pick up": "caja solicitada para retirar",
+  "boxes requested for pick up": "cajas solicitadas para retirar",
+  "These are the 2PQ boxes included in this withdrawal request.":
+    "Estas son las cajas 2PQ incluidas en este pedido de retiro.",
   "cases selected": "casos seleccionados",
   "Every selected case will be marked as Awaiting pick up when the form is signed.":
     "Cada caso seleccionado será marcado como Esperando retiro cuando se firme el formulario.",
