@@ -29,6 +29,10 @@ const ROLE_TABS: AdminRole[] = [
 ];
 
 function getVisibleRoleTabs(currentRole: AdminRole): AdminRole[] {
+  if (currentRole === "institution_operator") {
+    return ["institution_operator"];
+  }
+
   if (currentRole === "institution_doctor") {
     return ["institution_doctor"];
   }
