@@ -235,41 +235,45 @@ export function TwoPQDashboardHome({
               </p>
               <p className="text-sm text-muted-foreground">{t(card.description)}</p>
 
-              <div className="mt-4 flex flex-col gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 {card.canCreate ? (
-                  <Button size="sm" className="w-full justify-between rounded-xl" asChild>
+                  <Button
+                    size="sm"
+                    className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
+                    asChild
+                  >
                     <Link href={card.createHref}>
-                      <span className="flex items-center gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
                         <PlusCircle className="h-4 w-4" />
-                        {card.createLabel}
+                        <span className="truncate">{card.createLabel}</span>
                       </span>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-3.5 w-3.5 opacity-70" />
                     </Link>
                   </Button>
                 ) : (
                   <Button
                     size="sm"
-                    className="w-full justify-between rounded-xl"
+                    className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
                     disabled
                     title={t(card.disabledTitle)}
                   >
-                    <span className="flex items-center gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
                       <PlusCircle className="h-4 w-4" />
-                      {card.createLabel}
+                      <span className="truncate">{card.createLabel}</span>
                     </span>
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5 opacity-70" />
                   </Button>
                 )}
 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full justify-between rounded-xl"
+                  className="min-h-9 max-w-full justify-start rounded-xl px-3 text-left whitespace-normal"
                   asChild
                 >
                   <Link href={card.browseHref}>
-                    <span>{t(card.browseLabel)}</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <span className="truncate">{t(card.browseLabel)}</span>
+                    <ArrowRight className="h-3.5 w-3.5 opacity-70" />
                   </Link>
                 </Button>
               </div>
