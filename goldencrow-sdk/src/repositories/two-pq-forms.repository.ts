@@ -227,6 +227,12 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function toPlainRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
 function normalizeStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -270,13 +276,41 @@ function normalizeDateBoundary(value: unknown, boundary: "start" | "end") {
 
 function formSearchHaystack(form: TwoPQFormRecord) {
   const patientInformation = form.patientInformation ?? {};
+  const caseInformation = form.caseInformation ?? {};
+  const samplingInformation = form.samplingInformation ?? [];
   const withdrawalCases = form.withdrawalCases ?? [];
   return normalizeSearchText(
     [
+      form.id,
+      form.institutionId,
+      form.doctorId,
+      form.institutionName,
       form.patientName,
       form.patientEmail,
+      form.requestedTestName,
       form.selectedPatientId,
+      form.selectedInstitutionId,
+      form.selectedCaseId,
+      form.selectedRequestingDoctorId,
+      form.linkedStudyRequestFormId,
+      form.authorEmail,
+      form.createdByEmail,
       ...(form.linkedCaseIds ?? []),
+      ...(form.linkedSamplingIds ?? []),
+      caseInformation.id,
+      caseInformation.three_letter_code,
+      caseInformation.caseLabel,
+      caseInformation.caseType,
+      caseInformation.caseStatus,
+      caseInformation.patientId,
+      caseInformation.doctorId,
+      caseInformation.institutionId,
+      ...samplingInformation.flatMap((samplingRecord) => [
+        samplingRecord.id,
+        samplingRecord.sampleId,
+        samplingRecord.internalCode,
+        samplingRecord.notes,
+      ]),
       ...withdrawalCases.flatMap((caseRecord) => [
         caseRecord.id,
         caseRecord.three_letter_code,
@@ -518,11 +552,24 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     data.formType === "sample" || data.formType === "withdrawal_request"
       ? data.formType
       : "study_request";
-  const patientInformation = data.patientInformation;
-  const patientInformationRecord =
-    patientInformation && typeof patientInformation === "object"
-      ? patientInformation as Record<string, unknown>
-      : {};
+  const patientInformationRecord = toPlainRecord(data.patientInformation);
+  const institutionInformationRecord = toPlainRecord(data.institutionInformation);
+  const caseInformationRecord = toPlainRecord(data.caseInformation);
+  const withdrawalCases = Array.isArray(data.withdrawalCases)
+    ? data.withdrawalCases.filter(
+        (entry): entry is Record<string, unknown> =>
+          Boolean(entry) && typeof entry === "object"
+      )
+    : undefined;
+  const institutionId =
+    normalizeOptionalString(data.institutionId) ??
+    normalizeOptionalString(data.selectedInstitutionId) ??
+    normalizeOptionalString(patientInformationRecord.institutionId) ??
+    normalizeOptionalString(institutionInformationRecord.id) ??
+    normalizeOptionalString(institutionInformationRecord.institutionId) ??
+    normalizeOptionalString(caseInformationRecord.institutionId) ??
+    normalizeOptionalString(withdrawalCases?.[0]?.institutionId) ??
+    "";
   const requestedTest = data.requestedTest;
   const authorEmail =
     normalizeOptionalString(data.authorEmail) ??
@@ -535,7 +582,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     id,
     formType,
     collectionKey: FORMS_COLLECTION,
-    institutionId: normalizeOptionalString(data.institutionId) ?? "",
+    institutionId,
     doctorId:
       normalizeOptionalString(data.doctorId) ??
       normalizeOptionalString(patientInformationRecord.doctorId) ??
@@ -570,16 +617,16 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
         ? requestedTest as TwoPQFormRecord["requestedTest"]
         : {},
     institutionInformation:
-      data.institutionInformation && typeof data.institutionInformation === "object"
-        ? data.institutionInformation as TwoPQFormRecord["institutionInformation"]
+      Object.keys(institutionInformationRecord).length > 0
+        ? institutionInformationRecord as TwoPQFormRecord["institutionInformation"]
         : undefined,
     sampleInformation:
       data.sampleInformation && typeof data.sampleInformation === "object"
         ? data.sampleInformation as TwoPQFormRecord["sampleInformation"]
         : undefined,
     caseInformation:
-      data.caseInformation && typeof data.caseInformation === "object"
-        ? data.caseInformation as TwoPQFormRecord["caseInformation"]
+      Object.keys(caseInformationRecord).length > 0
+        ? caseInformationRecord as TwoPQFormRecord["caseInformation"]
         : undefined,
     samplingInformation:
       Array.isArray(data.samplingInformation)
@@ -588,13 +635,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
               Boolean(entry) && typeof entry === "object"
           ) as TwoPQFormRecord["samplingInformation"]
         : undefined,
-    withdrawalCases:
-      Array.isArray(data.withdrawalCases)
-        ? data.withdrawalCases.filter(
-            (entry): entry is Record<string, unknown> =>
-              Boolean(entry) && typeof entry === "object"
-          ) as TwoPQFormRecord["withdrawalCases"]
-        : undefined,
+    withdrawalCases: withdrawalCases as TwoPQFormRecord["withdrawalCases"],
     createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
     updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
     authorEmail,
