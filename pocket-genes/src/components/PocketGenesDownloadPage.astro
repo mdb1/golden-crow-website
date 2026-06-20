@@ -1,0 +1,398 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getLocalizedPath } from '../i18n/index';
+import { defaultLang, type Lang } from '../i18n/ui';
+
+const APP_STORE_URL = 'https://apps.apple.com/ar/app/pocket-genes/id6748587627';
+
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+const isSpanish = lang === 'es';
+
+function localPath(path: string) {
+  return getLocalizedPath(path, lang);
+}
+
+const copy = isSpanish
+  ? {
+      title: 'Descargar Pocket Genes - RareFriends™',
+      eyebrow: 'Pocket Genes + RareFriends™',
+      heroTitle: 'Empezá desde Pocket Genes.',
+      heroLead:
+        'Pocket Genes es el punto de entrada para organizar reportes genéticos, aprender conceptos clave y preparar una participación más segura en RareFriends™.',
+      iosLabel: 'Descargar para iPhone',
+      androidLabel: 'Android',
+      androidStatus: 'Próximamente',
+      appStoreAlt: 'Descargar Pocket Genes en App Store',
+      privacyLabel: 'Privacidad primero',
+      privacyText:
+        'Tus reportes, variantes exactas e historia clínica no son públicos por defecto. RareFriends™ se construye alrededor de participación opt-in y control de lo que compartís.',
+      stepsTitle: 'Qué podés hacer desde la app',
+      steps: [
+        {
+          title: 'Ordenar reportes',
+          body: 'Reuní PDFs, paneles, proveedores, fechas y notas en un solo lugar.',
+        },
+        {
+          title: 'Aprender genética sin miedo',
+          body: 'Revisá conceptos como variantes, herencia, VUS, portadores y secuenciación en lenguaje accesible.',
+        },
+        {
+          title: 'Preparar conversaciones',
+          body: 'Llevá mejores preguntas a médicos, asesores genéticos u organizaciones de pacientes.',
+        },
+        {
+          title: 'Participar con más control',
+          body: 'Creá resúmenes comunitarios sin exponer reportes genéticos privados.',
+        },
+      ],
+      secondaryCta: 'Ver RareFriends™',
+      secondaryHref: '/pocket-genes/community',
+    }
+  : {
+      title: 'Download Pocket Genes - RareFriends™',
+      eyebrow: 'Pocket Genes + RareFriends™',
+      heroTitle: 'Start from Pocket Genes.',
+      heroLead:
+        'Pocket Genes is the entry point for organizing genetic reports, learning key concepts, and preparing safer participation in RareFriends™.',
+      iosLabel: 'Download for iPhone',
+      androidLabel: 'Android',
+      androidStatus: 'Coming soon',
+      appStoreAlt: 'Download Pocket Genes on the App Store',
+      privacyLabel: 'Privacy first',
+      privacyText:
+        'Your reports, exact variants, and medical history are not public by default. RareFriends™ is built around opt-in participation and control over what you share.',
+      stepsTitle: 'What you can do from the app',
+      steps: [
+        {
+          title: 'Organize reports',
+          body: 'Bring PDFs, panels, providers, dates, and notes into one place.',
+        },
+        {
+          title: 'Learn genetics without fear',
+          body: 'Review concepts like variants, inheritance, VUS, carrier status, and sequencing in accessible language.',
+        },
+        {
+          title: 'Prepare conversations',
+          body: 'Bring better questions to doctors, genetic counselors, or patient organizations.',
+        },
+        {
+          title: 'Participate with more control',
+          body: 'Create community summaries without exposing private genetic reports.',
+        },
+      ],
+      secondaryCta: 'See RareFriends™',
+      secondaryHref: '/pocket-genes/community',
+    };
+---
+
+<BaseLayout title={copy.title}>
+  <main class="download-page">
+    <section class="download-hero">
+      <div class="download-container download-hero-grid">
+        <div class="download-copy">
+          <p class="download-eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
+          <p class="download-lead">{copy.heroLead}</p>
+
+          <div class="download-actions">
+            <a class="download-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+              <span>{copy.iosLabel}</span>
+              <img src="/appStore.png" alt={copy.appStoreAlt} />
+            </a>
+            <button class="download-disabled" type="button" disabled>
+              <span>{copy.androidLabel}</span>
+              <strong>{copy.androidStatus}</strong>
+            </button>
+          </div>
+
+          <a class="download-secondary" href={localPath(copy.secondaryHref)}>{copy.secondaryCta}</a>
+        </div>
+
+        <div class="download-visual" aria-hidden="true">
+          <img class="download-phone" src="/mobile1.webp" alt="" fetchpriority="high" />
+          <img class="download-lab" src="/mobile2.webp" alt="" fetchpriority="high" />
+        </div>
+      </div>
+    </section>
+
+    <section class="download-privacy">
+      <div class="download-container download-privacy-inner">
+        <p class="download-eyebrow">{copy.privacyLabel}</p>
+        <h2>{copy.privacyText}</h2>
+      </div>
+    </section>
+
+    <section class="download-steps">
+      <div class="download-container">
+        <div class="download-section-heading">
+          <h2>{copy.stepsTitle}</h2>
+        </div>
+        <div class="download-step-grid">
+          {copy.steps.map((step) => (
+            <article class="download-step">
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .download-page {
+    --download-ink: #14213d;
+    --download-slate: #526073;
+    --download-border: #d9e2ec;
+    --download-soft: #f4f8fb;
+    --download-teal: #1d8f8f;
+    --download-rose: #d85b7f;
+    background: #ffffff;
+    color: var(--download-ink);
+  }
+
+  .download-container {
+    width: min(1120px, calc(100% - 2rem));
+    margin: 0 auto;
+  }
+
+  .download-hero {
+    min-height: 680px;
+    display: flex;
+    align-items: center;
+    padding: 8rem 0 4rem;
+    background: linear-gradient(135deg, #eef8f7 0%, #fff5f8 100%);
+    overflow: hidden;
+  }
+
+  .download-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(320px, 1.08fr);
+    gap: 4rem;
+    align-items: center;
+  }
+
+  .download-eyebrow {
+    margin: 0 0 1rem;
+    color: var(--download-teal);
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .download-copy h1 {
+    max-width: 620px;
+    margin: 0;
+    font-size: 4rem;
+    line-height: 1.02;
+    letter-spacing: 0;
+  }
+
+  .download-lead {
+    max-width: 640px;
+    margin: 1.25rem 0 0;
+    color: var(--download-slate);
+    font-size: 1.18rem;
+    line-height: 1.7;
+  }
+
+  .download-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .download-primary,
+  .download-disabled {
+    min-height: 74px;
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    font: inherit;
+  }
+
+  .download-primary {
+    background: var(--download-ink);
+    color: #ffffff;
+    text-decoration: none;
+    box-shadow: 0 16px 36px rgba(20, 33, 61, 0.18);
+  }
+
+  .download-primary span,
+  .download-disabled span {
+    font-weight: 800;
+  }
+
+  .download-primary img {
+    width: 132px;
+    height: auto;
+  }
+
+  .download-disabled {
+    border: 1px solid var(--download-border);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--download-slate);
+    cursor: not-allowed;
+  }
+
+  .download-disabled strong {
+    color: var(--download-rose);
+    font-size: 0.85rem;
+  }
+
+  .download-secondary {
+    display: inline-flex;
+    margin-top: 1.5rem;
+    color: var(--download-ink);
+    font-weight: 800;
+    text-decoration-color: var(--download-rose);
+    text-underline-offset: 0.25rem;
+  }
+
+  .download-visual {
+    min-height: 460px;
+    position: relative;
+  }
+
+  .download-visual img {
+    position: absolute;
+    display: block;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 18px 48px rgba(20, 33, 61, 0.18);
+  }
+
+  .download-phone {
+    width: min(58%, 330px);
+    top: 0;
+    left: 0;
+    transform: rotate(-5deg);
+  }
+
+  .download-lab {
+    width: min(58%, 330px);
+    right: 0;
+    bottom: 0;
+    transform: rotate(4deg);
+  }
+
+  .download-privacy,
+  .download-steps {
+    padding: 5rem 0;
+  }
+
+  .download-privacy {
+    background: #13233a;
+  }
+
+  .download-privacy .download-eyebrow {
+    color: #79e0d4;
+  }
+
+  .download-privacy h2 {
+    max-width: 900px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.93);
+    font-size: 2.35rem;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .download-section-heading h2 {
+    margin: 0 0 2rem;
+    font-size: 2.65rem;
+    line-height: 1.12;
+    letter-spacing: 0;
+  }
+
+  .download-step-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .download-step {
+    min-height: 100%;
+    padding: 1.35rem;
+    border: 1px solid var(--download-border);
+    border-radius: 8px;
+    background: var(--download-soft);
+  }
+
+  .download-step h3 {
+    margin: 0 0 0.65rem;
+    font-size: 1.05rem;
+    line-height: 1.25;
+  }
+
+  .download-step p {
+    margin: 0;
+    color: var(--download-slate);
+    line-height: 1.65;
+  }
+
+  @media (max-width: 920px) {
+    .download-hero-grid {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    .download-copy h1 {
+      font-size: 3rem;
+    }
+
+    .download-visual {
+      min-height: 380px;
+    }
+
+    .download-step-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .download-hero {
+      min-height: 760px;
+      padding: 7.5rem 0 3rem;
+    }
+
+    .download-copy h1 {
+      font-size: 2.4rem;
+    }
+
+    .download-actions,
+    .download-primary,
+    .download-disabled {
+      width: 100%;
+    }
+
+    .download-primary,
+    .download-disabled {
+      justify-content: space-between;
+    }
+
+    .download-visual {
+      min-height: 300px;
+    }
+
+    .download-phone,
+    .download-lab {
+      width: 62%;
+    }
+
+    .download-privacy h2,
+    .download-section-heading h2 {
+      font-size: 2rem;
+    }
+
+    .download-step-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

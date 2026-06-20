@@ -18,6 +18,9 @@ const page = getPocketGenesStoryPage(lang, slug);
 const navItems = getPocketGenesStoryNav(lang);
 
 function localPath(path: string) {
+  if (path.startsWith('#') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
   return getLocalizedPath(path, lang);
 }
 ---
@@ -95,7 +98,7 @@ function localPath(path: string) {
     </section>
 
     {page.sections.map((section, index) => (
-      <section class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1 }]}>
+      <section id={section.id} class:list={['pg-deep-section', { 'is-reversed': index % 2 === 1 }]}>
         <div class="pg-container pg-deep-grid">
           <div class="pg-deep-copy">
             <p class="pg-section-eyebrow">{section.eyebrow}</p>
