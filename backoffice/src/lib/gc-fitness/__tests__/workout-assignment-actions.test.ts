@@ -42,8 +42,8 @@ const mockDoc = jest.fn((id?: string) => ({
   id: id ?? "MOCK_DOC_ID",
 }));
 
-// `db.getAll(...refs)` batch-reads the exercise docs that
-// templateSnapshotForAssignment uses to enrich each exercise's localized name.
+// `resolveExerciseDocsById` reads exercise docs that templateSnapshotForAssignment
+// uses to enrich each exercise's localized name.
 // Resolve every ref to an exists=false snapshot so the enrichment takes its
 // `{ en: exerciseId, es: "" }` fallback and adds NO license (the original
 // exercise's license survives via spread). VALID_TEMPLATE's exercise(s) carry
@@ -1191,8 +1191,8 @@ describe("SC#2 acceptance — bulkAssignTemplate writes 10 clients in a single a
     expect(mockBatchSet).toHaveBeenCalledTimes(10);
     // Exactly one atomic commit.
     expect(mockBatchCommit).toHaveBeenCalledTimes(1);
-    // The template was read EXACTLY ONCE (not 10 times — server-side
-    // denormalization invariant).
-    expect(mockGet).toHaveBeenCalledTimes(1);
+    // One template read plus one exercise enrichment read for VALID_TEMPLATE's
+    // single exercise. The template is still not read once per client.
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 });

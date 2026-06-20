@@ -228,6 +228,7 @@ const TwoPQSamplingInformationSchema = z.object({
 });
 
 const TwoPQFormDraftStepSchema = z.enum([
+  "linkedWithdrawalCases",
   "linkedStudyRequest",
   "patientInformation",
   "medicalInformation",
@@ -265,10 +266,14 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
     caseInformation: TwoPQCaseInformationSchema.optional(),
     samplingInformation: z.array(TwoPQSamplingInformationSchema).optional(),
   }),
+  z.object({
+    formType: z.literal("withdrawal_request"),
+    linkedCaseIds: z.array(z.string().min(1)).min(1),
+  }),
 ]);
 
 const TwoPQFormDraftMutationSchema = z.object({
-  formType: z.enum(["study_request", "sample"]),
+  formType: z.enum(["study_request", "sample", "withdrawal_request"]),
   currentStep: TwoPQFormDraftStepSchema,
   stepIndex: z.number().int().min(0),
   state: z.record(z.string(), z.unknown()),
@@ -276,7 +281,7 @@ const TwoPQFormDraftMutationSchema = z.object({
 
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
-  formType: z.enum(["study_request", "sample"]).optional(),
+  formType: z.enum(["study_request", "sample", "withdrawal_request"]).optional(),
   limit: z.string().optional(),
   cursor: z.string().optional(),
   search: z.string().optional(),

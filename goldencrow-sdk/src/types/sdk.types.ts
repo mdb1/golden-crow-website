@@ -272,6 +272,7 @@ export type TwoPQCollectionKey =
   | "2pq_client";
 
 export type TwoPQFormDraftStepKey =
+  | "linkedWithdrawalCases"
   | "linkedStudyRequest"
   | "patientInformation"
   | "medicalInformation"
@@ -371,7 +372,7 @@ export interface TwoPQDetailRecord {
   linkedSamplings: TwoPQListItem[];
 }
 
-export type TwoPQFormType = "study_request" | "sample";
+export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
 
 export interface TwoPQFormRecord {
   id: string;
@@ -386,6 +387,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   linkedStudyRequestFormId?: string;
+  linkedCaseIds?: string[];
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
   linkedCaseId?: string;
@@ -398,6 +400,7 @@ export interface TwoPQFormRecord {
   sampleInformation?: Record<string, unknown>;
   caseInformation?: Record<string, unknown>;
   samplingInformation?: Record<string, unknown>[];
+  withdrawalCases?: Record<string, unknown>[];
   createdAt: string;
   updatedAt: string;
   authorEmail?: string;

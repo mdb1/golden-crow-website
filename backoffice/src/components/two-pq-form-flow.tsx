@@ -11,7 +11,9 @@ import {
   CircleX,
   FileText,
   Loader2,
+  PlusCircle,
   Save,
+  Search,
   Upload,
   X,
 } from "lucide-react";
@@ -40,6 +42,7 @@ import type {
 } from "@/lib/admin-areas";
 import { PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
 import { appText, type AppLanguage } from "@/lib/language";
+import { compactList } from "@/lib/moderation-utils";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import {
@@ -121,7 +124,13 @@ const SAMPLE_STEPS: StepKey[] = [
   "previewAndSignature",
 ];
 
+const WITHDRAWAL_REQUEST_STEPS: StepKey[] = [
+  "linkedWithdrawalCases",
+  "previewAndSignature",
+];
+
 const STEP_LABELS: Record<StepKey, string> = {
+  linkedWithdrawalCases: "Pick linked 2PQ cases",
   linkedStudyRequest: "Pick linked study request form",
   patientInformation: "Patient information",
   medicalInformation: "Medical information",
@@ -136,6 +145,8 @@ const STEP_LABELS: Record<StepKey, string> = {
 };
 
 const VALIDATION_FIELD_LABELS: Record<string, string> = {
+  linkedWithdrawalCases: "Linked 2PQ cases",
+  linkedWithdrawalCaseIds: "Linked 2PQ cases",
   linkedStudyRequest: "Linked study request form",
   linkedStudyRequestFormId: "Linked study request form",
   selectedPatientId: "Pick existing patient",
@@ -262,6 +273,7 @@ const BIOPSY_COUNT_OPTIONS = Array.from({ length: 30 }, (_, index) => {
 
 const CASE_STATUS_OPTIONS = [
   { value: "intake", label: "Intake" },
+  { value: "awaiting_pick_up", label: "Awaiting pick up" },
   { value: "active", label: "Active" },
   { value: "blocked", label: "Blocked" },
   { value: "reporting", label: "Reporting" },
@@ -419,6 +431,32 @@ function buildFormStorageProcessingSteps(
         "store-form",
         t("Store joined 2PQ form"),
         t("Persist the final form document with patient, institution, and test payloads.")
+      ),
+      pendingProcessingStep(
+        "clean-draft",
+        t("Clean temporary draft"),
+        t("Remove the one-user temporary draft after storage succeeds.")
+      ),
+    ];
+  }
+
+  if (formType === "withdrawal_request") {
+    return [
+      ...sharedSteps,
+      pendingProcessingStep(
+        "linked-cases",
+        t("Link selected 2PQ cases"),
+        `${t("Use")} ${flowState.linkedWithdrawalCaseIds.length} ${t("selected cases for this withdrawal request.")}`
+      ),
+      pendingProcessingStep(
+        "case-status",
+        t("Mark cases awaiting pick up"),
+        t("Update every selected case from Intake to Awaiting pick up.")
+      ),
+      pendingProcessingStep(
+        "store-form",
+        t("Store withdrawal request form"),
+        t("Persist the withdrawal request with its linked case snapshot.")
       ),
       pendingProcessingStep(
         "clean-draft",
@@ -733,6 +771,7 @@ function buildInitialState(
   referenceEmail = ""
 ): FlowState {
   return {
+    linkedWithdrawalCaseIds: [],
     linkedStudyRequestFormId: "",
     selectedPatientId: "",
     selectedInstitutionId: "",
@@ -838,6 +877,7 @@ function isStepErrorKey(key: string, step: StepKey) {
   }
 
   return (
+    (step === "linkedWithdrawalCases" && key === "linkedWithdrawalCaseIds") ||
     (step === "linkedStudyRequest" && key === "linkedStudyRequestFormId") ||
     (step === "patientInformation" && key === "selectedPatientId") ||
     (step === "institutionInformation" && key === "selectedInstitutionId") ||
@@ -956,6 +996,11 @@ function hydrateDraftState(
   const draftState = draft.state;
   return {
     ...defaultState,
+    linkedWithdrawalCaseIds: Array.isArray(draftState.linkedWithdrawalCaseIds)
+      ? draftState.linkedWithdrawalCaseIds.filter(
+          (caseId): caseId is string => typeof caseId === "string" && Boolean(caseId)
+        )
+      : defaultState.linkedWithdrawalCaseIds,
     linkedStudyRequestFormId:
       typeof draftState.linkedStudyRequestFormId === "string"
         ? draftState.linkedStudyRequestFormId
@@ -1046,6 +1091,12 @@ function validateStepFields(
 ): FieldErrors {
   const errors: FieldErrors = {};
   const t = (text: string) => appText(language, text);
+
+  if (step === "linkedWithdrawalCases") {
+    if (flowState.linkedWithdrawalCaseIds.length === 0) {
+      errors.linkedWithdrawalCaseIds = t("Select at least one linked 2PQ case.");
+    }
+  }
 
   if (step === "linkedStudyRequest") {
     if (!flowState.linkedStudyRequestFormId.trim()) {
@@ -1540,6 +1591,40 @@ function validateWholeDocument({
         "patientInformation",
         "selectedPatientId",
         t("Selected patient must belong to the selected institution and doctor.")
+      );
+    }
+  }
+
+  if (formType === "withdrawal_request") {
+    if (flowState.linkedWithdrawalCaseIds.length === 0) {
+      addIssue(
+        "linkedWithdrawalCases",
+        "linkedWithdrawalCaseIds",
+        t("Select at least one linked 2PQ case.")
+      );
+    }
+
+    const linkedCases = flowState.linkedWithdrawalCaseIds
+      .map((caseId) => cases.find((caseRecord) => caseRecord.id === caseId))
+      .filter((caseRecord): caseRecord is TwoPQListItem => Boolean(caseRecord));
+    const linkedCaseIds = new Set(linkedCases.map((caseRecord) => caseRecord.id));
+    flowState.linkedWithdrawalCaseIds.forEach((caseId) => {
+      if (!linkedCaseIds.has(caseId)) {
+        addIssue(
+          "linkedWithdrawalCases",
+          "linkedWithdrawalCaseIds",
+          t("Selected 2PQ case is not available in the current lookup data.")
+        );
+      }
+    });
+    const institutionIds = new Set(
+      linkedCases.map((caseRecord) => caseRecord.institutionId)
+    );
+    if (institutionIds.size > 1) {
+      addIssue(
+        "linkedWithdrawalCases",
+        "linkedWithdrawalCaseIds",
+        t("All selected 2PQ cases must belong to the same institution.")
       );
     }
   }
@@ -2199,7 +2284,12 @@ export function TwoPQFormFlow({
   const { language } = useAppLanguage();
   const router = useRouter();
   const t = (text: string) => appText(language, text);
-  const steps = formType === "study_request" ? STUDY_REQUEST_STEPS : SAMPLE_STEPS;
+  const steps =
+    formType === "study_request"
+      ? STUDY_REQUEST_STEPS
+      : formType === "sample"
+        ? SAMPLE_STEPS
+        : WITHDRAWAL_REQUEST_STEPS;
   const matchingDraft = initialDraft?.formType === formType ? initialDraft : null;
   const scopedInstitutionId =
     adminContext.role === "institution_admin" || adminContext.role === "institution_doctor"
@@ -2274,6 +2364,9 @@ export function TwoPQFormFlow({
   const [storedFormId, setStoredFormId] = useState<string | null>(null);
   const [doctorResponsibilityAlertOpen, setDoctorResponsibilityAlertOpen] =
     useState(false);
+  const [withdrawalCaseDialogOpen, setWithdrawalCaseDialogOpen] =
+    useState(false);
+  const [withdrawalCaseSearch, setWithdrawalCaseSearch] = useState("");
   const currentStep = steps[stepIndex] ?? steps[0];
   const currentStepLabel = t(STEP_LABELS[currentStep]);
   const availableDoctors = doctors.filter((doctor) =>
@@ -2298,6 +2391,32 @@ export function TwoPQFormFlow({
   const selectedStudyRequestForm = studyRequestForms.find(
     (form) => form.id === state.linkedStudyRequestFormId
   );
+  const selectedWithdrawalCases = state.linkedWithdrawalCaseIds
+    .map((caseId) => cases.find((caseRecord) => caseRecord.id === caseId))
+    .filter((caseRecord): caseRecord is TwoPQListItem => Boolean(caseRecord));
+  const selectedWithdrawalCaseIdSet = new Set(state.linkedWithdrawalCaseIds);
+  const normalizedWithdrawalCaseSearch = withdrawalCaseSearch
+    .trim()
+    .toLowerCase();
+  const withdrawalCaseMatches = cases
+    .filter((caseRecord) => !selectedWithdrawalCaseIdSet.has(caseRecord.id))
+    .filter((caseRecord) => {
+      if (!normalizedWithdrawalCaseSearch) {
+        return true;
+      }
+
+      const haystack = [
+        caseRecord.three_letter_code,
+        caseRecord.caseLabel,
+        caseRecord.id,
+        caseRecord.patientName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalizedWithdrawalCaseSearch);
+    })
+    .slice(0, 20);
   const selectedStudyRequestDoctorId = selectedStudyRequestForm
     ? formDoctorId(selectedStudyRequestForm)
     : "";
@@ -2370,6 +2489,10 @@ export function TwoPQFormFlow({
     label: t(option.label),
   }));
   const processingOptions = PROCESSING_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.label),
+  }));
+  const caseStatusOptions = CASE_STATUS_OPTIONS.map((option) => ({
     value: option.value,
     label: t(option.label),
   }));
@@ -2879,6 +3002,56 @@ export function TwoPQFormFlow({
       ],
     },
   ];
+  const withdrawalPreviewSections: PreviewSectionData[] = [
+    {
+      title: t("Selected 2PQ cases"),
+      fields:
+        selectedWithdrawalCases.length > 0
+          ? selectedWithdrawalCases.map((caseRecord, index) => ({
+              label: `${t("Case")} ${index + 1}`,
+              value: compactList([
+                displayCaseLabel(caseRecord.caseLabel) ||
+                  caseRecord.three_letter_code ||
+                  caseRecord.id,
+                `${t("Current status")}: ${previewOptionValue(
+                  caseStatusOptions,
+                  caseRecord.caseStatus
+                )}`,
+                `${t("New status")}: ${previewOptionValue(
+                  caseStatusOptions,
+                  "awaiting_pick_up"
+                )}`,
+                caseRecord.patientName
+                  ? `${t("Patient")}: ${caseRecord.patientName}`
+                  : undefined,
+                caseRecord.doctorName
+                  ? `${t("Doctor")}: ${caseRecord.doctorName}`
+                  : undefined,
+                caseRecord.id,
+              ]),
+              wide: true,
+            }))
+          : [
+              {
+                label: t("Selected 2PQ cases"),
+                value: notProvidedLabel,
+                wide: true,
+              },
+            ],
+    },
+    {
+      title: t("Withdrawal effect"),
+      fields: [
+        {
+          label: t("Case status update"),
+          value: t(
+            "When this form is signed, every selected case will be marked as Awaiting pick up."
+          ),
+          wide: true,
+        },
+      ],
+    },
+  ];
 
   const progressLabel = useMemo(
     () =>
@@ -2924,7 +3097,9 @@ export function TwoPQFormFlow({
   const previewStepIndex = steps.indexOf("previewAndSignature");
   const currentStepContinuesToPreview =
     ((formType === "study_request" && currentStep === "institutionInformation") ||
-      (formType === "sample" && currentStep === "samplingInformation")) &&
+      (formType === "sample" && currentStep === "samplingInformation") ||
+      (formType === "withdrawal_request" &&
+        currentStep === "linkedWithdrawalCases")) &&
     previewStepIndex >= 0;
   const processDialogOpen =
     Boolean(wholeDataValidationReport) || storageProcessingSteps.length > 0;
@@ -3245,6 +3420,36 @@ export function TwoPQFormFlow({
         },
       };
     });
+  }
+
+  function addWithdrawalCase(caseId: string) {
+    setState((current) =>
+      current.linkedWithdrawalCaseIds.includes(caseId)
+        ? current
+        : {
+            ...current,
+            linkedWithdrawalCaseIds: [
+              ...current.linkedWithdrawalCaseIds,
+              caseId,
+            ],
+          }
+    );
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next.linkedWithdrawalCaseIds;
+      return next;
+    });
+    setWithdrawalCaseDialogOpen(false);
+    setWithdrawalCaseSearch("");
+  }
+
+  function removeWithdrawalCase(caseId: string) {
+    setState((current) => ({
+      ...current,
+      linkedWithdrawalCaseIds: current.linkedWithdrawalCaseIds.filter(
+        (linkedCaseId) => linkedCaseId !== caseId
+      ),
+    }));
   }
 
   function selectLinkedStudyRequestForm(formId: string) {
@@ -3695,7 +3900,7 @@ export function TwoPQFormFlow({
 
     if (
       boundedStepIndex > stepIndex &&
-      stepIndex === 0 &&
+      currentStep === "patientInformation" &&
       !state.patientInformation.doctorId
     ) {
       showDoctorResponsibilityAlert();
@@ -3733,7 +3938,10 @@ export function TwoPQFormFlow({
     setStorageProcessingError(null);
     setStoredFormId(null);
 
-    if (!submissionState.patientInformation.doctorId) {
+    if (
+      formType !== "withdrawal_request" &&
+      !submissionState.patientInformation.doctorId
+    ) {
       setWholeDataValidationReport(null);
       showDoctorResponsibilityAlert();
       setStepIndex(0);
@@ -3808,6 +4016,11 @@ export function TwoPQFormFlow({
               requestedTest: submissionState.requestedTest,
               institutionInformation: submissionState.institutionInformation,
             }
+          : formType === "withdrawal_request"
+            ? {
+                formType,
+                linkedCaseIds: submissionState.linkedWithdrawalCaseIds,
+              }
           : {
               formType,
               linkedStudyRequestFormId: submissionState.linkedStudyRequestFormId,
@@ -3900,6 +4113,83 @@ export function TwoPQFormFlow({
         </DialogContent>
       </Dialog>
       <Dialog
+        open={withdrawalCaseDialogOpen}
+        onOpenChange={setWithdrawalCaseDialogOpen}
+      >
+        <DialogContent className="max-h-[calc(100vh-1.5rem)] max-w-3xl overflow-hidden rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("Add 2PQ case")}</DialogTitle>
+            <DialogDescription>
+              {t("Search by three-letter code, case label, or case ID.")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 overflow-hidden">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={withdrawalCaseSearch}
+                onChange={(event) => setWithdrawalCaseSearch(event.target.value)}
+                placeholder={t("Three-letter code")}
+                className="pl-9"
+              />
+            </div>
+            <div className="max-h-[52vh] overflow-y-auto rounded-xl border border-border/70">
+              {withdrawalCaseMatches.length === 0 ? (
+                <div className="px-4 py-5 text-sm text-muted-foreground">
+                  {t("No 2PQ cases match this search.")}
+                </div>
+              ) : (
+                <div className="divide-y divide-border/70">
+                  {withdrawalCaseMatches.map((caseRecord) => (
+                    <div
+                      key={caseRecord.id}
+                      className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">
+                          {displayCaseLabel(caseRecord.caseLabel) ||
+                            caseRecord.three_letter_code ||
+                            caseRecord.id}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {compactList([
+                            caseRecord.id,
+                            caseRecord.three_letter_code,
+                            caseRecord.patientName,
+                            caseRecord.doctorName,
+                            `${t("Status")}: ${previewOptionValue(
+                              caseStatusOptions,
+                              caseRecord.caseStatus
+                            )}`,
+                          ])}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => addWithdrawalCase(caseRecord.id)}
+                      >
+                        <PlusCircle className="size-3.5" />
+                        {t("Add")}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWithdrawalCaseDialogOpen(false)}
+            >
+              {t("Close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
         open={previewValidationDialogOpen}
         onOpenChange={(open) => {
           if (
@@ -3920,7 +4210,7 @@ export function TwoPQFormFlow({
                 </DialogTitle>
                 <DialogDescription className="mt-2 text-sm">
                   {t(
-                    "The form validates steps 1 to 5 before opening the read-only preview."
+                    "The form validates the completed steps before opening the read-only preview."
                   )}
                 </DialogDescription>
               </div>
@@ -3946,7 +4236,7 @@ export function TwoPQFormFlow({
             {previewValidationReport?.status === "running" ? (
               <div className="flex items-center gap-3 rounded-xl border border-indigo-100 bg-indigo-50/75 px-4 py-4 text-sm text-indigo-950/76 dark:border-indigo-300/16 dark:bg-indigo-400/10 dark:text-indigo-50/76">
                 <Loader2 className="h-4 w-4 animate-spin text-indigo-700 dark:text-indigo-200" />
-                {t("Validating steps 1 to 5 before opening preview.")}
+                {t("Validating completed steps before opening preview.")}
               </div>
             ) : null}
 
@@ -3954,8 +4244,8 @@ export function TwoPQFormFlow({
               <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/75 px-4 py-4 text-sm text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100">
                 <CheckCircle2 className="h-4 w-4" />
                 {draftPending
-                  ? t("Steps 1 to 5 passed validation. Saving draft checkpoint.")
-                  : t("Steps 1 to 5 passed validation. Opening preview.")}
+                  ? t("Completed steps passed validation. Saving draft checkpoint.")
+                  : t("Completed steps passed validation. Opening preview.")}
               </div>
             ) : null}
 
@@ -4376,7 +4666,9 @@ export function TwoPQFormFlow({
             <h2 className="font-heading text-2xl font-semibold text-foreground">
               {formType === "study_request"
                 ? t("Study request form")
-                : t("Biopsy form")}
+                : formType === "sample"
+                  ? t("Biopsy form")
+                  : t("Withdrawal request form")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {currentStepLabel}
@@ -4444,6 +4736,87 @@ export function TwoPQFormFlow({
             );
           })}
         </div>
+
+        {currentStep === "linkedWithdrawalCases" ? (
+          <div className="grid gap-4">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 px-4 py-4 dark:border-indigo-300/18 dark:bg-indigo-950/20">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="section-eyebrow text-indigo-700 dark:text-indigo-200">
+                    {t("Selected 2PQ cases")}
+                  </p>
+                  <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+                    {selectedWithdrawalCases.length} {t("cases selected")}
+                  </h3>
+                  <p className="mt-1 text-sm text-indigo-950/70 dark:text-indigo-50/72">
+                    {t(
+                      "Every selected case will be marked as Awaiting pick up when the form is signed."
+                    )}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className="bg-indigo-600 text-white hover:bg-indigo-700"
+                  onClick={() => setWithdrawalCaseDialogOpen(true)}
+                >
+                  <PlusCircle className="size-4" />
+                  {t("Add")}
+                </Button>
+              </div>
+              <FieldError message={errorFor("linkedWithdrawalCaseIds")} />
+            </div>
+
+            {selectedWithdrawalCases.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/80 bg-background/50 px-4 py-5 text-sm text-muted-foreground">
+                {t("No 2PQ cases selected yet.")}
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {selectedWithdrawalCases.map((caseRecord) => (
+                  <div
+                    key={caseRecord.id}
+                    className="rounded-xl border border-border/75 bg-background/64 px-4 py-3"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">
+                          {displayCaseLabel(caseRecord.caseLabel) ||
+                            caseRecord.three_letter_code ||
+                            caseRecord.id}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {compactList([
+                            caseRecord.id,
+                            caseRecord.three_letter_code,
+                            caseRecord.patientName,
+                            caseRecord.doctorName,
+                            `${t("Current status")}: ${previewOptionValue(
+                              caseStatusOptions,
+                              caseRecord.caseStatus
+                            )}`,
+                            `${t("New status")}: ${previewOptionValue(
+                              caseStatusOptions,
+                              "awaiting_pick_up"
+                            )}`,
+                          ])}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeWithdrawalCase(caseRecord.id)}
+                      >
+                        <X className="size-3.5" />
+                        {t("Remove")}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
 
         {currentStep === "linkedStudyRequest" ? (
           <div className="grid gap-4">
@@ -5320,7 +5693,9 @@ export function TwoPQFormFlow({
                 <h2 className="mt-2 font-heading text-2xl font-semibold text-black">
                   {formType === "study_request"
                     ? t("Study request form preview")
-                    : t("Biopsy form preview")}
+                    : formType === "sample"
+                      ? t("Biopsy form preview")
+                      : t("Withdrawal request form preview")}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
                   {t(
@@ -5332,7 +5707,9 @@ export function TwoPQFormFlow({
               <div className="mt-8 space-y-8">
                 {(formType === "study_request"
                   ? studyRequestPreviewSections
-                  : biopsyFormPreviewSections
+                  : formType === "sample"
+                    ? biopsyFormPreviewSections
+                    : withdrawalPreviewSections
                 ).map((section) => (
                   <PreviewPaperSection key={section.title} section={section} />
                 ))}
@@ -5891,12 +6268,16 @@ export function TwoPQFormFlow({
         {currentStep === "previewAndSignature" ? null : (
         <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-muted-foreground">
-            {selectedInstitution?.name ?? state.institutionInformation.name
-              ? `${t("Institution")}: ${
-                  selectedInstitution?.name ?? state.institutionInformation.name
-                }`
-              : t("No institution selected")}{" "}
-            {selectedDoctor ? `· ${t("Doctor")}: ${selectedDoctor.fullName}` : ""}
+            {formType === "withdrawal_request"
+              ? `${selectedWithdrawalCases.length} ${t("cases selected")}`
+              : selectedInstitution?.name ?? state.institutionInformation.name
+                ? `${t("Institution")}: ${
+                    selectedInstitution?.name ?? state.institutionInformation.name
+                  }`
+                : t("No institution selected")}{" "}
+            {formType !== "withdrawal_request" && selectedDoctor
+              ? `· ${t("Doctor")}: ${selectedDoctor.fullName}`
+              : ""}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button
@@ -5941,6 +6322,9 @@ export function TwoPQFormFlow({
                     ? t("Generate table")
                     : currentStep === "samplingInformation" && formType === "sample"
                       ? t("Continue to preview")
+                      : currentStep === "linkedWithdrawalCases" &&
+                          formType === "withdrawal_request"
+                        ? t("Continue to preview")
                   : t("Continue")}
                 <ArrowRight className="size-4" />
               </Button>

@@ -133,6 +133,7 @@ const SAMPLE_TYPE_LABEL_BY_VALUE: Record<string, string> = {
 
 const CASE_STATUS_LABEL_BY_VALUE: Record<string, string> = {
   intake: "Intake",
+  awaiting_pick_up: "Awaiting pick up",
   active: "Active",
   blocked: "Blocked",
   reporting: "Reporting",
@@ -597,6 +598,103 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const cases = form.withdrawalCases ?? [];
+  const linkedCaseIds = form.linkedCaseIds ?? [];
+
+  if (cases.length === 0 && linkedCaseIds.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 px-5 py-5 shadow-[0_16px_40px_rgba(16,185,129,0.12)] dark:border-emerald-300/24 dark:bg-emerald-950/20">
+      <div className="flex flex-col gap-1">
+        <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
+          {t("Linked entities")}
+        </p>
+        <h2 className="font-heading text-xl font-semibold text-emerald-950 dark:text-emerald-50">
+          {t("2PQ cases awaiting pick up")}
+        </h2>
+        <p className="text-sm text-emerald-950/72 dark:text-emerald-50/72">
+          {t("These cases were linked to this withdrawal request form.")}
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3">
+        {(cases.length > 0 ? cases : linkedCaseIds.map((caseId) => ({ id: caseId }))).map(
+          (caseRecord, index) => {
+            const caseId = getTextValue(caseRecord, "id") ?? linkedCaseIds[index];
+            const caseLabel =
+              displayCaseLabel(getTextValue(caseRecord, "caseLabel")) ||
+              getTextValue(caseRecord, "three_letter_code") ||
+              caseId;
+
+            return (
+              <div
+                key={`${caseId}-${index}`}
+                className="rounded-xl border border-emerald-200 bg-white/72 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-950/24"
+              >
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-heading text-2xl font-semibold text-emerald-950 dark:text-emerald-50">
+                      {caseLabel}
+                    </p>
+                    <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                      {[
+                        {
+                          label: t("Previous status"),
+                          value: formatValue(
+                            getTextValue(caseRecord, "previousCaseStatus"),
+                            language,
+                            t,
+                            "caseStatus"
+                          ),
+                        },
+                        {
+                          label: t("New status"),
+                          value: formatValue(
+                            getTextValue(caseRecord, "caseStatus") ??
+                              "awaiting_pick_up",
+                            language,
+                            t,
+                            "caseStatus"
+                          ),
+                        },
+                        {
+                          label: t("Case ID"),
+                          value: caseId ?? t("Not provided"),
+                        },
+                      ].map((field) => (
+                        <div key={field.label}>
+                          <dt className="text-xs font-semibold uppercase text-emerald-900/62 dark:text-emerald-100/62">
+                            {field.label}
+                          </dt>
+                          <dd className="mt-0.5 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
+                            {field.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                  {caseId ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/2pq-dashboard/cases/${encodeURIComponent(caseId)}`}>
+                        {t("Open")}
+                        <ArrowRight className="size-3.5" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          }
+        )}
+      </div>
+    </section>
+  );
+}
+
 function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -715,6 +813,10 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       form.institutionId ||
       getTextValue(form.patientInformation, "institutionId"),
   };
+  const formTitle =
+    form.formType === "withdrawal_request"
+      ? t("Withdrawal request form")
+      : form.patientName ?? t("Unnamed patient");
 
   return (
     <div className="flex flex-col gap-5">
@@ -735,7 +837,7 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
           <div className="min-w-0">
             <p className="section-eyebrow">{form.id}</p>
             <h1 className="font-heading text-3xl font-semibold text-foreground">
-              {form.patientName ?? t("Unnamed patient")}
+              {formTitle}
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               {compactList([
@@ -766,7 +868,26 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
         </div>
       </section>
 
-      {form.formType === "sample" ? (
+      {form.formType === "withdrawal_request" ? (
+        <>
+          <WithdrawalCasesSection form={form} />
+          <DetailSection
+            title={t("Withdrawal request")}
+            fields={[
+              { key: "createdAt", label: "Created at", type: "datetime" },
+              { key: "updatedAt", label: "Last update", type: "datetime" },
+              { key: "linkedCaseCount", label: "Linked case count" },
+            ]}
+            data={{
+              createdAt: form.createdAt,
+              updatedAt: form.updatedAt,
+              linkedCaseCount: String(
+                form.linkedCaseIds?.length ?? form.withdrawalCases?.length ?? 0
+              ),
+            }}
+          />
+        </>
+      ) : form.formType === "sample" ? (
         <>
           <LinkedRecordsSection form={form} />
           <PatientLinkSection form={form} />

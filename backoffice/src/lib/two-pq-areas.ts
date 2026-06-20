@@ -198,6 +198,7 @@ const ASSIGNED_SCOPE_ACCESS: RoleAccessSpec[] = [
 
 const CASE_STATUS_OPTIONS: TwoPQOption[] = [
   { value: "intake", label: "Intake" },
+  { value: "awaiting_pick_up", label: "Awaiting pick up" },
   { value: "active", label: "Active" },
   { value: "blocked", label: "Blocked" },
   { value: "reporting", label: "Reporting" },

@@ -3,6 +3,7 @@ import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type {
   TwoPQFormDraftRecord,
   TwoPQFormRecord,
+  TwoPQFormType,
   TwoPQFormsOrder,
   TwoPQFormsPage,
 } from "@/lib/two-pq-forms";
@@ -67,7 +68,7 @@ export async function getTwoPQFormLookupData(
 export async function getTwoPQForms(
   options: {
     includeArchived?: boolean;
-    formType?: "study_request" | "sample";
+    formType?: TwoPQFormType;
     limit?: number;
     search?: string;
     createdFrom?: string;
@@ -83,7 +84,7 @@ export async function getTwoPQForms(
 export async function getTwoPQFormsPage(
   options: {
     includeArchived?: boolean;
-    formType?: "study_request" | "sample";
+    formType?: TwoPQFormType;
     limit?: number;
     search?: string;
     createdFrom?: string;

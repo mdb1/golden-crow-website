@@ -70,6 +70,8 @@ export function TwoPQFormCompletionDialog({
           <h3 className="mt-2 font-heading text-3xl font-semibold text-white">
             {createdType === "sample"
               ? t("The biopsy form is ready and stored")
+              : createdType === "withdrawal_request"
+                ? t("The withdrawal request form is ready and stored")
               : t("The 2PQ form is stored and ready")}
           </h3>
           <p className="mt-2 max-w-lg text-sm text-indigo-50/84">

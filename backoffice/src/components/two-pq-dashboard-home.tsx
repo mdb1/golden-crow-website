@@ -144,6 +144,12 @@ export function TwoPQDashboardHome({
                   Completar formulario de muestra
                 </Link>
               </Button>
+              <Button className="min-h-11 justify-center whitespace-normal rounded-xl bg-indigo-600 px-5 text-left leading-snug text-white shadow-[0_14px_32px_rgba(79,70,229,0.2)] hover:bg-indigo-700" asChild>
+                <Link href="/2pq-dashboard/forms/withdrawal-request/new">
+                  <ClipboardList className="size-4" />
+                  Completar formulario de solicitud de retiro
+                </Link>
+              </Button>
               {formDraft && draftHref ? (
                 <Button
                   className="min-h-11 justify-center whitespace-normal rounded-xl border border-rose-200 bg-white/76 px-5 text-left leading-snug text-rose-950 shadow-[0_14px_32px_rgba(244,63,94,0.14)] hover:bg-rose-50 dark:border-rose-300/24 dark:bg-rose-400/12 dark:text-rose-50 dark:hover:bg-rose-400/18"

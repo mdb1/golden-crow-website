@@ -23,7 +23,9 @@ function one(value: string | string[] | undefined) {
 
 function formTypeFromParam(value: string | string[] | undefined): TwoPQFormType | undefined {
   const normalized = one(value);
-  return normalized === "study_request" || normalized === "sample"
+  return normalized === "study_request" ||
+    normalized === "sample" ||
+    normalized === "withdrawal_request"
     ? normalized
     : undefined;
 }
@@ -97,7 +99,7 @@ export default async function TwoPQFormsPage({
       <PageHero
         eyebrow="2PQ"
         title={t("Forms")}
-        description={t("Stored 2PQ study request and biopsy forms.")}
+        description={t("Stored 2PQ study request, biopsy, and withdrawal forms.")}
         actions={
           <>
             {formDraft && draftHref ? (

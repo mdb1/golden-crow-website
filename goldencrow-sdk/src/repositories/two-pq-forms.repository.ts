@@ -32,6 +32,7 @@ import type {
 
 const FORMS_COLLECTION = "2pq_forms";
 const FORM_DRAFTS_COLLECTION = "2pq-form-drafts";
+const CASES_COLLECTION = "2pq_case";
 const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
@@ -179,14 +180,15 @@ type SamplingInformationInput = {
 type TwoPQFormInput = {
   formType: TwoPQFormType;
   linkedStudyRequestFormId?: string;
+  linkedCaseIds?: string[];
   selectedPatientId?: string;
   selectedInstitutionId?: string;
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
-  patientInformation: PatientInformationInput;
+  patientInformation?: PatientInformationInput;
   medicalInformation?: MedicalInformationInput;
   previousGeneticTests?: PreviousGeneticTestsInput;
-  requestedTest: RequestedTestInput;
+  requestedTest?: RequestedTestInput;
   institutionInformation?: InstitutionInformationInput;
   sampleInformation?: SampleInformationInput;
   caseInformation?: CaseInformationInput;
@@ -219,6 +221,16 @@ type ListTwoPQFormsPage = {
 
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry));
 }
 
 function normalizeRequiredString(value: unknown, label: string) {
@@ -254,11 +266,20 @@ function normalizeDateBoundary(value: unknown, boundary: "start" | "end") {
 
 function formSearchHaystack(form: TwoPQFormRecord) {
   const patientInformation = form.patientInformation ?? {};
+  const withdrawalCases = form.withdrawalCases ?? [];
   return normalizeSearchText(
     [
       form.patientName,
       form.patientEmail,
       form.selectedPatientId,
+      ...(form.linkedCaseIds ?? []),
+      ...withdrawalCases.flatMap((caseRecord) => [
+        caseRecord.id,
+        caseRecord.three_letter_code,
+        caseRecord.caseLabel,
+        caseRecord.caseStatus,
+        caseRecord.patientName,
+      ]),
       patientInformation.fullName,
       patientInformation.firstName,
       patientInformation.lastName,
@@ -489,7 +510,10 @@ function toPatientRecord(id: string, data: Record<string, unknown>): PatientReco
 }
 
 function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQFormRecord {
-  const formType = data.formType === "sample" ? "sample" : "study_request";
+  const formType =
+    data.formType === "sample" || data.formType === "withdrawal_request"
+      ? data.formType
+      : "study_request";
   const patientInformation = data.patientInformation;
   const patientInformationRecord =
     patientInformation && typeof patientInformation === "object"
@@ -519,6 +543,7 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
     linkedStudyRequestFormId: normalizeOptionalString(data.linkedStudyRequestFormId),
+    linkedCaseIds: normalizeStringArray(data.linkedCaseIds),
     selectedCaseId: normalizeOptionalString(data.selectedCaseId),
     selectedRequestingDoctorId: normalizeOptionalString(data.selectedRequestingDoctorId),
     linkedCaseId: normalizeOptionalString(data.linkedCaseId),
@@ -559,6 +584,13 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
               Boolean(entry) && typeof entry === "object"
           ) as TwoPQFormRecord["samplingInformation"]
         : undefined,
+    withdrawalCases:
+      Array.isArray(data.withdrawalCases)
+        ? data.withdrawalCases.filter(
+            (entry): entry is Record<string, unknown> =>
+              Boolean(entry) && typeof entry === "object"
+          ) as TwoPQFormRecord["withdrawalCases"]
+        : undefined,
     createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
     updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
     authorEmail,
@@ -577,7 +609,10 @@ function toTwoPQFormDraftRecord(
   id: string,
   data: Record<string, unknown>
 ): TwoPQFormDraftRecord {
-  const formType = data.formType === "study_request" ? "study_request" : "sample";
+  const formType =
+    data.formType === "sample" || data.formType === "withdrawal_request"
+      ? data.formType
+      : "study_request";
   const state = data.state;
   return {
     id,
@@ -1111,6 +1146,57 @@ function samplingRecordToFormInformation(record: {
   });
 }
 
+function normalizeWithdrawalCaseIds(value: unknown) {
+  const ids = normalizeStringArray(value) ?? [];
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) {
+    throw new AdminRepositoryError("At least one 2PQ case is required.", 400);
+  }
+  if (uniqueIds.length > 50) {
+    throw new AdminRepositoryError("Withdrawal request can link at most 50 cases.", 400);
+  }
+
+  return uniqueIds;
+}
+
+function canWriteWithdrawalCase(
+  context: AdminContext,
+  record: Pick<TwoPQFormRecord, "institutionId" | "doctorId">
+) {
+  if (context.role === "full_admin") {
+    return true;
+  }
+  if (context.role === "institution_admin") {
+    return context.institutionId === record.institutionId;
+  }
+  return (
+    context.role === "institution_doctor" &&
+    context.institutionId === record.institutionId &&
+    context.doctorId === record.doctorId
+  );
+}
+
+function caseDocumentToWithdrawalInformation(
+  id: string,
+  data: Record<string, unknown>
+) {
+  const caseStatus = normalizeOptionalString(data.caseStatus);
+  return compactRecord({
+    id,
+    institutionId: normalizeOptionalString(data.institutionId),
+    doctorId: normalizeOptionalString(data.doctorId),
+    patientId: normalizeOptionalString(data.patientId),
+    three_letter_code: normalizeOptionalString(data.three_letter_code),
+    caseLabel: normalizeOptionalString(data.caseLabel),
+    previousCaseStatus: caseStatus,
+    caseStatus: "awaiting_pick_up",
+    caseType: normalizeOptionalString(data.caseType),
+    priority: normalizeOptionalString(data.priority),
+    requestedAt: normalizeOptionalString(data.requestedAt),
+    notes: normalizeOptionalString(data.notes),
+  });
+}
+
 function canViewTwoPQForm(
   context: AdminContext,
   form: Pick<TwoPQFormRecord, "institutionId">
@@ -1396,7 +1482,122 @@ export async function createTwoPQFormForContext(
 ): Promise<TwoPQFormRecord> {
   const authorEmail = normalizeEmail(context.email, "Form author email");
   const authorUid = normalizeRequiredString(context.uid, "Form author uid");
-  const patientInformation = normalizePatientInformation(payload.patientInformation);
+
+  if (payload.formType === "withdrawal_request") {
+    const linkedCaseIds = normalizeWithdrawalCaseIds(payload.linkedCaseIds);
+    const caseSnapshots = await Promise.all(
+      linkedCaseIds.map((caseId) =>
+        adminDb.collection(CASES_COLLECTION).doc(caseId).get()
+      )
+    );
+    const now = new Date().toISOString();
+    const withdrawalCases = caseSnapshots.map((snapshot, index) => {
+      if (!snapshot.exists) {
+        throw new AdminRepositoryError(
+          `2PQ case ${linkedCaseIds[index]} was not found.`,
+          404
+        );
+      }
+
+      const data = snapshot.data() as Record<string, unknown>;
+      const caseInformation = caseDocumentToWithdrawalInformation(
+        snapshot.id,
+        data
+      );
+      if (!caseInformation.institutionId || !caseInformation.doctorId) {
+        throw new AdminRepositoryError(
+          `2PQ case ${snapshot.id} is missing institution or doctor scope.`,
+          400
+        );
+      }
+      if (
+        !canWriteWithdrawalCase(context, {
+          institutionId: String(caseInformation.institutionId),
+          doctorId: String(caseInformation.doctorId),
+        })
+      ) {
+        throw new AdminRepositoryError(
+          `You cannot update 2PQ case ${snapshot.id}.`,
+          403
+        );
+      }
+
+      return caseInformation;
+    });
+    const institutionIds = new Set(
+      withdrawalCases.map((caseRecord) => String(caseRecord.institutionId))
+    );
+    if (institutionIds.size !== 1) {
+      throw new AdminRepositoryError(
+        "All selected 2PQ cases must belong to the same institution.",
+        400
+      );
+    }
+
+    const primaryCase = withdrawalCases[0];
+    if (!primaryCase) {
+      throw new AdminRepositoryError("At least one 2PQ case is required.", 400);
+    }
+    const institutionId = String(primaryCase.institutionId);
+    const doctorId = String(primaryCase.doctorId);
+    const selectedInstitution = await getInstitutionById(institutionId);
+    const formId = await getNextFormId();
+    const document = {
+      id: formId,
+      formType: payload.formType,
+      collectionKey: FORMS_COLLECTION,
+      institutionId,
+      doctorId,
+      selectedPatientId: null,
+      selectedInstitutionId: institutionId,
+      selectedRequestingDoctorId: null,
+      patientName: `Solicitud de retiro (${withdrawalCases.length})`,
+      patientEmail: null,
+      institutionName: selectedInstitution?.name ?? null,
+      requestedTestName: "Solicitud de retiro",
+      linkedStudyRequestFormId: null,
+      linkedCaseIds,
+      selectedCaseId: null,
+      linkedCaseId: null,
+      linkedSamplingIds: [],
+      patientInformation: {},
+      requestedTest: {},
+      withdrawalCases,
+      createdAt: now,
+      updatedAt: now,
+      authorEmail,
+      authorUid,
+      createdByEmail: authorEmail,
+      createdByUid: authorUid,
+      updatedByEmail: authorEmail,
+      updatedByUid: authorUid,
+    };
+
+    const batch = adminDb.batch();
+    batch.set(adminDb.collection(FORMS_COLLECTION).doc(formId), document);
+    linkedCaseIds.forEach((caseId) => {
+      batch.set(
+        adminDb.collection(CASES_COLLECTION).doc(caseId),
+        {
+          caseStatus: "awaiting_pick_up",
+          withdrawalFormId: formId,
+          withdrawalRequestedAt: now,
+          last_updated_date: now,
+          updatedAt: now,
+          updatedByEmail: authorEmail,
+        },
+        { merge: true }
+      );
+    });
+    batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
+    await batch.commit();
+
+    return toTwoPQFormRecord(formId, document);
+  }
+
+  const patientInformation = normalizePatientInformation(
+    payload.patientInformation ?? {}
+  );
   const institutionId =
     context.role === "institution_admin" || context.role === "institution_doctor"
       ? context.institutionId ?? patientInformation.institutionId
@@ -1565,7 +1766,10 @@ export async function createTwoPQFormForContext(
     );
   }
 
-  const requestedTest = normalizeRequestedTest(payload.requestedTest, payload.formType);
+  const requestedTest = normalizeRequestedTest(
+    payload.requestedTest ?? {},
+    payload.formType
+  );
   let selectedCaseId = normalizeOptionalString(payload.selectedCaseId);
   let linkedCaseId: string | undefined;
   let linkedSamplingIds: string[] | undefined;

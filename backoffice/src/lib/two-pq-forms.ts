@@ -1,4 +1,4 @@
-export type TwoPQFormType = "study_request" | "sample";
+export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
 
 export type PatientInformationFormState = {
   institutionId: string;
@@ -119,6 +119,7 @@ export type SamplingInformationFormState = {
 };
 
 export type TwoPQFormDraftStepKey =
+  | "linkedWithdrawalCases"
   | "linkedStudyRequest"
   | "patientInformation"
   | "medicalInformation"
@@ -132,6 +133,7 @@ export type TwoPQFormDraftStepKey =
   | "samplingInformation";
 
 export type TwoPQFormDraftState = {
+  linkedWithdrawalCaseIds: string[];
   linkedStudyRequestFormId: string;
   selectedPatientId: string;
   selectedInstitutionId: string;
@@ -161,6 +163,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   linkedStudyRequestFormId?: string;
+  linkedCaseIds?: string[];
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
   linkedCaseId?: string;
@@ -173,6 +176,7 @@ export interface TwoPQFormRecord {
   sampleInformation?: Record<string, unknown>;
   caseInformation?: Record<string, unknown>;
   samplingInformation?: Record<string, unknown>[];
+  withdrawalCases?: Record<string, unknown>[];
   createdAt: string;
   updatedAt: string;
   authorEmail?: string;
@@ -214,15 +218,18 @@ export interface TwoPQFormDraftRecord {
 export const TWO_PQ_FORM_LABELS: Record<TwoPQFormType, string> = {
   study_request: "Solicitud de estudio",
   sample: "Formulario de biopsias",
+  withdrawal_request: "Solicitud de retiro",
 };
 
 export const TWO_PQ_FORM_ROUTES: Record<TwoPQFormType, string> = {
   study_request: "/2pq-dashboard/forms/study-request/new",
   sample: "/2pq-dashboard/forms/sample/new",
+  withdrawal_request: "/2pq-dashboard/forms/withdrawal-request/new",
 };
 
 export function getTwoPQFormTypeFromSlug(slug: string): TwoPQFormType | null {
   if (slug === "study-request") return "study_request";
   if (slug === "sample") return "sample";
+  if (slug === "withdrawal-request") return "withdrawal_request";
   return null;
 }

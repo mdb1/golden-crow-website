@@ -145,15 +145,19 @@ const SPANISH_TEXT: Record<string, string> = {
   "Workflow map and role-aware CRUD shell for cases, samples, shipments, sequencing, reports, and clients.":
     "Mapa de flujo y consola CRUD sensible a roles para casos, muestras, envíos, secuenciación, reportes y clientes.",
   "Stored study request and sample form submissions.":
-    "Formularios almacenados de solicitud de estudio y biopsias.",
+    "Formularios almacenados de solicitud de estudio, biopsias y retiro.",
   "Official 2PQ website, phone, and email contact channels.":
     "Canales oficiales de contacto de 2PQ: web, teléfono y email.",
   "Guided form flow stored in 2pq_forms.":
     "Flujo guiado de formulario almacenado en 2pq_forms.",
   "Study request": "Solicitud de estudio",
+  "Withdrawal request": "Solicitud de retiro",
   Sample: "Formulario de biopsias",
   "Biopsy form": "Formulario de biopsias",
+  "Withdrawal request form": "Formulario de solicitud de retiro",
   "Biopsy form preview": "Vista previa del formulario de biopsias",
+  "Withdrawal request form preview":
+    "Vista previa del formulario de solicitud de retiro",
   "Biopsy form information": "Información del formulario de biopsias",
   "Patient information": "Información del paciente",
   "Medical information": "Información médica",
@@ -163,6 +167,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Institution information": "Información de institución",
   "Preview and signature": "Vista previa y firma",
   "Pick linked study request form": "Elegir formulario de solicitud linkeado",
+  "Pick linked 2PQ cases": "Elegir casos 2PQ vinculados",
+  "Linked 2PQ cases": "Casos 2PQ vinculados",
   "Sample information": "Información de biopsia",
   "2PQ case": "Caso 2PQ",
   "2PQ sampling": "Biopsias 2PQ",
@@ -175,6 +181,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Active: "Activo",
   Inactive: "Inactivo",
   Intake: "Ingreso",
+  "Awaiting pick up": "Esperando retiro",
   Blocked: "Bloqueado",
   Reporting: "Reporte",
   Delivered: "Entregado",
@@ -213,6 +220,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Clean temporary draft": "Limpiar borrador temporal",
   "Remove the one-user temporary draft after storage succeeds.":
     "Eliminar el borrador temporal del usuario cuando el guardado termine correctamente.",
+  "Link selected 2PQ cases": "Vincular casos 2PQ seleccionados",
+  Use: "Usar",
+  "selected cases for this withdrawal request.":
+    "casos seleccionados para esta solicitud de retiro.",
+  "Mark cases awaiting pick up": "Marcar casos esperando retiro",
+  "Update every selected case from Intake to Awaiting pick up.":
+    "Actualizar cada caso seleccionado de Ingreso a Esperando retiro.",
+  "Store withdrawal request form": "Guardar formulario de solicitud de retiro",
+  "Persist the withdrawal request with its linked case snapshot.":
+    "Persistir la solicitud de retiro con el snapshot de casos vinculados.",
   "Create sampling": "Crear muestreo",
   "Link this sampling to": "Vincular este muestreo a",
   "collection date, reception date, run ID, and QC status stay nil.":
@@ -600,12 +617,20 @@ const SPANISH_TEXT: Record<string, string> = {
   "Preview validation": "Validación para vista previa",
   "The form validates steps 1 to 5 before opening the read-only preview.":
     "El formulario valida los pasos 1 a 5 antes de abrir la vista previa de solo lectura.",
+  "The form validates the completed steps before opening the read-only preview.":
+    "El formulario valida los pasos completados antes de abrir la vista previa de solo lectura.",
   "Validating steps 1 to 5 before opening preview.":
     "Validando los pasos 1 a 5 antes de abrir la vista previa.",
+  "Validating completed steps before opening preview.":
+    "Validando pasos completados antes de abrir la vista previa.",
   "Steps 1 to 5 passed validation. Saving draft checkpoint.":
     "Los pasos 1 a 5 pasaron la validación. Guardando checkpoint de borrador.",
+  "Completed steps passed validation. Saving draft checkpoint.":
+    "Los pasos completados pasaron la validación. Guardando checkpoint de borrador.",
   "Steps 1 to 5 passed validation. Opening preview.":
     "Los pasos 1 a 5 pasaron la validación. Abriendo vista previa.",
+  "Completed steps passed validation. Opening preview.":
+    "Los pasos completados pasaron la validación. Abriendo vista previa.",
   "Fix these issues before opening the preview.":
     "Corregí estos problemas antes de abrir la vista previa.",
   "Preview validation found issues.":
@@ -640,6 +665,34 @@ const SPANISH_TEXT: Record<string, string> = {
   "Storing...": "Guardando...",
   Continue: "Continuar",
   "No stored forms yet.": "Todavía no hay formularios guardados.",
+  "Add 2PQ case": "Agregar caso 2PQ",
+  "Search by three-letter code, case label, or case ID.":
+    "Buscar por código de tres letras, etiqueta de caso o ID de caso.",
+  "No 2PQ cases match this search.":
+    "No hay casos 2PQ que coincidan con esta búsqueda.",
+  "Selected 2PQ cases": "Casos 2PQ seleccionados",
+  "cases selected": "casos seleccionados",
+  "Every selected case will be marked as Awaiting pick up when the form is signed.":
+    "Cada caso seleccionado será marcado como Esperando retiro cuando se firme el formulario.",
+  "No 2PQ cases selected yet.": "Todavía no hay casos 2PQ seleccionados.",
+  "Current status": "Estado actual",
+  "New status": "Nuevo estado",
+  "Withdrawal effect": "Efecto de la solicitud de retiro",
+  "Case status update": "Actualización de estado del caso",
+  "When this form is signed, every selected case will be marked as Awaiting pick up.":
+    "Cuando se firme este formulario, cada caso seleccionado será marcado como Esperando retiro.",
+  "Select at least one linked 2PQ case.":
+    "Seleccioná al menos un caso 2PQ vinculado.",
+  "All selected 2PQ cases must belong to the same institution.":
+    "Todos los casos 2PQ seleccionados deben pertenecer a la misma institución.",
+  "2PQ cases awaiting pick up": "Casos 2PQ esperando retiro",
+  "These cases were linked to this withdrawal request form.":
+    "Estos casos fueron vinculados a este formulario de solicitud de retiro.",
+  "Previous status": "Estado anterior",
+  "Case ID": "ID de caso",
+  "Linked case count": "Cantidad de casos vinculados",
+  "The withdrawal request form is ready and stored":
+    "El formulario de solicitud de retiro está listo y guardado",
   "No forms match these filters.": "No hay formularios que coincidan con estos filtros.",
   "Unnamed patient": "Paciente sin nombre",
   Author: "Autor",
@@ -1550,9 +1603,11 @@ const SPANISH_TEXT: Record<string, string> = {
     "mantienen el mismo alcance por institución, médico y paciente que ya hace cumplir el SDK.",
   "Step 1 patient link": "Vínculo de paciente del paso 1",
   "Stored 2PQ study request and sample forms.":
-    "Formularios 2PQ guardados de solicitud de estudio y biopsias.",
+    "Formularios 2PQ guardados de solicitud de estudio, biopsias y retiro.",
   "Stored 2PQ study request and biopsy forms.":
-    "Formularios 2PQ guardados de solicitud de estudio y biopsias.",
+    "Formularios 2PQ guardados de solicitud de estudio, biopsias y retiro.",
+  "Stored 2PQ study request, biopsy, and withdrawal forms.":
+    "Formularios 2PQ guardados de solicitud de estudio, biopsias y retiro.",
   "Stored file": "Archivo almacenado",
   "Stored file document missing.": "Falta el documento de archivo almacenado.",
   "Stored file last updated:": "Última actualización del archivo almacenado:",
