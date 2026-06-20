@@ -80,7 +80,7 @@ const copy: Record<Lang, StoryCopy> = {
         eyebrow: 'Pocket Genes',
         heroTitle: 'Pocket Genes: genética más clara, organizada y accesible.',
         heroLead:
-          'Pocket Genes ayuda a personas y familias a reunir información genética dispersa, entender conceptos complejos, preparar conversaciones médicas y encontrar apoyo cuando el recorrido es largo, raro o confuso.',
+          'Pocket Genes ayuda a personas y familias a reunir información genética dispersa, entender conceptos complejos, preparar conversaciones médicas y encontrar apoyo cuando el recorrido es largo y por momentos confuso.',
         heroImage: '/mobile1.webp',
         heroImageAlt: 'Pocket Genes en un teléfono móvil',
         primaryActionLabel: 'Explorar EPOF',
@@ -88,7 +88,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Ver integración para proveedores',
         secondaryActionHref: '/pocket-genes/integration',
         introEyebrow: 'El cambio de enfoque',
-        introTitle: 'No es solo un visor de informes. Es una forma de convertir información genética en contexto útil.',
+        introTitle: 'Información genética clara, útil y en un solo lugar.',
         introBody: [
           'La integración con laboratorios y proveedores sigue siendo una parte importante del producto. Pero la propuesta completa empieza antes y termina después del PDF: en la vida diaria de una familia que intenta entender qué se analizó, qué falta, qué significa una variante y qué debería preguntar en la próxima consulta.',
           'Pocket Genes está pensado para ordenar informes, paneles, proveedores, historial de estudios, conceptos de herencia y próximos pasos posibles en un lugar claro. El objetivo no es reemplazar al médico ni al genetista, sino ayudar a que las personas lleguen mejor preparadas.',
