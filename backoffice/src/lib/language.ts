@@ -189,6 +189,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Priority: "Prioridad",
   Urgent: "Urgente",
   "Awaiting reception": "Esperando recepción",
+  Discarded: "Descartada",
   Received: "Recibido",
   Processing: "Procesando",
   "QC hold": "Retención QC",

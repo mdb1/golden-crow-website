@@ -289,6 +289,7 @@ const PRIORITY_OPTIONS = [
 
 const PROCESSING_OPTIONS = [
   { value: "awaiting_reception", label: "Awaiting reception" },
+  { value: "discarded", label: "Discarded" },
   { value: "received", label: "Received" },
   { value: "processing", label: "Processing" },
   { value: "qc_hold", label: "QC hold" },
@@ -626,11 +627,39 @@ function emptySampling(): SamplingInformationFormState {
   };
 }
 
-function generatedSamplingSampleId(boxCode: string, index: number) {
+function generatedSamplingSampleId(
+  boxCode: string,
+  index: number,
+  rowCount: number
+) {
   const normalizedBoxCode = normalizeBoxCodeInput(boxCode);
-  return normalizedBoxCode
-    ? `${normalizedBoxCode}${String(index + 1).padStart(3, "0")}`
-    : "";
+  if (!normalizedBoxCode) {
+    return "";
+  }
+  if (index === rowCount - 2) {
+    return `${normalizedBoxCode}0CT`;
+  }
+  if (index === rowCount - 1) {
+    return `${normalizedBoxCode}0BL`;
+  }
+
+  return `${normalizedBoxCode}${String(index + 1).padStart(3, "0")}`;
+}
+
+function isEmbryoSamplingRow(index: number, biopsyCountValue: string) {
+  const biopsyCount = Number(biopsyCountValue);
+  return Number.isInteger(biopsyCount) && biopsyCount > 0 && index < biopsyCount;
+}
+
+function isDiscardedSampling(sampling: SamplingInformationFormState) {
+  return sampling.processingStatus === "discarded";
+}
+
+function generatedSamplingProcessingStatus(
+  sampling: SamplingInformationFormState | undefined
+) {
+  const currentStatus = sampling?.processingStatus.trim();
+  return currentStatus || "awaiting_reception";
 }
 
 function generatedSamplingNotes(index: number, rowCount: number) {
@@ -750,13 +779,27 @@ function withGeneratedSamplingTable(flowState: FlowState): FlowState {
   return {
     ...flowState,
     samplingTableGenerated: true,
-    samplingInformation: Array.from({ length: rowCount }, (_, index) => ({
-      ...(flowState.samplingInformation[index] ?? emptySampling()),
-      sampleId: generatedSamplingSampleId(flowState.sampleInformation.boxCode, index),
-      sampleType: flowState.sampleInformation.sampleType,
-      processingStatus: "awaiting_reception",
-      notes: generatedSamplingNotes(index, rowCount),
-    })),
+    samplingInformation: Array.from({ length: rowCount }, (_, index) => {
+      const existingSampling = flowState.samplingInformation[index];
+      const generatedNotes = generatedSamplingNotes(index, rowCount);
+
+      return {
+        ...(existingSampling ?? emptySampling()),
+        sampleId: generatedSamplingSampleId(
+          flowState.sampleInformation.boxCode,
+          index,
+          rowCount
+        ),
+        sampleType: flowState.sampleInformation.sampleType,
+        processingStatus: isEmbryoSamplingRow(
+          index,
+          flowState.sampleInformation.biopsyCount
+        )
+          ? generatedSamplingProcessingStatus(existingSampling)
+          : "awaiting_reception",
+        notes: generatedNotes || existingSampling?.notes || "",
+      };
+    }),
   };
 }
 
@@ -1422,6 +1465,9 @@ function validateStepFields(
       ) {
         errors[`samplingInformation.${index}.processingStatus`] =
           `${row}: ${t("Processing status is not valid.")}`;
+      }
+      if (isDiscardedSampling(sampling)) {
+        return;
       }
       if (
         !sampling.embryoStageDay ||
@@ -3708,6 +3754,29 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function updateSamplingDiscarded(index: number, discarded: boolean) {
+    updateSamplingInformation(index, {
+      processingStatus: discarded ? "discarded" : "awaiting_reception",
+    });
+    if (!discarded) {
+      return;
+    }
+
+    setFieldErrors((current) => {
+      const next = { ...current };
+      [
+        "embryoStageDay",
+        "morphology",
+        "sentUl",
+        "biopsiedCells",
+        "cellsVisualized",
+      ].forEach((key) => {
+        delete next[`samplingInformation.${index}.${key}`];
+      });
+      return next;
+    });
+  }
+
   function selectPatient(patientId: string) {
     const patient = patients.find((candidate) => candidate.id === patientId);
     const patientInstitution = patient
@@ -3852,6 +3921,10 @@ export function TwoPQFormFlow({
 
     state.samplingInformation.forEach((sampling, index) => {
       const row = `${t("Sampling")} ${index + 1}`;
+      if (isDiscardedSampling(sampling)) {
+        return;
+      }
+
       const embryoStageDay = sampling.embryoStageDay.trim();
       const morphology = sampling.morphology.trim();
 
@@ -5964,11 +6037,14 @@ export function TwoPQFormFlow({
                       {t("Biopsy rows")}
                     </h3>
                     <div className="mt-4 overflow-x-auto border border-black/20">
-                      <table className="min-w-[76rem] border-collapse text-sm">
+                      <table className="min-w-[84rem] border-collapse text-sm">
                         <thead className="bg-black/[0.04] text-left text-[0.68rem] uppercase tracking-[0.08em] text-black/65">
                           <tr>
                             <th className="border border-black/20 px-3 py-2">
                               {t("Sample ID")}
+                            </th>
+                            <th className="border border-black/20 px-3 py-2">
+                              {t("Status")}
                             </th>
                             <th className="border border-black/20 px-3 py-2">
                               {t("Internal code")}
@@ -5998,6 +6074,10 @@ export function TwoPQFormFlow({
                             <tr key={`${sampling.sampleId}-${index}`}>
                               {[
                                 sampling.sampleId,
+                                previewOptionValue(
+                                  processingOptions,
+                                  sampling.processingStatus
+                                ),
                                 sampling.internalCode,
                                 sampling.embryoStageDay,
                                 sampling.morphology,
@@ -6241,11 +6321,14 @@ export function TwoPQFormFlow({
             {state.samplingTableGenerated ? (
               <>
                 <div className="w-full min-w-0 max-w-full overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
-                  <table className="min-w-[88rem] border-collapse bg-white text-sm">
+                  <table className="min-w-[94rem] border-collapse bg-white text-sm">
                   <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
                     <tr>
                       <th className="min-w-36 border border-slate-300 px-3 py-2">
                         {t("Sample ID")}
+                      </th>
+                      <th className="min-w-28 border border-slate-300 px-3 py-2 text-center">
+                        {t("Discarded")}
                       </th>
                       <th className="min-w-44 border border-slate-300 px-3 py-2">
                         {t("Internal code")}
@@ -6271,8 +6354,22 @@ export function TwoPQFormFlow({
                     </tr>
                   </thead>
                   <tbody>
-                    {state.samplingInformation.map((sampling, index) => (
-                      <tr key={index}>
+                    {state.samplingInformation.map((sampling, index) => {
+                      const canDiscardSampling = isEmbryoSamplingRow(
+                        index,
+                        state.sampleInformation.biopsyCount
+                      );
+                      const samplingIsDiscarded = isDiscardedSampling(sampling);
+
+                      return (
+                      <tr
+                        key={index}
+                        className={
+                          samplingIsDiscarded
+                            ? "bg-slate-100 text-slate-500"
+                            : undefined
+                        }
+                      >
                         <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-top font-mono text-xs font-semibold text-slate-900">
                           {sampling.sampleId || t("Not provided")}
                           <FieldError
@@ -6280,6 +6377,21 @@ export function TwoPQFormFlow({
                               `samplingInformation.${index}.sampleId`
                             )}
                           />
+                        </td>
+                        <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-middle text-center">
+                          {canDiscardSampling ? (
+                            <div className="flex justify-center">
+                              <Checkbox
+                                checked={samplingIsDiscarded}
+                                onCheckedChange={(checked) =>
+                                  updateSamplingDiscarded(index, checked === true)
+                                }
+                                aria-label={`${t("Discarded")} ${sampling.sampleId}`}
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">-</span>
+                          )}
                         </td>
                         <td
                           className="border border-slate-300 p-0 align-top"
@@ -6455,7 +6567,8 @@ export function TwoPQFormFlow({
                           />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 <p className="px-3 py-2 text-xs text-slate-600">

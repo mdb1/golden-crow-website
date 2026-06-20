@@ -5,9 +5,9 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  CircleDot,
   ClipboardList,
   FileText,
-  FlaskConical,
   UserRound,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ type FieldSpec = {
     | "sampleType"
     | "caseStatus"
     | "priority"
+    | "processingStatus"
     | "personStatus";
 };
 
@@ -123,6 +124,7 @@ const CASE_INFORMATION_FIELDS: FieldSpec[] = [
 
 const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "sampleId", label: "Sample ID" },
+  { key: "processingStatus", label: "Status", type: "processingStatus" },
   { key: "internalCode", label: "Internal code" },
   { key: "embryoStageDay", label: "Stage day 5, 6 or 7" },
   { key: "morphology", label: "Morphology" },
@@ -151,6 +153,15 @@ const PRIORITY_LABEL_BY_VALUE: Record<string, string> = {
   routine: "Routine",
   priority: "Priority",
   urgent: "Urgent",
+};
+
+const PROCESSING_STATUS_LABEL_BY_VALUE: Record<string, string> = {
+  awaiting_reception: "Awaiting reception",
+  discarded: "Discarded",
+  received: "Received",
+  processing: "Processing",
+  qc_hold: "QC hold",
+  ready_for_sequencing: "Ready for sequencing",
 };
 
 const PERSON_STATUS_LABEL_BY_VALUE: Record<string, string> = {
@@ -297,6 +308,9 @@ function formatValue(
     }
     if (type === "priority") {
       return t(PRIORITY_LABEL_BY_VALUE[value] ?? value);
+    }
+    if (type === "processingStatus") {
+      return t(PROCESSING_STATUS_LABEL_BY_VALUE[value] ?? value);
     }
     if (type === "personStatus") {
       return t(PERSON_STATUS_LABEL_BY_VALUE[value] ?? value);
@@ -451,7 +465,7 @@ function SamplingInformationTableSection({
         </h2>
       </div>
       <div className="mt-5 overflow-x-auto border border-black/20">
-        <table className="min-w-[76rem] border-collapse bg-white text-sm">
+        <table className="min-w-[84rem] border-collapse bg-white text-sm">
           <thead className="bg-black/[0.04] text-left text-[0.68rem] uppercase tracking-[0.08em] text-black/65">
             <tr>
               {SAMPLING_INFORMATION_FIELDS.map((field) => (
@@ -569,7 +583,7 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-400/14 dark:text-emerald-200">
-                  <FlaskConical className="size-5" />
+                  <CircleDot className="size-5" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-emerald-950 dark:text-emerald-50">

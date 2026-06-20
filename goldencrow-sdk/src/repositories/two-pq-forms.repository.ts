@@ -1040,31 +1040,41 @@ function normalizeSamplingInformation(
   input: SamplingInformationInput = {},
   fallbackCaseLabel: string
 ) {
+  const processingStatus = normalizeRequiredString(
+    input.processingStatus,
+    "2PQ processing status"
+  );
+  const isDiscarded = processingStatus === "discarded";
+  const optionalCellsVisualized =
+    typeof input.cellsVisualized === "boolean" || normalizeOptionalString(input.cellsVisualized)
+      ? normalizeBooleanAnswer(input.cellsVisualized, "Celulas visualizadas")
+        ? "si"
+        : "no"
+      : undefined;
+
   return {
     caseLabel: fallbackCaseLabel,
     sampleId: normalizeRequiredString(input.sampleId, "2PQ sample ID"),
     sampleType: normalizeRequiredString(input.sampleType, "2PQ sample type"),
-    processingStatus: normalizeRequiredString(
-      input.processingStatus,
-      "2PQ processing status"
-    ),
+    processingStatus,
     internalCode: normalizeOptionalString(input.internalCode),
-    embryoStageDay: normalizeRequiredString(
-      input.embryoStageDay,
-      "Estadio dia 5, 6 o 7"
-    ),
-    morphology: normalizeRequiredString(input.morphology, "Morfologia"),
-    sentUl: normalizeRequiredString(input.sentUl, "uL enviados"),
-    biopsiedCells: normalizeRequiredString(
-      input.biopsiedCells,
-      "Celulas biopsiadas"
-    ),
-    cellsVisualized: normalizeBooleanAnswer(
-      input.cellsVisualized,
-      "Celulas visualizadas"
-    )
-      ? "si"
-      : "no",
+    embryoStageDay: isDiscarded
+      ? normalizeOptionalString(input.embryoStageDay)
+      : normalizeRequiredString(input.embryoStageDay, "Estadio dia 5, 6 o 7"),
+    morphology: isDiscarded
+      ? normalizeOptionalString(input.morphology)
+      : normalizeRequiredString(input.morphology, "Morfologia"),
+    sentUl: isDiscarded
+      ? normalizeOptionalString(input.sentUl)
+      : normalizeRequiredString(input.sentUl, "uL enviados"),
+    biopsiedCells: isDiscarded
+      ? normalizeOptionalString(input.biopsiedCells)
+      : normalizeRequiredString(input.biopsiedCells, "Celulas biopsiadas"),
+    cellsVisualized: isDiscarded
+      ? optionalCellsVisualized
+      : normalizeBooleanAnswer(input.cellsVisualized, "Celulas visualizadas")
+        ? "si"
+        : "no",
     collectionDate: undefined,
     receptionDate: undefined,
     runId: undefined,

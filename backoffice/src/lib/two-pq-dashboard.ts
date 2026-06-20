@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Building2,
+  CircleDot,
   ClipboardList,
   Dna,
   FileCode2,
-  FlaskConical,
   KeyRound,
   LayoutDashboard,
   MessagesSquare,
@@ -357,7 +357,7 @@ export const TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       "Sample accession, reception, and processing lane that keeps laboratory work tied to the clinical owner and patient record.",
     summary:
       "Sample cards keep the PDF’s lab-centric area explicit while still using the existing institution, doctor, patient, and report relationships.",
-    icon: FlaskConical,
+    icon: CircleDot,
     tone: "mint",
     chips: ["Lab lane", "Accession", "Patient linked"],
     quickLinks: [

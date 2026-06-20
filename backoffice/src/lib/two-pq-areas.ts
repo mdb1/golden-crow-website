@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  CircleDot,
   ClipboardList,
   Dna,
   FileCode2,
-  FlaskConical,
   Truck,
   Users,
 } from "lucide-react";
@@ -213,6 +213,7 @@ const PRIORITY_OPTIONS: TwoPQOption[] = [
 
 const PROCESSING_OPTIONS: TwoPQOption[] = [
   { value: "awaiting_reception", label: "Awaiting reception" },
+  { value: "discarded", label: "Discarded" },
   { value: "received", label: "Received" },
   { value: "processing", label: "Processing" },
   { value: "qc_hold", label: "QC hold" },
@@ -372,7 +373,7 @@ export const TWO_PQ_AREA_CONFIGS: TwoPQAreaConfig[] = [
     navLabel: "2PQ Sampling",
     route: "/2pq-dashboard/sampling",
     collectionKey: "2pq_sampling",
-    icon: FlaskConical,
+    icon: CircleDot,
     tone: "mint",
     description:
       "Sampling and reception records stored in Firebase under `2pq_sampling`.",

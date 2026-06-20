@@ -12,8 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  CircleDot,
   FileCode2,
-  FlaskConical,
   FolderOpen,
   Link2,
   LoaderCircle,
@@ -3864,7 +3864,7 @@ export function TwoPQRecordWorkbench({
               disabled={!canGenerateAutoSampling}
               className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
             >
-              <FlaskConical className="h-4 w-4" />
+              <CircleDot className="h-4 w-4" />
               {t("Generate")}
             </Button>
           </DialogFooter>
@@ -4738,7 +4738,7 @@ export function TwoPQRecordWorkbench({
                         }
                         className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
                       >
-                        <FlaskConical className="h-3.5 w-3.5" />
+                        <CircleDot className="h-3.5 w-3.5" />
                         {t("Add multiple samplings at once")}
                       </Button>
                     ) : null}
