@@ -381,6 +381,10 @@ async function main() {
       .set(
         {
           gifUrl,
+          // Keep thumbnailURL aligned with the (corrected) gif. Writing only
+          // gifUrl here is what left 45 docs with a stale thumbnail pointing
+          // at the original fuzzy-match gif (issue #356).
+          thumbnailURL: gifUrl,
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
