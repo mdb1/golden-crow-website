@@ -21,6 +21,20 @@ import {
 import { appText, type AppLanguage } from "@/lib/language";
 import { TwoPQContactSection } from "@/components/two-pq-contact-section";
 
+type ScopeCardKey = "institutions" | "doctors" | "patients" | "roles";
+
+function canSeeScopeCard(role: AdminContextRecord["role"], key: ScopeCardKey) {
+  if (role === "institution_doctor") {
+    return key === "patients" || key === "roles";
+  }
+
+  if (role === "institution_admin") {
+    return key !== "institutions";
+  }
+
+  return true;
+}
+
 export function TwoPQDashboardHome({
   adminContext,
   language,
@@ -98,6 +112,15 @@ export function TwoPQDashboardHome({
       disabledTitle: "The current role cannot create role assignments.",
     },
   ] as const;
+  const visibleScopeCards = scopeCards.filter((card) =>
+    canSeeScopeCard(adminContext.role, card.key)
+  );
+  const scopeGridClassName =
+    visibleScopeCards.length <= 2
+      ? "grid gap-3 md:grid-cols-2"
+      : visibleScopeCards.length === 3
+        ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+        : "grid gap-3 md:grid-cols-2 xl:grid-cols-4";
 
   return (
     <div className="flex flex-col gap-8">
@@ -189,8 +212,8 @@ export function TwoPQDashboardHome({
           </p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {scopeCards.map((card) => (
+        <div className={scopeGridClassName}>
+          {visibleScopeCards.map((card) => (
             <article key={card.key} className="glass-panel flex flex-col px-4 py-4">
               <p className="section-eyebrow">{t(card.eyebrow)}</p>
               <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
