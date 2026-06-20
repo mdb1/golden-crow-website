@@ -195,7 +195,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Volver a Pocket Genes',
         secondaryActionHref: '/pocket-genes',
         introEyebrow: 'El problema humano',
-        introTitle: 'La odisea diagnóstica también es una odisea de información.',
+        introTitle: 'Cuando el diagnóstico tarda, ordenar la información importa.',
         introBody: [
           'En enfermedades poco frecuentes, una familia puede pasar por pediatras, especialistas, laboratorios, estudios de panel, exomas, segundas opiniones e informes que no hablan el mismo idioma. El resultado es una carpeta llena de datos, pero poca claridad práctica.',
           'Pocket Genes propone una experiencia donde la información genética se vuelve trazable: qué se estudió, por qué se pidió, qué variantes se informaron, qué significan los términos y qué temas conviene revisar con profesionales.',
@@ -300,7 +300,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Ver integración',
         secondaryActionHref: '/pocket-genes/integration',
         introEyebrow: 'Más que visualización',
-        introTitle: 'Un informe claro ayuda. Tener la información ordenada cambia cómo se usa.',
+        introTitle: 'Tus informes, tus preguntas y tus próximos pasos en un solo lugar.',
         introBody: [
           'La experiencia móvil debe mostrar datos de manera clara, pero también debe responder preguntas prácticas: dónde está mi informe, qué significa este término, qué genes cubrió este panel, qué debería revisar antes de ver al especialista y qué puedo compartir.',
           'El espacio personal organiza la información en capas: documentos, conceptos, variantes informadas, historial, notas y próximas preguntas.',
@@ -405,7 +405,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Cómo funciona la privacidad',
         secondaryActionHref: '#privacy',
         introEyebrow: 'Qué es RareFriends™',
-        introTitle: 'Pocket Genes organiza la información. RareFriends™ ayuda a encontrar personas.',
+        introTitle: 'Círculos cuidados para encontrar personas que entienden el recorrido.',
         introBody: [
           'RareFriends™ no reemplaza la atención médica, el asesoramiento genético ni el trabajo de asociaciones de pacientes. Complementa ese ecosistema con un espacio más personal, cuidado y voluntario.',
           'No tenés que contar todo para pertenecer. RareFriends™ conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores y miembros que quieren aprender genética sin miedo.',
