@@ -1,0 +1,676 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getLocalizedPath } from '../i18n/index';
+import { defaultLang, type Lang } from '../i18n/ui';
+
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+const isSpanish = lang === 'es';
+
+function localPath(path: string) {
+  return getLocalizedPath(path, lang);
+}
+
+const integrationPath = localPath('/pocket-genes/integration');
+const bookingPath = `${integrationPath}/#booking`;
+
+const copy = isSpanish
+  ? {
+      title: 'RareFriends™ para proveedores - Pocket Genes',
+      eyebrow: 'RareFriends™ para integradores',
+      heroTitle: 'RareFriends™ para proveedores',
+      heroLead:
+        'Sumá comunidad cuidada al recorrido posterior al informe. Cuando integrás tus informes a Pocket Genes, tus usuarios no reciben solo una experiencia mobile: también pueden entrar a RareFriends™ desde un contexto ordenado, con educación genética, recursos relevantes y una comunidad pensada para recorridos EPOF.',
+      primaryCta: 'SOLICITAR REUNIÓN DE INTEGRACIÓN',
+      secondaryCta: 'Volver a integración',
+      badges: ['Desde el informe', 'Comunidad cuidada', 'Continuidad post-resultado'],
+      valueEyebrow: 'Valor para tu organización',
+      valueTitle: 'RareFriends™ convierte la entrega del informe en un punto de continuidad.',
+      valueLead:
+        'Para un proveedor genómico, la comunidad no es un accesorio. Es una forma de sostener valor después del resultado, diferenciar la experiencia y acompañar mejor a usuarios que necesitan próximos pasos.',
+      valueCards: [
+        {
+          title: 'Más valor después del PDF',
+          body: 'El informe deja de ser un archivo aislado y se conecta con una experiencia donde el usuario puede volver, aprender y encontrar recursos.',
+        },
+        {
+          title: 'Diferenciación sin construir una red propia',
+          body: 'Tu organización puede ofrecer una capa comunitaria especializada sin desarrollar, moderar y mantener una comunidad desde cero.',
+        },
+        {
+          title: 'Entrada contextual a RareFriends™',
+          body: 'La participación aparece dentro del flujo de Pocket Genes, vinculada al informe, los temas genéticos y el momento del recorrido.',
+        },
+        {
+          title: 'Mejor continuidad de marca',
+          body: 'El proveedor sigue presente en una experiencia útil después de entregar resultados, sin depender solo de emails o PDFs.',
+        },
+      ],
+      circuitEyebrow: 'Cómo se integra',
+      circuitTitle: 'Una capa comunitaria conectada con tus informes.',
+      circuitSteps: [
+        {
+          number: '01',
+          title: 'Informe en Pocket Genes',
+          body: 'Tus resultados se presentan en una experiencia mobile clara, con secciones, filtros, documentos y conceptos explicados.',
+        },
+        {
+          number: '02',
+          title: 'Puerta de entrada a RareFriends™',
+          body: 'Desde ese contexto, el usuario puede descubrir RareFriends™ como parte natural del recorrido posterior al informe.',
+        },
+        {
+          number: '03',
+          title: 'Círculos y recursos relevantes',
+          body: 'La comunidad se organiza alrededor de intereses, etapas, condiciones, preguntas y necesidades de información, no como un foro público genérico.',
+        },
+        {
+          number: '04',
+          title: 'Proveedor dentro del ecosistema',
+          body: 'Tu organización puede quedar conectada al directorio, recursos y recorridos que ayudan a los usuarios a encontrar próximos pasos.',
+        },
+      ],
+      distinctionEyebrow: 'Posicionamiento',
+      distinctionTitle: 'No es una red social genérica. Es comunidad dentro del circuito genómico.',
+      distinctionText:
+        'RareFriends™ está pensada para complementar la experiencia de Pocket Genes: informes ordenados, educación genética, preparación de conversaciones y participación comunitaria con más contexto. Para el integrador, esto significa una propuesta más completa que solo entregar un archivo o abrir un portal.',
+      providerTitle: 'Para quién tiene sentido',
+      providerItems: [
+        'Laboratorios y empresas de testing que quieren mejorar la experiencia posterior al resultado.',
+        'Clínicas, hospitales y equipos de genética que necesitan un canal mobile más claro para sus usuarios.',
+        'Organizaciones EPOF que quieren acercar recursos, comunidad y orientación desde una experiencia más estructurada.',
+        'Proveedores que buscan visibilidad dentro de un ecosistema conectado con informes, educación y comunidad.',
+      ],
+      ctaTitle: 'Hablemos de cómo RareFriends™ entra en tu integración.',
+      ctaText:
+        'Revisamos tu tipo de informe, tu recorrido actual y cómo Pocket Genes puede sumar experiencia mobile, RareFriends™ y directorio de proveedores.',
+    }
+  : {
+      title: 'RareFriends™ for Providers - Pocket Genes',
+      eyebrow: 'RareFriends™ for integrators',
+      heroTitle: 'RareFriends™ for providers',
+      heroLead:
+        'Add a safer community layer to the post-report journey. When you integrate reports into Pocket Genes, your users get more than a mobile report experience: they can enter RareFriends™ from organized context, with genetics education, relevant resources, and a community designed for rare disease journeys.',
+      primaryCta: 'REQUEST AN INTEGRATION MEETING',
+      secondaryCta: 'Back to integration',
+      badges: ['From the report', 'Safer community', 'Post-result continuity'],
+      valueEyebrow: 'Value for your organization',
+      valueTitle: 'RareFriends™ turns report delivery into a continuity point.',
+      valueLead:
+        'For a genomic provider, community is not an add-on. It helps sustain value after the result, differentiate the experience, and support users who need next steps.',
+      valueCards: [
+        {
+          title: 'More value after the PDF',
+          body: 'The report stops being an isolated file and connects to an experience where users can return, learn, and find resources.',
+        },
+        {
+          title: 'Differentiation without building a network from scratch',
+          body: 'Your organization can offer a specialized community layer without developing, moderating, and maintaining a standalone community.',
+        },
+        {
+          title: 'Contextual entry into RareFriends™',
+          body: 'Participation appears inside the Pocket Genes flow, connected to the report, genetic topics, and the user journey stage.',
+        },
+        {
+          title: 'Stronger brand continuity',
+          body: 'The provider remains present in a useful experience after delivering results, instead of relying only on email or PDFs.',
+        },
+      ],
+      circuitEyebrow: 'How it integrates',
+      circuitTitle: 'A community layer connected to your reports.',
+      circuitSteps: [
+        {
+          number: '01',
+          title: 'Report in Pocket Genes',
+          body: 'Your results are presented in a clear mobile experience with sections, filters, documents, and explained concepts.',
+        },
+        {
+          number: '02',
+          title: 'Entry point to RareFriends™',
+          body: 'From that context, users can discover RareFriends™ as a natural part of the post-report journey.',
+        },
+        {
+          number: '03',
+          title: 'Relevant circles and resources',
+          body: 'The community is organized around interests, stages, conditions, questions, and information needs, not as a generic public forum.',
+        },
+        {
+          number: '04',
+          title: 'Provider inside the ecosystem',
+          body: 'Your organization can be connected to the directory, resources, and journeys that help users find next steps.',
+        },
+      ],
+      distinctionEyebrow: 'Positioning',
+      distinctionTitle: 'Not a generic social network. Community inside the genomic circuit.',
+      distinctionText:
+        'RareFriends™ is designed to complement the Pocket Genes experience: organized reports, genetics education, conversation preparation, and community participation with more context. For the integrator, this creates a fuller proposal than simply delivering a file or opening a portal.',
+      providerTitle: 'Who this is for',
+      providerItems: [
+        'Labs and testing companies that want to improve the post-result experience.',
+        'Clinics, hospitals, and genetics teams that need a clearer mobile channel for users.',
+        'Rare disease organizations that want to bring resources, community, and guidance into a more structured experience.',
+        'Providers looking for visibility inside an ecosystem connected to reports, education, and community.',
+      ],
+      ctaTitle: 'Let us map how RareFriends™ fits your integration.',
+      ctaText:
+        'We review your report type, your current user journey, and how Pocket Genes can add mobile experience, RareFriends™, and provider directory visibility.',
+    };
+---
+
+<BaseLayout title={copy.title} showFooter={false}>
+  <main class="provider-rarefriends-page">
+    <section class="rf-hero">
+      <div class="rf-container rf-hero-grid">
+        <div class="rf-hero-copy">
+          <p class="rf-eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.heroTitle}</h1>
+          <p class="rf-lead">{copy.heroLead}</p>
+          <div class="rf-actions">
+            <a class="rf-primary" href={bookingPath}>{copy.primaryCta}</a>
+            <a class="rf-secondary" href={integrationPath}>{copy.secondaryCta}</a>
+          </div>
+          <div class="rf-badges" aria-label={copy.eyebrow}>
+            {copy.badges.map((badge) => <span>{badge}</span>)}
+          </div>
+        </div>
+
+        <div class="rf-visual" aria-hidden="true">
+          <div class="rf-orbit">
+            <span class="rf-node node-a">Pocket Genes</span>
+            <span class="rf-node node-b">RareFriends™</span>
+            <span class="rf-node node-c">{isSpanish ? 'Proveedor' : 'Provider'}</span>
+            <span class="rf-node node-d">{isSpanish ? 'Recursos' : 'Resources'}</span>
+            <div class="rf-core">
+              <strong>{isSpanish ? 'Informe' : 'Report'}</strong>
+              <span>{isSpanish ? 'a comunidad' : 'to community'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rf-value">
+      <div class="rf-container">
+        <div class="rf-section-header">
+          <p class="rf-eyebrow">{copy.valueEyebrow}</p>
+          <h2>{copy.valueTitle}</h2>
+          <p>{copy.valueLead}</p>
+        </div>
+        <div class="rf-card-grid">
+          {copy.valueCards.map((card) => (
+            <article class="rf-card">
+              <h3>{card.title}</h3>
+              <p>{card.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="rf-circuit">
+      <div class="rf-container">
+        <div class="rf-section-header">
+          <p class="rf-eyebrow">{copy.circuitEyebrow}</p>
+          <h2>{copy.circuitTitle}</h2>
+        </div>
+        <div class="rf-steps">
+          {copy.circuitSteps.map((step) => (
+            <article class="rf-step">
+              <span>{step.number}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="rf-positioning">
+      <div class="rf-container rf-positioning-grid">
+        <div>
+          <p class="rf-eyebrow">{copy.distinctionEyebrow}</p>
+          <h2>{copy.distinctionTitle}</h2>
+          <p>{copy.distinctionText}</p>
+        </div>
+        <article class="rf-provider-fit">
+          <h3>{copy.providerTitle}</h3>
+          <ul>
+            {copy.providerItems.map((item) => <li>{item}</li>)}
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="rf-final">
+      <div class="rf-container rf-final-inner">
+        <h2>{copy.ctaTitle}</h2>
+        <p>{copy.ctaText}</p>
+        <a class="rf-primary" href={bookingPath}>{copy.primaryCta}</a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .provider-rarefriends-page {
+    margin-top: clamp(60px, 10vw, 80px);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .rf-container {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 2rem);
+  }
+
+  .rf-hero,
+  .rf-circuit,
+  .rf-final {
+    background: var(--bg-secondary);
+  }
+
+  .rf-hero {
+    min-height: calc(92vh - 80px);
+    display: flex;
+    align-items: center;
+    padding: clamp(3.25rem, 6vw, 5.25rem) 0;
+    border-top: 1px solid rgba(17, 24, 39, 0.06);
+  }
+
+  .rf-hero-grid,
+  .rf-positioning-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+
+  .rf-eyebrow {
+    margin: 0 0 0.8rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .rf-hero h1,
+  .rf-section-header h2,
+  .rf-positioning h2,
+  .rf-final h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .rf-hero h1 {
+    max-width: 760px;
+    font-size: clamp(2.65rem, 5vw, 4.2rem);
+  }
+
+  .rf-lead,
+  .rf-section-header p,
+  .rf-positioning p,
+  .rf-final p {
+    color: var(--text-secondary);
+    font-size: clamp(1.02rem, 1.65vw, 1.2rem);
+    line-height: 1.65;
+  }
+
+  .rf-lead {
+    max-width: 720px;
+    margin: 1.4rem 0 0;
+  }
+
+  .rf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .rf-primary,
+  .rf-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 54px;
+    padding: 1rem 1.45rem;
+    border-radius: 999px;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 800;
+    line-height: 1.12;
+  }
+
+  .rf-primary {
+    background: linear-gradient(135deg, #b57c22 0%, #f0c05b 48%, #8f5c14 100%);
+    color: #fff;
+    box-shadow: 0 18px 42px rgba(175, 130, 50, 0.34), 0 0 0 1px rgba(255, 255, 255, 0.28) inset;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .rf-secondary {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    box-shadow: var(--card-shadow);
+  }
+
+  .rf-primary:hover,
+  .rf-secondary:hover {
+    transform: translateY(-3px);
+  }
+
+  .rf-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .rf-badges span {
+    padding: 0.7rem 0.95rem;
+    border: 1px solid rgba(175, 130, 50, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.76);
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+
+  .rf-visual {
+    display: grid;
+    place-items: center;
+    min-height: 460px;
+  }
+
+  .rf-orbit {
+    position: relative;
+    width: min(460px, 82vw);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.95) 0 28%, transparent 29%),
+      radial-gradient(circle at 50% 50%, rgba(175, 130, 50, 0.16), rgba(86, 124, 172, 0.13) 54%, rgba(45, 148, 126, 0.13));
+    border: 1px solid rgba(17, 24, 39, 0.08);
+    box-shadow: 0 26px 80px rgba(17, 24, 39, 0.11);
+  }
+
+  .rf-orbit::before,
+  .rf-orbit::after {
+    content: "";
+    position: absolute;
+    inset: 12%;
+    border: 1px dashed rgba(175, 130, 50, 0.35);
+    border-radius: 999px;
+  }
+
+  .rf-orbit::after {
+    inset: 25%;
+    border-color: rgba(86, 124, 172, 0.28);
+  }
+
+  .rf-core,
+  .rf-node {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    border-radius: 999px;
+    box-shadow: 0 18px 40px rgba(17, 24, 39, 0.12);
+  }
+
+  .rf-core {
+    inset: 34%;
+    z-index: 3;
+    background: linear-gradient(135deg, #1f2f84, #3857d6 55%, #5f7bf0);
+    color: #fff;
+    padding: 1rem;
+  }
+
+  .rf-core strong {
+    font-size: clamp(1.15rem, 3vw, 1.7rem);
+    line-height: 1.05;
+  }
+
+  .rf-core span {
+    font-size: 0.82rem;
+    font-weight: 700;
+    opacity: 0.88;
+  }
+
+  .rf-node {
+    width: clamp(96px, 16vw, 126px);
+    height: clamp(96px, 16vw, 126px);
+    z-index: 2;
+    padding: 0.85rem;
+    color: #101827;
+    font-size: clamp(0.82rem, 1.6vw, 1rem);
+    font-weight: 900;
+    line-height: 1.12;
+  }
+
+  .node-a {
+    top: 2%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #fff0c2, #f1c057);
+  }
+
+  .node-b {
+    right: -1%;
+    top: 38%;
+    background: linear-gradient(135deg, #f1d8ff, #9b7fe6);
+  }
+
+  .node-c {
+    bottom: 2%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #c8f7e6, #62c6a0);
+  }
+
+  .node-d {
+    left: -1%;
+    top: 38%;
+    background: linear-gradient(135deg, #d8ecff, #73a8f2);
+  }
+
+  .rf-value,
+  .rf-positioning {
+    background: var(--bg-primary);
+  }
+
+  .rf-value,
+  .rf-circuit,
+  .rf-positioning,
+  .rf-final {
+    padding: clamp(4rem, 8vw, 6.5rem) 0;
+    border-top: 1px solid rgba(17, 24, 39, 0.06);
+  }
+
+  .rf-section-header {
+    max-width: 820px;
+    margin-bottom: clamp(1.75rem, 4vw, 3rem);
+  }
+
+  .rf-section-header h2,
+  .rf-positioning h2,
+  .rf-final h2 {
+    font-size: clamp(2.2rem, 5vw, 4rem);
+  }
+
+  .rf-section-header p {
+    margin: 1rem 0 0;
+    max-width: 760px;
+  }
+
+  .rf-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .rf-card,
+  .rf-step,
+  .rf-provider-fit {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.75rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .rf-card,
+  .rf-step {
+    padding: clamp(1.25rem, 2.5vw, 1.6rem);
+  }
+
+  .rf-card h3,
+  .rf-step h3,
+  .rf-provider-fit h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.08rem;
+    line-height: 1.2;
+  }
+
+  .rf-card p,
+  .rf-step p {
+    margin: 0.85rem 0 0;
+    color: var(--text-secondary);
+    line-height: 1.58;
+  }
+
+  .rf-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .rf-step span {
+    display: inline-flex;
+    margin-bottom: 1rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+  }
+
+  .rf-positioning-grid {
+    align-items: start;
+  }
+
+  .rf-positioning p {
+    max-width: 720px;
+    margin: 1rem 0 0;
+  }
+
+  .rf-provider-fit {
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .rf-provider-fit ul {
+    display: grid;
+    gap: 0.95rem;
+    margin: 1.2rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rf-provider-fit li {
+    position: relative;
+    padding-left: 1.25rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  .rf-provider-fit li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--brand-color);
+  }
+
+  .rf-final-inner {
+    max-width: 860px;
+    text-align: center;
+  }
+
+  .rf-final p {
+    max-width: 760px;
+    margin: 1rem auto 2rem;
+  }
+
+  @media (max-width: 980px) {
+    .rf-hero-grid,
+    .rf-positioning-grid,
+    .rf-card-grid,
+    .rf-steps {
+      grid-template-columns: 1fr;
+    }
+
+    .rf-hero {
+      min-height: auto;
+    }
+
+    .rf-visual {
+      min-height: 430px;
+    }
+
+    .rf-card-grid,
+    .rf-steps {
+      gap: 0.9rem;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .rf-hero {
+      padding-top: 2.6rem;
+    }
+
+    .rf-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .rf-primary,
+    .rf-secondary {
+      width: 100%;
+    }
+
+    .rf-visual {
+      min-height: 300px;
+    }
+
+    .rf-orbit {
+      width: min(300px, 80vw);
+    }
+
+    .rf-node {
+      width: 78px;
+      height: 78px;
+      font-size: 0.68rem;
+    }
+
+    .rf-core {
+      inset: 33%;
+      padding: 0.7rem;
+    }
+
+    .rf-core strong {
+      font-size: 1rem;
+    }
+
+    .rf-core span {
+      font-size: 0.65rem;
+    }
+  }
+</style>

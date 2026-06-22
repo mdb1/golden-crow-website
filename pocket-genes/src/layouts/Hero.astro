@@ -1,15 +1,22 @@
 ---
-import { useTranslations } from '../i18n/index';
+import { getLocalizedPath, useTranslations } from '../i18n/index';
+import { defaultLang, type Lang } from '../i18n/ui';
+
 const t = useTranslations(Astro.currentLocale);
+const lang = (Astro.currentLocale || defaultLang) as Lang;
+
+function localPath(path: string) {
+  return getLocalizedPath(path, lang);
+}
 
 const heroStats = [
   {
-    href: '#screen2',
+    href: '#app-screenshots',
     number: t.hero.stat1Number,
     label: t.hero.stat1Label,
   },
   {
-    href: '#screen3',
+    href: localPath('/pocket-genes/integration/rarefriends'),
     number: t.hero.stat2Number,
     label: t.hero.stat2Label,
   },
