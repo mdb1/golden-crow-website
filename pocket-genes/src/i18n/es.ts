@@ -543,8 +543,13 @@ export const es: Translations = {
 
   // Layout components - Plan
   plan: {
+    eyebrow: 'COMPARÁ BENEFICIOS',
     title: 'PLANES FLEXIBLES PARA INTEGRAR TU SERVICIO',
     subtitle: 'Cada nivel suma una forma distinta de entregar informes, sostener engagement y dar visibilidad a tu organización.',
+    tapHint: 'Tocá un plan para comparar beneficios',
+    showDetails: 'Ver beneficios',
+    hideDetails: 'Ocultar beneficios',
+    benefitsTitle: 'Beneficios incluidos',
     quickStartTitle: 'Validá la experiencia',
     quickStartDesc: 'Llevá informes seleccionados a Pocket Genes y probá cómo tus usuarios recorren resultados desde mobile.',
     quickStartFeature: 'Ideal para pilotos, validación interna y primeras integraciones.',

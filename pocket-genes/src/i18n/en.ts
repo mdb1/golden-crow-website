@@ -541,8 +541,13 @@ export const en = {
 
   // Layout components - Plan
   plan: {
+    eyebrow: 'Compare benefits',
     title: 'Flexible plans to integrate your service',
     subtitle: 'Each level adds a different way to deliver reports, sustain engagement, and make your organization more visible.',
+    tapHint: 'Tap a plan to compare benefits',
+    showDetails: 'View benefits',
+    hideDetails: 'Hide benefits',
+    benefitsTitle: 'Included benefits',
     quickStartTitle: 'Validate the experience',
     quickStartDesc: 'Bring selected reports into Pocket Genes and test how users explore results from mobile.',
     quickStartFeature: 'Ideal for pilots, internal validation, and first integrations.',

@@ -1,132 +1,362 @@
 ---
-import PlanCard from "../components/PlanCard.astro";
 import { useTranslations } from '../i18n/index';
+
 const t = useTranslations(Astro.currentLocale);
+
+const plans = [
+  {
+    id: 'free',
+    name: t.plan.quickStartPlan,
+    label: t.plan.quickStartLabel,
+    title: t.plan.quickStartTitle,
+    description: t.plan.quickStartDesc,
+    feature: t.plan.quickStartFeature,
+    detail: t.choosePlan.freeDesc,
+    items: t.choosePlan.freeItems,
+  },
+  {
+    id: 'plus',
+    name: t.plan.proBrandingPlan,
+    label: t.plan.proBrandingLabel,
+    title: t.plan.proBrandingTitle,
+    description: t.plan.proBrandingDesc,
+    feature: t.plan.proBrandingFeature,
+    detail: t.choosePlan.plusDesc,
+    items: t.choosePlan.plusItems,
+  },
+  {
+    id: 'full',
+    name: t.plan.enterprisePlan,
+    label: t.plan.enterpriseLabel,
+    title: t.plan.enterpriseTitle,
+    description: t.plan.enterpriseDesc,
+    feature: t.plan.enterpriseFeature,
+    detail: t.choosePlan.fullDesc,
+    items: t.choosePlan.fullItems,
+    highlighted: true,
+  },
+];
 ---
 
-<section class="container">
+<section class="plans-section" aria-labelledby="plans-title">
   <div class="content-wrapper">
-    <h1 id="title">{t.plan.title}</h1>
-    <p class="section-subtitle">{t.plan.subtitle}</p>
-    <div class="card_container">
-      <PlanCard
-        title={t.plan.quickStartTitle}
-        text={t.plan.quickStartDesc}
-        subtext={t.plan.quickStartFeature}
-        plan={t.plan.quickStartPlan}
-        description={t.plan.quickStartLabel}
-      />
-      <PlanCard
-        title={t.plan.proBrandingTitle}
-        text={t.plan.proBrandingDesc}
-        subtext={t.plan.proBrandingFeature}
-        plan={t.plan.proBrandingPlan}
-        description={t.plan.proBrandingLabel}
-      />
-      <PlanCard
-        title={t.plan.enterpriseTitle}
-        text={t.plan.enterpriseDesc}
-        subtext={t.plan.enterpriseFeature}
-        plan={t.plan.enterprisePlan}
-        description={t.plan.enterpriseLabel}
-        isHighlighted=true
-      />
+    <div class="section-header">
+      <p class="eyebrow">{t.plan.eyebrow}</p>
+      <h2 id="plans-title" class="section-title">{t.plan.title}</h2>
+      <p class="section-subtitle">{t.plan.subtitle}</p>
+      <p class="interaction-hint">{t.plan.tapHint}</p>
+    </div>
+
+    <div class="plans-grid">
+      {plans.map((plan) => (
+        <article
+          class:list={['plan-card', { highlighted: plan.highlighted }]}
+          data-plan-card
+        >
+          <button
+            class="plan-summary"
+            type="button"
+            aria-expanded="false"
+            aria-controls={`plan-details-${plan.id}`}
+          >
+            <span class="plan-kicker">{plan.label}</span>
+            <span class="plan-name">{plan.name}</span>
+            <span class="plan-title">{plan.title}</span>
+            <span class="plan-description">{plan.description}</span>
+            <span class="plan-feature">{plan.feature}</span>
+            <span class="details-toggle">
+              <span class="show-label">{t.plan.showDetails}</span>
+              <span class="hide-label">{t.plan.hideDetails}</span>
+            </span>
+          </button>
+
+          <div id={`plan-details-${plan.id}`} class="plan-details" data-plan-details>
+            <p class="details-copy" set:html={plan.detail}></p>
+            <h3>{t.plan.benefitsTitle}</h3>
+            <ul>
+              {plan.items.map((item) => (
+                <li>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </article>
+      ))}
     </div>
   </div>
 </section>
 
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const cards = Array.from(document.querySelectorAll('[data-plan-card]'));
+
+    cards.forEach((card) => {
+      const button = card.querySelector('button');
+      const details = card.querySelector('[data-plan-details]');
+
+      button?.addEventListener('click', () => {
+        const isActive = card.classList.contains('active');
+
+        cards.forEach((otherCard) => {
+          otherCard.classList.remove('active');
+          otherCard.querySelector('button')?.setAttribute('aria-expanded', 'false');
+        });
+
+        if (!isActive) {
+          card.classList.add('active');
+          button.setAttribute('aria-expanded', 'true');
+          details?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      });
+    });
+  });
+</script>
+
 <style>
-  .container {
-    max-width: none;
+  .plans-section {
     position: relative;
     min-height: 100vh;
-    background: var(--bg-primary);
+    padding: clamp(3.5rem, 7vw, 6rem) 5%;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 5rem 5%;
   }
 
   .content-wrapper {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    width: 100%;
+    width: min(1180px, 100%);
+    margin: 0 auto;
   }
 
-  #title {
-    font-size: clamp(2rem, 3.5vw, 3rem);
+  .section-header {
+    max-width: 820px;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
     font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    max-width: 980px;
+    margin: 0;
     color: var(--text-primary);
-    margin: 0 0 1rem 0;
-    line-height: 1.2;
-    max-width: 90%;
+    font-size: clamp(2.1rem, 5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.06;
   }
 
   .section-subtitle {
-    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+    max-width: 760px;
+    margin: 1.25rem 0 0;
     color: var(--text-secondary);
-    margin: 0 0 4rem 0;
-    line-height: 1.5;
-    max-width: 70%;
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.7;
   }
 
-  .card_container {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
+  .interaction-hint {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    margin: 1.5rem 0 0;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid rgba(175, 130, 50, 0.22);
+    border-radius: 999px;
+    background: rgba(175, 130, 50, 0.07);
+    color: var(--brand-color);
+    font-size: 0.9rem;
+    font-weight: 800;
+  }
+
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1rem, 2vw, 1.5rem);
+    align-items: start;
+  }
+
+  .plan-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  .plan-card:hover,
+  .plan-card.active {
+    transform: translateY(-6px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .plan-card.active {
+    border-color: rgba(175, 130, 50, 0.48);
+  }
+
+  .plan-card.highlighted {
+    border-color: rgba(175, 130, 50, 0.35);
+    background: rgba(175, 130, 50, 0.05);
+  }
+
+  .plan-summary {
+    display: grid;
+    gap: 0.85rem;
     width: 100%;
-    gap: 2rem;
-    margin-top: auto;
+    padding: clamp(1.4rem, 3vw, 2rem);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
 
-  /* Responsive Design */
-  @media (max-width: 1200px) {
-    .container {
-      padding: 4rem 5%;
-      text-align: center;
-      align-items: center;
-      justify-content: center;
+  .plan-kicker {
+    width: fit-content;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid rgba(175, 130, 50, 0.2);
+    border-radius: 999px;
+    background: rgba(175, 130, 50, 0.08);
+    color: var(--brand-color);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .plan-name {
+    color: var(--brand-color);
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    font-weight: 900;
+    line-height: 0.95;
+  }
+
+  .plan-title {
+    color: var(--text-primary);
+    font-size: clamp(1.18rem, 2vw, 1.5rem);
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .plan-description,
+  .plan-feature {
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  .plan-feature {
+    font-weight: 700;
+  }
+
+  .details-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-height: 40px;
+    margin-top: 0.25rem;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    background: var(--text-primary);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 800;
+  }
+
+  .hide-label,
+  .plan-card.active .show-label {
+    display: none;
+  }
+
+  .plan-card.active .hide-label {
+    display: inline;
+  }
+
+  .plan-details {
+    max-height: 0;
+    overflow: hidden;
+    padding: 0 clamp(1.4rem, 3vw, 2rem);
+    border-top: 1px solid transparent;
+    opacity: 0;
+    transition: max-height 0.32s ease, opacity 0.22s ease, padding 0.28s ease, border-color 0.28s ease;
+  }
+
+  .plan-card.active .plan-details {
+    max-height: 900px;
+    padding-bottom: clamp(1.4rem, 3vw, 2rem);
+    border-top-color: var(--card-border);
+    opacity: 1;
+  }
+
+  .details-copy {
+    margin: 1.25rem 0 1rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .details-copy :global(b) {
+    color: var(--text-primary);
+  }
+
+  .plan-details h3 {
+    margin: 0 0 0.8rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  ul {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding-left: 1.55rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+  }
+
+  li::before {
+    content: '✓';
+    position: absolute;
+    top: 0.05rem;
+    left: 0;
+    color: var(--brand-color);
+    font-weight: 900;
+  }
+
+  @media (max-width: 1024px) {
+    .plans-grid {
+      grid-template-columns: 1fr;
     }
 
-    .content-wrapper {
-      align-items: center;
-    }
-
-    #title {
-      max-width: 100%;
-      margin-bottom: 1rem;
-    }
-
-    .section-subtitle {
-      max-width: 100%;
-      margin-bottom: 3rem;
-    }
-
-    .card_container {
-      flex-direction: column;
-      align-items: center;
-      gap: 2rem;
-      margin-top: 0;
+    .plan-card:hover {
+      transform: none;
     }
   }
 
-  @media (max-width: 768px) {
-    .container {
-      padding: 3rem 4%;
+  @media (max-width: 640px) {
+    .plans-section {
+      min-height: auto;
+      padding: clamp(2.75rem, 8vw, 4rem) 5%;
     }
 
-    .card_container {
-      gap: 1.5rem;
+    .plan-card,
+    .plan-card:hover,
+    .plan-card.active {
+      transform: none;
     }
-  }
 
-  @media (max-width: 480px) {
-    .container {
-      padding: 2rem 4%;
+    .plan-summary {
+      gap: 0.75rem;
     }
   }
 </style>
