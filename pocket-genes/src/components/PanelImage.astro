@@ -46,13 +46,17 @@ const t = useTranslations(Astro.currentLocale);
     margin: 0 auto;
     overflow: visible;
     position: relative;
+    isolation: isolate;
   }
 
   .central_panel {
     z-index: 10;
+    position: relative;
     border: 0;
     border-radius: 100%;
-    background-color: #1a36b4;
+    background:
+      radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.92) 0 6%, rgba(95, 231, 255, 0.9) 7%, rgba(58, 108, 255, 0.96) 42%, #263bd6 70%, #6726d6 100%);
+    color: #fff;
     padding: clamp(2rem, 4vw, 4rem);
     margin: clamp(0.5rem, 1vw, 1rem);
     width: clamp(180px, 18vw, 280px);
@@ -60,15 +64,32 @@ const t = useTranslations(Astro.currentLocale);
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow:
+      inset 0 1px 18px rgba(255, 255, 255, 0.36),
+      inset 0 -28px 48px rgba(26, 31, 135, 0.22),
+      0 24px 60px rgba(38, 65, 214, 0.28);
+  }
+
+  .central_panel::before {
+    content: '';
+    position: absolute;
+    inset: -0.8rem;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(from 120deg, rgba(82, 218, 255, 0.18), rgba(124, 88, 255, 0.5), rgba(82, 218, 255, 0.18));
+    filter: blur(12px);
+    opacity: 0.9;
   }
 
   .central_panel p {
+    position: relative;
     text-align: center;
-    font-size: clamp(1.2rem, 2.2vw, 2.5rem);
+    font-size: clamp(1.2rem, 2vw, 2.35rem);
     margin: 0;
-    line-height: 1.2;
-    font-weight: 600;
+    line-height: 1.15;
+    font-weight: 800;
     white-space: pre-line;
+    text-shadow: 0 2px 16px rgba(18, 23, 80, 0.36);
   }
 
   .first_column {
@@ -94,57 +115,116 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .panel {
+    --node-text: #fff;
+    --node-gradient: linear-gradient(145deg, #8ee8ff 0%, #4f7cff 52%, #5b35dd 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(110, 203, 255, 0.92) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(80, 128, 255, 0.3);
+    --ring-gap: clamp(0.95rem, 1.65vw, 1.65rem);
+    --ring-width: clamp(2px, 0.32vw, 4px);
     width: clamp(100px, 12vw, 120px);
     height: clamp(100px, 12vw, 120px);
     z-index: 10;
-    outline-offset: clamp(0.8rem, 1.5vw, 1.5rem);
+    position: relative;
     border-radius: 100%;
     margin: clamp(1rem, 3vw, 3rem) clamp(1rem, 2vw, 2rem);
     padding: clamp(0.8rem, 1.5vw, 1.5rem);
     display: flex;
     align-items: center;
     justify-content: center;
-    outline-width: clamp(2px, 0.4vw, 4px);
-    outline-style: dotted;
+    background: var(--node-gradient);
+    color: var(--node-text);
+    box-shadow:
+      inset 0 1px 14px rgba(255, 255, 255, 0.44),
+      inset 0 -18px 28px rgba(0, 0, 0, 0.12),
+      0 16px 34px var(--glow-color);
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--ring-gap));
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--ring-gradient);
+    filter: drop-shadow(0 0 10px var(--glow-color));
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--ring-width) - 1px),
+      #000 calc(100% - var(--ring-width)),
+      #000 calc(100% - 1px),
+      transparent 100%
+    );
+    mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--ring-width) - 1px),
+      #000 calc(100% - var(--ring-width)),
+      #000 calc(100% - 1px),
+      transparent 100%
+    );
+  }
+
+  .panel::after {
+    content: '';
+    position: absolute;
+    inset: 12%;
+    border-radius: inherit;
+    background: radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.42), transparent 36%);
+    pointer-events: none;
   }
 
   .panel p {
+    position: relative;
+    z-index: 1;
     text-align: center;
     font-size: clamp(0.8rem, 1.2vw, 1.2rem);
     margin: 0;
     line-height: 1.2;
-    font-weight: 500;
+    font-weight: 750;
     white-space: pre-line;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.12);
   }
 
   .first {
-    outline-color: #D4A94E;
-    background-color: #D4A94E;
+    --node-text: #3c2700;
+    --node-gradient: linear-gradient(145deg, #ffe984 0%, #f6c44b 48%, #e0981e 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(255, 215, 85, 0.98) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(235, 171, 42, 0.34);
   }
 
   .second {
-    outline-color: #c27ba0;
-    background-color: #c27ba0;
+    --node-gradient: linear-gradient(145deg, #ffacd9 0%, #d56fab 50%, #9f4d96 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(226, 112, 175, 0.94) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(211, 101, 166, 0.32);
   }
 
   .third {
-    outline-color: #e06666;
-    background-color: #e06666;
+    --node-gradient: linear-gradient(145deg, #ff9f88 0%, #ff6474 46%, #da3464 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(255, 92, 108, 0.98) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(239, 82, 100, 0.34);
   }
 
   .fourth {
-    outline-color: #8e7cc3;
-    background-color: #8e7cc3;
+    --node-gradient: linear-gradient(145deg, #c2b7ff 0%, #8d72ff 48%, #6844d7 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(139, 115, 255, 0.98) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(129, 103, 238, 0.34);
+  }
+
+  .fourth p {
+    font-size: clamp(0.72rem, 1.05vw, 1.05rem);
   }
 
   .fifth {
-    outline-color: #93c47d;
-    background-color: #93c47d;
+    --node-text: #0d361f;
+    --node-gradient: linear-gradient(145deg, #d2ff9c 0%, #8ee17a 47%, #39bb7b 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(107, 205, 95, 0.98) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(82, 183, 105, 0.32);
   }
 
   .sixth {
-    outline-color: #f6b26b;
-    background-color: #f6b26b;
+    --node-text: #4a2100;
+    --node-gradient: linear-gradient(145deg, #ffd58f 0%, #ffab55 46%, #ff773c 100%);
+    --ring-gradient: repeating-conic-gradient(from -10deg, rgba(255, 164, 75, 0.98) 0 7deg, transparent 7deg 15deg);
+    --glow-color: rgba(255, 145, 65, 0.34);
   }
 
   /* Extra small devices - smaller than iPhone SE */
@@ -170,8 +250,8 @@ const t = useTranslations(Astro.currentLocale);
       height: 60px;
       margin: 0.2rem;
       padding: 0.3rem;
-      outline-offset: 0.2rem;
-      outline-width: 1px;
+      --ring-gap: 0.22rem;
+      --ring-width: 1px;
     }
     
     .panel p {
@@ -216,8 +296,8 @@ const t = useTranslations(Astro.currentLocale);
       height: clamp(70px, 18vw, 90px);
       margin: clamp(0.3rem, 1vw, 0.5rem);
       padding: clamp(0.5rem, 1vw, 0.8rem);
-      outline-offset: clamp(0.3rem, 1vw, 0.5rem);
-      outline-width: clamp(1px, 0.3vw, 2px);
+      --ring-gap: clamp(0.3rem, 1vw, 0.5rem);
+      --ring-width: clamp(1px, 0.3vw, 2px);
     }
     
     .panel p {
@@ -249,8 +329,8 @@ const t = useTranslations(Astro.currentLocale);
       width: clamp(80px, 10vw, 100px);
       height: clamp(80px, 10vw, 100px);
       margin: clamp(0.5rem, 2vw, 1.5rem);
-      outline-offset: clamp(0.5rem, 1vw, 1rem);
-      outline-width: clamp(1px, 0.2vw, 3px);
+      --ring-gap: clamp(0.5rem, 1vw, 1rem);
+      --ring-width: clamp(1px, 0.2vw, 3px);
     }
     
     .panel p {
