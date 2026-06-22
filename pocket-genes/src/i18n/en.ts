@@ -443,8 +443,6 @@ export const en = {
         'Rare disease resources',
         'Support organizations',
       ],
-      disclaimerTitle: 'Clinical boundary',
-      disclaimer: 'The directory helps users discover available services. It is not medical advice, a clinical ranking, or a treatment recommendation. Each person should confirm fit, coverage, and next steps with qualified professionals.',
     },
     journey: {
       eyebrow: 'How it works',
@@ -462,7 +460,7 @@ export const en = {
         },
         {
           title: 'Validate the content',
-          description: 'Your team reviews scientific language, limits, hierarchy, and how data is displayed.',
+          description: 'Your team reviews scientific language, content hierarchy, content criteria, and how data is displayed.',
         },
         {
           title: 'Launch user access',
@@ -479,10 +477,10 @@ export const en = {
       ],
     },
     trust: {
-      eyebrow: 'Trust and boundaries',
+      eyebrow: 'Integration trust',
       title1: 'Sensitive data',
-      title2: 'with clear rules',
-      description: 'Genetics requires care. Pocket Genes and RareFriends™ are designed to organize information, improve understanding, and support conversations without exposing sensitive data by default.',
+      title2: 'with a secure experience',
+      description: 'Genetics requires care. Pocket Genes and RareFriends™ help your organization deliver a clearer, more organized, and more trusted experience from the first access.',
       cards: [
         {
           title: 'Privacy by default',
@@ -501,8 +499,6 @@ export const en = {
           description: 'People can leave circles, block contacts, or report situations when needed.',
         },
       ],
-      boundaryTitle: 'Pocket Genes does not diagnose or prescribe',
-      boundaryText: 'The platform does not replace doctors, geneticists, or genetic counselors. It helps users organize information, understand concepts, and prepare better conversations with qualified professionals.',
     },
   },
 
@@ -673,7 +669,7 @@ export const en = {
     projectsLabel: 'Projects',
     paragraph1: 'We build mobile products for health, wellness, and sensitive service journeys where clarity, trust, and continuity matter.',
     paragraph2: 'Backed by over a decade of software experience, our team combines engineering, design, product thinking, legal guidance, and biotechnology perspective to create secure, understandable experiences.',
-    paragraph3: 'Integration is not only technical: it also protects language, clinical boundaries, and user trust.',
+    paragraph3: 'Integration is not only technical: it also protects language, privacy, and user trust.',
     strongerUTitle: 'Stronger U',
     strongerUDesc: 'We helped Stronger U team bring its personalized nutrition coaching to mobile, allowing users to connect with expert coaches, track progress, and receive tailored guidance—all in one intuitive app',
     anytimeTitle: 'Anytime Fitness',

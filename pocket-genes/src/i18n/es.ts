@@ -445,8 +445,6 @@ export const es: Translations = {
         'Recursos EPOF',
         'Organizaciones de apoyo',
       ],
-      disclaimerTitle: 'LÍMITE CLÍNICO',
-      disclaimer: 'El directorio ayuda a descubrir servicios disponibles. No funciona como recomendación médica, ranking clínico ni indicación de tratamiento. Cada persona debe confirmar idoneidad, cobertura y próximos pasos con profesionales calificados.',
     },
     journey: {
       eyebrow: 'CÓMO FUNCIONA',
@@ -464,7 +462,7 @@ export const es: Translations = {
         },
         {
           title: 'Validás el contenido',
-          description: 'Tu equipo revisa lenguaje científico, límites, jerarquías y cómo se muestran los datos.',
+          description: 'Tu equipo revisa lenguaje científico, jerarquías, criterios de contenido y cómo se muestran los datos.',
         },
         {
           title: 'Lanzamos el acceso',
@@ -481,10 +479,10 @@ export const es: Translations = {
       ],
     },
     trust: {
-      eyebrow: 'CONFIANZA Y LÍMITES',
+      eyebrow: 'CONFIANZA PARA INTEGRAR',
       title1: 'DATOS SENSIBLES',
-      title2: 'CON REGLAS CLARAS',
-      description: 'La genética requiere cuidado. Pocket Genes y RareFriends™ están pensados para organizar información, mejorar comprensión y facilitar conversaciones, sin exponer datos sensibles por defecto.',
+      title2: 'CON UNA EXPERIENCIA SEGURA',
+      description: 'La genética requiere cuidado. Pocket Genes y RareFriends™ ayudan a que tu organización entregue una experiencia más clara, ordenada y confiable desde el primer acceso.',
       cards: [
         {
           title: 'Privacidad por defecto',
@@ -503,8 +501,6 @@ export const es: Translations = {
           description: 'Las personas pueden salir de círculos, bloquear contactos o reportar situaciones.',
         },
       ],
-      boundaryTitle: 'Pocket Genes no diagnostica ni prescribe',
-      boundaryText: 'La plataforma no reemplaza a médicos, genetistas ni asesores genéticos. Ayuda a ordenar información, explicar conceptos y preparar mejores conversaciones con profesionales calificados.',
     },
   },
 
@@ -675,7 +671,7 @@ export const es: Translations = {
     projectsLabel: 'Proyectos',
     paragraph1: 'Construimos productos mobile usados en contextos de salud, bienestar y servicios sensibles, donde claridad, confianza y continuidad importan.',
     paragraph2: 'Respaldados por más de una década de experiencia en desarrollo de software, nuestro equipo combina ingeniería, diseño, producto, asesoría legal y mirada biotecnológica para crear experiencias seguras y comprensibles.',
-    paragraph3: 'La integración no es solo técnica: también cuida el lenguaje, los límites clínicos y la confianza del usuario.',
+    paragraph3: 'La integración no es solo técnica: también cuida el lenguaje, la privacidad y la confianza del usuario.',
     strongerUTitle: 'Stronger U',
     strongerUDesc: 'Ayudamos al equipo de Stronger U a llevar su coaching de nutrición personalizado al móvil, permitiendo a los usuarios conectarse con coaches expertos, seguir su progreso y recibir orientación personalizada—todo en una app intuitiva',
     anytimeTitle: 'Anytime Fitness',
