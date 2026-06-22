@@ -338,6 +338,29 @@ export const es: Translations = {
     educationDesc: 'Herramientas para ayudar a los usuarios a entender conceptos genéticos y revisar sus resultados con más claridad.',
   },
 
+  // Layout components - AppScreenshots
+  appScreenshots: {
+    eyebrow: 'VISTA DE LA APP',
+    title1: 'PANTALLAS REALES',
+    title2: 'DE POCKET GENES',
+    description: 'Una muestra de cómo se ven los informes, filtros, recorridos de aprendizaje, intereses guardados, RareFriends™ e insights genéticos dentro de la app.',
+    galleryLabel: 'Galería de pantallas de la app Pocket Genes',
+    imageAlt: 'Pantalla de la app Pocket Genes',
+    captions: [
+      'EXPLORACIÓN',
+      'DESCUBRIMIENTO',
+      'PATOLOGÍA',
+      'ASCENDENCIA',
+      'FILTROS',
+      'NEUROLOGÍA',
+      'APRENDIZAJE',
+      'GENE BAG',
+      'RAREFRIENDS™',
+      'NUTRICIÓN',
+      'INSIGHT GENÉTICO',
+    ],
+  },
+
   // Layout components - MoreToCome
   moreToCome: {
     title1: 'MÁS',

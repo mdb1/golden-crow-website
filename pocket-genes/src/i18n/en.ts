@@ -336,6 +336,29 @@ export const en = {
     educationDesc: 'Built-in tools to help users to understand their results.',
   },
 
+  // Layout components - AppScreenshots
+  appScreenshots: {
+    eyebrow: 'App preview',
+    title1: 'Real app screens',
+    title2: 'from Pocket Genes',
+    description: 'A closer look at how users explore reports, filters, learning paths, saved interests, RareFriends™, and genetic insights inside the app.',
+    galleryLabel: 'Pocket Genes app screenshot gallery',
+    imageAlt: 'Pocket Genes app screenshot',
+    captions: [
+      'Explore',
+      'Discover',
+      'Pathology',
+      'Ancestry',
+      'Filters',
+      'Neurology',
+      'Learning',
+      'Gene bag',
+      'RareFriends™',
+      'Nutrition',
+      'Genetic insight',
+    ],
+  },
+
   // Layout components - MoreToCome
   moreToCome: {
     title1: 'More',

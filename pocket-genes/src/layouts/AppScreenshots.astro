@@ -1,0 +1,172 @@
+---
+import { useTranslations } from '../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+
+const screenshots = Array.from({ length: 11 }, (_, index) => ({
+  src: `/pocket-genes/screenshots/sample-${String(index + 1).padStart(2, '0')}.webp`,
+  caption: t.appScreenshots.captions[index],
+}));
+---
+
+<section class="app-screenshots-section" aria-labelledby="app-screenshots-title">
+  <div class="content-wrapper">
+    <div class="section-header">
+      <p class="eyebrow">{t.appScreenshots.eyebrow}</p>
+      <h2 id="app-screenshots-title" class="title">
+        <span class="title-accent">{t.appScreenshots.title1}</span>
+        <span class="title-main">{t.appScreenshots.title2}</span>
+      </h2>
+      <p class="description">{t.appScreenshots.description}</p>
+    </div>
+
+    <div class="screenshots-rail" aria-label={t.appScreenshots.galleryLabel}>
+      {screenshots.map((screenshot, index) => (
+        <figure class="screenshot-card">
+          <div class="phone-frame">
+            <img
+              src={screenshot.src}
+              alt={`${t.appScreenshots.imageAlt} ${index + 1}`}
+              loading={index < 4 ? 'eager' : 'lazy'}
+              width="560"
+              height="1218"
+            />
+          </div>
+          <figcaption>{screenshot.caption}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .app-screenshots-section {
+    position: relative;
+    background: var(--bg-secondary);
+    padding: clamp(3rem, 6vw, 5rem) 5%;
+    overflow: hidden;
+  }
+
+  .content-wrapper {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+  }
+
+  .section-header {
+    max-width: 760px;
+    margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
+  }
+
+  .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: clamp(2.15rem, 5vw, 4.1rem);
+    font-weight: 900;
+    line-height: 1.06;
+  }
+
+  .title-accent,
+  .title-main {
+    display: block;
+  }
+
+  .title-accent {
+    color: var(--text-secondary);
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .description {
+    max-width: 700px;
+    margin: 1.25rem 0 0;
+    color: var(--text-secondary);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.65;
+  }
+
+  .screenshots-rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 238px);
+    gap: clamp(1rem, 2vw, 1.5rem);
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 0.25rem 0 1.25rem;
+    scroll-padding-inline: 0.25rem;
+    scroll-snap-type: inline proximity;
+  }
+
+  .screenshots-rail::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .screenshots-rail::-webkit-scrollbar-track {
+    background: rgba(17, 24, 39, 0.06);
+    border-radius: 999px;
+  }
+
+  .screenshots-rail::-webkit-scrollbar-thumb {
+    background: rgba(175, 130, 50, 0.45);
+    border-radius: 999px;
+  }
+
+  .screenshot-card {
+    min-width: 0;
+    margin: 0;
+    scroll-snap-align: start;
+  }
+
+  .phone-frame {
+    overflow: hidden;
+    border: 1px solid rgba(17, 24, 39, 0.08);
+    border-radius: 30px;
+    background: #0b1020;
+    box-shadow: 0 22px 50px rgba(17, 24, 39, 0.16);
+  }
+
+  .phone-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  figcaption {
+    margin-top: 0.85rem;
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 768px) {
+    .app-screenshots-section {
+      padding: clamp(2.5rem, 6vw, 3.5rem) 5%;
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .screenshots-rail {
+      grid-auto-columns: minmax(155px, 68vw);
+      gap: 1rem;
+    }
+
+    .phone-frame {
+      border-radius: 24px;
+    }
+  }
+</style>

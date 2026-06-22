@@ -16,6 +16,7 @@ build/
 .astro/
 *.tsbuildinfo
 next-env.d.ts
+sample-screenshots/
 
 # misc
 .DS_Store
