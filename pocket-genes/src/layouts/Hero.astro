@@ -1,6 +1,24 @@
 ---
 import { useTranslations } from '../i18n/index';
 const t = useTranslations(Astro.currentLocale);
+
+const heroStats = [
+  {
+    href: '#screen2',
+    number: t.hero.stat1Number,
+    label: t.hero.stat1Label,
+  },
+  {
+    href: '#screen3',
+    number: t.hero.stat2Number,
+    label: t.hero.stat2Label,
+  },
+  {
+    href: '#provider-discovery',
+    number: t.hero.stat3Number,
+    label: t.hero.stat3Label,
+  },
+];
 ---
 
 <section class="hero">
@@ -18,18 +36,12 @@ const t = useTranslations(Astro.currentLocale);
       <a href="#integration-layers" class="secondary-action">{t.hero.secondaryCta}</a>
     </div>
     <div class="hero-stats" aria-label={t.hero.statsLabel}>
-      <div class="stat">
-        <span class="stat-number">{t.hero.stat1Number}</span>
-        <span class="stat-label">{t.hero.stat1Label}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-number">{t.hero.stat2Number}</span>
-        <span class="stat-label">{t.hero.stat2Label}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-number">{t.hero.stat3Number}</span>
-        <span class="stat-label">{t.hero.stat3Label}</span>
-      </div>
+      {heroStats.map((stat) => (
+        <a class="stat" href={stat.href}>
+          <span class="stat-number">{stat.number}</span>
+          <span class="stat-label">{stat.label}</span>
+        </a>
+      ))}
     </div>
   </div>
   <div class="hero-images">
@@ -157,6 +169,21 @@ const t = useTranslations(Astro.currentLocale);
     border-radius: 1rem;
     padding: 0.9rem 1rem;
     box-shadow: var(--card-shadow);
+    color: inherit;
+    text-decoration: none;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+
+  .stat:hover,
+  .stat:focus-visible {
+    border-color: rgba(175, 130, 50, 0.35);
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-3px);
+  }
+
+  .stat:focus-visible {
+    outline: 3px solid rgba(175, 130, 50, 0.22);
+    outline-offset: 3px;
   }
 
   .stat-number {
