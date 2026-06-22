@@ -169,7 +169,7 @@ export const en = {
   pocketGenes: {
     title: 'Pocket Genes - Genomic Companion for Rare Disease Families',
     integrationTitle: 'Pocket Genes - Genomic Integration for Providers',
-    integrationCtaTitle: 'Connect your report to the Pocket Genes circuit',
+    integrationCtaTitle: 'Bring your reports into Pocket Genes',
     integrationCtaDesc: 'Share a sample report structure and we will review how it can connect with the mobile experience, RareFriends™, provider discovery, and post-result support.',
     integrationCtaButton: 'Book an integration review',
   },

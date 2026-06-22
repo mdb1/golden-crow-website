@@ -171,7 +171,7 @@ export const es: Translations = {
   pocketGenes: {
     title: 'Pocket Genes - Información genética más clara para familias',
     integrationTitle: 'Pocket Genes - Integración genómica para proveedores',
-    integrationCtaTitle: 'CONECTEMOS TU INFORME CON EL CIRCUITO POCKET GENES',
+    integrationCtaTitle: 'INTEGRÁ TUS INFORMES A POCKET GENES',
     integrationCtaDesc: 'Compartinos la estructura de un informe y revisamos cómo puede integrarse con la experiencia mobile, RareFriends™, el directorio de proveedores y el acompañamiento posterior al resultado.',
     integrationCtaButton: 'Coordinar revisión de integración',
   },
