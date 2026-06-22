@@ -313,7 +313,7 @@ export const es: Translations = {
     product: 'Pocket Genes',
     tagline: 'INTEGRACIÓN GENÓMICA PARA PROVEEDORES',
     description: 'No construyas una app genética desde cero. Llevá tus informes a Pocket Genes y sumá ',
-    highlight: 'experiencia mobile, RareFriends™ y descubrimiento de proveedores.',
+    highlight: 'experiencia mobile, ayuda a tus pacientes a integrarse con la comunidad RareFriends™ y sé parte de la oferta de proveedores de la plataforma.',
     primaryCta: 'Ver mi informe en Pocket Genes',
     secondaryCta: 'Explorar beneficios',
     statsLabel: 'Capas de valor de Pocket Genes',

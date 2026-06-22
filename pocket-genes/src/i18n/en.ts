@@ -311,7 +311,7 @@ export const en = {
     product: 'Pocket Genes',
     tagline: 'Genomic integration for providers',
     description: 'Do not build a genetic app from scratch. Bring your reports to Pocket Genes and add ',
-    highlight: 'mobile experience, RareFriends™ access, and provider discovery.',
+    highlight: "a mobile experience, help your patients connect with the RareFriends™ community, and become part of the platform's provider offering.",
     primaryCta: 'See my report in Pocket Genes',
     secondaryCta: 'Explore benefits',
     statsLabel: 'Pocket Genes value layers',
