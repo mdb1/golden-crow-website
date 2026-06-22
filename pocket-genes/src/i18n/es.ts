@@ -364,7 +364,7 @@ export const es: Translations = {
   // Layout components - IntroPlan
   introPlan: {
     title1: 'Integraciones para',
-    title2: 'informes genéticos',
+    title2: 'INFORMES GENÉTICOS',
     subtitle: 'Planes flexibles para una experiencia mobile',
     instantIntegration: 'Integración rápida',
     customBranding: 'Marca personalizada',
