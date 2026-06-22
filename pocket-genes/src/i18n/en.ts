@@ -339,7 +339,7 @@ export const en = {
   // Layout components - MoreToCome
   moreToCome: {
     title1: 'More',
-    title2: 'to Come',
+    title2: 'to come',
     description: 'Pocket Genes will continuously add new panels and tools to enhance user experience and genomic discovery.',
     sportsTitle: 'Sports & Performance',
     sportsDesc: 'Customized workout plans based on strength, endurance, and recovery traits.',
