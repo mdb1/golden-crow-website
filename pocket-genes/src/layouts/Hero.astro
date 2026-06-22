@@ -13,14 +13,23 @@ const t = useTranslations(Astro.currentLocale);
       {t.hero.description}
       <span class="highlight">{t.hero.highlight}</span>
     </p>
-    <div class="hero-stats">
+    <div class="hero-actions">
+      <a href="#booking" class="primary-action">{t.hero.primaryCta}</a>
+      <a href="#integration-layers" class="secondary-action">{t.hero.secondaryCta}</a>
+    </div>
+    <div class="hero-stats" aria-label={t.hero.statsLabel}>
       <div class="stat">
-        <span class="stat-number">{t.hero.support247}</span>
-        <span class="stat-label">{t.hero.supportLabel}</span>
+        <span class="stat-number">{t.hero.stat1Number}</span>
+        <span class="stat-label">{t.hero.stat1Label}</span>
       </div>
-      <a href="https://apps.apple.com/us/app/pocket-genes/id6748587627" target="_blank" class="app-store-button">
-        <img src="/appStore.png" alt={t.hero.appAlt} class="app-store-badge" />
-      </a>
+      <div class="stat">
+        <span class="stat-number">{t.hero.stat2Number}</span>
+        <span class="stat-label">{t.hero.stat2Label}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-number">{t.hero.stat3Number}</span>
+        <span class="stat-label">{t.hero.stat3Label}</span>
+      </div>
     </div>
   </div>
   <div class="hero-images">
@@ -80,7 +89,7 @@ const t = useTranslations(Astro.currentLocale);
     font-size: clamp(1rem, 1.5vw, 1.25rem);
     line-height: 1.7;
     color: var(--text-secondary);
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
     max-width: 90%;
   }
 
@@ -89,21 +98,74 @@ const t = useTranslations(Astro.currentLocale);
     font-weight: 600;
   }
 
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .primary-action,
+  .secondary-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0.9rem 1.35rem;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .primary-action {
+    background: var(--brand-color);
+    color: #fff;
+    box-shadow: 0 12px 28px rgba(175, 130, 50, 0.22);
+  }
+
+  .primary-action:hover {
+    background: var(--brand-hover);
+    transform: translateY(-3px);
+  }
+
+  .secondary-action {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    box-shadow: var(--card-shadow);
+  }
+
+  .secondary-action:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
   .hero-stats {
     display: flex;
-    gap: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
     margin-bottom: 3rem;
   }
 
   .stat {
-    text-align: center;
+    min-width: 132px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid var(--card-border);
+    border-radius: 1rem;
+    padding: 0.9rem 1rem;
+    box-shadow: var(--card-shadow);
   }
 
   .stat-number {
     display: block;
-    font-size: 2rem;
+    font-size: clamp(1rem, 1.5vw, 1.3rem);
     font-weight: 800;
     color: var(--brand-color);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   .stat-label {
@@ -112,33 +174,6 @@ const t = useTranslations(Astro.currentLocale);
     color: var(--text-secondary);
     margin-top: 0.25rem;
     font-weight: 500;
-  }
-
-  .app-store-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    padding: 0.5rem;
-    border-radius: 12px;
-    background: transparent;
-    border: none;
-  }
-
-  .app-store-button:hover {
-    transform: translateY(-3px);
-  }
-
-  .app-store-badge {
-    height: 50px;
-    width: auto;
-    transition: all 0.3s ease;
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
-  }
-
-  .app-store-button:hover .app-store-badge {
-    filter: drop-shadow(0 8px 16px rgba(175, 130, 50, 0.2)) brightness(1.05);
   }
 
   /* Hero Images */
@@ -230,8 +265,12 @@ const t = useTranslations(Astro.currentLocale);
 
     .hero-stats {
       justify-content: center;
-      gap: 3rem;
+      gap: 1rem;
       align-items: center;
+    }
+
+    .hero-actions {
+      justify-content: center;
     }
 
     .hero-images {
@@ -265,16 +304,12 @@ const t = useTranslations(Astro.currentLocale);
 
     .hero-stats {
       flex-direction: row;
-      gap: 2rem;
+      gap: 1rem;
       align-items: center;
     }
 
-    .app-store-badge {
-      height: 40px;
-    }
-
-    .stat-number {
-      font-size: 1.5rem;
+    .stat {
+      text-align: center;
     }
 
     .hero-images {
@@ -309,8 +344,18 @@ const t = useTranslations(Astro.currentLocale);
       align-items: center;
     }
 
-    .app-store-badge {
-      height: 35px;
+    .hero-actions {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      max-width: 320px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .primary-action,
+    .secondary-action {
+      width: 100%;
     }
 
     .hero-images {

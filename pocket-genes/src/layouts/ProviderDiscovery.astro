@@ -1,0 +1,198 @@
+---
+import { useTranslations } from '../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<section id="provider-discovery" class="provider-discovery">
+  <div class="content-wrapper">
+    <div class="copy-column">
+      <p class="eyebrow">{t.integrationRevamp.discovery.eyebrow}</p>
+      <h2 class="section-title">
+        <span class="title-accent">{t.integrationRevamp.discovery.title1}</span>
+        <span class="title-main">{t.integrationRevamp.discovery.title2}</span>
+      </h2>
+      <p class="section-description">{t.integrationRevamp.discovery.description}</p>
+
+      <div class="loop-card">
+        <h3>{t.integrationRevamp.discovery.loopTitle}</h3>
+        <div class="loop-steps">
+          {t.integrationRevamp.discovery.loopItems.map((item) => (
+            <span>{item}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div class="directory-panel">
+      <h3>{t.integrationRevamp.discovery.directoryTitle}</h3>
+      <p>{t.integrationRevamp.discovery.directoryDescription}</p>
+
+      <div class="category-grid" aria-label={t.integrationRevamp.discovery.categoriesLabel}>
+        {t.integrationRevamp.discovery.categories.map((category) => (
+          <span>{category}</span>
+        ))}
+      </div>
+
+      <div class="disclaimer-box">
+        <h4>{t.integrationRevamp.discovery.disclaimerTitle}</h4>
+        <p>{t.integrationRevamp.discovery.disclaimer}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .provider-discovery {
+    position: relative;
+    padding: clamp(3.5rem, 7vw, 6rem) 5%;
+    overflow: hidden;
+  }
+
+  .content-wrapper {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.9fr);
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: clamp(2.1rem, 5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.06;
+  }
+
+  .title-accent,
+  .title-main {
+    display: block;
+  }
+
+  .title-accent {
+    color: var(--text-secondary);
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .section-description {
+    max-width: 700px;
+    margin: 1.25rem 0 0;
+    color: var(--text-secondary);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.7;
+  }
+
+  .loop-card,
+  .directory-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .loop-card {
+    margin-top: clamp(1.5rem, 4vw, 2.5rem);
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .loop-card h3,
+  .directory-panel h3 {
+    margin: 0 0 1rem;
+    color: var(--text-primary);
+    font-size: clamp(1.25rem, 2vw, 1.6rem);
+    line-height: 1.2;
+  }
+
+  .loop-steps {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .loop-steps span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(175, 130, 50, 0.08);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .directory-panel {
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+  }
+
+  .directory-panel > p,
+  .disclaimer-box p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .category-grid span {
+    display: flex;
+    align-items: center;
+    min-height: 52px;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(175, 130, 50, 0.22);
+    border-radius: 1rem;
+    background: rgba(175, 130, 50, 0.05);
+    color: var(--text-primary);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .disclaimer-box {
+    border-top: 1px solid var(--card-border);
+    padding-top: 1.25rem;
+  }
+
+  .disclaimer-box h4 {
+    margin: 0 0 0.5rem;
+    color: var(--brand-color);
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 960px) {
+    .content-wrapper {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .provider-discovery {
+      padding: clamp(2.75rem, 8vw, 4rem) 5%;
+    }
+
+    .category-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,29 +1,35 @@
+---
+import { useTranslations } from '../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
 <div class="container">
   <div class="first_column">
     <div class="panel first">
-      <p>Health & Wellness</p>
+      <p>{t.panels.imageHealth}</p>
     </div>
     <div class="panel second">
-      <p>Ancestry Traits</p>
+      <p>{t.panels.imageAncestry}</p>
     </div>
   </div>
   <div class="second_column">
     <div class="panel third">
-      <p>Nutrition & Fitness</p>
+      <p>{t.panels.imageNutrition}</p>
     </div>
     <div class="central_panel">
-      <p>In-App Reports</p>
+      <p>{t.panels.imageCenter}</p>
     </div>
     <div class="panel fourth">
-      <p>Community & Sharing</p>
+      <p>{t.panels.imageCommunity}</p>
     </div>
   </div>
   <div class="third_column">
     <div class="panel fifth">
-      <p>Medication Response</p>
+      <p>{t.panels.imageMedication}</p>
     </div>
     <div class="panel sixth">
-      <p>Education & Learning</p>
+      <p>{t.panels.imageEducation}</p>
     </div>
   </div>
 </div>
@@ -62,6 +68,7 @@
     margin: 0;
     line-height: 1.2;
     font-weight: 600;
+    white-space: pre-line;
   }
 
   .first_column {
@@ -107,6 +114,7 @@
     margin: 0;
     line-height: 1.2;
     font-weight: 500;
+    white-space: pre-line;
   }
 
   .first {

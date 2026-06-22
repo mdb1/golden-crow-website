@@ -1,0 +1,148 @@
+---
+import { useTranslations } from '../i18n/index';
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<section class="trust-boundaries">
+  <div class="content-wrapper">
+    <div class="section-header">
+      <p class="eyebrow">{t.integrationRevamp.trust.eyebrow}</p>
+      <h2 class="section-title">
+        <span class="title-accent">{t.integrationRevamp.trust.title1}</span>
+        <span class="title-main">{t.integrationRevamp.trust.title2}</span>
+      </h2>
+      <p class="section-description">{t.integrationRevamp.trust.description}</p>
+    </div>
+
+    <div class="trust-grid">
+      {t.integrationRevamp.trust.cards.map((card) => (
+        <article class="trust-card">
+          <h3>{card.title}</h3>
+          <p>{card.description}</p>
+        </article>
+      ))}
+    </div>
+
+    <div class="boundary-note">
+      <h3>{t.integrationRevamp.trust.boundaryTitle}</h3>
+      <p>{t.integrationRevamp.trust.boundaryText}</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .trust-boundaries {
+    position: relative;
+    padding: clamp(3.5rem, 7vw, 6rem) 5%;
+    overflow: hidden;
+  }
+
+  .content-wrapper {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+  }
+
+  .section-header {
+    max-width: 820px;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: clamp(2.1rem, 5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.06;
+  }
+
+  .title-accent,
+  .title-main {
+    display: block;
+  }
+
+  .title-accent {
+    color: var(--text-secondary);
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .section-description {
+    max-width: 760px;
+    margin: 1.25rem 0 0;
+    color: var(--text-secondary);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.7;
+  }
+
+  .trust-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  .trust-card,
+  .boundary-note {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .trust-card {
+    padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  }
+
+  .trust-card h3,
+  .boundary-note h3 {
+    margin: 0 0 0.75rem;
+    color: var(--text-primary);
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
+    line-height: 1.25;
+  }
+
+  .trust-card p,
+  .boundary-note p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+
+  .boundary-note {
+    padding: clamp(1.4rem, 3vw, 2rem);
+    border-color: rgba(175, 130, 50, 0.32);
+    background: rgba(175, 130, 50, 0.06);
+  }
+
+  .boundary-note h3 {
+    color: var(--brand-color);
+  }
+
+  @media (max-width: 980px) {
+    .trust-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    .trust-boundaries {
+      padding: clamp(2.75rem, 8vw, 4rem) 5%;
+    }
+
+    .trust-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
