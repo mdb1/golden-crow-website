@@ -323,9 +323,9 @@ export const es: Translations = {
 
   // Layout components - Panels
   panels: {
-    title1: 'Informes genéticos',
-    title2: 'interactivos desde el celular',
-    description: 'Transformá información genética compleja en una experiencia clara, visual y fácil de recorrer.',
+    title1: 'Paneles genéticos',
+    title2: 'ordenados por tema',
+    description: 'Organizá salud, nutrición, respuesta a medicamentos, ascendencia y educación genética en secciones fáciles de explorar.',
     healthTitle: 'Salud y bienestar',
     healthDesc: 'Información educativa sobre factores genéticos vinculados con salud y bienestar.',
     nutritionTitle: 'Nutrición y actividad física',
@@ -395,8 +395,8 @@ export const es: Translations = {
   // Layout components - SecondSection
   secondSection: {
     title1: 'Informes genéticos',
-    title2: 'interactivos desde el celular',
-    description: 'Informes claros sobre salud, nutrición, ascendencia y otros temas, para que tus usuarios puedan explorar información genética con más contexto.',
+    title2: 'en una app clara',
+    description: 'Llevá resultados complejos a una experiencia mobile visual, ordenada y fácil de recorrer.',
     interactiveReports: 'Informes interactivos',
     beautifulUI: 'Interfaz clara',
     appAlt: 'Pantallas de Pocket Genes',
