@@ -95,6 +95,16 @@ const t = useTranslations(Astro.currentLocale);
   :root { --space-xs: 0.5rem; --space-sm: 1rem; --space-md: 1.5rem; --space-lg: 2rem; --space-xl: 3rem; --space-2xl: 4rem; }
   body { font-weight: 400; }
   .pocket-genes-page { margin-top: clamp(60px, 10vw, 80px); }
+  :global(.pocket-genes-page > *) { border-top: 1px solid rgba(17, 24, 39, 0.06); }
+  :global(.pocket-genes-page > :first-child) { border-top: 0; }
+  :global(.pocket-genes-page > section:nth-of-type(odd)) { background: var(--bg-secondary) !important; }
+  :global(.pocket-genes-page > section:nth-of-type(even)) { background: var(--bg-primary) !important; }
+  :global(.pocket-genes-page > section:nth-of-type(9)) { background: var(--bg-primary) !important; }
+  :global(.pocket-genes-page > div.container:nth-of-type(1)),
+  :global(.pocket-genes-page > div.container:nth-of-type(5)),
+  :global(.pocket-genes-page > .experience-section),
+  :global(.pocket-genes-page > .mobile-experience) { background: var(--bg-secondary) !important; }
+  :global(.pocket-genes-page > div.container:nth-of-type(2)) { background: var(--bg-primary) !important; }
   .contact-cta-section { padding: 6rem 0; background: var(--bg-secondary); text-align: center; position: relative; overflow: hidden; }
   .contact-cta-container { max-width: 800px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 2; }
   .cta-content h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }

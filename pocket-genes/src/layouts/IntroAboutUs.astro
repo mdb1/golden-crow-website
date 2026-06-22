@@ -33,35 +33,38 @@ const t = useTranslations(Astro.currentLocale);
   .container {
     max-width: none;
     position: relative;
-    min-height: 100vh;
-    background: var(--bg-secondary);
+    min-height: auto;
+    background: transparent;
     overflow: hidden;
     display: flex;
     align-items: center;
-    padding: 5rem 8%;
+    padding: clamp(4.5rem, 8vw, 7rem) 8%;
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
   }
 
   .content-wrapper {
     position: relative;
     z-index: 2;
-    max-width: 80%;
+    width: min(1120px, 100%);
+    margin: 0 auto;
   }
 
   .title {
-    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    font-size: clamp(2.1rem, 4.5vw, 4rem);
     font-weight: 800;
     line-height: 1.1;
-    margin: 0 0 2rem 0;
+    margin: 0 0 1.25rem 0;
   }
 
   .title-accent {
     display: block;
     color: var(--text-secondary);
-    font-size: 0.75em;
+    font-size: 0.62em;
     font-weight: 600;
     letter-spacing: 2px;
     text-transform: uppercase;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
   }
 
   .title-main {
@@ -72,16 +75,16 @@ const t = useTranslations(Astro.currentLocale);
   .description {
     font-size: clamp(1rem, 1.5vw, 1.25rem);
     color: var(--text-secondary);
-    margin: 0 0 4rem 0;
+    margin: 0 0 2rem 0;
     line-height: 1.6;
-    max-width: 95%;
+    max-width: 760px;
     font-weight: 400;
   }
 
   .mission-highlights {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2rem;
-    flex-wrap: wrap;
   }
 
   .highlight-card {
@@ -94,8 +97,8 @@ const t = useTranslations(Astro.currentLocale);
     padding: 2rem 1.75rem;
     box-shadow: var(--card-shadow);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    min-width: 320px;
-    max-width: 380px;
+    min-width: 0;
+    max-width: none;
     position: relative;
     overflow: hidden;
   }
@@ -142,7 +145,6 @@ const t = useTranslations(Astro.currentLocale);
   /* Responsive Design */
   @media (max-width: 1200px) {
     .container {
-      text-align: center;
       justify-content: center;
     }
 
@@ -150,20 +152,15 @@ const t = useTranslations(Astro.currentLocale);
       max-width: 100%;
     }
 
-    .mission-highlights {
-      justify-content: center;
-    }
   }
 
   @media (max-width: 768px) {
     .container {
       padding: 3rem 5%;
-      min-height: 80vh;
     }
 
     .mission-highlights {
-      flex-direction: column;
-      align-items: center;
+      grid-template-columns: 1fr;
       gap: 1.5rem;
     }
 
@@ -196,7 +193,6 @@ const t = useTranslations(Astro.currentLocale);
   @media (max-width: 480px) {
     .container {
       padding: 2rem 1rem;
-      min-height: 70vh;
     }
 
     .mission-highlights {

@@ -420,7 +420,7 @@ export const es: Translations = {
   // Layout components - IntroAboutUs
   introAboutUs: {
     title1: 'Información genética',
-    title2: 'clara y útil',
+    title2: 'Clara y útil',
     description: 'Qué estamos construyendo y cómo pensamos la evolución de Pocket Genes.',
     missionTitle: 'Nuestra Misión',
     missionDesc: 'Hacer que la información genética sea más clara, accesible y útil para todos',
