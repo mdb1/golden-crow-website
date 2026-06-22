@@ -171,7 +171,7 @@ export const es: Translations = {
   pocketGenes: {
     title: 'Pocket Genes - Información genética más clara para familias',
     integrationTitle: 'Pocket Genes - Integración de informes genéticos',
-    integrationCtaTitle: '¿Listo para integrar Pocket Genes?',
+    integrationCtaTitle: '¿LISTO PARA INTEGRAR POCKET GENES?',
     integrationCtaDesc: 'Contactanos para conversar cómo llevar tus informes genéticos a una experiencia mobile clara, segura y personalizada.',
     integrationCtaButton: 'Coordinar una reunión',
   },
@@ -311,7 +311,7 @@ export const es: Translations = {
   hero: {
     brand: 'Golden Crow VS',
     product: 'Pocket Genes',
-    tagline: 'Genética más clara',
+    tagline: 'GENÉTICA MÁS CLARA',
     description: 'Convertí información genética compleja en ',
     highlight: 'informes claros, visuales e interactivos.',
     support247: '24/7',
@@ -323,8 +323,8 @@ export const es: Translations = {
 
   // Layout components - Panels
   panels: {
-    title1: 'Paneles genéticos',
-    title2: 'ordenados por tema',
+    title1: 'PANELES GENÉTICOS',
+    title2: 'ORDENADOS POR TEMA',
     description: 'Organizá salud, nutrición, respuesta a medicamentos, ascendencia y educación genética en secciones fáciles de explorar.',
     healthTitle: 'Salud y bienestar',
     healthDesc: 'Información educativa sobre factores genéticos vinculados con salud y bienestar.',
@@ -340,8 +340,8 @@ export const es: Translations = {
 
   // Layout components - MoreToCome
   moreToCome: {
-    title1: 'Más',
-    title2: 'por venir',
+    title1: 'MÁS',
+    title2: 'POR VENIR',
     description: 'Pocket Genes seguirá sumando herramientas para organizar informes, aprender conceptos clave y recorrer información genética con más claridad.',
     sportsTitle: 'Actividad física y bienestar',
     sportsDesc: 'Información educativa sobre rasgos vinculados con rendimiento, recuperación y actividad física.',
@@ -363,7 +363,7 @@ export const es: Translations = {
 
   // Layout components - IntroPlan
   introPlan: {
-    title1: 'Integraciones para',
+    title1: 'INTEGRACIONES PARA',
     title2: 'INFORMES GENÉTICOS',
     subtitle: 'Planes flexibles para una experiencia mobile',
     instantIntegration: 'Integración rápida',
@@ -373,7 +373,7 @@ export const es: Translations = {
 
   // Layout components - Plan
   plan: {
-    title: 'Planes flexibles para tus necesidades',
+    title: 'PLANES FLEXIBLES PARA TUS NECESIDADES',
     subtitle: 'Elegí el nivel de integración adecuado para tu plataforma de genómica',
     quickStartTitle: 'Integración rápida',
     quickStartDesc: 'Tus usuarios pueden explorar informes genéticos sin que tengas que desarrollar una app desde cero.',
@@ -394,8 +394,8 @@ export const es: Translations = {
 
   // Layout components - SecondSection
   secondSection: {
-    title1: 'Informes genéticos',
-    title2: 'en una app clara',
+    title1: 'INFORMES GENÉTICOS',
+    title2: 'EN UNA APP CLARA',
     description: 'Llevá resultados complejos a una experiencia mobile visual, ordenada y fácil de recorrer.',
     interactiveReports: 'Informes interactivos',
     beautifulUI: 'Interfaz clara',
@@ -404,8 +404,8 @@ export const es: Translations = {
 
   // Layout components - ThirdSection
   thirdSection: {
-    title1: 'Integrá tus informes genéticos',
-    title2: 'con Pocket Genes',
+    title1: 'INTEGRÁ TUS INFORMES GENÉTICOS',
+    title2: 'CON POCKET GENES',
     description: 'Ayudamos a laboratorios, proveedores genómicos y organizaciones de salud a ofrecer una experiencia mobile clara, segura y personalizada.',
     launchFaster: 'Lanzá más rápido',
     launchFasterDesc: 'Evitá desarrollar una app desde cero y llevá tus informes a mobile con menos fricción.',
@@ -419,8 +419,8 @@ export const es: Translations = {
 
   // Layout components - IntroAboutUs
   introAboutUs: {
-    title1: 'Información genética',
-    title2: 'Clara y útil',
+    title1: 'INFORMACIÓN GENÉTICA',
+    title2: 'CLARA Y ÚTIL',
     description: 'Qué estamos construyendo y cómo pensamos la evolución de Pocket Genes.',
     missionTitle: 'Nuestra Misión',
     missionDesc: 'Hacer que la información genética sea más clara, accesible y útil para todos',
@@ -430,7 +430,7 @@ export const es: Translations = {
 
   // Layout components - Timeline
   timeline: {
-    title: 'Hoja de ruta 2026',
+    title: 'HOJA DE RUTA 2026',
     q1Period: 'Q1 ENE-MAR',
     q1Title1: 'Desarrollo de Producto',
     q1Title2: 'Integraciones con aliados',
@@ -451,8 +451,8 @@ export const es: Translations = {
 
   // Layout components - ChoosePlan
   choosePlan: {
-    title1: 'Elegí el',
-    title2: 'plan adecuado',
+    title1: 'ELEGÍ EL',
+    title2: 'PLAN ADECUADO',
     subtitle: 'Compará funcionalidades y elegí el modelo de integración más conveniente',
     freePlan: 'Free',
     freeDesc: '<b>Integrá sin costo,</b> para que tus usuarios puedan explorar informes desde nuestra app.',
@@ -467,8 +467,8 @@ export const es: Translations = {
 
   // Layout components - IntegrationProcess
   integrationProcess: {
-    title: 'Proceso de integración',
-    freeSubtitle: 'Programa Free',
+    title: 'PROCESO DE INTEGRACIÓN',
+    freeSubtitle: 'PROGRAMA FREE',
     freeAmount: '$0',
     freeDescription: 'Convertí tus informes genéticos a un formato compatible para que tus usuarios puedan explorarlos en paneles claros e interactivos.',
     freeItem1Title: 'FORMATO DE DATOS DE ENTRADA',
@@ -477,7 +477,7 @@ export const es: Translations = {
     freeItem2Desc: 'Validamos la experiencia con casos reales o de prueba antes de habilitar el acceso para usuarios.',
     freeItem3Title: 'ACCESO DE USUARIOS Y FEEDBACK',
     freeItem3Desc: 'Tus usuarios exploran los informes en la app mientras registramos aprendizajes para mejorar la experiencia.',
-    plusSubtitle: 'Programa Plus',
+    plusSubtitle: 'PROGRAMA PLUS',
     plusAmount: '$999 / mes',
     plusDescription: 'El plan Plus suma identidad visual, formato de datos a medida y prioridad para funcionalidades específicas dentro de la app.',
     plusItem1Title: 'DEFINICIÓN COLABORATIVA DE DATOS',
@@ -490,8 +490,8 @@ export const es: Translations = {
 
   // Layout components - Experience
   experience: {
-    title1: 'Nuestra',
-    title2: 'Experiencia',
+    title1: 'NUESTRA',
+    title2: 'EXPERIENCIA',
     years: '4+',
     yearsLabel: 'Años',
     decade: '10+',
