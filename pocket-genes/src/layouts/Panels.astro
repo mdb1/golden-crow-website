@@ -22,26 +22,31 @@ const t = useTranslations(Astro.currentLocale);
           title={t.panels.healthTitle}
           description={t.panels.healthDesc}
           color="primary"
+          panelKeys="reports"
         />
         <ListItem
           title={t.panels.nutritionTitle}
           description={t.panels.nutritionDesc}
           color="secondary"
+          panelKeys="genetics-learning"
         />
         <ListItem
           title={t.panels.medicationTitle}
           description={t.panels.medicationDesc}
           color="success"
+          panelKeys="medical-questions"
         />
         <ListItem
           title={t.panels.ancestryTitle}
           description={t.panels.ancestryDesc}
           color="accent"
+          panelKeys="rarefriends"
         />
         <ListItem
           title={t.panels.educationTitle}
           description={t.panels.educationDesc}
           color="warning"
+          panelKeys="provider-directory resources"
         />
       </div>
     </div>
@@ -50,6 +55,59 @@ const t = useTranslations(Astro.currentLocale);
     </div>
   </div>
 </section>
+
+<script>
+  const panelSection = document.querySelector('#screen3');
+
+  if (panelSection) {
+    const cards = Array.from(panelSection.querySelectorAll('[data-panel-card]'));
+    const nodes = Array.from(panelSection.querySelectorAll('[data-panel-node]'));
+    const hubs = Array.from(panelSection.querySelectorAll('[data-panel-hub]'));
+    const interactiveElements = [...cards, ...nodes, ...hubs];
+
+    const readKeys = (element) =>
+      (element.getAttribute('data-panel-keys') || '')
+        .split(/\s+/)
+        .filter(Boolean);
+
+    const hasSharedKey = (element, activeKeys) => {
+      const keys = readKeys(element);
+      return keys.some((key) => activeKeys.includes(key));
+    };
+
+    const setActive = (source) => {
+      const activeKeys = readKeys(source);
+      if (!activeKeys.length) return;
+
+      panelSection.setAttribute('data-active-panel', activeKeys.join(' '));
+
+      for (const element of [...cards, ...nodes]) {
+        const isActive = hasSharedKey(element, activeKeys);
+        element.classList.toggle('is-linked-active', isActive);
+        element.classList.toggle('is-linked-dimmed', !isActive);
+      }
+
+      for (const hub of hubs) {
+        hub.classList.add('is-linked-active');
+      }
+    };
+
+    const clearActive = () => {
+      panelSection.removeAttribute('data-active-panel');
+
+      for (const element of interactiveElements) {
+        element.classList.remove('is-linked-active', 'is-linked-dimmed');
+      }
+    };
+
+    for (const element of interactiveElements) {
+      element.addEventListener('pointerenter', () => setActive(element));
+      element.addEventListener('pointerleave', clearActive);
+      element.addEventListener('focusin', () => setActive(element));
+      element.addEventListener('focusout', clearActive);
+    }
+  }
+</script>
 
 <style>
   .panels_body {

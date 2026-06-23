@@ -1,5 +1,5 @@
 ---
-const { title, description, color } = Astro.props;
+const { title, description, color, panelKeys = '' } = Astro.props;
 
 const colorMapping = {
   primary: 'var(--primary-gradient)',
@@ -12,7 +12,13 @@ const colorMapping = {
 const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
 ---
 
-<div class="panel-item" data-color={color}>
+<div
+    class="panel-item"
+    data-color={color}
+    data-panel-card
+    data-panel-keys={panelKeys}
+    tabindex="0"
+>
     <div class="icon-wrapper">
         <div class="gradient-icon" style={`background: ${gradientColor}`}></div>
     </div>
@@ -45,6 +51,22 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         box-shadow: var(--card-shadow-hover);
     }
 
+    .panel-item:focus-visible {
+        outline: 3px solid rgba(175, 130, 50, 0.28);
+        outline-offset: 4px;
+    }
+
+    .panel-item.is-linked-active {
+        border-color: rgba(175, 130, 50, 0.42);
+        box-shadow: 0 18px 44px rgba(17, 24, 39, 0.12), 0 0 0 1px rgba(175, 130, 50, 0.14);
+        transform: translateY(-8px) translateX(8px);
+    }
+
+    .panel-item.is-linked-dimmed {
+        opacity: 0.54;
+        transform: scale(0.985);
+    }
+
     .icon-wrapper {
         position: relative;
         flex-shrink: 0;
@@ -58,7 +80,8 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         transition: all 0.3s ease;
     }
 
-    .panel-item:hover .icon-wrapper {
+    .panel-item:hover .icon-wrapper,
+    .panel-item.is-linked-active .icon-wrapper {
         transform: scale(1.1) rotate(5deg);
         box-shadow: 0 8px 25px rgba(175, 130, 50, 0.15);
     }
@@ -71,7 +94,8 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         transition: all 0.3s ease;
     }
 
-    .panel-item:hover .gradient-icon {
+    .panel-item:hover .gradient-icon,
+    .panel-item.is-linked-active .gradient-icon {
         transform: scale(1.2);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
         filter: brightness(1.1);
@@ -91,7 +115,8 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         transition: all 0.3s ease;
     }
 
-    .panel-item:hover .panel-title {
+    .panel-item:hover .panel-title,
+    .panel-item.is-linked-active .panel-title {
         color: var(--brand-color);
     }
 
@@ -103,7 +128,8 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         transition: color 0.3s ease;
     }
 
-    .panel-item:hover .panel-description {
+    .panel-item:hover .panel-description,
+    .panel-item.is-linked-active .panel-description {
         color: var(--text-primary);
     }
 
@@ -120,7 +146,8 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         pointer-events: none;
     }
 
-    .panel-item:hover .hover-effect {
+    .panel-item:hover .hover-effect,
+    .panel-item.is-linked-active .hover-effect {
         opacity: 1;
     }
 

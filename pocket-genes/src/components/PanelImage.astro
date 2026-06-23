@@ -6,29 +6,29 @@ const t = useTranslations(Astro.currentLocale);
 
 <div class="container">
   <div class="first_column">
-    <div class="panel first">
+    <div class="panel first" data-panel-node data-panel-keys="reports" tabindex="0" aria-label={t.panels.healthTitle}>
       <p>{t.panels.imageHealth}</p>
     </div>
-    <div class="panel second">
+    <div class="panel second" data-panel-node data-panel-keys="medical-questions" tabindex="0" aria-label={t.panels.medicationTitle}>
       <p>{t.panels.imageAncestry}</p>
     </div>
   </div>
   <div class="second_column">
-    <div class="panel third">
+    <div class="panel third" data-panel-node data-panel-keys="genetics-learning" tabindex="0" aria-label={t.panels.nutritionTitle}>
       <p>{t.panels.imageNutrition}</p>
     </div>
-    <div class="central_panel">
+    <div class="central_panel" data-panel-hub data-panel-keys="reports genetics-learning medical-questions rarefriends provider-directory resources" tabindex="0" aria-label={t.panels.imageCenter}>
       <p>{t.panels.imageCenter}</p>
     </div>
-    <div class="panel fourth">
+    <div class="panel fourth" data-panel-node data-panel-keys="rarefriends" tabindex="0" aria-label={t.panels.ancestryTitle}>
       <p>{t.panels.imageCommunity}</p>
     </div>
   </div>
   <div class="third_column">
-    <div class="panel fifth">
+    <div class="panel fifth" data-panel-node data-panel-keys="provider-directory" tabindex="0" aria-label={t.panels.educationTitle}>
       <p>{t.panels.imageMedication}</p>
     </div>
-    <div class="panel sixth">
+    <div class="panel sixth" data-panel-node data-panel-keys="resources" tabindex="0" aria-label={t.panels.educationTitle}>
       <p>{t.panels.imageEducation}</p>
     </div>
   </div>
@@ -68,6 +68,8 @@ const t = useTranslations(Astro.currentLocale);
       inset 0 1px 18px rgba(255, 255, 255, 0.36),
       inset 0 -28px 48px rgba(26, 31, 135, 0.22),
       0 24px 60px rgba(38, 65, 214, 0.28);
+    cursor: pointer;
+    transition: transform 0.28s ease, box-shadow 0.28s ease, filter 0.28s ease, opacity 0.28s ease;
   }
 
   .central_panel::before {
@@ -137,6 +139,8 @@ const t = useTranslations(Astro.currentLocale);
       inset 0 1px 14px rgba(255, 255, 255, 0.44),
       inset 0 -18px 28px rgba(0, 0, 0, 0.12),
       0 16px 34px var(--glow-color);
+    cursor: pointer;
+    transition: transform 0.28s ease, box-shadow 0.28s ease, filter 0.28s ease, opacity 0.28s ease;
   }
 
   .panel::before {
@@ -182,6 +186,54 @@ const t = useTranslations(Astro.currentLocale);
     font-weight: 750;
     white-space: pre-line;
     text-shadow: 0 1px 10px rgba(0, 0, 0, 0.12);
+  }
+
+  .panel:focus-visible,
+  .central_panel:focus-visible {
+    outline: 3px solid rgba(175, 130, 50, 0.3);
+    outline-offset: 8px;
+  }
+
+  .panel:hover,
+  .panel.is-linked-active {
+    transform: translateY(-8px) scale(1.12);
+    filter: saturate(1.18) brightness(1.06);
+    box-shadow:
+      inset 0 1px 16px rgba(255, 255, 255, 0.5),
+      inset 0 -18px 28px rgba(0, 0, 0, 0.12),
+      0 24px 54px var(--glow-color);
+  }
+
+  .panel:hover::before,
+  .panel.is-linked-active::before {
+    animation: ringSpin 6s linear infinite;
+    filter: drop-shadow(0 0 16px var(--glow-color));
+  }
+
+  .panel.is-linked-dimmed {
+    opacity: 0.36;
+    filter: grayscale(0.2) saturate(0.78);
+    transform: scale(0.94);
+  }
+
+  .central_panel:hover,
+  .central_panel.is-linked-active {
+    transform: scale(1.06);
+    filter: saturate(1.16) brightness(1.04);
+    box-shadow:
+      inset 0 1px 20px rgba(255, 255, 255, 0.42),
+      inset 0 -28px 48px rgba(26, 31, 135, 0.2),
+      0 30px 78px rgba(38, 65, 214, 0.36);
+  }
+
+  .central_panel.is-linked-dimmed {
+    opacity: 0.58;
+  }
+
+  @keyframes ringSpin {
+    to {
+      transform: rotate(1turn);
+    }
   }
 
   .first {
