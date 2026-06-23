@@ -20,7 +20,7 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
       <p class="description">{t.appScreenshots.description}</p>
     </div>
 
-    <div class="screenshots-rail" aria-label={t.appScreenshots.galleryLabel}>
+    <div class="screenshots-rail" aria-label={t.appScreenshots.galleryLabel} data-screenshots-rail>
       {screenshots.map((screenshot, index) => (
         <figure
           class="screenshot-card"
@@ -43,6 +43,40 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     </div>
   </div>
 </section>
+
+<script>
+  const screenshotRails = document.querySelectorAll('[data-screenshots-rail]');
+
+  const centerScreenshotRail = (rail) => {
+    const maxScrollLeft = rail.scrollWidth - rail.clientWidth;
+
+    if (maxScrollLeft > 0) {
+      rail.scrollLeft = maxScrollLeft / 2;
+    }
+  };
+
+  const centerScreenshotRails = () => {
+    for (const rail of screenshotRails) {
+      centerScreenshotRail(rail);
+    }
+  };
+
+  const scheduleScreenshotRailCentering = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(centerScreenshotRails);
+    });
+  };
+
+  if (screenshotRails.length) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', scheduleScreenshotRailCentering, { once: true });
+    } else {
+      scheduleScreenshotRailCentering();
+    }
+
+    window.addEventListener('load', centerScreenshotRails, { once: true });
+  }
+</script>
 
 <style>
   .app-screenshots-section {
@@ -114,20 +148,12 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     padding: clamp(3rem, 6vw, 4.75rem) var(--rail-padding-inline) clamp(3.25rem, 7vw, 5rem);
     scroll-padding-inline: var(--rail-padding-inline);
     scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
   .screenshots-rail::-webkit-scrollbar {
-    height: 10px;
-  }
-
-  .screenshots-rail::-webkit-scrollbar-track {
-    background: rgba(17, 24, 39, 0.06);
-    border-radius: 999px;
-  }
-
-  .screenshots-rail::-webkit-scrollbar-thumb {
-    background: rgba(175, 130, 50, 0.45);
-    border-radius: 999px;
+    display: none;
   }
 
   .screenshot-card {
