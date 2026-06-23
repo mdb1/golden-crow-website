@@ -1,31 +1,113 @@
 ---
 import { useTranslations } from '../i18n/index';
 const t = useTranslations(Astro.currentLocale);
+
+const integrationModels = [
+  {
+    id: 'mobile-report',
+    icon: '&#x26A1;',
+    label: t.introPlan.instantIntegration,
+    title: t.introPlan.mobileReportTitle,
+    description: t.introPlan.mobileReportDesc,
+    items: t.introPlan.mobileReportItems,
+  },
+  {
+    id: 'brand-directory',
+    icon: '&#x1F3A8;',
+    label: t.introPlan.customBranding,
+    title: t.introPlan.brandDirectoryTitle,
+    description: t.introPlan.brandDirectoryDesc,
+    items: t.introPlan.brandDirectoryItems,
+  },
+  {
+    id: 'dedicated-app',
+    icon: '&#x1F4F1;',
+    label: t.introPlan.mobileFirst,
+    title: t.introPlan.dedicatedAppTitle,
+    description: t.introPlan.dedicatedAppDesc,
+    items: t.introPlan.dedicatedAppItems,
+  },
+];
 ---
 
 <section class="container">
-  <div class="content-wrapper">
-    <h1 id="title">
-      <span class="title-accent">{t.introPlan.title1}</span>
-      <span class="title-main">{t.introPlan.title2}</span>
-    </h1>
-    <p id="description">{t.introPlan.subtitle}</p>
-    <div class="features-preview">
-      <div class="feature-badge">
-        <span class="badge-icon">&#x26A1;</span>
-        <span>{t.introPlan.instantIntegration}</span>
+  <div class="content-wrapper" data-integration-models>
+    <div class="intro-copy">
+      <h1 id="title">
+        <span class="title-accent">{t.introPlan.title1}</span>
+        <span class="title-main">{t.introPlan.title2}</span>
+      </h1>
+      <p id="description">{t.introPlan.subtitle}</p>
+      <div class="features-preview" role="tablist" aria-label={t.introPlan.selectorLabel}>
+        {integrationModels.map((model, index) => (
+          <button
+            class:list={['feature-badge', { active: index === 0 }]}
+            type="button"
+            role="tab"
+            aria-selected={index === 0 ? 'true' : 'false'}
+            aria-controls={`integration-model-${model.id}`}
+            id={`integration-model-tab-${model.id}`}
+            data-model-trigger={model.id}
+          >
+            <span class="badge-icon" set:html={model.icon}></span>
+            <span>{model.label}</span>
+          </button>
+        ))}
       </div>
-      <div class="feature-badge">
-        <span class="badge-icon">&#x1F3A8;</span>
-        <span>{t.introPlan.customBranding}</span>
-      </div>
-      <div class="feature-badge">
-        <span class="badge-icon">&#x1F4F1;</span>
-        <span>{t.introPlan.mobileFirst}</span>
-      </div>
+    </div>
+    <div class="model-detail-shell">
+      {integrationModels.map((model, index) => (
+        <article
+          class:list={['model-detail', { active: index === 0 }]}
+          id={`integration-model-${model.id}`}
+          role="tabpanel"
+          aria-labelledby={`integration-model-tab-${model.id}`}
+          data-model-panel={model.id}
+          hidden={index !== 0}
+        >
+          <p class="model-eyebrow">{model.label}</p>
+          <h2>{model.title}</h2>
+          <p>{model.description}</p>
+          <ul>
+            {model.items.map((item) => (
+              <li>{item}</li>
+            ))}
+          </ul>
+        </article>
+      ))}
     </div>
   </div>
 </section>
+
+<script>
+  const modelSections = document.querySelectorAll('[data-integration-models]');
+
+  for (const section of modelSections) {
+    const triggers = Array.from(section.querySelectorAll('[data-model-trigger]'));
+    const panels = Array.from(section.querySelectorAll('[data-model-panel]'));
+
+    const activateModel = (modelId) => {
+      for (const trigger of triggers) {
+        const isActive = trigger.getAttribute('data-model-trigger') === modelId;
+        trigger.classList.toggle('active', isActive);
+        trigger.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      }
+
+      for (const panel of panels) {
+        const isActive = panel.getAttribute('data-model-panel') === modelId;
+        panel.classList.toggle('active', isActive);
+        panel.toggleAttribute('hidden', !isActive);
+      }
+    };
+
+    for (const trigger of triggers) {
+      trigger.addEventListener('click', () => {
+        const modelId = trigger.getAttribute('data-model-trigger');
+        if (modelId) activateModel(modelId);
+      });
+    }
+  }
+</script>
 
 <style>
   .container {
@@ -42,7 +124,16 @@ const t = useTranslations(Astro.currentLocale);
   .content-wrapper {
     position: relative;
     z-index: 2;
-    max-width: 80%;
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(320px, 0.7fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: center;
+  }
+
+  .intro-copy {
+    min-width: 0;
   }
 
   #title {
@@ -72,7 +163,7 @@ const t = useTranslations(Astro.currentLocale);
     color: var(--text-secondary);
     margin: 0 0 2.5rem 0;
     line-height: 1.4;
-    max-width: 85%;
+    max-width: 42rem;
     font-weight: 500;
   }
 
@@ -94,15 +185,116 @@ const t = useTranslations(Astro.currentLocale);
     transition: all 0.3s ease;
     color: var(--text-primary);
     font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
   }
 
-  .feature-badge:hover {
+  .feature-badge:hover,
+  .feature-badge.active {
     transform: translateY(-3px);
     box-shadow: var(--card-shadow-hover);
   }
 
+  .feature-badge.active {
+    border-color: rgba(175, 130, 50, 0.38);
+    color: var(--brand-color);
+    box-shadow: 0 16px 34px rgba(17, 24, 39, 0.12), 0 0 0 1px rgba(175, 130, 50, 0.12);
+  }
+
+  .feature-badge:focus-visible {
+    outline: 3px solid rgba(175, 130, 50, 0.3);
+    outline-offset: 4px;
+  }
+
   .badge-icon {
     font-size: 1.25rem;
+  }
+
+  .model-detail-shell {
+    position: relative;
+    min-height: 24rem;
+    padding: clamp(1.25rem, 3vw, 2rem);
+    border: 1px solid rgba(17, 24, 39, 0.08);
+    border-radius: 1.5rem;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(249, 250, 251, 0.86));
+    box-shadow: 0 24px 70px rgba(17, 24, 39, 0.12);
+  }
+
+  .model-detail {
+    animation: detailFade 0.28s ease both;
+  }
+
+  .model-detail[hidden] {
+    display: none;
+  }
+
+  .model-eyebrow {
+    margin: 0 0 0.9rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .model-detail h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: clamp(1.65rem, 3vw, 2.45rem);
+    font-weight: 850;
+    line-height: 1.12;
+  }
+
+  .model-detail p:not(.model-eyebrow) {
+    margin: 1rem 0 0;
+    color: var(--text-secondary);
+    font-size: clamp(1rem, 1.5vw, 1.12rem);
+    line-height: 1.65;
+  }
+
+  .model-detail ul {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .model-detail li {
+    position: relative;
+    padding: 0.9rem 1rem 0.9rem 2.75rem;
+    border: 1px solid rgba(17, 24, 39, 0.07);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--text-primary);
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  .model-detail li::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+    background: var(--brand-color);
+    box-shadow: 0 0 0 0.35rem rgba(175, 130, 50, 0.12);
+    transform: translateY(-50%);
+  }
+
+  @keyframes detailFade {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   /* Responsive Design */
@@ -113,11 +305,16 @@ const t = useTranslations(Astro.currentLocale);
     }
 
     .content-wrapper {
-      max-width: 100%;
+      grid-template-columns: 1fr;
+      max-width: 820px;
     }
 
     .features-preview {
       justify-content: center;
+    }
+
+    .model-detail-shell {
+      text-align: left;
     }
   }
 
@@ -139,6 +336,11 @@ const t = useTranslations(Astro.currentLocale);
       padding: 0.75rem 1.25rem;
       font-size: 0.9rem;
     }
+
+    .model-detail-shell {
+      min-height: auto;
+      border-radius: 1.25rem;
+    }
   }
 
   @media (max-width: 480px) {
@@ -153,7 +355,8 @@ const t = useTranslations(Astro.currentLocale);
     }
 
     .feature-badge {
-      width: fit-content;
+      width: min(100%, 18rem);
+      justify-content: center;
     }
   }
 </style>
