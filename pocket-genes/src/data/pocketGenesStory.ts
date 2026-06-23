@@ -184,7 +184,7 @@ const copy: Record<Lang, StoryCopy> = {
         title: 'Pocket Genes - EPOF y enfermedades poco frecuentes',
         navLabel: 'Secciones de Pocket Genes',
         eyebrow: 'EPOF',
-        heroTitle: 'Cuando la condición es poco frecuente, la información no puede estar fragmentada.',
+        heroTitle: 'Cuando una enfermedad es poco frecuente, la información necesita estar clara y ordenada.',
         heroLead:
           'Las familias que atraviesan una EPOF suelen cargar con informes dispersos, términos difíciles, años de derivaciones y pocas personas que entiendan su experiencia. Pocket Genes ayuda a ordenar ese camino.',
         heroImage: '/mobile2.webp',
@@ -638,7 +638,7 @@ const copy: Record<Lang, StoryCopy> = {
         title: 'Pocket Genes - Rare disease and EPOF support',
         navLabel: 'Pocket Genes sections',
         eyebrow: 'Rare disease',
-        heroTitle: 'When a condition is rare, information cannot stay fragmented.',
+        heroTitle: 'When a disease is rare, information needs to be clear and organized.',
         heroLead:
           'Families facing rare disease uncertainty often carry scattered reports, difficult terms, years of referrals, and few people who understand their experience. Pocket Genes is built around organizing that path.',
         heroImage: '/mobile2.webp',
