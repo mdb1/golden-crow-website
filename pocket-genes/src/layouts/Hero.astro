@@ -63,14 +63,35 @@ const heroStats = [
   </a>
 </section>
 
+<script>
+  const revealHeroScrollButton = () => {
+    if (window.location.hash || window.scrollY > 4) return;
+    if (!window.matchMedia('(min-width: 900px)').matches) return;
+
+    const button = document.querySelector('.hero .scroll-button');
+    if (!button) return;
+
+    const buttonRect = button.getBoundingClientRect();
+    const safeBottomSpace = 16;
+    const hiddenAmount = buttonRect.bottom + safeBottomSpace - window.innerHeight;
+
+    if (hiddenAmount > 0 && hiddenAmount <= 180) {
+      window.scrollBy({ top: Math.ceil(hiddenAmount), left: 0, behavior: 'auto' });
+    }
+  };
+
+  window.addEventListener('load', () => requestAnimationFrame(revealHeroScrollButton), { once: true });
+</script>
+
 <style>
   .hero {
     position: relative;
-    min-height: 100vh;
+    min-height: calc(100vh - clamp(60px, 10vw, 80px));
+    min-height: calc(100svh - clamp(60px, 10vw, 80px));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 2rem 5%;
+    padding: clamp(1.25rem, 3vh, 2rem) 5% clamp(4rem, 7vh, 5rem);
     background: var(--bg-primary);
     overflow: hidden;
   }
