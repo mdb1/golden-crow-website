@@ -404,7 +404,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'Cómo funciona la privacidad',
         secondaryActionHref: '#privacy',
         introEyebrow: 'Qué es RareFriends™',
-        introTitle: 'Acompañarse entre pares sin exponer información sensible.',
+        introTitle: 'Acompañamiento y comunidad sin exponer información sensible',
         introBody: [
           'RareFriends™ no reemplaza la atención médica, el asesoramiento genético ni el trabajo de asociaciones de pacientes. Complementa ese ecosistema con un espacio más personal, cuidado y voluntario.',
           'No tenés que contar todo para pertenecer. RareFriends™ conecta personas: familias que todavía buscan diagnóstico, adultos que viven con una EPOF, cuidadores y miembros que quieren aprender genética sin miedo.',
@@ -858,7 +858,7 @@ const copy: Record<Lang, StoryCopy> = {
         secondaryActionLabel: 'How privacy works',
         secondaryActionHref: '#privacy',
         introEyebrow: 'What RareFriends™ is',
-        introTitle: 'Pocket Genes organizes information. RareFriends™ helps people find each other.',
+        introTitle: 'Support and community without exposing sensitive information',
         introBody: [
           'RareFriends™ does not replace medical care, genetic counseling, or the work of patient associations. It is a peer-to-peer community layer designed to help people feel less alone and find others going through similar questions.',
           'Organizations connect resources, programs, and collective efforts. RareFriends™ connects people: families still searching for diagnosis, adults living with a rare condition, caregivers, and members who want to learn genetics without fear.',
