@@ -670,7 +670,7 @@ const copy: Record<Lang, StoryCopy> = {
           },
           {
             title: 'Understand what to ask',
-            body: 'Prepare questions about inheritance, relatives, new testing, reanalysis, counseling, and follow-up.',
+            body: 'Prepare questions about inheritance, relatives, new genetic testing, reanalysis, counseling, and follow-up.',
           },
           {
             title: 'Find resources',

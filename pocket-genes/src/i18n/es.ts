@@ -88,7 +88,7 @@ export const es: Translations = {
     developmentTitle: 'Builds quincenales',
     developmentDesc: 'TestFlight + Play Console internal tracks cada dos semanas. Progreso real, siempre visible.',
     testingTitle: 'QA listo para producción',
-    testingDesc: 'Testing en matriz de dispositivos, edge cases, chequeos de compliance de las tiendas. Sin bugs antes de submission.',
+    testingDesc: 'Pruebas en matriz de dispositivos, edge cases y chequeos de compliance de las tiendas. Sin bugs antes de submission.',
     launchTitle: 'En vivo en ambas tiendas',
     launchDesc: 'Submission a App Store y Play Store, más una ventana de soporte post-lanzamiento de 30 días.',
     // Challenges section
@@ -401,14 +401,14 @@ export const es: Translations = {
         'Tu organización puede aparecer dentro de una red de servicios genéticos disponibles.',
       ],
       providerTitle: 'Pensado para distintos servicios genéticos',
-      providerDescription: 'La integración puede adaptarse a laboratorios, empresas de testing, clínicas, hospitales, organizaciones de EPOF y equipos que entregan informes o recursos genéticos.',
+      providerDescription: 'La integración puede adaptarse a laboratorios, empresas de estudios genéticos, clínicas, hospitales, organizaciones de EPOF y equipos que entregan informes o recursos genéticos.',
       providerTypes: [
         {
           title: 'Laboratorios genéticos',
           description: 'Entregá informes en un formato mobile y mantené tu marca visible después del resultado.',
         },
         {
-          title: 'Empresas de testing',
+          title: 'Empresas de estudios genéticos',
           description: 'Sumá una experiencia moderna sin asumir el costo completo de una app desde cero.',
         },
         {
@@ -435,11 +435,11 @@ export const es: Translations = {
         'Mejor recorrido',
       ],
       directoryTitle: 'Directorio de proveedores',
-      directoryDescription: 'Los miembros pueden necesitar testing, interpretación, asesoramiento, seguimiento o recursos específicos. Los proveedores integrados pueden aparecer como servicios disponibles dentro del ecosistema Pocket Genes y RareFriends™.',
+      directoryDescription: 'Los miembros pueden necesitar estudios genéticos, interpretación, asesoramiento, seguimiento o recursos específicos. Los proveedores integrados pueden aparecer como servicios disponibles dentro del ecosistema Pocket Genes y RareFriends™.',
       categoriesLabel: 'Categorías del directorio de proveedores',
       categories: [
         'Laboratorios',
-        'Testing genético',
+        'Estudios genéticos',
         'Asesoramiento genético',
         'Interpretación de informes',
         'Recursos EPOF',

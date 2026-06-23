@@ -399,14 +399,14 @@ export const en = {
         'Your organization can appear in a network of available genetic services.',
       ],
       providerTitle: 'Built for different genetic service providers',
-      providerDescription: 'The integration can adapt to laboratories, testing companies, clinics, hospitals, rare disease organizations, and teams that deliver genetic reports or resources.',
+      providerDescription: 'The integration can adapt to laboratories, genetic testing companies, clinics, hospitals, rare disease organizations, and teams that deliver genetic reports or resources.',
       providerTypes: [
         {
           title: 'Genetic laboratories',
           description: 'Deliver reports in a mobile format and keep your brand visible after results are delivered.',
         },
         {
-          title: 'Testing companies',
+          title: 'Genetic testing companies',
           description: 'Add a modern user experience without carrying the full cost of a custom app from zero.',
         },
         {
@@ -433,7 +433,7 @@ export const en = {
         'Better journey',
       ],
       directoryTitle: 'Provider directory',
-      directoryDescription: 'Members may need testing, interpretation, counseling, follow-up, or specific resources. Integrated providers can appear as available services inside the Pocket Genes and RareFriends™ ecosystem.',
+      directoryDescription: 'Members may need genetic testing, interpretation, counseling, follow-up, or specific resources. Integrated providers can appear as available services inside the Pocket Genes and RareFriends™ ecosystem.',
       categoriesLabel: 'Provider directory categories',
       categories: [
         'Laboratories',
