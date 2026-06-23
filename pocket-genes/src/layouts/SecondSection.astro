@@ -14,14 +14,14 @@ const t = useTranslations(Astro.currentLocale);
         {t.secondSection.description}
       </p>
       <div class="feature-highlights">
-        <div class="highlight-item">
+        <a class="highlight-item" href="#app-screenshots">
           <span class="highlight-icon">&#x1F4CA;</span>
           <span>{t.secondSection.interactiveReports}</span>
-        </div>
-        <div class="highlight-item">
+        </a>
+        <a class="highlight-item" href="#integration-models">
           <span class="highlight-icon">&#x1F3A8;</span>
           <span>{t.secondSection.beautifulUI}</span>
-        </div>
+        </a>
       </div>
     </div>
     <div class="image-wrapper">
@@ -109,9 +109,17 @@ const t = useTranslations(Astro.currentLocale);
     transition: all 0.3s ease;
     color: var(--text-primary);
     font-weight: 500;
+    text-decoration: none;
   }
 
   .highlight-item:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .highlight-item:focus-visible {
+    outline: 3px solid rgba(175, 130, 50, 0.3);
+    outline-offset: 4px;
     transform: translateY(-3px);
     box-shadow: var(--card-shadow-hover);
   }
