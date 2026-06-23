@@ -166,7 +166,11 @@ export const config = {
   matcher: [
     // Existing MyDNAMap / Pocket Gyms surfaces — same exclusions as pre-02-03
     // plus gc-fitness paths (handled in the branch above).
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness).*)",
+    // `__` excludes the Firebase Auth handler paths (/__/auth/*, /__/firebase/*)
+    // self-hosted via next.config rewrites (#378) — otherwise this middleware
+    // would route them through the NextAuth branch and redirect the handler to
+    // /login, breaking the proxied sign-in flow.
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|_next/static|_next/image|favicon.ico|gc-fitness|api/gc-fitness|__).*)",
     "/gc-fitness/:path*",
     "/api/gc-fitness/login",
     "/api/gc-fitness/logout",
