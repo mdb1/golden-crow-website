@@ -22,7 +22,12 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
 
     <div class="screenshots-rail" aria-label={t.appScreenshots.galleryLabel}>
       {screenshots.map((screenshot, index) => (
-        <figure class="screenshot-card">
+        <figure
+          class="screenshot-card"
+          tabindex="0"
+          role="group"
+          aria-label={`${screenshot.caption}: ${t.appScreenshots.imageAlt} ${index + 1}`}
+        >
           <div class="phone-frame">
             <img
               src={screenshot.src}
@@ -102,7 +107,7 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
-    padding: 0.25rem 0 1.25rem;
+    padding: 1.25rem 0.35rem 2.25rem;
     scroll-padding-inline: 0.25rem;
     scroll-snap-type: inline proximity;
   }
@@ -124,7 +129,32 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
   .screenshot-card {
     min-width: 0;
     margin: 0;
+    position: relative;
     scroll-snap-align: start;
+    cursor: pointer;
+    transform-origin: center bottom;
+    transition: transform 0.32s ease, opacity 0.32s ease, filter 0.32s ease;
+    will-change: transform;
+    z-index: 1;
+  }
+
+  .screenshot-card:focus-visible {
+    outline: 3px solid rgba(175, 130, 50, 0.34);
+    outline-offset: 8px;
+  }
+
+  .screenshots-rail:hover .screenshot-card:not(:hover):not(:focus-visible) {
+    opacity: 0.58;
+    filter: saturate(0.82);
+    transform: scale(0.96);
+  }
+
+  .screenshot-card:hover,
+  .screenshot-card:focus-visible {
+    opacity: 1;
+    filter: saturate(1.08);
+    transform: translateY(-0.65rem) scale(1.1);
+    z-index: 5;
   }
 
   .phone-frame {
@@ -133,12 +163,25 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     border-radius: 30px;
     background: #0b1020;
     box-shadow: 0 22px 50px rgba(17, 24, 39, 0.16);
+    transition: border-color 0.32s ease, box-shadow 0.32s ease;
+  }
+
+  .screenshot-card:hover .phone-frame,
+  .screenshot-card:focus-visible .phone-frame {
+    border-color: rgba(175, 130, 50, 0.36);
+    box-shadow: 0 30px 70px rgba(17, 24, 39, 0.26), 0 0 0 1px rgba(175, 130, 50, 0.12);
   }
 
   .phone-frame img {
     display: block;
     width: 100%;
     height: auto;
+    transition: transform 0.32s ease;
+  }
+
+  .screenshot-card:hover .phone-frame img,
+  .screenshot-card:focus-visible .phone-frame img {
+    transform: scale(1.025);
   }
 
   figcaption {
@@ -149,6 +192,12 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     letter-spacing: 0.08em;
     text-align: center;
     text-transform: uppercase;
+    transition: color 0.32s ease;
+  }
+
+  .screenshot-card:hover figcaption,
+  .screenshot-card:focus-visible figcaption {
+    color: var(--brand-color);
   }
 
   @media (max-width: 768px) {
@@ -163,6 +212,18 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     .screenshots-rail {
       grid-auto-columns: minmax(155px, 68vw);
       gap: 1rem;
+      padding: 1rem 0.25rem 2rem;
+    }
+
+    .screenshots-rail:hover .screenshot-card:not(:hover):not(:focus-visible) {
+      opacity: 1;
+      filter: none;
+      transform: none;
+    }
+
+    .screenshot-card:hover,
+    .screenshot-card:focus-visible {
+      transform: translateY(-0.45rem) scale(1.035);
     }
 
     .phone-frame {
