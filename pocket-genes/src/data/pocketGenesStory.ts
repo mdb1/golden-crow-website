@@ -204,7 +204,7 @@ const copy: Record<Lang, StoryCopy> = {
           { value: 'PDF', label: 'informes que pueden ordenarse y contextualizarse' },
           { value: '3', label: 'capas: información, preparación y apoyo' },
         ],
-        pillarsTitle: 'Necesidades concretas en una búsqueda rara',
+        pillarsTitle: 'Necesidades concretas durante un recorrido complejo',
         pillarsSubtitle:
           'El producto debe hablar menos de curiosidad genética y más de orientación, continuidad y acompañamiento.',
         pillars: [
@@ -658,7 +658,7 @@ const copy: Record<Lang, StoryCopy> = {
           { value: 'PDF', label: 'reports that can be organized and contextualized' },
           { value: '3', label: 'layers: information, preparation, and support' },
         ],
-        pillarsTitle: 'Concrete needs in a rare search',
+        pillarsTitle: 'Concrete needs during a complex journey',
         pillarsSubtitle:
           'The product should speak less about genetic curiosity and more about orientation, continuity, and support.',
         pillars: [
