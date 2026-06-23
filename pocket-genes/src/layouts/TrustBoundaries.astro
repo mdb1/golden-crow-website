@@ -17,7 +17,7 @@ const t = useTranslations(Astro.currentLocale);
 
     <div class="trust-grid">
       {t.integrationRevamp.trust.cards.map((card) => (
-        <article class="trust-card">
+        <article class="trust-card" tabindex="0">
           <h3>{card.title}</h3>
           <p>{card.description}</p>
         </article>
@@ -88,14 +88,65 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   .trust-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 1.5rem;
     box-shadow: var(--card-shadow);
+    padding: clamp(1.25rem, 2.5vw, 1.75rem);
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
   }
 
-  .trust-card {
-    padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  .trust-card::before,
+  .trust-card::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .trust-card::before {
+    inset: 0;
+    background: linear-gradient(135deg, rgba(175, 130, 50, 0.14), rgba(175, 130, 50, 0));
+  }
+
+  .trust-card::after {
+    right: -2.5rem;
+    top: -2.5rem;
+    width: 7rem;
+    height: 7rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(175, 130, 50, 0.24), rgba(175, 130, 50, 0));
+    transform: scale(0.72);
+  }
+
+  .trust-card:hover,
+  .trust-card:focus-visible {
+    transform: translateY(-0.55rem);
+    border-color: rgba(175, 130, 50, 0.35);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 24px 58px rgba(17, 24, 39, 0.13), 0 0 0 1px rgba(175, 130, 50, 0.1);
+  }
+
+  .trust-card:hover::before,
+  .trust-card:hover::after,
+  .trust-card:focus-visible::before,
+  .trust-card:focus-visible::after {
+    opacity: 1;
+  }
+
+  .trust-card:hover::after,
+  .trust-card:focus-visible::after {
+    transform: scale(1);
+  }
+
+  .trust-card:focus-visible {
+    outline: 3px solid rgba(175, 130, 50, 0.3);
+    outline-offset: 5px;
   }
 
   .trust-card h3 {
@@ -103,12 +154,24 @@ const t = useTranslations(Astro.currentLocale);
     color: var(--text-primary);
     font-size: clamp(1.05rem, 2vw, 1.3rem);
     line-height: 1.25;
+    transition: color 0.3s ease;
   }
 
   .trust-card p {
     margin: 0;
     color: var(--text-secondary);
     line-height: 1.65;
+    transition: color 0.3s ease;
+  }
+
+  .trust-card:hover h3,
+  .trust-card:focus-visible h3 {
+    color: var(--brand-color);
+  }
+
+  .trust-card:hover p,
+  .trust-card:focus-visible p {
+    color: var(--text-primary);
   }
 
   @media (max-width: 980px) {
@@ -124,6 +187,21 @@ const t = useTranslations(Astro.currentLocale);
 
     .trust-grid {
       grid-template-columns: 1fr;
+    }
+
+    .trust-card:hover,
+    .trust-card:focus-visible {
+      transform: translateY(-0.35rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trust-card,
+    .trust-card::before,
+    .trust-card::after,
+    .trust-card h3,
+    .trust-card p {
+      transition: none;
     }
   }
 </style>
