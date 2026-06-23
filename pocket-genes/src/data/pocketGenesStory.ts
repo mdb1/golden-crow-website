@@ -90,7 +90,6 @@ const copy: Record<Lang, StoryCopy> = {
         introEyebrow: 'El cambio de enfoque',
         introTitle: 'Información genética clara, útil y en un solo lugar.',
         introBody: [
-          'La integración con laboratorios y proveedores sigue siendo una parte importante del producto. Pero la propuesta completa empieza antes y termina después del PDF: en la vida diaria de una familia que intenta entender qué se analizó, qué falta, qué significa una variante y qué debería preguntar en la próxima consulta.',
           'Pocket Genes está pensado para ordenar informes, paneles, proveedores, historial de estudios, conceptos de herencia y próximos pasos posibles en un lugar claro. El objetivo no es reemplazar al médico ni al genetista, sino ayudar a que las personas lleguen mejor preparadas.',
         ],
         stats: [
@@ -545,7 +544,6 @@ const copy: Record<Lang, StoryCopy> = {
         introEyebrow: 'The positioning shift',
         introTitle: 'Not just a report viewer. A way to turn genetic data into useful context.',
         introBody: [
-          'Integration with labs and providers remains an important part of the product. But the full proposal starts before and ends after the PDF: in the daily life of a family trying to understand what was analyzed, what is missing, what a variant means, and what to ask in the next appointment.',
           'Pocket Genes is designed to organize reports, panels, providers, test history, inheritance concepts, and possible next questions in one clear place. The goal is not to replace physicians or genetic counselors, but to help people arrive better prepared.',
         ],
         stats: [
