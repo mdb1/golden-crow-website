@@ -2,14 +2,58 @@
 const { title, description, color, panelKeys = '' } = Astro.props;
 
 const colorMapping = {
-  primary: 'var(--primary-gradient)',
-  secondary: 'var(--secondary-gradient)',
-  accent: 'var(--accent-gradient)',
-  success: 'var(--success-gradient)',
-  warning: 'var(--warning-gradient)'
+  primary: {
+    gradient: 'linear-gradient(145deg, #ffe984 0%, #f6c44b 48%, #e0981e 100%)',
+    soft: 'rgba(235, 171, 42, 0.1)',
+    wash: 'linear-gradient(135deg, rgba(235, 171, 42, 0.11), rgba(235, 171, 42, 0.03))',
+    border: 'rgba(235, 171, 42, 0.42)',
+    glow: 'rgba(235, 171, 42, 0.28)',
+  },
+  secondary: {
+    gradient: 'linear-gradient(145deg, #ff9f88 0%, #ff6474 46%, #da3464 100%)',
+    soft: 'rgba(239, 82, 100, 0.1)',
+    wash: 'linear-gradient(135deg, rgba(239, 82, 100, 0.11), rgba(239, 82, 100, 0.03))',
+    border: 'rgba(239, 82, 100, 0.4)',
+    glow: 'rgba(239, 82, 100, 0.28)',
+  },
+  success: {
+    gradient: 'linear-gradient(145deg, #ffacd9 0%, #d56fab 50%, #9f4d96 100%)',
+    soft: 'rgba(211, 101, 166, 0.1)',
+    wash: 'linear-gradient(135deg, rgba(211, 101, 166, 0.11), rgba(211, 101, 166, 0.03))',
+    border: 'rgba(211, 101, 166, 0.4)',
+    glow: 'rgba(211, 101, 166, 0.28)',
+  },
+  accent: {
+    gradient: 'linear-gradient(145deg, #c2b7ff 0%, #8d72ff 48%, #6844d7 100%)',
+    soft: 'rgba(129, 103, 238, 0.1)',
+    wash: 'linear-gradient(135deg, rgba(129, 103, 238, 0.12), rgba(129, 103, 238, 0.03))',
+    border: 'rgba(129, 103, 238, 0.42)',
+    glow: 'rgba(129, 103, 238, 0.3)',
+  },
+  warning: {
+    gradient: 'linear-gradient(145deg, #d2ff9c 0%, #8ee17a 30%, #39bb7b 50%, #ffab55 70%, #ff773c 100%)',
+    soft: 'rgba(82, 183, 105, 0.1)',
+    wash: 'linear-gradient(135deg, rgba(82, 183, 105, 0.1), rgba(255, 145, 65, 0.1))',
+    border: 'rgba(117, 190, 90, 0.4)',
+    glow: 'rgba(255, 145, 65, 0.26)',
+  },
 };
 
-const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
+const colorTokens = colorMapping[color] || {
+  gradient: color || 'linear-gradient(145deg, #ffe984 0%, #f6c44b 48%, #e0981e 100%)',
+  soft: 'rgba(175, 130, 50, 0.1)',
+  wash: 'linear-gradient(135deg, rgba(175, 130, 50, 0.1), rgba(175, 130, 50, 0.03))',
+  border: 'rgba(175, 130, 50, 0.42)',
+  glow: 'rgba(175, 130, 50, 0.26)',
+};
+
+const panelStyle = [
+  `--panel-gradient: ${colorTokens.gradient}`,
+  `--panel-soft: ${colorTokens.soft}`,
+  `--panel-wash: ${colorTokens.wash}`,
+  `--panel-border-color: ${colorTokens.border}`,
+  `--panel-glow-color: ${colorTokens.glow}`,
+].join('; ');
 ---
 
 <div
@@ -18,9 +62,10 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
     data-panel-card
     data-panel-keys={panelKeys}
     tabindex="0"
+    style={panelStyle}
 >
     <div class="icon-wrapper">
-        <div class="gradient-icon" style={`background: ${gradientColor}`}></div>
+        <div class="gradient-icon"></div>
     </div>
     <div class="content">
         <h3 class="panel-title">{title}</h3>
@@ -49,6 +94,7 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
     .panel-item:hover {
         transform: translateY(-8px) translateX(8px);
         box-shadow: var(--card-shadow-hover);
+        border-color: var(--panel-border-color);
     }
 
     .panel-item:focus-visible {
@@ -57,8 +103,8 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
     }
 
     .panel-item.is-linked-active {
-        border-color: rgba(175, 130, 50, 0.42);
-        box-shadow: 0 18px 44px rgba(17, 24, 39, 0.12), 0 0 0 1px rgba(175, 130, 50, 0.14);
+        border-color: var(--panel-border-color);
+        box-shadow: 0 18px 44px rgba(17, 24, 39, 0.12), 0 0 0 1px var(--panel-glow-color);
         transform: translateY(-8px) translateX(8px);
     }
 
@@ -73,7 +119,7 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
         width: 60px;
         height: 60px;
         border-radius: 50%;
-        background: rgba(175, 130, 50, 0.06);
+        background: var(--panel-soft);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -83,13 +129,14 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
     .panel-item:hover .icon-wrapper,
     .panel-item.is-linked-active .icon-wrapper {
         transform: scale(1.1) rotate(5deg);
-        box-shadow: 0 8px 25px rgba(175, 130, 50, 0.15);
+        box-shadow: 0 8px 25px var(--panel-glow-color);
     }
 
     .gradient-icon {
         width: 40px;
         height: 40px;
         border-radius: 50%;
+        background: var(--panel-gradient);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         transition: all 0.3s ease;
     }
@@ -97,7 +144,7 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
     .panel-item:hover .gradient-icon,
     .panel-item.is-linked-active .gradient-icon {
         transform: scale(1.2);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 8px 22px var(--panel-glow-color);
         filter: brightness(1.1);
     }
 
@@ -136,11 +183,7 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
     .hover-effect {
         position: absolute;
         inset: 0;
-        background: linear-gradient(
-            135deg,
-            rgba(175, 130, 50, 0.04) 0%,
-            rgba(175, 130, 50, 0.02) 100%
-        );
+        background: var(--panel-wash);
         opacity: 0;
         transition: opacity 0.3s ease;
         pointer-events: none;
@@ -159,27 +202,6 @@ const gradientColor = colorMapping[color] || color || 'var(--primary-gradient)';
 
     .gradient-icon {
         animation: iconPulse 3s ease-in-out infinite;
-    }
-
-    /* Color-specific animations */
-    .panel-item[data-color="primary"]:hover {
-        border-color: rgba(175, 130, 50, 0.3);
-    }
-
-    .panel-item[data-color="secondary"]:hover {
-        border-color: rgba(175, 130, 50, 0.25);
-    }
-
-    .panel-item[data-color="accent"]:hover {
-        border-color: rgba(175, 130, 50, 0.3);
-    }
-
-    .panel-item[data-color="success"]:hover {
-        border-color: rgba(175, 130, 50, 0.25);
-    }
-
-    .panel-item[data-color="warning"]:hover {
-        border-color: rgba(175, 130, 50, 0.25);
     }
 
     /* Responsive Design */
