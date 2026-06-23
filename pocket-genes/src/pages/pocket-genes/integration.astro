@@ -15,6 +15,11 @@ import Experience from '../../layouts/Experience.astro';
 import { useTranslations } from '../../i18n/index';
 
 const t = useTranslations(Astro.currentLocale);
+const bookingCopy = {
+  eyebrow: 'REUNIÓN DE INTEGRACIÓN',
+  titleAccent: 'INTEGRÁ TUS INFORMES',
+  titleMain: 'A POCKET GENES',
+};
 ---
 
 <BaseLayout title={t.pocketGenes.integrationTitle} showFooter={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
@@ -32,21 +37,17 @@ const t = useTranslations(Astro.currentLocale);
     <TrustBoundaries />
     <Experience />
 
-    <section class="contact-cta-section">
-      <div class="contact-cta-container">
-        <div class="cta-content">
-          <h2>{t.pocketGenes.integrationCtaTitle}</h2>
-          <p>{t.pocketGenes.integrationCtaDesc}</p>
-          <a href="#booking" class="contact-cta-button">{t.pocketGenes.integrationCtaButton}</a>
-        </div>
-      </div>
-    </section>
-
     <section id="booking" class="booking-section">
       <div class="container">
         <div class="booking-content">
-          <h2>{t.index.bookingTitle.toLocaleUpperCase('es-AR')}</h2>
-          <p>{t.index.bookingDesc}</p>
+          <div class="booking-header">
+            <p class="booking-eyebrow">{bookingCopy.eyebrow}</p>
+            <h2 class="booking-title">
+              <span class="title-accent">{bookingCopy.titleAccent}</span>
+              <span class="title-main">{bookingCopy.titleMain}</span>
+            </h2>
+            <p>{t.pocketGenes.integrationCtaDesc}</p>
+          </div>
           <div class="calendar-wrapper">
             <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
           </div>
@@ -90,83 +91,55 @@ const t = useTranslations(Astro.currentLocale);
     background: var(--bg-primary) !important;
   }
 
-  .contact-cta-section {
-    padding: 6rem 0;
-    background: var(--bg-secondary);
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .contact-cta-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    position: relative;
-    z-index: 2;
-  }
-
-  .cta-content h2 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .cta-content p {
-    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
-    color: var(--text-secondary);
-    margin-bottom: 2.5rem;
-    line-height: 1.6;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .contact-cta-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem 3rem;
-    background: var(--brand-color);
-    color: #fff;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1.1rem;
-    border-radius: 50px;
-    box-shadow: 0 4px 15px rgba(175, 130, 50, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .contact-cta-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(175, 130, 50, 0.4);
-  }
-
-  .contact-cta-button:active {
-    transform: translateY(-1px);
-  }
-
   .booking-section {
-    padding: clamp(3rem, 8vw, 6rem) 0;
+    padding: clamp(4rem, 8vw, 6.5rem) 0;
     background: var(--bg-secondary);
   }
 
   .booking-content {
-    text-align: center;
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.5rem);
   }
 
-  .booking-content h2 {
-    font-size: clamp(1.75rem, 5vw, 3rem);
-    font-weight: 700;
-    margin-bottom: 1rem;
+  .booking-header {
+    max-width: 760px;
+  }
+
+  .booking-eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--brand-color);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .booking-title {
+    margin: 0;
     color: var(--text-primary);
+    font-size: clamp(2.15rem, 5vw, 4.1rem);
+    font-weight: 900;
+    line-height: 1.06;
   }
 
-  .booking-content > p {
-    font-size: clamp(1rem, 2.5vw, 1.25rem);
+  .booking-title .title-accent,
+  .booking-title .title-main {
+    display: block;
+  }
+
+  .booking-title .title-accent {
     color: var(--text-secondary);
-    margin-bottom: 2rem;
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .booking-header p:last-child {
+    max-width: 700px;
+    margin: 1.25rem 0 0;
+    color: var(--text-secondary);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.65;
   }
 
   .calendar-wrapper {
@@ -202,44 +175,14 @@ const t = useTranslations(Astro.currentLocale);
   }
 
   @media (max-width: 768px) {
-    .contact-cta-section {
+    .booking-section {
       padding: clamp(3rem, 6vw, 4rem) 0;
-    }
-
-    .contact-cta-container {
-      padding: 0 clamp(1rem, 3vw, 1.5rem);
-    }
-
-    .contact-cta-button {
-      padding: clamp(1rem, 2vw, 1rem) clamp(2rem, 4vw, 2.5rem);
-      font-size: clamp(0.95rem, 2vw, 1rem);
     }
   }
 
   @media (max-width: 480px) {
-    .contact-cta-section {
-      padding: clamp(2rem, 4vw, 3rem) 0;
-    }
-
-    .contact-cta-container {
-      padding: 0 clamp(1rem, 3vw, 1rem);
-    }
-
-    .contact-cta-button {
-      padding: clamp(0.875rem, 2vw, 0.875rem) clamp(1.5rem, 4vw, 2rem);
-      font-size: clamp(0.9rem, 2vw, 0.95rem);
-    }
-  }
-
-  @media (min-width: 1400px) {
-    .contact-cta-container {
-      max-width: 900px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    .contact-cta-section {
-      padding: clamp(3rem, 5vw, 5rem) 0;
+    .booking-section {
+      padding: clamp(2.5rem, 6vw, 3.5rem) 0;
     }
   }
 </style>
