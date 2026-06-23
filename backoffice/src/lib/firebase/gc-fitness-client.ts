@@ -25,6 +25,27 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const GC_FITNESS_APP_NAME = "gc-fitness";
 
+// #378 — resolve the Firebase Auth handler domain. When self-hosting is enabled
+// (NEXT_PUBLIC_GC_FITNESS_AUTH_SELF_HOSTED=true, set in production), point
+// authDomain at OUR OWN origin so the auth handler is served same-origin via the
+// /__/auth/* + /__/firebase/* rewrites in next.config.ts. That keeps the
+// handler's storage first-party, which privacy browsers (Brave / Safari ITP /
+// Firefox ETP) allow — fixing the bounce-back-to-/login on Brave mobile.
+//
+// Gated + window-guarded so it only kicks in client-side in production. Preview
+// deploys and localhost keep the default cross-origin firebaseapp.com domain so
+// every ephemeral Vercel URL doesn't need to be added to Authorized domains.
+function resolveGCFitnessAuthDomain(): string | undefined {
+  const fallback = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_AUTH_DOMAIN;
+  if (
+    process.env.NEXT_PUBLIC_GC_FITNESS_AUTH_SELF_HOSTED === "true" &&
+    typeof window !== "undefined"
+  ) {
+    return window.location.host;
+  }
+  return fallback;
+}
+
 const gcFitnessConfig = {
   apiKey: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_AUTH_DOMAIN,
@@ -45,7 +66,16 @@ function getGCFitnessApp(): FirebaseApp {
   // duplicate module evaluation) already initialized it. Without this guard,
   // `initializeApp(config, "gc-fitness")` would throw on the second call.
   const existing = getApps().find((a) => a.name === GC_FITNESS_APP_NAME);
-  return existing ?? initializeApp(gcFitnessConfig, GC_FITNESS_APP_NAME);
+  // Resolve authDomain at init time (not module-eval) so the client-side
+  // window.location.host override (#378 self-hosting) is in effect. Sign-in only
+  // runs client-side, so the app is first initialized with `window` present.
+  return (
+    existing ??
+    initializeApp(
+      { ...gcFitnessConfig, authDomain: resolveGCFitnessAuthDomain() },
+      GC_FITNESS_APP_NAME,
+    )
+  );
 }
 
 export function getGCFitnessAuth(): Auth {

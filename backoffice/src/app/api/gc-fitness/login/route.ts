@@ -170,11 +170,18 @@ export async function POST(request: Request) {
     }
 
     try {
-      const existingClaims =
-        ((decoded as DecodedIdToken & {
-          customClaims?: Record<string, unknown>;
-        }).customClaims ??
-          {}) as Record<string, unknown>;
+      // #379: existing custom claims live on the Auth user record, NOT under a
+      // `decoded.customClaims` sub-object — Firebase spreads claims directly
+      // onto the decoded ID token (e.g. `decoded.admin`). Reading the
+      // (always-undefined) `decoded.customClaims` made `mergeRoles` see `{}`,
+      // dropping the `admin` role so `setCustomUserClaims` WIPED admin on every
+      // login — admins lost the panel on any fresh sign-in (e.g. mobile). Read
+      // the authoritative claims via getUser(), mirroring promoteUserToAdmin.
+      const userRecord = await gcFitnessAuth().getUser(decoded.uid);
+      const existingClaims = (userRecord.customClaims ?? {}) as Record<
+        string,
+        unknown
+      >;
       const roles = mergeRoles(existingClaims);
       await gcFitnessAuth().setCustomUserClaims(decoded.uid, {
         ...existingClaims,

@@ -521,7 +521,12 @@ export function MonthCalendar({
   );
 
   const rangeNav = (
-    <div className="inline-flex min-w-0 items-center gap-1 rounded-full border bg-card p-1">
+    // #381: `flex w-full` (not `inline-flex`) so the pill fills the width its
+    // `flex-1` parent allocates on mobile. As an inline-flex it sized to its
+    // own content and overflowed the parent, painting the month label over the
+    // "Hoy" button and hiding the next-range (>) chevron. Filling the parent
+    // lets the label `truncate` instead of overflowing.
+    <div className="flex w-full min-w-0 items-center gap-1 rounded-full border bg-card p-1 sm:inline-flex sm:w-auto">
       <Button
         variant="ghost"
         size="icon"
