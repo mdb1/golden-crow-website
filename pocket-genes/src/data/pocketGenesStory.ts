@@ -333,7 +333,7 @@ const copy: Record<Lang, StoryCopy> = {
         sections: [
           {
             eyebrow: 'Comprensión',
-            title: 'Alfabetización genética para momentos difíciles',
+            title: 'Acceso a recursos claros en momentos difíciles',
             body:
               'La información genética llega cargada de términos técnicos. Pocket Genes debe convertirlos en lenguaje revisable, consistente y fácil de volver a consultar.',
             image: '/interactive1.webp',
@@ -787,7 +787,7 @@ const copy: Record<Lang, StoryCopy> = {
         sections: [
           {
             eyebrow: 'Understanding',
-            title: 'Genetic literacy for difficult moments',
+            title: 'Access to clear resources in difficult moments',
             body:
               'Genetic information arrives loaded with technical terms. Pocket Genes should turn them into language people can review, trust, and return to.',
             image: '/interactive1.webp',
