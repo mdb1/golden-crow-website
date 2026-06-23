@@ -3,10 +3,19 @@ import { useTranslations } from '../i18n/index';
 
 const t = useTranslations(Astro.currentLocale);
 
-const screenshots = Array.from({ length: 11 }, (_, index) => ({
+const baseScreenshots = Array.from({ length: 11 }, (_, index) => ({
   src: `/pocket-genes/screenshots/sample-${String(index + 1).padStart(2, '0')}.webp`,
   caption: t.appScreenshots.captions[index],
 }));
+
+const screenshots = Array.from({ length: 3 }, (_, repeatIndex) =>
+  baseScreenshots.map((screenshot, index) => ({
+    ...screenshot,
+    originalIndex: index,
+    displayIndex: repeatIndex * baseScreenshots.length + index,
+    isInitiallyEager: repeatIndex === 1 && index < 4,
+  }))
+).flat();
 ---
 
 <section id="app-screenshots" class="app-screenshots-section" aria-labelledby="app-screenshots-title">
@@ -21,18 +30,18 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     </div>
 
     <div class="screenshots-rail" aria-label={t.appScreenshots.galleryLabel} data-screenshots-rail>
-      {screenshots.map((screenshot, index) => (
+      {screenshots.map((screenshot) => (
         <figure
           class="screenshot-card"
           tabindex="0"
           role="group"
-          aria-label={`${screenshot.caption}: ${t.appScreenshots.imageAlt} ${index + 1}`}
+          aria-label={`${screenshot.caption}: ${t.appScreenshots.imageAlt} ${screenshot.originalIndex + 1}`}
         >
           <div class="phone-frame">
             <img
               src={screenshot.src}
-              alt={`${t.appScreenshots.imageAlt} ${index + 1}`}
-              loading={index < 4 ? 'eager' : 'lazy'}
+              alt={`${t.appScreenshots.imageAlt} ${screenshot.originalIndex + 1}`}
+              loading={screenshot.isInitiallyEager ? 'eager' : 'lazy'}
               width="560"
               height="1218"
             />
