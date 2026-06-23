@@ -100,15 +100,19 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
   }
 
   .screenshots-rail {
+    --rail-padding-inline: max(5vw, calc((100vw - 1180px) / 2 + 2rem));
+
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(180px, 238px);
     gap: clamp(1rem, 2vw, 1.5rem);
-    max-width: 100%;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    box-sizing: border-box;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
-    padding: 1.25rem 0.35rem 2.25rem;
-    scroll-padding-inline: 0.25rem;
+    padding: clamp(3rem, 6vw, 4.75rem) var(--rail-padding-inline) clamp(3.25rem, 7vw, 5rem);
+    scroll-padding-inline: var(--rail-padding-inline);
     scroll-snap-type: inline proximity;
   }
 
@@ -210,9 +214,10 @@ const screenshots = Array.from({ length: 11 }, (_, index) => ({
     }
 
     .screenshots-rail {
+      --rail-padding-inline: max(5vw, 1.25rem);
       grid-auto-columns: minmax(155px, 68vw);
       gap: 1rem;
-      padding: 1rem 0.25rem 2rem;
+      padding: 2.25rem var(--rail-padding-inline) 3rem;
     }
 
     .screenshots-rail:hover .screenshot-card:not(:hover):not(:focus-visible) {
