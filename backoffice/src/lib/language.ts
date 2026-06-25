@@ -821,6 +821,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Allowed: "Permitido",
   "An existing report record will be synchronized to this stored file.":
     "Se sincronizará un registro de reporte existente con este archivo almacenado.",
+  and: "y",
   "and stays available here for quick reference.":
     "y queda disponible acá como referencia rápida.",
   "and stored file": "y archivo almacenado",
@@ -831,6 +832,9 @@ const SPANISH_TEXT: Record<string, string> = {
   Assigned: "Asignado",
   "Assigned lane": "Carril asignado",
   "Assigned scope": "Alcance asignado",
+  "Associated biopsies": "Biopsias asociadas",
+  "associated biopsies were deleted together.":
+    "biopsias asociadas fueron eliminadas juntas.",
   "at an unknown time": "en un momento desconocido",
   "Attach an existing case to this sequencing batch. If the case already belongs to another batch, it will be moved.":
     "Vinculá un caso existente a este lote de secuenciación. Si el caso ya pertenece a otro lote, se moverá.",
@@ -842,6 +846,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Auto sampling paused": "Creación automática de muestreos pausada",
   "Awaiting confirmation": "Esperando confirmación",
   "Back to": "Volver a",
+  "Back to cases": "Volver a casos",
   "Back to dashboard": "Volver al dashboard",
   "Back to doctors": "Volver a médicos",
   "Back to institutions": "Volver a instituciones",
@@ -860,6 +865,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Bulk sampling update completed": "Actualización masiva de muestreos completada",
   Carrier: "Transportista",
   Case: "Caso",
+  "Case deletion completed": "Eliminación de caso completada",
+  "Case deletion error": "Error de eliminación del caso",
+  "Case deletion progress": "Progreso de eliminación del caso",
   "Case identifier linked to sampling.": "Identificador de caso vinculado al muestreo.",
   "Case intake and orchestration records stored in Firebase under `2pq_case`.":
     "Registros de ingreso y orquestación de casos almacenados en Firebase bajo `2pq_case`.",
@@ -879,6 +887,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Checking current publish state...": "Verificando estado actual de publicación...",
   "Checking the current report-code linkage...":
     "Verificando el vínculo actual del código de reporte...",
+  "Checking permissions and every biopsy currently linked to this case.":
+    "Verificando permisos y cada biopsia actualmente vinculada a este caso.",
   "Checking...": "Verificando...",
   "Checks mark allowed actions. Crosses call out the hard boundary.":
     "Las marcas indican acciones permitidas. Las cruces señalan el límite estricto.",
@@ -890,6 +900,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Client-facing case status.": "Estado del caso visible para el cliente.",
   Close: "Cerrar",
   "Close auto sampling creation modal": "Cerrar modal de creación automática de muestreos",
+  "Close case deletion progress": "Cerrar progreso de eliminación del caso",
   "Close error log": "Cerrar log de error",
   "Close multi sampling edit modal": "Cerrar modal de edición múltiple de muestreos",
   "Close multi sampling edit progress": "Cerrar progreso de edición múltiple de muestreos",
@@ -977,10 +988,18 @@ const SPANISH_TEXT: Record<string, string> = {
     "Excepciones de entrega, notas de aduana o problemas de mensajería...",
   "Delivery status": "Estado de entrega",
   "Delete patient": "Eliminar paciente",
+  "Delete associated biopsies": "Eliminar biopsias asociadas",
+  "Delete associated biopsies too": "Eliminar también las biopsias asociadas",
+  "Delete case and biopsies": "Eliminar caso y biopsias",
+  "Delete case record": "Eliminar registro de caso",
   "Delete failed. Please try again.": "La eliminación falló. Intentá nuevamente.",
   "Delete record": "Eliminar registro",
   "Delete record?": "¿Eliminar registro?",
   "Deleting...": "Eliminando...",
+  "Deleting the case and the linked biopsy records selected in the confirmation.":
+    "Eliminando el caso y los registros de biopsia vinculados seleccionados en la confirmación.",
+  "If selected, every biopsy currently linked to this case will be removed instead of only being unlinked.":
+    "Si se selecciona, cada biopsia actualmente vinculada a este caso será eliminada en vez de solo desvincularse.",
   "Derived from the case three-letter code as the canonical publish name.":
     "Derivado del código de tres letras del caso como nombre canónico de publicación.",
   "Derived from the current case three-letter code using the fixed":
@@ -1228,6 +1247,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "No fields selected.": "No hay campos seleccionados.",
   "No institutions match the current filter.":
     "Ninguna institución coincide con el filtro actual.",
+  "No linked biopsies are currently attached to this case.":
+    "No hay biopsias vinculadas actualmente a este caso.",
+  "No local cleanup was completed after the backend rejected the request.":
+    "No se completó ninguna limpieza local después de que el backend rechazó la solicitud.",
   "No matching records available.": "No hay registros coincidentes disponibles.",
   "No parent batch is linked to this case yet.":
     "Todavía no hay lote padre vinculado a este caso.",
@@ -1350,6 +1373,8 @@ const SPANISH_TEXT: Record<string, string> = {
   posts: "publicaciones",
   "Prepare file-storage snapshot": "Preparar captura de archivos",
   "Preparing the publish preview": "Preparando vista previa de publicación",
+  "Preparing the updated case list after deletion.":
+    "Preparando la lista de casos actualizada después de la eliminación.",
   "Preparing the update preview": "Preparando vista previa de actualización",
   Preview: "Vista previa",
   "Primary case identifiers and status.":
@@ -1409,6 +1434,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Queued: "En cola",
   Read: "Leer",
   "Read only": "Solo lectura",
+  "Read-only completion": "Finalización solo lectura",
   "Read-only scope": "Alcance solo lectura",
   Ready: "Listo",
   "Ready for review": "Listo para revisión",
@@ -1419,6 +1445,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Record launched": "Registro creado",
   records: "registros",
   Refresh: "Actualizar",
+  "Refresh case list": "Actualizar lista de casos",
   Refreshing: "Actualizando",
   Regenerate: "Regenerar",
   Relations: "Relaciones",
@@ -1427,6 +1454,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Al quitarlo se limpia el valor preparado, por lo que el nuevo caso se creará sin código de tres letras.",
   "Removing it frees the code so another case can use it later.":
     "Al quitarlo se libera el código para que otro caso pueda usarlo más adelante.",
+  "Removing the biopsy records selected for full deletion.":
+    "Eliminando los registros de biopsia seleccionados para eliminación completa.",
+  "Removing the case document after the biopsy decision is applied.":
+    "Eliminando el documento de caso después de aplicar la decisión sobre biopsias.",
   Replace: "Reemplazar",
   "Replace writes the full record shape, update patches only changed fields, and delete removes the Firestore document.":
     "Reemplazar escribe el registro completo, actualizar modifica solo los campos cambiados y eliminar borra el documento de Firestore.",
@@ -1650,6 +1681,8 @@ const SPANISH_TEXT: Record<string, string> = {
   targets: "objetivos",
   "The batch is the parent entity. Unlinking removes the relationship only.":
     "El lote es la entidad padre. Desvincular elimina solo la relación.",
+  "The case and its associated biopsies are being deleted in a controlled backend operation.":
+    "El caso y sus biopsias asociadas se están eliminando en una operación controlada de backend.",
   "The case is the parent entity. Unlinking removes the relationship only.":
     "El caso es la entidad padre. Desvincular elimina solo la relación.",
   "The case points to a stored_file_id that no longer exists, so report-code publishing is blocked until the file is republished.":
@@ -1660,6 +1693,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El código se guardará en el nuevo documento del caso como",
   "The current admin user will be written into the report-code ownership fields and the uploaded-report owner metadata.":
     "El usuario administrador actual se escribirá en los campos de titularidad del código de reporte y en la metadata de responsable del reporte subido.",
+  "The deletion stopped. Open the error log to inspect the backend response.":
+    "La eliminación se detuvo. Abrí el log de error para inspeccionar la respuesta del backend.",
   "The current role cannot create role assignments.":
     "El rol actual no puede crear asignaciones de rol.",
   "The current role cannot create role assignments on this screen.":
@@ -1731,6 +1766,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Este nuevo caso ya no tendrá un código de tres letras preparado hasta que se asigne uno nuevo.",
   "This patient record is read only for the current role.":
     "Este registro de paciente es solo lectura para el rol actual.",
+  "This deletes the case. By default, linked biopsies are kept and only unlinked from this case.":
+    "Esto elimina el caso. Por defecto, las biopsias vinculadas se conservan y solo se desvinculan de este caso.",
   "This removes the Firestore document from":
     "Esto elimina el documento de Firestore de",
   "This removes the patient record and any linked patient role assignment.":
@@ -1781,6 +1818,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to create the patient.": "No se pudo crear el paciente.",
   "Unable to create the role assignment.":
     "No se pudo crear la asignación de rol.",
+  "Unable to delete case and associated biopsies.":
+    "No se pudo eliminar el caso y las biopsias asociadas.",
   "Unable to delete the patient.": "No se pudo eliminar el paciente.",
   "Unable to load dashboard stats. Ensure GoldenCrow SDK is running.":
     "No se pudieron cargar las estadísticas del dashboard. Verificá que GoldenCrow SDK esté corriendo.",
@@ -1844,6 +1883,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Usá esta pantalla para gestionar el registro de institución, confirmar qué médicos pertenecen a ella y verificar qué emails de administradores de institución tienen poder local.",
   "User email": "Email de usuario",
   users: "usuarios",
+  "Validate case and linked biopsies": "Validar caso y biopsias vinculadas",
   "Validate with real tasks, not screenshots.":
     "Validar con tareas reales, no con capturas.",
   "Validating existing sampling IDs before generation...":
@@ -1899,6 +1939,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Link case to batch": "Vincular caso al lote",
   "Link case to sampling": "Vincular caso al muestreo",
   "Link sampling to case": "Vincular muestreo al caso",
+  "linked biopsies will be unlinked unless you choose to delete them too.":
+    "biopsias vinculadas se desvincularán salvo que elijas eliminarlas también.",
   "Multi sampling edit validation":
     "Validación de edición múltiple de muestreos",
   record: "registro",

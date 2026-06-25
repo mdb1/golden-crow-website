@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DialogClose,
   Dialog,
@@ -161,6 +162,26 @@ type MultiSamplingEditProcessState = {
   errorTitle?: string;
   errorDetails?: string;
 };
+const CASE_DELETE_PROCESS_STEP_KEYS = [
+  "validate",
+  "delete-samplings",
+  "delete-case",
+  "refresh",
+] as const;
+type CaseDeleteProcessStepKey = (typeof CASE_DELETE_PROCESS_STEP_KEYS)[number];
+type CaseDeleteProcessStepStatus = "pending" | "running" | "success" | "error";
+type CaseDeleteProcessStep = {
+  key: CaseDeleteProcessStepKey;
+  status: CaseDeleteProcessStepStatus;
+};
+type CaseDeleteProcessState = {
+  status: "running" | "success" | "error";
+  caseId: string;
+  samplingCount: number;
+  steps: CaseDeleteProcessStep[];
+  errorTitle?: string;
+  errorDetails?: string;
+};
 type TwoPQFileStorageSnapshot = {
   main_case: {
     id: string;
@@ -220,6 +241,24 @@ const CREATION_CONFETTI = [
   { left: "80%", top: "9%", color: "var(--chart-1)", delay: "330ms", duration: "1140ms" },
   { left: "88%", top: "20%", color: "var(--chart-2)", delay: "390ms", duration: "990ms" },
 ] as const;
+
+function buildInitialCaseDeleteProcess(caseId: string, samplingCount: number): CaseDeleteProcessState {
+  return {
+    status: "running",
+    caseId,
+    samplingCount,
+    steps: CASE_DELETE_PROCESS_STEP_KEYS.map((key, index) => ({
+      key,
+      status: index === 0 ? "running" : "pending",
+    })),
+  };
+}
+
+function pauseForProcessStep(durationMs: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
+}
 
 const EMPTY_FORM_STATE: FormState = {
   institutionId: "",
@@ -970,6 +1009,9 @@ export function TwoPQRecordWorkbench({
   const [pendingAction, setPendingAction] = useState<
     null | "create" | "replace" | "update" | "delete"
   >(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteLinkedSamplings, setDeleteLinkedSamplings] = useState(false);
+  const [caseDeleteProcess, setCaseDeleteProcess] = useState<CaseDeleteProcessState | null>(null);
   const [pendingRelationRecordId, setPendingRelationRecordId] = useState<string | null>(null);
   const [relationDialog, setRelationDialog] = useState<RelationDialogKey | null>(null);
   const [relationQuery, setRelationQuery] = useState("");
@@ -1048,6 +1090,9 @@ export function TwoPQRecordWorkbench({
     setIsPublishReportCodeModalOpen(false);
     setPendingPublishReportCode(false);
     setPendingCaseLabelCorrection(false);
+    setDeleteDialogOpen(false);
+    setDeleteLinkedSamplings(false);
+    setCaseDeleteProcess(null);
   }, [detail?.record.caseLabel, detail?.record.id, detail?.record.stored_file_id]);
 
   useEffect(() => {
@@ -1239,6 +1284,16 @@ export function TwoPQRecordWorkbench({
   const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
   const linkedCases = detail?.linkedCases ?? [];
   const linkedSamplings = detail?.linkedSamplings ?? [];
+  const caseDeleteCompletedStepCount =
+    caseDeleteProcess?.steps.filter((step) => step.status === "success").length ?? 0;
+  const caseDeleteProgressPercent = caseDeleteProcess
+    ? caseDeleteProcess.status === "success"
+      ? 100
+      : Math.max(
+          8,
+          Math.round((caseDeleteCompletedStepCount / caseDeleteProcess.steps.length) * 100)
+        )
+    : 0;
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
   const hasFileStorageAccess = adminContext.role === "full_admin";
@@ -1544,6 +1599,82 @@ export function TwoPQRecordWorkbench({
     setCopiedErrorLog(false);
     setLatestErrorLog((current) => current ?? { title: t("Request log"), details });
     setIsErrorLogOpen(true);
+  }
+
+  function updateCaseDeleteProcessStep(
+    stepKey: CaseDeleteProcessStepKey,
+    status: CaseDeleteProcessStepStatus
+  ) {
+    setCaseDeleteProcess((current) =>
+      current
+        ? {
+            ...current,
+            steps: current.steps.map((step) =>
+              step.key === stepKey ? { ...step, status } : step
+            ),
+          }
+        : current
+    );
+  }
+
+  function updateCaseDeleteProcessSteps(
+    statuses: Partial<Record<CaseDeleteProcessStepKey, CaseDeleteProcessStepStatus>>
+  ) {
+    setCaseDeleteProcess((current) =>
+      current
+        ? {
+            ...current,
+            steps: current.steps.map((step) => ({
+              ...step,
+              status: statuses[step.key] ?? step.status,
+            })),
+          }
+        : current
+    );
+  }
+
+  function getCaseDeleteProcessStepCopy(stepKey: CaseDeleteProcessStepKey) {
+    switch (stepKey) {
+      case "validate":
+        return {
+          title: t("Validate case and linked biopsies"),
+          description: t("Checking permissions and every biopsy currently linked to this case."),
+        };
+      case "delete-samplings":
+        return {
+          title: t("Delete associated biopsies"),
+          description: t("Removing the biopsy records selected for full deletion."),
+        };
+      case "delete-case":
+        return {
+          title: t("Delete case record"),
+          description: t("Removing the case document after the biopsy decision is applied."),
+        };
+      case "refresh":
+        return {
+          title: t("Refresh case list"),
+          description: t("Preparing the updated case list after deletion."),
+        };
+    }
+  }
+
+  function openCaseDeleteProcessErrorLog() {
+    if (!caseDeleteProcess?.errorDetails) {
+      return;
+    }
+
+    setLatestErrorLog({
+      title: caseDeleteProcess.errorTitle ?? t("Case deletion error"),
+      details: caseDeleteProcess.errorDetails,
+    });
+    setCopiedErrorLog(false);
+    setIsErrorLogOpen(true);
+  }
+
+  function handleCaseDeleteProcessExit() {
+    setCaseDeleteProcess(null);
+    router.push(area.route);
+    router.refresh();
   }
 
   async function handleCopyErrorLog() {
@@ -2791,8 +2922,96 @@ export function TwoPQRecordWorkbench({
     }
   }
 
-  async function handleDelete() {
+  async function handleDeleteCaseWithLinkedSamplings() {
+    if (!detail || areaKey !== "cases") {
+      return;
+    }
+
+    const caseId = detail.record.id;
+    setDeleteDialogOpen(false);
+    setPendingAction("delete");
+    setCaseDeleteProcess(buildInitialCaseDeleteProcess(caseId, linkedSamplings.length));
+
+    try {
+      await pauseForProcessStep(180);
+      updateCaseDeleteProcessSteps({
+        validate: "success",
+        "delete-samplings": "running",
+      });
+
+      const result = await sdkFetch<{
+        success: true;
+        recordId: string;
+        deletedLinkedSamplingIds?: string[];
+      }>(`/2pq/${area.key}/${caseId}?deleteLinkedSamplings=1`, {
+        method: "DELETE",
+      });
+      const deletedSamplingCount =
+        result.deletedLinkedSamplingIds?.length ?? linkedSamplings.length;
+
+      updateCaseDeleteProcessSteps({
+        "delete-samplings": "success",
+        "delete-case": "success",
+        refresh: "running",
+      });
+      setCaseDeleteProcess((current) =>
+        current
+          ? {
+              ...current,
+              samplingCount: deletedSamplingCount,
+            }
+          : current
+      );
+
+      await pauseForProcessStep(220);
+      setCaseDeleteProcess((current) =>
+        current
+          ? {
+              ...current,
+              status: "success",
+              samplingCount: deletedSamplingCount,
+              steps: current.steps.map((step) => ({ ...step, status: "success" })),
+            }
+          : current
+      );
+      setDeleteLinkedSamplings(false);
+    } catch (error) {
+      const presentation = getErrorPresentation(
+        error,
+        t("Unable to delete case and associated biopsies.")
+      );
+      updateCaseDeleteProcessStep("delete-samplings", "error");
+      setCaseDeleteProcess((current) =>
+        current
+          ? {
+              ...current,
+              status: "error",
+              errorTitle: t("Case deletion error"),
+              errorDetails: presentation.details,
+            }
+          : current
+      );
+      setLatestErrorLog({
+        title: t("Case deletion error"),
+        details: presentation.details,
+      });
+      setCopiedErrorLog(false);
+      pushToast("error", presentation.message, {
+        details: presentation.details,
+        durationMs: 20_000,
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function handleDelete(options: { deleteLinkedSamplings?: boolean } = {}) {
     if (!detail) {
+      return;
+    }
+
+    if (areaKey === "cases" && options.deleteLinkedSamplings) {
+      await handleDeleteCaseWithLinkedSamplings();
       return;
     }
 
@@ -4361,6 +4580,193 @@ export function TwoPQRecordWorkbench({
         noteByRecordId={samplingNotes}
         translate={t}
       />
+      <Dialog
+        open={Boolean(caseDeleteProcess)}
+        onOpenChange={(open) => {
+          if (open || !caseDeleteProcess || caseDeleteProcess.status === "running") {
+            return;
+          }
+
+          if (caseDeleteProcess.status === "success") {
+            handleCaseDeleteProcessExit();
+          } else {
+            setCaseDeleteProcess(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-h-[calc(100vh-1.5rem)] max-w-4xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-rose-100 [background:linear-gradient(155deg,rgba(255,251,251,0.98),rgba(255,255,255,0.98)_54%,rgba(255,228,230,0.94))] p-0 text-rose-950 shadow-[0_34px_120px_rgba(225,29,72,0.18)] dark:border-rose-400/28 dark:[background:linear-gradient(150deg,rgba(45,18,23,0.98),rgba(66,24,32,0.96)_48%,rgba(225,29,72,0.2))] dark:text-rose-50 dark:shadow-[0_30px_110px_rgba(127,29,29,0.32)]"
+        >
+          {caseDeleteProcess?.status === "success" ? (
+            <div className="relative overflow-hidden px-6 py-10 text-center">
+              {CREATION_CONFETTI.map((particle, index) => (
+                <span
+                  key={`case-delete-success-${particle.left}-${particle.delay}-${index}`}
+                  className="two-pq-confetti absolute h-3 w-3 rounded-[5px]"
+                  style={{
+                    left: particle.left,
+                    top: particle.top,
+                    background: particle.color,
+                    animationDelay: particle.delay,
+                    animationDuration: particle.duration,
+                  }}
+                />
+              ))}
+              <div className="relative flex flex-col items-center">
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-200/18 text-emerald-50 shadow-[0_0_0_14px_rgba(74,222,128,0.12)]">
+                  <span className="two-pq-success-ring absolute inset-0 rounded-full border border-emerald-200/55" />
+                  <CheckCircle2 className="h-12 w-12" />
+                </div>
+                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-rose-950/62 dark:text-rose-50/72">
+                  {t("Read-only completion")}
+                </p>
+                <h3 className="mt-2 font-heading text-3xl font-semibold text-rose-950 dark:text-rose-50">
+                  {t("Case deletion completed")}
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm text-rose-950/72 dark:text-rose-50/76">
+                  {t("Case")} <span className="font-mono">{caseDeleteProcess.caseId}</span>{" "}
+                  {t("and")} {caseDeleteProcess.samplingCount}{" "}
+                  {t("associated biopsies were deleted together.")}
+                </p>
+                <Button
+                  type="button"
+                  onClick={handleCaseDeleteProcessExit}
+                  className="mt-6 h-12 rounded-[1.1rem] bg-[linear-gradient(180deg,rgba(79,70,229,0.98),rgba(67,56,202,0.96))] px-6 text-sm font-semibold text-white shadow-[0_18px_48px_rgba(79,70,229,0.24)]"
+                >
+                  {t("Back to cases")}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <DialogHeader className="relative border-b border-rose-100 px-6 py-5 pr-16 dark:border-rose-300/16">
+                <DialogTitle className="font-heading text-2xl font-semibold text-rose-950 dark:text-rose-50">
+                  {t("Case deletion progress")}
+                </DialogTitle>
+                <DialogDescription className="text-rose-950/68 dark:text-rose-50/72">
+                  {t("The case and its associated biopsies are being deleted in a controlled backend operation.")}
+                </DialogDescription>
+                {caseDeleteProcess?.status === "error" ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setCaseDeleteProcess(null)}
+                    className="absolute right-5 top-5 h-9 w-9 rounded-full text-rose-950 hover:bg-rose-100/80 dark:text-rose-50 dark:hover:bg-rose-900/36"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">{t("Close case deletion progress")}</span>
+                  </Button>
+                ) : null}
+              </DialogHeader>
+
+              <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+                <div className="rounded-[1.5rem] border border-rose-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(255,228,230,0.6)] dark:border-rose-200/16 dark:bg-rose-950/24 dark:shadow-none">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-rose-950/52 dark:text-rose-50/58">
+                        {t("Process progress")}
+                      </p>
+                      <p className="mt-2 text-sm text-rose-950/72 dark:text-rose-50/72">
+                        {caseDeleteProcess?.status === "error"
+                          ? t("The deletion stopped. Open the error log to inspect the backend response.")
+                          : t("Deleting the case and the linked biopsy records selected in the confirmation.")}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-rose-200 bg-white/72 text-rose-950 dark:border-rose-300/18 dark:bg-rose-400/10 dark:text-rose-50"
+                    >
+                      {caseDeleteProgressPercent}%
+                    </Badge>
+                  </div>
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-rose-100/90 dark:bg-rose-950/50">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,rgba(244,63,94,0.92),rgba(225,29,72,0.96))] transition-[width] duration-300"
+                      style={{ width: `${caseDeleteProgressPercent}%` }}
+                    />
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {caseDeleteProcess?.steps.map((step) => {
+                      const copy = getCaseDeleteProcessStepCopy(step.key);
+                      return (
+                        <div
+                          key={`case-delete-step-${step.key}`}
+                          className="rounded-[1.25rem] border border-rose-100 bg-white/78 px-4 py-4 shadow-[0_10px_28px_rgba(255,228,230,0.5)] dark:border-rose-200/16 dark:bg-rose-950/24 dark:shadow-none"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={
+                                step.status === "success"
+                                  ? "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white"
+                                  : step.status === "error"
+                                    ? "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                                    : step.status === "running"
+                                      ? "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white"
+                                      : "mt-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-500 dark:border-rose-300/20 dark:bg-rose-950/30"
+                              }
+                            >
+                              {step.status === "success" ? (
+                                <CheckCircle2 className="h-4 w-4" />
+                              ) : step.status === "error" ? (
+                                <AlertTriangle className="h-4 w-4" />
+                              ) : step.status === "running" ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CircleDot className="h-4 w-4" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-rose-950 dark:text-rose-50">
+                                {copy.title}
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-rose-950/62 dark:text-rose-50/68">
+                                {copy.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {caseDeleteProcess?.status === "error" ? (
+                  <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
+                    {caseDeleteProcess.errorTitle ?? t("Case deletion error")}.{" "}
+                    {t("No local cleanup was completed after the backend rejected the request.")}
+                  </div>
+                ) : null}
+              </div>
+
+              {caseDeleteProcess?.status === "error" ? (
+                <DialogFooter className="gap-3 border-rose-100/90 bg-white/55 px-6 py-5 dark:border-rose-300/14 dark:bg-rose-950/16">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openCaseDeleteProcessErrorLog}
+                    disabled={!caseDeleteProcess.errorDetails}
+                    className={`${THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME} h-11 px-6`}
+                  >
+                    <Copy className="h-4 w-4" />
+                    {t("Inspect error")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setCaseDeleteProcess(null)}
+                    className="h-11 px-6"
+                  >
+                    {t("Close")}
+                  </Button>
+                </DialogFooter>
+              ) : null}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       {createdRecordId ? (
         <div className="pointer-events-none fixed inset-0 z-[85] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-background/36 backdrop-blur-[3px]" />
@@ -4467,7 +4873,15 @@ export function TwoPQRecordWorkbench({
                     {pendingAction === "update" ? t("Updating...") : t("Update")}
                   </Button>
                   {canDelete ? (
-                    <AlertDialog>
+                    <AlertDialog
+                      open={deleteDialogOpen}
+                      onOpenChange={(open) => {
+                        setDeleteDialogOpen(open);
+                        if (!open && pendingAction !== "delete") {
+                          setDeleteLinkedSamplings(false);
+                        }
+                      }}
+                    >
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={pendingAction !== null}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -4481,16 +4895,66 @@ export function TwoPQRecordWorkbench({
                           </AlertDialogMedia>
                           <AlertDialogTitle>{t("Delete record?")}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            {t("This removes the Firestore document from")} <code>{area.collectionKey}</code>.
+                            {areaKey === "cases"
+                              ? t("This deletes the case. By default, linked biopsies are kept and only unlinked from this case.")
+                              : t("This removes the Firestore document from")}{" "}
+                            {areaKey === "cases" ? null : <code>{area.collectionKey}</code>}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
+                        {areaKey === "cases" ? (
+                          <div className="space-y-3 rounded-[1.25rem] border border-destructive/16 bg-destructive/8 px-4 py-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">
+                                  {t("Associated biopsies")}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {linkedSamplings.length === 0
+                                    ? t("No linked biopsies are currently attached to this case.")
+                                    : `${linkedSamplings.length} ${t("linked biopsies will be unlinked unless you choose to delete them too.")}`}
+                                </p>
+                              </div>
+                              <Badge variant={linkedSamplings.length > 0 ? "destructive" : "outline"}>
+                                {linkedSamplings.length}
+                              </Badge>
+                            </div>
+                            <label
+                              htmlFor="delete-linked-samplings"
+                              className={`flex items-start gap-3 rounded-[1rem] border border-border/70 bg-background/78 px-3 py-3 text-sm shadow-sm ${
+                                linkedSamplings.length === 0
+                                  ? "cursor-not-allowed opacity-60"
+                                  : "cursor-pointer"
+                              }`}
+                            >
+                              <Checkbox
+                                id="delete-linked-samplings"
+                                checked={deleteLinkedSamplings}
+                                disabled={linkedSamplings.length === 0}
+                                onCheckedChange={(checked) =>
+                                  setDeleteLinkedSamplings(checked === true)
+                                }
+                                className="mt-0.5"
+                              />
+                              <span>
+                                <span className="block font-semibold text-foreground">
+                                  {t("Delete associated biopsies too")}
+                                </span>
+                                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                                  {t("If selected, every biopsy currently linked to this case will be removed instead of only being unlinked.")}
+                                </span>
+                              </span>
+                            </label>
+                          </div>
+                        ) : null}
                         <AlertDialogFooter>
                           <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
                           <AlertDialogAction
                             variant="destructive"
-                            onClick={() => void handleDelete()}
+                            onClick={() => void handleDelete({ deleteLinkedSamplings })}
                           >
-                            {t("Delete record")}
+                            {areaKey === "cases" && deleteLinkedSamplings
+                              ? t("Delete case and biopsies")
+                              : t("Delete record")}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

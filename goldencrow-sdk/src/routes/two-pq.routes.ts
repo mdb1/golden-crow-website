@@ -700,6 +700,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           areaKey: TwoPQAreaKeySchema,
           recordId: z.string().min(1),
         }),
+        querystring: z.object({
+          deleteLinkedSamplings: z.string().optional(),
+        }),
       },
     },
     async (request, reply) => {
@@ -711,7 +714,10 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
         const result = await deleteTwoPQRecordForContext(
           request.adminContext,
           request.params.areaKey,
-          request.params.recordId
+          request.params.recordId,
+          {
+            deleteLinkedSamplings: parseBooleanQueryFlag(request.query.deleteLinkedSamplings),
+          }
         );
         return reply.send(result);
       } catch (error) {

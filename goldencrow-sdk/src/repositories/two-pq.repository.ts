@@ -2251,8 +2251,14 @@ export async function unlinkSamplingFromCaseForContext(
 export async function deleteTwoPQRecordForContext(
   context: AdminContext,
   areaKey: TwoPQAreaKey,
-  recordId: string
-): Promise<{ success: true }> {
+  recordId: string,
+  options: { deleteLinkedSamplings?: boolean } = {}
+): Promise<{
+  success: true;
+  recordId: string;
+  deletedLinkedSamplingIds?: string[];
+  unlinkedSamplingIds?: string[];
+}> {
   const record = await getTwoPQRecord(areaKey, recordId);
   if (!record) {
     throw new AdminRepositoryError("Record not found.", 404);
@@ -2294,15 +2300,23 @@ export async function deleteTwoPQRecordForContext(
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
     });
 
-    return { success: true };
+    return { success: true, recordId };
   }
 
   if (areaKey === "cases") {
     const linkedSamplings = await loadLinkedSamplingsForCase(record);
+    const ownedLinkedSamplings = linkedSamplings.filter(
+      (linkedSampling) => linkedSampling.parent_case === record.id
+    );
 
-    for (const linkedSampling of linkedSamplings) {
-      if (linkedSampling.parent_case === record.id && !canWriteTwoPQRecord(context, linkedSampling)) {
-        throw new AdminRepositoryError("You cannot unlink every sampling linked to this case.", 403);
+    for (const linkedSampling of ownedLinkedSamplings) {
+      if (!canWriteTwoPQRecord(context, linkedSampling)) {
+        throw new AdminRepositoryError(
+          options.deleteLinkedSamplings
+            ? "You cannot delete every sampling linked to this case."
+            : "You cannot unlink every sampling linked to this case.",
+          403
+        );
       }
     }
 
@@ -2311,27 +2325,36 @@ export async function deleteTwoPQRecordForContext(
         await unlinkCaseFromBatchInTransaction(transaction, context, record.parent_batch, record, now);
       }
 
-      for (const linkedSampling of linkedSamplings) {
-        if (linkedSampling.parent_case !== record.id) {
-          continue;
+      for (const linkedSampling of ownedLinkedSamplings) {
+        if (options.deleteLinkedSamplings) {
+          transaction.delete(getTwoPQRecordRef("sampling", linkedSampling.id));
+        } else {
+          transaction.set(
+            getTwoPQRecordRef("sampling", linkedSampling.id),
+            {
+              parent_case: null,
+              caseId: null,
+              updatedAt: now,
+              updatedByEmail: context.email,
+            },
+            { merge: true }
+          );
         }
-
-        transaction.set(
-          getTwoPQRecordRef("sampling", linkedSampling.id),
-          {
-            parent_case: null,
-            caseId: null,
-            updatedAt: now,
-            updatedByEmail: context.email,
-          },
-          { merge: true }
-        );
       }
 
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
     });
 
-    return { success: true };
+    return {
+      success: true,
+      recordId,
+      deletedLinkedSamplingIds: options.deleteLinkedSamplings
+        ? ownedLinkedSamplings.map((linkedSampling) => linkedSampling.id)
+        : [],
+      unlinkedSamplingIds: options.deleteLinkedSamplings
+        ? []
+        : ownedLinkedSamplings.map((linkedSampling) => linkedSampling.id),
+    };
   }
 
   if (areaKey === "sampling" && record.parent_case) {
@@ -2340,9 +2363,9 @@ export async function deleteTwoPQRecordForContext(
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
     });
 
-    return { success: true };
+    return { success: true, recordId };
   }
 
   await getTwoPQRecordRef(areaKey, recordId).delete();
-  return { success: true };
+  return { success: true, recordId };
 }
