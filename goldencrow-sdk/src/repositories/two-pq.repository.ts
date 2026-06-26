@@ -2308,6 +2308,7 @@ export async function deleteTwoPQRecordForContext(
     const ownedLinkedSamplings = linkedSamplings.filter(
       (linkedSampling) => linkedSampling.parent_case === record.id
     );
+    const ownedLinkedSamplingIds = ownedLinkedSamplings.map((linkedSampling) => linkedSampling.id);
 
     for (const linkedSampling of ownedLinkedSamplings) {
       if (!canWriteTwoPQRecord(context, linkedSampling)) {
@@ -2320,26 +2321,71 @@ export async function deleteTwoPQRecordForContext(
       }
     }
 
+    if (options.deleteLinkedSamplings) {
+      const writeCount = ownedLinkedSamplings.length + 1 + (record.parent_batch ? 1 : 0);
+      if (writeCount > 450) {
+        throw new AdminRepositoryError(
+          "This case has too many linked samplings to delete in one request.",
+          400
+        );
+      }
+
+      if (record.parent_batch) {
+        const linkedBatch = await getTwoPQRecord("sequencing", record.parent_batch);
+        if (!linkedBatch) {
+          throw new AdminRepositoryError("Batch not found.", 404);
+        }
+        if (!canWriteTwoPQRecord(context, linkedBatch)) {
+          throw new AdminRepositoryError("You cannot modify this batch.", 403);
+        }
+      }
+
+      const batch = adminDb.batch();
+
+      if (record.parent_batch) {
+        batch.set(
+          getTwoPQRecordRef("sequencing", record.parent_batch),
+          {
+            children_cases: FieldValue.arrayRemove(record.id),
+            linkedCaseIds: FieldValue.arrayRemove(record.id),
+            updatedAt: now,
+            updatedByEmail: context.email,
+          },
+          { merge: true }
+        );
+      }
+
+      for (const linkedSampling of ownedLinkedSamplings) {
+        batch.delete(getTwoPQRecordRef("sampling", linkedSampling.id));
+      }
+
+      batch.delete(getTwoPQRecordRef(areaKey, recordId));
+      await batch.commit();
+
+      return {
+        success: true,
+        recordId,
+        deletedLinkedSamplingIds: ownedLinkedSamplingIds,
+        unlinkedSamplingIds: [],
+      };
+    }
+
     await adminDb.runTransaction(async (transaction) => {
       if (record.parent_batch) {
         await unlinkCaseFromBatchInTransaction(transaction, context, record.parent_batch, record, now);
       }
 
       for (const linkedSampling of ownedLinkedSamplings) {
-        if (options.deleteLinkedSamplings) {
-          transaction.delete(getTwoPQRecordRef("sampling", linkedSampling.id));
-        } else {
-          transaction.set(
-            getTwoPQRecordRef("sampling", linkedSampling.id),
-            {
-              parent_case: null,
-              caseId: null,
-              updatedAt: now,
-              updatedByEmail: context.email,
-            },
-            { merge: true }
-          );
-        }
+        transaction.set(
+          getTwoPQRecordRef("sampling", linkedSampling.id),
+          {
+            parent_case: null,
+            caseId: null,
+            updatedAt: now,
+            updatedByEmail: context.email,
+          },
+          { merge: true }
+        );
       }
 
       transaction.delete(getTwoPQRecordRef(areaKey, recordId));
@@ -2348,12 +2394,8 @@ export async function deleteTwoPQRecordForContext(
     return {
       success: true,
       recordId,
-      deletedLinkedSamplingIds: options.deleteLinkedSamplings
-        ? ownedLinkedSamplings.map((linkedSampling) => linkedSampling.id)
-        : [],
-      unlinkedSamplingIds: options.deleteLinkedSamplings
-        ? []
-        : ownedLinkedSamplings.map((linkedSampling) => linkedSampling.id),
+      deletedLinkedSamplingIds: [],
+      unlinkedSamplingIds: ownedLinkedSamplingIds,
     };
   }
 

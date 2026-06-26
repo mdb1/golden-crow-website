@@ -4596,7 +4596,7 @@ export function TwoPQRecordWorkbench({
       >
         <DialogContent
           showCloseButton={false}
-          className="max-h-[calc(100vh-1.5rem)] max-w-4xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-rose-100 [background:linear-gradient(155deg,rgba(255,251,251,0.98),rgba(255,255,255,0.98)_54%,rgba(255,228,230,0.94))] p-0 text-rose-950 shadow-[0_34px_120px_rgba(225,29,72,0.18)] dark:border-rose-400/28 dark:[background:linear-gradient(150deg,rgba(45,18,23,0.98),rgba(66,24,32,0.96)_48%,rgba(225,29,72,0.2))] dark:text-rose-50 dark:shadow-[0_30px_110px_rgba(127,29,29,0.32)]"
+          className="h-[min(48rem,calc(100vh-1.5rem))] max-h-[calc(100vh-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-rose-100 [background:linear-gradient(155deg,rgba(255,251,251,0.98),rgba(255,255,255,0.98)_54%,rgba(255,228,230,0.94))] p-0 text-rose-950 shadow-[0_34px_120px_rgba(225,29,72,0.18)] dark:border-rose-400/28 dark:[background:linear-gradient(150deg,rgba(45,18,23,0.98),rgba(66,24,32,0.96)_48%,rgba(225,29,72,0.2))] dark:text-rose-50 dark:shadow-[0_30px_110px_rgba(127,29,29,0.32)]"
         >
           {caseDeleteProcess?.status === "success" ? (
             <div className="relative overflow-hidden px-6 py-10 text-center">
