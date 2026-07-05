@@ -6,9 +6,19 @@ import { TwoPQAreaBrowser } from "@/components/two-pq-area-browser";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { appText } from "@/lib/language";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
-import { getTwoPQAreaConfig, translateTwoPQAreaConfig } from "@/lib/two-pq-areas";
+import {
+  getTwoPQAreaConfig,
+  translateTwoPQAreaConfig,
+} from "@/lib/two-pq-areas";
 import { getServerAppLanguage } from "@/lib/server-language";
 import { sdkFetchServer } from "@/lib/sdk-server";
+
+const FORM_REQUESTED_CREATE_AREAS = new Set([
+  "cases",
+  "sampling",
+  "sequencing",
+  "shipments",
+]);
 
 export default async function TwoPQAreaPage({
   params,
@@ -28,11 +38,17 @@ export default async function TwoPQAreaPage({
   const translatedArea = translateTwoPQAreaConfig(area, language);
 
   const adminContext = await getAdminContextServer();
-  const { records } = await sdkFetchServer<{ records: TwoPQListItem[] }>(`/2pq/${area.key}`);
+  const { records } = await sdkFetchServer<{ records: TwoPQListItem[] }>(
+    `/2pq/${area.key}`,
+  );
   const canCreate = area.roleAccess.some(
     (entry) =>
-      entry.role === adminContext.role && entry.capabilities.includes("create")
+      entry.role === adminContext.role && entry.capabilities.includes("create"),
   );
+  const directCreateRequiresForm =
+    (adminContext.role === "institution_operator" ||
+      adminContext.role === "institution_laboratory_staff") &&
+    FORM_REQUESTED_CREATE_AREAS.has(area.key);
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,17 +58,33 @@ export default async function TwoPQAreaPage({
         description={translatedArea.summary}
       />
       <HelperBanner title={translatedArea.helperTitle} tone="blue">
-        {translatedArea.helperBody} {t("Live documents in")} <code>{area.collectionKey}</code>{" "}
-        {t("stay scoped to the same institution, doctor, and patient permission lanes already enforced by the SDK.")}
+        {translatedArea.helperBody} {t("Live documents in")}{" "}
+        <code>{area.collectionKey}</code>{" "}
+        {t(
+          "stay scoped to the same institution, doctor, and patient permission lanes already enforced by the SDK.",
+        )}
       </HelperBanner>
       <AreaAccessEntry
         accessHref={`${area.route}/access`}
         createHref={`${area.route}/new`}
-        canCreate={canCreate}
+        canCreate={canCreate && !directCreateRequiresForm}
         createLabel={translatedArea.createLabel}
-        description={t("Access review and record creation now start from their own dedicated screens instead of this main area page.")}
+        createBlockedAlert={
+          directCreateRequiresForm
+            ? "These entities cannot be created directly. They must be requested through the corresponding form."
+            : undefined
+        }
+        createBlockedLinkHref="/2pq-dashboard"
+        createBlockedLinkLabel="Go to 2PQ dashboard"
+        description={t(
+          "Access review and record creation now start from their own dedicated screens instead of this main area page.",
+        )}
       />
-      <TwoPQAreaBrowser areaKey={area.key} initialRecords={records} createdId={createdId} />
+      <TwoPQAreaBrowser
+        areaKey={area.key}
+        initialRecords={records}
+        createdId={createdId}
+      />
     </div>
   );
 }

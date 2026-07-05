@@ -13,6 +13,8 @@ export function AreaAccessEntry({
   accessLabel = "Visualize access permissions",
   createLabel = "Add new record",
   createBlockedAlert,
+  createBlockedLinkHref,
+  createBlockedLinkLabel,
   createDisabledTitle = "The current role cannot create records on this screen.",
   title = "Primary actions",
   description,
@@ -23,6 +25,8 @@ export function AreaAccessEntry({
   accessLabel?: string;
   createLabel?: string;
   createBlockedAlert?: string;
+  createBlockedLinkHref?: string;
+  createBlockedLinkLabel?: string;
   createDisabledTitle?: string;
   title?: string;
   description: string;
@@ -78,17 +82,31 @@ export function AreaAccessEntry({
             </Link>
           </Button>
         ) : createBlockedAlert ? (
-          <Button
-            size="lg"
-            className="h-auto flex-1 justify-between rounded-2xl px-5 py-5 text-left text-base"
-            onClick={() => window.alert(t(createBlockedAlert))}
-          >
-            <span className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4" />
-              {t(createLabel)}
-            </span>
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-1 flex-col gap-2">
+            <Button
+              size="lg"
+              className="h-auto w-full justify-between rounded-2xl px-5 py-5 text-left text-base"
+              onClick={() => window.alert(t(createBlockedAlert))}
+            >
+              <span className="flex items-center gap-2">
+                <PlusCircle className="h-4 w-4" />
+                {t(createLabel)}
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            {createBlockedLinkHref && createBlockedLinkLabel ? (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto w-fit px-1 py-0 text-xs"
+                asChild
+              >
+                <Link href={createBlockedLinkHref}>
+                  {t(createBlockedLinkLabel)}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <Button
             size="lg"

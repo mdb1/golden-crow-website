@@ -649,6 +649,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "La información pasó la validación, pero falló el checkpoint del borrador. Podés abrir la vista previa de todos modos; el envío final intentará guardar nuevamente y puede mostrar el mismo error de backend.",
   "Technical details": "Detalles técnicos",
   "Go to first issue": "Ir al primer problema",
+  "Go to 2PQ dashboard": "Ir al dashboard 2PQ",
   "Open preview anyway": "Abrir vista previa igual",
   "Study request form preview": "Vista previa del formulario de solicitud",
   "This preview is read-only. Go back to previous steps to make changes before signing.":
@@ -1745,6 +1746,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Solicitá al administrador de la institución que agregue un nuevo rol.",
   "The current role cannot create records on this screen.":
     "El rol actual no puede dar de alta registros en esta pantalla.",
+  "These entities cannot be created directly. They must be requested through the corresponding form.":
+    "Estas entidades no se pueden crear directamente. Deben solicitarse mediante el formulario correspondiente.",
   "The current stored file snapshot may be out of date. This case was updated":
     "La captura actual del archivo almacenado puede estar desactualizada. Este caso se actualizó",
   "The doctor link controls who can actually edit this patient later. Institution scope and doctor scope stay explicit and visible on the patient sheet.":
@@ -2068,6 +2071,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "New role assignments must be requested from the institution administrator.":
     "Las nuevas asignaciones de rol deben solicitarse al administrador de la institución.",
   "Can operate across every lane": "Puede operar en todos los carriles",
+  "Can operate 2PQ cases": "Puede operar casos 2PQ",
+  "Can operate biopsy records": "Puede operar registros de biopsias",
+  "Can operate sequencing batches": "Puede operar lotes de secuenciación",
+  "Can operate 2PQ reports": "Puede operar reportes 2PQ",
+  "Can coordinate shipments": "Puede coordinar envíos",
   "Can review the surrounding context": "Puede revisar el contexto circundante",
   "Can see and edit only one institution.":
     "Puede ver y editar solo una institución.",
@@ -2117,6 +2125,16 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los operadores de institución pueden crear y actualizar asignaciones de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propia institución.",
   "Institution laboratory staff cannot create, update, or promote role assignments inside their institution.":
     "El personal de laboratorio de institución no puede crear, actualizar ni promover asignaciones de rol dentro de su institución.",
+  "Institution laboratory staff can create 2PQ cases through the corresponding form and update existing case records inside their institution.":
+    "El personal de laboratorio de institución puede crear casos 2PQ mediante el formulario correspondiente y actualizar registros de casos existentes dentro de su institución.",
+  "Institution laboratory staff can create biopsy records through the biopsy form and update existing biopsy records inside their institution.":
+    "El personal de laboratorio de institución puede crear registros de biopsias mediante el formulario de biopsias y actualizar registros de biopsias existentes dentro de su institución.",
+  "Institution laboratory staff can create sequencing batches through the corresponding workflow and update existing batch records inside their institution.":
+    "El personal de laboratorio de institución puede crear lotes de secuenciación mediante el flujo correspondiente y actualizar registros de lotes existentes dentro de su institución.",
+  "Institution laboratory staff can create and update 2PQ report records inside their institution.":
+    "El personal de laboratorio de institución puede crear y actualizar registros de reportes 2PQ dentro de su institución.",
+  "Institution laboratory staff can update shipment workflow information inside their institution when the shipment is requested through the corresponding form.":
+    "El personal de laboratorio de institución puede actualizar información del flujo de envíos dentro de su institución cuando el envío se solicita mediante el formulario correspondiente.",
   "They cannot pair role changes with doctor or patient maintenance for their institution.":
     "No puede combinar cambios de rol con mantenimiento de médicos o pacientes de su institución.",
   "They cannot review the list of emails attached to their institution or inspect how role assignments map to doctors and patients.":

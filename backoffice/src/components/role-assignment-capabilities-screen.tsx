@@ -249,6 +249,36 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
   ],
   institution_laboratory_staff: [
     {
+      tone: "allow",
+      title: "Can operate 2PQ cases",
+      description:
+        "Institution laboratory staff can create 2PQ cases through the corresponding form and update existing case records inside their institution.",
+    },
+    {
+      tone: "allow",
+      title: "Can operate biopsy records",
+      description:
+        "Institution laboratory staff can create biopsy records through the biopsy form and update existing biopsy records inside their institution.",
+    },
+    {
+      tone: "allow",
+      title: "Can operate sequencing batches",
+      description:
+        "Institution laboratory staff can create sequencing batches through the corresponding workflow and update existing batch records inside their institution.",
+    },
+    {
+      tone: "allow",
+      title: "Can operate 2PQ reports",
+      description:
+        "Institution laboratory staff can create and update 2PQ report records inside their institution.",
+    },
+    {
+      tone: "allow",
+      title: "Can coordinate shipments",
+      description:
+        "Institution laboratory staff can update shipment workflow information inside their institution when the shipment is requested through the corresponding form.",
+    },
+    {
       tone: "limit",
       title: "Cannot manage local role assignments",
       description:

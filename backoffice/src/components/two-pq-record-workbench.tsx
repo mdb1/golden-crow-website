@@ -88,6 +88,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const FORM_REQUESTED_DIRECT_CREATE_AREAS = new Set<TwoPQAreaKey>([
+  "cases",
+  "sampling",
+  "sequencing",
+  "shipments",
+]);
+
 type FormState = Record<TwoPQMutableFieldKey, string>;
 type RelationDialogKey =
   | "case-parent-batch"
@@ -139,12 +146,16 @@ const MULTI_SAMPLING_EDITABLE_FIELD_KEYS = [
   "qcStatus",
   "notes",
 ] as const satisfies readonly TwoPQMutableFieldKey[];
-type MultiSamplingEditableFieldKey = (typeof MULTI_SAMPLING_EDITABLE_FIELD_KEYS)[number];
+type MultiSamplingEditableFieldKey =
+  (typeof MULTI_SAMPLING_EDITABLE_FIELD_KEYS)[number];
 type MultiSamplingEditFieldState = {
   enabled: boolean;
   value: string;
 };
-type MultiSamplingEditFormState = Record<MultiSamplingEditableFieldKey, MultiSamplingEditFieldState>;
+type MultiSamplingEditFormState = Record<
+  MultiSamplingEditableFieldKey,
+  MultiSamplingEditFieldState
+>;
 type MultiSamplingEditProcessItem = {
   order: number;
   samplingRecordId: string;
@@ -226,23 +237,73 @@ type PublishReportCodeResult = {
   fileId: string;
   created: boolean;
 };
-const MULTI_SAMPLING_EDITABLE_FIELD_SET = new Set<MultiSamplingEditableFieldKey>(
-  MULTI_SAMPLING_EDITABLE_FIELD_KEYS
-);
+const MULTI_SAMPLING_EDITABLE_FIELD_SET =
+  new Set<MultiSamplingEditableFieldKey>(MULTI_SAMPLING_EDITABLE_FIELD_KEYS);
 const STORED_FILE_FRESHNESS_TOLERANCE_MS = 60_000;
 
 const CREATION_CONFETTI = [
-  { left: "10%", top: "18%", color: "var(--chart-4)", delay: "0ms", duration: "1080ms" },
-  { left: "18%", top: "10%", color: "var(--chart-2)", delay: "60ms", duration: "980ms" },
-  { left: "28%", top: "16%", color: "var(--chart-1)", delay: "110ms", duration: "1120ms" },
-  { left: "40%", top: "8%", color: "var(--chart-5)", delay: "170ms", duration: "1020ms" },
-  { left: "56%", top: "12%", color: "var(--chart-3)", delay: "220ms", duration: "1180ms" },
-  { left: "68%", top: "14%", color: "var(--chart-4)", delay: "280ms", duration: "1040ms" },
-  { left: "80%", top: "9%", color: "var(--chart-1)", delay: "330ms", duration: "1140ms" },
-  { left: "88%", top: "20%", color: "var(--chart-2)", delay: "390ms", duration: "990ms" },
+  {
+    left: "10%",
+    top: "18%",
+    color: "var(--chart-4)",
+    delay: "0ms",
+    duration: "1080ms",
+  },
+  {
+    left: "18%",
+    top: "10%",
+    color: "var(--chart-2)",
+    delay: "60ms",
+    duration: "980ms",
+  },
+  {
+    left: "28%",
+    top: "16%",
+    color: "var(--chart-1)",
+    delay: "110ms",
+    duration: "1120ms",
+  },
+  {
+    left: "40%",
+    top: "8%",
+    color: "var(--chart-5)",
+    delay: "170ms",
+    duration: "1020ms",
+  },
+  {
+    left: "56%",
+    top: "12%",
+    color: "var(--chart-3)",
+    delay: "220ms",
+    duration: "1180ms",
+  },
+  {
+    left: "68%",
+    top: "14%",
+    color: "var(--chart-4)",
+    delay: "280ms",
+    duration: "1040ms",
+  },
+  {
+    left: "80%",
+    top: "9%",
+    color: "var(--chart-1)",
+    delay: "330ms",
+    duration: "1140ms",
+  },
+  {
+    left: "88%",
+    top: "20%",
+    color: "var(--chart-2)",
+    delay: "390ms",
+    duration: "990ms",
+  },
 ] as const;
 
-function buildInitialCaseDeleteProcess(caseId: string, samplingCount: number): CaseDeleteProcessState {
+function buildInitialCaseDeleteProcess(
+  caseId: string,
+  samplingCount: number,
+): CaseDeleteProcessState {
   return {
     status: "running",
     caseId,
@@ -350,7 +411,10 @@ function clampAutoSamplingCopies(value: number) {
     return AUTO_SAMPLING_MIN_COPIES;
   }
 
-  return Math.min(AUTO_SAMPLING_MAX_COPIES, Math.max(AUTO_SAMPLING_MIN_COPIES, Math.trunc(value)));
+  return Math.min(
+    AUTO_SAMPLING_MAX_COPIES,
+    Math.max(AUTO_SAMPLING_MIN_COPIES, Math.trunc(value)),
+  );
 }
 
 function formatThreeNumberCode(value: number) {
@@ -361,7 +425,10 @@ function buildSixCharacterCode(threeLetterCode: string, order: number) {
   return `${normalizeThreeLetterCodeInput(threeLetterCode)}${formatThreeNumberCode(order)}`;
 }
 
-function buildAutoSamplingPreviewItems(threeLetterCode: string, copies: number): AutoSamplingPreviewItem[] {
+function buildAutoSamplingPreviewItems(
+  threeLetterCode: string,
+  copies: number,
+): AutoSamplingPreviewItem[] {
   const normalizedCopies = clampAutoSamplingCopies(copies);
   return Array.from({ length: normalizedCopies }, (_, index) => {
     const order = index + 1;
@@ -375,8 +442,11 @@ function buildAutoSamplingPreviewItems(threeLetterCode: string, copies: number):
 }
 
 function buildExpectedCaseLabelFromThreeLetterCode(threeLetterCode: string) {
-  const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
-  return normalizedThreeLetterCode.length === 3 ? `${normalizedThreeLetterCode}XXX` : "";
+  const normalizedThreeLetterCode =
+    normalizeThreeLetterCodeInput(threeLetterCode);
+  return normalizedThreeLetterCode.length === 3
+    ? `${normalizedThreeLetterCode}XXX`
+    : "";
 }
 
 function getTrimmedUnknownString(value: unknown) {
@@ -408,7 +478,9 @@ function formatDateTimeWithSeconds(value?: string) {
   }).format(new Date(timestamp));
 }
 
-function resolveStoredFileLinkedReportCode(document: StoredFileDocumentRecord | null | undefined) {
+function resolveStoredFileLinkedReportCode(
+  document: StoredFileDocumentRecord | null | undefined,
+) {
   return (
     getTrimmedUnknownString(document?.data.linked_report_code) ??
     getTrimmedUnknownString(document?.data.linked_report_id) ??
@@ -426,12 +498,14 @@ function uniqueStringValues(values: Array<string | null | undefined>) {
     new Set(
       values
         .map((value) => value?.trim())
-        .filter((value): value is string => Boolean(value))
-    )
+        .filter((value): value is string => Boolean(value)),
+    ),
   );
 }
 
-function buildSnapshotScope(record: Pick<TwoPQRecord, "institutionId" | "doctorId" | "patientId">) {
+function buildSnapshotScope(
+  record: Pick<TwoPQRecord, "institutionId" | "doctorId" | "patientId">,
+) {
   return {
     institutionId: record.institutionId,
     doctorId: record.doctorId,
@@ -440,7 +514,7 @@ function buildSnapshotScope(record: Pick<TwoPQRecord, "institutionId" | "doctorI
 }
 
 function buildSnapshotAudit(
-  record: Pick<TwoPQRecord, "createdByEmail" | "updatedByEmail">
+  record: Pick<TwoPQRecord, "createdByEmail" | "updatedByEmail">,
 ) {
   return {
     createdByEmail: toNullableTrimmedString(record.createdByEmail),
@@ -449,7 +523,7 @@ function buildSnapshotAudit(
 }
 
 function buildSnapshotTimestamps(
-  record: Pick<TwoPQRecord, "createdAt" | "updatedAt">
+  record: Pick<TwoPQRecord, "createdAt" | "updatedAt">,
 ) {
   return {
     createdAt: record.createdAt,
@@ -457,10 +531,7 @@ function buildSnapshotTimestamps(
   };
 }
 
-function buildCaseSnapshotRecord(
-  record: TwoPQListItem,
-  samplingIds: string[]
-) {
+function buildCaseSnapshotRecord(record: TwoPQListItem, samplingIds: string[]) {
   return {
     id: record.id,
     kind: "case",
@@ -581,14 +652,20 @@ function buildTwoPQFileStorageSnapshot({
       last_updated: currentCase.updatedAt,
     },
     entities: {
-      batches: linkedBatch ? [buildBatchSnapshotRecord(linkedBatch, allCaseIds)] : [],
+      batches: linkedBatch
+        ? [buildBatchSnapshotRecord(linkedBatch, allCaseIds)]
+        : [],
       cases: allCases.map((record) =>
         buildCaseSnapshotRecord(
           record,
-          record.id === currentCase.id ? caseSamplingIds : record.children_sampling ?? []
-        )
+          record.id === currentCase.id
+            ? caseSamplingIds
+            : (record.children_sampling ?? []),
+        ),
       ),
-      samplings: linkedSamplings.map((record) => buildSamplingSnapshotRecord(record)),
+      samplings: linkedSamplings.map((record) =>
+        buildSamplingSnapshotRecord(record),
+      ),
     },
   };
 }
@@ -596,8 +673,8 @@ function buildTwoPQFileStorageSnapshot({
 function isAutoSamplingFormComplete(config: AutoSamplingFormState) {
   return Boolean(
     config.caseLabel.trim() &&
-      config.sampleType.trim() &&
-      config.processingStatus.trim()
+    config.sampleType.trim() &&
+    config.processingStatus.trim(),
   );
 }
 
@@ -623,7 +700,10 @@ function buildMultiSamplingEditPatch(formState: MultiSamplingEditFormState) {
 }
 
 function normalizeThreeLetterCodeInput(value: string) {
-  return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 3);
 }
 
 function generateRandomThreeLetterCode(excludedValue?: string) {
@@ -631,8 +711,9 @@ function generateRandomThreeLetterCode(excludedValue?: string) {
   const normalizedExcludedValue = excludedValue?.trim().toUpperCase();
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
-    const candidate = Array.from({ length: 3 }, () =>
-      alphabet[Math.floor(Math.random() * alphabet.length)]
+    const candidate = Array.from(
+      { length: 3 },
+      () => alphabet[Math.floor(Math.random() * alphabet.length)],
     ).join("");
     if (candidate !== normalizedExcludedValue) {
       return candidate;
@@ -652,7 +733,7 @@ function ThreeLetterCodeVisualizer({
   const normalizedCode = normalizeThreeLetterCodeInput(code ?? "");
   const glyphs = Array.from(
     { length: 3 },
-    (_, index) => normalizedCode[index] ?? placeholder
+    (_, index) => normalizedCode[index] ?? placeholder,
   );
 
   return (
@@ -684,7 +765,9 @@ function RelationSection({
     <section className={RELATION_SECTION_CLASSNAME}>
       <div className="flex flex-col gap-3 border-b border-emerald-200/70 px-5 py-4 dark:border-emerald-300/16">
         <div>
-          <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">{title}</h3>
+          <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">
+            {title}
+          </h3>
           <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-900/45 dark:text-emerald-50/56">
             {subtitle}
           </p>
@@ -711,7 +794,9 @@ function LinkedEntityCard({
 }) {
   const t = translate;
   const linkedArea = getTwoPQAreaConfig(record.areaKey);
-  const title = linkedArea ? getTwoPQRecordTitle(linkedArea, record) : record.id;
+  const title = linkedArea
+    ? getTwoPQRecordTitle(linkedArea, record)
+    : record.id;
   const subtitle = linkedArea ? getTwoPQRecordSubtitle(linkedArea, record) : "";
 
   return (
@@ -719,14 +804,27 @@ function LinkedEntityCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/18 dark:bg-emerald-400/12 dark:text-emerald-50">
+            <Badge
+              variant="outline"
+              className="border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-300/18 dark:bg-emerald-400/12 dark:text-emerald-50"
+            >
               {badge}
             </Badge>
-            <span className="font-mono text-[11px] text-emerald-900/52 dark:text-emerald-50/58">{record.id}</span>
+            <span className="font-mono text-[11px] text-emerald-900/52 dark:text-emerald-50/58">
+              {record.id}
+            </span>
           </div>
-          <p className="mt-3 text-base font-semibold text-emerald-950 dark:text-emerald-50">{title}</p>
-          <p className="mt-1 text-sm text-emerald-900/68 dark:text-emerald-50/72">{subtitle || t("Linked entity")}</p>
-          {note ? <p className="mt-2 text-xs text-emerald-900/52 dark:text-emerald-50/58">{note}</p> : null}
+          <p className="mt-3 text-base font-semibold text-emerald-950 dark:text-emerald-50">
+            {title}
+          </p>
+          <p className="mt-1 text-sm text-emerald-900/68 dark:text-emerald-50/72">
+            {subtitle || t("Linked entity")}
+          </p>
+          {note ? (
+            <p className="mt-2 text-xs text-emerald-900/52 dark:text-emerald-50/58">
+              {note}
+            </p>
+          ) : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
@@ -828,7 +926,8 @@ function RelationSelectionDialog({
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-emerald-900/68 dark:text-emerald-50/72">
-                        {getTwoPQRecordSubtitle(area, record) || t("Linked entity")}
+                        {getTwoPQRecordSubtitle(area, record) ||
+                          t("Linked entity")}
                       </p>
                       {noteByRecordId?.[record.id] ? (
                         <p className="mt-2 text-xs text-emerald-900/52 dark:text-emerald-50/58">
@@ -854,7 +953,9 @@ function RelationSelectionDialog({
                         disabled={pendingRecordId === record.id}
                         className={RELATION_PRIMARY_BUTTON_CLASSNAME}
                       >
-                        {pendingRecordId === record.id ? t("Linking...") : selectLabel}
+                        {pendingRecordId === record.id
+                          ? t("Linking...")
+                          : selectLabel}
                       </Button>
                     </div>
                   </div>
@@ -883,7 +984,7 @@ function toFormState(
     doctorId?: string;
     patientId?: string;
     caseLabel?: string;
-  }
+  },
 ): FormState {
   return {
     ...EMPTY_FORM_STATE,
@@ -940,7 +1041,9 @@ function getFieldKeys(areaKey: TwoPQAreaKey) {
     return [] as TwoPQMutableFieldKey[];
   }
 
-  return area.fieldGroups.flatMap((group) => group.fields.map((field) => field.key));
+  return area.fieldGroups.flatMap((group) =>
+    group.fields.map((field) => field.key),
+  );
 }
 
 export function TwoPQRecordWorkbench({
@@ -957,7 +1060,12 @@ export function TwoPQRecordWorkbench({
   detail?: TwoPQDetailRecord;
   institutions: Array<{ id: string; name: string }>;
   doctors: Array<{ id: string; fullName: string; institutionId: string }>;
-  patients: Array<{ id: string; fullName: string; institutionId: string; doctorId: string }>;
+  patients: Array<{
+    id: string;
+    fullName: string;
+    institutionId: string;
+    doctorId: string;
+  }>;
   preloadedBatch?: TwoPQListItem | null;
   preloadedCase?: TwoPQListItem | null;
   mode?: "create" | "edit";
@@ -969,11 +1077,14 @@ export function TwoPQRecordWorkbench({
   const adminContext = useAdminContext();
   const router = useRouter();
   const scopedInstitutionId =
-    isInstitutionManagerRole(adminContext.role) || adminContext.role === "institution_doctor"
+    isInstitutionManagerRole(adminContext.role) ||
+    adminContext.role === "institution_doctor"
       ? adminContext.institutionId
       : undefined;
   const scopedDoctorId =
-    adminContext.role === "institution_doctor" ? adminContext.doctorId : undefined;
+    adminContext.role === "institution_doctor"
+      ? adminContext.doctorId
+      : undefined;
   const defaults = useMemo(
     () => ({
       institutionId:
@@ -986,7 +1097,10 @@ export function TwoPQRecordWorkbench({
         detail?.record.doctorId ??
         preloadedBatch?.doctorId ??
         preloadedCase?.doctorId,
-      patientId: detail?.record.patientId ?? preloadedCase?.patientId ?? preloadedBatch?.patientId,
+      patientId:
+        detail?.record.patientId ??
+        preloadedCase?.patientId ??
+        preloadedBatch?.patientId,
       caseLabel: areaKey === "sampling" ? preloadedCase?.caseLabel : undefined,
     }),
     [
@@ -1003,62 +1117,85 @@ export function TwoPQRecordWorkbench({
       preloadedCase?.patientId,
       scopedDoctorId,
       scopedInstitutionId,
-    ]
+    ],
   );
-  const [state, setState] = useState<FormState>(() => toFormState(detail?.record, defaults));
+  const [state, setState] = useState<FormState>(() =>
+    toFormState(detail?.record, defaults),
+  );
   const [pendingAction, setPendingAction] = useState<
     null | "create" | "replace" | "update" | "delete"
   >(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLinkedSamplings, setDeleteLinkedSamplings] = useState(false);
-  const [caseDeleteProcess, setCaseDeleteProcess] = useState<CaseDeleteProcessState | null>(null);
-  const [pendingRelationRecordId, setPendingRelationRecordId] = useState<string | null>(null);
-  const [relationDialog, setRelationDialog] = useState<RelationDialogKey | null>(null);
+  const [caseDeleteProcess, setCaseDeleteProcess] =
+    useState<CaseDeleteProcessState | null>(null);
+  const [pendingRelationRecordId, setPendingRelationRecordId] = useState<
+    string | null
+  >(null);
+  const [relationDialog, setRelationDialog] =
+    useState<RelationDialogKey | null>(null);
   const [relationQuery, setRelationQuery] = useState("");
   const [toast, setToast] = useState<ActionToastState | null>(null);
-  const [latestErrorLog, setLatestErrorLog] = useState<ErrorLogState | null>(null);
+  const [latestErrorLog, setLatestErrorLog] = useState<ErrorLogState | null>(
+    null,
+  );
   const [isErrorLogOpen, setIsErrorLogOpen] = useState(false);
   const [copiedErrorLog, setCopiedErrorLog] = useState(false);
   const [createdRecordId, setCreatedRecordId] = useState<string | null>(null);
-  const [draftBatch, setDraftBatch] = useState<TwoPQListItem | null>(() => preloadedBatch ?? null);
-  const [draftCase, setDraftCase] = useState<TwoPQListItem | null>(() => preloadedCase ?? null);
+  const [draftBatch, setDraftBatch] = useState<TwoPQListItem | null>(
+    () => preloadedBatch ?? null,
+  );
+  const [draftCase, setDraftCase] = useState<TwoPQListItem | null>(
+    () => preloadedCase ?? null,
+  );
   const [threeLetterCode, setThreeLetterCode] = useState(
-    () => detail?.record.three_letter_code ?? ""
+    () => detail?.record.three_letter_code ?? "",
   );
   const [threeLetterCodeModal, setThreeLetterCodeModal] =
     useState<ThreeLetterCodeModalMode | null>(null);
   const [threeLetterCodeDraft, setThreeLetterCodeDraft] = useState("");
-  const [pendingThreeLetterCodeAction, setPendingThreeLetterCodeAction] = useState(false);
-  const [pendingCaseLabelCorrection, setPendingCaseLabelCorrection] = useState(false);
+  const [pendingThreeLetterCodeAction, setPendingThreeLetterCodeAction] =
+    useState(false);
+  const [pendingCaseLabelCorrection, setPendingCaseLabelCorrection] =
+    useState(false);
   const [isAutoSamplingSetupOpen, setIsAutoSamplingSetupOpen] = useState(false);
-  const [autoSamplingConfig, setAutoSamplingConfig] = useState<AutoSamplingFormState>(() => ({
-    caseLabel: detail?.record.caseLabel ?? "",
-    sampleType: "",
-    processingStatus: "awaiting_reception",
-    collectionDate: "",
-    receptionDate: "",
-    runId: "",
-    qcStatus: "",
-    notes: "",
-  }));
-  const [autoSamplingCopies, setAutoSamplingCopies] = useState(AUTO_SAMPLING_MIN_COPIES);
-  const [autoSamplingProcess, setAutoSamplingProcess] = useState<AutoSamplingProcessState | null>(
-    null
+  const [autoSamplingConfig, setAutoSamplingConfig] =
+    useState<AutoSamplingFormState>(() => ({
+      caseLabel: detail?.record.caseLabel ?? "",
+      sampleType: "",
+      processingStatus: "awaiting_reception",
+      collectionDate: "",
+      receptionDate: "",
+      runId: "",
+      qcStatus: "",
+      notes: "",
+    }));
+  const [autoSamplingCopies, setAutoSamplingCopies] = useState(
+    AUTO_SAMPLING_MIN_COPIES,
   );
+  const [autoSamplingProcess, setAutoSamplingProcess] =
+    useState<AutoSamplingProcessState | null>(null);
   const [isMultiSamplingEditOpen, setIsMultiSamplingEditOpen] = useState(false);
-  const [multiSamplingEditForm, setMultiSamplingEditForm] = useState<MultiSamplingEditFormState>(
-    () => buildInitialMultiSamplingEditFormState()
-  );
+  const [multiSamplingEditForm, setMultiSamplingEditForm] =
+    useState<MultiSamplingEditFormState>(() =>
+      buildInitialMultiSamplingEditFormState(),
+    );
   const [multiSamplingEditProcess, setMultiSamplingEditProcess] =
     useState<MultiSamplingEditProcessState | null>(null);
   const [publishFileStorageModal, setPublishFileStorageModal] =
     useState<PublishFileStorageModalState | null>(null);
-  const [isFileStorageSectionExpanded, setIsFileStorageSectionExpanded] = useState(true);
-  const [isPublishFileStoragePreviewExpanded, setIsPublishFileStoragePreviewExpanded] =
+  const [isFileStorageSectionExpanded, setIsFileStorageSectionExpanded] =
+    useState(true);
+  const [
+    isPublishFileStoragePreviewExpanded,
+    setIsPublishFileStoragePreviewExpanded,
+  ] = useState(false);
+  const [isReportCodeSectionExpanded, setIsReportCodeSectionExpanded] =
+    useState(true);
+  const [isPublishReportCodeModalOpen, setIsPublishReportCodeModalOpen] =
     useState(false);
-  const [isReportCodeSectionExpanded, setIsReportCodeSectionExpanded] = useState(true);
-  const [isPublishReportCodeModalOpen, setIsPublishReportCodeModalOpen] = useState(false);
-  const [pendingPublishReportCode, setPendingPublishReportCode] = useState(false);
+  const [pendingPublishReportCode, setPendingPublishReportCode] =
+    useState(false);
   const publishFileStorageRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -1084,7 +1221,9 @@ export function TwoPQRecordWorkbench({
     setMultiSamplingEditProcess(null);
     publishFileStorageRequestIdRef.current += 1;
     setPublishFileStorageModal(null);
-    setIsFileStorageSectionExpanded(!(detail?.record.stored_file_id?.trim() ?? ""));
+    setIsFileStorageSectionExpanded(
+      !(detail?.record.stored_file_id?.trim() ?? ""),
+    );
     setIsPublishFileStoragePreviewExpanded(false);
     setIsReportCodeSectionExpanded(true);
     setIsPublishReportCodeModalOpen(false);
@@ -1093,7 +1232,11 @@ export function TwoPQRecordWorkbench({
     setDeleteDialogOpen(false);
     setDeleteLinkedSamplings(false);
     setCaseDeleteProcess(null);
-  }, [detail?.record.caseLabel, detail?.record.id, detail?.record.stored_file_id]);
+  }, [
+    detail?.record.caseLabel,
+    detail?.record.id,
+    detail?.record.stored_file_id,
+  ]);
 
   useEffect(() => {
     if (autoSamplingProcess?.status !== "success") {
@@ -1121,27 +1264,32 @@ export function TwoPQRecordWorkbench({
 
   const sourceState = useMemo(
     () => toFormState(detail?.record, defaults),
-    [defaults, detail?.record]
+    [defaults, detail?.record],
   );
   const changedKeys = useMemo(
     () =>
       (Object.keys(state) as TwoPQMutableFieldKey[]).filter(
-        (key) => state[key] !== sourceState[key]
+        (key) => state[key] !== sourceState[key],
       ),
-    [sourceState, state]
+    [sourceState, state],
   );
   const changed = changedKeys.length > 0;
   const availableDoctors = useMemo(
     () =>
       doctors.filter((doctor) =>
-        state.institutionId ? doctor.institutionId === state.institutionId : true
+        state.institutionId
+          ? doctor.institutionId === state.institutionId
+          : true,
       ),
-    [doctors, state.institutionId]
+    [doctors, state.institutionId],
   );
   const availablePatients = useMemo(
     () =>
       patients.filter((patient) => {
-        if (state.institutionId && patient.institutionId !== state.institutionId) {
+        if (
+          state.institutionId &&
+          patient.institutionId !== state.institutionId
+        ) {
           return false;
         }
         if (state.doctorId && patient.doctorId !== state.doctorId) {
@@ -1149,7 +1297,7 @@ export function TwoPQRecordWorkbench({
         }
         return true;
       }),
-    [patients, state.doctorId, state.institutionId]
+    [patients, state.doctorId, state.institutionId],
   );
 
   const institutionOptions = institutions.map((institution) => ({
@@ -1164,12 +1312,32 @@ export function TwoPQRecordWorkbench({
     value: patient.id,
     label: `${patient.fullName} (${patient.id})`,
   }));
-  const canReplace = mode === "create" ? false : Boolean(detail?.record.canReplace);
-  const canUpdate = mode === "create" ? false : Boolean(detail?.record.canUpdate);
-  const canDelete = mode === "create" ? false : Boolean(detail?.record.canDelete);
-  const batchArea = translateTwoPQAreaConfig(getTwoPQAreaConfig("sequencing")!, language);
-  const caseArea = translateTwoPQAreaConfig(getTwoPQAreaConfig("cases")!, language);
-  const samplingArea = translateTwoPQAreaConfig(getTwoPQAreaConfig("sampling")!, language);
+  const canReplace =
+    mode === "create" ? false : Boolean(detail?.record.canReplace);
+  const canUpdate =
+    mode === "create" ? false : Boolean(detail?.record.canUpdate);
+  const canDelete =
+    mode === "create" ? false : Boolean(detail?.record.canDelete);
+  const directCreateMustUseFormRole =
+    adminContext.role === "institution_operator" ||
+    adminContext.role === "institution_laboratory_staff";
+  const shouldBlockDirectCreateForArea = (targetAreaKey: TwoPQAreaKey) =>
+    directCreateMustUseFormRole &&
+    FORM_REQUESTED_DIRECT_CREATE_AREAS.has(targetAreaKey);
+  const directCreateRequiresForm =
+    mode === "create" && shouldBlockDirectCreateForArea(areaKey);
+  const batchArea = translateTwoPQAreaConfig(
+    getTwoPQAreaConfig("sequencing")!,
+    language,
+  );
+  const caseArea = translateTwoPQAreaConfig(
+    getTwoPQAreaConfig("cases")!,
+    language,
+  );
+  const samplingArea = translateTwoPQAreaConfig(
+    getTwoPQAreaConfig("sampling")!,
+    language,
+  );
   const autoSamplingProcessingOptions =
     samplingArea.fieldGroups
       .flatMap((group) => group.fields)
@@ -1180,20 +1348,25 @@ export function TwoPQRecordWorkbench({
         .flatMap((group) => group.fields)
         .filter(
           (
-            field
-          ): field is TwoPQFieldConfig & { key: MultiSamplingEditableFieldKey } =>
-            MULTI_SAMPLING_EDITABLE_FIELD_SET.has(field.key as MultiSamplingEditableFieldKey)
+            field,
+          ): field is TwoPQFieldConfig & {
+            key: MultiSamplingEditableFieldKey;
+          } =>
+            MULTI_SAMPLING_EDITABLE_FIELD_SET.has(
+              field.key as MultiSamplingEditableFieldKey,
+            ),
         ),
-    [samplingArea.fieldGroups]
+    [samplingArea.fieldGroups],
   );
   const multiSamplingFieldLabelByKey = useMemo(
     () =>
       Object.fromEntries(
-        multiSamplingEditableFields.map((field) => [field.key, field.label])
+        multiSamplingEditableFields.map((field) => [field.key, field.label]),
       ) as Record<MultiSamplingEditableFieldKey, string>,
-    [multiSamplingEditableFields]
+    [multiSamplingEditableFields],
   );
-  const normalizedThreeLetterCode = normalizeThreeLetterCodeInput(threeLetterCode);
+  const normalizedThreeLetterCode =
+    normalizeThreeLetterCodeInput(threeLetterCode);
   const expectedCaseLabelFromThreeLetterCode =
     buildExpectedCaseLabelFromThreeLetterCode(normalizedThreeLetterCode);
   const hasThreeLetterCode = normalizedThreeLetterCode.length === 3;
@@ -1208,12 +1381,19 @@ export function TwoPQRecordWorkbench({
     hasThreeLetterCode &&
     Boolean(expectedCaseLabelFromThreeLetterCode) &&
     state.caseLabel.trim() !== expectedCaseLabelFromThreeLetterCode;
-  const normalizedThreeLetterCodeDraft = normalizeThreeLetterCodeInput(threeLetterCodeDraft);
+  const normalizedThreeLetterCodeDraft =
+    normalizeThreeLetterCodeInput(threeLetterCodeDraft);
   const canConfirmThreeLetterCode =
-    threeLetterCodeModal === "remove" ? hasThreeLetterCode : normalizedThreeLetterCodeDraft.length === 3;
+    threeLetterCodeModal === "remove"
+      ? hasThreeLetterCode
+      : normalizedThreeLetterCodeDraft.length === 3;
   const autoSamplingPreviewItems = useMemo(
-    () => buildAutoSamplingPreviewItems(normalizedThreeLetterCode, autoSamplingCopies),
-    [autoSamplingCopies, normalizedThreeLetterCode]
+    () =>
+      buildAutoSamplingPreviewItems(
+        normalizedThreeLetterCode,
+        autoSamplingCopies,
+      ),
+    [autoSamplingCopies, normalizedThreeLetterCode],
   );
   const autoSamplingInventoryQuery = useQuery({
     queryKey: ["2pq-auto-sampling-records"],
@@ -1230,30 +1410,35 @@ export function TwoPQRecordWorkbench({
       new Set(
         (autoSamplingInventoryQuery.data?.records ?? [])
           .map((record) => record.sampleId?.trim().toUpperCase())
-          .filter((sampleId): sampleId is string => Boolean(sampleId))
+          .filter((sampleId): sampleId is string => Boolean(sampleId)),
       ),
-    [autoSamplingInventoryQuery.data?.records]
+    [autoSamplingInventoryQuery.data?.records],
   );
   const autoSamplingConflictingCodes = useMemo(
     () =>
       autoSamplingPreviewItems
         .filter((item) => existingSamplingSampleIds.has(item.sixCharacterCode))
         .map((item) => item.sixCharacterCode),
-    [autoSamplingPreviewItems, existingSamplingSampleIds]
+    [autoSamplingPreviewItems, existingSamplingSampleIds],
   );
   const multiSamplingEditPatch = useMemo(
     () => buildMultiSamplingEditPatch(multiSamplingEditForm),
-    [multiSamplingEditForm]
+    [multiSamplingEditForm],
   );
   const multiSamplingEditPatchEntries = useMemo(
     () =>
-      Object.entries(multiSamplingEditPatch) as [MultiSamplingEditableFieldKey, string][],
-    [multiSamplingEditPatch]
+      Object.entries(multiSamplingEditPatch) as [
+        MultiSamplingEditableFieldKey,
+        string,
+      ][],
+    [multiSamplingEditPatch],
   );
   const multiSamplingEditSelectedFieldLabels = useMemo(
     () =>
-      multiSamplingEditPatchEntries.map(([key]) => multiSamplingFieldLabelByKey[key] ?? key),
-    [multiSamplingEditPatchEntries, multiSamplingFieldLabelByKey]
+      multiSamplingEditPatchEntries.map(
+        ([key]) => multiSamplingFieldLabelByKey[key] ?? key,
+      ),
+    [multiSamplingEditPatchEntries, multiSamplingFieldLabelByKey],
   );
   const canGenerateAutoSampling =
     Boolean(detail?.record.canUpdate) &&
@@ -1263,11 +1448,14 @@ export function TwoPQRecordWorkbench({
     !autoSamplingInventoryQuery.isError &&
     !autoSamplingProcess;
   const autoSamplingSuccessfulCount =
-    autoSamplingProcess?.items.filter((item) => item.status === "success").length ?? 0;
+    autoSamplingProcess?.items.filter((item) => item.status === "success")
+      .length ?? 0;
   const autoSamplingErroredCount =
-    autoSamplingProcess?.items.filter((item) => item.status === "error").length ?? 0;
+    autoSamplingProcess?.items.filter((item) => item.status === "error")
+      .length ?? 0;
   const autoSamplingPendingCount =
-    autoSamplingProcess?.items.filter((item) => item.status === "pending").length ?? 0;
+    autoSamplingProcess?.items.filter((item) => item.status === "pending")
+      .length ?? 0;
   const autoSamplingProgressPercent = autoSamplingProcess
     ? autoSamplingProcess.status === "success"
       ? 100
@@ -1276,29 +1464,40 @@ export function TwoPQRecordWorkbench({
         : Math.max(
             4,
             Math.round(
-              (autoSamplingSuccessfulCount / Math.max(autoSamplingProcess.items.length, 1)) * 100
-            )
+              (autoSamplingSuccessfulCount /
+                Math.max(autoSamplingProcess.items.length, 1)) *
+                100,
+            ),
           )
     : 0;
-  const linkedBatch = mode === "create" ? draftBatch : detail?.linkedBatch ?? null;
-  const linkedCase = mode === "create" ? draftCase : detail?.linkedCase ?? null;
+  const linkedBatch =
+    mode === "create" ? draftBatch : (detail?.linkedBatch ?? null);
+  const linkedCase =
+    mode === "create" ? draftCase : (detail?.linkedCase ?? null);
   const linkedCases = detail?.linkedCases ?? [];
   const linkedSamplings = detail?.linkedSamplings ?? [];
   const caseDeleteCompletedStepCount =
-    caseDeleteProcess?.steps.filter((step) => step.status === "success").length ?? 0;
+    caseDeleteProcess?.steps.filter((step) => step.status === "success")
+      .length ?? 0;
   const caseDeleteProgressPercent = caseDeleteProcess
     ? caseDeleteProcess.status === "success"
       ? 100
       : Math.max(
           8,
-          Math.round((caseDeleteCompletedStepCount / caseDeleteProcess.steps.length) * 100)
+          Math.round(
+            (caseDeleteCompletedStepCount / caseDeleteProcess.steps.length) *
+              100,
+          ),
         )
     : 0;
   const storedFileId = detail?.record.stored_file_id?.trim() ?? "";
   const hasStoredFileId = Boolean(storedFileId);
   const hasFileStorageAccess = adminContext.role === "full_admin";
   const canOpenPublishFileStorageModal =
-    areaKey === "cases" && mode !== "create" && hasThreeLetterCode && Boolean(detail);
+    areaKey === "cases" &&
+    mode !== "create" &&
+    hasThreeLetterCode &&
+    Boolean(detail);
   const canOpenPublishReportCodeModal =
     areaKey === "cases" &&
     mode !== "create" &&
@@ -1314,7 +1513,9 @@ export function TwoPQRecordWorkbench({
     queryFn: async () => {
       try {
         return (
-          await sdkFetch<{ document: StoredFileDocumentRecord }>(`/file-storage/${storedFileId}`)
+          await sdkFetch<{ document: StoredFileDocumentRecord }>(
+            `/file-storage/${storedFileId}`,
+          )
         ).document;
       } catch (error) {
         if (error instanceof SdkRequestError && error.status === 404) {
@@ -1328,12 +1529,15 @@ export function TwoPQRecordWorkbench({
     staleTime: 30_000,
   });
   const reportCodeStatusQuery = useQuery({
-    queryKey: ["2pq-case-report-code-status", expectedCaseLabelFromThreeLetterCode],
+    queryKey: [
+      "2pq-case-report-code-status",
+      expectedCaseLabelFromThreeLetterCode,
+    ],
     queryFn: async () => {
       try {
         return (
           await sdkFetch<{ report: ReportCodeStatusRecord }>(
-            `/reports/${expectedCaseLabelFromThreeLetterCode}`
+            `/reports/${expectedCaseLabelFromThreeLetterCode}`,
           )
         ).report;
       } catch (error) {
@@ -1351,15 +1555,20 @@ export function TwoPQRecordWorkbench({
     staleTime: 30_000,
   });
   const storedFileDocument = storedFileDocumentQuery.data ?? null;
-  const storedFileLinkedReportCode = resolveStoredFileLinkedReportCode(storedFileDocument);
+  const storedFileLinkedReportCode =
+    resolveStoredFileLinkedReportCode(storedFileDocument);
   const storedFileLastModifiedDate =
     getTrimmedUnknownString(storedFileDocument?.data.last_modified_date) ??
     getTrimmedUnknownString(storedFileDocument?.data.creation_date) ??
     "";
   const caseLastUpdatedDate =
-    detail?.record.last_updated_date?.trim() ?? detail?.record.updatedAt?.trim() ?? "";
+    detail?.record.last_updated_date?.trim() ??
+    detail?.record.updatedAt?.trim() ??
+    "";
   const caseLastUpdatedTimestamp = toTimestampOrNull(caseLastUpdatedDate);
-  const storedFileLastModifiedTimestamp = toTimestampOrNull(storedFileLastModifiedDate);
+  const storedFileLastModifiedTimestamp = toTimestampOrNull(
+    storedFileLastModifiedDate,
+  );
   const isStoredFileSnapshotStale =
     hasStoredFileId &&
     storedFileDocumentQuery.isSuccess &&
@@ -1409,8 +1618,9 @@ export function TwoPQRecordWorkbench({
     !isPublishedAsReportCode;
   const formattedCaseLastUpdatedDate =
     formatDateTimeWithSeconds(caseLastUpdatedDate) ?? t("Not available");
-  const formattedStoredFileLastModifiedDate =
-    formatDateTimeWithSeconds(storedFileLastModifiedDate);
+  const formattedStoredFileLastModifiedDate = formatDateTimeWithSeconds(
+    storedFileLastModifiedDate,
+  );
   const fileStoragePrimaryActionLabel = hasStoredFileId
     ? t("Update in File Storage")
     : t("Publish to File Storage");
@@ -1426,11 +1636,14 @@ export function TwoPQRecordWorkbench({
     multiSamplingEditPatchEntries.length > 0 &&
     !multiSamplingEditProcess;
   const multiSamplingEditSuccessfulCount =
-    multiSamplingEditProcess?.items.filter((item) => item.status === "success").length ?? 0;
+    multiSamplingEditProcess?.items.filter((item) => item.status === "success")
+      .length ?? 0;
   const multiSamplingEditErroredCount =
-    multiSamplingEditProcess?.items.filter((item) => item.status === "error").length ?? 0;
+    multiSamplingEditProcess?.items.filter((item) => item.status === "error")
+      .length ?? 0;
   const multiSamplingEditPendingCount =
-    multiSamplingEditProcess?.items.filter((item) => item.status === "pending").length ?? 0;
+    multiSamplingEditProcess?.items.filter((item) => item.status === "pending")
+      .length ?? 0;
   const multiSamplingEditProgressPercent = multiSamplingEditProcess
     ? multiSamplingEditProcess.status === "success"
       ? 100
@@ -1441,13 +1654,14 @@ export function TwoPQRecordWorkbench({
             Math.round(
               (multiSamplingEditSuccessfulCount /
                 Math.max(multiSamplingEditProcess.items.length, 1)) *
-                100
-            )
+                100,
+            ),
           )
     : 0;
   const loadBatchCandidates = relationDialog === "case-parent-batch";
   const loadCaseCandidates =
-    relationDialog === "sampling-parent-case" || relationDialog === "sequencing-child-case";
+    relationDialog === "sampling-parent-case" ||
+    relationDialog === "sequencing-child-case";
   const loadSamplingCandidates = relationDialog === "case-child-sampling";
   const batchesQuery = useQuery({
     queryKey: ["2pq-relation-records", "sequencing"],
@@ -1468,26 +1682,41 @@ export function TwoPQRecordWorkbench({
     staleTime: 30_000,
   });
 
-  const linkedCaseIds = useMemo(() => new Set(linkedCases.map((record) => record.id)), [linkedCases]);
+  const linkedCaseIds = useMemo(
+    () => new Set(linkedCases.map((record) => record.id)),
+    [linkedCases],
+  );
   const linkedSamplingIds = useMemo(
     () => new Set(linkedSamplings.map((record) => record.id)),
-    [linkedSamplings]
+    [linkedSamplings],
   );
   const batchCandidates = useMemo(
-    () => (batchesQuery.data?.records ?? []).filter((record) => record.id !== linkedBatch?.id),
-    [batchesQuery.data?.records, linkedBatch?.id]
+    () =>
+      (batchesQuery.data?.records ?? []).filter(
+        (record) => record.id !== linkedBatch?.id,
+      ),
+    [batchesQuery.data?.records, linkedBatch?.id],
   );
   const sequencingCaseCandidates = useMemo(
-    () => (casesQuery.data?.records ?? []).filter((record) => !linkedCaseIds.has(record.id)),
-    [casesQuery.data?.records, linkedCaseIds]
+    () =>
+      (casesQuery.data?.records ?? []).filter(
+        (record) => !linkedCaseIds.has(record.id),
+      ),
+    [casesQuery.data?.records, linkedCaseIds],
   );
   const parentCaseCandidates = useMemo(
-    () => (casesQuery.data?.records ?? []).filter((record) => record.id !== linkedCase?.id),
-    [casesQuery.data?.records, linkedCase?.id]
+    () =>
+      (casesQuery.data?.records ?? []).filter(
+        (record) => record.id !== linkedCase?.id,
+      ),
+    [casesQuery.data?.records, linkedCase?.id],
   );
   const samplingCandidates = useMemo(
-    () => (samplingsQuery.data?.records ?? []).filter((record) => !linkedSamplingIds.has(record.id)),
-    [linkedSamplingIds, samplingsQuery.data?.records]
+    () =>
+      (samplingsQuery.data?.records ?? []).filter(
+        (record) => !linkedSamplingIds.has(record.id),
+      ),
+    [linkedSamplingIds, samplingsQuery.data?.records],
   );
   const sequencingCaseNotes = useMemo(
     () =>
@@ -1497,9 +1726,9 @@ export function TwoPQRecordWorkbench({
           record.parent_batch && record.parent_batch !== detail?.record.id
             ? `${t("Currently linked to batch")} ${record.parent_batch}. ${t("Linking here will move it.")}`
             : t("This case will become a child of the current batch."),
-        ])
+        ]),
       ),
-    [detail?.record.id, language, sequencingCaseCandidates]
+    [detail?.record.id, language, sequencingCaseCandidates],
   );
   const samplingNotes = useMemo(
     () =>
@@ -1508,10 +1737,12 @@ export function TwoPQRecordWorkbench({
           record.id,
           record.parent_case && record.parent_case !== detail?.record.id
             ? `${t("Currently linked to case")} ${record.parent_case}. ${t("Linking here will move it.")}`
-            : t("This sampling record will become a child of the current case."),
-        ])
+            : t(
+                "This sampling record will become a child of the current case.",
+              ),
+        ]),
       ),
-    [detail?.record.id, language, samplingCandidates]
+    [detail?.record.id, language, samplingCandidates],
   );
 
   function buildPayload(keys: TwoPQMutableFieldKey[]) {
@@ -1544,7 +1775,7 @@ export function TwoPQRecordWorkbench({
     options?: {
       details?: string;
       durationMs?: number;
-    }
+    },
   ) {
     setToast({
       id: Date.now(),
@@ -1577,7 +1808,11 @@ export function TwoPQRecordWorkbench({
     };
   }
 
-  function pushErrorToast(error: unknown, fallbackMessage: string, title = t("Request log")) {
+  function pushErrorToast(
+    error: unknown,
+    fallbackMessage: string,
+    title = t("Request log"),
+  ) {
     const presentation = getErrorPresentation(error, fallbackMessage);
     setLatestErrorLog({
       title,
@@ -1597,28 +1832,32 @@ export function TwoPQRecordWorkbench({
     }
 
     setCopiedErrorLog(false);
-    setLatestErrorLog((current) => current ?? { title: t("Request log"), details });
+    setLatestErrorLog(
+      (current) => current ?? { title: t("Request log"), details },
+    );
     setIsErrorLogOpen(true);
   }
 
   function updateCaseDeleteProcessStep(
     stepKey: CaseDeleteProcessStepKey,
-    status: CaseDeleteProcessStepStatus
+    status: CaseDeleteProcessStepStatus,
   ) {
     setCaseDeleteProcess((current) =>
       current
         ? {
             ...current,
             steps: current.steps.map((step) =>
-              step.key === stepKey ? { ...step, status } : step
+              step.key === stepKey ? { ...step, status } : step,
             ),
           }
-        : current
+        : current,
     );
   }
 
   function updateCaseDeleteProcessSteps(
-    statuses: Partial<Record<CaseDeleteProcessStepKey, CaseDeleteProcessStepStatus>>
+    statuses: Partial<
+      Record<CaseDeleteProcessStepKey, CaseDeleteProcessStepStatus>
+    >,
   ) {
     setCaseDeleteProcess((current) =>
       current
@@ -1629,7 +1868,7 @@ export function TwoPQRecordWorkbench({
               status: statuses[step.key] ?? step.status,
             })),
           }
-        : current
+        : current,
     );
   }
 
@@ -1638,17 +1877,23 @@ export function TwoPQRecordWorkbench({
       case "validate":
         return {
           title: t("Validate case and linked biopsies"),
-          description: t("Checking permissions and every biopsy currently linked to this case."),
+          description: t(
+            "Checking permissions and every biopsy currently linked to this case.",
+          ),
         };
       case "delete-samplings":
         return {
           title: t("Delete associated biopsies"),
-          description: t("Removing the biopsy records selected for full deletion."),
+          description: t(
+            "Removing the biopsy records selected for full deletion.",
+          ),
         };
       case "delete-case":
         return {
           title: t("Delete case record"),
-          description: t("Removing the case document after the biopsy decision is applied."),
+          description: t(
+            "Removing the case document after the biopsy decision is applied.",
+          ),
         };
       case "refresh":
         return {
@@ -1686,7 +1931,9 @@ export function TwoPQRecordWorkbench({
       await navigator.clipboard.writeText(latestErrorLog.details);
       setCopiedErrorLog(true);
     } catch {
-      pushToast("error", t("Unable to copy the error log."), { durationMs: 7000 });
+      pushToast("error", t("Unable to copy the error log."), {
+        durationMs: 7000,
+      });
     }
   }
 
@@ -1694,7 +1941,9 @@ export function TwoPQRecordWorkbench({
     if (mode === "manual") {
       setThreeLetterCodeDraft(normalizedThreeLetterCode);
     } else if (mode === "random") {
-      setThreeLetterCodeDraft(generateRandomThreeLetterCode(normalizedThreeLetterCode));
+      setThreeLetterCodeDraft(
+        generateRandomThreeLetterCode(normalizedThreeLetterCode),
+      );
     } else {
       setThreeLetterCodeDraft(normalizedThreeLetterCode);
     }
@@ -1714,8 +1963,8 @@ export function TwoPQRecordWorkbench({
   function regenerateThreeLetterCodeDraft() {
     setThreeLetterCodeDraft(
       generateRandomThreeLetterCode(
-        normalizedThreeLetterCodeDraft || normalizedThreeLetterCode
-      )
+        normalizedThreeLetterCodeDraft || normalizedThreeLetterCode,
+      ),
     );
   }
 
@@ -1745,7 +1994,7 @@ export function TwoPQRecordWorkbench({
           ? t("Three letter code removed from the draft case.")
           : hasThreeLetterCode
             ? t("Three letter code updated for the draft case.")
-            : t("Three letter code saved for the draft case.")
+            : t("Three letter code saved for the draft case."),
       );
       return;
     }
@@ -1756,13 +2005,16 @@ export function TwoPQRecordWorkbench({
 
     setPendingThreeLetterCodeAction(true);
     try {
-      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}/${detail.record.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          three_letter_code: nextThreeLetterCode,
-          ...(nextCaseLabel ? { caseLabel: nextCaseLabel } : {}),
-        }),
-      });
+      await sdkFetch<{ record: TwoPQRecord }>(
+        `/2pq/${area.key}/${detail.record.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            three_letter_code: nextThreeLetterCode,
+            ...(nextCaseLabel ? { caseLabel: nextCaseLabel } : {}),
+          }),
+        },
+      );
 
       setThreeLetterCode(nextThreeLetterCode);
       if (nextCaseLabel) {
@@ -1778,7 +2030,7 @@ export function TwoPQRecordWorkbench({
           ? t("Three letter code removed.")
           : hasThreeLetterCode
             ? t("Three letter code updated.")
-            : t("Three letter code saved.")
+            : t("Three letter code saved."),
       );
       router.refresh();
     } catch (error) {
@@ -1787,7 +2039,7 @@ export function TwoPQRecordWorkbench({
         threeLetterCodeModal === "remove"
           ? t("Unable to remove the three letter code.")
           : t("Unable to save the three letter code."),
-        t("Three letter code request")
+        t("Three letter code request"),
       );
     } finally {
       setPendingThreeLetterCodeAction(false);
@@ -1802,7 +2054,8 @@ export function TwoPQRecordWorkbench({
     setAutoSamplingConfig({
       caseLabel: detail.record.caseLabel ?? "",
       sampleType: "",
-      processingStatus: autoSamplingProcessingOptions[0]?.value ?? "awaiting_reception",
+      processingStatus:
+        autoSamplingProcessingOptions[0]?.value ?? "awaiting_reception",
       collectionDate: "",
       receptionDate: "",
       runId: "",
@@ -1856,7 +2109,11 @@ export function TwoPQRecordWorkbench({
     mode?: FileStorageModalMode;
     autoSubmit?: boolean;
   }) {
-    if (!detail || !canOpenPublishFileStorageModal || !fileStorageSnapshotFileName) {
+    if (
+      !detail ||
+      !canOpenPublishFileStorageModal ||
+      !fileStorageSnapshotFileName
+    ) {
       return;
     }
 
@@ -1881,8 +2138,9 @@ export function TwoPQRecordWorkbench({
               await sdkFetch<{ records: TwoPQListItem[] }>("/2pq/cases")
             ).records.filter(
               (record) =>
-                record.parent_batch === (detail.record.parent_batch ?? linkedBatch?.id) &&
-                record.id !== detail.record.id
+                record.parent_batch ===
+                  (detail.record.parent_batch ?? linkedBatch?.id) &&
+                record.id !== detail.record.id,
             )
           : [];
       const snapshot = buildTwoPQFileStorageSnapshot({
@@ -1913,13 +2171,13 @@ export function TwoPQRecordWorkbench({
       pushErrorToast(
         error,
         t("Unable to prepare the file-storage snapshot preview."),
-        t("Prepare file-storage snapshot")
+        t("Prepare file-storage snapshot"),
       );
     }
   }
 
   async function handlePublishToFileStorage(
-    modalStateOverride?: PublishFileStorageModalState
+    modalStateOverride?: PublishFileStorageModalState,
   ) {
     const modalState = modalStateOverride ?? publishFileStorageModal;
     if (!detail || !modalState?.snapshot || !modalState.preview) {
@@ -1939,42 +2197,51 @@ export function TwoPQRecordWorkbench({
           throw new Error("No stored_file_id is linked to this case.");
         }
 
-        await sdkFetch<{ document: { id: string } }>(`/file-storage/${storedFileId}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            data: {
-              file_name: modalState.fileName,
-              creator_email: adminContext.email,
-              file_type: "2pq",
-              file_content: modalState.preview,
-              last_modified_date: timestamp,
-            },
-          }),
-        });
+        await sdkFetch<{ document: { id: string } }>(
+          `/file-storage/${storedFileId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              data: {
+                file_name: modalState.fileName,
+                creator_email: adminContext.email,
+                file_type: "2pq",
+                file_content: modalState.preview,
+                last_modified_date: timestamp,
+              },
+            }),
+          },
+        );
 
         await storedFileDocumentQuery.refetch();
       } else {
-        const createResponse = await sdkFetch<{ document: { id: string } }>("/file-storage", {
-          method: "POST",
-          body: JSON.stringify({
-            data: {
-              file_name: modalState.fileName,
-              creator_email: adminContext.email,
-              linked_report_id: null,
-              file_type: "2pq",
-              file_content: modalState.preview,
-              creation_date: timestamp,
-              last_modified_date: timestamp,
-            },
-          }),
-        });
+        const createResponse = await sdkFetch<{ document: { id: string } }>(
+          "/file-storage",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              data: {
+                file_name: modalState.fileName,
+                creator_email: adminContext.email,
+                linked_report_id: null,
+                file_type: "2pq",
+                file_content: modalState.preview,
+                creation_date: timestamp,
+                last_modified_date: timestamp,
+              },
+            }),
+          },
+        );
 
-        await sdkFetch<{ record: TwoPQRecord }>(`/2pq/cases/${detail.record.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            stored_file_id: createResponse.document.id,
-          }),
-        });
+        await sdkFetch<{ record: TwoPQRecord }>(
+          `/2pq/cases/${detail.record.id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              stored_file_id: createResponse.document.id,
+            }),
+          },
+        );
       }
 
       closePublishFileStorageModal(true);
@@ -1982,7 +2249,7 @@ export function TwoPQRecordWorkbench({
         "success",
         modalState.mode === "update"
           ? `Case snapshot updated in file storage as ${modalState.fileName}.`
-          : `Case snapshot published to file storage as ${modalState.fileName}.`
+          : `Case snapshot published to file storage as ${modalState.fileName}.`,
       );
       router.refresh();
     } catch (error) {
@@ -1996,7 +2263,9 @@ export function TwoPQRecordWorkbench({
         modalState.mode === "update"
           ? t("Unable to update this case snapshot in file storage.")
           : t("Unable to publish this case snapshot to file storage."),
-        modalState.mode === "update" ? t("Update in File Storage") : t("Publish to File Storage")
+        modalState.mode === "update"
+          ? t("Update in File Storage")
+          : t("Publish to File Storage"),
       );
     }
   }
@@ -2037,7 +2306,7 @@ export function TwoPQRecordWorkbench({
             fileId: storedFileId,
             reportCode: expectedCaseLabelFromThreeLetterCode,
           }),
-        }
+        },
       );
 
       closePublishReportCodeModal(true);
@@ -2045,15 +2314,18 @@ export function TwoPQRecordWorkbench({
         "success",
         response.created
           ? `Report code ${response.reportCode} is now linked to the stored file.`
-          : `Report code ${response.reportCode} was synchronized to the stored file.`
+          : `Report code ${response.reportCode} was synchronized to the stored file.`,
       );
-      await Promise.all([storedFileDocumentQuery.refetch(), reportCodeStatusQuery.refetch()]);
+      await Promise.all([
+        storedFileDocumentQuery.refetch(),
+        reportCodeStatusQuery.refetch(),
+      ]);
       router.refresh();
     } catch (error) {
       pushErrorToast(
         error,
         t("Unable to publish this stored file as a report code."),
-        t("Publish as report code")
+        t("Publish as report code"),
       );
     } finally {
       setPendingPublishReportCode(false);
@@ -2062,7 +2334,7 @@ export function TwoPQRecordWorkbench({
 
   function updateAutoSamplingConfig<Key extends keyof AutoSamplingFormState>(
     key: Key,
-    value: AutoSamplingFormState[Key]
+    value: AutoSamplingFormState[Key],
   ) {
     setAutoSamplingConfig((current) => ({
       ...current,
@@ -2074,7 +2346,10 @@ export function TwoPQRecordWorkbench({
     setAutoSamplingCopies(clampAutoSamplingCopies(value));
   }
 
-  function toggleMultiSamplingEditField(key: MultiSamplingEditableFieldKey, enabled: boolean) {
+  function toggleMultiSamplingEditField(
+    key: MultiSamplingEditableFieldKey,
+    enabled: boolean,
+  ) {
     setMultiSamplingEditForm((current) => ({
       ...current,
       [key]: {
@@ -2086,7 +2361,7 @@ export function TwoPQRecordWorkbench({
 
   function updateMultiSamplingEditFieldValue(
     key: MultiSamplingEditableFieldKey,
-    value: string
+    value: string,
   ) {
     setMultiSamplingEditForm((current) => ({
       ...current,
@@ -2125,15 +2400,19 @@ export function TwoPQRecordWorkbench({
 
   async function lookupSamplingBySampleId(sampleId: string) {
     const response = await sdkFetch<{ records: TwoPQListItem[] }>(
-      `/2pq/sampling?query=${encodeURIComponent(sampleId)}`
+      `/2pq/sampling?query=${encodeURIComponent(sampleId)}`,
     );
 
     return response.records.find(
-      (record) => record.sampleId?.trim().toUpperCase() === sampleId.toUpperCase()
+      (record) =>
+        record.sampleId?.trim().toUpperCase() === sampleId.toUpperCase(),
     );
   }
 
-  function buildAutoSamplingPayload(config: AutoSamplingFormState, sampleId: string) {
+  function buildAutoSamplingPayload(
+    config: AutoSamplingFormState,
+    sampleId: string,
+  ) {
     if (!detail) {
       throw new Error("Case detail is required to generate linked samplings.");
     }
@@ -2175,34 +2454,41 @@ export function TwoPQRecordWorkbench({
       throw new Error("Case detail is required for validation.");
     }
 
-    const caseDetail = await sdkFetch<TwoPQDetailRecord>(`/2pq/cases/${detail.record.id}`);
-    const linkedSamplingIds = new Set(caseDetail.linkedSamplings.map((record) => record.id));
+    const caseDetail = await sdkFetch<TwoPQDetailRecord>(
+      `/2pq/cases/${detail.record.id}`,
+    );
+    const linkedSamplingIds = new Set(
+      caseDetail.linkedSamplings.map((record) => record.id),
+    );
 
     for (const item of items) {
       if (!item.samplingRecordId) {
-        throw new Error(`Sampling ${item.sixCharacterCode} is missing a created record id.`);
+        throw new Error(
+          `Sampling ${item.sixCharacterCode} is missing a created record id.`,
+        );
       }
 
       const samplingDetail = await sdkFetch<TwoPQDetailRecord>(
-        `/2pq/sampling/${item.samplingRecordId}`
+        `/2pq/sampling/${item.samplingRecordId}`,
       );
-      const linkedSampleId = samplingDetail.record.sampleId?.trim().toUpperCase() ?? "";
+      const linkedSampleId =
+        samplingDetail.record.sampleId?.trim().toUpperCase() ?? "";
 
       if (linkedSampleId !== item.sixCharacterCode) {
         throw new Error(
-          `Sampling ${item.sixCharacterCode} was created with sample ID ${linkedSampleId || "<empty>"}.`
+          `Sampling ${item.sixCharacterCode} was created with sample ID ${linkedSampleId || "<empty>"}.`,
         );
       }
 
       if (samplingDetail.record.parent_case !== detail.record.id) {
         throw new Error(
-          `Sampling ${item.sixCharacterCode} is linked to case ${samplingDetail.record.parent_case ?? "<none>"} instead of ${detail.record.id}.`
+          `Sampling ${item.sixCharacterCode} is linked to case ${samplingDetail.record.parent_case ?? "<none>"} instead of ${detail.record.id}.`,
         );
       }
 
       if (!linkedSamplingIds.has(item.samplingRecordId)) {
         throw new Error(
-          `Current case ${detail.record.id} does not list sampling ${item.samplingRecordId} in linked samplings.`
+          `Current case ${detail.record.id} does not list sampling ${item.samplingRecordId} in linked samplings.`,
         );
       }
     }
@@ -2210,7 +2496,7 @@ export function TwoPQRecordWorkbench({
 
   async function finalizeAutoSamplingProcess(
     items: AutoSamplingProcessItem[],
-    config: AutoSamplingFormState
+    config: AutoSamplingFormState,
   ) {
     setAutoSamplingProcess({
       config,
@@ -2225,7 +2511,7 @@ export function TwoPQRecordWorkbench({
       router.refresh();
       pushToast(
         "success",
-        `${items.length} ${items.length === 1 ? t("sampling record created and linked.") : t("sampling records created and linked.")}`
+        `${items.length} ${items.length === 1 ? t("sampling record created and linked.") : t("sampling records created and linked.")}`,
       );
       setAutoSamplingProcess({
         config,
@@ -2234,7 +2520,10 @@ export function TwoPQRecordWorkbench({
         currentIndex: null,
       });
     } catch (error) {
-      const presentation = getErrorPresentation(error, t("Final validation failed."));
+      const presentation = getErrorPresentation(
+        error,
+        t("Final validation failed."),
+      );
       setAutoSamplingProcess({
         config,
         items,
@@ -2249,7 +2538,7 @@ export function TwoPQRecordWorkbench({
   async function runAutoSamplingProcess(
     items: AutoSamplingProcessItem[],
     config: AutoSamplingFormState,
-    startIndex: number
+    startIndex: number,
   ) {
     if (!detail) {
       return;
@@ -2277,11 +2566,13 @@ export function TwoPQRecordWorkbench({
       });
 
       try {
-        const existingSampling = await lookupSamplingBySampleId(nextItems[index].sixCharacterCode);
+        const existingSampling = await lookupSamplingBySampleId(
+          nextItems[index].sixCharacterCode,
+        );
         if (existingSampling) {
           if (existingSampling.parent_case !== detail.record.id) {
             throw new Error(
-              `Sample ID ${nextItems[index].sixCharacterCode} is already used by sampling ${existingSampling.id}.`
+              `Sample ID ${nextItems[index].sixCharacterCode} is already used by sampling ${existingSampling.id}.`,
             );
           }
 
@@ -2299,12 +2590,18 @@ export function TwoPQRecordWorkbench({
           continue;
         }
 
-        const response = await sdkFetch<{ record: TwoPQRecord }>("/2pq/sampling", {
-          method: "POST",
-          body: JSON.stringify(
-            buildAutoSamplingPayload(config, nextItems[index].sixCharacterCode)
-          ),
-        });
+        const response = await sdkFetch<{ record: TwoPQRecord }>(
+          "/2pq/sampling",
+          {
+            method: "POST",
+            body: JSON.stringify(
+              buildAutoSamplingPayload(
+                config,
+                nextItems[index].sixCharacterCode,
+              ),
+            ),
+          },
+        );
 
         nextItems[index] = {
           ...nextItems[index],
@@ -2320,7 +2617,7 @@ export function TwoPQRecordWorkbench({
       } catch (error) {
         const presentation = getErrorPresentation(
           error,
-          `${t("Unable to create sampling")} ${nextItems[index].sixCharacterCode}.`
+          `${t("Unable to create sampling")} ${nextItems[index].sixCharacterCode}.`,
         );
         nextItems[index] = {
           ...nextItems[index],
@@ -2358,11 +2655,13 @@ export function TwoPQRecordWorkbench({
       qcStatus: autoSamplingConfig.qcStatus.trim(),
       notes: autoSamplingConfig.notes.trim(),
     };
-    const items: AutoSamplingProcessItem[] = autoSamplingPreviewItems.map((item) => ({
-      ...item,
-      attempts: 0,
-      status: "pending",
-    }));
+    const items: AutoSamplingProcessItem[] = autoSamplingPreviewItems.map(
+      (item) => ({
+        ...item,
+        attempts: 0,
+        status: "pending",
+      }),
+    );
 
     setIsAutoSamplingSetupOpen(false);
     setAutoSamplingProcess({
@@ -2382,7 +2681,7 @@ export function TwoPQRecordWorkbench({
     if (autoSamplingProcess.currentIndex === null) {
       void finalizeAutoSamplingProcess(
         autoSamplingProcess.items.map((item) => ({ ...item })),
-        autoSamplingProcess.config
+        autoSamplingProcess.config,
       );
       return;
     }
@@ -2390,36 +2689,43 @@ export function TwoPQRecordWorkbench({
     void runAutoSamplingProcess(
       autoSamplingProcess.items.map((item) => ({ ...item })),
       autoSamplingProcess.config,
-      autoSamplingProcess.currentIndex
+      autoSamplingProcess.currentIndex,
     );
   }
 
   async function validateMultiSamplingEditProcess(
     items: MultiSamplingEditProcessItem[],
-    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>
+    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>,
   ) {
     if (!detail) {
       throw new Error("Case detail is required for validation.");
     }
 
-    const patchEntries = Object.entries(patch) as [MultiSamplingEditableFieldKey, string][];
-    const caseDetail = await sdkFetch<TwoPQDetailRecord>(`/2pq/cases/${detail.record.id}`);
-    const linkedSamplingIds = new Set(caseDetail.linkedSamplings.map((record) => record.id));
+    const patchEntries = Object.entries(patch) as [
+      MultiSamplingEditableFieldKey,
+      string,
+    ][];
+    const caseDetail = await sdkFetch<TwoPQDetailRecord>(
+      `/2pq/cases/${detail.record.id}`,
+    );
+    const linkedSamplingIds = new Set(
+      caseDetail.linkedSamplings.map((record) => record.id),
+    );
 
     for (const item of items) {
       const samplingDetail = await sdkFetch<TwoPQDetailRecord>(
-        `/2pq/sampling/${item.samplingRecordId}`
+        `/2pq/sampling/${item.samplingRecordId}`,
       );
 
       if (samplingDetail.record.parent_case !== detail.record.id) {
         throw new Error(
-          `Sampling ${item.sampleId} is linked to case ${samplingDetail.record.parent_case ?? "<none>"} instead of ${detail.record.id}.`
+          `Sampling ${item.sampleId} is linked to case ${samplingDetail.record.parent_case ?? "<none>"} instead of ${detail.record.id}.`,
         );
       }
 
       if (!linkedSamplingIds.has(item.samplingRecordId)) {
         throw new Error(
-          `Current case ${detail.record.id} does not list sampling ${item.samplingRecordId} in linked samplings.`
+          `Current case ${detail.record.id} does not list sampling ${item.samplingRecordId} in linked samplings.`,
         );
       }
 
@@ -2427,7 +2733,7 @@ export function TwoPQRecordWorkbench({
         const currentValue = samplingDetail.record[fieldKey] ?? "";
         if (currentValue !== nextValue) {
           throw new Error(
-            `Sampling ${item.sampleId} has ${multiSamplingFieldLabelByKey[fieldKey] ?? fieldKey} value ${currentValue || "<empty>"} instead of ${nextValue || "<empty>"}.`
+            `Sampling ${item.sampleId} has ${multiSamplingFieldLabelByKey[fieldKey] ?? fieldKey} value ${currentValue || "<empty>"} instead of ${nextValue || "<empty>"}.`,
           );
         }
       }
@@ -2436,7 +2742,7 @@ export function TwoPQRecordWorkbench({
 
   async function finalizeMultiSamplingEditProcess(
     items: MultiSamplingEditProcessItem[],
-    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>
+    patch: Partial<Record<MultiSamplingEditableFieldKey, string>>,
   ) {
     setMultiSamplingEditProcess({
       patch,
@@ -2450,7 +2756,7 @@ export function TwoPQRecordWorkbench({
       router.refresh();
       pushToast(
         "success",
-        `${items.length} ${items.length === 1 ? t("child sampling record updated.") : t("child sampling records updated.")}`
+        `${items.length} ${items.length === 1 ? t("child sampling record updated.") : t("child sampling records updated.")}`,
       );
       setMultiSamplingEditProcess({
         patch,
@@ -2459,7 +2765,10 @@ export function TwoPQRecordWorkbench({
         currentIndex: null,
       });
     } catch (error) {
-      const presentation = getErrorPresentation(error, t("Final validation failed."));
+      const presentation = getErrorPresentation(
+        error,
+        t("Final validation failed."),
+      );
       setMultiSamplingEditProcess({
         patch,
         items,
@@ -2474,7 +2783,7 @@ export function TwoPQRecordWorkbench({
   async function runMultiSamplingEditProcess(
     items: MultiSamplingEditProcessItem[],
     patch: Partial<Record<MultiSamplingEditableFieldKey, string>>,
-    startIndex: number
+    startIndex: number,
   ) {
     const nextItems = items.map((item) => ({ ...item }));
 
@@ -2503,7 +2812,7 @@ export function TwoPQRecordWorkbench({
           {
             method: "PATCH",
             body: JSON.stringify(patch),
-          }
+          },
         );
 
         nextItems[index] = {
@@ -2519,7 +2828,7 @@ export function TwoPQRecordWorkbench({
       } catch (error) {
         const presentation = getErrorPresentation(
           error,
-          `${t("Unable to update sampling")} ${nextItems[index].sampleId}.`
+          `${t("Unable to update sampling")} ${nextItems[index].sampleId}.`,
         );
         nextItems[index] = {
           ...nextItems[index],
@@ -2543,18 +2852,24 @@ export function TwoPQRecordWorkbench({
   }
 
   function handleStartMultiSamplingEditProcess() {
-    if (!detail || !canApplyMultiSamplingEdit || multiSamplingEditPatchEntries.length === 0) {
+    if (
+      !detail ||
+      !canApplyMultiSamplingEdit ||
+      multiSamplingEditPatchEntries.length === 0
+    ) {
       return;
     }
 
     const patch = { ...multiSamplingEditPatch };
-    const items: MultiSamplingEditProcessItem[] = linkedSamplings.map((record, index) => ({
-      order: index + 1,
-      samplingRecordId: record.id,
-      sampleId: record.sampleId?.trim() || record.id,
-      attempts: 0,
-      status: "pending",
-    }));
+    const items: MultiSamplingEditProcessItem[] = linkedSamplings.map(
+      (record, index) => ({
+        order: index + 1,
+        samplingRecordId: record.id,
+        sampleId: record.sampleId?.trim() || record.id,
+        attempts: 0,
+        status: "pending",
+      }),
+    );
 
     setIsMultiSamplingEditOpen(false);
     setMultiSamplingEditProcess({
@@ -2574,7 +2889,7 @@ export function TwoPQRecordWorkbench({
     if (multiSamplingEditProcess.currentIndex === null) {
       void finalizeMultiSamplingEditProcess(
         multiSamplingEditProcess.items.map((item) => ({ ...item })),
-        multiSamplingEditProcess.patch
+        multiSamplingEditProcess.patch,
       );
       return;
     }
@@ -2582,24 +2897,26 @@ export function TwoPQRecordWorkbench({
     void runMultiSamplingEditProcess(
       multiSamplingEditProcess.items.map((item) => ({ ...item })),
       multiSamplingEditProcess.patch,
-      multiSamplingEditProcess.currentIndex
+      multiSamplingEditProcess.currentIndex,
     );
   }
 
   function syncDraftScope(
     current: FormState,
     parent: Pick<TwoPQListItem, "institutionId" | "doctorId" | "patientId">,
-    options?: { caseLabel?: string; patientId?: string }
+    options?: { caseLabel?: string; patientId?: string },
   ) {
     const scopeChanged =
-      current.institutionId !== parent.institutionId || current.doctorId !== parent.doctorId;
+      current.institutionId !== parent.institutionId ||
+      current.doctorId !== parent.doctorId;
 
     return {
       ...current,
       institutionId: parent.institutionId,
       doctorId: parent.doctorId,
       patientId:
-        options?.patientId ?? (scopeChanged ? parent.patientId ?? "" : current.patientId),
+        options?.patientId ??
+        (scopeChanged ? (parent.patientId ?? "") : current.patientId),
       caseLabel: options?.caseLabel ?? current.caseLabel,
     };
   }
@@ -2623,7 +2940,7 @@ export function TwoPQRecordWorkbench({
     request: () => Promise<unknown>,
     successMessage: string,
     failureMessage: string,
-    logTitle = t("Relation request log")
+    logTitle = t("Relation request log"),
   ) {
     setPendingRelationRecordId(recordId);
     try {
@@ -2645,7 +2962,7 @@ export function TwoPQRecordWorkbench({
     payload: Partial<Record<"parent_batch" | "parent_case", string>>,
     successMessage: string,
     failureMessage: string,
-    logTitle = t("Relation update log")
+    logTitle = t("Relation update log"),
   ) {
     await performRelationRequest(
       recordId,
@@ -2656,7 +2973,7 @@ export function TwoPQRecordWorkbench({
         }),
       successMessage,
       failureMessage,
-      logTitle
+      logTitle,
     );
   }
 
@@ -2674,7 +2991,7 @@ export function TwoPQRecordWorkbench({
       syncDraftScope(current, record, {
         caseLabel: record.caseLabel ?? current.caseLabel,
         patientId: record.patientId ?? "",
-      })
+      }),
     );
     setRelationDialog(null);
     setRelationQuery("");
@@ -2707,7 +3024,7 @@ export function TwoPQRecordWorkbench({
       { parent_batch: record.id },
       t("Batch linked to case."),
       t("Unable to link the selected batch."),
-      t("Link batch to case")
+      t("Link batch to case"),
     );
   }
 
@@ -2727,7 +3044,7 @@ export function TwoPQRecordWorkbench({
       { parent_batch: "" },
       t("Batch unlinked from case."),
       t("Unable to unlink the batch."),
-      t("Unlink batch from case")
+      t("Unlink batch from case"),
     );
   }
 
@@ -2747,7 +3064,7 @@ export function TwoPQRecordWorkbench({
       { parent_case: record.id },
       t("Case linked to sampling."),
       t("Unable to link the selected case."),
-      t("Link case to sampling")
+      t("Link case to sampling"),
     );
   }
 
@@ -2767,7 +3084,7 @@ export function TwoPQRecordWorkbench({
       { parent_case: "" },
       t("Case unlinked from sampling."),
       t("Unable to unlink the case."),
-      t("Unlink case from sampling")
+      t("Unlink case from sampling"),
     );
   }
 
@@ -2782,7 +3099,7 @@ export function TwoPQRecordWorkbench({
       { parent_batch: detail.record.id },
       t("Case linked to batch."),
       t("Unable to link the selected case."),
-      t("Link case to batch")
+      t("Link case to batch"),
     );
   }
 
@@ -2797,7 +3114,7 @@ export function TwoPQRecordWorkbench({
       { parent_batch: "" },
       t("Case unlinked from batch."),
       t("Unable to unlink the case."),
-      t("Unlink case from batch")
+      t("Unlink case from batch"),
     );
   }
 
@@ -2812,7 +3129,7 @@ export function TwoPQRecordWorkbench({
       { parent_case: detail.record.id },
       t("Sampling linked to case."),
       t("Unable to link the selected sampling."),
-      t("Link sampling to case")
+      t("Link sampling to case"),
     );
   }
 
@@ -2827,11 +3144,24 @@ export function TwoPQRecordWorkbench({
       { parent_case: "" },
       t("Sampling unlinked from case."),
       t("Unable to unlink the sampling."),
-      t("Unlink sampling from case")
+      t("Unlink sampling from case"),
+    );
+  }
+
+  function showDirectCreateRequiresFormAlert() {
+    window.alert(
+      t(
+        "These entities cannot be created directly. They must be requested through the corresponding form.",
+      ),
     );
   }
 
   async function handleCreate() {
+    if (directCreateRequiresForm) {
+      showDirectCreateRequiresFormAlert();
+      return;
+    }
+
     if (!validateRequiredFields()) {
       return;
     }
@@ -2849,10 +3179,13 @@ export function TwoPQRecordWorkbench({
         payload.parent_case = draftCase.id;
       }
 
-      const response = await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const response = await sdkFetch<{ record: TwoPQRecord }>(
+        `/2pq/${area.key}`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      );
       setCreatedRecordId(response.record.id);
       pushToast("success", `${area.label} ${t("record created.")}`);
     } catch (error) {
@@ -2860,7 +3193,7 @@ export function TwoPQRecordWorkbench({
       pushErrorToast(
         error,
         `${t("Unable to create")} ${area.label.toLowerCase()} ${t("record.")}`,
-        `${t("Create")} ${area.label} ${t("record")}`
+        `${t("Create")} ${area.label} ${t("record")}`,
       );
       setPendingAction(null);
     }
@@ -2871,7 +3204,9 @@ export function TwoPQRecordWorkbench({
       return;
     }
 
-    router.push(`${area.route}?createdId=${encodeURIComponent(createdRecordId)}`);
+    router.push(
+      `${area.route}?createdId=${encodeURIComponent(createdRecordId)}`,
+    );
   }
 
   async function handleReplace() {
@@ -2881,17 +3216,20 @@ export function TwoPQRecordWorkbench({
 
     setPendingAction("replace");
     try {
-      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}/${detail.record.id}`, {
-        method: "PUT",
-        body: JSON.stringify(buildPayload(getFieldKeys(areaKey))),
-      });
+      await sdkFetch<{ record: TwoPQRecord }>(
+        `/2pq/${area.key}/${detail.record.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(buildPayload(getFieldKeys(areaKey))),
+        },
+      );
       pushToast("success", `${area.label} ${t("record replaced.")}`);
       router.refresh();
     } catch (error) {
       pushErrorToast(
         error,
         `${t("Unable to replace")} ${area.label.toLowerCase()} ${t("record.")}`,
-        `${t("Replace")} ${area.label} ${t("record")}`
+        `${t("Replace")} ${area.label} ${t("record")}`,
       );
     } finally {
       setPendingAction(null);
@@ -2905,17 +3243,20 @@ export function TwoPQRecordWorkbench({
 
     setPendingAction("update");
     try {
-      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}/${detail.record.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(buildPayload(changedKeys)),
-      });
+      await sdkFetch<{ record: TwoPQRecord }>(
+        `/2pq/${area.key}/${detail.record.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(buildPayload(changedKeys)),
+        },
+      );
       pushToast("success", `${area.label} ${t("record updated.")}`);
       router.refresh();
     } catch (error) {
       pushErrorToast(
         error,
         `${t("Unable to update")} ${area.label.toLowerCase()} ${t("record.")}`,
-        `${t("Update")} ${area.label} ${t("record")}`
+        `${t("Update")} ${area.label} ${t("record")}`,
       );
     } finally {
       setPendingAction(null);
@@ -2930,7 +3271,9 @@ export function TwoPQRecordWorkbench({
     const caseId = detail.record.id;
     setDeleteDialogOpen(false);
     setPendingAction("delete");
-    setCaseDeleteProcess(buildInitialCaseDeleteProcess(caseId, linkedSamplings.length));
+    setCaseDeleteProcess(
+      buildInitialCaseDeleteProcess(caseId, linkedSamplings.length),
+    );
 
     try {
       await pauseForProcessStep(180);
@@ -2960,7 +3303,7 @@ export function TwoPQRecordWorkbench({
               ...current,
               samplingCount: deletedSamplingCount,
             }
-          : current
+          : current,
       );
 
       await pauseForProcessStep(220);
@@ -2970,15 +3313,18 @@ export function TwoPQRecordWorkbench({
               ...current,
               status: "success",
               samplingCount: deletedSamplingCount,
-              steps: current.steps.map((step) => ({ ...step, status: "success" })),
+              steps: current.steps.map((step) => ({
+                ...step,
+                status: "success",
+              })),
             }
-          : current
+          : current,
       );
       setDeleteLinkedSamplings(false);
     } catch (error) {
       const presentation = getErrorPresentation(
         error,
-        t("Unable to delete case and associated biopsies.")
+        t("Unable to delete case and associated biopsies."),
       );
       updateCaseDeleteProcessStep("delete-samplings", "error");
       setCaseDeleteProcess((current) =>
@@ -2989,7 +3335,7 @@ export function TwoPQRecordWorkbench({
               errorTitle: t("Case deletion error"),
               errorDetails: presentation.details,
             }
-          : current
+          : current,
       );
       setLatestErrorLog({
         title: t("Case deletion error"),
@@ -3005,7 +3351,9 @@ export function TwoPQRecordWorkbench({
     }
   }
 
-  async function handleDelete(options: { deleteLinkedSamplings?: boolean } = {}) {
+  async function handleDelete(
+    options: { deleteLinkedSamplings?: boolean } = {},
+  ) {
     if (!detail) {
       return;
     }
@@ -3026,7 +3374,7 @@ export function TwoPQRecordWorkbench({
       pushErrorToast(
         error,
         `${t("Unable to delete")} ${area.label.toLowerCase()} ${t("record.")}`,
-        `${t("Delete")} ${area.label} ${t("record")}`
+        `${t("Delete")} ${area.label} ${t("record")}`,
       );
       setPendingAction(null);
     }
@@ -3044,12 +3392,15 @@ export function TwoPQRecordWorkbench({
 
     setPendingCaseLabelCorrection(true);
     try {
-      await sdkFetch<{ record: TwoPQRecord }>(`/2pq/${area.key}/${detail.record.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          caseLabel: expectedCaseLabelFromThreeLetterCode,
-        }),
-      });
+      await sdkFetch<{ record: TwoPQRecord }>(
+        `/2pq/${area.key}/${detail.record.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            caseLabel: expectedCaseLabelFromThreeLetterCode,
+          }),
+        },
+      );
 
       setState((current) => ({
         ...current,
@@ -3057,28 +3408,31 @@ export function TwoPQRecordWorkbench({
       }));
       pushToast(
         "success",
-        `${t("Case label corrected to")} ${expectedCaseLabelFromThreeLetterCode}.`
+        `${t("Case label corrected to")} ${expectedCaseLabelFromThreeLetterCode}.`,
       );
       router.refresh();
     } catch (error) {
       pushErrorToast(
         error,
         t("Unable to correct the case label."),
-        t("Correct case label")
+        t("Correct case label"),
       );
     } finally {
       setPendingCaseLabelCorrection(false);
     }
   }
 
-  const canManageRelations = mode === "create" ? true : Boolean(detail?.record.canUpdate);
+  const canManageRelations =
+    mode === "create" ? true : Boolean(detail?.record.canUpdate);
 
   return (
     <div className="flex flex-col gap-5">
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}
-        onViewLog={toast?.tone === "error" && toast.details ? handleErrorLogOpen : null}
+        onViewLog={
+          toast?.tone === "error" && toast.details ? handleErrorLogOpen : null
+        }
       />
       <Dialog
         open={Boolean(latestErrorLog) && isErrorLogOpen}
@@ -3098,7 +3452,9 @@ export function TwoPQRecordWorkbench({
               {latestErrorLog?.title ?? t("Request log")}
             </DialogTitle>
             <DialogDescription className="text-emerald-900/65">
-              {t("Full request error log. You can copy this message for debugging.")}
+              {t(
+                "Full request error log. You can copy this message for debugging.",
+              )}
             </DialogDescription>
             <DialogClose asChild>
               <Button
@@ -3169,11 +3525,19 @@ export function TwoPQRecordWorkbench({
             <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
               {threeLetterCodeModal === "remove"
                 ? mode === "create"
-                  ? t("This will clear the unique three-letter shortcut currently staged for the new case.")
-                  : t("This will clear the unique three-letter shortcut stored on the case document.")
+                  ? t(
+                      "This will clear the unique three-letter shortcut currently staged for the new case.",
+                    )
+                  : t(
+                      "This will clear the unique three-letter shortcut stored on the case document.",
+                    )
                 : mode === "create"
-                  ? t("This short letter-only identifier is unique to the case and will be stored in Firebase as three_letter_code when the record is created.")
-                  : t("This short letter-only identifier is unique to the case and is stored in Firebase as three_letter_code.")}
+                  ? t(
+                      "This short letter-only identifier is unique to the case and will be stored in Firebase as three_letter_code when the record is created.",
+                    )
+                  : t(
+                      "This short letter-only identifier is unique to the case and is stored in Firebase as three_letter_code.",
+                    )}
             </DialogDescription>
             <Button
               type="button"
@@ -3184,7 +3548,9 @@ export function TwoPQRecordWorkbench({
               className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">{t("Close three letter code modal")}</span>
+              <span className="sr-only">
+                {t("Close three letter code modal")}
+              </span>
             </Button>
           </DialogHeader>
           <div className="space-y-5 px-6 py-5">
@@ -3204,20 +3570,30 @@ export function TwoPQRecordWorkbench({
               <p className="mt-4 text-sm text-fuchsia-950/70 dark:text-fuchsia-50/72">
                 {threeLetterCodeModal === "remove"
                   ? mode === "create"
-                    ? t("Removing it clears the staged value so the new case will be created without a three letter code.")
-                    : t("Removing it frees the code so another case can use it later.")
-                  : t("Exactly three letters. The code is always stored and shown in uppercase.")}
+                    ? t(
+                        "Removing it clears the staged value so the new case will be created without a three letter code.",
+                      )
+                    : t(
+                        "Removing it frees the code so another case can use it later.",
+                      )
+                  : t(
+                      "Exactly three letters. The code is always stored and shown in uppercase.",
+                    )}
               </p>
             </div>
 
             {threeLetterCodeModal === "manual" ? (
               <div className="space-y-2">
-                <Label htmlFor="three-letter-code-input">{t("Three letter code")}</Label>
+                <Label htmlFor="three-letter-code-input">
+                  {t("Three letter code")}
+                </Label>
                 <Input
                   id="three-letter-code-input"
                   value={threeLetterCodeDraft}
                   onChange={(event) =>
-                    setThreeLetterCodeDraft(normalizeThreeLetterCodeInput(event.target.value))
+                    setThreeLetterCodeDraft(
+                      normalizeThreeLetterCodeInput(event.target.value),
+                    )
                   }
                   placeholder="ABC"
                   autoComplete="off"
@@ -3226,7 +3602,9 @@ export function TwoPQRecordWorkbench({
                   className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
                 />
                 <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Letters only. Use this when you want to reserve a specific short code for the case.")}
+                  {t(
+                    "Letters only. Use this when you want to reserve a specific short code for the case.",
+                  )}
                 </p>
               </div>
             ) : null}
@@ -3235,7 +3613,9 @@ export function TwoPQRecordWorkbench({
               <div className="space-y-3">
                 <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24">
                   <p className="text-sm text-fuchsia-950/72 dark:text-fuchsia-50/72">
-                    {t("A random candidate is ready. If you want another option before saving, generate a new suggestion.")}
+                    {t(
+                      "A random candidate is ready. If you want another option before saving, generate a new suggestion.",
+                    )}
                   </p>
                 </div>
                 <Button
@@ -3255,8 +3635,12 @@ export function TwoPQRecordWorkbench({
             {threeLetterCodeModal === "remove" ? (
               <div className="rounded-[1.25rem] border border-fuchsia-200/90 bg-white/72 px-4 py-4 text-sm text-fuchsia-950/72 dark:border-fuchsia-300/18 dark:bg-fuchsia-950/24 dark:text-fuchsia-50/72">
                 {mode === "create"
-                  ? t("This new case will no longer carry a staged three letter code until a new one is assigned.")
-                  : t("This case will no longer display a three letter code until a new one is assigned.")}
+                  ? t(
+                      "This new case will no longer carry a staged three letter code until a new one is assigned.",
+                    )
+                  : t(
+                      "This case will no longer display a three letter code until a new one is assigned.",
+                    )}
               </div>
             ) : null}
           </div>
@@ -3273,7 +3657,9 @@ export function TwoPQRecordWorkbench({
             <Button
               type="button"
               onClick={() => void handleThreeLetterCodeConfirm()}
-              disabled={!canConfirmThreeLetterCode || pendingThreeLetterCodeAction}
+              disabled={
+                !canConfirmThreeLetterCode || pendingThreeLetterCodeAction
+              }
               className={`${THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME} h-11 px-6`}
             >
               {pendingThreeLetterCodeAction ? (
@@ -3308,8 +3694,12 @@ export function TwoPQRecordWorkbench({
             </DialogTitle>
             <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
               {publishFileStorageModal?.mode === "update"
-                ? t("Build a fresh JSON snapshot from the current case, its linked batch, and its child samplings, then update the existing file_storage record in place.")
-                : t("Build a JSON snapshot from the current case, its linked batch, and its child samplings, then publish that snapshot into the reusable file storage collection.")}
+                ? t(
+                    "Build a fresh JSON snapshot from the current case, its linked batch, and its child samplings, then update the existing file_storage record in place.",
+                  )
+                : t(
+                    "Build a JSON snapshot from the current case, its linked batch, and its child samplings, then publish that snapshot into the reusable file storage collection.",
+                  )}
             </DialogDescription>
             <Button
               type="button"
@@ -3345,8 +3735,12 @@ export function TwoPQRecordWorkbench({
                   </h3>
                   <p className="max-w-xl text-sm text-indigo-950/68 dark:text-indigo-50/72">
                     {publishFileStorageModal?.mode === "update"
-                      ? t("Pulling the latest linked case graph and generating the JSON snapshot preview that will replace the current stored file contents.")
-                      : t("Pulling the latest linked case graph and generating the JSON snapshot preview for file storage.")}
+                      ? t(
+                          "Pulling the latest linked case graph and generating the JSON snapshot preview that will replace the current stored file contents.",
+                        )
+                      : t(
+                          "Pulling the latest linked case graph and generating the JSON snapshot preview for file storage.",
+                        )}
                   </p>
                 </div>
               </div>
@@ -3374,16 +3768,24 @@ export function TwoPQRecordWorkbench({
                       {t("Snapshot nodes")}
                     </p>
                     <p className="mt-2 text-sm text-indigo-950 dark:text-indigo-50">
-                      {publishFileStorageModal.snapshot?.entities.batches.length ?? 0} {t("batch")},{" "}
-                      {publishFileStorageModal.snapshot?.entities.cases.length ?? 0} {t("case")},{" "}
-                      {publishFileStorageModal.snapshot?.entities.samplings.length ?? 0} {t("sampling")}
+                      {publishFileStorageModal.snapshot?.entities.batches
+                        .length ?? 0}{" "}
+                      {t("batch")},{" "}
+                      {publishFileStorageModal.snapshot?.entities.cases
+                        .length ?? 0}{" "}
+                      {t("case")},{" "}
+                      {publishFileStorageModal.snapshot?.entities.samplings
+                        .length ?? 0}{" "}
+                      {t("sampling")}
                     </p>
                   </div>
                 </div>
 
                 {changed ? (
                   <div className="rounded-[1.25rem] border border-amber-200/90 bg-amber-50/86 px-4 py-4 text-sm text-amber-950/82 dark:border-amber-300/22 dark:bg-amber-500/12 dark:text-amber-100/84">
-                    {t("Unsaved edits in this workbench are not included in the snapshot. This flow uses the saved case detail currently loaded from Firebase.")}
+                    {t(
+                      "Unsaved edits in this workbench are not included in the snapshot. This flow uses the saved case detail currently loaded from Firebase.",
+                    )}
                   </div>
                 ) : null}
 
@@ -3395,8 +3797,12 @@ export function TwoPQRecordWorkbench({
                       </h3>
                       <p className="mt-1 text-sm text-indigo-950/68 dark:text-indigo-50/72">
                         {publishFileStorageModal.mode === "update"
-                          ? t("Scroll the preview below to inspect the autogenerated case snapshot before it overwrites the current file storage snapshot.")
-                          : t("Scroll the preview below to inspect the autogenerated case snapshot before it is published into file storage.")}
+                          ? t(
+                              "Scroll the preview below to inspect the autogenerated case snapshot before it overwrites the current file storage snapshot.",
+                            )
+                          : t(
+                              "Scroll the preview below to inspect the autogenerated case snapshot before it is published into file storage.",
+                            )}
                       </p>
                     </div>
                     <Button
@@ -3404,7 +3810,9 @@ export function TwoPQRecordWorkbench({
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setIsPublishFileStoragePreviewExpanded((current) => !current)
+                        setIsPublishFileStoragePreviewExpanded(
+                          (current) => !current,
+                        )
                       }
                       className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
                     >
@@ -3413,7 +3821,9 @@ export function TwoPQRecordWorkbench({
                       ) : (
                         <ChevronDown className="h-3.5 w-3.5" />
                       )}
-                      {isPublishFileStoragePreviewExpanded ? t("Compact preview") : t("Expand preview")}
+                      {isPublishFileStoragePreviewExpanded
+                        ? t("Compact preview")
+                        : t("Expand preview")}
                     </Button>
                   </div>
                   <Textarea
@@ -3430,15 +3840,19 @@ export function TwoPQRecordWorkbench({
                 <div className="rounded-[1.35rem] border border-indigo-100 bg-white/72 px-4 py-4 text-sm text-indigo-950/72 dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:text-indigo-50/72">
                   {publishFileStorageModal.mode === "update" ? (
                     <>
-                      Updating rewrites the existing <span className="font-mono">file_storage</span>{" "}
-                      record in place and keeps the current{" "}
-                      <span className="font-mono">stored_file_id</span> linked to this case.
+                      Updating rewrites the existing{" "}
+                      <span className="font-mono">file_storage</span> record in
+                      place and keeps the current{" "}
+                      <span className="font-mono">stored_file_id</span> linked
+                      to this case.
                     </>
                   ) : (
                     <>
-                      Publishing creates a new <span className="font-mono">file_storage</span>{" "}
-                      record and writes the returned document id into{" "}
-                      <span className="font-mono">stored_file_id</span> on this case.
+                      Publishing creates a new{" "}
+                      <span className="font-mono">file_storage</span> record and
+                      writes the returned document id into{" "}
+                      <span className="font-mono">stored_file_id</span> on this
+                      case.
                     </>
                   )}
                 </div>
@@ -3471,7 +3885,9 @@ export function TwoPQRecordWorkbench({
               ) : (
                 <FileCode2 className="h-4 w-4" />
               )}
-              {publishFileStorageModal?.mode === "update" ? t("Update") : t("Publish")}
+              {publishFileStorageModal?.mode === "update"
+                ? t("Update")
+                : t("Publish")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3493,8 +3909,12 @@ export function TwoPQRecordWorkbench({
               {t("Publish as report code")}
             </DialogTitle>
             <DialogDescription className="text-indigo-950/68 dark:text-indigo-50/72">
-              {t("This will ensure the current stored file is linked to report code")}{" "}
-              <span className="font-mono">{expectedCaseLabelFromThreeLetterCode}</span>{" "}
+              {t(
+                "This will ensure the current stored file is linked to report code",
+              )}{" "}
+              <span className="font-mono">
+                {expectedCaseLabelFromThreeLetterCode}
+              </span>{" "}
               {t("and will use the signed-in admin as the report owner.")}
             </DialogDescription>
             <Button
@@ -3506,7 +3926,9 @@ export function TwoPQRecordWorkbench({
               className="absolute right-5 top-5 h-9 w-9 rounded-full text-indigo-950 hover:bg-indigo-100/80 dark:text-indigo-50 dark:hover:bg-indigo-900/36"
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">{t("Close publish as report code modal")}</span>
+              <span className="sr-only">
+                {t("Close publish as report code modal")}
+              </span>
             </Button>
           </DialogHeader>
           <div className="space-y-5 px-7 py-6 sm:px-8">
@@ -3519,7 +3941,9 @@ export function TwoPQRecordWorkbench({
                   {expectedCaseLabelFromThreeLetterCode}
                 </p>
                 <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                  {t("Derived from the current case three-letter code using the fixed")}{" "}
+                  {t(
+                    "Derived from the current case three-letter code using the fixed",
+                  )}{" "}
                   <span className="font-mono">XXX</span> {t("suffix.")}
                 </p>
               </div>
@@ -3531,8 +3955,11 @@ export function TwoPQRecordWorkbench({
                   {storedFileId}
                 </p>
                 <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                  {t("Provider format will be saved as")} <span className="font-mono">2pq</span>{" "}
-                  {t("and the file name will stay synced to this stored file snapshot.")}
+                  {t("Provider format will be saved as")}{" "}
+                  <span className="font-mono">2pq</span>{" "}
+                  {t(
+                    "and the file name will stay synced to this stored file snapshot.",
+                  )}
                 </p>
               </div>
               <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
@@ -3543,7 +3970,9 @@ export function TwoPQRecordWorkbench({
                   {adminContext.email}
                 </p>
                 <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                  {t("The current admin user will be written into the report-code ownership fields and the uploaded-report owner metadata.")}
+                  {t(
+                    "The current admin user will be written into the report-code ownership fields and the uploaded-report owner metadata.",
+                  )}
                 </p>
               </div>
               <div className="rounded-[1.35rem] border border-indigo-100 bg-white/76 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
@@ -3556,12 +3985,18 @@ export function TwoPQRecordWorkbench({
                     : isReportCodeStatusLoading
                       ? t("Checking the current report-code linkage...")
                       : isPublishedAsReportCode
-                        ? t("This report code already resolves to the current stored file.")
+                        ? t(
+                            "This report code already resolves to the current stored file.",
+                          )
                         : reportCodePublishConflictMessage
                           ? reportCodePublishConflictMessage
                           : reportCodeStatus
-                            ? t("An existing report record will be synchronized to this stored file.")
-                            : t("A fresh report code and uploaded-report link will be created.")}
+                            ? t(
+                                "An existing report record will be synchronized to this stored file.",
+                              )
+                            : t(
+                                "A fresh report code and uploaded-report link will be created.",
+                              )}
                 </p>
                 <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                   {t("linked report on file_storage:")}{" "}
@@ -3578,7 +4013,9 @@ export function TwoPQRecordWorkbench({
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
                   <p>
                     {isStoredFileDocumentMissing
-                      ? t("The case points to a stored_file_id that no longer exists, so report-code publishing is blocked until the file is republished.")
+                      ? t(
+                          "The case points to a stored_file_id that no longer exists, so report-code publishing is blocked until the file is republished.",
+                        )
                       : reportCodePublishConflictMessage}
                   </p>
                 </div>
@@ -3611,7 +4048,10 @@ export function TwoPQRecordWorkbench({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isMultiSamplingEditOpen} onOpenChange={setIsMultiSamplingEditOpen}>
+      <Dialog
+        open={isMultiSamplingEditOpen}
+        onOpenChange={setIsMultiSamplingEditOpen}
+      >
         <DialogContent
           showCloseButton={false}
           className="h-[min(54rem,calc(100vh-1.5rem))] w-[min(96vw,92rem)] max-h-[calc(100vh-1.5rem)] max-w-none sm:max-w-[min(96vw,92rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
@@ -3621,7 +4061,9 @@ export function TwoPQRecordWorkbench({
               {t("Multi sampling edit modal")}
             </DialogTitle>
             <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
-              {t("Select the sampling fields to patch across every linked child sampling at once. Only checked rows will be applied.")}
+              {t(
+                "Select the sampling fields to patch across every linked child sampling at once. Only checked rows will be applied.",
+              )}
             </DialogDescription>
             <Button
               type="button"
@@ -3631,7 +4073,9 @@ export function TwoPQRecordWorkbench({
               className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">{t("Close multi sampling edit modal")}</span>
+              <span className="sr-only">
+                {t("Close multi sampling edit modal")}
+              </span>
             </Button>
           </DialogHeader>
 
@@ -3671,7 +4115,9 @@ export function TwoPQRecordWorkbench({
                       {t("Sampling fields")}
                     </h3>
                     <p className="mt-1 text-sm text-fuchsia-950/68 dark:text-fuchsia-50/72">
-                      {t("Row structure is checkbox, field label, then the new value to write into every linked child sampling. Leave a checked value empty if you want to clear that field.")}
+                      {t(
+                        "Row structure is checkbox, field label, then the new value to write into every linked child sampling. Leave a checked value empty if you want to clear that field.",
+                      )}
                     </p>
                   </div>
                   <Badge
@@ -3709,7 +4155,10 @@ export function TwoPQRecordWorkbench({
                               type="checkbox"
                               checked={multiSamplingEditForm[field.key].enabled}
                               onChange={(event) =>
-                                toggleMultiSamplingEditField(field.key, event.target.checked)
+                                toggleMultiSamplingEditField(
+                                  field.key,
+                                  event.target.checked,
+                                )
                               }
                               className="mt-1 h-4 w-4 rounded border border-fuchsia-200 bg-white text-fuchsia-600 shadow-sm outline-none ring-offset-0 focus:ring-2 focus:ring-fuchsia-300 dark:border-fuchsia-300/22 dark:bg-fuchsia-950/24"
                             />
@@ -3728,12 +4177,20 @@ export function TwoPQRecordWorkbench({
                             <Input
                               value={multiSamplingEditForm[field.key].value}
                               onChange={(event) =>
-                                updateMultiSamplingEditFieldValue(field.key, event.target.value)
+                                updateMultiSamplingEditFieldValue(
+                                  field.key,
+                                  event.target.value,
+                                )
                               }
                               type={field.type === "date" ? "date" : "text"}
-                              placeholder={field.placeholder ?? `${t("New")} ${field.label.toLowerCase()}`}
+                              placeholder={
+                                field.placeholder ??
+                                `${t("New")} ${field.label.toLowerCase()}`
+                              }
                               className="min-w-[30rem] border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 disabled:cursor-not-allowed disabled:opacity-60 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
-                              disabled={!multiSamplingEditForm[field.key].enabled}
+                              disabled={
+                                !multiSamplingEditForm[field.key].enabled
+                              }
                             />
                           </TableCell>
                         </TableRow>
@@ -3745,7 +4202,9 @@ export function TwoPQRecordWorkbench({
 
               {multiSamplingEditPatchEntries.length === 0 ? (
                 <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
-                  {t("Turn on at least one checkbox before applying a bulk update.")}
+                  {t(
+                    "Turn on at least one checkbox before applying a bulk update.",
+                  )}
                 </div>
               ) : (
                 <div className="rounded-[1.35rem] border border-fuchsia-100 bg-white/72 px-4 py-4 text-sm text-fuchsia-950/72 dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:text-fuchsia-50/72">
@@ -3780,7 +4239,10 @@ export function TwoPQRecordWorkbench({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isAutoSamplingSetupOpen} onOpenChange={setIsAutoSamplingSetupOpen}>
+      <Dialog
+        open={isAutoSamplingSetupOpen}
+        onOpenChange={setIsAutoSamplingSetupOpen}
+      >
         <DialogContent
           showCloseButton={false}
           className="h-[min(54rem,calc(100vh-1.5rem))] w-[min(96vw,84rem)] max-h-[calc(100vh-1.5rem)] max-w-[calc(100%-2rem)] sm:max-w-[min(96vw,84rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-[2rem] border border-fuchsia-100 [background:linear-gradient(155deg,rgba(254,250,255,0.98),rgba(250,245,255,0.98)_54%,rgba(244,214,255,0.94))] p-0 text-fuchsia-950 shadow-[0_34px_120px_rgba(168,85,247,0.22)] dark:border-fuchsia-400/28 dark:[background:linear-gradient(150deg,rgba(34,17,45,0.98),rgba(54,24,66,0.96)_48%,rgba(168,85,247,0.2))] dark:text-fuchsia-50 dark:shadow-[0_30px_110px_rgba(88,28,135,0.36)]"
@@ -3790,7 +4252,9 @@ export function TwoPQRecordWorkbench({
               {t("Add multiple samplings at once")}
             </DialogTitle>
             <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
-              {t("Configure one sampling template, then generate sequential sampling records linked to the current case one by one.")}
+              {t(
+                "Configure one sampling template, then generate sequential sampling records linked to the current case one by one.",
+              )}
             </DialogDescription>
             <Button
               type="button"
@@ -3800,166 +4264,210 @@ export function TwoPQRecordWorkbench({
               className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">{t("Close multiple sampling modal")}</span>
+              <span className="sr-only">
+                {t("Close multiple sampling modal")}
+              </span>
             </Button>
           </DialogHeader>
 
           <div className="min-h-0 overflow-y-auto overscroll-contain">
             <div className="space-y-6 px-6 py-5">
               <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
-                  {t("Parent case ID")}
-                </p>
-                <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
-                  {detail?.record.id}
-                </p>
-              </div>
-              <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
-                  {t("Three letter code")}
-                </p>
-                <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
-                  {normalizedThreeLetterCode}
-                </p>
-              </div>
-              <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
-                  {t("Sample ID pattern")}
-                </p>
-                <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
-                  {autoSamplingPreviewItems[0]?.sixCharacterCode}...
-                </p>
-              </div>
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    {t("Parent case ID")}
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                    {detail?.record.id}
+                  </p>
+                </div>
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    {t("Three letter code")}
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                    {normalizedThreeLetterCode}
+                  </p>
+                </div>
+                <div className="rounded-[1.25rem] border border-fuchsia-100 bg-white/72 px-4 py-4 shadow-[0_12px_30px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-950/52 dark:text-fuchsia-50/58">
+                    {t("Sample ID pattern")}
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-fuchsia-950 dark:text-fuchsia-50">
+                    {autoSamplingPreviewItems[0]?.sixCharacterCode}...
+                  </p>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="auto-sampling-case-label">{t("Case label")}</Label>
-                <Input
-                  id="auto-sampling-case-label"
-                  value={autoSamplingConfig.caseLabel}
-                  onChange={(event) => updateAutoSamplingConfig("caseLabel", event.target.value)}
-                  placeholder="CMS-2026-001"
-                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
-                />
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("This label is written into every generated sampling record.")}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auto-sampling-case-label">
+                    {t("Case label")}
+                  </Label>
+                  <Input
+                    id="auto-sampling-case-label"
+                    value={autoSamplingConfig.caseLabel}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig("caseLabel", event.target.value)
+                    }
+                    placeholder="CMS-2026-001"
+                    className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                  />
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t(
+                      "This label is written into every generated sampling record.",
+                    )}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="auto-sampling-sample-type">{t("Sample type")}</Label>
-                <Input
-                  id="auto-sampling-sample-type"
-                  value={autoSamplingConfig.sampleType}
-                  onChange={(event) => updateAutoSamplingConfig("sampleType", event.target.value)}
-                  placeholder="Blood"
-                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
-                />
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Required. This value is copied into each sampling.")}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auto-sampling-sample-type">
+                    {t("Sample type")}
+                  </Label>
+                  <Input
+                    id="auto-sampling-sample-type"
+                    value={autoSamplingConfig.sampleType}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig("sampleType", event.target.value)
+                    }
+                    placeholder="Blood"
+                    className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                  />
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t("Required. This value is copied into each sampling.")}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label>{t("Processing status")}</Label>
-                <Select
-                  value={autoSamplingConfig.processingStatus}
-                  onValueChange={(value) => updateAutoSamplingConfig("processingStatus", value)}
-                >
-                  <SelectTrigger className="w-full border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50">
-                    <SelectValue placeholder={t("Select processing status")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {autoSamplingProcessingOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(option.label)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Required. All generated samplings start with this processing state.")}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label>{t("Processing status")}</Label>
+                  <Select
+                    value={autoSamplingConfig.processingStatus}
+                    onValueChange={(value) =>
+                      updateAutoSamplingConfig("processingStatus", value)
+                    }
+                  >
+                    <SelectTrigger className="w-full border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50">
+                      <SelectValue
+                        placeholder={t("Select processing status")}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {autoSamplingProcessingOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {t(option.label)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t(
+                      "Required. All generated samplings start with this processing state.",
+                    )}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="auto-sampling-run-id">{t("Run ID")}</Label>
-                <Input
-                  id="auto-sampling-run-id"
-                  value={autoSamplingConfig.runId}
-                  onChange={(event) => updateAutoSamplingConfig("runId", event.target.value)}
-                  placeholder="SEQ-0007"
-                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
-                />
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Optional batch or sequencing run pointer.")}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auto-sampling-run-id">{t("Run ID")}</Label>
+                  <Input
+                    id="auto-sampling-run-id"
+                    value={autoSamplingConfig.runId}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig("runId", event.target.value)
+                    }
+                    placeholder="SEQ-0007"
+                    className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                  />
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t("Optional batch or sequencing run pointer.")}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="auto-sampling-collection-date">{t("Collection date")}</Label>
-                <Input
-                  id="auto-sampling-collection-date"
-                  type="date"
-                  value={autoSamplingConfig.collectionDate}
-                  onChange={(event) =>
-                    updateAutoSamplingConfig("collectionDate", event.target.value)
-                  }
-                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
-                />
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Optional collection date copied into every generated record.")}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auto-sampling-collection-date">
+                    {t("Collection date")}
+                  </Label>
+                  <Input
+                    id="auto-sampling-collection-date"
+                    type="date"
+                    value={autoSamplingConfig.collectionDate}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig(
+                        "collectionDate",
+                        event.target.value,
+                      )
+                    }
+                    className="border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
+                  />
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t(
+                      "Optional collection date copied into every generated record.",
+                    )}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="auto-sampling-reception-date">{t("Reception date")}</Label>
-                <Input
-                  id="auto-sampling-reception-date"
-                  type="date"
-                  value={autoSamplingConfig.receptionDate}
-                  onChange={(event) =>
-                    updateAutoSamplingConfig("receptionDate", event.target.value)
-                  }
-                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
-                />
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Optional reception date copied into every generated record.")}
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="auto-sampling-reception-date">
+                    {t("Reception date")}
+                  </Label>
+                  <Input
+                    id="auto-sampling-reception-date"
+                    type="date"
+                    value={autoSamplingConfig.receptionDate}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig(
+                        "receptionDate",
+                        event.target.value,
+                      )
+                    }
+                    className="border-fuchsia-100 bg-white/82 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
+                  />
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t(
+                      "Optional reception date copied into every generated record.",
+                    )}
+                  </p>
+                </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="auto-sampling-qc-status">{t("QC status")}</Label>
-                <Input
-                  id="auto-sampling-qc-status"
-                  value={autoSamplingConfig.qcStatus}
-                  onChange={(event) => updateAutoSamplingConfig("qcStatus", event.target.value)}
-                  placeholder="Passed"
-                  className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
-                />
-                <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
-                  {t("Optional quality-control outcome shared by the generated set.")}
-                </p>
-              </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="auto-sampling-qc-status">
+                    {t("QC status")}
+                  </Label>
+                  <Input
+                    id="auto-sampling-qc-status"
+                    value={autoSamplingConfig.qcStatus}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig("qcStatus", event.target.value)
+                    }
+                    placeholder="Passed"
+                    className="border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                  />
+                  <p className="text-xs text-fuchsia-950/62 dark:text-fuchsia-50/62">
+                    {t(
+                      "Optional quality-control outcome shared by the generated set.",
+                    )}
+                  </p>
+                </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="auto-sampling-notes">{t("Notes")}</Label>
-                <Textarea
-                  id="auto-sampling-notes"
-                  value={autoSamplingConfig.notes}
-                  onChange={(event) => updateAutoSamplingConfig("notes", event.target.value)}
-                  placeholder="Reception issues, missing tubes, or extraction notes..."
-                  className="min-h-[7rem] border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
-                />
-              </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="auto-sampling-notes">{t("Notes")}</Label>
+                  <Textarea
+                    id="auto-sampling-notes"
+                    value={autoSamplingConfig.notes}
+                    onChange={(event) =>
+                      updateAutoSamplingConfig("notes", event.target.value)
+                    }
+                    placeholder="Reception issues, missing tubes, or extraction notes..."
+                    className="min-h-[7rem] border-fuchsia-100 bg-white/82 text-fuchsia-950 placeholder:text-fuchsia-950/32 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50 dark:placeholder:text-fuchsia-50/32"
+                  />
+                </div>
               </div>
 
               <div className="rounded-[1.5rem] border border-fuchsia-100 bg-white/72 px-5 py-5 shadow-[0_14px_36px_rgba(250,232,255,0.6)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div className="space-y-2">
-                    <Label htmlFor="auto-sampling-copies">{t("Number of copies")}</Label>
+                    <Label htmlFor="auto-sampling-copies">
+                      {t("Number of copies")}
+                    </Label>
                     <Input
                       id="auto-sampling-copies"
                       type="number"
@@ -3967,7 +4475,9 @@ export function TwoPQRecordWorkbench({
                       max={AUTO_SAMPLING_MAX_COPIES}
                       value={autoSamplingCopies}
                       onChange={(event) =>
-                        handleAutoSamplingCopiesChange(Number.parseInt(event.target.value || "1", 10))
+                        handleAutoSamplingCopiesChange(
+                          Number.parseInt(event.target.value || "1", 10),
+                        )
                       }
                       className="w-32 border-fuchsia-100 bg-white/92 text-fuchsia-950 dark:border-fuchsia-200/18 dark:bg-fuchsia-950/28 dark:text-fuchsia-50"
                     />
@@ -3986,7 +4496,9 @@ export function TwoPQRecordWorkbench({
                       step={1}
                       value={autoSamplingCopies}
                       onChange={(event) =>
-                        handleAutoSamplingCopiesChange(Number.parseInt(event.target.value, 10))
+                        handleAutoSamplingCopiesChange(
+                          Number.parseInt(event.target.value, 10),
+                        )
                       }
                       className="h-3 w-full cursor-pointer accent-fuchsia-600"
                     />
@@ -4001,7 +4513,9 @@ export function TwoPQRecordWorkbench({
                       {t("6 character codes to be generated")}
                     </h3>
                     <p className="mt-1 text-sm text-fuchsia-950/68 dark:text-fuchsia-50/72">
-                      {t("Each sequential sampling will use the current case three-letter code plus its matching 3 number code as the final sample ID.")}
+                      {t(
+                        "Each sequential sampling will use the current case three-letter code plus its matching 3 number code as the final sample ID.",
+                      )}
                     </p>
                   </div>
                   <Badge
@@ -4020,20 +4534,26 @@ export function TwoPQRecordWorkbench({
 
                 {autoSamplingInventoryQuery.isError ? (
                   <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
-                    {t("Existing sampling IDs could not be validated right now. Fix the connection issue before running this batch.")}
+                    {t(
+                      "Existing sampling IDs could not be validated right now. Fix the connection issue before running this batch.",
+                    )}
                   </div>
                 ) : null}
 
                 {autoSamplingConflictingCodes.length > 0 ? (
                   <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
                     {t("These sample IDs already exist and block generation:")}{" "}
-                    <span className="font-mono">{autoSamplingConflictingCodes.join(", ")}</span>
+                    <span className="font-mono">
+                      {autoSamplingConflictingCodes.join(", ")}
+                    </span>
                   </div>
                 ) : null}
 
                 {!isAutoSamplingFormComplete(autoSamplingConfig) ? (
                   <div className={THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME}>
-                    {t("Fill the required fields: case label, sample type, and processing status.")}
+                    {t(
+                      "Fill the required fields: case label, sample type, and processing status.",
+                    )}
                   </div>
                 ) : null}
 
@@ -4059,7 +4579,9 @@ export function TwoPQRecordWorkbench({
                           {item.sixCharacterCode}
                         </p>
                         <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
-                          {t("Sample ID to be created for this sequential sampling slot.")}
+                          {t(
+                            "Sample ID to be created for this sequential sampling slot.",
+                          )}
                         </p>
                       </div>
                     ))}
@@ -4135,7 +4657,10 @@ export function TwoPQRecordWorkbench({
                   {t("Sequential sampling batch completed")}
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/76">
-                  {t("All")} {autoSamplingProcess.items.length} {t("sampling records were created, validated, and linked to case")}{" "}
+                  {t("All")} {autoSamplingProcess.items.length}{" "}
+                  {t(
+                    "sampling records were created, validated, and linked to case",
+                  )}{" "}
                   <span className="font-mono">{detail?.record.id}</span>.
                 </p>
               </div>
@@ -4147,7 +4672,9 @@ export function TwoPQRecordWorkbench({
                   {t("Auto sampling creation modal")}
                 </DialogTitle>
                 <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
-                  {t("Sampling records are generated sequentially with the current case as their linked parent case.")}
+                  {t(
+                    "Sampling records are generated sequentially with the current case as their linked parent case.",
+                  )}
                 </DialogDescription>
                 {autoSamplingProcess?.status === "paused" ? (
                   <Button
@@ -4158,7 +4685,9 @@ export function TwoPQRecordWorkbench({
                     className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
                   >
                     <X className="h-4 w-4" />
-                    <span className="sr-only">{t("Close auto sampling creation modal")}</span>
+                    <span className="sr-only">
+                      {t("Close auto sampling creation modal")}
+                    </span>
                   </Button>
                 ) : null}
               </DialogHeader>
@@ -4174,8 +4703,12 @@ export function TwoPQRecordWorkbench({
                         {autoSamplingProcess?.status === "running"
                           ? `${t("Creating")} ${autoSamplingProcess.items[autoSamplingProcess.currentIndex ?? 0]?.sixCharacterCode ?? ""} ${t("right now.")}`
                           : autoSamplingProcess?.status === "validating"
-                            ? t("Running the final validation pass across every created sampling.")
-                            : t("The process is paused. Review the error, then retry from the blocked step.")}
+                            ? t(
+                                "Running the final validation pass across every created sampling.",
+                              )
+                            : t(
+                                "The process is paused. Review the error, then retry from the blocked step.",
+                              )}
                       </p>
                     </div>
                     <Badge
@@ -4221,7 +4754,9 @@ export function TwoPQRecordWorkbench({
 
                 {autoSamplingProcess?.status === "paused" ? (
                   <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
-                    {autoSamplingProcess.errorTitle ?? t("Auto sampling paused")}. {t("Retry continues from the blocked sequential step.")}
+                    {autoSamplingProcess.errorTitle ??
+                      t("Auto sampling paused")}
+                    . {t("Retry continues from the blocked sequential step.")}
                   </div>
                 ) : null}
 
@@ -4264,12 +4799,16 @@ export function TwoPQRecordWorkbench({
                         {item.samplingRecordId ? (
                           <p className="mt-3 text-xs text-fuchsia-950/68 dark:text-fuchsia-50/68">
                             {t("Created record:")}{" "}
-                            <span className="font-mono">{item.samplingRecordId}</span>
+                            <span className="font-mono">
+                              {item.samplingRecordId}
+                            </span>
                           </p>
                         ) : null}
                         {item.status === "error" ? (
                           <p className="mt-3 text-xs text-destructive">
-                            {t("Generation paused on this item. Inspect the error log for details.")}
+                            {t(
+                              "Generation paused on this item. Inspect the error log for details.",
+                            )}
                           </p>
                         ) : null}
                       </div>
@@ -4349,7 +4888,8 @@ export function TwoPQRecordWorkbench({
                   {t("Bulk sampling update completed")}
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/76">
-                  {t("All")} {multiSamplingEditProcess.items.length} {t("linked samplings were updated and validated for case")}{" "}
+                  {t("All")} {multiSamplingEditProcess.items.length}{" "}
+                  {t("linked samplings were updated and validated for case")}{" "}
                   <span className="font-mono">{detail?.record.id}</span>.
                 </p>
               </div>
@@ -4361,7 +4901,9 @@ export function TwoPQRecordWorkbench({
                   {t("Multi sampling edit progress")}
                 </DialogTitle>
                 <DialogDescription className="text-fuchsia-950/68 dark:text-fuchsia-50/72">
-                  {t("Checked fields are being patched across the current case child samplings one by one.")}
+                  {t(
+                    "Checked fields are being patched across the current case child samplings one by one.",
+                  )}
                 </DialogDescription>
                 {multiSamplingEditProcess?.status === "paused" ? (
                   <Button
@@ -4372,7 +4914,9 @@ export function TwoPQRecordWorkbench({
                     className="absolute right-5 top-5 h-9 w-9 rounded-full text-fuchsia-950 hover:bg-fuchsia-100/80 dark:text-fuchsia-50 dark:hover:bg-fuchsia-900/36"
                   >
                     <X className="h-4 w-4" />
-                    <span className="sr-only">{t("Close multi sampling edit progress")}</span>
+                    <span className="sr-only">
+                      {t("Close multi sampling edit progress")}
+                    </span>
                   </Button>
                 ) : null}
               </DialogHeader>
@@ -4388,8 +4932,12 @@ export function TwoPQRecordWorkbench({
                         {multiSamplingEditProcess?.status === "running"
                           ? `${t("Updating")} ${multiSamplingEditProcess.items[multiSamplingEditProcess.currentIndex ?? 0]?.sampleId ?? ""} ${t("right now.")}`
                           : multiSamplingEditProcess?.status === "validating"
-                            ? t("Running the final validation pass across every updated child sampling.")
-                            : t("The process is paused. Review the error, then retry from the blocked step.")}
+                            ? t(
+                                "Running the final validation pass across every updated child sampling.",
+                              )
+                            : t(
+                                "The process is paused. Review the error, then retry from the blocked step.",
+                              )}
                       </p>
                     </div>
                     <Badge
@@ -4445,7 +4993,9 @@ export function TwoPQRecordWorkbench({
 
                 {multiSamplingEditProcess?.status === "paused" ? (
                   <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
-                    {multiSamplingEditProcess.errorTitle ?? t("Multi sampling edit paused")}. {t("Retry continues from the blocked child sampling.")}
+                    {multiSamplingEditProcess.errorTitle ??
+                      t("Multi sampling edit paused")}
+                    . {t("Retry continues from the blocked child sampling.")}
                   </div>
                 ) : null}
 
@@ -4478,12 +5028,18 @@ export function TwoPQRecordWorkbench({
                           {item.sampleId}
                         </p>
                         <p className="mt-2 text-xs text-fuchsia-950/60 dark:text-fuchsia-50/60">
-                          {t("Child sampling")} #{item.order} {t("with record id")}{" "}
-                          <span className="font-mono">{item.samplingRecordId}</span>.
+                          {t("Child sampling")} #{item.order}{" "}
+                          {t("with record id")}{" "}
+                          <span className="font-mono">
+                            {item.samplingRecordId}
+                          </span>
+                          .
                         </p>
                         {item.status === "error" ? (
                           <p className="mt-3 text-xs text-destructive">
-                            {t("Update paused on this sampling. Inspect the error log for details.")}
+                            {t(
+                              "Update paused on this sampling. Inspect the error log for details.",
+                            )}
                           </p>
                         ) : null}
                       </div>
@@ -4523,7 +5079,9 @@ export function TwoPQRecordWorkbench({
         onOpenChange={handleRelationDialogChange}
         area={batchArea}
         title={t("Link Batch")}
-        description={t("Select the sequencing batch that should act as the parent entity for this case.")}
+        description={t(
+          "Select the sequencing batch that should act as the parent entity for this case.",
+        )}
         records={batchCandidates}
         loading={batchesQuery.isFetching}
         pendingRecordId={pendingRelationRecordId}
@@ -4538,7 +5096,9 @@ export function TwoPQRecordWorkbench({
         onOpenChange={handleRelationDialogChange}
         area={caseArea}
         title={t("Link Case")}
-        description={t("Select the parent case that should own this sampling record.")}
+        description={t(
+          "Select the parent case that should own this sampling record.",
+        )}
         records={parentCaseCandidates}
         loading={casesQuery.isFetching}
         pendingRecordId={pendingRelationRecordId}
@@ -4553,7 +5113,9 @@ export function TwoPQRecordWorkbench({
         onOpenChange={handleRelationDialogChange}
         area={caseArea}
         title={t("Link Existing Case")}
-        description={t("Attach an existing case to this sequencing batch. If the case already belongs to another batch, it will be moved.")}
+        description={t(
+          "Attach an existing case to this sequencing batch. If the case already belongs to another batch, it will be moved.",
+        )}
         records={sequencingCaseCandidates}
         loading={casesQuery.isFetching}
         pendingRecordId={pendingRelationRecordId}
@@ -4569,7 +5131,9 @@ export function TwoPQRecordWorkbench({
         onOpenChange={handleRelationDialogChange}
         area={samplingArea}
         title={t("Link Existing Sampling")}
-        description={t("Attach an existing sampling record to this case. If it already belongs to another case, it will be moved.")}
+        description={t(
+          "Attach an existing sampling record to this case. If it already belongs to another case, it will be moved.",
+        )}
         records={samplingCandidates}
         loading={samplingsQuery.isFetching}
         pendingRecordId={pendingRelationRecordId}
@@ -4583,7 +5147,11 @@ export function TwoPQRecordWorkbench({
       <Dialog
         open={Boolean(caseDeleteProcess)}
         onOpenChange={(open) => {
-          if (open || !caseDeleteProcess || caseDeleteProcess.status === "running") {
+          if (
+            open ||
+            !caseDeleteProcess ||
+            caseDeleteProcess.status === "running"
+          ) {
             return;
           }
 
@@ -4625,7 +5193,8 @@ export function TwoPQRecordWorkbench({
                   {t("Case deletion completed")}
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm text-rose-950/72 dark:text-rose-50/76">
-                  {t("Case")} <span className="font-mono">{caseDeleteProcess.caseId}</span>{" "}
+                  {t("Case")}{" "}
+                  <span className="font-mono">{caseDeleteProcess.caseId}</span>{" "}
                   {t("and")} {caseDeleteProcess.samplingCount}{" "}
                   {t("associated biopsies were deleted together.")}
                 </p>
@@ -4646,7 +5215,9 @@ export function TwoPQRecordWorkbench({
                   {t("Case deletion progress")}
                 </DialogTitle>
                 <DialogDescription className="text-rose-950/68 dark:text-rose-50/72">
-                  {t("The case and its associated biopsies are being deleted in a controlled backend operation.")}
+                  {t(
+                    "The case and its associated biopsies are being deleted in a controlled backend operation.",
+                  )}
                 </DialogDescription>
                 {caseDeleteProcess?.status === "error" ? (
                   <Button
@@ -4657,7 +5228,9 @@ export function TwoPQRecordWorkbench({
                     className="absolute right-5 top-5 h-9 w-9 rounded-full text-rose-950 hover:bg-rose-100/80 dark:text-rose-50 dark:hover:bg-rose-900/36"
                   >
                     <X className="h-4 w-4" />
-                    <span className="sr-only">{t("Close case deletion progress")}</span>
+                    <span className="sr-only">
+                      {t("Close case deletion progress")}
+                    </span>
                   </Button>
                 ) : null}
               </DialogHeader>
@@ -4671,8 +5244,12 @@ export function TwoPQRecordWorkbench({
                       </p>
                       <p className="mt-2 text-sm text-rose-950/72 dark:text-rose-50/72">
                         {caseDeleteProcess?.status === "error"
-                          ? t("The deletion stopped. Open the error log to inspect the backend response.")
-                          : t("Deleting the case and the linked biopsy records selected in the confirmation.")}
+                          ? t(
+                              "The deletion stopped. Open the error log to inspect the backend response.",
+                            )
+                          : t(
+                              "Deleting the case and the linked biopsy records selected in the confirmation.",
+                            )}
                       </p>
                     </div>
                     <Badge
@@ -4736,7 +5313,9 @@ export function TwoPQRecordWorkbench({
                 {caseDeleteProcess?.status === "error" ? (
                   <div className="rounded-[1.35rem] border border-destructive/28 bg-destructive/8 px-4 py-4 text-sm text-destructive">
                     {caseDeleteProcess.errorTitle ?? t("Case deletion error")}.{" "}
-                    {t("No local cleanup was completed after the backend rejected the request.")}
+                    {t(
+                      "No local cleanup was completed after the backend rejected the request.",
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -4796,7 +5375,10 @@ export function TwoPQRecordWorkbench({
                 {t("Record launched")}
               </h3>
               <p className="mt-2 max-w-md text-sm text-emerald-50/84">
-                {t("New record")} <span className="font-mono text-emerald-50">{createdRecordId}</span>{" "}
+                {t("New record")}{" "}
+                <span className="font-mono text-emerald-50">
+                  {createdRecordId}
+                </span>{" "}
                 {t("is live and ready in the full list.")}
               </p>
               <Button
@@ -4819,7 +5401,9 @@ export function TwoPQRecordWorkbench({
           </Link>
         </Button>
         {detail ? (
-          <span className="font-mono text-xs text-muted-foreground">{detail.record.id}</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {detail.record.id}
+          </span>
         ) : null}
         <Badge variant="outline">{area.collectionKey}</Badge>
       </div>
@@ -4829,9 +5413,13 @@ export function TwoPQRecordWorkbench({
           <div>
             <p className="section-eyebrow">2PQ</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
-              {mode === "create" ? area.createLabel : `${area.label} ${t("workbench")}`}
+              {mode === "create"
+                ? area.createLabel
+                : `${area.label} ${t("workbench")}`}
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{area.summary}</p>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              {area.summary}
+            </p>
           </div>
 
           <div className="flex flex-col items-start gap-3 lg:items-end">
@@ -4840,7 +5428,9 @@ export function TwoPQRecordWorkbench({
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   Case Last Updated
                 </p>
-                <p className="mt-1 text-sm font-medium text-foreground">{formattedCaseLastUpdatedDate}</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {formattedCaseLastUpdatedDate}
+                </p>
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2">
@@ -4851,8 +5441,8 @@ export function TwoPQRecordWorkbench({
                 disabled={!changed || pendingAction !== null}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-              {t("Reset")}
-            </Button>
+                {t("Reset")}
+              </Button>
               {mode === "create" ? null : (
                 <>
                   <Button
@@ -4862,7 +5452,9 @@ export function TwoPQRecordWorkbench({
                     disabled={!canReplace || !changed || pendingAction !== null}
                   >
                     <Save className="h-3.5 w-3.5" />
-                    {pendingAction === "replace" ? t("Replacing...") : t("Replace")}
+                    {pendingAction === "replace"
+                      ? t("Replacing...")
+                      : t("Replace")}
                   </Button>
                   <Button
                     size="sm"
@@ -4870,7 +5462,9 @@ export function TwoPQRecordWorkbench({
                     disabled={!canUpdate || !changed || pendingAction !== null}
                   >
                     <Save className="h-3.5 w-3.5" />
-                    {pendingAction === "update" ? t("Updating...") : t("Update")}
+                    {pendingAction === "update"
+                      ? t("Updating...")
+                      : t("Update")}
                   </Button>
                   {canDelete ? (
                     <AlertDialog
@@ -4883,7 +5477,11 @@ export function TwoPQRecordWorkbench({
                       }}
                     >
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={pendingAction !== null}>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={pendingAction !== null}
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                           {t("Delete")}
                         </Button>
@@ -4893,12 +5491,20 @@ export function TwoPQRecordWorkbench({
                           <AlertDialogMedia className="bg-destructive/12 text-destructive">
                             <AlertTriangle className="h-5 w-5" />
                           </AlertDialogMedia>
-                          <AlertDialogTitle>{t("Delete record?")}</AlertDialogTitle>
+                          <AlertDialogTitle>
+                            {t("Delete record?")}
+                          </AlertDialogTitle>
                           <AlertDialogDescription>
                             {areaKey === "cases"
-                              ? t("This deletes the case. By default, linked biopsies are kept and only unlinked from this case.")
-                              : t("This removes the Firestore document from")}{" "}
-                            {areaKey === "cases" ? null : <code>{area.collectionKey}</code>}
+                              ? t(
+                                  "This deletes the case. By default, linked biopsies are kept and only unlinked from this case.",
+                                )
+                              : t(
+                                  "This removes the Firestore document from",
+                                )}{" "}
+                            {areaKey === "cases" ? null : (
+                              <code>{area.collectionKey}</code>
+                            )}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         {areaKey === "cases" ? (
@@ -4910,11 +5516,19 @@ export function TwoPQRecordWorkbench({
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
                                   {linkedSamplings.length === 0
-                                    ? t("No linked biopsies are currently attached to this case.")
+                                    ? t(
+                                        "No linked biopsies are currently attached to this case.",
+                                      )
                                     : `${linkedSamplings.length} ${t("linked biopsies will be unlinked unless you choose to delete them too.")}`}
                                 </p>
                               </div>
-                              <Badge variant={linkedSamplings.length > 0 ? "destructive" : "outline"}>
+                              <Badge
+                                variant={
+                                  linkedSamplings.length > 0
+                                    ? "destructive"
+                                    : "outline"
+                                }
+                              >
                                 {linkedSamplings.length}
                               </Badge>
                             </div>
@@ -4940,7 +5554,9 @@ export function TwoPQRecordWorkbench({
                                   {t("Delete associated biopsies too")}
                                 </span>
                                 <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                                  {t("If selected, every biopsy currently linked to this case will be removed instead of only being unlinked.")}
+                                  {t(
+                                    "If selected, every biopsy currently linked to this case will be removed instead of only being unlinked.",
+                                  )}
                                 </span>
                               </span>
                             </label>
@@ -4950,7 +5566,9 @@ export function TwoPQRecordWorkbench({
                           <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
                           <AlertDialogAction
                             variant="destructive"
-                            onClick={() => void handleDelete({ deleteLinkedSamplings })}
+                            onClick={() =>
+                              void handleDelete({ deleteLinkedSamplings })
+                            }
                           >
                             {areaKey === "cases" && deleteLinkedSamplings
                               ? t("Delete case and biopsies")
@@ -4968,9 +5586,15 @@ export function TwoPQRecordWorkbench({
 
         <div className="flex flex-wrap gap-2">
           <Badge variant="brand">{t("Create")}</Badge>
-          <Badge variant={canReplace ? "brand" : "outline"}>{t("Replace")}</Badge>
-          <Badge variant={canUpdate ? "success" : "outline"}>{t("Update")}</Badge>
-          <Badge variant={canDelete ? "destructive" : "outline"}>{t("Delete")}</Badge>
+          <Badge variant={canReplace ? "brand" : "outline"}>
+            {t("Replace")}
+          </Badge>
+          <Badge variant={canUpdate ? "success" : "outline"}>
+            {t("Update")}
+          </Badge>
+          <Badge variant={canDelete ? "destructive" : "outline"}>
+            {t("Delete")}
+          </Badge>
         </div>
 
         {mode === "create" ? (
@@ -4985,346 +5609,452 @@ export function TwoPQRecordWorkbench({
                     <p className="mt-1 text-sm text-muted-foreground">
                       {changed
                         ? `${changedKeys.length} ${changedKeys.length === 1 ? t("field staged for this record.") : t("fields staged for this record.")}`
-                        : t("Fill the required fields, then launch the record.")}
+                        : t(
+                            "Fill the required fields, then launch the record.",
+                          )}
                     </p>
                   </div>
-                  <Button
-                    onClick={() => void handleCreate()}
-                    disabled={pendingAction !== null}
-                    className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 lg:min-w-[20rem] lg:w-auto lg:px-10"
-                  >
-                    {createdRecordId ? (
-                      <CheckCircle2 className="h-5 w-5" />
-                    ) : pendingAction === "create" ? (
-                      <LoaderCircle className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-5 w-5" />
-                    )}
-                    {createdRecordId
-                      ? t("Record created")
-                      : pendingAction === "create"
-                        ? t("Creating record...")
-                        : area.createLabel}
-                  </Button>
+                  <div className="flex w-full flex-col items-start gap-2 lg:w-auto lg:items-end">
+                    <Button
+                      onClick={() => void handleCreate()}
+                      disabled={pendingAction !== null}
+                      className="h-16 w-full rounded-[1.35rem] border border-sky-200/12 bg-[linear-gradient(180deg,rgba(56,189,248,0.98),rgba(37,99,235,0.96))] text-base font-semibold text-white shadow-[0_18px_52px_rgba(37,99,235,0.34)] disabled:opacity-100 lg:min-w-[20rem] lg:w-auto lg:px-10"
+                    >
+                      {createdRecordId ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : pendingAction === "create" ? (
+                        <LoaderCircle className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-5 w-5" />
+                      )}
+                      {createdRecordId
+                        ? t("Record created")
+                        : pendingAction === "create"
+                          ? t("Creating record...")
+                          : area.createLabel}
+                    </Button>
+                    {directCreateRequiresForm ? (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto px-1 py-0 text-xs"
+                        asChild
+                      >
+                        <Link href="/2pq-dashboard">
+                          {t("Go to 2PQ dashboard")}
+                        </Link>
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         ) : null}
 
-        <div className={mode === "create" ? "grid gap-4 pb-40 md:pb-44" : "grid gap-4"}>
-          {areaKey === "sequencing" || areaKey === "cases" || areaKey === "sampling" ? (
+        <div
+          className={
+            mode === "create" ? "grid gap-4 pb-40 md:pb-44" : "grid gap-4"
+          }
+        >
+          {areaKey === "sequencing" ||
+          areaKey === "cases" ||
+          areaKey === "sampling" ? (
             <div className={RELATION_STRIP_CLASSNAME}>
-          {areaKey === "sequencing" ? (
-            <RelationSection
-              title={t("Linked cases")}
-              subtitle={t("Children entities")}
-              actions={
-                mode === "create" ? (
-                  <span className={RELATION_HINT_CLASSNAME}>
-                    {t("Create this batch first to start linking cases.")}
-                  </span>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openRelationDialog("sequencing-child-case")}
-                      disabled={!canManageRelations || pendingRelationRecordId !== null}
-                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {t("Link existing")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      asChild
-                      className={RELATION_PRIMARY_BUTTON_CLASSNAME}
-                    >
-                      <Link href={`${caseArea.route}/new?batchId=${encodeURIComponent(detail!.record.id)}`}>
-                        <Plus className="h-3.5 w-3.5" />
-                        {t("New case")}
-                      </Link>
-                    </Button>
-                  </>
-                )
-              }
-            >
-              {mode === "create" ? (
-                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
-                  {t("Save the sequencing batch, then link existing cases or create a new child case with the batch preloaded.")}
-                </div>
-              ) : linkedCases.length === 0 ? (
-                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
-                  {t("No cases are linked to this batch yet.")}
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {linkedCases.map((record) => (
-                    <LinkedEntityCard
-                      key={record.id}
-                      record={record}
-                      badge={t("Case")}
-                      translate={t}
-                      actions={
-                        <>
+              {areaKey === "sequencing" ? (
+                <RelationSection
+                  title={t("Linked cases")}
+                  subtitle={t("Children entities")}
+                  actions={
+                    mode === "create" ? (
+                      <span className={RELATION_HINT_CLASSNAME}>
+                        {t("Create this batch first to start linking cases.")}
+                      </span>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            openRelationDialog("sequencing-child-case")
+                          }
+                          disabled={
+                            !canManageRelations ||
+                            pendingRelationRecordId !== null
+                          }
+                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          {t("Link existing")}
+                        </Button>
+                        {shouldBlockDirectCreateForArea("cases") ? (
                           <Button
-                            variant="outline"
+                            size="sm"
+                            onClick={showDirectCreateRequiresFormAlert}
+                            className={RELATION_PRIMARY_BUTTON_CLASSNAME}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {t("New case")}
+                          </Button>
+                        ) : (
+                          <Button
                             size="sm"
                             asChild
-                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                            className={RELATION_PRIMARY_BUTTON_CLASSNAME}
                           >
-                            <Link href={getRecordHref(record)}>
-                              {t("Open")}
-                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            <Link
+                              href={`${caseArea.route}/new?batchId=${encodeURIComponent(detail!.record.id)}`}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              {t("New case")}
                             </Link>
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handleUnlinkExistingCase(record)}
-                            disabled={!canManageRelations || pendingRelationRecordId === record.id}
-                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                          >
-                            {pendingRelationRecordId === record.id ? t("Unlinking...") : t("Unlink")}
-                          </Button>
-                        </>
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </RelationSection>
-          ) : null}
+                        )}
+                      </>
+                    )
+                  }
+                >
+                  {mode === "create" ? (
+                    <div className={RELATION_EMPTY_STATE_CLASSNAME}>
+                      {t(
+                        "Save the sequencing batch, then link existing cases or create a new child case with the batch preloaded.",
+                      )}
+                    </div>
+                  ) : linkedCases.length === 0 ? (
+                    <div className={RELATION_EMPTY_STATE_CLASSNAME}>
+                      {t("No cases are linked to this batch yet.")}
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {linkedCases.map((record) => (
+                        <LinkedEntityCard
+                          key={record.id}
+                          record={record}
+                          badge={t("Case")}
+                          translate={t}
+                          actions={
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                              >
+                                <Link href={getRecordHref(record)}>
+                                  {t("Open")}
+                                  <ArrowUpRight className="h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void handleUnlinkExistingCase(record)
+                                }
+                                disabled={
+                                  !canManageRelations ||
+                                  pendingRelationRecordId === record.id
+                                }
+                                className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                              >
+                                {pendingRelationRecordId === record.id
+                                  ? t("Unlinking...")
+                                  : t("Unlink")}
+                              </Button>
+                            </>
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </RelationSection>
+              ) : null}
 
-          {areaKey === "cases" ? (
-            <RelationSection
-              title={t("Linked Batch")}
-              subtitle={t("Parent entity")}
-              actions={
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openRelationDialog("case-parent-batch")}
-                    disabled={!canManageRelations || pendingRelationRecordId !== null}
-                    className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    {linkedBatch ? t("Change batch") : t("Link batch")}
-                  </Button>
+              {areaKey === "cases" ? (
+                <RelationSection
+                  title={t("Linked Batch")}
+                  subtitle={t("Parent entity")}
+                  actions={
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openRelationDialog("case-parent-batch")}
+                        disabled={
+                          !canManageRelations ||
+                          pendingRelationRecordId !== null
+                        }
+                        className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        {linkedBatch ? t("Change batch") : t("Link batch")}
+                      </Button>
+                      {linkedBatch ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleUnlinkBatchFromCase()}
+                          disabled={
+                            !canManageRelations ||
+                            pendingRelationRecordId === linkedBatch.id
+                          }
+                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                        >
+                          {pendingRelationRecordId === linkedBatch.id
+                            ? t("Unlinking...")
+                            : t("Unlink")}
+                        </Button>
+                      ) : null}
+                    </>
+                  }
+                >
                   {linkedBatch ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleUnlinkBatchFromCase()}
-                      disabled={!canManageRelations || pendingRelationRecordId === linkedBatch.id}
-                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      {pendingRelationRecordId === linkedBatch.id ? t("Unlinking...") : t("Unlink")}
-                    </Button>
-                  ) : null}
-                </>
-              }
-            >
-              {linkedBatch ? (
-                <LinkedEntityCard
-                  record={linkedBatch}
-                  badge={t("Batch")}
-                  note={t("The batch is the parent entity. Unlinking removes the relationship only.")}
-                  translate={t}
-                  actions={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      asChild
-                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      <Link href={getRecordHref(linkedBatch)}>
-                        {t("Open")}
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                  }
-                />
-              ) : (
-                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
-                  {t("No parent batch is linked to this case yet.")}
-                </div>
-              )}
-            </RelationSection>
-          ) : null}
-
-          {areaKey === "cases" ? (
-            <RelationSection
-              title={t("Linked samplings")}
-              subtitle={t("Children entities")}
-              actions={
-                mode === "create" ? (
-                  <span className={RELATION_HINT_CLASSNAME}>
-                    {t("Create this case first to start linking samplings.")}
-                  </span>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openRelationDialog("case-child-sampling")}
-                      disabled={!canManageRelations || pendingRelationRecordId !== null}
-                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {t("Link existing")}
-                    </Button>
-                    {linkedSamplings.length > 0 ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={openMultiSamplingEditModal}
-                        disabled={
-                          !canManageRelations ||
-                          Boolean(autoSamplingProcess) ||
-                          Boolean(multiSamplingEditProcess)
-                        }
-                        className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
-                      >
-                        <Save className="h-3.5 w-3.5" />
-                        {t("Edit multiple samplings at once")}
-                      </Button>
-                    ) : hasThreeLetterCode ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={openAutoSamplingSetupModal}
-                        disabled={
-                          !canManageRelations ||
-                          Boolean(autoSamplingProcess) ||
-                          Boolean(multiSamplingEditProcess)
-                        }
-                        className={THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME}
-                      >
-                        <CircleDot className="h-3.5 w-3.5" />
-                        {t("Add multiple samplings at once")}
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      asChild
-                      className={RELATION_PRIMARY_BUTTON_CLASSNAME}
-                    >
-                      <Link href={`${samplingArea.route}/new?caseId=${encodeURIComponent(detail!.record.id)}`}>
-                        <Plus className="h-3.5 w-3.5" />
-                        {t("New sampling")}
-                      </Link>
-                    </Button>
-                  </>
-                )
-              }
-            >
-              {mode === "create" ? (
-                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
-                  {t("Save the case, then link existing sampling records or create a new child sampling with this case preloaded.")}
-                </div>
-              ) : linkedSamplings.length === 0 ? (
-                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
-                  {t("No samplings are linked to this case yet.")}
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {linkedSamplings.map((record) => (
                     <LinkedEntityCard
-                      key={record.id}
-                      record={record}
-                      badge={t("Sampling")}
+                      record={linkedBatch}
+                      badge={t("Batch")}
+                      note={t(
+                        "The batch is the parent entity. Unlinking removes the relationship only.",
+                      )}
                       translate={t}
                       actions={
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                          >
-                            <Link href={getRecordHref(record)}>
-                              {t("Open")}
-                              <ArrowUpRight className="h-3.5 w-3.5" />
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handleUnlinkExistingSampling(record)}
-                            disabled={!canManageRelations || pendingRelationRecordId === record.id}
-                            className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                          >
-                            {pendingRelationRecordId === record.id ? t("Unlinking...") : t("Unlink")}
-                          </Button>
-                        </>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                        >
+                          <Link href={getRecordHref(linkedBatch)}>
+                            {t("Open")}
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
                       }
                     />
-                  ))}
-                </div>
-              )}
-            </RelationSection>
-          ) : null}
+                  ) : (
+                    <div className={RELATION_EMPTY_STATE_CLASSNAME}>
+                      {t("No parent batch is linked to this case yet.")}
+                    </div>
+                  )}
+                </RelationSection>
+              ) : null}
 
-          {areaKey === "sampling" ? (
-            <RelationSection
-              title={t("Linked Case")}
-              subtitle={t("Parent entity")}
-              actions={
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openRelationDialog("sampling-parent-case")}
-                    disabled={!canManageRelations || pendingRelationRecordId !== null}
-                    className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    {linkedCase ? t("Change case") : t("Link case")}
-                  </Button>
-                  {linkedCase ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleUnlinkCaseFromSampling()}
-                      disabled={!canManageRelations || pendingRelationRecordId === linkedCase.id}
-                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      {pendingRelationRecordId === linkedCase.id ? t("Unlinking...") : t("Unlink")}
-                    </Button>
-                  ) : null}
-                </>
-              }
-            >
-              {linkedCase ? (
-                <LinkedEntityCard
-                  record={linkedCase}
-                  badge={t("Case")}
-                  note={t("The case is the parent entity. Unlinking removes the relationship only.")}
-                  translate={t}
+              {areaKey === "cases" ? (
+                <RelationSection
+                  title={t("Linked samplings")}
+                  subtitle={t("Children entities")}
                   actions={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      asChild
-                      className={RELATION_SECONDARY_BUTTON_CLASSNAME}
-                    >
-                      <Link href={getRecordHref(linkedCase)}>
-                        {t("Open")}
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
+                    mode === "create" ? (
+                      <span className={RELATION_HINT_CLASSNAME}>
+                        {t(
+                          "Create this case first to start linking samplings.",
+                        )}
+                      </span>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            openRelationDialog("case-child-sampling")
+                          }
+                          disabled={
+                            !canManageRelations ||
+                            pendingRelationRecordId !== null
+                          }
+                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          {t("Link existing")}
+                        </Button>
+                        {linkedSamplings.length > 0 ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={openMultiSamplingEditModal}
+                            disabled={
+                              !canManageRelations ||
+                              Boolean(autoSamplingProcess) ||
+                              Boolean(multiSamplingEditProcess)
+                            }
+                            className={
+                              THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME
+                            }
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {t("Edit multiple samplings at once")}
+                          </Button>
+                        ) : hasThreeLetterCode ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={openAutoSamplingSetupModal}
+                            disabled={
+                              !canManageRelations ||
+                              Boolean(autoSamplingProcess) ||
+                              Boolean(multiSamplingEditProcess)
+                            }
+                            className={
+                              THREE_LETTER_CODE_PRIMARY_BUTTON_CLASSNAME
+                            }
+                          >
+                            <CircleDot className="h-3.5 w-3.5" />
+                            {t("Add multiple samplings at once")}
+                          </Button>
+                        ) : null}
+                        {shouldBlockDirectCreateForArea("sampling") ? (
+                          <Button
+                            size="sm"
+                            onClick={showDirectCreateRequiresFormAlert}
+                            className={RELATION_PRIMARY_BUTTON_CLASSNAME}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {t("New sampling")}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            asChild
+                            className={RELATION_PRIMARY_BUTTON_CLASSNAME}
+                          >
+                            <Link
+                              href={`${samplingArea.route}/new?caseId=${encodeURIComponent(detail!.record.id)}`}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              {t("New sampling")}
+                            </Link>
+                          </Button>
+                        )}
+                      </>
+                    )
                   }
-                />
-              ) : (
-                <div className={RELATION_EMPTY_STATE_CLASSNAME}>
-                  {t("No parent case is linked to this sampling record yet.")}
-                </div>
-              )}
-            </RelationSection>
-          ) : null}
+                >
+                  {mode === "create" ? (
+                    <div className={RELATION_EMPTY_STATE_CLASSNAME}>
+                      {t(
+                        "Save the case, then link existing sampling records or create a new child sampling with this case preloaded.",
+                      )}
+                    </div>
+                  ) : linkedSamplings.length === 0 ? (
+                    <div className={RELATION_EMPTY_STATE_CLASSNAME}>
+                      {t("No samplings are linked to this case yet.")}
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {linkedSamplings.map((record) => (
+                        <LinkedEntityCard
+                          key={record.id}
+                          record={record}
+                          badge={t("Sampling")}
+                          translate={t}
+                          actions={
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                              >
+                                <Link href={getRecordHref(record)}>
+                                  {t("Open")}
+                                  <ArrowUpRight className="h-3.5 w-3.5" />
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void handleUnlinkExistingSampling(record)
+                                }
+                                disabled={
+                                  !canManageRelations ||
+                                  pendingRelationRecordId === record.id
+                                }
+                                className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                              >
+                                {pendingRelationRecordId === record.id
+                                  ? t("Unlinking...")
+                                  : t("Unlink")}
+                              </Button>
+                            </>
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </RelationSection>
+              ) : null}
+
+              {areaKey === "sampling" ? (
+                <RelationSection
+                  title={t("Linked Case")}
+                  subtitle={t("Parent entity")}
+                  actions={
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          openRelationDialog("sampling-parent-case")
+                        }
+                        disabled={
+                          !canManageRelations ||
+                          pendingRelationRecordId !== null
+                        }
+                        className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        {linkedCase ? t("Change case") : t("Link case")}
+                      </Button>
+                      {linkedCase ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleUnlinkCaseFromSampling()}
+                          disabled={
+                            !canManageRelations ||
+                            pendingRelationRecordId === linkedCase.id
+                          }
+                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                        >
+                          {pendingRelationRecordId === linkedCase.id
+                            ? t("Unlinking...")
+                            : t("Unlink")}
+                        </Button>
+                      ) : null}
+                    </>
+                  }
+                >
+                  {linkedCase ? (
+                    <LinkedEntityCard
+                      record={linkedCase}
+                      badge={t("Case")}
+                      note={t(
+                        "The case is the parent entity. Unlinking removes the relationship only.",
+                      )}
+                      translate={t}
+                      actions={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className={RELATION_SECONDARY_BUTTON_CLASSNAME}
+                        >
+                          <Link href={getRecordHref(linkedCase)}>
+                            {t("Open")}
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className={RELATION_EMPTY_STATE_CLASSNAME}>
+                      {t(
+                        "No parent case is linked to this sampling record yet.",
+                      )}
+                    </div>
+                  )}
+                </RelationSection>
+              ) : null}
             </div>
           ) : null}
 
@@ -5345,8 +6075,12 @@ export function TwoPQRecordWorkbench({
                   </div>
                   <p className="mt-2 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/74">
                     {mode === "create"
-                      ? t("Stage a unique three-letter shorthand for this new 2PQ case before it is created. The code will be written into Firebase as part of the initial case document.")
-                      : t("A unique three-letter shorthand for this 2PQ case. Use it as a quick visual identifier when operators need a short code instead of the full case label.")}
+                      ? t(
+                          "Stage a unique three-letter shorthand for this new 2PQ case before it is created. The code will be written into Firebase as part of the initial case document.",
+                        )
+                      : t(
+                          "A unique three-letter shorthand for this 2PQ case. Use it as a quick visual identifier when operators need a short code instead of the full case label.",
+                        )}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -5375,7 +6109,9 @@ export function TwoPQRecordWorkbench({
                     variant="outline"
                     size="sm"
                     onClick={() => openThreeLetterCodeModal("remove")}
-                    disabled={!hasThreeLetterCode || pendingThreeLetterCodeAction}
+                    disabled={
+                      !hasThreeLetterCode || pendingThreeLetterCodeAction
+                    }
                     className={THREE_LETTER_CODE_SECONDARY_BUTTON_CLASSNAME}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -5388,7 +6124,9 @@ export function TwoPQRecordWorkbench({
                 {hasThreeLetterCode ? (
                   <>
                     <div className="rounded-[1.45rem] border border-fuchsia-100 bg-white/70 px-4 py-4 shadow-[0_16px_38px_rgba(250,232,255,0.62)] dark:border-fuchsia-200/16 dark:bg-fuchsia-950/24 dark:shadow-none">
-                      <ThreeLetterCodeVisualizer code={normalizedThreeLetterCode} />
+                      <ThreeLetterCodeVisualizer
+                        code={normalizedThreeLetterCode}
+                      />
                     </div>
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-fuchsia-950 dark:text-fuchsia-50">
@@ -5399,13 +6137,19 @@ export function TwoPQRecordWorkbench({
                       <p className="text-sm text-fuchsia-950/70 dark:text-fuchsia-50/72">
                         {mode === "create" ? (
                           <>
-                            {t("The code will be stored on the new case document as")}{" "}
+                            {t(
+                              "The code will be stored on the new case document as",
+                            )}{" "}
                             <code>three_letter_code</code> {t("when you tap")}{" "}
-                            <span className="font-medium">{area.createLabel}</span>.
+                            <span className="font-medium">
+                              {area.createLabel}
+                            </span>
+                            .
                           </>
                         ) : (
                           <>
-                            {t("The code is stored on the case document as")} <code>three_letter_code</code>{" "}
+                            {t("The code is stored on the case document as")}{" "}
+                            <code>three_letter_code</code>{" "}
                             {t("and stays available here for quick reference.")}
                           </>
                         )}
@@ -5413,10 +6157,16 @@ export function TwoPQRecordWorkbench({
                     </div>
                   </>
                 ) : (
-                  <div className={`${THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME} lg:col-span-2`}>
+                  <div
+                    className={`${THREE_LETTER_CODE_EMPTY_STATE_CLASSNAME} lg:col-span-2`}
+                  >
                     {mode === "create"
-                      ? t("No three letter code is staged yet. Add one manually or generate a new random code so the case is created with its shorthand already assigned.")
-                      : t("No three letter code has been assigned yet. Add one manually or generate a new random code to reserve a unique shorthand for this case.")}
+                      ? t(
+                          "No three letter code is staged yet. Add one manually or generate a new random code so the case is created with its shorthand already assigned.",
+                        )
+                      : t(
+                          "No three letter code has been assigned yet. Add one manually or generate a new random code to reserve a unique shorthand for this case.",
+                        )}
                   </div>
                 )}
               </div>
@@ -5428,8 +6178,12 @@ export function TwoPQRecordWorkbench({
               key={group.title}
               className="rounded-2xl border border-border/70 bg-background/45 px-4 py-4"
             >
-              <h3 className="font-heading text-lg font-semibold text-foreground">{group.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{group.description}</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                {group.title}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {group.description}
+              </p>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 {group.fields.map((field) => {
@@ -5444,15 +6198,22 @@ export function TwoPQRecordWorkbench({
                   const disabled =
                     pendingAction !== null ||
                     pendingCaseLabelCorrection ||
-                    (field.key === "institutionId" && Boolean(scopedInstitutionId)) ||
+                    (field.key === "institutionId" &&
+                      Boolean(scopedInstitutionId)) ||
                     (field.key === "doctorId" && Boolean(scopedDoctorId));
 
                   return (
                     <div
                       key={field.key}
-                      className={field.type === "textarea" ? "space-y-2 md:col-span-2" : "space-y-2"}
+                      className={
+                        field.type === "textarea"
+                          ? "space-y-2 md:col-span-2"
+                          : "space-y-2"
+                      }
                     >
-                      <Label htmlFor={`${area.key}-${field.key}`}>{field.label}</Label>
+                      <Label htmlFor={`${area.key}-${field.key}`}>
+                        {field.label}
+                      </Label>
                       {field.type === "textarea" ? (
                         <Textarea
                           id={`${area.key}-${field.key}`}
@@ -5473,24 +6234,39 @@ export function TwoPQRecordWorkbench({
                           onChange={(value) =>
                             setState((current) => {
                               const next = { ...current, [field.key]: value };
-                              if (field.key === "institutionId" && current.institutionId !== value) {
+                              if (
+                                field.key === "institutionId" &&
+                                current.institutionId !== value
+                              ) {
                                 next.doctorId = "";
                                 next.patientId = "";
                               }
-                              if (field.key === "doctorId" && current.doctorId !== value) {
+                              if (
+                                field.key === "doctorId" &&
+                                current.doctorId !== value
+                              ) {
                                 next.patientId = "";
                               }
                               return next;
                             })
                           }
-                          placeholder={field.placeholder ?? `${t("Select")} ${field.label.toLowerCase()}`}
+                          placeholder={
+                            field.placeholder ??
+                            `${t("Select")} ${field.label.toLowerCase()}`
+                          }
                           emptyLabel={`${t("No")} ${field.label.toLowerCase()}`}
                           disabled={disabled}
                         />
                       ) : (
                         <Input
                           id={`${area.key}-${field.key}`}
-                          type={field.type === "date" ? "date" : field.type === "email" ? "email" : "text"}
+                          type={
+                            field.type === "date"
+                              ? "date"
+                              : field.type === "email"
+                                ? "email"
+                                : "text"
+                          }
                           value={state[field.key]}
                           onChange={(event) =>
                             setState((current) => ({
@@ -5502,14 +6278,19 @@ export function TwoPQRecordWorkbench({
                           disabled={disabled}
                         />
                       )}
-                      <p className="text-xs text-muted-foreground">{field.description}</p>
-                      {field.key === "caseLabel" && hasCaseLabelMismatchWarning ? (
+                      <p className="text-xs text-muted-foreground">
+                        {field.description}
+                      </p>
+                      {field.key === "caseLabel" &&
+                      hasCaseLabelMismatchWarning ? (
                         <div className="rounded-[1.15rem] border border-amber-300/90 bg-amber-50/90 px-3 py-3 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
                               <p>
-                                {t("Case label must match the active three letter code. Expected value:")}{" "}
+                                {t(
+                                  "Case label must match the active three letter code. Expected value:",
+                                )}{" "}
                                 <span className="font-mono font-semibold">
                                   {expectedCaseLabelFromThreeLetterCode}
                                 </span>
@@ -5519,8 +6300,13 @@ export function TwoPQRecordWorkbench({
                             <Button
                               type="button"
                               size="sm"
-                              onClick={() => void handleCorrectCaseLabelToThreeLetterCode()}
-                              disabled={pendingCaseLabelCorrection || pendingAction !== null}
+                              onClick={() =>
+                                void handleCorrectCaseLabelToThreeLetterCode()
+                              }
+                              disabled={
+                                pendingCaseLabelCorrection ||
+                                pendingAction !== null
+                              }
                               className="h-9 shrink-0 border border-amber-300/90 bg-[linear-gradient(180deg,rgba(254,249,195,0.98),rgba(253,230,138,0.98))] px-4 text-amber-950 shadow-[0_10px_24px_rgba(251,191,36,0.2)] hover:brightness-[1.02] dark:border-amber-300/30 dark:bg-[linear-gradient(180deg,rgba(146,64,14,0.92),rgba(202,138,4,0.9))] dark:text-amber-50 dark:shadow-none"
                             >
                               {pendingCaseLabelCorrection ? (
@@ -5542,12 +6328,16 @@ export function TwoPQRecordWorkbench({
             <section className={FILE_STORAGE_SECTION_CLASSNAME}>
               <div
                 className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
-                  isFileStorageSectionExpanded ? "border-b border-indigo-200/70" : ""
+                  isFileStorageSectionExpanded
+                    ? "border-b border-indigo-200/70"
+                    : ""
                 }`}
               >
                 <button
                   type="button"
-                  onClick={() => setIsFileStorageSectionExpanded((current) => !current)}
+                  onClick={() =>
+                    setIsFileStorageSectionExpanded((current) => !current)
+                  }
                   aria-expanded={isFileStorageSectionExpanded}
                   className="group max-w-3xl text-left"
                 >
@@ -5571,10 +6361,16 @@ export function TwoPQRecordWorkbench({
                   </div>
                   <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
                     {hasStoredFileId
-                      ? t("Inspect the current stored snapshot metadata, then update the linked Firebase")
-                      : t("Generate a reusable JSON snapshot of this case, its parent batch, and its child samplings, then publish that snapshot into the Firebase")}{" "}
+                      ? t(
+                          "Inspect the current stored snapshot metadata, then update the linked Firebase",
+                        )
+                      : t(
+                          "Generate a reusable JSON snapshot of this case, its parent batch, and its child samplings, then publish that snapshot into the Firebase",
+                        )}{" "}
                     <code>file_storage</code>
-                    {hasStoredFileId ? ` ${t("document in place.")}` : ` ${t("collection.")}`}
+                    {hasStoredFileId
+                      ? ` ${t("document in place.")}`
+                      : ` ${t("collection.")}`}
                   </p>
                 </button>
                 <div className="flex flex-wrap gap-2">
@@ -5619,7 +6415,9 @@ export function TwoPQRecordWorkbench({
                       {fileStorageSnapshotFileName}
                     </p>
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                      {t("Derived from the case three-letter code as the canonical publish name.")}
+                      {t(
+                        "Derived from the case three-letter code as the canonical publish name.",
+                      )}
                     </p>
                   </div>
                   <div className="rounded-[1.3rem] border border-indigo-100 bg-white/74 px-4 py-4 shadow-[0_14px_34px_rgba(224,231,255,0.72)] dark:border-indigo-200/16 dark:bg-indigo-950/24 dark:shadow-none">
@@ -5633,10 +6431,16 @@ export function TwoPQRecordWorkbench({
                     </p>
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                       {!hasFileStorageAccess
-                        ? t("Only full admins can open, publish, or update file_storage documents from this section.")
+                        ? t(
+                            "Only full admins can open, publish, or update file_storage documents from this section.",
+                          )
                         : hasStoredFileId
-                          ? t("Updating rewrites the current file_storage snapshot in place and keeps this case linked to the same stored_file_id.")
-                          : t("Publishing will create a new file and save its document id on this case as stored_file_id.")}
+                          ? t(
+                              "Updating rewrites the current file_storage snapshot in place and keeps this case linked to the same stored_file_id.",
+                            )
+                          : t(
+                              "Publishing will create a new file and save its document id on this case as stored_file_id.",
+                            )}
                     </p>
                     {hasStoredFileId ? (
                       <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
@@ -5644,7 +6448,8 @@ export function TwoPQRecordWorkbench({
                         <span className="font-medium text-indigo-950 dark:text-indigo-50">
                           {storedFileDocumentQuery.isLoading
                             ? t("Checking...")
-                            : formattedStoredFileLastModifiedDate ?? t("Not available")}
+                            : (formattedStoredFileLastModifiedDate ??
+                              t("Not available"))}
                         </span>
                       </p>
                     ) : null}
@@ -5657,7 +6462,9 @@ export function TwoPQRecordWorkbench({
                       {hasStoredFileId ? storedFileId : t("Not saved yet")}
                     </p>
                     <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                      {t("This field is written back into the case entity in Firebase after publish.")}
+                      {t(
+                        "This field is written back into the case entity in Firebase after publish.",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -5669,13 +6476,24 @@ export function TwoPQRecordWorkbench({
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
                         <p>
-                          {t("The current stored file snapshot may be out of date. This case was updated")}{" "}
-                          <span className="font-medium">{formattedCaseLastUpdatedDate}</span>,{" "}
-                          {t("while the published stored file was last updated")}{" "}
+                          {t(
+                            "The current stored file snapshot may be out of date. This case was updated",
+                          )}{" "}
                           <span className="font-medium">
-                            {formattedStoredFileLastModifiedDate ?? t("at an unknown time")}
+                            {formattedCaseLastUpdatedDate}
                           </span>
-                          . {t("Update it so the file storage snapshot reflects the latest case information.")}
+                          ,{" "}
+                          {t(
+                            "while the published stored file was last updated",
+                          )}{" "}
+                          <span className="font-medium">
+                            {formattedStoredFileLastModifiedDate ??
+                              t("at an unknown time")}
+                          </span>
+                          .{" "}
+                          {t(
+                            "Update it so the file storage snapshot reflects the latest case information.",
+                          )}
                         </p>
                       </div>
                       <Button
@@ -5700,16 +6518,23 @@ export function TwoPQRecordWorkbench({
             </section>
           ) : null}
 
-          {areaKey === "cases" && mode !== "create" && hasThreeLetterCode && hasStoredFileId ? (
+          {areaKey === "cases" &&
+          mode !== "create" &&
+          hasThreeLetterCode &&
+          hasStoredFileId ? (
             <section className={REPORT_CODE_PUBLISH_SECTION_CLASSNAME}>
               <div
                 className={`flex flex-col gap-4 px-5 py-5 dark:border-indigo-300/16 lg:flex-row lg:items-start lg:justify-between ${
-                  isReportCodeSectionExpanded ? "border-b border-indigo-200/70" : ""
+                  isReportCodeSectionExpanded
+                    ? "border-b border-indigo-200/70"
+                    : ""
                 }`}
               >
                 <button
                   type="button"
-                  onClick={() => setIsReportCodeSectionExpanded((current) => !current)}
+                  onClick={() =>
+                    setIsReportCodeSectionExpanded((current) => !current)
+                  }
                   aria-expanded={isReportCodeSectionExpanded}
                   className="group max-w-3xl text-left"
                 >
@@ -5720,7 +6545,8 @@ export function TwoPQRecordWorkbench({
                     <Badge
                       variant="outline"
                       className={
-                        reportCodePublishConflictMessage || isStoredFileDocumentMissing
+                        reportCodePublishConflictMessage ||
+                        isStoredFileDocumentMissing
                           ? "border-amber-300 bg-amber-50/90 text-amber-950 dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50"
                           : "border-indigo-200 bg-white/72 text-indigo-950 dark:border-indigo-300/18 dark:bg-indigo-400/10 dark:text-indigo-50"
                       }
@@ -5747,7 +6573,9 @@ export function TwoPQRecordWorkbench({
                   </div>
                   <p className="mt-2 text-sm text-indigo-950/72 dark:text-indigo-50/74">
                     {t("Promote the current")} <code>file_storage</code>{" "}
-                    {t("snapshot into a reusable 2PQ report code using the current signed-in admin as the report owner. The report code for this case is derived from the three-letter code as")}{" "}
+                    {t(
+                      "snapshot into a reusable 2PQ report code using the current signed-in admin as the report owner. The report code for this case is derived from the three-letter code as",
+                    )}{" "}
                     <code>{expectedCaseLabelFromThreeLetterCode}</code>.
                   </p>
                 </button>
@@ -5760,7 +6588,9 @@ export function TwoPQRecordWorkbench({
                       asChild
                       className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
                     >
-                      <Link href={`/reports/${expectedCaseLabelFromThreeLetterCode}`}>
+                      <Link
+                        href={`/reports/${expectedCaseLabelFromThreeLetterCode}`}
+                      >
                         <Link2 className="h-3.5 w-3.5" />
                         {t("Show report code")}
                       </Link>
@@ -5776,7 +6606,9 @@ export function TwoPQRecordWorkbench({
                       asChild
                       className={FILE_STORAGE_SECONDARY_BUTTON_CLASSNAME}
                     >
-                      <Link href={`/reports/uploads/${reportCodeStatus.uploadedReportId}`}>
+                      <Link
+                        href={`/reports/uploads/${reportCodeStatus.uploadedReportId}`}
+                      >
                         <ArrowUpRight className="h-3.5 w-3.5" />
                         {t("Show uploaded report")}
                       </Link>
@@ -5806,7 +6638,9 @@ export function TwoPQRecordWorkbench({
                         {expectedCaseLabelFromThreeLetterCode}
                       </p>
                       <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                        {t("This is the 6-character code derived from the active three-letter code plus")}{" "}
+                        {t(
+                          "This is the 6-character code derived from the active three-letter code plus",
+                        )}{" "}
                         <span className="font-mono">XXX</span>.
                       </p>
                     </div>
@@ -5818,8 +6652,11 @@ export function TwoPQRecordWorkbench({
                         {adminContext.email}
                       </p>
                       <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
-                        {t("The new report code will use the current admin user as owner, with provider format")}{" "}
-                        <span className="font-mono">2pq</span> {t("and stored file")}{" "}
+                        {t(
+                          "The new report code will use the current admin user as owner, with provider format",
+                        )}{" "}
+                        <span className="font-mono">2pq</span>{" "}
+                        {t("and stored file")}{" "}
                         <span className="font-mono">{storedFileId}</span>.
                       </p>
                     </div>
@@ -5831,37 +6668,46 @@ export function TwoPQRecordWorkbench({
                         {isStoredFileDocumentMissing
                           ? t("Stored file document missing.")
                           : !hasFileStorageAccess
-                            ? t("Only full admins can inspect or publish report-code linkage from this section.")
-                          : isReportCodeStatusLoading
-                            ? t("Checking current publish state...")
-                            : isPublishedAsReportCode
-                              ? t("Report code already resolves back to this stored file.")
-                              : reportCodePublishConflictMessage
-                                ? reportCodePublishConflictMessage
-                                : t("No report code has been linked yet.")}
+                            ? t(
+                                "Only full admins can inspect or publish report-code linkage from this section.",
+                              )
+                            : isReportCodeStatusLoading
+                              ? t("Checking current publish state...")
+                              : isPublishedAsReportCode
+                                ? t(
+                                    "Report code already resolves back to this stored file.",
+                                  )
+                                : reportCodePublishConflictMessage
+                                  ? reportCodePublishConflictMessage
+                                  : t("No report code has been linked yet.")}
                       </p>
                       <p className="mt-2 text-xs text-indigo-950/62 dark:text-indigo-50/64">
                         {t("file_storage linked code:")}{" "}
                         <span className="font-mono">
                           {storedFileLinkedReportCode || t("Not linked yet")}
                         </span>
-                        {" · "}{t("uploaded report id:")}{" "}
+                        {" · "}
+                        {t("uploaded report id:")}{" "}
                         <span className="font-mono">
-                          {reportCodeStatus?.uploadedReportId ?? t("Not created yet")}
+                          {reportCodeStatus?.uploadedReportId ??
+                            t("Not created yet")}
                         </span>
                       </p>
                     </div>
                   </div>
 
                   {hasFileStorageAccess &&
-                  (storedFileDocumentQuery.isError || reportCodeStatusQuery.isError) ? (
+                  (storedFileDocumentQuery.isError ||
+                    reportCodeStatusQuery.isError) ? (
                     <div className="px-5 pb-5">
                       <div className="rounded-[1.25rem] border border-amber-300/90 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 shadow-[0_10px_22px_rgba(251,191,36,0.16)] dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-50">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-start gap-2">
                             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
                             <p>
-                              {t("Unable to verify the latest report-code publish state right now. Retry the status check before publishing.")}
+                              {t(
+                                "Unable to verify the latest report-code publish state right now. Retry the status check before publishing.",
+                              )}
                             </p>
                           </div>
                           <Button
