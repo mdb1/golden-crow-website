@@ -392,10 +392,12 @@ export function RoleWorkbench({
           <div className="space-y-2">
             <Label htmlFor="role-type">{t("Role")}</Label>
             <OptionSelectField
-              options={roleOptions.map((option) => ({
-                ...option,
-                label: t(option.label),
-              }))}
+              options={roleOptions
+                .filter((option) => option.value !== "patient")
+                .map((option) => ({
+                  ...option,
+                  label: t(option.label),
+                }))}
               value={state.role}
               onChange={(role) => applyRoleDefaults(role as RoleManagementRecord["role"])}
               placeholder={t("Select role")}
