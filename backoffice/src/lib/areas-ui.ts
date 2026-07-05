@@ -60,6 +60,10 @@ export function canCreateDoctorUi(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   return (
     isInstitutionManagerRole(context.role) &&
     (!institutionId || context.institutionId === institutionId)
@@ -72,6 +76,10 @@ export function canEditDoctorUi(
 ) {
   if (context.role === "full_admin") {
     return true;
+  }
+
+  if (context.role === "institution_laboratory_staff") {
+    return false;
   }
 
   if (isInstitutionManagerRole(context.role)) {
@@ -91,6 +99,10 @@ export function canDeleteDoctorUi(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   return (
     isInstitutionManagerRole(context.role) &&
     context.institutionId === doctor.institutionId
@@ -104,6 +116,10 @@ export function canCreatePatientUi(
 ) {
   if (context.role === "full_admin") {
     return true;
+  }
+
+  if (context.role === "institution_laboratory_staff") {
+    return false;
   }
 
   if (isInstitutionManagerRole(context.role)) {
@@ -123,6 +139,10 @@ export function canEditPatientUi(
 ) {
   if (context.role === "full_admin") {
     return true;
+  }
+
+  if (context.role === "institution_laboratory_staff") {
+    return false;
   }
 
   if (isInstitutionManagerRole(context.role)) {
@@ -180,12 +200,15 @@ export function canEditRoleUi(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     return (
       roleRecord.role !== "full_admin" &&
       !(
-        (context.role === "institution_operator" ||
-          context.role === "institution_laboratory_staff") &&
+        context.role === "institution_operator" &&
         roleRecord.role === "institution_admin"
       ) &&
       Boolean(roleRecord.institutionId) &&
@@ -221,19 +244,20 @@ export function getRoleEditRestrictionMessage(
     return "Bootstrap role assignments are locked in the UI and stay outside the normal reassignment flow.";
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return "Institution laboratory staff cannot modify role assignments.";
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     if (roleRecord.role === "full_admin") {
       return "Institution managers cannot modify full-admin role assignments.";
     }
 
     if (
-      (context.role === "institution_operator" ||
-        context.role === "institution_laboratory_staff") &&
+      context.role === "institution_operator" &&
       roleRecord.role === "institution_admin"
     ) {
-      return context.role === "institution_laboratory_staff"
-        ? "Institution laboratory staff cannot modify institution-admin role assignments."
-        : "Institution operators cannot modify institution-admin role assignments.";
+      return "Institution operators cannot modify institution-admin role assignments.";
     }
 
     return "This role assignment sits outside your institution scope.";
@@ -277,10 +301,9 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   ],
   institution_laboratory_staff: [
     "Can see and edit only one institution.",
-    "Can create doctors and patients inside that institution.",
-    "Can update existing institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.",
+    "Cannot create or update doctors, patients, or role assignments.",
+    "Cannot inspect the local permission map.",
     "New role assignments must be requested from the institution administrator.",
-    "Cannot assign institution-admin roles.",
   ],
   institution_doctor: [
     "Can read the institution and all doctors inside it.",

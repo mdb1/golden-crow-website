@@ -41,12 +41,7 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
     "institution_doctor",
     "patient",
   ],
-  institution_laboratory_staff: [
-    "institution_operator",
-    "institution_laboratory_staff",
-    "institution_doctor",
-    "patient",
-  ],
+  institution_laboratory_staff: [],
   institution_doctor: ["patient"],
   patient: [],
 };
@@ -446,6 +441,15 @@ export function getAdminCapabilities(context: AdminContext): string[] {
     ];
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return [
+      ...base,
+      "institutions:read:own",
+      "doctors:read:own-institution",
+      "patients:read:own-institution",
+    ];
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     return [
       ...base,
@@ -522,6 +526,10 @@ export function canCreateDoctor(context: AdminContext, institutionId: string) {
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   return (
     isInstitutionManagerRole(context.role) &&
     context.institutionId === institutionId
@@ -547,6 +555,10 @@ export function canEditDoctor(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === doctor.institutionId;
   }
@@ -564,6 +576,10 @@ export function canDeleteDoctor(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   return (
     isInstitutionManagerRole(context.role) &&
     context.institutionId === doctor.institutionId
@@ -577,6 +593,10 @@ export function canCreatePatient(
 ) {
   if (context.role === "full_admin") {
     return true;
+  }
+
+  if (context.role === "institution_laboratory_staff") {
+    return false;
   }
 
   if (isInstitutionManagerRole(context.role)) {
@@ -609,6 +629,10 @@ export function canEditPatient(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     return context.institutionId === patient.institutionId;
   }
@@ -635,6 +659,10 @@ export function canViewRoleRecord(
     return true;
   }
 
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     return (
       record.role !== "full_admin" &&
@@ -651,6 +679,10 @@ export function canViewRoleRecord(
 }
 
 export function canAssignRole(context: AdminContext, targetRole: AdminRole) {
+  if (context.role === "institution_laboratory_staff") {
+    return false;
+  }
+
   return ROLE_ASSIGNMENT_TREE[context.role].includes(targetRole);
 }
 

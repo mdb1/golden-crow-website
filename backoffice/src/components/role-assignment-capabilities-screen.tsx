@@ -249,22 +249,22 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
   ],
   institution_laboratory_staff: [
     {
-      tone: "allow",
-      title: "Can update local role assignments",
+      tone: "limit",
+      title: "Cannot manage local role assignments",
       description:
-        "Institution laboratory staff can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
+        "Institution laboratory staff cannot create, update, or promote role assignments inside their institution.",
     },
     {
-      tone: "allow",
-      title: "Can staff their institution",
+      tone: "limit",
+      title: "Cannot staff their institution",
       description:
-        "They can pair role changes with doctor and patient maintenance for the institution they operate.",
+        "They cannot pair role changes with doctor or patient maintenance for their institution.",
     },
     {
-      tone: "allow",
-      title: "Can inspect the local permission map",
+      tone: "limit",
+      title: "Cannot inspect the local permission map",
       description:
-        "They can review which emails are attached to their institution and how those assignments map to the doctor and patient hierarchy.",
+        "They cannot review the list of emails attached to their institution or inspect how role assignments map to doctors and patients.",
     },
     {
       tone: "limit",

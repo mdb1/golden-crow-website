@@ -30,7 +30,10 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const { language } = useAppLanguage();
-  const visibleSections = getProjectSections(adminContext.project, adminContext.role);
+  const visibleSections = getProjectSections(
+    adminContext.project,
+    adminContext.role,
+  );
   const visibleNav = getProjectNav(adminContext.project, adminContext.role);
 
   async function handleSwitchProject() {
@@ -38,7 +41,11 @@ export function AppSidebar({
   }
 
   return (
-    <Sidebar variant="floating" collapsible="icon" className="border-none bg-transparent p-2">
+    <Sidebar
+      variant="floating"
+      collapsible="icon"
+      className="border-none bg-transparent p-2"
+    >
       <SidebarHeader className="glass-panel gap-3 px-3 py-3">
         <div className="px-2">
           <p className="section-eyebrow">{appText(language, "Golden Crow")}</p>
@@ -73,28 +80,33 @@ export function AppSidebar({
                 ? appText(language, "Trainer coaching console.")
                 : appText(
                     language,
-                    "Readable operations console for the live Firebase model."
+                    "Readable operations console for the live Firebase model.",
                   )}
           </p>
         </div>
       </SidebarHeader>
       <SidebarContent>
         {visibleSections.map((section) => {
-          const items = visibleNav.filter((item) => item.section === section.key);
+          const items = visibleNav.filter(
+            (item) => item.section === section.key,
+          );
           if (items.length === 0) {
             return null;
           }
 
           return (
             <SidebarGroup key={section.key}>
-              <SidebarGroupLabel>{appText(language, section.label)}</SidebarGroupLabel>
+              <SidebarGroupLabel>
+                {appText(language, section.label)}
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {items.map((item) => {
                     const isActive =
                       item.href === "/"
                         ? pathname === "/"
-                        : pathname === item.href || pathname.startsWith(item.href + "/");
+                        : pathname === item.href ||
+                          pathname.startsWith(item.href + "/");
 
                     return (
                       <SidebarMenuItem key={item.href}>
@@ -122,27 +134,27 @@ export function AppSidebar({
         {adminContext.role === "full_admin"
           ? appText(
               language,
-              "Full admins can reach the global moderation surfaces and the institution-area model from the same shell."
+              "Full admins can reach the global moderation surfaces and the institution-area model from the same shell.",
             )
           : adminContext.role === "institution_admin"
             ? appText(
                 language,
-                "Institution admins stay scoped to one institution, its doctors, its patients, and local role assignments."
+                "Institution admins stay scoped to one institution, its doctors, its patients, and local role assignments.",
               )
             : adminContext.role === "institution_operator"
               ? appText(
                   language,
-                  "Institution operators stay scoped to one institution, its doctors, its patients, and local role assignments."
+                  "Institution operators stay scoped to one institution, its doctors, its patients, and local role assignments.",
                 )
               : adminContext.role === "institution_laboratory_staff"
                 ? appText(
                     language,
-                    "Institution laboratory staff stay scoped to one institution, its laboratory workflow, and local role assignments."
+                    "Institution laboratory staff stay scoped to one institution and its laboratory workflow.",
                   )
-              : appText(
-                  language,
-                  "Institution doctors stay scoped to one institution, their own doctor record, and their own patients."
-                )}
+                : appText(
+                    language,
+                    "Institution doctors stay scoped to one institution, their own doctor record, and their own patients.",
+                  )}
       </SidebarFooter>
     </Sidebar>
   );

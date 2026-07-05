@@ -216,19 +216,28 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
 };
 
 export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
-  full_admin: "Global control over institutions, users, roles, and the legacy moderation tools.",
-  institution_admin: "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
-  institution_operator: "Institution-scoped operations over one institution, its doctors, its patients, and local role assignments.",
-  institution_laboratory_staff: "Institution-scoped laboratory operations over one institution, its doctors, its patients, and local role assignments.",
-  institution_doctor: "Read access to the institution, full control over the doctor's own profile, and CRUD on the doctor's own patients.",
-  patient: "Informational role record only. Patients do not enter the backoffice.",
+  full_admin:
+    "Global control over institutions, users, roles, and the legacy moderation tools.",
+  institution_admin:
+    "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
+  institution_operator:
+    "Institution-scoped operations over one institution, its doctors, its patients, and local role assignments.",
+  institution_laboratory_staff:
+    "Institution-scoped laboratory operations over one institution without local role administration.",
+  institution_doctor:
+    "Read access to the institution, full control over the doctor's own profile, and CRUD on the doctor's own patients.",
+  patient:
+    "Informational role record only. Patients do not enter the backoffice.",
 };
 
 export const ROLE_OPTIONS: Array<{ value: AdminRole; label: string }> = [
   { value: "full_admin", label: "Full admin" },
   { value: "institution_admin", label: "Institution admin" },
   { value: "institution_operator", label: "Institution operator" },
-  { value: "institution_laboratory_staff", label: "Institution laboratory staff" },
+  {
+    value: "institution_laboratory_staff",
+    label: "Institution laboratory staff",
+  },
   { value: "institution_doctor", label: "Institution doctor" },
   { value: "patient", label: "Patient" },
 ];
@@ -250,18 +259,22 @@ export function getAssignableRoleOptions(role: AdminRole) {
         option.value === "institution_operator" ||
         option.value === "institution_laboratory_staff" ||
         option.value === "institution_doctor" ||
-        option.value === "patient"
+        option.value === "patient",
     );
   }
 
-  if (role === "institution_operator" || role === "institution_laboratory_staff") {
+  if (role === "institution_operator") {
     return ROLE_OPTIONS.filter(
       (option) =>
         option.value === "institution_operator" ||
         option.value === "institution_laboratory_staff" ||
         option.value === "institution_doctor" ||
-        option.value === "patient"
+        option.value === "patient",
     );
+  }
+
+  if (role === "institution_laboratory_staff") {
+    return [];
   }
 
   if (role === "institution_doctor") {

@@ -98,7 +98,7 @@ function normalizeSex(value: unknown): string | undefined {
 }
 
 function normalizeOptionalRecord(
-  value: unknown
+  value: unknown,
 ): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
@@ -106,8 +106,8 @@ function normalizeOptionalRecord(
 
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).filter(
-      ([, entryValue]) => entryValue !== undefined
-    )
+      ([, entryValue]) => entryValue !== undefined,
+    ),
   );
 }
 
@@ -117,7 +117,7 @@ function hasOwnKey<T extends object>(value: T, key: keyof T) {
 
 function toInstitutionRecord(
   id: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): InstitutionRecord {
   const now = new Date().toISOString();
 
@@ -139,13 +139,18 @@ function toInstitutionRecord(
   };
 }
 
-function toDoctorRecord(id: string, data: Record<string, unknown>): DoctorRecord {
+function toDoctorRecord(
+  id: string,
+  data: Record<string, unknown>,
+): DoctorRecord {
   const now = new Date().toISOString();
 
   return {
     id,
     institutionId: normalizeOptionalString(data.institutionId) ?? "",
-    authEmail: normalizeRoleEmail(normalizeOptionalString(data.authEmail) ?? ""),
+    authEmail: normalizeRoleEmail(
+      normalizeOptionalString(data.authEmail) ?? "",
+    ),
     authUid: normalizeOptionalString(data.authUid),
     fullName: normalizeOptionalString(data.fullName) ?? id,
     specialty: normalizeOptionalString(data.specialty),
@@ -158,7 +163,10 @@ function toDoctorRecord(id: string, data: Record<string, unknown>): DoctorRecord
   };
 }
 
-function toPatientRecord(id: string, data: Record<string, unknown>): PatientRecord {
+function toPatientRecord(
+  id: string,
+  data: Record<string, unknown>,
+): PatientRecord {
   const now = new Date().toISOString();
 
   return {
@@ -196,7 +204,7 @@ async function getNextEntityId(sequenceKey: SequenceKey) {
         current: next,
         updatedAt: now,
       },
-      { merge: true }
+      { merge: true },
     );
 
     return `${config.prefix}-${String(next).padStart(config.padding, "0")}`;
@@ -213,32 +221,47 @@ async function getInstitutionById(institutionId: string) {
     return null;
   }
 
-  return toInstitutionRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return toInstitutionRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
 async function getDoctorById(doctorId: string) {
-  const snapshot = await adminDb.collection(DOCTORS_COLLECTION).doc(doctorId).get();
+  const snapshot = await adminDb
+    .collection(DOCTORS_COLLECTION)
+    .doc(doctorId)
+    .get();
   if (!snapshot.exists) {
     return null;
   }
 
-  return toDoctorRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return toDoctorRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
 async function getPatientById(patientId: string) {
-  const snapshot = await adminDb.collection(PATIENTS_COLLECTION).doc(patientId).get();
+  const snapshot = await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patientId)
+    .get();
   if (!snapshot.exists) {
     return null;
   }
 
-  return toPatientRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+  return toPatientRecord(
+    snapshot.id,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
 async function loadScopedInstitutionRecords(context: AdminContext) {
   if (context.role === "full_admin") {
     const snapshot = await adminDb.collection(INSTITUTIONS_COLLECTION).get();
     return snapshot.docs.map((doc) =>
-      toInstitutionRecord(doc.id, doc.data() as Record<string, unknown>)
+      toInstitutionRecord(doc.id, doc.data() as Record<string, unknown>),
     );
   }
 
@@ -274,11 +297,17 @@ async function loadScopedPatientRecords(context: AdminContext) {
           .get();
 
   return snapshot.docs
-    .map((doc) => toPatientRecord(doc.id, doc.data() as Record<string, unknown>))
+    .map((doc) =>
+      toPatientRecord(doc.id, doc.data() as Record<string, unknown>),
+    )
     .filter((patient) => canViewPatient(context, patient));
 }
 
 async function loadScopedRoleRecords(context: AdminContext) {
+  if (context.role === "institution_laboratory_staff") {
+    return [];
+  }
+
   const snapshot =
     context.role === "full_admin"
       ? await adminDb.collection(USER_ROLES_COLLECTION).get()
@@ -307,8 +336,10 @@ async function loadScopedRoleRecords(context: AdminContext) {
         isActive: typeof data.isActive === "boolean" ? data.isActive : true,
         displayName: normalizeOptionalString(data.displayName),
         notes: normalizeOptionalString(data.notes),
-        createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
-        updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+        createdAt:
+          normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
+        updatedAt:
+          normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
         createdByEmail: normalizeOptionalString(data.createdByEmail),
       } satisfies UserRoleRecord;
     })
@@ -322,7 +353,7 @@ function toDoctorListItem(
     patientCount?: number;
     roleEmail?: string;
     roleActive?: boolean;
-  } = {}
+  } = {},
 ): DoctorListItem {
   return {
     ...doctor,
@@ -339,7 +370,7 @@ function toPatientListItem(
     institutionName?: string;
     doctorName?: string;
     doctorEmail?: string;
-  } = {}
+  } = {},
 ): PatientListItem {
   return {
     ...patient,
@@ -351,7 +382,7 @@ function toPatientListItem(
 
 function toRoleManagementRecord(
   record: UserRoleRecord,
-  extras: Partial<RoleManagementRecord> = {}
+  extras: Partial<RoleManagementRecord> = {},
 ): RoleManagementRecord {
   return {
     ...record,
@@ -391,13 +422,13 @@ async function ensurePatientExists(patientId: string) {
 
 async function validateDoctorInstitutionLink(
   institutionId: string,
-  doctorId: string
+  doctorId: string,
 ) {
   const doctor = await ensureDoctorExists(doctorId);
   if (doctor.institutionId !== institutionId) {
     throw new AdminRepositoryError(
       "The selected doctor must belong to the selected institution.",
-      400
+      400,
     );
   }
 
@@ -406,7 +437,7 @@ async function validateDoctorInstitutionLink(
 
 async function syncDoctorRoleRecord(
   doctor: DoctorRecord,
-  previousEmail?: string
+  previousEmail?: string,
 ): Promise<void> {
   const snapshot = await adminDb
     .collection(USER_ROLES_COLLECTION)
@@ -427,7 +458,7 @@ async function syncDoctorRoleRecord(
     if (targetSnapshot.exists && targetSnapshot.id !== sourceDoc.id) {
       throw new AdminRepositoryError(
         "Cannot move the doctor role to the selected email because another role record already uses it.",
-        409
+        409,
       );
     }
 
@@ -449,9 +480,11 @@ async function syncDoctorRoleRecord(
       institutionId: doctor.institutionId,
       doctorId: doctor.id,
       updatedAt: now,
-      ...(previousEmail && previousEmail !== doctor.authEmail ? { email: targetEmail } : {}),
+      ...(previousEmail && previousEmail !== doctor.authEmail
+        ? { email: targetEmail }
+        : {}),
     },
-    { merge: true }
+    { merge: true },
   );
 }
 
@@ -475,7 +508,7 @@ async function syncPatientRoleRecord(patient: PatientRecord): Promise<void> {
     if (targetSnapshot.exists && targetSnapshot.id !== sourceDoc.id) {
       throw new AdminRepositoryError(
         "Cannot move the patient role to the selected email because another role record already uses it.",
-        409
+        409,
       );
     }
 
@@ -500,7 +533,7 @@ async function syncPatientRoleRecord(patient: PatientRecord): Promise<void> {
       patientId: patient.id,
       updatedAt: now,
     },
-    { merge: true }
+    { merge: true },
   );
 }
 
@@ -515,7 +548,7 @@ async function deleteDocumentRefs(refs: DocumentReference[]): Promise<void> {
 }
 
 export async function listInstitutionsForContext(
-  context: AdminContext
+  context: AdminContext,
 ): Promise<InstitutionListItem[]> {
   const [institutions, doctors, patients, roleRecords] = await Promise.all([
     loadScopedInstitutionRecords(context),
@@ -528,7 +561,7 @@ export async function listInstitutionsForContext(
   doctors.forEach((doctor) => {
     doctorCounts.set(
       doctor.institutionId,
-      (doctorCounts.get(doctor.institutionId) ?? 0) + 1
+      (doctorCounts.get(doctor.institutionId) ?? 0) + 1,
     );
   });
 
@@ -536,19 +569,23 @@ export async function listInstitutionsForContext(
   patients.forEach((patient) => {
     patientCounts.set(
       patient.institutionId,
-      (patientCounts.get(patient.institutionId) ?? 0) + 1
+      (patientCounts.get(patient.institutionId) ?? 0) + 1,
     );
   });
 
   const institutionAdminCounts = new Map<string, number>();
   roleRecords.forEach((record) => {
-    if (!isInstitutionManagerRole(record.role) || !record.institutionId || !record.isActive) {
+    if (
+      !isInstitutionManagerRole(record.role) ||
+      !record.institutionId ||
+      !record.isActive
+    ) {
       return;
     }
 
     institutionAdminCounts.set(
       record.institutionId,
-      (institutionAdminCounts.get(record.institutionId) ?? 0) + 1
+      (institutionAdminCounts.get(record.institutionId) ?? 0) + 1,
     );
   });
 
@@ -577,12 +614,12 @@ export async function createInstitutionForContext(
     state?: string;
     country?: string;
     notes?: string;
-  }
+  },
 ): Promise<InstitutionRecord> {
   if (!canCreateInstitution(context)) {
     throw new AdminRepositoryError(
       "Only full admins can create institutions.",
-      403
+      403,
     );
   }
 
@@ -606,14 +643,17 @@ export async function createInstitutionForContext(
     updatedAt: now,
   };
 
-  await adminDb.collection(INSTITUTIONS_COLLECTION).doc(institutionId).set(document);
+  await adminDb
+    .collection(INSTITUTIONS_COLLECTION)
+    .doc(institutionId)
+    .set(document);
 
   return toInstitutionRecord(institutionId, document);
 }
 
 export async function getInstitutionDetailForContext(
   context: AdminContext,
-  institutionId: string
+  institutionId: string,
 ): Promise<InstitutionDetailRecord> {
   const institution = await ensureInstitutionExists(institutionId);
   if (!canViewInstitution(context, institution.id)) {
@@ -629,21 +669,26 @@ export async function getInstitutionDetailForContext(
       .collection(PATIENTS_COLLECTION)
       .where("institutionId", "==", institutionId)
       .get(),
-    adminDb
-      .collection(USER_ROLES_COLLECTION)
-      .where("institutionId", "==", institutionId)
-      .get(),
+    context.role === "institution_laboratory_staff"
+      ? Promise.resolve(null)
+      : adminDb
+          .collection(USER_ROLES_COLLECTION)
+          .where("institutionId", "==", institutionId)
+          .get(),
   ]);
 
   const patients = patientSnapshot.docs.map((doc) =>
-    toPatientRecord(doc.id, doc.data() as Record<string, unknown>)
+    toPatientRecord(doc.id, doc.data() as Record<string, unknown>),
   );
   const patientCounts = new Map<string, number>();
   patients.forEach((patient) => {
-    patientCounts.set(patient.doctorId, (patientCounts.get(patient.doctorId) ?? 0) + 1);
+    patientCounts.set(
+      patient.doctorId,
+      (patientCounts.get(patient.doctorId) ?? 0) + 1,
+    );
   });
 
-  const roleRecords = roleSnapshot.docs.map((doc) => {
+  const roleRecords = (roleSnapshot?.docs ?? []).map((doc) => {
     const data = doc.data() as Record<string, unknown>;
     return {
       email: doc.id,
@@ -662,16 +707,20 @@ export async function getInstitutionDetailForContext(
       isActive: typeof data.isActive === "boolean" ? data.isActive : true,
       displayName: normalizeOptionalString(data.displayName),
       notes: normalizeOptionalString(data.notes),
-      createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
-      updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+      createdAt:
+        normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
+      updatedAt:
+        normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
       createdByEmail: normalizeOptionalString(data.createdByEmail),
     } satisfies UserRoleRecord;
   });
 
   const doctorRoleById = new Map(
     roleRecords
-      .filter((record) => record.role === "institution_doctor" && record.doctorId)
-      .map((record) => [record.doctorId!, record])
+      .filter(
+        (record) => record.role === "institution_doctor" && record.doctorId,
+      )
+      .map((record) => [record.doctorId!, record]),
   );
 
   const doctors = doctorSnapshot.docs
@@ -683,7 +732,7 @@ export async function getInstitutionDetailForContext(
         patientCount: patientCounts.get(doctor.id) ?? 0,
         roleEmail: doctorRoleById.get(doctor.id)?.email,
         roleActive: doctorRoleById.get(doctor.id)?.isActive,
-      })
+      }),
     )
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 
@@ -692,7 +741,7 @@ export async function getInstitutionDetailForContext(
     .map((record) =>
       toRoleManagementRecord(record, {
         institutionName: institution.name,
-      })
+      }),
     )
     .sort((left, right) => left.email.localeCompare(right.email));
 
@@ -701,7 +750,9 @@ export async function getInstitutionDetailForContext(
       ...institution,
       doctorCount: doctors.length,
       patientCount: patients.length,
-      institutionAdminCount: institutionAdmins.filter((record) => record.isActive).length,
+      institutionAdminCount: institutionAdmins.filter(
+        (record) => record.isActive,
+      ).length,
     },
     doctors,
     institutionAdmins,
@@ -723,7 +774,7 @@ export async function updateInstitutionForContext(
     state?: string;
     country?: string;
     notes?: string;
-  }
+  },
 ): Promise<InstitutionRecord> {
   const institution = await ensureInstitutionExists(institutionId);
   if (!canEditInstitution(context, institution.id)) {
@@ -733,51 +784,54 @@ export async function updateInstitutionForContext(
   const document = {
     ...institution,
     code: hasOwnKey(payload, "code")
-      ? normalizeOptionalString(payload.code) ?? institution.code
+      ? (normalizeOptionalString(payload.code) ?? institution.code)
       : institution.code,
     name: hasOwnKey(payload, "name")
-      ? normalizeOptionalString(payload.name) ?? institution.name
+      ? (normalizeOptionalString(payload.name) ?? institution.name)
       : institution.name,
     legalName: hasOwnKey(payload, "legalName")
-      ? normalizeOptionalString(payload.legalName) ?? null
-      : institution.legalName ?? null,
+      ? (normalizeOptionalString(payload.legalName) ?? null)
+      : (institution.legalName ?? null),
     contactEmail: hasOwnKey(payload, "contactEmail")
-      ? normalizeOptionalString(payload.contactEmail)?.toLowerCase() ?? null
-      : institution.contactEmail ?? null,
+      ? (normalizeOptionalString(payload.contactEmail)?.toLowerCase() ?? null)
+      : (institution.contactEmail ?? null),
     contactPhone: hasOwnKey(payload, "contactPhone")
-      ? normalizeOptionalString(payload.contactPhone) ?? null
-      : institution.contactPhone ?? null,
+      ? (normalizeOptionalString(payload.contactPhone) ?? null)
+      : (institution.contactPhone ?? null),
     addressLine1: hasOwnKey(payload, "addressLine1")
-      ? normalizeOptionalString(payload.addressLine1) ?? null
-      : institution.addressLine1 ?? null,
+      ? (normalizeOptionalString(payload.addressLine1) ?? null)
+      : (institution.addressLine1 ?? null),
     addressLine2: hasOwnKey(payload, "addressLine2")
-      ? normalizeOptionalString(payload.addressLine2) ?? null
-      : institution.addressLine2 ?? null,
+      ? (normalizeOptionalString(payload.addressLine2) ?? null)
+      : (institution.addressLine2 ?? null),
     city: hasOwnKey(payload, "city")
-      ? normalizeOptionalString(payload.city) ?? null
-      : institution.city ?? null,
+      ? (normalizeOptionalString(payload.city) ?? null)
+      : (institution.city ?? null),
     state: hasOwnKey(payload, "state")
-      ? normalizeOptionalString(payload.state) ?? null
-      : institution.state ?? null,
+      ? (normalizeOptionalString(payload.state) ?? null)
+      : (institution.state ?? null),
     country: hasOwnKey(payload, "country")
-      ? normalizeOptionalString(payload.country) ?? null
-      : institution.country ?? null,
+      ? (normalizeOptionalString(payload.country) ?? null)
+      : (institution.country ?? null),
     notes: hasOwnKey(payload, "notes")
-      ? normalizeOptionalString(payload.notes) ?? null
-      : institution.notes ?? null,
+      ? (normalizeOptionalString(payload.notes) ?? null)
+      : (institution.notes ?? null),
     updatedAt: new Date().toISOString(),
   };
 
-  await adminDb.collection(INSTITUTIONS_COLLECTION).doc(institutionId).set(document, {
-    merge: true,
-  });
+  await adminDb
+    .collection(INSTITUTIONS_COLLECTION)
+    .doc(institutionId)
+    .set(document, {
+      merge: true,
+    });
 
   return toInstitutionRecord(institutionId, document);
 }
 
 export async function deleteInstitutionForContext(
   context: AdminContext,
-  institutionId: string
+  institutionId: string,
 ): Promise<{
   success: true;
   deleted: {
@@ -793,9 +847,18 @@ export async function deleteInstitutionForContext(
   }
 
   const [doctorSnapshot, patientSnapshot, roleSnapshot] = await Promise.all([
-    adminDb.collection(DOCTORS_COLLECTION).where("institutionId", "==", institution.id).get(),
-    adminDb.collection(PATIENTS_COLLECTION).where("institutionId", "==", institution.id).get(),
-    adminDb.collection(USER_ROLES_COLLECTION).where("institutionId", "==", institution.id).get(),
+    adminDb
+      .collection(DOCTORS_COLLECTION)
+      .where("institutionId", "==", institution.id)
+      .get(),
+    adminDb
+      .collection(PATIENTS_COLLECTION)
+      .where("institutionId", "==", institution.id)
+      .get(),
+    adminDb
+      .collection(USER_ROLES_COLLECTION)
+      .where("institutionId", "==", institution.id)
+      .get(),
   ]);
 
   await deleteDocumentRefs([
@@ -820,7 +883,7 @@ export async function listDoctorsForContext(
   context: AdminContext,
   filters?: {
     institutionId?: string;
-  }
+  },
 ): Promise<DoctorListItem[]> {
   const [institutions, doctors, patients, roles] = await Promise.all([
     loadScopedInstitutionRecords(context),
@@ -830,16 +893,21 @@ export async function listDoctorsForContext(
   ]);
 
   const institutionNameById = new Map(
-    institutions.map((institution) => [institution.id, institution.name])
+    institutions.map((institution) => [institution.id, institution.name]),
   );
   const patientCounts = new Map<string, number>();
   patients.forEach((patient) => {
-    patientCounts.set(patient.doctorId, (patientCounts.get(patient.doctorId) ?? 0) + 1);
+    patientCounts.set(
+      patient.doctorId,
+      (patientCounts.get(patient.doctorId) ?? 0) + 1,
+    );
   });
   const doctorRoleById = new Map(
     roles
-      .filter((record) => record.role === "institution_doctor" && record.doctorId)
-      .map((record) => [record.doctorId!, record])
+      .filter(
+        (record) => record.role === "institution_doctor" && record.doctorId,
+      )
+      .map((record) => [record.doctorId!, record]),
   );
 
   return doctors
@@ -856,7 +924,7 @@ export async function listDoctorsForContext(
         patientCount: patientCounts.get(doctor.id) ?? 0,
         roleEmail: doctorRoleById.get(doctor.id)?.email,
         roleActive: doctorRoleById.get(doctor.id)?.isActive,
-      })
+      }),
     )
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
@@ -873,15 +941,17 @@ export async function createDoctorForContext(
     contactPhone?: string;
     status?: "active" | "inactive";
     notes?: string;
-  }
+  },
 ): Promise<DoctorRecord> {
-  const institutionId =
-    isInstitutionManagerRole(context.role)
-      ? context.institutionId ?? payload.institutionId
-      : payload.institutionId;
+  const institutionId = isInstitutionManagerRole(context.role)
+    ? (context.institutionId ?? payload.institutionId)
+    : payload.institutionId;
 
   if (!institutionId || !canCreateDoctor(context, institutionId)) {
-    throw new AdminRepositoryError("You cannot create doctors in this institution.", 403);
+    throw new AdminRepositoryError(
+      "You cannot create doctors in this institution.",
+      403,
+    );
   }
 
   await ensureInstitutionExists(institutionId);
@@ -892,7 +962,7 @@ export async function createDoctorForContext(
     id: doctorId,
     institutionId,
     authEmail: normalizeRoleEmail(
-      normalizeRequiredString(payload.authEmail, "Doctor auth email")
+      normalizeRequiredString(payload.authEmail, "Doctor auth email"),
     ),
     authUid: normalizeOptionalString(payload.authUid) ?? null,
     fullName: normalizeRequiredString(payload.fullName, "Doctor full name"),
@@ -912,7 +982,7 @@ export async function createDoctorForContext(
 
 export async function getDoctorDetailForContext(
   context: AdminContext,
-  doctorId: string
+  doctorId: string,
 ): Promise<DoctorDetailRecord> {
   const doctor = await ensureDoctorExists(doctorId);
   if (!canViewDoctor(context, doctor)) {
@@ -932,14 +1002,19 @@ export async function getDoctorDetailForContext(
   ]);
 
   const patients = patientSnapshot.docs
-    .map((doc) => toPatientRecord(doc.id, doc.data() as Record<string, unknown>))
-    .filter((patient) => patient.doctorId === doctor.id && canViewPatient(context, patient))
+    .map((doc) =>
+      toPatientRecord(doc.id, doc.data() as Record<string, unknown>),
+    )
+    .filter(
+      (patient) =>
+        patient.doctorId === doctor.id && canViewPatient(context, patient),
+    )
     .map((patient) =>
       toPatientListItem(patient, {
         institutionName: institution?.name,
         doctorName: doctor.fullName,
         doctorEmail: doctor.authEmail,
-      })
+      }),
     )
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 
@@ -965,8 +1040,10 @@ export async function getDoctorDetailForContext(
           isActive: typeof data.isActive === "boolean" ? data.isActive : true,
           displayName: normalizeOptionalString(data.displayName),
           notes: normalizeOptionalString(data.notes),
-          createdAt: normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
-          updatedAt: normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
+          createdAt:
+            normalizeOptionalString(data.createdAt) ?? new Date().toISOString(),
+          updatedAt:
+            normalizeOptionalString(data.updatedAt) ?? new Date().toISOString(),
           createdByEmail: normalizeOptionalString(data.createdByEmail),
         } satisfies UserRoleRecord;
 
@@ -1001,7 +1078,7 @@ export async function updateDoctorForContext(
     contactPhone?: string;
     status?: "active" | "inactive";
     notes?: string;
-  }
+  },
 ): Promise<DoctorRecord> {
   const doctor = await ensureDoctorExists(doctorId);
   if (!canEditDoctor(context, doctor)) {
@@ -1018,7 +1095,7 @@ export async function updateDoctorForContext(
       ? normalizeOptionalString(payload.authUid)
       : doctor.authUid,
     fullName: hasOwnKey(payload, "fullName")
-      ? normalizeOptionalString(payload.fullName) ?? doctor.fullName
+      ? (normalizeOptionalString(payload.fullName) ?? doctor.fullName)
       : doctor.fullName,
     specialty: hasOwnKey(payload, "specialty")
       ? normalizeOptionalString(payload.specialty)
@@ -1042,9 +1119,12 @@ export async function updateDoctorForContext(
     throw new AdminRepositoryError("Doctor auth email is required.", 400);
   }
 
-  await adminDb.collection(DOCTORS_COLLECTION).doc(doctorId).set(updatedDoctor, {
-    merge: true,
-  });
+  await adminDb
+    .collection(DOCTORS_COLLECTION)
+    .doc(doctorId)
+    .set(updatedDoctor, {
+      merge: true,
+    });
   await syncDoctorRoleRecord(updatedDoctor, previousEmail);
 
   return updatedDoctor;
@@ -1052,7 +1132,7 @@ export async function updateDoctorForContext(
 
 export async function deleteDoctorForContext(
   context: AdminContext,
-  doctorId: string
+  doctorId: string,
 ): Promise<{
   success: true;
   deleted: {
@@ -1067,8 +1147,14 @@ export async function deleteDoctorForContext(
   }
 
   const [patientSnapshot, roleSnapshot] = await Promise.all([
-    adminDb.collection(PATIENTS_COLLECTION).where("doctorId", "==", doctor.id).get(),
-    adminDb.collection(USER_ROLES_COLLECTION).where("doctorId", "==", doctor.id).get(),
+    adminDb
+      .collection(PATIENTS_COLLECTION)
+      .where("doctorId", "==", doctor.id)
+      .get(),
+    adminDb
+      .collection(USER_ROLES_COLLECTION)
+      .where("doctorId", "==", doctor.id)
+      .get(),
   ]);
 
   await deleteDocumentRefs([
@@ -1093,7 +1179,7 @@ export async function listPatientsForContext(
     institutionId?: string;
     doctorId?: string;
     query?: string;
-  }
+  },
 ): Promise<PatientListItem[]> {
   const [institutions, doctors, patients] = await Promise.all([
     loadScopedInstitutionRecords(context),
@@ -1102,14 +1188,17 @@ export async function listPatientsForContext(
   ]);
 
   const institutionNameById = new Map(
-    institutions.map((institution) => [institution.id, institution.name])
+    institutions.map((institution) => [institution.id, institution.name]),
   );
   const doctorById = new Map(doctors.map((doctor) => [doctor.id, doctor]));
   const normalizedQuery = filters?.query?.trim().toLowerCase() ?? "";
 
   return patients
     .filter((patient) => {
-      if (filters?.institutionId && patient.institutionId !== filters.institutionId) {
+      if (
+        filters?.institutionId &&
+        patient.institutionId !== filters.institutionId
+      ) {
         return false;
       }
 
@@ -1142,7 +1231,7 @@ export async function listPatientsForContext(
         institutionName: institutionNameById.get(patient.institutionId),
         doctorName: doctorById.get(patient.doctorId)?.fullName,
         doctorEmail: doctorById.get(patient.doctorId)?.authEmail,
-      })
+      }),
     )
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
@@ -1160,19 +1249,27 @@ export async function createPatientForContext(
     status?: "active" | "inactive";
     notes?: string;
     additionalInformation?: Record<string, unknown>;
-  }
+  },
 ): Promise<PatientRecord> {
   const institutionId =
-    isInstitutionManagerRole(context.role) || context.role === "institution_doctor"
-      ? context.institutionId ?? payload.institutionId
+    isInstitutionManagerRole(context.role) ||
+    context.role === "institution_doctor"
+      ? (context.institutionId ?? payload.institutionId)
       : payload.institutionId;
   const doctorId =
     context.role === "institution_doctor"
-      ? context.doctorId ?? payload.doctorId
+      ? (context.doctorId ?? payload.doctorId)
       : payload.doctorId;
 
-  if (!institutionId || !doctorId || !canCreatePatient(context, institutionId, doctorId)) {
-    throw new AdminRepositoryError("You cannot create patients in this scope.", 403);
+  if (
+    !institutionId ||
+    !doctorId ||
+    !canCreatePatient(context, institutionId, doctorId)
+  ) {
+    throw new AdminRepositoryError(
+      "You cannot create patients in this scope.",
+      403,
+    );
   }
 
   await ensureInstitutionExists(institutionId);
@@ -1184,9 +1281,12 @@ export async function createPatientForContext(
     id: patientId,
     institutionId,
     doctorId,
-    email: normalizeRoleEmail(normalizeRequiredString(payload.email, "Patient email")),
+    email: normalizeRoleEmail(
+      normalizeRequiredString(payload.email, "Patient email"),
+    ),
     fullName: normalizeRequiredString(payload.fullName, "Patient full name"),
-    medicalRecordNumber: normalizeOptionalString(payload.medicalRecordNumber) ?? null,
+    medicalRecordNumber:
+      normalizeOptionalString(payload.medicalRecordNumber) ?? null,
     birthDate: normalizeIsoDateString(payload.birthDate) ?? null,
     sex: normalizeSex(payload.sex) ?? null,
     status: normalizeStatus(payload.status),
@@ -1204,7 +1304,7 @@ export async function createPatientForContext(
 
 export async function getPatientDetailForContext(
   context: AdminContext,
-  patientId: string
+  patientId: string,
 ): Promise<PatientDetailRecord> {
   const patient = await ensurePatientExists(patientId);
   if (!canViewPatient(context, patient)) {
@@ -1252,7 +1352,7 @@ export async function updatePatientForContext(
     sex?: string;
     status?: "active" | "inactive";
     notes?: string;
-  }
+  },
 ): Promise<PatientRecord> {
   const patient = await ensurePatientExists(patientId);
   if (!canEditPatient(context, patient)) {
@@ -1261,7 +1361,8 @@ export async function updatePatientForContext(
 
   const institutionId =
     normalizeOptionalString(payload.institutionId) ?? patient.institutionId;
-  const doctorId = normalizeOptionalString(payload.doctorId) ?? patient.doctorId;
+  const doctorId =
+    normalizeOptionalString(payload.doctorId) ?? patient.doctorId;
 
   await ensureInstitutionExists(institutionId);
   const doctor = await validateDoctorInstitutionLink(institutionId, doctorId);
@@ -1269,7 +1370,7 @@ export async function updatePatientForContext(
   if (!canCreatePatient(context, institutionId, doctorId)) {
     throw new AdminRepositoryError(
       "You cannot move this patient outside your allowed scope.",
-      403
+      403,
     );
   }
 
@@ -1281,7 +1382,7 @@ export async function updatePatientForContext(
       ? normalizeRoleEmail(payload.email ?? "")
       : patient.email,
     fullName: hasOwnKey(payload, "fullName")
-      ? normalizeOptionalString(payload.fullName) ?? patient.fullName
+      ? (normalizeOptionalString(payload.fullName) ?? patient.fullName)
       : patient.fullName,
     medicalRecordNumber: hasOwnKey(payload, "medicalRecordNumber")
       ? normalizeOptionalString(payload.medicalRecordNumber)
@@ -1289,9 +1390,7 @@ export async function updatePatientForContext(
     birthDate: hasOwnKey(payload, "birthDate")
       ? normalizeIsoDateString(payload.birthDate)
       : patient.birthDate,
-    sex: hasOwnKey(payload, "sex")
-      ? normalizeSex(payload.sex)
-      : patient.sex,
+    sex: hasOwnKey(payload, "sex") ? normalizeSex(payload.sex) : patient.sex,
     status: hasOwnKey(payload, "status")
       ? normalizeStatus(payload.status)
       : patient.status,
@@ -1310,9 +1409,12 @@ export async function updatePatientForContext(
     patientWriteDocument.birthDate = FieldValue.delete();
   }
 
-  await adminDb.collection(PATIENTS_COLLECTION).doc(patientId).set(patientWriteDocument, {
-    merge: true,
-  });
+  await adminDb
+    .collection(PATIENTS_COLLECTION)
+    .doc(patientId)
+    .set(patientWriteDocument, {
+      merge: true,
+    });
   await syncPatientRoleRecord(updatedPatient);
 
   return {
@@ -1323,7 +1425,7 @@ export async function updatePatientForContext(
 
 export async function deletePatientForContext(
   context: AdminContext,
-  patientId: string
+  patientId: string,
 ): Promise<{ success: true }> {
   const patient = await ensurePatientExists(patientId);
   if (!canDeletePatient(context, patient)) {

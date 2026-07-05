@@ -1345,6 +1345,12 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         note: "Institution admins can manage and delete doctors inside their institution.",
       },
       {
+        role: "institution_laboratory_staff",
+        scope: "read_only",
+        capabilities: ["read"],
+        note: "Institution laboratory staff can inspect doctors inside their institution but cannot create, update, or delete doctor records.",
+      },
+      {
         role: "institution_doctor",
         scope: "assigned",
         capabilities: ["read", "update"],
@@ -1376,6 +1382,12 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         scope: "institution",
         capabilities: ["create", "read", "update", "delete"],
         note: "Institution admins can CRUD patients inside their institution.",
+      },
+      {
+        role: "institution_laboratory_staff",
+        scope: "read_only",
+        capabilities: ["read"],
+        note: "Institution laboratory staff can inspect patients inside their institution but cannot create, update, or delete patient records.",
       },
       {
         role: "institution_doctor",
@@ -1415,6 +1427,12 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         scope: "institution",
         capabilities: ["read", "update"],
         note: "Institution operators can update existing local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but new role assignments must be requested from the institution administrator.",
+      },
+      {
+        role: "institution_laboratory_staff",
+        scope: "no_access",
+        capabilities: [],
+        note: "Institution laboratory staff cannot manage, staff, or inspect local role assignments.",
       },
       {
         role: "institution_doctor",
