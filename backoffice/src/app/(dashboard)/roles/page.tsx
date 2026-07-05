@@ -75,7 +75,7 @@ export default async function RolesPage() {
         </div>
         <Button size="lg" className="justify-between md:min-w-[12rem]" asChild>
           <Link href="/my-account">
-            {t("My account")}
+            {t("Access account")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>

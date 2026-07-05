@@ -94,6 +94,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Learning: "Aprendizaje",
   Areas: "Áreas",
   Access: "Acceso",
+  "Access account": "Acceder",
   Overview: "Resumen",
   "2PQ Dashboard": "Dashboard 2PQ",
   Contact: "Contacto",
