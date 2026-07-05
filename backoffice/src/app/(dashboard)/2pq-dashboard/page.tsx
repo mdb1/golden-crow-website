@@ -41,6 +41,12 @@ export default async function TwoPQDashboardPage() {
         institutions: institutionsPayload.institutions.length,
         doctors: doctorsPayload.doctors.length,
         patients: patientsPayload.patients.length,
+        administrativeOperators: rolesPayload.roles.filter(
+          (role) => role.role === "institution_operator",
+        ).length,
+        laboratoryStaff: rolesPayload.roles.filter(
+          (role) => role.role === "institution_laboratory_staff",
+        ).length,
         roles: rolesPayload.roles.length,
       }}
       formDraft={formDraft}

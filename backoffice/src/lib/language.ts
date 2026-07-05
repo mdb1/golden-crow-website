@@ -101,6 +101,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "+ New Institution": "Alta de institución",
   "+ New Doctor": "Alta de médico",
   "+ New Patient": "Alta de paciente",
+  "+ New Administrative Operator": "Alta de operario",
+  "+ New Laboratory Staff": "Alta de personal de labo",
   "+ New Role": "Alta de rol",
   "New institution": "Alta de institución",
   "New doctor": "Alta de médico",
@@ -799,6 +801,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los operarios administrativos son registros de staff con alcance institucional. Cada operario pertenece a una institución y no tiene pacientes asignados.",
   "Administrative operators attached to this institution":
     "Operarios administrativos asociados a esta institución",
+  "Administrative operators available in this lane":
+    "Operarios administrativos disponibles en este carril",
   "Administrative operators belong to this institution and do not have patient assignments underneath them.":
     "Los operarios administrativos pertenecen a esta institución y no tienen pacientes asignados debajo.",
   "Administrative operators sit beside doctors under an institution.":
@@ -1246,6 +1250,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El personal de laboratorio son registros de staff con alcance institucional. Cada integrante pertenece a una institución y no tiene pacientes asignados.",
   "Laboratory staff attached to this institution":
     "Personal de laboratorio asociado a esta institución",
+  "Laboratory staff available in this lane":
+    "Personal de laboratorio disponible en este carril",
   "Laboratory staff belong to this institution and do not have patient assignments underneath them.":
     "El personal de laboratorio pertenece a esta institución y no tiene pacientes asignados debajo.",
   "Laboratory staff sit beside doctors under an institution.":
@@ -1389,11 +1395,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Only full admins, institution admins, institution operators, institution laboratory staff, and scoped institution doctors can create patients.":
     "Solo administradores totales, administradores de institución, operadores de institución, personal de laboratorio de institución y médicos de institución dentro de alcance pueden dar de alta pacientes.",
   "Open area": "Abrir área",
+  "Open Administrative Operators": "Abrir operarios administrativos",
   "Open doctor": "Abrir médico",
   "Open Doctors": "Abrir médicos",
   "Open Forms": "Abrir formularios",
   "Open institution": "Abrir institución",
   "Open Institutions": "Abrir instituciones",
+  "Open Laboratory Staff": "Abrir personal de laboratorio",
   "Open patient": "Abrir paciente",
   "Open Patients": "Abrir pacientes",
   "Open Roles": "Abrir roles",
@@ -1581,6 +1589,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá el límite de alcance institucional en su propia pantalla antes de abrir la superficie activa de instituciones.",
   "Review the live institutions, doctors, patients, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.":
     "Revisá las instituciones, médicos, pacientes y asignaciones de rol vinculados a este carril, y luego entrá directo a crear o gestionar desde el dashboard.",
+  "Review the live institutions, doctors, patients, administrative operators, laboratory staff, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.":
+    "Revisá las instituciones, médicos, pacientes, operarios administrativos, personal de laboratorio y asignaciones de rol vinculados a este carril, y luego entrá directo a crear o gestionar desde el dashboard.",
   "Review the patient CRUD boundary on its own screen before you open a patient record.":
     "Revisá el límite CRUD de pacientes en su propia pantalla antes de abrir un registro de paciente.",
   "Review role capabilities or create a new institution operator with the correct role already selected.":

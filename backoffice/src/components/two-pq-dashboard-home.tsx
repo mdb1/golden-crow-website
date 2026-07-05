@@ -4,6 +4,7 @@ import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  getAssignableRoleOptions,
   isInstitutionManagerRole,
   type AdminContextRecord,
 } from "@/lib/admin-areas";
@@ -25,7 +26,13 @@ import {
 import { appText, type AppLanguage } from "@/lib/language";
 import { TwoPQContactSection } from "@/components/two-pq-contact-section";
 
-type ScopeCardKey = "institutions" | "doctors" | "patients" | "roles";
+type ScopeCardKey =
+  | "institutions"
+  | "doctors"
+  | "patients"
+  | "administrativeOperators"
+  | "laboratoryStaff"
+  | "roles";
 
 function canSeeScopeCard(role: AdminContextRecord["role"], key: ScopeCardKey) {
   if (role === "institution_doctor") {
@@ -51,6 +58,8 @@ export function TwoPQDashboardHome({
     institutions: number;
     doctors: number;
     patients: number;
+    administrativeOperators: number;
+    laboratoryStaff: number;
     roles: number;
   };
   formDraft?: TwoPQFormDraftRecord | null;
@@ -92,6 +101,17 @@ export function TwoPQDashboardHome({
   const draftHref = formDraft
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
+  const assignableRoleOptions = getAssignableRoleOptions(adminContext.role);
+  const canCreateAdministrativeOperator =
+    canCreateRoleUi(adminContext) &&
+    assignableRoleOptions.some(
+      (option) => option.value === "institution_operator",
+    );
+  const canCreateLaboratoryStaff =
+    canCreateRoleUi(adminContext) &&
+    assignableRoleOptions.some(
+      (option) => option.value === "institution_laboratory_staff",
+    );
   const scopeCards = [
     {
       key: "institutions",
@@ -132,6 +152,32 @@ export function TwoPQDashboardHome({
         "Only full admins, institution admins, institution operators, institution laboratory staff, and scoped institution doctors can create patients.",
     },
     {
+      key: "administrativeOperators",
+      eyebrow: "Scope",
+      value: metrics.administrativeOperators,
+      description: "Administrative operators available in this lane",
+      createLabel: t("+ New Administrative Operator"),
+      createHref: "/roles/new?role=institution_operator",
+      browseLabel: "Open Administrative Operators",
+      browseHref: "/areas/administrative-operators",
+      canCreate: canCreateAdministrativeOperator,
+      disabledTitle:
+        "The current role cannot create administrative operators on this screen.",
+    },
+    {
+      key: "laboratoryStaff",
+      eyebrow: "Scope",
+      value: metrics.laboratoryStaff,
+      description: "Laboratory staff available in this lane",
+      createLabel: t("+ New Laboratory Staff"),
+      createHref: "/roles/new?role=institution_laboratory_staff",
+      browseLabel: "Open Laboratory Staff",
+      browseHref: "/areas/laboratory-staff",
+      canCreate: canCreateLaboratoryStaff,
+      disabledTitle:
+        "The current role cannot create laboratory staff on this screen.",
+    },
+    {
       key: "roles",
       eyebrow: "Access",
       value: metrics.roles,
@@ -152,7 +198,7 @@ export function TwoPQDashboardHome({
       ? "grid gap-3 md:grid-cols-2"
       : visibleScopeCards.length === 3
         ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3"
-        : "grid gap-3 md:grid-cols-2 xl:grid-cols-4";
+        : "grid gap-3 md:grid-cols-2 xl:grid-cols-3";
 
   return (
     <div className="flex flex-col gap-8">
@@ -255,7 +301,7 @@ export function TwoPQDashboardHome({
             </h2>
             <p className="max-w-4xl text-sm text-muted-foreground">
               {t(
-                "Review the live institutions, doctors, patients, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.",
+                "Review the live institutions, doctors, patients, administrative operators, laboratory staff, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.",
               )}
             </p>
           </div>
