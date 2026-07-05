@@ -4,7 +4,6 @@ import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  getAssignableRoleOptions,
   isInstitutionManagerRole,
   type AdminContextRecord,
 } from "@/lib/admin-areas";
@@ -12,6 +11,7 @@ import {
   canCreateDoctorUi,
   canCreateInstitutionUi,
   canCreatePatientUi,
+  canCreateRoleUi,
 } from "@/lib/areas-ui";
 import {
   TWO_PQ_AREA_CONFIGS,
@@ -140,7 +140,7 @@ export function TwoPQDashboardHome({
       createHref: "/roles/new",
       browseLabel: "Open Roles",
       browseHref: "/roles",
-      canCreate: getAssignableRoleOptions(adminContext.role).length > 0,
+      canCreate: canCreateRoleUi(adminContext),
       disabledTitle: "The current role cannot create role assignments.",
     },
   ] as const;

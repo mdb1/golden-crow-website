@@ -12,6 +12,7 @@ export function AreaAccessEntry({
   canCreate = true,
   accessLabel = "Visualize access permissions",
   createLabel = "Add new record",
+  createBlockedAlert,
   createDisabledTitle = "The current role cannot create records on this screen.",
   title = "Primary actions",
   description,
@@ -21,6 +22,7 @@ export function AreaAccessEntry({
   canCreate?: boolean;
   accessLabel?: string;
   createLabel?: string;
+  createBlockedAlert?: string;
   createDisabledTitle?: string;
   title?: string;
   description: string;
@@ -36,8 +38,12 @@ export function AreaAccessEntry({
           <p className="section-eyebrow">{t("Access")}</p>
         </div>
         <div>
-          <h2 className="font-heading text-xl font-semibold text-foreground">{t(title)}</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t(description)}</p>
+          <h2 className="font-heading text-xl font-semibold text-foreground">
+            {t(title)}
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            {t(description)}
+          </p>
         </div>
       </div>
 
@@ -70,6 +76,18 @@ export function AreaAccessEntry({
               </span>
               <ArrowRight className="h-4 w-4" />
             </Link>
+          </Button>
+        ) : createBlockedAlert ? (
+          <Button
+            size="lg"
+            className="h-auto flex-1 justify-between rounded-2xl px-5 py-5 text-left text-base"
+            onClick={() => window.alert(t(createBlockedAlert))}
+          >
+            <span className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              {t(createLabel)}
+            </span>
+            <ArrowRight className="h-4 w-4" />
           </Button>
         ) : (
           <Button

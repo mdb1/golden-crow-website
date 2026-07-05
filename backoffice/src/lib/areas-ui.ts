@@ -5,7 +5,10 @@ import type {
   PatientListItem,
   RoleManagementRecord,
 } from "@/lib/admin-areas";
-import { getAssignableRoleOptions, isInstitutionManagerRole } from "@/lib/admin-areas";
+import {
+  getAssignableRoleOptions,
+  isInstitutionManagerRole,
+} from "@/lib/admin-areas";
 
 export function getRoleBadgeVariant(role: AdminRole) {
   if (role === "full_admin") {
@@ -33,7 +36,7 @@ export function canCreateInstitutionUi(context: AdminContextRecord) {
 
 export function canEditInstitutionUi(
   context: AdminContextRecord,
-  institutionId: string
+  institutionId: string,
 ) {
   return (
     context.role === "full_admin" ||
@@ -44,14 +47,14 @@ export function canEditInstitutionUi(
 
 export function canDeleteInstitutionUi(
   context: AdminContextRecord,
-  _institutionId: string
+  _institutionId: string,
 ) {
   return context.role === "full_admin";
 }
 
 export function canCreateDoctorUi(
   context: AdminContextRecord,
-  institutionId?: string
+  institutionId?: string,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -65,7 +68,7 @@ export function canCreateDoctorUi(
 
 export function canEditDoctorUi(
   context: AdminContextRecord,
-  doctor: Pick<DoctorListItem, "id" | "institutionId">
+  doctor: Pick<DoctorListItem, "id" | "institutionId">,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -75,24 +78,29 @@ export function canEditDoctorUi(
     return context.institutionId === doctor.institutionId;
   }
 
-  return context.role === "institution_doctor" && context.doctorId === doctor.id;
+  return (
+    context.role === "institution_doctor" && context.doctorId === doctor.id
+  );
 }
 
 export function canDeleteDoctorUi(
   context: AdminContextRecord,
-  doctor: Pick<DoctorListItem, "institutionId">
+  doctor: Pick<DoctorListItem, "institutionId">,
 ) {
   if (context.role === "full_admin") {
     return true;
   }
 
-  return isInstitutionManagerRole(context.role) && context.institutionId === doctor.institutionId;
+  return (
+    isInstitutionManagerRole(context.role) &&
+    context.institutionId === doctor.institutionId
+  );
 }
 
 export function canCreatePatientUi(
   context: AdminContextRecord,
   institutionId?: string,
-  doctorId?: string
+  doctorId?: string,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -111,7 +119,7 @@ export function canCreatePatientUi(
 
 export function canEditPatientUi(
   context: AdminContextRecord,
-  patient: Pick<PatientListItem, "institutionId" | "doctorId">
+  patient: Pick<PatientListItem, "institutionId" | "doctorId">,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -130,7 +138,7 @@ export function canEditPatientUi(
 
 export function canDeletePatientUi(
   context: AdminContextRecord,
-  patient: Pick<PatientListItem, "institutionId" | "doctorId">
+  patient: Pick<PatientListItem, "institutionId" | "doctorId">,
 ) {
   return canEditPatientUi(context, patient);
 }
@@ -141,12 +149,28 @@ type RoleScopeRecord = Pick<
 >;
 
 export function canCreateRoleUi(context: AdminContextRecord) {
+  if (
+    context.role === "institution_operator" ||
+    context.role === "institution_laboratory_staff"
+  ) {
+    return false;
+  }
+
   return getAssignableRoleOptions(context.role).length > 0;
+}
+
+export function shouldAskInstitutionAdminForRoleCreation(
+  context: AdminContextRecord,
+) {
+  return (
+    context.role === "institution_operator" ||
+    context.role === "institution_laboratory_staff"
+  );
 }
 
 export function canEditRoleUi(
   context: AdminContextRecord,
-  roleRecord: RoleScopeRecord
+  roleRecord: RoleScopeRecord,
 ) {
   if (roleRecord.bootstrap) {
     return false;
@@ -178,6 +202,10 @@ export function canEditRoleUi(
 }
 
 export function getRoleCreateRestrictionMessage(context: AdminContextRecord) {
+  if (shouldAskInstitutionAdminForRoleCreation(context)) {
+    return "Ask the institution administrator to add a new role.";
+  }
+
   if (context.role === "patient") {
     return "Patients cannot create role assignments.";
   }
@@ -187,7 +215,7 @@ export function getRoleCreateRestrictionMessage(context: AdminContextRecord) {
 
 export function getRoleEditRestrictionMessage(
   context: AdminContextRecord,
-  roleRecord: RoleScopeRecord
+  roleRecord: RoleScopeRecord,
 ) {
   if (roleRecord.bootstrap) {
     return "Bootstrap role assignments are locked in the UI and stay outside the normal reassignment flow.";
@@ -220,7 +248,7 @@ export function getRoleEditRestrictionMessage(
 
 export function formatInstitutionScope(
   context: AdminContextRecord,
-  institutionName?: string
+  institutionName?: string,
 ) {
   if (context.role === "full_admin") {
     return institutionName ?? "All institutions";
@@ -243,13 +271,15 @@ export const ROLE_CAPABILITY_LINES: Record<AdminRole, string[]> = {
   institution_operator: [
     "Can see and edit only one institution.",
     "Can create doctors and patients inside that institution.",
-    "Can assign institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.",
+    "Can update existing institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.",
+    "New role assignments must be requested from the institution administrator.",
     "Cannot assign institution-admin roles.",
   ],
   institution_laboratory_staff: [
     "Can see and edit only one institution.",
     "Can create doctors and patients inside that institution.",
-    "Can assign institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.",
+    "Can update existing institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.",
+    "New role assignments must be requested from the institution administrator.",
     "Cannot assign institution-admin roles.",
   ],
   institution_doctor: [

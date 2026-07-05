@@ -26,14 +26,15 @@ const AREA_ADMIN_ROLES: AdminRole[] = [
 ];
 const FULL_ADMIN_ROLES: AdminRole[] = ["full_admin"];
 
-export const CRUD_CAPABILITIES = ["create", "read", "update", "delete"] as const;
+export const CRUD_CAPABILITIES = [
+  "create",
+  "read",
+  "update",
+  "delete",
+] as const;
 export type CrudCapability = (typeof CRUD_CAPABILITIES)[number];
 export type AccessScope =
-  | "global"
-  | "institution"
-  | "assigned"
-  | "read_only"
-  | "no_access";
+  "global" | "institution" | "assigned" | "read_only" | "no_access";
 export type TwoPQTone = "blue" | "mint" | "amber" | "violet" | "rose" | "slate";
 
 export interface RoleAccessSpec {
@@ -59,8 +60,12 @@ function institutionLaboratoryStaffNote(note: string) {
     .replace(/^Institution admin/g, "Institution laboratory staff");
 }
 
-function withInstitutionOperatorAccess(entries: RoleAccessSpec[]): RoleAccessSpec[] {
-  const expandedEntries = entries.some((entry) => entry.role === "institution_operator")
+function withInstitutionOperatorAccess(
+  entries: RoleAccessSpec[],
+): RoleAccessSpec[] {
+  const expandedEntries = entries.some(
+    (entry) => entry.role === "institution_operator",
+  )
     ? [...entries]
     : entries.flatMap((entry) =>
         entry.role === "institution_admin"
@@ -73,10 +78,17 @@ function withInstitutionOperatorAccess(entries: RoleAccessSpec[]): RoleAccessSpe
                 note: institutionOperatorNote(entry.note),
               },
             ]
-          : [entry]
+          : [entry],
       );
-  const operatorEntry = expandedEntries.find((entry) => entry.role === "institution_operator");
-  if (!operatorEntry || expandedEntries.some((entry) => entry.role === "institution_laboratory_staff")) {
+  const operatorEntry = expandedEntries.find(
+    (entry) => entry.role === "institution_operator",
+  );
+  if (
+    !operatorEntry ||
+    expandedEntries.some(
+      (entry) => entry.role === "institution_laboratory_staff",
+    )
+  ) {
     return expandedEntries;
   }
 
@@ -91,7 +103,7 @@ function withInstitutionOperatorAccess(entries: RoleAccessSpec[]): RoleAccessSpe
             note: institutionLaboratoryStaffNote(operatorEntry.note),
           },
         ]
-      : [entry]
+      : [entry],
   );
 }
 
@@ -167,14 +179,23 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     chips: ["Hub", "Cross-area", "Permission aware"],
     quickLinks: [
       { label: "Overview", href: "/", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "2PQ dashboard", href: "/2pq-dashboard", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Institutions", href: "/areas/institutions", visibleRoles: AREA_ADMIN_ROLES },
+      {
+        label: "2PQ dashboard",
+        href: "/2pq-dashboard",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Institutions",
+        href: "/areas/institutions",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
       { label: "Reports", href: "/reports", visibleRoles: FULL_ADMIN_ROLES },
     ],
     fieldGroups: [
       {
         title: "Operational overview",
-        description: "Top-level tiles and counts that let operators route work without guessing.",
+        description:
+          "Top-level tiles and counts that let operators route work without guessing.",
         fields: [
           {
             label: "scopeLane",
@@ -185,7 +206,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "institutionCount",
             source: "Institutions",
-            detail: "Current institution footprint visible from the live area model.",
+            detail:
+              "Current institution footprint visible from the live area model.",
           },
           {
             label: "doctorCount",
@@ -201,53 +223,63 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       },
       {
         title: "Routing controls",
-        description: "Fast links that keep the dashboard interoperable with the live shell.",
+        description:
+          "Fast links that keep the dashboard interoperable with the live shell.",
         fields: [
           {
             label: "primaryArea",
             source: "2PQ",
-            detail: "The workflow area the operator should enter first: cases, samples, shipments, reports, or clients.",
+            detail:
+              "The workflow area the operator should enter first: cases, samples, shipments, reports, or clients.",
           },
           {
             label: "linkedRoute",
             source: "Backoffice",
-            detail: "The concrete route that already exists today and backs the workflow card.",
+            detail:
+              "The concrete route that already exists today and backs the workflow card.",
           },
           {
             label: "accessState",
             source: "Permissions",
-            detail: "Pill-driven access state that makes read-only and locked areas obvious.",
+            detail:
+              "Pill-driven access state that makes read-only and locked areas obvious.",
           },
           {
             label: "handoffStatus",
             source: "2PQ",
-            detail: "Whether the current task is still in intake, in motion, in sequencing, or ready for reporting.",
+            detail:
+              "Whether the current task is still in intake, in motion, in sequencing, or ready for reporting.",
           },
         ],
       },
       {
         title: "Cross-area governance",
-        description: "The identifiers that tie together area work without hiding the existing model.",
+        description:
+          "The identifiers that tie together area work without hiding the existing model.",
         fields: [
           {
             label: "institutionId",
             source: "Institutions",
-            detail: "Institution root that anchors local access and clinical ownership.",
+            detail:
+              "Institution root that anchors local access and clinical ownership.",
           },
           {
             label: "doctorId",
             source: "Doctors",
-            detail: "Doctor scope used for assigned edits, patient ownership, and sequencing visibility.",
+            detail:
+              "Doctor scope used for assigned edits, patient ownership, and sequencing visibility.",
           },
           {
             label: "patientId",
             source: "Patients",
-            detail: "Patient sheet identifier used for case-level and report-level context.",
+            detail:
+              "Patient sheet identifier used for case-level and report-level context.",
           },
           {
             label: "roleEmail",
             source: "Roles",
-            detail: "Email-scoped role record that explains why this operator can or cannot act.",
+            detail:
+              "Email-scoped role record that explains why this operator can or cannot act.",
           },
         ],
       },
@@ -291,72 +323,96 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     tone: "blue",
     chips: ["Registry", "Intake", "Scope mapped"],
     quickLinks: [
-      { label: "Institutions", href: "/areas/institutions", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Doctors", href: "/areas/doctors", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Patients", href: "/areas/patients", visibleRoles: AREA_ADMIN_ROLES },
+      {
+        label: "Institutions",
+        href: "/areas/institutions",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Doctors",
+        href: "/areas/doctors",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Patients",
+        href: "/areas/patients",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
       { label: "Roles", href: "/roles", visibleRoles: AREA_ADMIN_ROLES },
     ],
     fieldGroups: [
       {
         title: "Case identity",
-        description: "The record keys that let operators open the right case without context loss.",
+        description:
+          "The record keys that let operators open the right case without context loss.",
         fields: [
           {
             label: "caseId",
             source: "2PQ",
-            detail: "Human-readable case key surfaced in the central ring and downstream report delivery.",
+            detail:
+              "Human-readable case key surfaced in the central ring and downstream report delivery.",
           },
           {
             label: "caseStatus",
             source: "2PQ",
-            detail: "Lifecycle flag such as intake, in processing, in sequencing, reporting, or delivered.",
+            detail:
+              "Lifecycle flag such as intake, in processing, in sequencing, reporting, or delivered.",
           },
           {
             label: "institutionId",
             source: "Institutions",
-            detail: "Institution root that owns the case and determines institution-admin scope.",
+            detail:
+              "Institution root that owns the case and determines institution-admin scope.",
           },
           {
             label: "doctorId",
             source: "Doctors",
-            detail: "Doctor owner that determines assigned-doctor access and local patient control.",
+            detail:
+              "Doctor owner that determines assigned-doctor access and local patient control.",
           },
         ],
       },
       {
         title: "Clinical routing",
-        description: "Patient-facing and logistics-facing identifiers carried across the workflow.",
+        description:
+          "Patient-facing and logistics-facing identifiers carried across the workflow.",
         fields: [
           {
             label: "patientId",
             source: "Patients",
-            detail: "Patient reference that keeps case work anchored to the patient sheet.",
+            detail:
+              "Patient reference that keeps case work anchored to the patient sheet.",
           },
           {
             label: "sampleId",
             source: "Samples",
-            detail: "Primary sample pointer used for accession, reception, and processing handoff.",
+            detail:
+              "Primary sample pointer used for accession, reception, and processing handoff.",
           },
           {
             label: "shipmentId",
             source: "Shipments",
-            detail: "Shipment pointer that links intake to dispatch and receipt checkpoints.",
+            detail:
+              "Shipment pointer that links intake to dispatch and receipt checkpoints.",
           },
           {
             label: "trackingNumber",
             source: "Shipments",
-            detail: "Carrier-facing identifier surfaced again in reports and client communication.",
+            detail:
+              "Carrier-facing identifier surfaced again in reports and client communication.",
           },
         ],
       },
       {
         title: "Operational governance",
-        description: "Fields that explain urgency, ownership, and permission coverage.",
+        description:
+          "Fields that explain urgency, ownership, and permission coverage.",
         fields: [
           {
             label: "priority",
             source: "2PQ",
-            detail: "Urgency or escalation state that makes queue triage readable.",
+            detail:
+              "Urgency or escalation state that makes queue triage readable.",
           },
           {
             label: "requestedAt",
@@ -366,12 +422,14 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "roleEmail",
             source: "Roles",
-            detail: "Email role record used to justify who can update or only inspect the case.",
+            detail:
+              "Email role record used to justify who can update or only inspect the case.",
           },
           {
             label: "notes",
             source: "2PQ",
-            detail: "Operator notes covering blockers, handoffs, and exceptions.",
+            detail:
+              "Operator notes covering blockers, handoffs, and exceptions.",
           },
         ],
       },
@@ -415,8 +473,16 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     tone: "mint",
     chips: ["Lab lane", "Accession", "Patient linked"],
     quickLinks: [
-      { label: "Patients", href: "/areas/patients", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Doctors", href: "/areas/doctors", visibleRoles: AREA_ADMIN_ROLES },
+      {
+        label: "Patients",
+        href: "/areas/patients",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Doctors",
+        href: "/areas/doctors",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
       { label: "Reports", href: "/reports", visibleRoles: FULL_ADMIN_ROLES },
       {
         label: "Uploaded reports",
@@ -432,7 +498,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "sampleId",
             source: "2PQ",
-            detail: "Unique sample identifier exposed again in cases, shipments, and sequencing runs.",
+            detail:
+              "Unique sample identifier exposed again in cases, shipments, and sequencing runs.",
           },
           {
             label: "caseId",
@@ -442,12 +509,14 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "patientId",
             source: "Patients",
-            detail: "Patient anchor used to keep sample history clinically meaningful.",
+            detail:
+              "Patient anchor used to keep sample history clinically meaningful.",
           },
           {
             label: "runId",
             source: "Sequencing runs",
-            detail: "Optional sequencing-run pointer once the sample is scheduled downstream.",
+            detail:
+              "Optional sequencing-run pointer once the sample is scheduled downstream.",
           },
         ],
       },
@@ -458,7 +527,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "sampleType",
             source: "2PQ",
-            detail: "Blood, saliva, kit return, or another supported accession type.",
+            detail:
+              "Blood, saliva, kit return, or another supported accession type.",
           },
           {
             label: "collectedAt",
@@ -468,23 +538,27 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "receivedAt",
             source: "2PQ",
-            detail: "Sample reception timestamp once the specimen is accepted into the workflow.",
+            detail:
+              "Sample reception timestamp once the specimen is accepted into the workflow.",
           },
           {
             label: "receptionStatus",
             source: "2PQ",
-            detail: "Pending, received, rejected, held, or another operational reception state.",
+            detail:
+              "Pending, received, rejected, held, or another operational reception state.",
           },
         ],
       },
       {
         title: "Processing state",
-        description: "Fields that turn sample handling into a readable CRUD workflow.",
+        description:
+          "Fields that turn sample handling into a readable CRUD workflow.",
         fields: [
           {
             label: "processingStatus",
             source: "2PQ",
-            detail: "Extraction, queued, processing, QC blocked, or ready for sequencing.",
+            detail:
+              "Extraction, queued, processing, QC blocked, or ready for sequencing.",
           },
           {
             label: "doctorId",
@@ -494,7 +568,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "institutionId",
             source: "Institutions",
-            detail: "Institution root for logistics accountability and admin coverage.",
+            detail:
+              "Institution root for logistics accountability and admin coverage.",
           },
           {
             label: "notes",
@@ -543,8 +618,16 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     tone: "amber",
     chips: ["Logistics", "Tracking", "Chain of custody"],
     quickLinks: [
-      { label: "Institutions", href: "/areas/institutions", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Patients", href: "/areas/patients", visibleRoles: AREA_ADMIN_ROLES },
+      {
+        label: "Institutions",
+        href: "/areas/institutions",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Patients",
+        href: "/areas/patients",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
       { label: "Reports", href: "/reports", visibleRoles: FULL_ADMIN_ROLES },
       {
         label: "Uploaded reports",
@@ -555,17 +638,20 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     fieldGroups: [
       {
         title: "Dispatch record",
-        description: "The transport identifiers needed to move work across sites.",
+        description:
+          "The transport identifiers needed to move work across sites.",
         fields: [
           {
             label: "shipmentId",
             source: "2PQ",
-            detail: "Internal logistics identifier for the shipment envelope or batch.",
+            detail:
+              "Internal logistics identifier for the shipment envelope or batch.",
           },
           {
             label: "trackingNumber",
             source: "2PQ",
-            detail: "Carrier tracking number reused in case and client communication.",
+            detail:
+              "Carrier tracking number reused in case and client communication.",
           },
           {
             label: "carrier",
@@ -607,17 +693,20 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       },
       {
         title: "Coordination fields",
-        description: "Contact and exception data for real-world logistics work.",
+        description:
+          "Contact and exception data for real-world logistics work.",
         fields: [
           {
             label: "contactName",
             source: "2PQ",
-            detail: "Primary shipment contact for delivery or exception resolution.",
+            detail:
+              "Primary shipment contact for delivery or exception resolution.",
           },
           {
             label: "contactEmail",
             source: "2PQ",
-            detail: "Operational email used for carrier or laboratory communication.",
+            detail:
+              "Operational email used for carrier or laboratory communication.",
           },
           {
             label: "contactPhone",
@@ -671,8 +760,16 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     tone: "violet",
     chips: ["Scheduling", "Provider handoff", "Run control"],
     quickLinks: [
-      { label: "Doctors", href: "/areas/doctors", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Patients", href: "/areas/patients", visibleRoles: AREA_ADMIN_ROLES },
+      {
+        label: "Doctors",
+        href: "/areas/doctors",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Patients",
+        href: "/areas/patients",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
       { label: "Reports", href: "/reports", visibleRoles: FULL_ADMIN_ROLES },
       {
         label: "Uploaded reports",
@@ -688,7 +785,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "runId",
             source: "2PQ",
-            detail: "Primary sequencing run identifier linked back to samples and reports.",
+            detail:
+              "Primary sequencing run identifier linked back to samples and reports.",
           },
           {
             label: "platform",
@@ -703,23 +801,27 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "analysisStatus",
             source: "2PQ",
-            detail: "Queued, running, failed, completed, or ready for reporting.",
+            detail:
+              "Queued, running, failed, completed, or ready for reporting.",
           },
         ],
       },
       {
         title: "Scheduling lane",
-        description: "The exact fields called out on the PDF’s sequencing panel.",
+        description:
+          "The exact fields called out on the PDF’s sequencing panel.",
         fields: [
           {
             label: "scheduling",
             source: "2PQ",
-            detail: "Planned slot, provider queue, or appointment-style scheduling note.",
+            detail:
+              "Planned slot, provider queue, or appointment-style scheduling note.",
           },
           {
             label: "contactName",
             source: "2PQ",
-            detail: "Operational owner for the sequencing provider or lab contact.",
+            detail:
+              "Operational owner for the sequencing provider or lab contact.",
           },
           {
             label: "email",
@@ -735,12 +837,14 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       },
       {
         title: "Clinical linkage",
-        description: "How run activity stays interoperable with the current model.",
+        description:
+          "How run activity stays interoperable with the current model.",
         fields: [
           {
             label: "institutionId",
             source: "Institutions",
-            detail: "Institution scope used to keep sequencing visibility local when required.",
+            detail:
+              "Institution scope used to keep sequencing visibility local when required.",
           },
           {
             label: "doctorId",
@@ -755,7 +859,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "uploadedReportId",
             source: "Reports",
-            detail: "Uploaded report document created once the run resolves into report output.",
+            detail:
+              "Uploaded report document created once the run resolves into report output.",
           },
         ],
       },
@@ -819,22 +924,26 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     fieldGroups: [
       {
         title: "Report identity",
-        description: "The primary keys that map directly into the live reports module.",
+        description:
+          "The primary keys that map directly into the live reports module.",
         fields: [
           {
             label: "reportCode",
             source: "Reports",
-            detail: "Existing report code used to index owner, upload, and delivery state.",
+            detail:
+              "Existing report code used to index owner, upload, and delivery state.",
           },
           {
             label: "uploadedReportId",
             source: "Reports",
-            detail: "Uploaded report document backing provider file metadata and download state.",
+            detail:
+              "Uploaded report document backing provider file metadata and download state.",
           },
           {
             label: "providerName",
             source: "Reports",
-            detail: "Provider identity from the uploaded report or code linkage.",
+            detail:
+              "Provider identity from the uploaded report or code linkage.",
           },
           {
             label: "providerFormat",
@@ -845,22 +954,26 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       },
       {
         title: "Delivery lane",
-        description: "The exact client-facing fields that make report handoff trackable.",
+        description:
+          "The exact client-facing fields that make report handoff trackable.",
         fields: [
           {
             label: "clientCaseStatus",
             source: "2PQ",
-            detail: "Human-facing case status shown to clients once reporting begins.",
+            detail:
+              "Human-facing case status shown to clients once reporting begins.",
           },
           {
             label: "reportDelivery",
             source: "2PQ",
-            detail: "Delivery channel or state, such as pending, sent, acknowledged, or failed.",
+            detail:
+              "Delivery channel or state, such as pending, sent, acknowledged, or failed.",
           },
           {
             label: "trackingStatus",
             source: "Reports",
-            detail: "Operational upload or processing status from the current reports system.",
+            detail:
+              "Operational upload or processing status from the current reports system.",
           },
           {
             label: "deliveryDate",
@@ -871,12 +984,14 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
       },
       {
         title: "Ownership and scope",
-        description: "How report work remains interoperable with institution and doctor permissions.",
+        description:
+          "How report work remains interoperable with institution and doctor permissions.",
         fields: [
           {
             label: "ownerId",
             source: "Reports",
-            detail: "Report owner or community-linked identity from the live reports model.",
+            detail:
+              "Report owner or community-linked identity from the live reports model.",
           },
           {
             label: "institutionId",
@@ -886,7 +1001,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "doctorId",
             source: "Doctors",
-            detail: "Doctor lane that should receive or review the report output.",
+            detail:
+              "Doctor lane that should receive or review the report output.",
           },
           {
             label: "patientId",
@@ -935,9 +1051,21 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
     tone: "slate",
     chips: ["People", "Permissions", "Cross-scope"],
     quickLinks: [
-      { label: "Institutions", href: "/areas/institutions", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Doctors", href: "/areas/doctors", visibleRoles: AREA_ADMIN_ROLES },
-      { label: "Patients", href: "/areas/patients", visibleRoles: AREA_ADMIN_ROLES },
+      {
+        label: "Institutions",
+        href: "/areas/institutions",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Doctors",
+        href: "/areas/doctors",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
+      {
+        label: "Patients",
+        href: "/areas/patients",
+        visibleRoles: AREA_ADMIN_ROLES,
+      },
       { label: "Users", href: "/users", visibleRoles: FULL_ADMIN_ROLES },
     ],
     fieldGroups: [
@@ -953,7 +1081,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "institutionName",
             source: "Institutions",
-            detail: "Institution root displayed as the primary organizational owner.",
+            detail:
+              "Institution root displayed as the primary organizational owner.",
           },
           {
             label: "doctorName",
@@ -979,7 +1108,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "phone",
             source: "Institutions",
-            detail: "Support or local contact phone where the workflow is anchored.",
+            detail:
+              "Support or local contact phone where the workflow is anchored.",
           },
           {
             label: "country",
@@ -989,18 +1119,21 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "preferredLanguage",
             source: "2PQ",
-            detail: "Communication preference for client-facing delivery state.",
+            detail:
+              "Communication preference for client-facing delivery state.",
           },
         ],
       },
       {
         title: "Access and clinical context",
-        description: "The permission fields that make the shell interoperable with current roles.",
+        description:
+          "The permission fields that make the shell interoperable with current roles.",
         fields: [
           {
             label: "role",
             source: "Roles",
-            detail: "Email-based admin role used to determine backoffice access.",
+            detail:
+              "Email-based admin role used to determine backoffice access.",
           },
           {
             label: "institutionScope",
@@ -1015,7 +1148,8 @@ const BASE_TWO_PQ_WORKFLOW_AREAS: TwoPQWorkflowAreaSpec[] = [
           {
             label: "patientScope",
             source: "Roles",
-            detail: "Patient boundary attached to patient-specific role records.",
+            detail:
+              "Patient boundary attached to patient-specific role records.",
           },
         ],
       },
@@ -1064,7 +1198,8 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   {
     key: "overview",
     label: "Overview",
-    description: "Current mission landing page and global operational snapshot.",
+    description:
+      "Current mission landing page and global operational snapshot.",
     href: "/",
     icon: LayoutDashboard,
     tone: "blue",
@@ -1084,7 +1219,8 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   {
     key: "community",
     label: "Community",
-    description: "Public profiles, community users, posts, comments, and activity.",
+    description:
+      "Public profiles, community users, posts, comments, and activity.",
     href: "/community",
     icon: MessagesSquare,
     tone: "rose",
@@ -1114,7 +1250,8 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   {
     key: "institutions",
     label: "Institutions",
-    description: "Institution roots, descriptors, doctor counts, and patient totals.",
+    description:
+      "Institution roots, descriptors, doctor counts, and patient totals.",
     href: "/areas/institutions",
     icon: Building2,
     tone: "blue",
@@ -1144,7 +1281,8 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   {
     key: "roles",
     label: "Roles & Permissions",
-    description: "Email-based access tree for full admins, institution admins, institution operators, institution laboratory staff, doctors, and patients.",
+    description:
+      "Email-based access tree for full admins, institution admins, institution operators, institution laboratory staff, doctors, and patients.",
     href: "/roles",
     icon: KeyRound,
     tone: "slate",
@@ -1275,8 +1413,8 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
       {
         role: "institution_operator",
         scope: "institution",
-        capabilities: ["create", "read", "update"],
-        note: "Institution operators can create and edit local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.",
+        capabilities: ["read", "update"],
+        note: "Institution operators can update existing local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but new role assignments must be requested from the institution administrator.",
       },
       {
         role: "institution_doctor",
@@ -1308,7 +1446,7 @@ export const ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] =
 
 export function canAccessTwoPQRoute(
   role: AdminRole,
-  visibleRoles?: AdminRole[]
+  visibleRoles?: AdminRole[],
 ) {
   return !visibleRoles || visibleRoles.includes(role);
 }

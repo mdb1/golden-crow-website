@@ -71,13 +71,15 @@ export function normalizeRoleEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-function canRoleAccessBackoffice(record: Pick<UserRoleRecord, "role" | "isActive"> | null) {
+function canRoleAccessBackoffice(
+  record: Pick<UserRoleRecord, "role" | "isActive"> | null,
+) {
   return Boolean(record?.isActive && BACKOFFICE_ROLES.has(record.role));
 }
 
 function resolveBackofficeProjectAccess(
   email: string,
-  options?: { includeMydnamap?: boolean }
+  options?: { includeMydnamap?: boolean },
 ): ProjectKey[] {
   const projectAccess = new Set<ProjectKey>(resolveProjectAccess(email));
   if (options?.includeMydnamap) {
@@ -96,11 +98,15 @@ export interface BackofficeEmailAccess {
 }
 
 export async function getBackofficeEmailAccess(
-  email: string
+  email: string,
 ): Promise<BackofficeEmailAccess> {
   const normalizedEmail = normalizeRoleEmail(email);
-  const roleRecord = normalizedEmail ? await getUserRoleByEmail(normalizedEmail) : null;
-  const viaAllowlist = normalizedEmail ? TEAM_ALLOWLIST.has(normalizedEmail) : false;
+  const roleRecord = normalizedEmail
+    ? await getUserRoleByEmail(normalizedEmail)
+    : null;
+  const viaAllowlist = normalizedEmail
+    ? TEAM_ALLOWLIST.has(normalizedEmail)
+    : false;
   const viaRoleAssignment = canRoleAccessBackoffice(roleRecord);
   const canAccessBackoffice = viaAllowlist || viaRoleAssignment;
 
@@ -152,9 +158,14 @@ function isAdminRole(value: string): value is AdminRole {
   );
 }
 
-function toUserRoleRecord(email: string, data: Record<string, unknown>): UserRoleRecord {
+function toUserRoleRecord(
+  email: string,
+  data: Record<string, unknown>,
+): UserRoleRecord {
   const role = normalizeOptionalString(data.role);
-  const resolvedRole: AdminRole = isAdminRole(role ?? "") ? (role as AdminRole) : "patient";
+  const resolvedRole: AdminRole = isAdminRole(role ?? "")
+    ? (role as AdminRole)
+    : "patient";
 
   return {
     email,
@@ -180,18 +191,26 @@ export function getRoleManagementTargets(role: AdminRole) {
   return ROLE_ASSIGNMENT_TREE[role];
 }
 
-export async function getUserRoleByEmail(email: string): Promise<UserRoleRecord | null> {
+export async function getUserRoleByEmail(
+  email: string,
+): Promise<UserRoleRecord | null> {
   const normalizedEmail = normalizeRoleEmail(email);
   if (!normalizedEmail) {
     return null;
   }
 
-  const snapshot = await adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail).get();
+  const snapshot = await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedEmail)
+    .get();
   if (!snapshot.exists) {
     return null;
   }
 
-  return toUserRoleRecord(normalizedEmail, snapshot.data() as Record<string, unknown>);
+  return toUserRoleRecord(
+    normalizedEmail,
+    snapshot.data() as Record<string, unknown>,
+  );
 }
 
 function getLinkedCollectionIds(payload: {
@@ -201,7 +220,8 @@ function getLinkedCollectionIds(payload: {
   patientId?: string;
 }) {
   return {
-    institutionId: payload.role === "full_admin" ? undefined : payload.institutionId,
+    institutionId:
+      payload.role === "full_admin" ? undefined : payload.institutionId,
     doctorId:
       payload.role === "institution_doctor" || payload.role === "patient"
         ? payload.doctorId
@@ -212,9 +232,13 @@ function getLinkedCollectionIds(payload: {
 
 async function validateLinkedRoleEntities(
   email: string,
-  payload: Pick<UserRoleRecord, "role" | "institutionId" | "doctorId" | "patientId">
+  payload: Pick<
+    UserRoleRecord,
+    "role" | "institutionId" | "doctorId" | "patientId"
+  >,
 ): Promise<string | null> {
-  const { institutionId, doctorId, patientId } = getLinkedCollectionIds(payload);
+  const { institutionId, doctorId, patientId } =
+    getLinkedCollectionIds(payload);
   const normalizedEmail = normalizeRoleEmail(email);
 
   if (payload.role === "full_admin") {
@@ -225,7 +249,10 @@ async function validateLinkedRoleEntities(
     return "Institution-scoped roles require an institution id.";
   }
 
-  const institutionSnapshot = await adminDb.collection("institutions").doc(institutionId).get();
+  const institutionSnapshot = await adminDb
+    .collection("institutions")
+    .doc(institutionId)
+    .get();
   if (!institutionSnapshot.exists) {
     return "The selected institution does not exist.";
   }
@@ -238,7 +265,10 @@ async function validateLinkedRoleEntities(
     return "The selected role requires a linked doctor.";
   }
 
-  const doctorSnapshot = await adminDb.collection("doctors").doc(doctorId).get();
+  const doctorSnapshot = await adminDb
+    .collection("doctors")
+    .doc(doctorId)
+    .get();
   if (!doctorSnapshot.exists) {
     return "The selected doctor does not exist.";
   }
@@ -249,7 +279,9 @@ async function validateLinkedRoleEntities(
   }
 
   if (payload.role === "institution_doctor") {
-    const doctorEmail = normalizeRoleEmail(normalizeOptionalString(doctorData.authEmail) ?? "");
+    const doctorEmail = normalizeRoleEmail(
+      normalizeOptionalString(doctorData.authEmail) ?? "",
+    );
     if (doctorEmail && doctorEmail !== normalizedEmail) {
       return "Doctor roles must use the doctor's auth email.";
     }
@@ -261,7 +293,10 @@ async function validateLinkedRoleEntities(
     return "Patient roles require a linked patient.";
   }
 
-  const patientSnapshot = await adminDb.collection("patients").doc(patientId).get();
+  const patientSnapshot = await adminDb
+    .collection("patients")
+    .doc(patientId)
+    .get();
   if (!patientSnapshot.exists) {
     return "The selected patient does not exist.";
   }
@@ -275,7 +310,9 @@ async function validateLinkedRoleEntities(
     return "The selected patient must belong to the selected doctor.";
   }
 
-  const patientEmail = normalizeRoleEmail(normalizeOptionalString(patientData.email) ?? "");
+  const patientEmail = normalizeRoleEmail(
+    normalizeOptionalString(patientData.email) ?? "",
+  );
   if (patientEmail && patientEmail !== normalizedEmail) {
     return "Patient roles must use the patient's email.";
   }
@@ -285,7 +322,7 @@ async function validateLinkedRoleEntities(
 
 function toRoleManagementRecord(
   record: UserRoleRecord,
-  extras?: Partial<RoleManagementRecord>
+  extras?: Partial<RoleManagementRecord>,
 ): RoleManagementRecord {
   return {
     ...record,
@@ -297,13 +334,15 @@ function toRoleManagementRecord(
 }
 
 async function hydrateRoleManagementRecord(
-  record: UserRoleRecord
+  record: UserRoleRecord,
 ): Promise<RoleManagementRecord> {
   const [institutionSnap, doctorSnap, patientSnap] = await Promise.all([
     record.institutionId
       ? adminDb.collection("institutions").doc(record.institutionId).get()
       : Promise.resolve(null),
-    record.doctorId ? adminDb.collection("doctors").doc(record.doctorId).get() : Promise.resolve(null),
+    record.doctorId
+      ? adminDb.collection("doctors").doc(record.doctorId).get()
+      : Promise.resolve(null),
     record.patientId
       ? adminDb.collection("patients").doc(record.patientId).get()
       : Promise.resolve(null),
@@ -312,18 +351,21 @@ async function hydrateRoleManagementRecord(
   return toRoleManagementRecord(record, {
     institutionName:
       institutionSnap && institutionSnap.exists
-        ? normalizeOptionalString((institutionSnap.data() as Record<string, unknown>).name) ??
-          institutionSnap.id
+        ? (normalizeOptionalString(
+            (institutionSnap.data() as Record<string, unknown>).name,
+          ) ?? institutionSnap.id)
         : undefined,
     doctorName:
       doctorSnap && doctorSnap.exists
-        ? normalizeOptionalString((doctorSnap.data() as Record<string, unknown>).fullName) ??
-          doctorSnap.id
+        ? (normalizeOptionalString(
+            (doctorSnap.data() as Record<string, unknown>).fullName,
+          ) ?? doctorSnap.id)
         : undefined,
     patientName:
       patientSnap && patientSnap.exists
-        ? normalizeOptionalString((patientSnap.data() as Record<string, unknown>).fullName) ??
-          patientSnap.id
+        ? (normalizeOptionalString(
+            (patientSnap.data() as Record<string, unknown>).fullName,
+          ) ?? patientSnap.id)
         : undefined,
     bootstrap: record.createdAt === BOOTSTRAP_TIMESTAMP,
   });
@@ -443,7 +485,10 @@ export function canCreateInstitution(context: AdminContext) {
   return context.role === "full_admin";
 }
 
-export function canViewInstitution(context: AdminContext, institutionId: string) {
+export function canViewInstitution(
+  context: AdminContext,
+  institutionId: string,
+) {
   if (context.role === "full_admin") {
     return true;
   }
@@ -451,15 +496,24 @@ export function canViewInstitution(context: AdminContext, institutionId: string)
   return context.institutionId === institutionId;
 }
 
-export function canEditInstitution(context: AdminContext, institutionId: string) {
+export function canEditInstitution(
+  context: AdminContext,
+  institutionId: string,
+) {
   if (context.role === "full_admin") {
     return true;
   }
 
-  return isInstitutionManagerRole(context.role) && context.institutionId === institutionId;
+  return (
+    isInstitutionManagerRole(context.role) &&
+    context.institutionId === institutionId
+  );
 }
 
-export function canDeleteInstitution(context: AdminContext, _institutionId: string) {
+export function canDeleteInstitution(
+  context: AdminContext,
+  _institutionId: string,
+) {
   return context.role === "full_admin";
 }
 
@@ -468,10 +522,16 @@ export function canCreateDoctor(context: AdminContext, institutionId: string) {
     return true;
   }
 
-  return isInstitutionManagerRole(context.role) && context.institutionId === institutionId;
+  return (
+    isInstitutionManagerRole(context.role) &&
+    context.institutionId === institutionId
+  );
 }
 
-export function canViewDoctor(context: AdminContext, doctor: Pick<DoctorRecord, "id" | "institutionId">) {
+export function canViewDoctor(
+  context: AdminContext,
+  doctor: Pick<DoctorRecord, "id" | "institutionId">,
+) {
   if (context.role === "full_admin") {
     return true;
   }
@@ -479,7 +539,10 @@ export function canViewDoctor(context: AdminContext, doctor: Pick<DoctorRecord, 
   return context.institutionId === doctor.institutionId;
 }
 
-export function canEditDoctor(context: AdminContext, doctor: Pick<DoctorRecord, "id" | "institutionId">) {
+export function canEditDoctor(
+  context: AdminContext,
+  doctor: Pick<DoctorRecord, "id" | "institutionId">,
+) {
   if (context.role === "full_admin") {
     return true;
   }
@@ -488,24 +551,29 @@ export function canEditDoctor(context: AdminContext, doctor: Pick<DoctorRecord, 
     return context.institutionId === doctor.institutionId;
   }
 
-  return context.role === "institution_doctor" && context.doctorId === doctor.id;
+  return (
+    context.role === "institution_doctor" && context.doctorId === doctor.id
+  );
 }
 
 export function canDeleteDoctor(
   context: AdminContext,
-  doctor: Pick<DoctorRecord, "institutionId">
+  doctor: Pick<DoctorRecord, "institutionId">,
 ) {
   if (context.role === "full_admin") {
     return true;
   }
 
-  return isInstitutionManagerRole(context.role) && context.institutionId === doctor.institutionId;
+  return (
+    isInstitutionManagerRole(context.role) &&
+    context.institutionId === doctor.institutionId
+  );
 }
 
 export function canCreatePatient(
   context: AdminContext,
   institutionId: string,
-  doctorId: string
+  doctorId: string,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -524,7 +592,7 @@ export function canCreatePatient(
 
 export function canViewPatient(
   context: AdminContext,
-  patient: Pick<PatientRecord, "institutionId">
+  patient: Pick<PatientRecord, "institutionId">,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -535,7 +603,7 @@ export function canViewPatient(
 
 export function canEditPatient(
   context: AdminContext,
-  patient: Pick<PatientRecord, "institutionId" | "doctorId">
+  patient: Pick<PatientRecord, "institutionId" | "doctorId">,
 ) {
   if (context.role === "full_admin") {
     return true;
@@ -554,19 +622,23 @@ export function canEditPatient(
 
 export function canDeletePatient(
   context: AdminContext,
-  patient: Pick<PatientRecord, "institutionId" | "doctorId">
+  patient: Pick<PatientRecord, "institutionId" | "doctorId">,
 ) {
   return canEditPatient(context, patient);
 }
 
-export function canViewRoleRecord(context: AdminContext, record: UserRoleRecord) {
+export function canViewRoleRecord(
+  context: AdminContext,
+  record: UserRoleRecord,
+) {
   if (context.role === "full_admin") {
     return true;
   }
 
   if (isInstitutionManagerRole(context.role)) {
     return (
-      record.role !== "full_admin" && record.institutionId === context.institutionId
+      record.role !== "full_admin" &&
+      record.institutionId === context.institutionId
     );
   }
 
@@ -582,9 +654,20 @@ export function canAssignRole(context: AdminContext, targetRole: AdminRole) {
   return ROLE_ASSIGNMENT_TREE[context.role].includes(targetRole);
 }
 
+export function canCreateRoleAssignment(context: AdminContext) {
+  return (
+    context.role === "full_admin" ||
+    context.role === "institution_admin" ||
+    context.role === "institution_doctor"
+  );
+}
+
 export function validateRoleScope(
   context: AdminContext,
-  payload: Pick<UserRoleRecord, "role" | "institutionId" | "doctorId" | "patientId">
+  payload: Pick<
+    UserRoleRecord,
+    "role" | "institutionId" | "doctorId" | "patientId"
+  >,
 ): string | null {
   if (!canAssignRole(context, payload.role)) {
     return "This operator cannot assign the requested role.";
@@ -600,7 +683,10 @@ export function validateRoleScope(
     return "Institution-scoped roles require an institution id.";
   }
 
-  if (context.role !== "full_admin" && payload.institutionId !== context.institutionId) {
+  if (
+    context.role !== "full_admin" &&
+    payload.institutionId !== context.institutionId
+  ) {
     return "This role must stay inside the operator's institution scope.";
   }
 
@@ -617,7 +703,10 @@ export function validateRoleScope(
       return "Patient roles require a linked doctor id.";
     }
 
-    if (context.role === "institution_doctor" && payload.doctorId !== context.doctorId) {
+    if (
+      context.role === "institution_doctor" &&
+      payload.doctorId !== context.doctorId
+    ) {
       return "Doctors can only assign patient roles to their own patients.";
     }
   }
@@ -626,7 +715,7 @@ export function validateRoleScope(
 }
 
 export async function listUserRolesForContext(
-  context: AdminContext
+  context: AdminContext,
 ): Promise<RoleManagementRecord[]> {
   const snapshot =
     context.role === "full_admin"
@@ -637,7 +726,9 @@ export async function listUserRolesForContext(
           .get();
 
   const records = snapshot.docs
-    .map((doc) => toUserRoleRecord(doc.id, doc.data() as Record<string, unknown>))
+    .map((doc) =>
+      toUserRoleRecord(doc.id, doc.data() as Record<string, unknown>),
+    )
     .filter((record) => canViewRoleRecord(context, record));
 
   if (context.role === "full_admin") {
@@ -669,14 +760,18 @@ export async function listUserRolesForContext(
   const [institutionSnaps, doctorSnaps, patientSnaps] = await Promise.all([
     Promise.all(
       [...institutionIds].map((institutionId) =>
-        adminDb.collection("institutions").doc(institutionId).get()
-      )
+        adminDb.collection("institutions").doc(institutionId).get(),
+      ),
     ),
     Promise.all(
-      [...doctorIds].map((doctorId) => adminDb.collection("doctors").doc(doctorId).get())
+      [...doctorIds].map((doctorId) =>
+        adminDb.collection("doctors").doc(doctorId).get(),
+      ),
     ),
     Promise.all(
-      [...patientIds].map((patientId) => adminDb.collection("patients").doc(patientId).get())
+      [...patientIds].map((patientId) =>
+        adminDb.collection("patients").doc(patientId).get(),
+      ),
     ),
   ]);
 
@@ -686,7 +781,7 @@ export async function listUserRolesForContext(
       .map((snapshot) => {
         const data = snapshot.data() as Record<string, unknown>;
         return [snapshot.id, normalizeOptionalString(data.name) ?? snapshot.id];
-      })
+      }),
   );
 
   const doctorNames = new Map(
@@ -694,8 +789,11 @@ export async function listUserRolesForContext(
       .filter((snapshot) => snapshot.exists)
       .map((snapshot) => {
         const data = snapshot.data() as Record<string, unknown>;
-        return [snapshot.id, normalizeOptionalString(data.fullName) ?? snapshot.id];
-      })
+        return [
+          snapshot.id,
+          normalizeOptionalString(data.fullName) ?? snapshot.id,
+        ];
+      }),
   );
 
   const patientNames = new Map(
@@ -703,8 +801,11 @@ export async function listUserRolesForContext(
       .filter((snapshot) => snapshot.exists)
       .map((snapshot) => {
         const data = snapshot.data() as Record<string, unknown>;
-        return [snapshot.id, normalizeOptionalString(data.fullName) ?? snapshot.id];
-      })
+        return [
+          snapshot.id,
+          normalizeOptionalString(data.fullName) ?? snapshot.id,
+        ];
+      }),
   );
 
   return records
@@ -713,17 +814,21 @@ export async function listUserRolesForContext(
         institutionName: record.institutionId
           ? institutionNames.get(record.institutionId)
           : undefined,
-        doctorName: record.doctorId ? doctorNames.get(record.doctorId) : undefined,
-        patientName: record.patientId ? patientNames.get(record.patientId) : undefined,
+        doctorName: record.doctorId
+          ? doctorNames.get(record.doctorId)
+          : undefined,
+        patientName: record.patientId
+          ? patientNames.get(record.patientId)
+          : undefined,
         bootstrap: record.createdAt === BOOTSTRAP_TIMESTAMP,
-      })
+      }),
     )
     .sort((left, right) => left.email.localeCompare(right.email));
 }
 
 export async function getUserRoleForContext(
   context: AdminContext,
-  email: string
+  email: string,
 ): Promise<RoleManagementRecord | null> {
   const normalizedEmail = normalizeRoleEmail(email);
   const record =
@@ -743,7 +848,7 @@ export async function getUserRoleForContext(
 }
 
 export async function getOwnRoleForContext(
-  context: AdminContext
+  context: AdminContext,
 ): Promise<RoleManagementRecord | null> {
   const normalizedEmail = normalizeRoleEmail(context.email);
   const record =
@@ -757,34 +862,40 @@ export async function getOwnRoleForContext(
 
 export async function updateOwnRoleProfileForContext(
   context: AdminContext,
-  payload: Pick<UserRoleRecord, "displayName" | "contactPhone" | "notes">
+  payload: Pick<UserRoleRecord, "displayName" | "contactPhone" | "notes">,
 ): Promise<RoleManagementRecord> {
   const normalizedEmail = normalizeRoleEmail(context.email);
   if (context.isBootstrap || TEAM_ALLOWLIST.has(normalizedEmail)) {
     throw new AdminRepositoryError(
       "Bootstrap allowlist accounts are managed by environment configuration and cannot edit their role assignment metadata here.",
-      403
+      403,
     );
   }
 
   const existing = await getUserRoleByEmail(normalizedEmail);
   if (!existing) {
-    throw new AdminRepositoryError("Role assignment not found for the current user.", 404);
+    throw new AdminRepositoryError(
+      "Role assignment not found for the current user.",
+      404,
+    );
   }
 
   const now = new Date().toISOString();
   const displayName = normalizeOptionalString(payload.displayName);
   const contactPhone = normalizeOptionalString(payload.contactPhone);
   const notes = normalizeOptionalString(payload.notes);
-  await adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail).set(
-    {
-      displayName: displayName ?? null,
-      contactPhone: contactPhone ?? null,
-      notes: notes ?? null,
-      updatedAt: now,
-    },
-    { merge: true }
-  );
+  await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedEmail)
+    .set(
+      {
+        displayName: displayName ?? null,
+        contactPhone: contactPhone ?? null,
+        notes: notes ?? null,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
 
   return hydrateRoleManagementRecord({
     ...existing,
@@ -797,7 +908,7 @@ export async function updateOwnRoleProfileForContext(
 
 export async function moveOwnRoleEmailForContext(
   context: AdminContext,
-  nextEmail: string
+  nextEmail: string,
 ): Promise<RoleManagementRecord> {
   const currentEmail = normalizeRoleEmail(context.email);
   const normalizedNextEmail = normalizeRoleEmail(nextEmail);
@@ -809,30 +920,37 @@ export async function moveOwnRoleEmailForContext(
   if (context.isBootstrap || TEAM_ALLOWLIST.has(currentEmail)) {
     throw new AdminRepositoryError(
       "Bootstrap allowlist account emails are managed by environment configuration and cannot be changed here.",
-      403
+      403,
     );
   }
 
-  const currentRef = adminDb.collection(USER_ROLES_COLLECTION).doc(currentEmail);
+  const currentRef = adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(currentEmail);
   const currentSnapshot = await currentRef.get();
   if (!currentSnapshot.exists) {
-    throw new AdminRepositoryError("Role assignment not found for the current user.", 404);
+    throw new AdminRepositoryError(
+      "Role assignment not found for the current user.",
+      404,
+    );
   }
 
   if (normalizedNextEmail === currentEmail) {
     const record = toUserRoleRecord(
       currentEmail,
-      currentSnapshot.data() as Record<string, unknown>
+      currentSnapshot.data() as Record<string, unknown>,
     );
     return hydrateRoleManagementRecord(record);
   }
 
-  const nextRef = adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedNextEmail);
+  const nextRef = adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedNextEmail);
   const nextSnapshot = await nextRef.get();
   if (nextSnapshot.exists) {
     throw new AdminRepositoryError(
       "A role assignment already exists for the requested email.",
-      409
+      409,
     );
   }
 
@@ -848,30 +966,45 @@ export async function moveOwnRoleEmailForContext(
   batch.delete(currentRef);
   await batch.commit();
 
-  return hydrateRoleManagementRecord(toUserRoleRecord(normalizedNextEmail, nextData));
+  return hydrateRoleManagementRecord(
+    toUserRoleRecord(normalizedNextEmail, nextData),
+  );
 }
 
 export async function upsertUserRoleForContext(
   context: AdminContext,
   email: string,
-  payload: Omit<UserRoleRecord, "email" | "createdAt" | "updatedAt" | "createdByEmail">
+  payload: Omit<
+    UserRoleRecord,
+    "email" | "createdAt" | "updatedAt" | "createdByEmail"
+  >,
 ): Promise<UserRoleRecord> {
   const normalizedEmail = normalizeRoleEmail(email);
+  const existing = await getUserRoleByEmail(normalizedEmail);
+  if (!existing && !canCreateRoleAssignment(context)) {
+    throw new AdminRepositoryError(
+      "Ask the institution administrator to add a new role.",
+      403,
+    );
+  }
+
   const scopeError = validateRoleScope(context, payload);
   if (scopeError) {
     throw new AdminRepositoryError(scopeError, 400);
   }
 
-  const relationError = await validateLinkedRoleEntities(normalizedEmail, payload);
+  const relationError = await validateLinkedRoleEntities(
+    normalizedEmail,
+    payload,
+  );
   if (relationError) {
     throw new AdminRepositoryError(relationError, 400);
   }
 
-  const existing = await getUserRoleByEmail(normalizedEmail);
   if (existing && !canViewRoleRecord(context, existing)) {
     throw new AdminRepositoryError(
       "This operator cannot modify the selected role record.",
-      403
+      403,
     );
   }
 
@@ -879,12 +1012,13 @@ export async function upsertUserRoleForContext(
   const document = {
     email: normalizedEmail,
     role: payload.role,
-    institutionId: payload.role === "full_admin" ? null : payload.institutionId ?? null,
+    institutionId:
+      payload.role === "full_admin" ? null : (payload.institutionId ?? null),
     doctorId:
       payload.role === "institution_doctor" || payload.role === "patient"
-        ? payload.doctorId ?? null
+        ? (payload.doctorId ?? null)
         : null,
-    patientId: payload.role === "patient" ? payload.patientId ?? null : null,
+    patientId: payload.role === "patient" ? (payload.patientId ?? null) : null,
     isActive: payload.isActive,
     displayName: payload.displayName ?? null,
     contactPhone: payload.contactPhone ?? existing?.contactPhone ?? null,
@@ -894,9 +1028,12 @@ export async function upsertUserRoleForContext(
     createdByEmail: existing?.createdByEmail ?? context.email,
   };
 
-  await adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail).set(document, {
-    merge: true,
-  });
+  await adminDb
+    .collection(USER_ROLES_COLLECTION)
+    .doc(normalizedEmail)
+    .set(document, {
+      merge: true,
+    });
 
   return toUserRoleRecord(normalizedEmail, document);
 }

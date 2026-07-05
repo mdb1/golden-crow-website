@@ -45,7 +45,10 @@ function getVisibleRoleTabs(currentRole: AdminRole): AdminRole[] {
   return ROLE_TABS;
 }
 
-const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant"]> = {
+const roleBadgeVariants: Record<
+  AdminRole,
+  ComponentProps<typeof Badge>["variant"]
+> = {
   full_admin: "destructive",
   institution_admin: "brand",
   institution_operator: "secondary",
@@ -85,13 +88,15 @@ const scopeMeta: Record<
   },
   read_only: {
     label: "Read-only scope",
-    description: "Can inspect the lane but cannot change the records inside it.",
+    description:
+      "Can inspect the lane but cannot change the records inside it.",
     className:
       "border-cyan-300/60 bg-cyan-100 text-cyan-900 dark:border-cyan-400/35 dark:bg-cyan-500/12 dark:text-cyan-100",
   },
   no_access: {
     label: "No backoffice access",
-    description: "This role assignment exists for permission modeling, not for admin work.",
+    description:
+      "This role assignment exists for permission modeling, not for admin work.",
     className:
       "border-rose-300/60 bg-rose-100 text-rose-900 dark:border-rose-400/35 dark:bg-rose-500/12 dark:text-rose-100",
   },
@@ -201,9 +206,9 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
   institution_operator: [
     {
       tone: "allow",
-      title: "Can manage local role assignments",
+      title: "Can update local role assignments",
       description:
-        "Institution operators can create and update institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
+        "Institution operators can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
     },
     {
       tone: "allow",
@@ -216,6 +221,12 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Can inspect the local permission map",
       description:
         "They can review which emails are attached to their institution and how those assignments map to the doctor and patient hierarchy.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot create role assignments",
+      description:
+        "New role assignments must be requested from the institution administrator.",
     },
     {
       tone: "limit",
@@ -239,9 +250,9 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
   institution_laboratory_staff: [
     {
       tone: "allow",
-      title: "Can manage local role assignments",
+      title: "Can update local role assignments",
       description:
-        "Institution laboratory staff can create and update institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
+        "Institution laboratory staff can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
     },
     {
       tone: "allow",
@@ -254,6 +265,12 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Can inspect the local permission map",
       description:
         "They can review which emails are attached to their institution and how those assignments map to the doctor and patient hierarchy.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot create role assignments",
+      description:
+        "New role assignments must be requested from the institution administrator.",
     },
     {
       tone: "limit",
@@ -340,7 +357,12 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
   ],
 };
 
-const ROLE_ASSIGNMENT_CAPABILITIES: CrudCapability[] = ["create", "read", "update", "delete"];
+const ROLE_ASSIGNMENT_CAPABILITIES: CrudCapability[] = [
+  "create",
+  "read",
+  "update",
+  "delete",
+];
 
 export function RoleAssignmentCapabilitiesScreen({
   entries,
@@ -354,7 +376,9 @@ export function RoleAssignmentCapabilitiesScreen({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const visibleRoleTabs = getVisibleRoleTabs(currentRole);
-  const activeRole = visibleRoleTabs.includes(selectedRole) ? selectedRole : visibleRoleTabs[0];
+  const activeRole = visibleRoleTabs.includes(selectedRole)
+    ? selectedRole
+    : visibleRoleTabs[0];
   const activeEntry =
     entries.find((entry) => entry.role === activeRole) ??
     entries.find((entry) => visibleRoleTabs.includes(entry.role)) ??
@@ -368,7 +392,9 @@ export function RoleAssignmentCapabilitiesScreen({
       <PageHero
         eyebrow={t("Access")}
         title={t("Role assignment capabilities")}
-        description={t("A role-by-role explainer for what each assignment can do, where it is scoped, and where the boundary stops.")}
+        description={t(
+          "A role-by-role explainer for what each assignment can do, where it is scoped, and where the boundary stops.",
+        )}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/roles">
@@ -379,21 +405,32 @@ export function RoleAssignmentCapabilitiesScreen({
         }
       />
 
-      <HelperBanner title={t("Checks mark allowed actions. Crosses call out the hard boundary.")} tone="blue">
-        {t("Use this screen before creating or editing a role assignment so the scope, the allowed role types, and the blocked actions stay explicit.")}
+      <HelperBanner
+        title={t(
+          "Checks mark allowed actions. Crosses call out the hard boundary.",
+        )}
+        tone="blue"
+      >
+        {t(
+          "Use this screen before creating or editing a role assignment so the scope, the allowed role types, and the blocked actions stay explicit.",
+        )}
       </HelperBanner>
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-5">
         <div className="flex flex-col gap-1">
           <p className="section-eyebrow">{t("Tabs")}</p>
           <h2 className="font-heading text-xl font-semibold text-foreground">
-            {t(hasSingleVisibleRole ? "Current role assignment lane" : "Role assignment lanes")}
+            {t(
+              hasSingleVisibleRole
+                ? "Current role assignment lane"
+                : "Role assignment lanes",
+            )}
           </h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
             {t(
               hasSingleVisibleRole
                 ? "Only your current role lane is visible from this account."
-                : "Each tab explains the scope and operating limits for one role assignment type."
+                : "Each tab explains the scope and operating limits for one role assignment type.",
             )}
           </p>
         </div>
@@ -403,8 +440,15 @@ export function RoleAssignmentCapabilitiesScreen({
             const isActive = role === activeEntry.role;
 
             return (
-              <Button key={role} variant={isActive ? "default" : "outline"} size="sm" asChild>
-                <Link href={`/roles/access?role=${role}`}>{t(ADMIN_ROLE_LABELS[role])}</Link>
+              <Button
+                key={role}
+                variant={isActive ? "default" : "outline"}
+                size="sm"
+                asChild
+              >
+                <Link href={`/roles/access?role=${role}`}>
+                  {t(ADMIN_ROLE_LABELS[role])}
+                </Link>
               </Button>
             );
           })}
@@ -423,7 +467,7 @@ export function RoleAssignmentCapabilitiesScreen({
             <span
               className={cn(
                 "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em]",
-                activeScope.className
+                activeScope.className,
               )}
             >
               {t(activeScope.label)}
@@ -444,8 +488,12 @@ export function RoleAssignmentCapabilitiesScreen({
                 <h3 className="font-heading text-lg font-semibold text-foreground">
                   {t(activeScope.label)}
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground">{t(activeScope.description)}</p>
-                <p className="mt-3 text-sm text-foreground/85">{t(activeEntry.note)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t(activeScope.description)}
+                </p>
+                <p className="mt-3 text-sm text-foreground/85">
+                  {t(activeEntry.note)}
+                </p>
               </div>
             </div>
           </div>
@@ -463,7 +511,7 @@ export function RoleAssignmentCapabilitiesScreen({
                       "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em]",
                       isEnabled
                         ? capabilityMeta[capability].enabledClassName
-                        : "border-border/70 bg-background/55 text-muted-foreground"
+                        : "border-border/70 bg-background/55 text-muted-foreground",
                     )}
                   >
                     {t(capabilityMeta[capability].label)}
@@ -480,7 +528,9 @@ export function RoleAssignmentCapabilitiesScreen({
               {t("What this role can and cannot do")}
             </h2>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              {t("The list below mixes allowed actions and blocked actions so the lane stays readable one rule at a time.")}
+              {t(
+                "The list below mixes allowed actions and blocked actions so the lane stays readable one rule at a time.",
+              )}
             </p>
           </div>
 
@@ -495,7 +545,7 @@ export function RoleAssignmentCapabilitiesScreen({
                     "rounded-2xl border px-4 py-4",
                     isAllowed
                       ? "border-emerald-300/60 bg-emerald-50/90 dark:border-emerald-400/35 dark:bg-emerald-500/10"
-                      : "border-rose-300/60 bg-rose-50/90 dark:border-rose-400/35 dark:bg-rose-500/10"
+                      : "border-rose-300/60 bg-rose-50/90 dark:border-rose-400/35 dark:bg-rose-500/10",
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -504,7 +554,7 @@ export function RoleAssignmentCapabilitiesScreen({
                         "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl",
                         isAllowed
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-100"
-                          : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-100"
+                          : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-100",
                       )}
                     >
                       {isAllowed ? (
@@ -516,19 +566,23 @@ export function RoleAssignmentCapabilitiesScreen({
 
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-foreground">{t(item.title)}</p>
+                        <p className="font-medium text-foreground">
+                          {t(item.title)}
+                        </p>
                         <span
                           className={cn(
                             "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]",
                             isAllowed
                               ? "border-emerald-300/70 bg-emerald-100 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/12 dark:text-emerald-100"
-                              : "border-rose-300/70 bg-rose-100 text-rose-700 dark:border-rose-400/35 dark:bg-rose-500/12 dark:text-rose-100"
+                              : "border-rose-300/70 bg-rose-100 text-rose-700 dark:border-rose-400/35 dark:bg-rose-500/12 dark:text-rose-100",
                           )}
                         >
                           {isAllowed ? t("Allowed") : t("Blocked")}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{t(item.description)}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {t(item.description)}
+                      </p>
                     </div>
                   </div>
                 </article>

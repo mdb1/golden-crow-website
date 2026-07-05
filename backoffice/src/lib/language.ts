@@ -4,13 +4,13 @@ export const LANGUAGE_STORAGE_KEY = "golden-crow-backoffice-language";
 export const LANGUAGE_COOKIE_NAME = "golden-crow-backoffice-language";
 
 export function isAppLanguage(
-  value: string | null | undefined
+  value: string | null | undefined,
 ): value is AppLanguage {
   return value === "en" || value === "es";
 }
 
 export function resolveAppLanguage(
-  value: string | null | undefined
+  value: string | null | undefined,
 ): AppLanguage {
   return isAppLanguage(value) ? value : "en";
 }
@@ -45,8 +45,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Switch to PocketGenes": "Cambiar a PocketGenes",
   "Switch to Pocket Gyms": "Cambiar a Pocket Gyms",
   "Coach operations console.": "Consola de operaciones del coach.",
-  "Coach queues and athlete signals":
-    "Colas del coach y señales de atletas",
+  "Coach queues and athlete signals": "Colas del coach y señales de atletas",
   "Coach console": "Consola del coach",
   "Coach-facing queues, athlete signals, files, care-team context, and activity history that complement the user app.":
     "Colas del coach, señales de atletas, archivos, contexto del equipo de cuidado e historial de actividad que complementan la app del usuario.",
@@ -252,7 +251,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Link existing 2PQ case": "Vincular caso 2PQ existente",
   "Create 2PQ case": "Crear caso 2PQ",
   "Use case": "Usar caso",
-  "after confirming it matches box code": "después de confirmar que coincide con código caja",
+  "after confirming it matches box code":
+    "después de confirmar que coincide con código caja",
   "Create the case from step 4 and attach it to the patient, institution, and doctor.":
     "Crear el caso desde el paso 4 y asociarlo al paciente, la institución y el médico.",
   "Create the case from the 2PQ case step and attach it to the patient, institution, and doctor.":
@@ -276,13 +276,13 @@ const SPANISH_TEXT: Record<string, string> = {
   "Enter a valid patient email.": "Ingresá un email de paciente válido.",
   "Enter a valid patient reference email.":
     "Ingresá un mail de referencia del paciente válido.",
-  "Patient full name is required.": "El nombre completo del paciente es requerido.",
+  "Patient full name is required.":
+    "El nombre completo del paciente es requerido.",
   "Patient first name is required.": "El nombre del paciente es requerido.",
   "Patient last name is required.": "El apellido del paciente es requerido.",
   "Partner birth date must be a valid date.":
     "La fecha de nacimiento de la pareja debe ser una fecha válida.",
-  "Sperm gamete source is not valid.":
-    "El origen del esperma no es válido.",
+  "Sperm gamete source is not valid.": "El origen del esperma no es válido.",
   "Oocyte gamete source is not valid.":
     "El origen de los ovocitos no es válido.",
   "Select previous miscarriages.": "Seleccioná abortos previos.",
@@ -311,8 +311,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Seleccioná Sí para al menos un test solicitado.",
   "Select PGT-A FAST reports mosaicism.":
     "Seleccioná informa mosaicismo para PGT-A FAST.",
-  "Select PGT-A FAST reports sex.":
-    "Seleccioná informa sexo para PGT-A FAST.",
+  "Select PGT-A FAST reports sex.": "Seleccioná informa sexo para PGT-A FAST.",
   "Select PGT-A STANDARD reports mosaicism.":
     "Seleccioná informa mosaicismo para PGT-A STANDARD.",
   "Select PGT-A STANDARD reports sex.":
@@ -363,8 +362,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sample ID must be unique in this form.":
     "Sample ID debe ser único en este formulario.",
   "Select processing status.": "Seleccioná estado de procesamiento.",
-  "Processing status is not valid.":
-    "Estado de procesamiento no es válido.",
+  "Processing status is not valid.": "Estado de procesamiento no es válido.",
   "Select a linked study request form.":
     "Seleccioná un formulario de solicitud linkeado.",
   "Linked study request form is not available in the current lookup data.":
@@ -402,8 +400,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "El médico solicitante seleccionado no está disponible en los datos actuales.",
   "Selected requesting doctor must belong to the selected institution.":
     "El médico solicitante seleccionado debe pertenecer a la institución seleccionada.",
-  "Requesting doctor is required.":
-    "El médico solicitante es requerido.",
+  "Requesting doctor is required.": "El médico solicitante es requerido.",
   "Selected 2PQ case is not available in the current lookup data.":
     "El caso 2PQ seleccionado no está disponible en los datos actuales.",
   "Selected 2PQ case must belong to the selected institution and doctor.":
@@ -426,7 +423,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "This sample request will be linked to the validated three-letter caja code. It is shown read-only here before the 2PQ case is created or selected.":
     "Esta solicitud de muestra se vinculará al código caja validado de tres letras. Se muestra solo lectura antes de crear o seleccionar el caso 2PQ.",
   Select: "Seleccionar",
-  "Unable to save the form draft.": "No se pudo guardar el borrador del formulario.",
+  "Unable to save the form draft.":
+    "No se pudo guardar el borrador del formulario.",
   "Unable to prepare the form draft.":
     "No se pudo preparar el borrador del formulario.",
   "Unknown error": "Error desconocido",
@@ -544,8 +542,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Karyotype file size": "Tamaño de archivo cariotipo",
   "Karyotype file is too large.":
     "El archivo de cariotipo es demasiado grande.",
-  "Unable to read karyotype file.":
-    "No se pudo leer el archivo de cariotipo.",
+  "Unable to read karyotype file.": "No se pudo leer el archivo de cariotipo.",
   "No file selected": "Sin archivo seleccionado",
   "Upload file": "Cargar archivo",
   "Remove file": "Quitar archivo",
@@ -707,7 +704,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Linked case count": "Cantidad de casos vinculados",
   "The withdrawal request form is ready and stored":
     "El formulario de solicitud de retiro está listo y guardado",
-  "No forms match these filters.": "No hay formularios que coincidan con estos filtros.",
+  "No forms match these filters.":
+    "No hay formularios que coincidan con estos filtros.",
   "Unnamed patient": "Paciente sin nombre",
   Author: "Autor",
   Archived: "Archivado",
@@ -740,7 +738,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Load more": "Cargar más",
   "Loading...": "Cargando...",
   "forms shown": "formularios mostrados",
-  "Unable to load stored forms.": "No se pudieron cargar los formularios guardados.",
+  "Unable to load stored forms.":
+    "No se pudieron cargar los formularios guardados.",
   Delete: "Eliminar",
   Archive: "Archivar",
   "Delete form": "Eliminar formulario",
@@ -757,8 +756,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "was archived.": "fue archivado.",
   "Unable to update this form.": "No se pudo actualizar este formulario.",
   "Form completed": "Formulario completado",
-  "The 2PQ form is stored and ready":
-    "El formulario 2PQ está guardado y listo",
+  "The 2PQ form is stored and ready": "El formulario 2PQ está guardado y listo",
   "The biopsy form is ready and stored":
     "El formulario de biopsias está listo y guardado",
   "is now in": "ahora está en",
@@ -865,13 +863,15 @@ const SPANISH_TEXT: Record<string, string> = {
     "Construí una nueva captura JSON desde el caso actual, su lote vinculado y sus muestreos hijos, y actualizá el registro file_storage existente.",
   "Build a JSON snapshot from the current case, its linked batch, and its child samplings, then publish that snapshot into the reusable file storage collection.":
     "Construí una captura JSON desde el caso actual, su lote vinculado y sus muestreos hijos, y publicala en la colección reutilizable de archivos.",
-  "Bulk sampling update completed": "Actualización masiva de muestreos completada",
+  "Bulk sampling update completed":
+    "Actualización masiva de muestreos completada",
   Carrier: "Transportista",
   Case: "Caso",
   "Case deletion completed": "Eliminación de caso completada",
   "Case deletion error": "Error de eliminación del caso",
   "Case deletion progress": "Progreso de eliminación del caso",
-  "Case identifier linked to sampling.": "Identificador de caso vinculado al muestreo.",
+  "Case identifier linked to sampling.":
+    "Identificador de caso vinculado al muestreo.",
   "Case intake and orchestration records stored in Firebase under `2pq_case`.":
     "Registros de ingreso y orquestación de casos almacenados en Firebase bajo `2pq_case`.",
   "Case label must match the active three letter code. Expected value:":
@@ -887,7 +887,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Checked fields are being patched across the current case child samplings one by one.":
     "Los campos seleccionados se aplican uno por uno en los muestreos hijos del caso actual.",
   Checking: "Verificando",
-  "Checking current publish state...": "Verificando estado actual de publicación...",
+  "Checking current publish state...":
+    "Verificando estado actual de publicación...",
   "Checking the current report-code linkage...":
     "Verificando el vínculo actual del código de reporte...",
   "Checking permissions and every biopsy currently linked to this case.":
@@ -902,16 +903,22 @@ const SPANISH_TEXT: Record<string, string> = {
   "Client delivery state.": "Estado de entrega al cliente.",
   "Client-facing case status.": "Estado del caso visible para el cliente.",
   Close: "Cerrar",
-  "Close auto sampling creation modal": "Cerrar modal de creación automática de muestreos",
+  "Close auto sampling creation modal":
+    "Cerrar modal de creación automática de muestreos",
   "Close case deletion progress": "Cerrar progreso de eliminación del caso",
   "Close error log": "Cerrar log de error",
-  "Close multi sampling edit modal": "Cerrar modal de edición múltiple de muestreos",
-  "Close multi sampling edit progress": "Cerrar progreso de edición múltiple de muestreos",
+  "Close multi sampling edit modal":
+    "Cerrar modal de edición múltiple de muestreos",
+  "Close multi sampling edit progress":
+    "Cerrar progreso de edición múltiple de muestreos",
   "Close multiple sampling modal": "Cerrar modal de muestreo múltiple",
-  "Close publish as report code modal": "Cerrar modal de publicación como código de reporte",
-  "Close publish to file storage modal": "Cerrar modal de publicación en archivos",
+  "Close publish as report code modal":
+    "Cerrar modal de publicación como código de reporte",
+  "Close publish to file storage modal":
+    "Cerrar modal de publicación en archivos",
   "Close three letter code modal": "Cerrar modal de código de tres letras",
-  "Close update in file storage modal": "Cerrar modal de actualización en archivos",
+  "Close update in file storage modal":
+    "Cerrar modal de actualización en archivos",
   codes: "códigos",
   "Collection date": "Fecha de recolección",
   collection: "colección",
@@ -920,7 +927,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Communication notes, consent status, or support context...":
     "Notas de comunicación, estado de consentimiento o contexto de soporte...",
   "Communication preference.": "Preferencia de comunicación.",
-  "Communication state with the provider.": "Estado de comunicación con el prestador.",
+  "Communication state with the provider.":
+    "Estado de comunicación con el prestador.",
   "Communication status": "Estado de comunicación",
   "Community users": "Usuarios de comunidad",
   "Community-facing profile documents for names, icons, and visible fields.":
@@ -935,7 +943,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Contact email.": "Email de contacto.",
   "Contact name": "Nombre de contacto",
   "Contact phone.": "Teléfono de contacto.",
-  "Contacts used for run coordination.": "Contactos usados para coordinar la corrida.",
+  "Contacts used for run coordination.":
+    "Contactos usados para coordinar la corrida.",
   "Continue from draft": "Continuar desde borrador",
   Copied: "Copiado",
   "Copy error": "Copiar error",
@@ -946,7 +955,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Create: "Crear",
   "Create a doctor record tied to one institution. The rest of the doctor setup happens after the record exists.":
     "Crear un registro de médico asociado a una institución. El resto de la configuración se completa después de crear el registro.",
-  "Create a live Firestore document in": "Crear un documento activo de Firestore en",
+  "Create a live Firestore document in":
+    "Crear un documento activo de Firestore en",
   "Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows.":
     "Crear un nuevo registro de rol por email y vincularlo al alcance exacto de institución, médico o paciente que permite el árbol de permisos.",
   "Create a patient record tied to one institution and one doctor. The save path respects institution-admin and doctor write boundaries automatically.":
@@ -979,7 +989,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Current processing state.": "Estado actual de procesamiento.",
   "Current publish state": "Estado actual de publicación",
   "Current role": "Rol actual",
-  "Current role cannot delete this": "El rol actual no puede eliminar este registro",
+  "Current role cannot delete this":
+    "El rol actual no puede eliminar este registro",
   "Current role cannot delete this patient.":
     "El rol actual no puede eliminar este paciente.",
   "Currently linked to batch": "Actualmente vinculado al lote",
@@ -995,7 +1006,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Delete associated biopsies too": "Eliminar también las biopsias asociadas",
   "Delete case and biopsies": "Eliminar caso y biopsias",
   "Delete case record": "Eliminar registro de caso",
-  "Delete failed. Please try again.": "La eliminación falló. Intentá nuevamente.",
+  "Delete failed. Please try again.":
+    "La eliminación falló. Intentá nuevamente.",
   "Delete record": "Eliminar registro",
   "Delete record?": "¿Eliminar registro?",
   "Deleting...": "Eliminando...",
@@ -1019,14 +1031,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Doctor created.": "Médico creado.",
   "Doctor detail joins the editable doctor profile, linked institution, direct patient list, and role linkage in one operational screen.":
     "El detalle de médico une el perfil editable, la institución vinculada, la lista directa de pacientes y el vínculo de rol en una sola pantalla operativa.",
-  "Doctor full name is required.": "El nombre completo del médico es requerido.",
+  "Doctor full name is required.":
+    "El nombre completo del médico es requerido.",
   "Doctor lane that owns the case.": "Carril médico dueño del caso.",
   "Doctor link": "Vínculo de médico",
   "Doctor record": "Registro de médico",
   "Doctor scope": "Alcance del médico",
   "Doctor workbench": "Mesa de trabajo del médico",
   doctors: "médicos",
-  "Doctors attached to this institution": "Médicos asociados a esta institución",
+  "Doctors attached to this institution":
+    "Médicos asociados a esta institución",
   "Doctors belong to exactly one institution.":
     "Los médicos pertenecen exactamente a una institución.",
   "Doctors can CRUD only their own patients. Institution admins and full admins can use the same list as the direct patient handoff.":
@@ -1089,7 +1103,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los sample IDs existentes no se pudieron validar ahora. Corregí el problema de conexión antes de ejecutar este lote.",
   "Existing stored forms": "Formularios guardados existentes",
   "Expand preview": "Expandir vista previa",
-  "External logistics tracking number.": "Número externo de seguimiento logístico.",
+  "External logistics tracking number.":
+    "Número externo de seguimiento logístico.",
   "External or internal report code.": "Código de reporte externo o interno.",
   "Failed to load doctors. Confirm the SDK is running and retry.":
     "No se pudieron cargar los médicos. Confirmá que el SDK esté corriendo y reintentá.",
@@ -1127,7 +1142,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Generate a reusable JSON snapshot of this case, its parent batch, and its child samplings, then publish that snapshot into the Firebase":
     "Generá una captura JSON reutilizable de este caso, su lote padre y sus muestreos hijos, y publicá esa captura en Firebase",
   "Generate random": "Generar aleatorio",
-  "Generate random three letter code": "Generar código aleatorio de tres letras",
+  "Generate random three letter code":
+    "Generar código aleatorio de tres letras",
   "Generation paused on this item. Inspect the error log for details.":
     "La generación se pausó en este elemento. Revisá el log de error para ver detalles.",
   Global: "Global",
@@ -1139,7 +1155,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Cases and biopsy records stay grouped here for the medical workflow.":
     "Los casos y registros de biopsia quedan agrupados acá para el flujo médico.",
   "Human-readable case identifier.": "Identificador de caso legible.",
-  "Human-readable sequencing batch label.": "Etiqueta legible del lote de secuenciación.",
+  "Human-readable sequencing batch label.":
+    "Etiqueta legible del lote de secuenciación.",
   "Identity, stats, activity visibility, and nested events.":
     "Identidad, estadísticas, visibilidad de actividad y eventos anidados.",
   "In transit": "En tránsito",
@@ -1189,7 +1206,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Institutions / doctors / patients": "Instituciones / médicos / pacientes",
   "Internal shipment identifier.": "Identificador interno del envío.",
   "is active for this case.": "está activo para este caso.",
-  "is live and ready in the full list.": "está activo y disponible en la lista completa.",
+  "is live and ready in the full list.":
+    "está activo y disponible en la lista completa.",
   "is staged for this new case.": "está preparado para este nuevo caso.",
   "Jump directly into the live 2PQ areas.":
     "Entrá directamente a las áreas 2PQ activas.",
@@ -1228,7 +1246,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Loading available records...": "Cargando registros disponibles...",
   "Logistics and carrier data.": "Datos de logística y transportista.",
   "Main lifecycle state.": "Estado principal del ciclo de vida.",
-  "Main sequencing batch metadata.": "Metadata principal del lote de secuenciación.",
+  "Main sequencing batch metadata.":
+    "Metadata principal del lote de secuenciación.",
   "Missing file": "Archivo faltante",
   "Missing institution": "Institución faltante",
   "Multi sampling edit modal": "Modal de edición múltiple de muestreos",
@@ -1262,7 +1281,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "No hay biopsias vinculadas actualmente a este caso.",
   "No local cleanup was completed after the backend rejected the request.":
     "No se completó ninguna limpieza local después de que el backend rechazó la solicitud.",
-  "No matching records available.": "No hay registros coincidentes disponibles.",
+  "No matching records available.":
+    "No hay registros coincidentes disponibles.",
   "No parent batch is linked to this case yet.":
     "Todavía no hay lote padre vinculado a este caso.",
   "No parent case is linked to this sampling record yet.":
@@ -1339,13 +1359,15 @@ const SPANISH_TEXT: Record<string, string> = {
     "Referencia opcional a lote o corrida de secuenciación.",
   "Optional collection date copied into every generated record.":
     "Fecha opcional de recolección copiada en cada registro generado.",
-  "Optional patient linkage for the case.": "Vínculo opcional de paciente para el caso.",
+  "Optional patient linkage for the case.":
+    "Vínculo opcional de paciente para el caso.",
   "Optional patient reference.": "Referencia opcional de paciente.",
   "Optional quality-control outcome shared by the generated set.":
     "Resultado opcional de control de calidad compartido por el conjunto generado.",
   "Optional reception date copied into every generated record.":
     "Fecha opcional de recepción copiada en cada registro generado.",
-  "Optional sequencing run pointer.": "Referencia opcional a corrida de secuenciación.",
+  "Optional sequencing run pointer.":
+    "Referencia opcional a corrida de secuenciación.",
   "Original intake date.": "Fecha original de ingreso.",
   "Other 2PQ areas": "Otras áreas 2PQ",
   overview: "resumen",
@@ -1395,7 +1417,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Primary case identifiers and status.":
     "Identificadores principales del caso y estado.",
   "Primary contact.": "Contacto principal.",
-  "Primary provider contact fields.": "Campos principales de contacto del prestador.",
+  "Primary provider contact fields.":
+    "Campos principales de contacto del prestador.",
   "Primary provider email.": "Email principal del prestador.",
   "Primary provider phone.": "Teléfono principal del prestador.",
   "Primary report metadata and delivery state.":
@@ -1420,7 +1443,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Registros de prestadores y acceso almacenados en Firebase bajo `2pq_client`.",
   "Provider email": "Email del prestador",
   "Provider format": "Formato del prestador",
-  "Provider format will be saved as": "El formato del prestador se guardará como",
+  "Provider format will be saved as":
+    "El formato del prestador se guardará como",
   "Provider identity": "Identidad del prestador",
   "Provider name": "Nombre del prestador",
   "Provider notes.": "Notas del prestador.",
@@ -1537,7 +1561,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El email del rol es requerido y debe ser válido.",
   "Role email": "Email de rol",
   "Role inactive": "Rol inactivo",
-  "Role records defining the active lane": "Registros de rol que definen el carril activo",
+  "Role records defining the active lane":
+    "Registros de rol que definen el carril activo",
   "role records": "registros de rol",
   "Role state": "Estado del rol",
   "Role workbench": "Mesa de trabajo de rol",
@@ -1625,7 +1650,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Shipment operations stay available as the supporting area for this role.":
     "Las operaciones de envíos quedan disponibles como área de soporte para este rol.",
   Sent: "Enviado",
-  "Select a doctor for this patient.": "Seleccioná un médico para este paciente.",
+  "Select a doctor for this patient.":
+    "Seleccioná un médico para este paciente.",
   "Select an institution for this doctor.":
     "Seleccioná una institución para este médico.",
   "Select an institution for this patient.":
@@ -1650,7 +1676,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Sequencing contact email.": "Email de contacto de secuenciación.",
   "Sequencing contact phone.": "Teléfono de contacto de secuenciación.",
   "Sequencing notes.": "Notas de secuenciación.",
-  "Sequencing platform or provider.": "Plataforma o prestador de secuenciación.",
+  "Sequencing platform or provider.":
+    "Plataforma o prestador de secuenciación.",
   "Shipment and logistics records stored in Firebase under `2pq_shipment`.":
     "Registros de envíos y logística almacenados en Firebase bajo `2pq_shipment`.",
   "Shipment, reporting, and client operations stay here as separate supporting areas.":
@@ -1714,6 +1741,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El rol actual no puede crear asignaciones de rol.",
   "The current role cannot create role assignments on this screen.":
     "El rol actual no puede crear asignaciones de rol en esta pantalla.",
+  "Ask the institution administrator to add a new role.":
+    "Solicitá al administrador de la institución que agregue un nuevo rol.",
   "The current role cannot create records on this screen.":
     "El rol actual no puede dar de alta registros en esta pantalla.",
   "The current stored file snapshot may be out of date. This case was updated":
@@ -1946,8 +1975,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Case unlinked from batch.": "Caso desvinculado del lote.",
   "Case unlinked from sampling.": "Caso desvinculado del muestreo.",
   "child sampling record updated.": "registro de muestreo hijo actualizado.",
-  "child sampling records updated.":
-    "registros de muestreo hijo actualizados.",
+  "child sampling records updated.": "registros de muestreo hijo actualizados.",
   "Correct case label": "Corregir etiqueta del caso",
   "Final validation failed.": "Falló la validación final.",
   "Link batch to case": "Vincular lote al caso",
@@ -2018,20 +2046,27 @@ const SPANISH_TEXT: Record<string, string> = {
     "Puede asignar roles de operador de institución, médico de institución y paciente solo dentro de esa institución.",
   "Can assign institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.":
     "Puede asignar roles de operador de institución, personal de laboratorio de institución, médico de institución y paciente solo dentro de esa institución.",
+  "Can update existing institution-operator, institution-laboratory-staff, institution-doctor, and patient roles inside that institution only.":
+    "Puede actualizar roles existentes de operador de institución, personal de laboratorio de institución, médico de institución y paciente solo dentro de esa institución.",
   "Cannot assign institution-admin roles.":
     "No puede asignar roles de administrador de institución.",
   "Can manage local role assignments":
     "Puede gestionar asignaciones locales de rol",
+  "Can update local role assignments":
+    "Puede actualizar asignaciones locales de rol",
   "Can manage patient-facing role assignments":
     "Puede gestionar asignaciones de rol orientadas a pacientes",
+  "Cannot create role assignments": "No puede crear asignaciones de rol",
+  "New role assignments must be requested from the institution administrator.":
+    "Las nuevas asignaciones de rol deben solicitarse al administrador de la institución.",
   "Can operate across every lane": "Puede operar en todos los carriles",
-  "Can review the surrounding context":
-    "Puede revisar el contexto circundante",
+  "Can review the surrounding context": "Puede revisar el contexto circundante",
   "Can see and edit only one institution.":
     "Puede ver y editar solo una institución.",
   "Can create doctors and patients inside that institution.":
     "Puede crear médicos y pacientes dentro de esa institución.",
-  "Can staff their institution": "Puede administrar el equipo de su institución",
+  "Can staff their institution":
+    "Puede administrar el equipo de su institución",
   "Can stay inside one doctor lane":
     "Puede permanecer dentro de un carril médico",
   "Can unblock broader admin work":
@@ -2043,8 +2078,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Cannot cross institution boundaries":
     "No puede cruzar límites institucionales",
   "Cannot enter the backoffice": "No puede ingresar al backoffice",
-  "Cannot grant permissions to others":
-    "No puede otorgar permisos a otros",
+  "Cannot grant permissions to others": "No puede otorgar permisos a otros",
   "Cannot ignore scope links": "No puede ignorar vínculos de alcance",
   "Cannot manage records": "No puede gestionar registros",
   "Cannot rewrite bootstrap access": "No puede reescribir el acceso bootstrap",
@@ -2105,6 +2139,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los operadores de institución pueden crear y editar roles locales de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propio alcance, pero no pueden asignar roles de administrador de institución.",
   "Institution laboratory staff can create and edit local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.":
     "El personal de laboratorio de institución puede crear y editar roles locales de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propio alcance, pero no puede asignar roles de administrador de institución.",
+  "Institution operators can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.":
+    "Los operadores de institución pueden actualizar asignaciones existentes de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propia institución.",
+  "Institution laboratory staff can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.":
+    "El personal de laboratorio de institución puede actualizar asignaciones existentes de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propia institución.",
+  "Institution operators can update existing local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but new role assignments must be requested from the institution administrator.":
+    "Los operadores de institución pueden actualizar roles locales existentes de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propio alcance, pero las nuevas asignaciones de rol deben solicitarse al administrador de la institución.",
+  "Institution laboratory staff can update existing local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but new role assignments must be requested from the institution administrator.":
+    "El personal de laboratorio de institución puede actualizar roles locales existentes de operador de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propio alcance, pero las nuevas asignaciones de rol deben solicitarse al administrador de la institución.",
   "Institution operators can fully manage records inside one institution boundary.":
     "Los operadores de institución pueden gestionar completamente registros dentro del límite de una institución.",
   "Institution laboratory staff can fully manage records inside one institution boundary.":
@@ -2172,5 +2214,5 @@ const SPANISH_TEXT: Record<string, string> = {
 };
 
 export function appText(language: AppLanguage, text: string): string {
-  return language === "es" ? SPANISH_TEXT[text] ?? text : text;
+  return language === "es" ? (SPANISH_TEXT[text] ?? text) : text;
 }
