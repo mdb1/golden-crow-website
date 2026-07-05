@@ -135,6 +135,8 @@ export interface InstitutionListItem extends InstitutionRecord {
   doctorCount: number;
   patientCount: number;
   institutionAdminCount: number;
+  administrativeOperatorCount: number;
+  laboratoryStaffCount: number;
 }
 
 export interface DoctorRecord {

@@ -4,58 +4,68 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
-import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
-import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sdkFetch } from "@/lib/sdk-client";
-import type { InstitutionListItem } from "@/lib/admin-areas";
-import { canDeleteInstitutionUi, canEditInstitutionUi } from "@/lib/areas-ui";
+import {
+  ADMIN_ROLE_LABELS,
+  type RoleManagementRecord,
+} from "@/lib/admin-areas";
+import { getRoleBadgeVariant } from "@/lib/areas-ui";
 import { appText } from "@/lib/language";
+import { sdkFetch } from "@/lib/sdk-client";
 import { compactList, formatDateTime } from "@/lib/moderation-utils";
 
-export function InstitutionBrowser({
-  initialInstitutions,
+type StaffRole = "institution_operator" | "institution_laboratory_staff";
+
+export function InstitutionStaffRoleBrowser({
+  initialRoles,
+  role,
+  emptyLabel,
+  searchPlaceholder,
+  resultLabel,
 }: {
-  initialInstitutions: InstitutionListItem[];
+  initialRoles: RoleManagementRecord[];
+  role: StaffRole;
+  emptyLabel: string;
+  searchPlaceholder: string;
+  resultLabel: string;
 }) {
-  const adminContext = useAdminContext();
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const [query, setQuery] = useState("");
   const { data, isFetching, isLoading, refetch, error } = useQuery({
-    queryKey: ["areas", "institutions"],
-    queryFn: () =>
-      sdkFetch<{ institutions: InstitutionListItem[] }>("/areas/institutions"),
-    initialData: { institutions: initialInstitutions },
+    queryKey: ["areas", "roles", role],
+    queryFn: () => sdkFetch<{ roles: RoleManagementRecord[] }>("/roles"),
+    initialData: { roles: initialRoles },
   });
 
-  const institutions = data?.institutions ?? [];
-  const filteredInstitutions = useMemo(() => {
+  const roles = useMemo(
+    () => (data?.roles ?? []).filter((record) => record.role === role),
+    [data?.roles, role],
+  );
+  const filteredRoles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) {
-      return institutions;
+      return roles;
     }
 
-    return institutions.filter((institution) =>
+    return roles.filter((record) =>
       [
-        institution.id,
-        institution.code,
-        institution.name,
-        institution.legalName,
-        institution.contactEmail,
-        institution.city,
-        institution.country,
+        record.email,
+        record.displayName,
+        record.institutionName,
+        record.institutionId,
+        ADMIN_ROLE_LABELS[record.role],
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(normalizedQuery)
+        .includes(normalizedQuery),
     );
-  }, [institutions, query]);
+  }, [query, roles]);
 
   if (isLoading) {
     return (
@@ -72,7 +82,7 @@ export function InstitutionBrowser({
     return (
       <div className="glass-panel flex flex-col gap-3 px-4 py-4">
         <p className="text-sm text-destructive">
-          {t("Failed to load institutions. Confirm the SDK is running and retry.")}
+          {t("Failed to load role assignments. Confirm the SDK is running and retry.")}
         </p>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           {t("Retry")}
@@ -89,13 +99,15 @@ export function InstitutionBrowser({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("Search institutions by id, code, name, email, or city...")}
+            placeholder={t(searchPlaceholder)}
             className="pl-9"
           />
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>{t("Showing")} {filteredInstitutions.length} {t("institutions")}</span>
+          <span>
+            {t("Showing")} {filteredRoles.length} {t(resultLabel)}
+          </span>
           <Button
             variant="outline"
             size="sm"
@@ -110,74 +122,60 @@ export function InstitutionBrowser({
 
       <div className="glass-panel overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
+          <span>{t("User email")}</span>
           <span>{t("Institution")}</span>
-          <span>{t("Scope")}</span>
           <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
         </div>
 
-        {filteredInstitutions.length === 0 ? (
+        {filteredRoles.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            {t("No institutions match the current filter.")}
+            {t(emptyLabel)}
           </div>
         ) : (
-          filteredInstitutions.map((institution) => (
+          filteredRoles.map((record) => (
             <div
-              key={institution.id}
+              key={record.email}
               className="grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_180px_auto] lg:items-center"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-foreground">{institution.name}</h3>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {institution.id}
-                  </span>
+                  <h3 className="font-medium text-foreground">{record.email}</h3>
+                  <Badge variant={getRoleBadgeVariant(record.role)}>
+                    {t(ADMIN_ROLE_LABELS[record.role])}
+                  </Badge>
+                  {record.isActive ? null : (
+                    <Badge variant="warning">{t("Inactive")}</Badge>
+                  )}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {compactList([
-                    institution.code,
-                    institution.legalName,
-                    institution.contactEmail,
-                    institution.city,
-                    institution.country,
-                  ]) || t("Institution record")}
+                  {compactList([record.displayName, record.notes]) ||
+                    t("Institution staff role")}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Badge variant="brand">{institution.doctorCount} {t("doctors")}</Badge>
-                <Badge variant="outline">
-                  {institution.administrativeOperatorCount}{" "}
-                  {t("administrative operators")}
-                </Badge>
-                <Badge variant="outline">
-                  {institution.laboratoryStaffCount} {t("laboratory staff")}
-                </Badge>
-                <Badge variant="success">{institution.patientCount} {t("patients")}</Badge>
+                {record.institutionName ? (
+                  <Badge variant="brand">{record.institutionName}</Badge>
+                ) : null}
+                {record.institutionId ? (
+                  <Badge variant="outline">{record.institutionId}</Badge>
+                ) : (
+                  <Badge variant="warning">{t("No institution")}</Badge>
+                )}
               </div>
 
               <div className="text-sm text-muted-foreground">
-                {formatDateTime(institution.updatedAt) ?? t("No timestamp")}
+                {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
-              <div className="flex gap-2 lg:justify-end">
+              <div className="flex lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/areas/institutions/${institution.id}`}>
-                    {canEditInstitutionUi(adminContext, institution.id)
-                      ? t("Open")
-                      : t("Read only")}
+                  <Link href={`/roles/${encodeURIComponent(record.email)}`}>
+                    {t("Open")}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
-                <AreaDeleteDialog
-                  kind="institution"
-                  id={institution.id}
-                  name={institution.name}
-                  endpoint={`/areas/institutions/${institution.id}`}
-                  disabled={!canDeleteInstitutionUi(adminContext, institution.id)}
-                  disabledReason={t("Only full admins can delete institution roots.")}
-                  onDeleted={() => void refetch()}
-                />
               </div>
             </div>
           ))

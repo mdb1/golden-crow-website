@@ -99,7 +99,8 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
   {
     key: "areas",
     label: "Areas",
-    description: "Institution-scoped operations for institutions, doctors, and patients.",
+    description:
+      "Institution-scoped operations for institutions, doctors, administrative operators, laboratory staff, and patients.",
     visibleRoles: AREA_ROLES,
   },
   {
@@ -879,6 +880,22 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
   {
     section: "areas",
+    label: "Administrative operators",
+    href: "/areas/administrative-operators",
+    description: "Institution-linked administrative operators",
+    icon: UserRoundCog,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "areas",
+    label: "Laboratory staff",
+    href: "/areas/laboratory-staff",
+    description: "Institution-linked laboratory staff",
+    icon: Dna,
+    visibleRoles: AREA_ROLES,
+  },
+  {
+    section: "areas",
     label: "Patients",
     href: "/areas/patients",
     description: "Institution and doctor-linked patients",
@@ -1267,6 +1284,24 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
       eyebrow: "Areas",
       title: "Doctor detail",
       description: "Doctor profile editing with linked institution context and patient operations.",
+    };
+  }
+
+  if (pathname === "/areas/administrative-operators") {
+    return {
+      eyebrow: "Areas",
+      title: "Administrative operators",
+      description:
+        "Institution-linked administrative operator records without patient assignments.",
+    };
+  }
+
+  if (pathname === "/areas/laboratory-staff") {
+    return {
+      eyebrow: "Areas",
+      title: "Laboratory staff",
+      description:
+        "Institution-linked laboratory staff records without patient assignments.",
     };
   }
 

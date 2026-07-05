@@ -13,9 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { InstitutionDetailRecord, InstitutionRecord } from "@/lib/admin-areas";
+import {
+  getAssignableRoleOptions,
+  type InstitutionDetailRecord,
+  type InstitutionRecord,
+} from "@/lib/admin-areas";
 import {
   canCreateDoctorUi,
+  canCreateRoleUi,
   canDeleteDoctorUi,
   canEditInstitutionUi,
 } from "@/lib/areas-ui";
@@ -81,6 +86,24 @@ export function InstitutionWorkbench({
   const isEditable =
     mode === "create" ||
     (detail ? canEditInstitutionUi(adminContext, detail.institution.id) : false);
+  const canCreateInstitutionOperator =
+    canCreateRoleUi(adminContext) &&
+    getAssignableRoleOptions(adminContext.role).some(
+      (option) => option.value === "institution_operator"
+    );
+  const canCreateLaboratoryStaff =
+    canCreateRoleUi(adminContext) &&
+    getAssignableRoleOptions(adminContext.role).some(
+      (option) => option.value === "institution_laboratory_staff"
+    );
+  const administrativeOperators =
+    detail?.institutionAdmins.filter(
+      (record) => record.role === "institution_operator"
+    ) ?? [];
+  const laboratoryStaff =
+    detail?.institutionAdmins.filter(
+      (record) => record.role === "institution_laboratory_staff"
+    ) ?? [];
 
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
 
@@ -426,6 +449,138 @@ export function InstitutionWorkbench({
                       disabledReason={t("Only full admins and institution admins can delete doctors in scope.")}
                       onDeleted={() => router.refresh()}
                     />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {detail ? (
+        <section className="glass-panel flex flex-col gap-4 px-5 py-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="section-eyebrow">{t("Administrative operators")}</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                {t("Administrative operators attached to this institution")}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("Administrative operators belong to this institution and do not have patient assignments underneath them.")}
+              </p>
+            </div>
+            {canCreateInstitutionOperator ? (
+              <Button size="sm" asChild>
+                <Link
+                  href={`/roles/new?role=institution_operator&institutionId=${detail.institution.id}`}
+                >
+                  {t("Add administrative operator")}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3">
+            {administrativeOperators.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("No administrative operators are attached to this institution yet.")}
+              </p>
+            ) : (
+              administrativeOperators.map((record) => (
+                <div
+                  key={record.email}
+                  className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-background/60 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-foreground">
+                        {record.displayName || record.email}
+                      </p>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {record.email}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {compactList([record.notes, record.institutionName]) ||
+                        t("Institution staff role")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={record.isActive ? "brand" : "warning"}>
+                      {record.isActive ? t("Role active") : t("Role inactive")}
+                    </Badge>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/roles/${encodeURIComponent(record.email)}`}>
+                        {t("Open")}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {detail ? (
+        <section className="glass-panel flex flex-col gap-4 px-5 py-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="section-eyebrow">{t("Laboratory staff")}</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                {t("Laboratory staff attached to this institution")}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("Laboratory staff belong to this institution and do not have patient assignments underneath them.")}
+              </p>
+            </div>
+            {canCreateLaboratoryStaff ? (
+              <Button size="sm" asChild>
+                <Link
+                  href={`/roles/new?role=institution_laboratory_staff&institutionId=${detail.institution.id}`}
+                >
+                  {t("Add laboratory staff")}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3">
+            {laboratoryStaff.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("No laboratory staff are attached to this institution yet.")}
+              </p>
+            ) : (
+              laboratoryStaff.map((record) => (
+                <div
+                  key={record.email}
+                  className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-background/60 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-foreground">
+                        {record.displayName || record.email}
+                      </p>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {record.email}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {compactList([record.notes, record.institutionName]) ||
+                        t("Institution staff role")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={record.isActive ? "brand" : "warning"}>
+                      {record.isActive ? t("Role active") : t("Role inactive")}
+                    </Badge>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/roles/${encodeURIComponent(record.email)}`}>
+                        {t("Open")}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               ))

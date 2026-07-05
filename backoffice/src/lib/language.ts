@@ -118,6 +118,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Progress: "Progreso",
   Institutions: "Instituciones",
   Doctors: "Médicos",
+  "Administrative operators": "Operarios administrativos",
+  "Laboratory staff": "Personal de laboratorio",
   Patients: "Pacientes",
   "Roles & Permissions": "Roles y permisos",
   "My account": "Mi cuenta",
@@ -793,6 +795,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "Ya hay un archivo almacenado vinculado a este caso.",
   "A unique three-letter shorthand for this 2PQ case. Use it as a quick visual identifier when operators need a short code instead of the full case label.":
     "Una abreviatura única de tres letras para este caso 2PQ. Usala como identificador visual rápido cuando el operador necesite un código corto en lugar de la etiqueta completa del caso.",
+  "Administrative operators are institution-scoped staff records. Each operator belongs to one institution and does not own patient assignments.":
+    "Los operarios administrativos son registros de staff con alcance institucional. Cada operario pertenece a una institución y no tiene pacientes asignados.",
+  "Administrative operators attached to this institution":
+    "Operarios administrativos asociados a esta institución",
+  "Administrative operators belong to this institution and do not have patient assignments underneath them.":
+    "Los operarios administrativos pertenecen a esta institución y no tienen pacientes asignados debajo.",
+  "Administrative operators sit beside doctors under an institution.":
+    "Los operarios administrativos están al mismo nivel que los médicos debajo de una institución.",
   access: "acceso",
   "Access and communication": "Acceso y comunicación",
   "Access review and doctor creation now start from their own dedicated screens instead of this main area page.":
@@ -806,7 +816,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Access status": "Estado de acceso",
   "Accounts and Community": "Cuentas y comunidad",
   Action: "Acción",
+  "Add administrative operator": "Agregar operario administrativo",
   "Add doctor": "Agregar médico",
+  "Add laboratory staff": "Agregar personal de laboratorio",
   "Add manually": "Agregar manualmente",
   "Add multiple samplings at once": "Agregar varios muestreos a la vez",
   "Add new record": "Alta de registro",
@@ -956,6 +968,8 @@ const SPANISH_TEXT: Record<string, string> = {
   Create: "Crear",
   "Create a doctor record tied to one institution. The rest of the doctor setup happens after the record exists.":
     "Crear un registro de médico asociado a una institución. El resto de la configuración se completa después de crear el registro.",
+  "Create administrative operator": "Alta de operario administrativo",
+  "Create laboratory staff": "Alta de personal de laboratorio",
   "Create a live Firestore document in":
     "Crear un documento activo de Firestore en",
   "Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows.":
@@ -1188,6 +1202,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Institution root.": "Raíz institucional.",
   "Institution roots, doctor relations, patient sheets, and local access control.":
     "Raíces institucionales, relaciones de médicos, fichas de pacientes y control de acceso local.",
+  "Institution-scoped operations for institutions, doctors, administrative operators, laboratory staff, and patients.":
+    "Operaciones con alcance institucional para instituciones, médicos, operarios administrativos, personal de laboratorio y pacientes.",
   "Institution scope": "Alcance institucional",
   "Institution scope is the root of the new areas model.":
     "El alcance institucional es la raíz del nuevo modelo de áreas.",
@@ -1199,10 +1215,19 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los roles de médico de institución requieren vínculo de médico.",
   "Institution-linked doctor records with scoped editability and patient counts.":
     "Registros de médicos vinculados a institución con edición acotada y conteo de pacientes.",
+  "Institution-linked administrative operator records without patient assignments.":
+    "Registros de operarios administrativos vinculados a institución, sin pacientes asignados.",
+  "Institution-linked administrative operators":
+    "Operarios administrativos vinculados a institución",
+  "Institution-linked laboratory staff":
+    "Personal de laboratorio vinculado a institución",
+  "Institution-linked laboratory staff records without patient assignments.":
+    "Registros de personal de laboratorio vinculados a institución, sin pacientes asignados.",
   "Institution-linked doctors with direct patient counts, role linkage, and a clear distinction between read-only peers and the doctor record you can actually edit.":
     "Médicos vinculados a institución con conteo directo de pacientes, vínculo de rol y una distinción clara entre pares de solo lectura y el registro médico que realmente podés editar.",
   "Institution-scoped roles require an institution.":
     "Los roles con alcance institucional requieren una institución.",
+  "Institution staff role": "Rol de staff institucional",
   institutions: "instituciones",
   "Institutions / doctors / patients": "Instituciones / médicos / pacientes",
   "Internal shipment identifier.": "Identificador interno del envío.",
@@ -1216,6 +1241,14 @@ const SPANISH_TEXT: Record<string, string> = {
     "Mantené los registros de institución directos y operativos: un ID durable, un conjunto de descriptores legible y operaciones de médicos vinculadas desde la misma pantalla.",
   "Keep these official 2PQ channels visible for form coordination, sample logistics, and operational follow-up.":
     "Mantené visibles estos canales oficiales de 2PQ para coordinar formularios, logística de muestras y seguimiento operativo.",
+  "Laboratory staff are institution-scoped staff records. Each staff member belongs to one institution and does not own patient assignments.":
+    "El personal de laboratorio son registros de staff con alcance institucional. Cada integrante pertenece a una institución y no tiene pacientes asignados.",
+  "Laboratory staff attached to this institution":
+    "Personal de laboratorio asociado a esta institución",
+  "Laboratory staff belong to this institution and do not have patient assignments underneath them.":
+    "El personal de laboratorio pertenece a esta institución y no tiene pacientes asignados debajo.",
+  "Laboratory staff sit beside doctors under an institution.":
+    "El personal de laboratorio está al mismo nivel que los médicos debajo de una institución.",
   "Launch New Record": "Crear nuevo registro",
   "Learning progress": "Progreso de aprendizaje",
   "Letters only. Use this when you want to reserve a specific short code for the case.":
@@ -1275,11 +1308,19 @@ const SPANISH_TEXT: Record<string, string> = {
     "Todavía no hay médicos asociados a esta institución.",
   "No doctors match the current filter.":
     "Ningún médico coincide con el filtro actual.",
+  "No administrative operators are attached to this institution yet.":
+    "Todavía no hay operarios administrativos asociados a esta institución.",
+  "No administrative operators match the current filter.":
+    "Ningún operario administrativo coincide con el filtro actual.",
   "No fields selected.": "No hay campos seleccionados.",
   "No institutions match the current filter.":
     "Ninguna institución coincide con el filtro actual.",
   "No linked biopsies are currently attached to this case.":
     "No hay biopsias vinculadas actualmente a este caso.",
+  "No laboratory staff are attached to this institution yet.":
+    "Todavía no hay personal de laboratorio asociado a esta institución.",
+  "No laboratory staff match the current filter.":
+    "Ningún integrante del personal de laboratorio coincide con el filtro actual.",
   "No local cleanup was completed after the backend rejected the request.":
     "No se completó ninguna limpieza local después de que el backend rechazó la solicitud.",
   "No matching records available.":
@@ -1541,6 +1582,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá las instituciones, médicos, pacientes y asignaciones de rol vinculados a este carril, y luego entrá directo a crear o gestionar desde el dashboard.",
   "Review the patient CRUD boundary on its own screen before you open a patient record.":
     "Revisá el límite CRUD de pacientes en su propia pantalla antes de abrir un registro de paciente.",
+  "Review role capabilities or create a new institution operator with the correct role already selected.":
+    "Revisá las capacidades de rol o creá un nuevo operario de institución con el rol correcto ya seleccionado.",
+  "Review role capabilities or create a new laboratory staff member with the correct role already selected.":
+    "Revisá las capacidades de rol o creá un nuevo integrante del personal de laboratorio con el rol correcto ya seleccionado.",
   "Review the whole team here. Institution admins can add more doctors; institution doctors can inspect peers but only edit their own doctor record.":
     "Revisá todo el equipo acá. Los administradores de institución pueden agregar médicos; los médicos de institución pueden inspeccionar pares, pero solo editar su propio registro.",
   "Review your own role, permissions, and Firebase Auth details without opening another user's role assignment.":
@@ -1565,6 +1610,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Role records defining the active lane":
     "Registros de rol que definen el carril activo",
   "role records": "registros de rol",
+  "administrative operators": "operarios administrativos",
+  "laboratory staff": "personal de laboratorio",
   "Role state": "Estado del rol",
   "Role workbench": "Mesa de trabajo de rol",
   "Role-linked state and communication tracking.":
@@ -1628,8 +1675,12 @@ const SPANISH_TEXT: Record<string, string> = {
     "Buscar casos por etiqueta, estado, seguimiento, prioridad o paciente...",
   "Search doctors by id, name, email, institution, or license...":
     "Buscar médicos por ID, nombre, email, institución o matrícula...",
+  "Search administrative operators by email, name, or institution...":
+    "Buscar operarios administrativos por email, nombre o institución...",
   "Search institutions by id, code, name, email, or city...":
     "Buscar instituciones por ID, código, nombre, email o ciudad...",
+  "Search laboratory staff by email, name, or institution...":
+    "Buscar personal de laboratorio por email, nombre o institución...",
   "Search patients by id, name, email, MRN, doctor, or institution...":
     "Buscar pacientes por ID, nombre, email, DNI, médico o institución...",
   "Search providers by name, email, phone, language, country, role email, or communication status...":
@@ -1740,6 +1791,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "La eliminación se detuvo. Abrí el log de error para inspeccionar la respuesta del backend.",
   "The current role cannot create role assignments.":
     "El rol actual no puede crear asignaciones de rol.",
+  "The current role cannot create administrative operators on this screen.":
+    "El rol actual no puede crear operarios administrativos en esta pantalla.",
+  "The current role cannot create laboratory staff on this screen.":
+    "El rol actual no puede crear personal de laboratorio en esta pantalla.",
   "The current role cannot create role assignments on this screen.":
     "El rol actual no puede crear asignaciones de rol en esta pantalla.",
   "Ask the institution administrator to add a new role.":
@@ -1842,6 +1897,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Esto limpiará la abreviatura única de tres letras guardada en el documento del caso.",
   "This workspace is scoped around institutions first: your institution, its doctors, its patients, and the role records that define local access.":
     "Este espacio de trabajo se organiza primero alrededor de instituciones: tu institución, sus médicos, sus pacientes y los registros de rol que definen el acceso local.",
+  "This area reads the institution operator role records and shows them as institution children without adding doctor or patient linkage.":
+    "Esta área lee los registros de rol de operario de institución y los muestra como hijos de la institución, sin agregar vínculos de médico ni de paciente.",
+  "This area reads institution laboratory staff role records and shows them as institution children without doctor or patient linkage.":
+    "Esta área lee los registros de rol de personal de laboratorio de institución y los muestra como hijos de la institución, sin vínculos de médico ni de paciente.",
   "Three letter code": "Código de tres letras",
   "Three letter code removed from the draft case.":
     "Código de tres letras quitado del caso borrador.",

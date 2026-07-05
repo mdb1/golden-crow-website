@@ -48,11 +48,16 @@ type RoleFormState = {
 
 function toRoleFormState(
   record?: RoleManagementRecord | null,
-  defaults?: { email?: string; institutionId?: string; doctorId?: string }
+  defaults?: {
+    email?: string;
+    institutionId?: string;
+    doctorId?: string;
+    role?: RoleManagementRecord["role"];
+  }
 ): RoleFormState {
   return {
     email: record?.email ?? defaults?.email ?? "",
-    role: record?.role ?? "institution_admin",
+    role: record?.role ?? defaults?.role ?? "institution_admin",
     institutionId: record?.institutionId ?? defaults?.institutionId ?? "",
     doctorId: record?.doctorId ?? defaults?.doctorId ?? "",
     patientId: record?.patientId ?? "",
@@ -73,6 +78,8 @@ export function RoleWorkbench({
   patients,
   mode = "edit",
   initialEmail,
+  initialInstitutionId,
+  fixedRole,
 }: {
   roleRecord?: RoleManagementRecord | null;
   institutions: InstitutionRecord[];
@@ -80,6 +87,8 @@ export function RoleWorkbench({
   patients: PatientListItem[];
   mode?: "create" | "edit";
   initialEmail?: string;
+  initialInstitutionId?: string;
+  fixedRole?: RoleManagementRecord["role"];
 }) {
   const adminContext = useAdminContext();
   const { language } = useAppLanguage();
@@ -92,22 +101,27 @@ export function RoleWorkbench({
         isInstitutionManagerRole(adminContext.role) ||
         adminContext.role === "institution_doctor"
           ? adminContext.institutionId
-          : undefined,
+          : initialInstitutionId,
       doctorId:
         adminContext.role === "institution_doctor"
           ? adminContext.doctorId
           : undefined,
+      role: mode === "create" ? fixedRole : undefined,
     }),
     [
       adminContext.doctorId,
       adminContext.institutionId,
       adminContext.role,
+      fixedRole,
+      initialInstitutionId,
       initialEmail,
+      mode,
     ]
   );
+  const roleOptions = getAssignableRoleOptions(adminContext.role);
   const initialRole =
     mode === "create"
-      ? getAssignableRoleOptions(adminContext.role)[0]?.value ?? "patient"
+      ? fixedRole ?? roleOptions[0]?.value ?? "patient"
       : roleRecord?.role ?? "patient";
   const [state, setState] = useState<RoleFormState>(() => ({
     ...toRoleFormState(roleRecord, defaults),
@@ -124,9 +138,12 @@ export function RoleWorkbench({
     [defaults, initialRole, roleRecord]
   );
   const changed = JSON.stringify(state) !== JSON.stringify(sourceState);
+  const fixedRoleIsAssignable = fixedRole
+    ? roleOptions.some((option) => option.value === fixedRole)
+    : true;
   const isEditable =
     mode === "create"
-      ? canCreateRoleUi(adminContext)
+      ? canCreateRoleUi(adminContext) && fixedRoleIsAssignable
       : roleRecord
         ? canEditRoleUi(adminContext, roleRecord)
         : false;
@@ -136,7 +153,6 @@ export function RoleWorkbench({
       : !isEditable && roleRecord
         ? getRoleEditRestrictionMessage(adminContext, roleRecord)
         : null;
-  const roleOptions = getAssignableRoleOptions(adminContext.role);
   const institutionOptions = institutions.map((institution) => ({
     value: institution.id,
     label: `${institution.name} (${institution.id})`,
@@ -383,7 +399,7 @@ export function RoleWorkbench({
               value={state.role}
               onChange={(role) => applyRoleDefaults(role as RoleManagementRecord["role"])}
               placeholder={t("Select role")}
-              disabled={!isEditable}
+              disabled={!isEditable || Boolean(fixedRole)}
             />
           </div>
           <div className="space-y-2">

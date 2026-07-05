@@ -574,19 +574,34 @@ export async function listInstitutionsForContext(
   });
 
   const institutionAdminCounts = new Map<string, number>();
+  const administrativeOperatorCounts = new Map<string, number>();
+  const laboratoryStaffCounts = new Map<string, number>();
   roleRecords.forEach((record) => {
     if (
-      !isInstitutionManagerRole(record.role) ||
       !record.institutionId ||
       !record.isActive
     ) {
       return;
     }
 
-    institutionAdminCounts.set(
-      record.institutionId,
-      (institutionAdminCounts.get(record.institutionId) ?? 0) + 1,
-    );
+    if (record.role === "institution_admin") {
+      institutionAdminCounts.set(
+        record.institutionId,
+        (institutionAdminCounts.get(record.institutionId) ?? 0) + 1,
+      );
+    }
+    if (record.role === "institution_operator") {
+      administrativeOperatorCounts.set(
+        record.institutionId,
+        (administrativeOperatorCounts.get(record.institutionId) ?? 0) + 1,
+      );
+    }
+    if (record.role === "institution_laboratory_staff") {
+      laboratoryStaffCounts.set(
+        record.institutionId,
+        (laboratoryStaffCounts.get(record.institutionId) ?? 0) + 1,
+      );
+    }
   });
 
   return institutions
@@ -596,6 +611,9 @@ export async function listInstitutionsForContext(
       doctorCount: doctorCounts.get(institution.id) ?? 0,
       patientCount: patientCounts.get(institution.id) ?? 0,
       institutionAdminCount: institutionAdminCounts.get(institution.id) ?? 0,
+      administrativeOperatorCount:
+        administrativeOperatorCounts.get(institution.id) ?? 0,
+      laboratoryStaffCount: laboratoryStaffCounts.get(institution.id) ?? 0,
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -751,7 +769,14 @@ export async function getInstitutionDetailForContext(
       doctorCount: doctors.length,
       patientCount: patients.length,
       institutionAdminCount: institutionAdmins.filter(
-        (record) => record.isActive,
+        (record) => record.role === "institution_admin" && record.isActive,
+      ).length,
+      administrativeOperatorCount: institutionAdmins.filter(
+        (record) => record.role === "institution_operator" && record.isActive,
+      ).length,
+      laboratoryStaffCount: institutionAdmins.filter(
+        (record) =>
+          record.role === "institution_laboratory_staff" && record.isActive,
       ).length,
     },
     doctors,
