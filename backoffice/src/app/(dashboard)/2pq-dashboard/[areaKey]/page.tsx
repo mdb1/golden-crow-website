@@ -74,6 +74,7 @@ export default async function TwoPQAreaPage({
             ? "These entities cannot be created directly. They must be requested through the corresponding form."
             : undefined
         }
+        createBlockedTitle="Use the corresponding form"
         createBlockedLinkHref="/2pq-dashboard"
         createBlockedLinkLabel="Go to 2PQ dashboard"
         description={t(

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, PlusCircle, ShieldUser } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { FormRequestedWarningDialog } from "@/components/form-requested-warning-dialog";
 import { Button } from "@/components/ui/button";
 import { appText } from "@/lib/language";
 
@@ -13,6 +14,7 @@ export function AreaAccessEntry({
   accessLabel = "Visualize access permissions",
   createLabel = "Add new record",
   createBlockedAlert,
+  createBlockedTitle,
   createBlockedLinkHref,
   createBlockedLinkLabel,
   createDisabledTitle = "The current role cannot create records on this screen.",
@@ -25,6 +27,7 @@ export function AreaAccessEntry({
   accessLabel?: string;
   createLabel?: string;
   createBlockedAlert?: string;
+  createBlockedTitle?: string;
   createBlockedLinkHref?: string;
   createBlockedLinkLabel?: string;
   createDisabledTitle?: string;
@@ -82,31 +85,24 @@ export function AreaAccessEntry({
             </Link>
           </Button>
         ) : createBlockedAlert ? (
-          <div className="flex flex-1 flex-col gap-2">
-            <Button
-              size="lg"
-              className="h-auto w-full justify-between rounded-2xl px-5 py-5 text-left text-base"
-              onClick={() => window.alert(t(createBlockedAlert))}
-            >
-              <span className="flex items-center gap-2">
-                <PlusCircle className="h-4 w-4" />
-                {t(createLabel)}
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            {createBlockedLinkHref && createBlockedLinkLabel ? (
+          <FormRequestedWarningDialog
+            title={createBlockedTitle}
+            description={createBlockedAlert}
+            dashboardHref={createBlockedLinkHref}
+            dashboardLabel={createBlockedLinkLabel}
+            trigger={
               <Button
-                variant="link"
-                size="sm"
-                className="h-auto w-fit px-1 py-0 text-xs"
-                asChild
+                size="lg"
+                className="h-auto flex-1 justify-between rounded-2xl px-5 py-5 text-left text-base"
               >
-                <Link href={createBlockedLinkHref}>
-                  {t(createBlockedLinkLabel)}
-                </Link>
+                <span className="flex items-center gap-2">
+                  <PlusCircle className="h-4 w-4" />
+                  {t(createLabel)}
+                </span>
+                <ArrowRight className="h-4 w-4" />
               </Button>
-            ) : null}
-          </div>
+            }
+          />
         ) : (
           <Button
             size="lg"

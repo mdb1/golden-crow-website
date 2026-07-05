@@ -29,6 +29,7 @@ import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
+import { FormRequestedWarningDialog } from "@/components/form-requested-warning-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1126,6 +1127,8 @@ export function TwoPQRecordWorkbench({
     null | "create" | "replace" | "update" | "delete"
   >(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [formRequestedWarningOpen, setFormRequestedWarningOpen] =
+    useState(false);
   const [deleteLinkedSamplings, setDeleteLinkedSamplings] = useState(false);
   const [caseDeleteProcess, setCaseDeleteProcess] =
     useState<CaseDeleteProcessState | null>(null);
@@ -3149,11 +3152,7 @@ export function TwoPQRecordWorkbench({
   }
 
   function showDirectCreateRequiresFormAlert() {
-    window.alert(
-      t(
-        "These entities cannot be created directly. They must be requested through the corresponding form.",
-      ),
-    );
+    setFormRequestedWarningOpen(true);
   }
 
   async function handleCreate() {
@@ -3433,6 +3432,13 @@ export function TwoPQRecordWorkbench({
         onViewLog={
           toast?.tone === "error" && toast.details ? handleErrorLogOpen : null
         }
+      />
+      <FormRequestedWarningDialog
+        open={formRequestedWarningOpen}
+        onOpenChange={setFormRequestedWarningOpen}
+        title="Use the corresponding form"
+        dashboardHref="/2pq-dashboard"
+        dashboardLabel="Go to 2PQ dashboard"
       />
       <Dialog
         open={Boolean(latestErrorLog) && isErrorLogOpen}
@@ -5633,18 +5639,6 @@ export function TwoPQRecordWorkbench({
                           ? t("Creating record...")
                           : area.createLabel}
                     </Button>
-                    {directCreateRequiresForm ? (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto px-1 py-0 text-xs"
-                        asChild
-                      >
-                        <Link href="/2pq-dashboard">
-                          {t("Go to 2PQ dashboard")}
-                        </Link>
-                      </Button>
-                    ) : null}
                   </div>
                 </div>
               </div>

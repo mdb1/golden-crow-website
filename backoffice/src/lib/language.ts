@@ -814,6 +814,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Access review and record creation now start from their own dedicated screens instead of this main area page.":
     "La revisión de acceso y la creación de registros ahora comienzan desde pantallas dedicadas, no desde esta página principal del área.",
   "Access status": "Estado de acceso",
+  "Action unavailable": "Acción no disponible",
   "Accounts and Community": "Cuentas y comunidad",
   Action: "Acción",
   "Add administrative operator": "Agregar operario administrativo",
@@ -1803,6 +1804,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El rol actual no puede dar de alta registros en esta pantalla.",
   "These entities cannot be created directly. They must be requested through the corresponding form.":
     "Estas entidades no se pueden crear directamente. Deben solicitarse mediante el formulario correspondiente.",
+  "Use the corresponding form": "Usá el formulario correspondiente",
+  OK: "OK",
   "The current stored file snapshot may be out of date. This case was updated":
     "La captura actual del archivo almacenado puede estar desactualizada. Este caso se actualizó",
   "The doctor link controls who can actually edit this patient later. Institution scope and doctor scope stay explicit and visible on the patient sheet.":
