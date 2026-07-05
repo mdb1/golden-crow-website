@@ -63,6 +63,10 @@ const PATIENT_AREA_NAV_ROLES: AdminRole[] = [
   "institution_operator",
   "institution_doctor",
 ];
+const MISSION_OVERVIEW_NAV_ROLES: AdminRole[] = [
+  "full_admin",
+  "institution_admin",
+];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([
   "/2pq-dashboard",
@@ -754,7 +758,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/",
     description: "Operations snapshot",
     icon: LayoutDashboard,
-    visibleRoles: AREA_MANAGER_ROLES,
+    visibleRoles: MISSION_OVERVIEW_NAV_ROLES,
   },
   {
     section: "accounts",
