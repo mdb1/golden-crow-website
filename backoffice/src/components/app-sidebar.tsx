@@ -134,6 +134,11 @@ export function AppSidebar({
                   language,
                   "Institution operators stay scoped to one institution, its doctors, its patients, and local role assignments."
                 )
+              : adminContext.role === "institution_laboratory_staff"
+                ? appText(
+                    language,
+                    "Institution laboratory staff stay scoped to one institution, its laboratory workflow, and local role assignments."
+                  )
               : appText(
                   language,
                   "Institution doctors stay scoped to one institution, their own doctor record, and their own patients."

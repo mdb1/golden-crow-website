@@ -28,7 +28,7 @@ export default async function InstitutionsPage() {
         }
       />
       <HelperBanner title={t("Institution scope is the root of the new areas model.")} tone="blue">
-        {t("Every institution-scoped role, doctor, and patient record hangs off one institution. Full admins can create new institutions; institution admins, institution operators, and doctors stay inside their single institution boundary.")}
+        {t("Every institution-scoped role, doctor, and patient record hangs off one institution. Full admins can create new institutions; institution admins, institution operators, institution laboratory staff, and doctors stay inside their single institution boundary.")}
       </HelperBanner>
       <AreaAccessEntry
         accessHref="/areas/institutions/access"

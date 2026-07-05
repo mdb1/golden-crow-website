@@ -24,17 +24,26 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
     "full_admin",
     "institution_admin",
     "institution_operator",
+    "institution_laboratory_staff",
     "institution_doctor",
     "patient",
   ],
   institution_admin: [
     "institution_admin",
     "institution_operator",
+    "institution_laboratory_staff",
     "institution_doctor",
     "patient",
   ],
   institution_operator: [
     "institution_operator",
+    "institution_laboratory_staff",
+    "institution_doctor",
+    "patient",
+  ],
+  institution_laboratory_staff: [
+    "institution_operator",
+    "institution_laboratory_staff",
     "institution_doctor",
     "patient",
   ],
@@ -46,11 +55,16 @@ const BACKOFFICE_ROLES = new Set<AdminRole>([
   "full_admin",
   "institution_admin",
   "institution_operator",
+  "institution_laboratory_staff",
   "institution_doctor",
 ]);
 
 function isInstitutionManagerRole(role: AdminRole) {
-  return role === "institution_admin" || role === "institution_operator";
+  return (
+    role === "institution_admin" ||
+    role === "institution_operator" ||
+    role === "institution_laboratory_staff"
+  );
 }
 
 export function normalizeRoleEmail(email: string) {
@@ -132,6 +146,7 @@ function isAdminRole(value: string): value is AdminRole {
     value === "full_admin" ||
     value === "institution_admin" ||
     value === "institution_operator" ||
+    value === "institution_laboratory_staff" ||
     value === "institution_doctor" ||
     value === "patient"
   );

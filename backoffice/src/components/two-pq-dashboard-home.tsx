@@ -54,7 +54,9 @@ export function TwoPQDashboardHome({
 }) {
   const linkedEntityKeys = new Set(["cases", "sampling", "sequencing"]);
   const isDoctorDashboard = adminContext.role === "institution_doctor";
-  const isOperatorDashboard = adminContext.role === "institution_operator";
+  const isOperatorDashboard =
+    adminContext.role === "institution_operator" ||
+    adminContext.role === "institution_laboratory_staff";
   const shouldShowOnlyShipments = isDoctorDashboard || isOperatorDashboard;
   const showScopeAndLinkedSections = !isOperatorDashboard;
   const visibleLinkedEntityKeys = new Set(
@@ -102,7 +104,7 @@ export function TwoPQDashboardHome({
       browseLabel: "Open Doctors",
       browseHref: "/areas/doctors",
       canCreate: canCreateDoctorUi(adminContext),
-      disabledTitle: "Only full admins, institution admins, and institution operators can create doctors.",
+      disabledTitle: "Only full admins, institution admins, institution operators, and institution laboratory staff can create doctors.",
     },
     {
       key: "patients",
@@ -115,7 +117,7 @@ export function TwoPQDashboardHome({
       browseHref: "/areas/patients",
       canCreate: canCreatePatientUi(adminContext),
       disabledTitle:
-        "Only full admins, institution admins, institution operators, and scoped institution doctors can create patients.",
+        "Only full admins, institution admins, institution operators, institution laboratory staff, and scoped institution doctors can create patients.",
     },
     {
       key: "roles",

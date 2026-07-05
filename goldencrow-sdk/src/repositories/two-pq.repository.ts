@@ -349,7 +349,11 @@ function normalizeOptionalString(value: unknown): string | undefined {
 }
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
-  return role === "institution_admin" || role === "institution_operator";
+  return (
+    role === "institution_admin" ||
+    role === "institution_operator" ||
+    role === "institution_laboratory_staff"
+  );
 }
 
 function normalizeStringArray(value: unknown): string[] | undefined {

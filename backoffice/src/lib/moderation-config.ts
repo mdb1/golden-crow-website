@@ -48,12 +48,14 @@ const AREA_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
   "institution_operator",
+  "institution_laboratory_staff",
   "institution_doctor",
 ];
 const AREA_MANAGER_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
   "institution_operator",
+  "institution_laboratory_staff",
 ];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([

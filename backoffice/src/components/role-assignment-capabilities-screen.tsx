@@ -25,12 +25,17 @@ const ROLE_TABS: AdminRole[] = [
   "full_admin",
   "institution_admin",
   "institution_operator",
+  "institution_laboratory_staff",
   "institution_doctor",
 ];
 
 function getVisibleRoleTabs(currentRole: AdminRole): AdminRole[] {
   if (currentRole === "institution_operator") {
     return ["institution_operator"];
+  }
+
+  if (currentRole === "institution_laboratory_staff") {
+    return ["institution_laboratory_staff"];
   }
 
   if (currentRole === "institution_doctor") {
@@ -44,6 +49,7 @@ const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant
   full_admin: "destructive",
   institution_admin: "brand",
   institution_operator: "secondary",
+  institution_laboratory_staff: "secondary",
   institution_doctor: "success",
   patient: "outline",
 };
@@ -133,7 +139,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       tone: "allow",
       title: "Can assign every role type",
       description:
-        "Full admins can create and update full admin, institution admin, institution operator, institution doctor, and patient role assignments.",
+        "Full admins can create and update full admin, institution admin, institution operator, institution laboratory staff, institution doctor, and patient role assignments.",
     },
     {
       tone: "allow",
@@ -165,7 +171,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       tone: "allow",
       title: "Can manage local role assignments",
       description:
-        "Institution admins can create and update institution admin, institution operator, institution doctor, and patient assignments inside their own institution.",
+        "Institution admins can create and update institution admin, institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
     },
     {
       tone: "allow",
@@ -197,7 +203,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       tone: "allow",
       title: "Can manage local role assignments",
       description:
-        "Institution operators can create and update institution operator, institution doctor, and patient assignments inside their own institution.",
+        "Institution operators can create and update institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
     },
     {
       tone: "allow",
@@ -222,6 +228,44 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
       title: "Cannot create institution admins",
       description:
         "Institution operator accounts cannot create, update, or promote users into the institution admin lane.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot cross institution boundaries",
+      description:
+        "They cannot edit doctors, patients, or role assignments linked to another institution.",
+    },
+  ],
+  institution_laboratory_staff: [
+    {
+      tone: "allow",
+      title: "Can manage local role assignments",
+      description:
+        "Institution laboratory staff can create and update institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
+    },
+    {
+      tone: "allow",
+      title: "Can staff their institution",
+      description:
+        "They can pair role changes with doctor and patient maintenance for the institution they operate.",
+    },
+    {
+      tone: "allow",
+      title: "Can inspect the local permission map",
+      description:
+        "They can review which emails are attached to their institution and how those assignments map to the doctor and patient hierarchy.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot create full admins",
+      description:
+        "Promotion into the global admin lane stays reserved for existing full admins only.",
+    },
+    {
+      tone: "limit",
+      title: "Cannot create institution admins",
+      description:
+        "Institution laboratory staff accounts cannot create, update, or promote users into the institution admin lane.",
     },
     {
       tone: "limit",

@@ -39,7 +39,11 @@ const PATIENTS_COLLECTION = "patients";
 const SEQUENCES_COLLECTION = "admin_sequences";
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
-  return role === "institution_admin" || role === "institution_operator";
+  return (
+    role === "institution_admin" ||
+    role === "institution_operator" ||
+    role === "institution_laboratory_staff"
+  );
 }
 
 type PatientInformationInput = {

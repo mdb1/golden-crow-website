@@ -210,7 +210,7 @@ export default async function DashboardPage() {
           <MetricCard
             icon={KeyRound}
             title={t("Roles & Permissions")}
-            description={t("Email-scoped access tree for full admins, institution admins, institution operators, doctors, and patients.")}
+            description={t("Email-scoped access tree for full admins, institution admins, institution operators, institution laboratory staff, doctors, and patients.")}
             href="/roles"
             tone="blue"
           />

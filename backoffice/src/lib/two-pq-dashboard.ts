@@ -21,6 +21,7 @@ const AREA_ADMIN_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
   "institution_operator",
+  "institution_laboratory_staff",
   "institution_doctor",
 ];
 const FULL_ADMIN_ROLES: AdminRole[] = ["full_admin"];
@@ -50,20 +51,44 @@ function institutionOperatorNote(note: string) {
     .replace(/institution admin/g, "institution operator");
 }
 
+function institutionLaboratoryStaffNote(note: string) {
+  return note
+    .replace(/^Institution operators/g, "Institution laboratory staff")
+    .replace(/^Institution operator/g, "Institution laboratory staff")
+    .replace(/^Institution admins/g, "Institution laboratory staff")
+    .replace(/^Institution admin/g, "Institution laboratory staff");
+}
+
 function withInstitutionOperatorAccess(entries: RoleAccessSpec[]): RoleAccessSpec[] {
-  if (entries.some((entry) => entry.role === "institution_operator")) {
-    return entries;
+  const expandedEntries = entries.some((entry) => entry.role === "institution_operator")
+    ? [...entries]
+    : entries.flatMap((entry) =>
+        entry.role === "institution_admin"
+          ? [
+              entry,
+              {
+                ...entry,
+                role: "institution_operator" as const,
+                capabilities: [...entry.capabilities],
+                note: institutionOperatorNote(entry.note),
+              },
+            ]
+          : [entry]
+      );
+  const operatorEntry = expandedEntries.find((entry) => entry.role === "institution_operator");
+  if (!operatorEntry || expandedEntries.some((entry) => entry.role === "institution_laboratory_staff")) {
+    return expandedEntries;
   }
 
-  return entries.flatMap((entry) =>
-    entry.role === "institution_admin"
+  return expandedEntries.flatMap((entry) =>
+    entry === operatorEntry
       ? [
           entry,
           {
-            ...entry,
-            role: "institution_operator" as const,
-            capabilities: [...entry.capabilities],
-            note: institutionOperatorNote(entry.note),
+            ...operatorEntry,
+            role: "institution_laboratory_staff" as const,
+            capabilities: [...operatorEntry.capabilities],
+            note: institutionLaboratoryStaffNote(operatorEntry.note),
           },
         ]
       : [entry]
@@ -1119,7 +1144,7 @@ export const BACKOFFICE_AREAS: BackofficeAreaSpec[] = [
   {
     key: "roles",
     label: "Roles & Permissions",
-    description: "Email-based access tree for full admins, institution admins, institution operators, doctors, and patients.",
+    description: "Email-based access tree for full admins, institution admins, institution operators, institution laboratory staff, doctors, and patients.",
     href: "/roles",
     icon: KeyRound,
     tone: "slate",
@@ -1245,13 +1270,13 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         role: "institution_admin",
         scope: "institution",
         capabilities: ["create", "read", "update"],
-        note: "Institution admins can create and edit local institution admin, institution operator, institution doctor, and patient roles inside their own scope.",
+        note: "Institution admins can create and edit local institution admin, institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope.",
       },
       {
         role: "institution_operator",
         scope: "institution",
         capabilities: ["create", "read", "update"],
-        note: "Institution operators can create and edit local institution operator, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.",
+        note: "Institution operators can create and edit local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.",
       },
       {
         role: "institution_doctor",

@@ -12,6 +12,7 @@ const RoleSchema = z.enum([
   "full_admin",
   "institution_admin",
   "institution_operator",
+  "institution_laboratory_staff",
   "institution_doctor",
   "patient",
 ]);

@@ -17,6 +17,7 @@ const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant
   full_admin: "destructive",
   institution_admin: "brand",
   institution_operator: "secondary",
+  institution_laboratory_staff: "secondary",
   institution_doctor: "success",
   patient: "outline",
 };

@@ -91,6 +91,7 @@ const roleBadgeVariants: Record<AdminRole, ComponentProps<typeof Badge>["variant
   full_admin: "destructive",
   institution_admin: "brand",
   institution_operator: "secondary",
+  institution_laboratory_staff: "secondary",
   institution_doctor: "success",
   patient: "outline",
 };
@@ -677,25 +678,25 @@ export function TwoPQDashboard({
                   label: "Institutions",
                   href: "/areas/institutions",
                   tone: "blue",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_laboratory_staff", "institution_doctor"],
                 },
                 {
                   label: "Doctors",
                   href: "/areas/doctors",
                   tone: "mint",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_laboratory_staff", "institution_doctor"],
                 },
                 {
                   label: "Patients",
                   href: "/areas/patients",
                   tone: "amber",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_laboratory_staff", "institution_doctor"],
                 },
                 {
                   label: "Roles & permissions",
                   href: "/roles",
                   tone: "slate",
-                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_doctor"],
+                  visibleRoles: ["full_admin", "institution_admin", "institution_operator", "institution_laboratory_staff", "institution_doctor"],
                 },
               ]}
             />

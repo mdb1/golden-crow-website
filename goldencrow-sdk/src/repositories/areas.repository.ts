@@ -59,7 +59,11 @@ function normalizeOptionalString(value: unknown): string | undefined {
 }
 
 function isInstitutionManagerRole(role: unknown) {
-  return role === "institution_admin" || role === "institution_operator";
+  return (
+    role === "institution_admin" ||
+    role === "institution_operator" ||
+    role === "institution_laboratory_staff"
+  );
 }
 
 function normalizeRequiredString(value: unknown, label: string) {
@@ -292,6 +296,7 @@ async function loadScopedRoleRecords(context: AdminContext) {
           data.role === "full_admin" ||
           data.role === "institution_admin" ||
           data.role === "institution_operator" ||
+          data.role === "institution_laboratory_staff" ||
           data.role === "institution_doctor" ||
           data.role === "patient"
             ? data.role
@@ -646,6 +651,7 @@ export async function getInstitutionDetailForContext(
         data.role === "full_admin" ||
         data.role === "institution_admin" ||
         data.role === "institution_operator" ||
+        data.role === "institution_laboratory_staff" ||
         data.role === "institution_doctor" ||
         data.role === "patient"
           ? data.role
@@ -948,6 +954,7 @@ export async function getDoctorDetailForContext(
             data.role === "full_admin" ||
             data.role === "institution_admin" ||
             data.role === "institution_operator" ||
+            data.role === "institution_laboratory_staff" ||
             data.role === "institution_doctor" ||
             data.role === "patient"
               ? data.role
