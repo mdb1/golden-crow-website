@@ -102,6 +102,37 @@ const scopeMeta: Record<
   },
 };
 
+function getScopeMeta(entry: RoleAccessSpec) {
+  if (entry.scope !== "no_access") {
+    return scopeMeta[entry.scope];
+  }
+
+  if (entry.role === "institution_laboratory_staff") {
+    return {
+      ...scopeMeta.no_access,
+      label: "No role administration access",
+      description:
+        "Can use the permitted 2PQ backoffice surfaces for their institution, but cannot create, update, or inspect role assignments.",
+    };
+  }
+
+  if (entry.role === "patient") {
+    return {
+      ...scopeMeta.no_access,
+      label: "No backoffice access",
+      description:
+        "Patients do not use the backoffice. Their role assignment only anchors patient-specific boundaries.",
+    };
+  }
+
+  return {
+    ...scopeMeta.no_access,
+    label: "No access to this surface",
+    description:
+      "This role cannot use this specific backoffice surface, even if it can access other permitted areas.",
+  };
+}
+
 const capabilityMeta: Record<
   CrudCapability,
   {
@@ -206,15 +237,15 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
   institution_operator: [
     {
       tone: "allow",
-      title: "Can update local role assignments",
+      title: "Can update existing local role assignments",
       description:
-        "Institution operators can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution.",
+        "Institution operators can update existing institution operator, institution laboratory staff, institution doctor, and patient assignments inside their own institution. They cannot create a new role assignment directly.",
     },
     {
       tone: "allow",
-      title: "Can staff their institution",
+      title: "Can manage institution doctors and patients",
       description:
-        "They can pair role changes with doctor and patient maintenance for the institution they operate.",
+        "They can maintain doctor and patient records for their institution while keeping role creation reserved for the institution administrator.",
     },
     {
       tone: "allow",
@@ -236,7 +267,7 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
     },
     {
       tone: "limit",
-      title: "Cannot create institution admins",
+      title: "Cannot create or modify institution admins",
       description:
         "Institution operator accounts cannot create, update, or promote users into the institution admin lane.",
     },
@@ -248,6 +279,18 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
     },
   ],
   institution_laboratory_staff: [
+    {
+      tone: "allow",
+      title: "Can use the 2PQ backoffice",
+      description:
+        "Institution laboratory staff can enter the backoffice and work inside the permitted 2PQ surfaces for their institution.",
+    },
+    {
+      tone: "allow",
+      title: "Can inspect institution context",
+      description:
+        "They can read their institution, doctor roster, and patient records as context for laboratory workflows, without administering those records.",
+    },
     {
       tone: "allow",
       title: "Can operate 2PQ cases",
@@ -286,9 +329,9 @@ const ROLE_ASSIGNMENT_ITEMS: Record<
     },
     {
       tone: "limit",
-      title: "Cannot staff their institution",
+      title: "Cannot administer doctors or patients",
       description:
-        "They cannot pair role changes with doctor or patient maintenance for their institution.",
+        "They cannot create, update, or delete doctor or patient records from the administrative area model.",
     },
     {
       tone: "limit",
@@ -413,7 +456,7 @@ export function RoleAssignmentCapabilitiesScreen({
     entries.find((entry) => entry.role === activeRole) ??
     entries.find((entry) => visibleRoleTabs.includes(entry.role)) ??
     entries[0];
-  const activeScope = scopeMeta[activeEntry.scope];
+  const activeScope = getScopeMeta(activeEntry);
   const activeItems = ROLE_ASSIGNMENT_ITEMS[activeEntry.role];
   const hasSingleVisibleRole = visibleRoleTabs.length === 1;
 
@@ -423,7 +466,7 @@ export function RoleAssignmentCapabilitiesScreen({
         eyebrow={t("Access")}
         title={t("Role assignment capabilities")}
         description={t(
-          "A role-by-role explainer for what each assignment can do, where it is scoped, and where the boundary stops.",
+          "A role-by-role explainer for role assignment permissions, operating scope, and hard boundaries.",
         )}
         actions={
           <Button variant="outline" size="sm" asChild>
@@ -530,6 +573,11 @@ export function RoleAssignmentCapabilitiesScreen({
 
           <div className="flex flex-col gap-2">
             <p className="section-eyebrow">{t("Role assignment operations")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "These CRUD chips apply only to role assignment records, not to every 2PQ operational screen.",
+              )}
+            </p>
             <div className="flex flex-wrap gap-2">
               {ROLE_ASSIGNMENT_CAPABILITIES.map((capability) => {
                 const isEnabled = activeEntry.capabilities.includes(capability);
@@ -559,7 +607,7 @@ export function RoleAssignmentCapabilitiesScreen({
             </h2>
             <p className="max-w-3xl text-sm text-muted-foreground">
               {t(
-                "The list below mixes allowed actions and blocked actions so the lane stays readable one rule at a time.",
+                "The list below separates allowed operational work from blocked role-administration actions.",
               )}
             </p>
           </div>

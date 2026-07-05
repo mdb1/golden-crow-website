@@ -1432,7 +1432,7 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
         role: "institution_laboratory_staff",
         scope: "no_access",
         capabilities: [],
-        note: "Institution laboratory staff cannot manage, staff, or inspect local role assignments.",
+        note: "Institution laboratory staff can operate permitted 2PQ workflows inside their institution, but cannot create, update, or inspect role assignments.",
       },
       {
         role: "institution_doctor",

@@ -223,9 +223,9 @@ export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   institution_admin:
     "Institution-scoped control over one institution, its doctors, its patients, and local role assignments.",
   institution_operator:
-    "Institution-scoped operations over one institution, its doctors, its patients, and local role assignments.",
+    "Institution-scoped administrative operations over one institution, its doctors, its patients, and existing local role assignments.",
   institution_laboratory_staff:
-    "Institution-scoped laboratory operations over one institution without local role administration.",
+    "Institution-scoped laboratory operations over one institution. It includes 2PQ operational work, but not local role administration.",
   institution_doctor:
     "Read access to the institution, full control over the doctor's own profile, and CRUD on the doctor's own patients.",
   patient:
