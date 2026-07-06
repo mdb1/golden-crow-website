@@ -67,6 +67,10 @@ const MISSION_OVERVIEW_NAV_ROLES: AdminRole[] = [
   "full_admin",
   "institution_admin",
 ];
+const ROLE_MANAGEMENT_NAV_ROLES: AdminRole[] = [
+  "full_admin",
+  "institution_admin",
+];
 const DOCTOR_VISIBLE_TWO_PQ_AREAS = new Set(["cases", "sampling"]);
 const OPERATOR_MISSION_HREFS = new Set([
   "/2pq-dashboard",
@@ -918,7 +922,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: "/roles",
     description: "Email-based access and role scope",
     icon: KeyRound,
-    visibleRoles: AREA_ROLES,
+    visibleRoles: ROLE_MANAGEMENT_NAV_ROLES,
   },
   {
     section: "access",
