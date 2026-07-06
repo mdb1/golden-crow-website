@@ -448,10 +448,54 @@
   }
 
   .auth-liquid-canvas {
+    --auth-login-top-clearance: max(1.5rem, env(safe-area-inset-top, 0px));
+    --auth-login-bottom-clearance: max(
+      7rem,
+      calc(
+        env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px) + 5rem
+      )
+    );
     background:
       radial-gradient(circle at 12% 18%, rgba(236, 254, 255, 0.48), transparent 20%),
       radial-gradient(circle at 88% 12%, rgba(255, 228, 230, 0.42), transparent 18%),
       linear-gradient(135deg, #04304a 0%, #0e7490 24%, #38bdf8 52%, #f43f5e 78%, #fb7185 100%);
+    scroll-padding-block: var(--auth-login-top-clearance) var(--auth-login-bottom-clearance);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .auth-login-scroll-shell {
+    min-height: 100svh;
+    padding-block-start: var(--auth-login-top-clearance);
+    padding-block-end: var(--auth-login-bottom-clearance);
+  }
+
+  @supports (height: 100dvh) {
+    .auth-login-scroll-shell {
+      min-height: 100dvh;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .auth-liquid-canvas {
+      --auth-login-top-clearance: 2rem;
+      --auth-login-bottom-clearance: max(
+        6rem,
+        calc(
+          env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px) + 4rem
+        )
+      );
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .auth-liquid-canvas {
+      --auth-login-top-clearance: 2rem;
+      --auth-login-bottom-clearance: 2rem;
+    }
+
+    .auth-login-scroll-shell {
+      min-height: 100vh;
+    }
   }
 
   .auth-liquid-canvas::before {

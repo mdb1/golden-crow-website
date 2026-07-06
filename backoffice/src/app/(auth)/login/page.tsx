@@ -2242,7 +2242,7 @@ export default function LoginPage() {
       <div className="auth-liquid-flow" aria-hidden />
       <div className="auth-liquid-sheen" aria-hidden />
 
-      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+      <div className="auth-login-scroll-shell relative z-10 flex w-full items-center justify-center px-4 sm:px-6 lg:px-8">
         <section className="auth-login-stage relative mx-auto grid w-full max-w-[1240px] gap-5 rounded-[2rem] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.78fr)] lg:p-6">
           <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
