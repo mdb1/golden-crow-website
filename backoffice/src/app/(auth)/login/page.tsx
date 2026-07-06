@@ -2,7 +2,13 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   fetchSignInMethodsForEmail,
   GoogleAuthProvider,
@@ -45,6 +51,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BACKOFFICE_VERSION } from "@/lib/app-version";
+import {
+  LANGUAGE_COOKIE_NAME,
+  LANGUAGE_STORAGE_KEY,
+  resolveAppLanguage,
+  type AppLanguage,
+} from "@/lib/language";
 
 type ProjectKey = "mydnamap" | "pocket-gyms";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
@@ -132,6 +144,305 @@ const ROLE_LABELS: Record<NonNullable<SignupEligibility["role"]>, string> = {
 const LEGACY_PROJECT_KEYS = new Set<ProjectKey>(["mydnamap", "pocket-gyms"]);
 const GOOGLE_SIGN_IN_METHOD = "google.com";
 const PASSWORD_SIGN_IN_METHOD = "password";
+const LOGIN_LANGUAGE_OPTIONS: AppLanguage[] = ["en", "es"];
+
+const LOGIN_SPANISH_TEXT: Record<string, string> = {
+  "full admin": "administrador total",
+  "institution admin": "administrador de institucion",
+  "institution operator": "operador de institucion",
+  "institution laboratory staff": "personal de laboratorio de institucion",
+  "institution doctor": "medico de institucion",
+  patient: "paciente",
+  "Password reset email sent": "Email de recuperacion enviado",
+  "Firebase Auth account exists": "La cuenta de Firebase Auth existe",
+  "The legacy SDK found this exact email in Firebase Auth.":
+    "El SDK legacy encontro este email exacto en Firebase Auth.",
+  "Email/password provider exists": "El proveedor email/password existe",
+  "This account is configured for password sign-in.":
+    "Esta cuenta esta configurada para iniciar sesion con password.",
+  "Firebase reset email sent": "Email de recuperacion enviado por Firebase",
+  "Firebase accepted the password reset email request.":
+    "Firebase acepto el envio del email de recuperacion.",
+  "Firebase Auth account not found": "Cuenta de Firebase Auth no encontrada",
+  "The legacy SDK did not find this email in Firebase Auth.":
+    "El SDK legacy no encontro este email en Firebase Auth.",
+  "Skipped because there is no matching Firebase Auth account.":
+    "Omitido porque no existe una cuenta de Firebase Auth coincidente.",
+  "Not attempted because there is no matching account.":
+    "No se intento porque no existe una cuenta coincidente.",
+  "Password sign-in is not enabled": "El inicio con password no esta habilitado",
+  "Firebase Auth does not list the password provider for this account.":
+    "Firebase Auth no lista el proveedor password para esta cuenta.",
+  "Not attempted because password reset only applies to password accounts.":
+    "No se intento porque la recuperacion aplica solo a cuentas con password.",
+  "Firebase could not send the reset email":
+    "Firebase no pudo enviar el email de recuperacion",
+  "Firebase returned an error while sending the reset email.":
+    "Firebase devolvio un error al enviar el email de recuperacion.",
+  "Sign-in window closed": "Ventana de inicio cerrada",
+  "No session was created. Open Google sign-in again when you are ready.":
+    "No se creo ninguna sesion. Abri Google de nuevo cuando estes listo.",
+  "Browser blocked the sign-in window":
+    "El navegador bloqueo la ventana de inicio",
+  "Allow pop-ups for this site, then try Google sign-in again.":
+    "Permiti pop-ups para este sitio y volve a intentar con Google.",
+  "You can also use the email and password option below.":
+    "Tambien podes usar la opcion de email y password abajo.",
+  "Network connection interrupted": "Conexion de red interrumpida",
+  "The browser could not reach Firebase. Check your connection and try again.":
+    "El navegador no pudo conectarse con Firebase. Revisa tu conexion e intenta de nuevo.",
+  "Google sign-in did not finish": "El inicio con Google no termino",
+  "The browser authenticated with Google but the backoffice could not complete the session.":
+    "El navegador autentico con Google, pero el backoffice no pudo completar la sesion.",
+  "Try again, or use email sign-in if your account has a password.":
+    "Intenta de nuevo, o usa email si tu cuenta tiene password.",
+  "A user was found with that email, but it has no password registered.":
+    "Se encontro un usuario con ese email, pero no tiene password registrado.",
+  "This account uses Google sign-in": "Esta cuenta usa inicio con Google",
+  "Use Continue with Google to sign in with that user.":
+    "Usa Continuar con Google para iniciar sesion con ese usuario.",
+  "Password login will keep failing until a password provider is added to the Firebase account.":
+    "El inicio con password seguira fallando hasta que se agregue ese proveedor a la cuenta de Firebase.",
+  "Email format needs a fix": "El formato del email necesita correccion",
+  "Enter the full email address, for example team@pocketgenes.app.":
+    "Ingresa el email completo, por ejemplo team@pocketgenes.app.",
+  "Email and password did not match": "El email y el password no coinciden",
+  "Use the email and password for an existing backoffice account.":
+    "Usa el email y password de una cuenta existente del backoffice.",
+  "If this is your first time here, use Create email account so access can be checked before a password is created.":
+    "Si es tu primera vez, usa Crear cuenta con email para verificar el acceso antes de crear un password.",
+  "Too many attempts": "Demasiados intentos",
+  "Firebase temporarily slowed this account down. Wait a few minutes before trying again.":
+    "Firebase limito temporalmente esta cuenta. Espera unos minutos antes de intentar de nuevo.",
+  "Email sign-in failed": "Fallo el inicio con email",
+  "The credentials could not be verified. Check the email, password, and account status.":
+    "No se pudieron verificar las credenciales. Revisa el email, el password y el estado de la cuenta.",
+  "This account is not approved for backoffice access":
+    "Esta cuenta no esta aprobada para acceder al backoffice",
+  "Authentication worked, but the SDK did not find an active allowlist entry or admin role assignment for this email.":
+    "La autenticacion funciono, pero el SDK no encontro una entrada activa en la allowlist ni una asignacion admin para este email.",
+  "Ask a full admin to add the email to the team allowlist or assign an active admin role.":
+    "Pedi a un full admin que agregue el email a la allowlist o asigne un rol admin activo.",
+  "If access was granted moments ago, sign out of Google and try again.":
+    "Si el acceso fue otorgado hace instantes, cerra sesion de Google e intenta de nuevo.",
+  "Session token was rejected": "El token de sesion fue rechazado",
+  "Firebase could not validate the token returned by the browser. Start the sign-in flow again.":
+    "Firebase no pudo validar el token devuelto por el navegador. Inicia el flujo de nuevo.",
+  "Backoffice session could not be created":
+    "No se pudo crear la sesion del backoffice",
+  "The authentication service responded, but it did not create a valid backoffice session.":
+    "El servicio de autenticacion respondio, pero no creo una sesion valida del backoffice.",
+  "Try again. If it repeats, capture the time and ask the team to inspect SDK logs.":
+    "Intenta de nuevo. Si se repite, registra la hora y pedi al equipo que revise los logs del SDK.",
+  "Account setup could not continue": "La configuracion de cuenta no pudo continuar",
+  "Your credentials may be valid, but the backoffice could not load the profile or project context needed after sign-in.":
+    "Tus credenciales pueden ser validas, pero el backoffice no pudo cargar el perfil o contexto de proyecto necesario.",
+  "Authentication error log": "Log de error de autenticacion",
+  "Full client-side diagnostic captured for this failed sign-in attempt. Token, cookie, session, and password-like fields are redacted.":
+    "Diagnostico completo del cliente para este intento fallido. Tokens, cookies, sesiones y campos similares a passwords estan redactados.",
+  Close: "Cerrar",
+  "Open that email and follow the link to choose a new password, then return here to continue.":
+    "Abri ese email y segui el enlace para elegir un nuevo password. Despues volve aca para continuar.",
+  "Open that email and follow the link to choose a new password, then return here to sign in.":
+    "Abri ese email y segui el enlace para elegir un nuevo password. Despues volve aca para iniciar sesion.",
+  Done: "Listo",
+  "Try another email": "Probar otro email",
+  "Reset password?": "Recuperar password?",
+  "Firebase will send a password reset link to":
+    "Firebase enviara un enlace de recuperacion a",
+  "Only continue if this is the exact email for the account that needs a new password.":
+    "Continua solo si este es el email exacto de la cuenta que necesita un nuevo password.",
+  "Confirm the email address is correct before sending. The current sign-in attempt will stay on this screen.":
+    "Confirma que el email sea correcto antes de enviar. El intento de inicio actual permanecera en esta pantalla.",
+  Cancel: "Cancelar",
+  "Sending...": "Enviando...",
+  "Send reset email": "Enviar email de recuperacion",
+  "View log": "Ver log",
+  Dismiss: "Cerrar",
+  "Hide password": "Ocultar password",
+  "Show password": "Mostrar password",
+  "Login language": "Idioma del login",
+  "Golden Crow operations": "Operaciones Golden Crow",
+  "Run Golden Crow operations from one focused workspace.":
+    "Gestiona operaciones Golden Crow desde un espacio de trabajo enfocado.",
+  "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view.":
+    "Gestiona usuarios, roles, reportes, archivos, formularios 2PQ, instituciones, medicos y pacientes con el contexto correcto siempre visible.",
+  "Scoped control": "Control acotado",
+  "Full admins see the whole operation, while institution teams stay inside their assigned doctors, patients, and forms.":
+    "Los full admins ven toda la operacion, mientras los equipos de institucion permanecen dentro de sus medicos, pacientes y formularios asignados.",
+  "Product aware": "Contexto por producto",
+  "Switch between PocketGenes, Pocket Gyms, and 2PQ workflows without losing the operational context of each product.":
+    "Cambia entre PocketGenes, Pocket Gyms y flujos 2PQ sin perder el contexto operativo de cada producto.",
+  "Traceable changes": "Cambios trazables",
+  "Each release keeps the backoffice version visible, so support and operators can identify the exact build in use.":
+    "Cada release mantiene visible la version del backoffice para identificar el build exacto en uso.",
+  "New invited user?": "Usuario nuevo invitado?",
+  "Create email account": "Crear cuenta con email",
+  "Create email account is not open registration. It confirms approval first, then creates the first email/password account for that invited user.":
+    "Crear cuenta con email no es registro abierto. Primero confirma la aprobacion y despues crea la primera cuenta email/password para ese usuario invitado.",
+  "Secure backoffice": "Backoffice seguro",
+  "Choose your workspace": "Elegir workspace",
+  "Create an email account": "Crear una cuenta con email",
+  "Finish new-user setup": "Finalizar configuracion de nuevo usuario",
+  "Welcome back": "Bienvenido de nuevo",
+  "Your account can manage more than one legacy product. Pick where to continue.":
+    "Tu cuenta puede gestionar mas de un producto legacy. Elegi donde continuar.",
+  "This path is for invited new users who do not have an email password yet.":
+    "Este camino es para usuarios invitados que todavia no tienen password de email.",
+  "Access is approved. Set the first password for this account.":
+    "El acceso esta aprobado. Establece el primer password de esta cuenta.",
+  "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.":
+    "Inicia sesion en el backoffice legacy de Golden Crow para PocketGenes y Pocket Gyms.",
+  "Genomics reports, learning content, community moderation, and account records.":
+    "Reportes genomicos, contenido de aprendizaje, moderacion comunitaria y registros de cuenta.",
+  "Members, training plans, booking surfaces, clinical notes, and achievements.":
+    "Miembros, planes de entrenamiento, reservas, notas clinicas y logros.",
+  "Use a different account": "Usar otra cuenta",
+  "Opening Google...": "Abriendo Google...",
+  "Continue with Google": "Continuar con Google",
+  "or use email": "o usa email",
+  Email: "Email",
+  "Email checked. Use Change email to choose a different account.":
+    "Email verificado. Usa Cambiar email para elegir otra cuenta.",
+  "Use the email that has backoffice access.":
+    "Usa el email que tiene acceso al backoffice.",
+  "Change email": "Cambiar email",
+  Password: "Password",
+  "Enter the password for this approved email account.":
+    "Ingresa el password de esta cuenta aprobada.",
+  "Forgot password?": "Olvidaste tu password?",
+  "Checking credentials...": "Verificando credenciales...",
+  "Sign in with email": "Iniciar con email",
+  "Checking email...": "Verificando email...",
+  Continue: "Continuar",
+  "This is a new-user setup flow, not open registration. We check the email against the backend allowlist and active role assignments before creating anything.":
+    "Este es un flujo de configuracion para nuevo usuario, no registro abierto. Verificamos el email contra la allowlist y roles activos antes de crear algo.",
+  "Invited email": "Email invitado",
+  "Enter the exact email a full admin approved for backoffice access.":
+    "Ingresa el email exacto que un full admin aprobo para acceder al backoffice.",
+  Back: "Volver",
+  "Checking access...": "Verificando acceso...",
+  "Check access first": "Verificar acceso primero",
+  "Access approved": "Acceso aprobado",
+  "New password": "Nuevo password",
+  "Use at least 6 characters. You will be signed in after the account is created.":
+    "Usa al menos 6 caracteres. Iniciaras sesion despues de crear la cuenta.",
+  "Choose a password": "Elegir password",
+  "Creating account...": "Creando cuenta...",
+  "Create account": "Crear cuenta",
+  "Backoffice session handoff failed": "Fallo el traspaso de sesion",
+  "Firebase accepted the account, but NextAuth did not persist the browser session.":
+    "Firebase acepto la cuenta, pero NextAuth no persistio la sesion del navegador.",
+  "Try again. If it repeats, clear this site's cookies and sign in again.":
+    "Intenta de nuevo. Si se repite, borra las cookies de este sitio e inicia sesion otra vez.",
+  "Email check could not run": "No se pudo verificar el email",
+  "Try again before entering a password.": "Intenta de nuevo antes de ingresar un password.",
+  "This account exists, but it is not approved for backoffice access.":
+    "Esta cuenta existe, pero no esta aprobada para acceder al backoffice.",
+  "No backoffice account or approved invitation was found for this email.":
+    "No se encontro una cuenta de backoffice ni una invitacion aprobada para este email.",
+  "This email is not approved yet": "Este email todavia no esta aprobado",
+  "Ask a full admin to add the email to the allowlist or assign an active admin role first.":
+    "Pedi a un full admin que agregue el email a la allowlist o asigne un rol admin activo primero.",
+  "This invited email can create a backoffice account. Choose a password to finish setup.":
+    "Este email invitado puede crear una cuenta de backoffice. Elegi un password para terminar.",
+  "A user was found with that email, but password sign-in is not enabled.":
+    "Se encontro un usuario con ese email, pero el inicio con password no esta habilitado.",
+  "Ask an admin to confirm the account sign-in provider.":
+    "Pedi a un admin que confirme el proveedor de inicio de sesion de la cuenta.",
+  "Email check failed": "Fallo la verificacion de email",
+  "The backoffice could not check this email right now.":
+    "El backoffice no pudo verificar este email ahora.",
+  "Enter the account email first": "Ingresa primero el email de la cuenta",
+  "Add the email address that should receive the Firebase password reset link.":
+    "Agrega el email que debe recibir el enlace de recuperacion de Firebase.",
+  "The backoffice could not verify whether this email exists.":
+    "El backoffice no pudo verificar si este email existe.",
+  "Password reset check failed": "Fallo la verificacion de recuperacion",
+  "Firebase could not send the password reset email. Confirm the email and try again.":
+    "Firebase no pudo enviar el email de recuperacion. Confirma el email e intenta de nuevo.",
+  "Password reset email was not sent": "No se envio el email de recuperacion",
+  "Unable to validate this email right now.":
+    "No se puede validar este email ahora.",
+  "Access check could not run": "No se pudo verificar el acceso",
+  "No account was created. Try again before choosing a password.":
+    "No se creo ninguna cuenta. Intenta de nuevo antes de elegir un password.",
+  "The new-user flow only creates accounts for emails already approved by the team.":
+    "El flujo de nuevo usuario solo crea cuentas para emails ya aprobados por el equipo.",
+  "After approval, return here and run this check again.":
+    "Despues de la aprobacion, volve aca y ejecuta esta verificacion de nuevo.",
+  "An account already exists for this email": "Ya existe una cuenta para este email",
+  "Use the email sign-in form instead. This new-user flow only creates the first password for invited accounts.":
+    "Usa el formulario de inicio con email. Este flujo solo crea el primer password para cuentas invitadas.",
+  "This email can create a backoffice account. Choose a password to finish setup.":
+    "Este email puede crear una cuenta de backoffice. Elegi un password para terminar.",
+  "Access check failed": "Fallo la verificacion de acceso",
+  "Unable to create the email account.": "No se pudo crear la cuenta con email.",
+  "Account was not created": "La cuenta no fue creada",
+  "Confirm the email is still approved and use a password with at least 6 characters.":
+    "Confirma que el email siga aprobado y usa un password de al menos 6 caracteres.",
+  "Account setup stopped": "La configuracion de cuenta se detuvo",
+  "No dashboard access was changed. You can retry from the access check step.":
+    "No se modifico ningun acceso al dashboard. Podes reintentar desde la verificacion.",
+  "The account is valid, but the selected project session could not be saved.":
+    "La cuenta es valida, pero no se pudo guardar la sesion del proyecto seleccionado.",
+  "Project handoff failed": "Fallo el traspaso de proyecto",
+  "Try selecting the project again.": "Intenta seleccionar el proyecto de nuevo.",
+  "approved through an active role assignment":
+    "aprobado mediante una asignacion de rol activa",
+  "approved through the team allowlist":
+    "aprobado mediante la allowlist del equipo",
+};
+
+function loginText(language: AppLanguage, text: string) {
+  if (language === "en") return text;
+  const directTranslation = LOGIN_SPANISH_TEXT[text];
+  if (directTranslation) return directTranslation;
+
+  let match = text.match(/^Firebase sent the reset email to (.+)\.$/);
+  if (match) {
+    return `Firebase envio el email de recuperacion a ${match[1]}.`;
+  }
+  match = text.match(/^No Firebase Auth account exists for (.+)\.$/);
+  if (match) {
+    return `No existe una cuenta de Firebase Auth para ${match[1]}.`;
+  }
+  match = text.match(/^(.+) exists, but it does not have an email\/password provider\.$/);
+  if (match) {
+    return `${match[1]} existe, pero no tiene proveedor email/password.`;
+  }
+  match = text.match(
+    /^(.+) exists and has password sign-in, but Firebase rejected the reset email request\.$/
+  );
+  if (match) {
+    return `${match[1]} existe y tiene inicio con password, pero Firebase rechazo el email de recuperacion.`;
+  }
+
+  return text;
+}
+
+function applyLoginLanguage(language: AppLanguage) {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+  document.documentElement.lang = language;
+  document.documentElement.dataset.language = language;
+  window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  document.cookie = `${LANGUAGE_COOKIE_NAME}=${language}; path=/; max-age=31536000; samesite=lax`;
+}
+
+function readStoredLoginLanguage(initialLanguage: AppLanguage) {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return initialLanguage;
+  }
+  try {
+    return resolveAppLanguage(
+      window.localStorage.getItem(LANGUAGE_STORAGE_KEY) ??
+        document.documentElement.dataset.language ??
+        initialLanguage
+    );
+  } catch {
+    return initialLanguage;
+  }
+}
 
 function normalizeAuthEmail(value: string) {
   return value.trim().toLowerCase();
@@ -710,14 +1021,18 @@ function buildLegacyGoogleProvider(emailHint: string) {
   return provider;
 }
 
+type LoginTranslator = (text: string) => string;
+
 function AuthLogDialog({
   log,
   open,
   onOpenChange,
+  t,
 }: {
   log: AuthLog;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  t: LoginTranslator;
 }) {
   const formattedLog = formatAuthLog(log);
 
@@ -725,10 +1040,11 @@ function AuthLogDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-white/70 bg-white/92 text-slate-950 shadow-[0_30px_90px_rgba(47,28,70,0.28)] backdrop-blur-2xl sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Authentication error log</DialogTitle>
+          <DialogTitle>{t("Authentication error log")}</DialogTitle>
           <DialogDescription className="text-slate-600">
-            Full client-side diagnostic captured for this failed sign-in attempt.
-            Token, cookie, session, and password-like fields are redacted.
+            {t(
+              "Full client-side diagnostic captured for this failed sign-in attempt. Token, cookie, session, and password-like fields are redacted."
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[55vh] overflow-auto rounded-xl border border-slate-900/10 bg-slate-950 p-3">
@@ -741,7 +1057,7 @@ function AuthLogDialog({
               variant="outline"
               className="border-slate-900/10 bg-white/70 text-slate-800 hover:bg-white hover:text-slate-950"
             >
-              Close
+              {t("Close")}
             </Button>
           </DialogClose>
         </DialogFooter>
@@ -750,7 +1066,13 @@ function AuthLogDialog({
   );
 }
 
-function PasswordResetChecklist({ checks }: { checks: PasswordResetCheck[] }) {
+function PasswordResetChecklist({
+  checks,
+  t,
+}: {
+  checks: PasswordResetCheck[];
+  t: LoginTranslator;
+}) {
   return (
     <div className="space-y-2 rounded-xl border border-slate-900/10 bg-white/55 p-3">
       {checks.map((check) => (
@@ -766,9 +1088,9 @@ function PasswordResetChecklist({ checks }: { checks: PasswordResetCheck[] }) {
                 check.passed ? "text-emerald-800" : "text-red-800"
               }`}
             >
-              {check.label}
+              {t(check.label)}
             </p>
-            <p className="mt-0.5 text-xs leading-5 text-slate-600">{check.detail}</p>
+            <p className="mt-0.5 text-xs leading-5 text-slate-600">{t(check.detail)}</p>
           </div>
         </div>
       ))}
@@ -783,6 +1105,7 @@ function PasswordResetDialog({
   sending,
   onOpenChange,
   onConfirm,
+  t,
 }: {
   email: string;
   open: boolean;
@@ -790,6 +1113,7 @@ function PasswordResetDialog({
   sending: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  t: LoginTranslator;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -810,16 +1134,17 @@ function PasswordResetDialog({
                   <XCircle className="size-5" />
                 )}
               </div>
-              <DialogTitle>{result.title}</DialogTitle>
+              <DialogTitle>{t(result.title)}</DialogTitle>
               <DialogDescription className="text-slate-600">
-                {result.message}
+                {t(result.message)}
               </DialogDescription>
             </DialogHeader>
-            <PasswordResetChecklist checks={result.checks} />
+            <PasswordResetChecklist checks={result.checks} t={t} />
             {result.tone === "success" ? (
               <p className="text-sm leading-6 text-slate-600">
-                Open that email and follow the link to choose a new password,
-                then return here to sign in.
+                {t(
+                  "Open that email and follow the link to choose a new password, then return here to sign in."
+                )}
               </p>
             ) : null}
             <DialogFooter className="border-slate-900/10 bg-white/45">
@@ -834,7 +1159,7 @@ function PasswordResetDialog({
                   }`}
                   onClick={() => onOpenChange(false)}
                 >
-                  Done
+                  {t("Done")}
                 </Button>
               </DialogClose>
             </DialogFooter>
@@ -842,15 +1167,16 @@ function PasswordResetDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Reset password?</DialogTitle>
+              <DialogTitle>{t("Reset password?")}</DialogTitle>
               <DialogDescription className="text-slate-600">
-                Firebase will send a password reset link to{" "}
+                {t("Firebase will send a password reset link to")}{" "}
                 <span className="font-semibold text-slate-900">{email}</span>.
               </DialogDescription>
             </DialogHeader>
             <p className="text-sm leading-6 text-slate-600">
-              Confirm the email address is correct before sending. The current
-              sign-in attempt will stay on this screen.
+              {t(
+                "Confirm the email address is correct before sending. The current sign-in attempt will stay on this screen."
+              )}
             </p>
             <DialogFooter className="border-slate-900/10 bg-white/45">
               <DialogClose asChild>
@@ -860,7 +1186,7 @@ function PasswordResetDialog({
                   disabled={sending}
                   className="h-10 rounded-xl border-slate-900/10 bg-white/70 text-slate-800 hover:bg-white hover:text-slate-950"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </Button>
               </DialogClose>
               <Button
@@ -870,7 +1196,7 @@ function PasswordResetDialog({
                 onClick={onConfirm}
               >
                 {sending ? <LoadingIcon /> : <Mail className="size-4" />}
-                {sending ? "Sending..." : "Send reset email"}
+                {sending ? t("Sending...") : t("Send reset email")}
               </Button>
             </DialogFooter>
           </>
@@ -880,7 +1206,15 @@ function PasswordResetDialog({
   );
 }
 
-function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => void }) {
+function Notice({
+  notice,
+  onDismiss,
+  t,
+}: {
+  notice: AuthNotice;
+  onDismiss: () => void;
+  t: LoginTranslator;
+}) {
   const [logsOpen, setLogsOpen] = useState(false);
   const toneClasses = {
     error:
@@ -901,7 +1235,7 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
         <AlertCircle className="mt-0.5 size-5 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <p className="font-semibold">{notice.title}</p>
+            <p className="font-semibold">{t(notice.title)}</p>
             <div className="flex shrink-0 items-center gap-1.5">
               {notice.log ? (
                 <button
@@ -909,7 +1243,7 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
                   onClick={() => setLogsOpen(true)}
                   className="rounded-md px-1.5 text-xs font-medium text-slate-600 transition hover:bg-white/70 hover:text-slate-950"
                 >
-                  Show logs
+                  {t("View log")}
                 </button>
               ) : null}
               <button
@@ -917,17 +1251,17 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
                 onClick={onDismiss}
                 className="rounded-md px-1.5 text-xs font-medium text-slate-600 transition hover:bg-white/70 hover:text-slate-950"
               >
-                Dismiss
+                {t("Dismiss")}
               </button>
             </div>
           </div>
-          <p className="mt-1 text-slate-700">{notice.message}</p>
+          <p className="mt-1 text-slate-700">{t(notice.message)}</p>
           {notice.details && notice.details.length > 0 ? (
             <ul className="mt-2 space-y-1 text-slate-600">
               {notice.details.map((detail) => (
                 <li key={detail} className="flex gap-2">
                   <span aria-hidden className="mt-[0.55rem] size-1 rounded-full bg-current/70" />
-                  <span>{detail}</span>
+                  <span>{t(detail)}</span>
                 </li>
               ))}
             </ul>
@@ -935,7 +1269,12 @@ function Notice({ notice, onDismiss }: { notice: AuthNotice; onDismiss: () => vo
         </div>
       </div>
       {notice.log ? (
-        <AuthLogDialog log={notice.log} open={logsOpen} onOpenChange={setLogsOpen} />
+        <AuthLogDialog
+          log={notice.log}
+          open={logsOpen}
+          onOpenChange={setLogsOpen}
+          t={t}
+        />
       ) : null}
     </aside>
   );
@@ -980,6 +1319,8 @@ function PasswordInput({
   minLength,
   visible,
   onToggleVisibility,
+  showLabel,
+  hideLabel,
 }: {
   id: string;
   autoComplete: string;
@@ -990,8 +1331,10 @@ function PasswordInput({
   minLength?: number;
   visible: boolean;
   onToggleVisibility: () => void;
+  showLabel: string;
+  hideLabel: string;
 }) {
-  const label = visible ? "Hide password" : "Show password";
+  const label = visible ? hideLabel : showLabel;
 
   return (
     <div className="relative">
@@ -1033,6 +1376,43 @@ function LoadingIcon() {
   return <Loader2 className="size-4 animate-spin" />;
 }
 
+function LoginLanguageControl({
+  language,
+  onChange,
+  t,
+}: {
+  language: AppLanguage;
+  onChange: (language: AppLanguage) => void;
+  t: LoginTranslator;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={t("Login language")}
+      className="inline-flex rounded-full border border-slate-900/10 bg-white/55 p-0.5 shadow-inner shadow-white/30"
+    >
+      {LOGIN_LANGUAGE_OPTIONS.map((option) => {
+        const active = option === language;
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(option)}
+            className={`h-7 min-w-9 rounded-full px-2 text-xs font-semibold transition ${
+              active
+                ? "bg-slate-950 text-white shadow-sm"
+                : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+            }`}
+          >
+            {option.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProjectOption({
   project,
   title,
@@ -1068,6 +1448,7 @@ function ProjectOption({
 }
 
 export default function LoginPage() {
+  const [loginLanguage, setLoginLanguage] = useState<AppLanguage>("en");
   const [loading, setLoading] = useState<LoadingState>(null);
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState("");
@@ -1093,6 +1474,19 @@ export default function LoginPage() {
     projectAccess: ProjectKey[];
     redirectTo: string;
   } | null>(null);
+
+  useEffect(() => {
+    const storedLanguage = readStoredLoginLanguage("en");
+    setLoginLanguage(storedLanguage);
+    applyLoginLanguage(storedLanguage);
+  }, []);
+
+  function handleLoginLanguageChange(nextLanguage: AppLanguage) {
+    setLoginLanguage(nextLanguage);
+    applyLoginLanguage(nextLanguage);
+  }
+
+  const t = (text: string) => loginText(loginLanguage, text);
 
   async function handleAuthSuccess(options: {
     idToken: string;
@@ -1812,27 +2206,36 @@ export default function LoginPage() {
 
   const signupAccessLabel = signupEligibility?.viaRoleAssignment
     ? signupEligibility.role
-      ? `approved through the ${ROLE_LABELS[signupEligibility.role]} role assignment`
-      : "approved through an active role assignment"
-    : "approved through the team allowlist";
+      ? loginLanguage === "es"
+        ? `aprobado mediante la asignacion de rol ${t(ROLE_LABELS[signupEligibility.role])}`
+        : `approved through the ${ROLE_LABELS[signupEligibility.role]} role assignment`
+      : t("approved through an active role assignment")
+    : t("approved through the team allowlist");
+
+  const signupAccessSentence =
+    signupEligibility && loginLanguage === "es"
+      ? `${signupEligibility.email} fue ${signupAccessLabel}. Define un password y la cuenta se creara de inmediato.`
+      : signupEligibility
+        ? `${signupEligibility.email} was ${signupAccessLabel}. Set a password and the account will be created immediately.`
+        : "";
 
   const panelTitle =
     phase === "select"
-      ? "Choose your workspace"
+      ? t("Choose your workspace")
       : phase === "signup-email"
-        ? "Create an email account"
+        ? t("Create an email account")
         : phase === "signup-password"
-          ? "Finish new-user setup"
-          : "Welcome back";
+          ? t("Finish new-user setup")
+          : t("Welcome back");
 
   const panelDescription =
     phase === "select"
-      ? "Your account can manage more than one legacy product. Pick where to continue."
+      ? t("Your account can manage more than one legacy product. Pick where to continue.")
       : phase === "signup-email"
-        ? "This path is for invited new users who do not have an email password yet."
+        ? t("This path is for invited new users who do not have an email password yet.")
         : phase === "signup-password"
-          ? "Access is approved. Set the first password for this account."
-          : "Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.";
+          ? t("Access is approved. Set the first password for this account.")
+          : t("Sign in to the Golden Crow legacy backoffice for PocketGenes and Pocket Gyms.");
 
   return (
     <main className="auth-liquid-canvas fixed inset-0 isolate min-h-screen w-full overflow-x-hidden overflow-y-auto text-slate-950">
@@ -1844,16 +2247,17 @@ export default function LoginPage() {
           <aside className="auth-brand-panel flex min-h-[520px] flex-col gap-6 rounded-[1.65rem] p-5 sm:p-7 lg:min-h-[610px] lg:p-8">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
               <CheckCircle2 className="size-4 text-amber-500" />
-              Golden Crow operations
+              {t("Golden Crow operations")}
             </div>
 
             <div className="max-w-[680px] space-y-5">
               <h1 className="font-heading text-4xl font-semibold leading-[1.08] text-slate-950">
-                Run Golden Crow operations from one focused workspace.
+                {t("Run Golden Crow operations from one focused workspace.")}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-slate-700">
-                Manage users, roles, reports, files, 2PQ forms, institutions,
-                doctors, and patients with the right product context always in view.
+                {t(
+                  "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view."
+                )}
               </p>
             </div>
 
@@ -1861,31 +2265,34 @@ export default function LoginPage() {
               <div className="auth-feature-card rounded-2xl p-4">
                 <ShieldCheck className="size-5 text-cyan-700" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Scoped control
+                  {t("Scoped control")}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Full admins see the whole operation, while institution teams stay
-                  inside their assigned doctors, patients, and forms.
+                  {t(
+                    "Full admins see the whole operation, while institution teams stay inside their assigned doctors, patients, and forms."
+                  )}
                 </p>
               </div>
               <div className="auth-feature-card rounded-2xl p-4">
                 <Building2 className="size-5 text-emerald-700" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Product aware
+                  {t("Product aware")}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Switch between PocketGenes, Pocket Gyms, and 2PQ workflows
-                  without losing the operational context of each product.
+                  {t(
+                    "Switch between PocketGenes, Pocket Gyms, and 2PQ workflows without losing the operational context of each product."
+                  )}
                 </p>
               </div>
               <div className="auth-feature-card rounded-2xl p-4">
                 <KeyRound className="size-5 text-amber-600" />
                 <p className="mt-4 text-sm font-semibold text-slate-950">
-                  Traceable changes
+                  {t("Traceable changes")}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  Each release keeps the backoffice version visible, so support
-                  and operators can identify the exact build in use.
+                  {t(
+                    "Each release keeps the backoffice version visible, so support and operators can identify the exact build in use."
+                  )}
                 </p>
               </div>
             </div>
@@ -1893,7 +2300,7 @@ export default function LoginPage() {
             <div className="auth-path-card rounded-2xl p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xl font-semibold text-slate-950">
-                  New invited user?
+                  {t("New invited user?")}
                 </p>
                 <Button
                   type="button"
@@ -1911,13 +2318,13 @@ export default function LoginPage() {
                   }}
                 >
                   <UserPlus className="size-4" />
-                  Create email account
+                  {t("Create email account")}
                 </Button>
               </div>
               <p className="mt-3 max-w-3xl text-sm leading-5 text-slate-700">
-                Create email account is not open registration. It confirms
-                approval first, then creates the first email/password account
-                for that invited user.
+                {t(
+                  "Create email account is not open registration. It confirms approval first, then creates the first email/password account for that invited user."
+                )}
               </p>
             </div>
           </aside>
@@ -1925,17 +2332,24 @@ export default function LoginPage() {
           <section className="auth-login-panel relative flex w-full flex-col gap-6 rounded-[1.6rem] p-5 sm:p-6 lg:p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-2">
-              <p className="section-eyebrow text-slate-500">Secure backoffice</p>
+              <p className="section-eyebrow text-slate-500">{t("Secure backoffice")}</p>
               <h2 className="font-heading text-3xl font-semibold tracking-normal text-slate-950">
                 {panelTitle}
               </h2>
               <p className="text-sm leading-6 text-slate-600">{panelDescription}</p>
             </div>
-            <VersionPill />
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <VersionPill />
+              <LoginLanguageControl
+                language={loginLanguage}
+                onChange={handleLoginLanguageChange}
+                t={t}
+              />
+            </div>
           </div>
 
           {notice ? (
-            <Notice notice={notice} onDismiss={() => setNotice(null)} />
+            <Notice notice={notice} onDismiss={() => setNotice(null)} t={t} />
           ) : null}
 
           {phase === "select" && pendingAuth ? (
@@ -1943,7 +2357,7 @@ export default function LoginPage() {
               <ProjectOption
                 project="mydnamap"
                 title="PocketGenes"
-                body="Genomics reports, learning content, community moderation, and account records."
+                body={t("Genomics reports, learning content, community moderation, and account records.")}
                 icon={<Dna className="size-5 text-rose-600" />}
                 disabled={loading !== null}
                 onSelect={handleProjectSelect}
@@ -1951,7 +2365,7 @@ export default function LoginPage() {
               <ProjectOption
                 project="pocket-gyms"
                 title="Pocket Gyms"
-                body="Members, training plans, booking surfaces, clinical notes, and achievements."
+                body={t("Members, training plans, booking surfaces, clinical notes, and achievements.")}
                 icon={<Dumbbell className="size-5 text-indigo-600" />}
                 disabled={loading !== null}
                 onSelect={handleProjectSelect}
@@ -1964,7 +2378,7 @@ export default function LoginPage() {
                 disabled={loading !== null}
               >
                 <ArrowLeft className="size-4" />
-                Use a different account
+                {t("Use a different account")}
               </Button>
             </div>
           ) : null}
@@ -1977,12 +2391,12 @@ export default function LoginPage() {
                 className="h-11 w-full justify-center rounded-xl bg-slate-950 text-white hover:bg-slate-800"
               >
                 {loading === "google" ? <LoadingIcon /> : <LogIn className="size-4" />}
-                {loading === "google" ? "Opening Google..." : "Continue with Google"}
+                {loading === "google" ? t("Opening Google...") : t("Continue with Google")}
               </Button>
 
               <div className="flex items-center gap-3 text-xs font-medium uppercase text-slate-400">
                 <span className="h-px flex-1 bg-slate-900/10" />
-                or use email
+                {t("or use email")}
                 <span className="h-px flex-1 bg-slate-900/10" />
               </div>
 
@@ -1992,11 +2406,11 @@ export default function LoginPage() {
               >
                 <FieldShell
                   id="login-email"
-                  label="Email"
+                  label={t("Email")}
                   helper={
                     emailPasswordReady
-                      ? "Email checked. Use Change email to choose a different account."
-                      : "Use the email that has backoffice access."
+                      ? t("Email checked. Use Change email to choose a different account.")
+                      : t("Use the email that has backoffice access.")
                   }
                   icon={<Mail className="size-4" />}
                 >
@@ -2029,7 +2443,7 @@ export default function LoginPage() {
                       onClick={handleChangeEmail}
                       className="h-7 rounded-lg px-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                     >
-                      Change email
+                      {t("Change email")}
                     </Button>
                   </div>
                 ) : null}
@@ -2037,8 +2451,8 @@ export default function LoginPage() {
                 {emailPasswordReady ? (
                   <FieldShell
                     id="login-password"
-                    label="Password"
-                    helper="Enter the password for this approved email account."
+                    label={t("Password")}
+                    helper={t("Enter the password for this approved email account.")}
                     icon={<LockKeyhole className="size-4" />}
                   >
                     <PasswordInput
@@ -2046,10 +2460,12 @@ export default function LoginPage() {
                       autoComplete="current-password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Password"
+                      placeholder={t("Password")}
                       describedBy="login-password-helper"
                       visible={showPassword}
                       onToggleVisibility={() => setShowPassword((current) => !current)}
+                      showLabel={t("Show password")}
+                      hideLabel={t("Hide password")}
                     />
                   </FieldShell>
                 ) : null}
@@ -2068,7 +2484,7 @@ export default function LoginPage() {
                       ) : (
                         <Mail className="size-3.5" />
                       )}
-                      Forgot password?
+                      {t("Forgot password?")}
                     </Button>
                   </div>
                 ) : null}
@@ -2080,7 +2496,7 @@ export default function LoginPage() {
                     className="h-11 w-full justify-center rounded-xl"
                   >
                     {loading === "email" ? <LoadingIcon /> : <KeyRound className="size-4" />}
-                    {loading === "email" ? "Checking credentials..." : "Sign in with email"}
+                    {loading === "email" ? t("Checking credentials...") : t("Sign in with email")}
                   </Button>
                 ) : (
                   <Button
@@ -2093,7 +2509,7 @@ export default function LoginPage() {
                     ) : (
                       <ChevronRight className="size-4" />
                     )}
-                    {loading === "email-check" ? "Checking email..." : "Continue"}
+                    {loading === "email-check" ? t("Checking email...") : t("Continue")}
                   </Button>
                 )}
               </form>
@@ -2104,16 +2520,16 @@ export default function LoginPage() {
           {phase === "signup-email" ? (
             <div className="space-y-5">
               <div className="auth-login-glass rounded-2xl p-4 text-sm leading-6 text-slate-700">
-                This is a new-user setup flow, not open registration. We check
-                the email against the backend allowlist and active role
-                assignments before creating anything.
+                {t(
+                  "This is a new-user setup flow, not open registration. We check the email against the backend allowlist and active role assignments before creating anything."
+                )}
               </div>
 
               <form className="space-y-4" onSubmit={handleSignupEligibility}>
                 <FieldShell
                   id="signup-email"
-                  label="Invited email"
-                  helper="Enter the exact email a full admin approved for backoffice access."
+                  label={t("Invited email")}
+                  helper={t("Enter the exact email a full admin approved for backoffice access.")}
                   icon={<Mail className="size-4" />}
                 >
                   <Input
@@ -2137,7 +2553,7 @@ export default function LoginPage() {
                     className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
                   >
                     <ArrowLeft className="size-4" />
-                    Back
+                    {t("Back")}
                   </Button>
                   <Button
                     type="submit"
@@ -2149,7 +2565,7 @@ export default function LoginPage() {
                     ) : (
                       <ShieldCheck className="size-4" />
                     )}
-                    {loading === "signup-email" ? "Checking access..." : "Check access first"}
+                    {loading === "signup-email" ? t("Checking access...") : t("Check access first")}
                   </Button>
                 </div>
               </form>
@@ -2162,10 +2578,9 @@ export default function LoginPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
                   <div>
-                    <p className="font-semibold">Access approved</p>
+                    <p className="font-semibold">{t("Access approved")}</p>
                     <p className="mt-1 leading-6 text-emerald-800">
-                      {signupEligibility.email} was {signupAccessLabel}. Set a
-                      password and the account will be created immediately.
+                      {signupAccessSentence}
                     </p>
                   </div>
                 </div>
@@ -2174,8 +2589,8 @@ export default function LoginPage() {
               <form className="space-y-4" onSubmit={handleEmailAccountCreation}>
                 <FieldShell
                   id="signup-password"
-                  label="New password"
-                  helper="Use at least 6 characters. You will be signed in after the account is created."
+                  label={t("New password")}
+                  helper={t("Use at least 6 characters. You will be signed in after the account is created.")}
                   icon={<KeyRound className="size-4" />}
                 >
                   <PasswordInput
@@ -2183,13 +2598,15 @@ export default function LoginPage() {
                     autoComplete="new-password"
                     value={signupPassword}
                     onChange={(event) => setSignupPassword(event.target.value)}
-                    placeholder="Choose a password"
+                    placeholder={t("Choose a password")}
                     minLength={6}
                     describedBy="signup-password-helper"
                     visible={showSignupPassword}
                     onToggleVisibility={() =>
                       setShowSignupPassword((current) => !current)
                     }
+                    showLabel={t("Show password")}
+                    hideLabel={t("Hide password")}
                   />
                 </FieldShell>
 
@@ -2205,7 +2622,7 @@ export default function LoginPage() {
                     className="h-11 rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
                   >
                     <ArrowLeft className="size-4" />
-                    Back
+                    {t("Back")}
                   </Button>
                   <Button
                     type="submit"
@@ -2217,7 +2634,7 @@ export default function LoginPage() {
                     ) : (
                       <UserPlus className="size-4" />
                     )}
-                    {loading === "signup-password" ? "Creating account..." : "Create account"}
+                    {loading === "signup-password" ? t("Creating account...") : t("Create account")}
                   </Button>
                 </div>
               </form>
@@ -2233,6 +2650,7 @@ export default function LoginPage() {
         sending={loading === "password-reset"}
         onOpenChange={handlePasswordResetDialogOpenChange}
         onConfirm={handleSendPasswordResetEmail}
+        t={t}
       />
     </main>
   );
