@@ -95,6 +95,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Areas: "Áreas",
   Access: "Acceso",
   "Access account": "Acceder",
+  "Access requirement": "Requisito de acceso",
   Overview: "Resumen",
   "2PQ Dashboard": "Dashboard 2PQ",
   Contact: "Contacto",
@@ -1853,6 +1854,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "El SDK aplica el límite de escritura. Esta pantalla lo refleja mostrando solo lectura cuando el rol actual puede inspeccionar, pero no modificar, el médico seleccionado.",
   "The selected role determines which linked records are required. When a doctor or patient link exists, the backend validates that the email and relational scope line up correctly.":
     "El rol seleccionado determina qué registros vinculados son requeridos. Cuando existe vínculo de médico o paciente, el backend valida que el email y el alcance relacional coincidan correctamente.",
+  "System access depends on role assignment. A user can enter only after an active role has been assigned to their email. Without an assigned role, or after that role is removed, the user can no longer access the system.":
+    "El acceso al sistema depende de la asignación de rol. Un usuario solo puede entrar cuando su email tiene un rol activo asignado. Sin un rol asignado, o si ese rol se elimina, el usuario ya no puede acceder al sistema.",
   "The shell is scoped before the action buttons are.":
     "La consola queda acotada antes que los botones de acción.",
   "The stored file document can no longer be found.":

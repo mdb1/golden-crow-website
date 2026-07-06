@@ -81,6 +81,16 @@ export default async function RolesPage() {
         </Button>
       </section>
       <RolesBrowser initialRoles={roles} />
+      <section className="border-t border-border/70 pt-3 text-xs leading-relaxed text-muted-foreground">
+        <p>
+          <span className="font-medium text-foreground">
+            {t("Access requirement")}
+          </span>{" "}
+          {t(
+            "System access depends on role assignment. A user can enter only after an active role has been assigned to their email. Without an assigned role, or after that role is removed, the user can no longer access the system.",
+          )}
+        </p>
+      </section>
     </div>
   );
 }
