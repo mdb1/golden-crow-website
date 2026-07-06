@@ -264,7 +264,7 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Login language": "Idioma del login",
   "Golden Crow operations": "Operaciones Golden Crow",
   "Run Golden Crow operations from one focused workspace.":
-    "Gestiona operaciones Golden Crow desde un espacio de trabajo enfocado.",
+    "Gestiona operaciones desde un espacio de trabajo enfocado.",
   "Manage users, roles, reports, files, 2PQ forms, institutions, doctors, and patients with the right product context always in view.":
     "Gestiona usuarios, roles, reportes, archivos, formularios 2PQ, instituciones, medicos y pacientes con el contexto correcto siempre visible.",
   "Scoped control": "Control acotado",
