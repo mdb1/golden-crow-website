@@ -50,6 +50,7 @@ type ProjectKey = "mydnamap" | "pocket-gyms";
 type Phase = "auth" | "select" | "signup-email" | "signup-password";
 type LoadingState =
   | "google"
+  | "email-check"
   | "email"
   | "password-reset"
   | "signup-email"
@@ -1071,6 +1072,7 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailPasswordReady, setEmailPasswordReady] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
@@ -1277,6 +1279,162 @@ export default function LoginPage() {
     }
   }
 
+  async function handleEmailContinue(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const loginEmail = normalizeAuthEmail(email);
+    if (!loginEmail) return;
+
+    setLoading("email-check");
+    setNotice(null);
+    setEmail(loginEmail);
+    setPassword("");
+    setShowPassword(false);
+    setEmailPasswordReady(false);
+    setSignupEligibility(null);
+
+    try {
+      const response = await fetch("/api/sdk/auth/email-signup/eligibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail }),
+      });
+      const data = (await readJson(response)) as Partial<SignupEligibility> & {
+        error?: string;
+      };
+      const checkedEmail = data.email || loginEmail;
+
+      if (!response.ok) {
+        const message = serverMessage(
+          data,
+          "The backoffice could not check this email right now."
+        );
+        setNotice({
+          tone: "error",
+          title: "Email check could not run",
+          message,
+          details: ["Try again before entering a password."],
+          log: authResponseLog({
+            source: "legacy-sdk",
+            event: "email-continue-check",
+            message,
+            method: "POST",
+            path: "/api/sdk/auth/email-signup/eligibility",
+            response,
+            body: data,
+            context: { email: loginEmail },
+          }),
+        });
+        return;
+      }
+
+      if (!data.eligible) {
+        const message = data.accountExists
+          ? "This account exists, but it is not approved for backoffice access."
+          : "No backoffice account or approved invitation was found for this email.";
+        setNotice({
+          tone: "error",
+          title: data.accountExists
+            ? "This account is not approved for backoffice access"
+            : "This email is not approved yet",
+          message,
+          details: [
+            "Ask a full admin to add the email to the allowlist or assign an active admin role first.",
+          ],
+          log: authEventLog({
+            source: "legacy-sdk",
+            event: "email-continue-access-denied",
+            message,
+            context: { email: checkedEmail, eligibility: data },
+          }),
+        });
+        return;
+      }
+
+      if (!data.accountExists) {
+        setSignupEmail(checkedEmail);
+        setSignupEligibility({
+          ...data,
+          email: checkedEmail,
+          accountExists: false,
+        } as SignupEligibility);
+        setSignupPassword("");
+        setShowSignupPassword(false);
+        setPhase("signup-password");
+        setNotice({
+          tone: "success",
+          title: "Access approved",
+          message:
+            "This invited email can create a backoffice account. Choose a password to finish setup.",
+        });
+        return;
+      }
+
+      if (data.accountHasPassword) {
+        setEmail(checkedEmail);
+        setEmailPasswordReady(true);
+        setPassword("");
+        setShowPassword(false);
+        return;
+      }
+
+      const signInProviders = Array.isArray(data.signInProviders)
+        ? data.signInProviders.filter(
+            (provider): provider is string => typeof provider === "string"
+          )
+        : [];
+      const hasGoogle =
+        data.accountHasGoogle === true ||
+        signInProviders.includes(GOOGLE_SIGN_IN_METHOD);
+      const message = hasGoogle
+        ? "A user was found with that email, but it has no password registered."
+        : "A user was found with that email, but password sign-in is not enabled.";
+
+      setNotice({
+        tone: "error",
+        title: hasGoogle
+          ? "This account uses Google sign-in"
+          : "Password sign-in is not enabled",
+        message,
+        details: hasGoogle
+          ? [
+              "Use Continue with Google to sign in with that user.",
+              "Password login will keep failing until a password provider is added to the Firebase account.",
+            ]
+          : ["Ask an admin to confirm the account sign-in provider."],
+        log: authEventLog({
+          source: "legacy-sdk",
+          event: "email-continue-password-provider-missing",
+          message,
+          context: { email: checkedEmail, signInProviders, eligibility: data },
+        }),
+      });
+    } catch (err) {
+      if (isAuthNotice(err)) {
+        setNotice(err);
+      } else {
+        console.error("Email continue error:", err);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "The backoffice could not check this email right now.";
+        setNotice({
+          tone: "error",
+          title: "Email check failed",
+          message,
+          log: authErrorLog({
+            source: "legacy-sdk",
+            event: "email-continue-check",
+            message,
+            error: err,
+            context: { email: loginEmail },
+          }),
+        });
+      }
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const loginEmail = normalizeAuthEmail(email);
@@ -1311,6 +1469,13 @@ export default function LoginPage() {
     } finally {
       setLoading(null);
     }
+  }
+
+  function handleChangeEmail() {
+    setEmailPasswordReady(false);
+    setPassword("");
+    setShowPassword(false);
+    setNotice(null);
   }
 
   function handlePasswordResetRequest() {
@@ -1635,10 +1800,15 @@ export default function LoginPage() {
   function resetToAuth() {
     setPhase("auth");
     setNotice(null);
+    setEmailPasswordReady(false);
+    setPassword("");
+    setShowPassword(false);
     setSignupEligibility(null);
     setSignupPassword("");
     setShowSignupPassword(false);
   }
+
+  const canContinueWithEmail = normalizeAuthEmail(email).length > 0;
 
   const signupAccessLabel = signupEligibility?.viaRoleAssignment
     ? signupEligibility.role
@@ -1720,12 +1890,34 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="auth-path-card mt-auto rounded-2xl p-5">
-              <p className="text-sm font-semibold text-slate-950">New-user path</p>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
-                Create email account is not open registration. It first checks
-                whether the email is already approved, then creates the password
-                only for that invited user.
+            <div className="auth-path-card rounded-2xl p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xl font-semibold text-slate-950">
+                  New invited user?
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full justify-center rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950 sm:w-auto"
+                  disabled={loading !== null}
+                  onClick={() => {
+                    setEmailPasswordReady(false);
+                    setPassword("");
+                    setShowPassword(false);
+                    setSignupEmail(email);
+                    setNotice(null);
+                    setShowSignupPassword(false);
+                    setPhase("signup-email");
+                  }}
+                >
+                  <UserPlus className="size-4" />
+                  Create email account
+                </Button>
+              </div>
+              <p className="mt-3 max-w-3xl text-sm leading-5 text-slate-700">
+                Create email account is not open registration. It confirms
+                approval first, then creates the first email/password account
+                for that invited user.
               </p>
             </div>
           </aside>
@@ -1794,11 +1986,18 @@ export default function LoginPage() {
                 <span className="h-px flex-1 bg-slate-900/10" />
               </div>
 
-              <form className="space-y-4" onSubmit={handleEmailSignIn}>
+              <form
+                className="space-y-4"
+                onSubmit={emailPasswordReady ? handleEmailSignIn : handleEmailContinue}
+              >
                 <FieldShell
                   id="login-email"
                   label="Email"
-                  helper="Use the email that has backoffice access."
+                  helper={
+                    emailPasswordReady
+                      ? "Email checked. Use Change email to choose a different account."
+                      : "Use the email that has backoffice access."
+                  }
                   icon={<Mail className="size-4" />}
                 >
                   <Input
@@ -1806,88 +2005,99 @@ export default function LoginPage() {
                     type="email"
                     autoComplete="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setEmailPasswordReady(false);
+                      setPassword("");
+                      setShowPassword(false);
+                      setNotice(null);
+                    }}
                     placeholder="team@pocketgenes.app"
                     aria-describedby="login-email-helper"
+                    readOnly={emailPasswordReady}
                     required
                     className="h-11 rounded-xl border-slate-900/10 bg-white/78 px-4 text-slate-950 shadow-inner shadow-white/30 placeholder:text-slate-400"
                   />
                 </FieldShell>
 
-                <FieldShell
-                  id="login-password"
-                  label="Password"
-                  helper="For existing email accounts. New users should use the account creation flow below."
-                  icon={<LockKeyhole className="size-4" />}
-                >
-                  <PasswordInput
-                    id="login-password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Password"
-                    describedBy="login-password-helper"
-                    visible={showPassword}
-                    onToggleVisibility={() => setShowPassword((current) => !current)}
-                  />
-                </FieldShell>
-
-                <div className="-mt-2 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={loading !== null}
-                    onClick={handlePasswordResetRequest}
-                    className="h-8 rounded-lg px-2 text-xs font-semibold text-slate-600 hover:bg-white/60 hover:text-slate-950"
-                  >
-                    {loading === "password-reset" ? (
-                      <LoadingIcon />
-                    ) : (
-                      <Mail className="size-3.5" />
-                    )}
-                    Forgot password?
-                  </Button>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading !== null}
-                  className="h-11 w-full justify-center rounded-xl"
-                >
-                  {loading === "email" ? <LoadingIcon /> : <KeyRound className="size-4" />}
-                  {loading === "email" ? "Checking credentials..." : "Sign in with email"}
-                </Button>
-              </form>
-
-              <div className="auth-login-glass rounded-2xl p-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-900/10 bg-white/65 text-emerald-700">
-                    <UserPlus className="size-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-950">New invited user?</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
-                      This creates the first email/password account only after
-                      the backoffice confirms your email is already approved.
-                    </p>
+                {emailPasswordReady ? (
+                  <div className="-mt-2 flex justify-end">
                     <Button
                       type="button"
-                      variant="outline"
-                      className="mt-3 h-10 w-full justify-center rounded-xl border-slate-900/10 bg-white/60 text-slate-800 hover:bg-white/85 hover:text-slate-950"
+                      variant="ghost"
                       disabled={loading !== null}
-                      onClick={() => {
-                        setSignupEmail(email);
-                        setNotice(null);
-                        setShowSignupPassword(false);
-                        setPhase("signup-email");
-                      }}
+                      onClick={handleChangeEmail}
+                      className="h-7 rounded-lg px-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                     >
-                      <UserPlus className="size-4" />
-                      Create email account
+                      Change email
                     </Button>
                   </div>
-                </div>
-              </div>
+                ) : null}
+
+                {emailPasswordReady ? (
+                  <FieldShell
+                    id="login-password"
+                    label="Password"
+                    helper="Enter the password for this approved email account."
+                    icon={<LockKeyhole className="size-4" />}
+                  >
+                    <PasswordInput
+                      id="login-password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Password"
+                      describedBy="login-password-helper"
+                      visible={showPassword}
+                      onToggleVisibility={() => setShowPassword((current) => !current)}
+                    />
+                  </FieldShell>
+                ) : null}
+
+                {emailPasswordReady ? (
+                  <div className="-mt-2 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={loading !== null}
+                      onClick={handlePasswordResetRequest}
+                      className="h-8 rounded-lg px-2 text-xs font-semibold text-slate-600 hover:bg-white/60 hover:text-slate-950"
+                    >
+                      {loading === "password-reset" ? (
+                        <LoadingIcon />
+                      ) : (
+                        <Mail className="size-3.5" />
+                      )}
+                      Forgot password?
+                    </Button>
+                  </div>
+                ) : null}
+
+                {emailPasswordReady ? (
+                  <Button
+                    type="submit"
+                    disabled={loading !== null || password.length === 0}
+                    className="h-11 w-full justify-center rounded-xl"
+                  >
+                    {loading === "email" ? <LoadingIcon /> : <KeyRound className="size-4" />}
+                    {loading === "email" ? "Checking credentials..." : "Sign in with email"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={loading !== null || !canContinueWithEmail}
+                    className="h-11 w-full justify-center rounded-xl"
+                  >
+                    {loading === "email-check" ? (
+                      <LoadingIcon />
+                    ) : (
+                      <ChevronRight className="size-4" />
+                    )}
+                    {loading === "email-check" ? "Checking email..." : "Continue"}
+                  </Button>
+                )}
+              </form>
+
             </div>
           ) : null}
 
