@@ -9,7 +9,14 @@ import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 import {
   formatClientActivityFullDate,
 } from "@/lib/gc-fitness/client-activity-time";
-import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
+import {
+  civilDateFormat,
+  formatCivilDateLabel,
+  parseCivilYMD,
+  photoCompareElapsed,
+  type CivilYMD,
+  type PhotoCompareElapsed,
+} from "@/lib/gc-fitness/civil-date";
 
 type Angle = "front" | "side" | "back";
 type Transform = { scale: number; x: number; y: number };
@@ -44,6 +51,32 @@ export function ProgressPhotoCompareEditor({
 
   const before = angled.find((p) => p.id === beforeId);
   const after = angled.find((p) => p.id === afterId);
+
+  // `angled` is sorted newest→oldest (the loader sorts descending by
+  // checkInDate), so the first entry is the most recent photo and the last is
+  // the oldest. The picker forbids picking the newest as "before" and the
+  // oldest as "after" (issue #435 rules 3 & 4) and forbids an "after" that is
+  // not strictly later than the selected "before" (rule 1).
+  const newestId = angled[0]?.id;
+  const oldestId = angled[angled.length - 1]?.id;
+  const beforeYMD = before ? photoYMD(before, timezone) : null;
+
+  // Selecting "before" can invalidate the current "after" (e.g. before moves
+  // past after). Snap after back to the newest photo so the pair always stays
+  // before < after. The newest is always a valid "after" because it can never
+  // be the "before" (it is disabled in the before picker).
+  function selectBefore(nextBeforeId: string) {
+    setBeforeId(nextBeforeId);
+    const nextBefore = angled.find((p) => p.id === nextBeforeId);
+    const nextBeforeYMD = nextBefore ? photoYMD(nextBefore, timezone) : null;
+    const afterYMD = after ? photoYMD(after, timezone) : null;
+    const stillValid =
+      afterId !== oldestId &&
+      nextBeforeYMD != null &&
+      afterYMD != null &&
+      photoCompareElapsed(nextBeforeYMD, afterYMD) != null;
+    if (!stillValid && newestId) setAfterId(newestId);
+  }
   const downloadFileName = before && after
     ? buildCompareDownloadName({
         clientName,
@@ -96,11 +129,28 @@ export function ProgressPhotoCompareEditor({
         >
           <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option>
         </select>
-        <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => setBeforeId(e.target.value)}>
-          <option value="">Before</option>{angled.map((p) => <option key={p.id} value={p.id}>{photoDisplayDate(p, timezone, locale)}</option>)}
+        <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => selectBefore(e.target.value)}>
+          <option value="">Before</option>
+          {angled.map((p) => (
+            <option key={p.id} value={p.id} disabled={p.id === newestId}>
+              {photoDisplayDate(p, timezone, locale)}
+            </option>
+          ))}
         </select>
         <select className="h-10 rounded-md border px-2" value={afterId} onChange={(e) => setAfterId(e.target.value)}>
-          <option value="">After</option>{angled.map((p) => <option key={p.id} value={p.id}>{photoDisplayDate(p, timezone, locale)}</option>)}
+          <option value="">After</option>
+          {angled.map((p) => {
+            const elapsed = beforeYMD ? elapsedFromBefore(beforeYMD, p, timezone) : null;
+            const disabled = p.id === oldestId || elapsed === null;
+            const label = elapsed
+              ? `${photoDisplayDate(p, timezone, locale)} (${formatElapsed(elapsed, locale)})`
+              : photoDisplayDate(p, timezone, locale);
+            return (
+              <option key={p.id} value={p.id} disabled={disabled}>
+                {label}
+              </option>
+            );
+          })}
         </select>
       </div>
       {before?.url && after?.url ? (
@@ -212,6 +262,49 @@ function CompareStaticImage({ url, alt, date }: { url: string; alt: string; date
       </div>
     </div>
   );
+}
+
+/** The civil day (Y/M/D) a photo belongs to — its `checkInDate` when present,
+ * else the timezone-resolved `takenAt`/`createdAt` instant. Feeds the
+ * before/after elapsed calc. */
+function photoYMD(photo: ProgressPhotoRow, timezone: string): CivilYMD | null {
+  if (photo.checkInDate) return parseCivilYMD(photo.checkInDate);
+  const source = photo.takenAt ?? photo.createdAt;
+  if (!source) return null;
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return null;
+  return parseCivilYMD(civilDateFormat(date, timezone));
+}
+
+/** Elapsed span from the selected "before" YMD to a candidate "after" photo,
+ * or null when the candidate is not strictly later (→ not selectable as after). */
+function elapsedFromBefore(
+  beforeYMD: CivilYMD,
+  photo: ProgressPhotoRow,
+  timezone: string,
+): PhotoCompareElapsed | null {
+  const ymd = photoYMD(photo, timezone);
+  return ymd ? photoCompareElapsed(beforeYMD, ymd) : null;
+}
+
+/** Renders an elapsed span as a short parenthetical: "1 mes", "~2 meses",
+ * "3 semanas", "5 días" (es) / "1 month", "~2 months" … (en). Twin of the
+ * iOS `compare.elapsed.*` / Android `compare_elapsed_*` string tables. */
+function formatElapsed(elapsed: PhotoCompareElapsed, locale: string): string {
+  const es = locale.toLowerCase().startsWith("es");
+  const one = elapsed.value === 1;
+  const unitWord = es
+    ? elapsed.unit === "month"
+      ? one ? "mes" : "meses"
+      : elapsed.unit === "week"
+        ? one ? "semana" : "semanas"
+        : one ? "día" : "días"
+    : elapsed.unit === "month"
+      ? one ? "month" : "months"
+      : elapsed.unit === "week"
+        ? one ? "week" : "weeks"
+        : one ? "day" : "days";
+  return `${elapsed.approximate ? "~" : ""}${elapsed.value} ${unitWord}`;
 }
 
 function photoDisplayDate(photo: ProgressPhotoRow, timezone: string, locale: string): string {

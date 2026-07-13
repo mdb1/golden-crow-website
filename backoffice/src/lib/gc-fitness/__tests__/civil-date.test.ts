@@ -32,6 +32,8 @@ import {
   civilDateFormat,
   civilDateToday,
   formatCivilDateLabel,
+  parseCivilYMD,
+  photoCompareElapsed,
 } from "../civil-date";
 
 // Shared fixture epochs (seconds).
@@ -142,6 +144,51 @@ describe("formatCivilDateLabel(civilDate, options)", () => {
 
   it("returns the original string for malformed civil dates", () => {
     expect(formatCivilDateLabel("not-a-date")).toBe("not-a-date");
+  });
+});
+
+// photoCompareElapsed — twin of PhotoCompareElapsedTests.swift /
+// PhotoCompareElapsedTest.kt.
+//
+// SHARED CROSS-SURFACE FIXTURES: these before→after pairs and their expected
+// {value, unit, approximate} are referenced verbatim by the Swift and Kotlin
+// twins. Change one, change all three in the same PR.
+//
+//   before      | after       | expected
+//   ------------|-------------|-------------------------------
+//   2026-03-01  | 2026-04-01  | 1 month  exact   ("1 mes")
+//   2026-03-01  | 2026-05-20  | 2 months approx  ("~2 meses")
+//   2026-01-31  | 2026-03-31  | 2 months exact
+//   2026-01-31  | 2026-02-28  | 4 weeks  exact   (28d, month decremented)
+//   2026-03-01  | 2026-03-15  | 2 weeks  exact   (14d)
+//   2026-03-01  | 2026-03-10  | 1 week   approx  (9d)
+//   2026-03-01  | 2026-03-06  | 5 days   exact
+//   2026-03-01  | 2026-03-01  | null (same day)
+//   2026-04-01  | 2026-03-01  | null (after < before)
+//   2025-12-15  | 2026-01-10  | 3 weeks  approx  (26d, year boundary)
+describe("photoCompareElapsed", () => {
+  const ymd = (s: string) => parseCivilYMD(s)!;
+  const cases: Array<[string, string, ReturnType<typeof photoCompareElapsed>]> = [
+    ["2026-03-01", "2026-04-01", { value: 1, unit: "month", approximate: false }],
+    ["2026-03-01", "2026-05-20", { value: 2, unit: "month", approximate: true }],
+    ["2026-01-31", "2026-03-31", { value: 2, unit: "month", approximate: false }],
+    ["2026-01-31", "2026-02-28", { value: 4, unit: "week", approximate: false }],
+    ["2026-03-01", "2026-03-15", { value: 2, unit: "week", approximate: false }],
+    ["2026-03-01", "2026-03-10", { value: 1, unit: "week", approximate: true }],
+    ["2026-03-01", "2026-03-06", { value: 5, unit: "day", approximate: false }],
+    ["2026-03-01", "2026-03-01", null],
+    ["2026-04-01", "2026-03-01", null],
+    ["2025-12-15", "2026-01-10", { value: 3, unit: "week", approximate: true }],
+  ];
+  it.each(cases)("%s → %s", (before, after, expected) => {
+    expect(photoCompareElapsed(ymd(before), ymd(after))).toEqual(expected);
+  });
+
+  it("parseCivilYMD rejects malformed strings", () => {
+    expect(parseCivilYMD("not-a-date")).toBeNull();
+    expect(parseCivilYMD("2026-13-01")).toBeNull();
+    expect(parseCivilYMD("2026-01-32")).toBeNull();
+    expect(parseCivilYMD("2026-03-01")).toEqual({ year: 2026, month: 3, day: 1 });
   });
 });
 
