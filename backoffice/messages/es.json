@@ -365,6 +365,29 @@
         "progressPhotoAlt": "Foto de progreso",
         "photoAngleFallback": "foto"
       },
+      "calendarPeek": {
+        "title": "Mini calendario",
+        "rangeSummary": "{workouts, plural, one {# entrenamiento} other {# entrenamientos}} · {habits, plural, one {# hábito} other {# hábitos}}",
+        "previousWeek": "Semana anterior",
+        "nextWeek": "Semana siguiente",
+        "today": "Hoy",
+        "openSchedule": "Abrir agenda",
+        "loading": "Cargando agenda...",
+        "loadFailed": "No se pudo cargar esta semana.",
+        "emptyDay": "Sin entrenamientos ni hábitos",
+        "moreItems": "+{count} más",
+        "workoutStatus": {
+          "scheduled": "programado",
+          "started": "en curso",
+          "completed": "hecho",
+          "missed": "vencido"
+        },
+        "habitStatus": {
+          "scheduled": "pendiente",
+          "done": "hecho",
+          "missed": "vencido"
+        }
+      },
       "goals": {
         "title": "Objetivos",
         "subtitle": "Objetivos de corto, mediano y largo plazo visibles para el cliente.",
