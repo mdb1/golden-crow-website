@@ -1949,9 +1949,9 @@ export async function editAssignmentExercises(
 //                  occurrences, so the cutoff is today-or-future in practice.
 //   seriesStart  = earliest scheduledFor in the series — the anchor that keeps
 //                  every_n_days phase stable across the edit.
-//   windowEnd    = latest scheduledFor in the series — preserves the original
-//                  horizon (no endDate is persisted on the docs, so the existing
-//                  span IS the source of truth for "how far out").
+//   windowEnd    = input endDate when provided, otherwise latest scheduledFor in
+//                  the series — preserving the original horizon for legacy
+//                  callers.
 //
 // Past / started / completed / missed docs are never touched (status filter,
 // exactly like the cascade delete). Per-occurrence exercise edits on future
@@ -1962,6 +1962,13 @@ export async function editAssignmentExercises(
 // unchanged prescription does NOT reset the client's per-exercise weight prefill.
 const editAssignmentRecurrenceSchema = z.object({
   recurrence: recurrenceSchema,
+  endDate: z
+    .string()
+    .regex(
+      CIVIL_DATE_REGEX,
+      "endDate must be a 'YYYY-MM-DD' civil-date string.",
+    )
+    .optional(),
 });
 
 export async function editAssignmentRecurrence(
@@ -2007,6 +2014,9 @@ export async function editAssignmentRecurrence(
   if (!CIVIL_DATE_REGEX.test(cutoff)) {
     throw new Error("Assignment is missing a valid scheduled date.");
   }
+  if (input.endDate && input.endDate < cutoff) {
+    throw new Error("endDate must be on or after the edited occurrence date.");
+  }
 
   // Load the whole series for this trainer to derive the original window AND the
   // set of future-scheduled docs to replace.
@@ -2037,12 +2047,14 @@ export async function editAssignmentRecurrence(
     }
   }
 
-  // Re-expand the NEW rule over the original span, anchored at the series start
-  // (keeps every_n_days phase), then keep only dates at/after the cutoff.
+  // Re-expand the NEW rule over the selected span, anchored at the series start
+  // (keeps every_n_days phase), then keep only dates at/after the cutoff. When
+  // omitted, preserve the existing series horizon for legacy callers.
+  const nextWindowEnd = input.endDate ?? windowEnd;
   const newDates = expandRecurrenceDates(
     recurrence,
     seriesStart,
-    windowEnd,
+    nextWindowEnd,
   ).filter((date) => date >= cutoff);
   if (newDates.length === 0) {
     throw new Error(

@@ -27,6 +27,7 @@ import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
 import { coachVisibleClientName } from "./client-name";
 import { resolveExerciseDocsById } from "./exercise-resolution";
+import { CIVIL_DATE_REGEX } from "./workout-assignment-schema";
 import {
   coerceLegacyHabitLogValue,
   logCountsAsCompleted,
@@ -260,6 +261,7 @@ export interface AssignmentDetail {
   meetingNotes: string | null;
   seriesId: string | null;
   recurrence: Record<string, unknown> | null;
+  seriesEndDate: string | null;
   exercises: AssignmentExercise[];
   /**
    * The client's MOST RECENT completed set values, per exerciseId — used by the
@@ -332,6 +334,28 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
   const templateTag =
     typeof snapshot.tag === "string" ? snapshot.tag : null;
   const exercises = Array.isArray(snapshot.exercises) ? snapshot.exercises : [];
+  const seriesId = typeof data.seriesId === "string" ? data.seriesId : null;
+  let seriesEndDate: string | null = null;
+  if (seriesId) {
+    // Recurring workout series are write-capped in the assignment actions
+    // (MAX_RECURRING_OCCURRENCES), so reading the sibling docs here is bounded.
+    const seriesSnap = await db
+      .collection(ASSIGNMENTS)
+      .where("trainerId", "==", trainer.uid)
+      .where("seriesId", "==", seriesId)
+      .get();
+    for (const seriesDoc of seriesSnap.docs) {
+      const seriesData = seriesDoc.data() as { scheduledFor?: unknown };
+      const scheduledFor =
+        typeof seriesData.scheduledFor === "string"
+          ? seriesData.scheduledFor
+          : "";
+      if (!CIVIL_DATE_REGEX.test(scheduledFor)) continue;
+      if (!seriesEndDate || scheduledFor > seriesEndDate) {
+        seriesEndDate = scheduledFor;
+      }
+    }
+  }
   const exerciseIds = exercises
     .map((exercise) => exercise.exerciseId)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
@@ -359,12 +383,12 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     templateTag,
     meetingNotes:
       typeof data.meetingNotes === "string" ? data.meetingNotes : null,
-    seriesId:
-      typeof data.seriesId === "string" ? data.seriesId : null,
+    seriesId,
     recurrence:
       data.recurrence && typeof data.recurrence === "object"
         ? (data.recurrence as Record<string, unknown>)
         : null,
+    seriesEndDate,
     exercises: exercises.map((ex, idx) => {
       const exId = typeof ex.exerciseId === "string" ? ex.exerciseId : "";
       const source = exerciseMap.get(exId);
