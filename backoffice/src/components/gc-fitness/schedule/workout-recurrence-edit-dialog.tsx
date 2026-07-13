@@ -11,8 +11,8 @@
 // (mode + weekday chips + every-N + monthly) but is standalone and seeded from
 // the occurrence's current recurrence rule. On save it calls
 // editAssignmentRecurrence, which deletes the future scheduled docs in the
-// series and re-expands the new rule over the same window (preserving past /
-// completed occurrences). Copy is hardcoded Spanish to match the detail
+// series and re-expands the new rule up to the selected end date (preserving
+// past / completed occurrences). Copy is hardcoded Spanish to match the detail
 // dialog's existing convention (the 26-07 i18n pass will lift both together).
 
 import { useMemo, useState } from "react";
@@ -35,6 +35,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { editAssignmentRecurrence } from "@/lib/gc-fitness/workout-assignment-actions";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  inferEndDatePresetMonths,
+} from "@/lib/gc-fitness/end-date-presets";
 
 type Mode = "weekly" | "daily" | "everyN" | "monthly";
 
@@ -53,6 +58,8 @@ interface WorkoutRecurrenceEditDialogProps {
   scheduledFor: string;
   /** The occurrence's current recurrence rule (used to seed the picker). */
   recurrence: Record<string, unknown> | null;
+  /** Latest scheduled date in the current series, used as the editable end. */
+  seriesEndDate: string | null;
   onSaved: () => void;
 }
 
@@ -65,6 +72,19 @@ function dayOfMonthFromCivil(civil: string): number {
   const parts = civil.split("-");
   const d = Number(parts[2]);
   return Number.isFinite(d) && d >= 1 && d <= 31 ? d : 1;
+}
+
+const CIVIL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function initialEndDateForSeries(
+  scheduledFor: string,
+  seriesEndDate: string | null,
+): string {
+  return seriesEndDate &&
+    CIVIL_DATE_RE.test(seriesEndDate) &&
+    seriesEndDate >= scheduledFor
+    ? seriesEndDate
+    : scheduledFor;
 }
 
 /** Derive the initial picker state from the occurrence's current recurrence. */
@@ -119,16 +139,25 @@ export function WorkoutRecurrenceEditDialog({
   assignmentId,
   scheduledFor,
   recurrence,
+  seriesEndDate,
   onSaved,
 }: WorkoutRecurrenceEditDialogProps) {
   const seed = useMemo(
     () => seedFromRecurrence(recurrence, scheduledFor),
     [recurrence, scheduledFor],
   );
+  const initialEndDate = useMemo(
+    () => initialEndDateForSeries(scheduledFor, seriesEndDate),
+    [scheduledFor, seriesEndDate],
+  );
   const [mode, setMode] = useState<Mode>(seed.mode);
   const [weekdays, setWeekdays] = useState<Set<number>>(seed.weekdays);
   const [everyN, setEveryN] = useState<number>(seed.everyN);
   const [everyNDraft, setEveryNDraft] = useState<string>(String(seed.everyN));
+  const [endDate, setEndDate] = useState<string>(initialEndDate);
+  const [endPresetMonths, setEndPresetMonths] = useState<number | null>(() =>
+    inferEndDatePresetMonths(scheduledFor, initialEndDate),
+  );
   const [pending, setPending] = useState(false);
 
   function toggleWeekday(idx: number) {
@@ -163,10 +192,19 @@ export function WorkoutRecurrenceEditDialog({
       toast.error("Elegí al menos un día de la semana.");
       return;
     }
+    if (!CIVIL_DATE_RE.test(endDate)) {
+      toast.error("Elegí una fecha de fin válida.");
+      return;
+    }
+    if (endDate < scheduledFor) {
+      toast.error("La fecha de fin debe ser igual o posterior a esta fecha.");
+      return;
+    }
     setPending(true);
     try {
       const result = await editAssignmentRecurrence(assignmentId, {
         recurrence: rule,
+        endDate,
       });
       toast.success(
         `Recurrencia actualizada · ${result.createdCount} ${
@@ -279,6 +317,52 @@ export function WorkoutRecurrenceEditDialog({
               </div>
             </div>
           ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="recur-end-date">
+              Fecha de fin
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {END_DATE_PRESET_MONTHS.map((months) => {
+                const presetDate = addCivilMonths(scheduledFor, months);
+                const active =
+                  endPresetMonths === months && endDate === presetDate;
+                return (
+                  <Button
+                    key={months}
+                    type="button"
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setEndPresetMonths(months);
+                      setEndDate(presetDate);
+                    }}
+                  >
+                    {months} meses
+                  </Button>
+                );
+              })}
+            </div>
+            <input
+              id="recur-end-date"
+              type="date"
+              value={endDate}
+              min={scheduledFor}
+              onChange={(event) => {
+                const next = event.target.value;
+                setEndDate(next);
+                setEndPresetMonths(
+                  inferEndDatePresetMonths(scheduledFor, next),
+                );
+              }}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Se reprograma hasta esta fecha inclusive.
+            </p>
+          </div>
 
           {mode === "monthly" ? (
             <p className="text-xs text-muted-foreground">

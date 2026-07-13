@@ -291,6 +291,7 @@ export function WorkoutDetailDialog({
           assignmentId={data.id}
           scheduledFor={data.scheduledFor}
           recurrence={data.recurrence}
+          seriesEndDate={data.seriesEndDate}
           onSaved={() => {
             setRecurrenceOpen(false);
             onOpenChange(false);

@@ -191,6 +191,63 @@ describe("editAssignmentRecurrence", () => {
     expect(result).toEqual({ ok: true, removedCount: 3, createdCount: 2 });
   });
 
+  it("uses endDate to extend the edited recurrence window", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens());
+    mockGet.mockResolvedValue(anchorSnap());
+    mockQueryGet.mockResolvedValue(monWedFriSeriesDocs());
+
+    const result = await editAssignmentRecurrence("asg-1", {
+      recurrence: { kind: "weekly_days", weekdays: [1, 5] },
+      endDate: "2026-06-29",
+    });
+
+    expect(mockBatchDelete).toHaveBeenCalledTimes(3);
+    const newDates = mockBatchSet.mock.calls
+      .map((c) => c[1].scheduledFor)
+      .sort();
+    expect(newDates).toEqual([
+      "2026-06-15",
+      "2026-06-19",
+      "2026-06-22",
+      "2026-06-26",
+      "2026-06-29",
+    ]);
+    expect(result).toEqual({ ok: true, removedCount: 3, createdCount: 5 });
+  });
+
+  it("uses endDate to shorten the edited recurrence window", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens());
+    mockGet.mockResolvedValue(anchorSnap());
+    mockQueryGet.mockResolvedValue(monWedFriSeriesDocs());
+
+    const result = await editAssignmentRecurrence("asg-1", {
+      recurrence: { kind: "weekly_days", weekdays: [1, 5] },
+      endDate: "2026-06-15",
+    });
+
+    expect(mockBatchDelete).toHaveBeenCalledTimes(3);
+    const newDates = mockBatchSet.mock.calls
+      .map((c) => c[1].scheduledFor)
+      .sort();
+    expect(newDates).toEqual(["2026-06-15"]);
+    expect(result).toEqual({ ok: true, removedCount: 3, createdCount: 1 });
+  });
+
+  it("rejects endDate before the edited occurrence date", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens());
+    mockGet.mockResolvedValue(anchorSnap());
+
+    await expect(
+      editAssignmentRecurrence("asg-1", {
+        recurrence: { kind: "daily" },
+        endDate: "2026-06-14",
+      }),
+    ).rejects.toThrow(/endDate must be on or after/i);
+    expect(mockQueryGet).not.toHaveBeenCalled();
+    expect(mockBatchSet).not.toHaveBeenCalled();
+    expect(mockBatchDelete).not.toHaveBeenCalled();
+  });
+
   it("new doc ids follow asg-{clientId}-{YYYYMMDD}-{uuid}", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens());
     mockGet.mockResolvedValue(anchorSnap());
