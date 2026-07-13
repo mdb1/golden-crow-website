@@ -365,6 +365,29 @@
         "progressPhotoAlt": "Progress photo",
         "photoAngleFallback": "photo"
       },
+      "calendarPeek": {
+        "title": "Mini calendar",
+        "rangeSummary": "{workouts, plural, one {# workout} other {# workouts}} · {habits, plural, one {# habit} other {# habits}}",
+        "previousWeek": "Previous week",
+        "nextWeek": "Next week",
+        "today": "Today",
+        "openSchedule": "Open schedule",
+        "loading": "Loading schedule...",
+        "loadFailed": "Could not load this week.",
+        "emptyDay": "No workouts or habits",
+        "moreItems": "+{count} more",
+        "workoutStatus": {
+          "scheduled": "scheduled",
+          "started": "in progress",
+          "completed": "done",
+          "missed": "missed"
+        },
+        "habitStatus": {
+          "scheduled": "pending",
+          "done": "done",
+          "missed": "missed"
+        }
+      },
       "goals": {
         "title": "Goals",
         "subtitle": "Short, medium, and long-term goals visible to the client.",
