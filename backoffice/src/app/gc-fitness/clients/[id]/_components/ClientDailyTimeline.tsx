@@ -15,6 +15,7 @@ import {
   NotebookText,
   Plus,
   Trash2,
+  User,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -344,7 +345,18 @@ export function ClientDailyTimeline({
                     ].join(" ")}
                   >
                     <div className="flex flex-col">
-                      <span className="font-medium">{habit.name}</span>
+                      <span className="flex items-center gap-1 font-medium">
+                        {habit.name}
+                        {habit.clientOwned ? (
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded-full bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                            title={t("habitClientCreated")}
+                          >
+                            <User className="size-2.5" />
+                            {t("habitClientCreated")}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {habit.future
                           ? t("habitStatusFuture")

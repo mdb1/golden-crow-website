@@ -97,6 +97,30 @@ function makeDb() {
         if (collName === FirestoreCollections.habits) {
           return snap([
             makeDoc("habit-1", habit),
+            // Issue #437: client-created habit (clientOwned, trainerId ===
+            // clientId, NO `deleted` field). Same monthly-22 schedule so it
+            // shares the day-22 assertion window and never lands on day 21.
+            makeDoc("habit-client", {
+              id: "habit-client",
+              clientId: "client-1",
+              trainerId: "client-1",
+              clientOwned: true,
+              name: { en: "Client self habit", es: "Hábito propio" },
+              scheduleType: "recurring",
+              scheduleCadence: "monthly",
+              scheduleMonthDays: [22],
+            }),
+            // Soft-deleted habit — must be filtered out in memory.
+            makeDoc("habit-gone", {
+              id: "habit-gone",
+              clientId: "client-1",
+              trainerId: "trainer-1",
+              deleted: true,
+              name: { en: "Deleted habit" },
+              scheduleType: "recurring",
+              scheduleCadence: "monthly",
+              scheduleMonthDays: [22],
+            }),
           ]);
         }
         if (collName === FirestoreCollections.habitLogs) {
@@ -163,8 +187,14 @@ describe("client-daily-timeline-actions — habit schedule filtering", () => {
 
     expect(day21?.habits).toEqual([]);
     expect(day21?.reminders).toEqual([]);
-    expect(day22?.habits).toHaveLength(1);
-    expect(day22?.habits[0]?.name).toBe("Monthly check");
+    // Issue #437: trainer-assigned + client-created habits both show; the
+    // soft-deleted one does not.
+    expect(day22?.habits).toHaveLength(2);
+    const trainerHabit = day22?.habits.find((h) => h.name === "Monthly check");
+    const clientHabit = day22?.habits.find((h) => h.name === "Client self habit");
+    expect(trainerHabit?.clientOwned).toBe(false);
+    expect(clientHabit?.clientOwned).toBe(true);
+    expect(day22?.habits.some((h) => h.name === "Deleted habit")).toBe(false);
   });
 
   it("hides unscheduled habits from the single-day view", async () => {

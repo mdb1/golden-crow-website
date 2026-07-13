@@ -64,6 +64,11 @@ export interface MonthHabitChip {
   civilDate: string;
   habitName: string;
   status: "done" | "missed" | "scheduled";
+  /** True when the client created this habit for themselves (issue #400 —
+   * `clientOwned: true`, `clientId === trainerId`) rather than the trainer
+   * assigning it. The calendar renders a "client-created" badge for these
+   * (issue #437). */
+  clientOwned: boolean;
 }
 
 export interface MonthCalendarPayload {
@@ -595,11 +600,15 @@ export async function listMonthForClients(input: {
       .orderBy("startedAt", "desc")
       .limit(200)
       .get(),
-    db
-      .collection(HABITS)
-      .where("clientId", "in", clientIds)
-      .where("deleted", "==", false)
-      .get(),
+    // Issue #437: do NOT add `.where("deleted", "==", false)` here. A Firestore
+    // equality filter only matches docs where the field EXISTS — and
+    // client-created habits (issue #400) are created WITHOUT a `deleted` field
+    // (the rules forbid it at create), so that clause silently dropped every
+    // client-created habit. We fetch all habits for the client and filter
+    // `deleted === true` in memory below instead. `clientId in` also captures
+    // client-created habits, whose `trainerId` is the client's own uid (not the
+    // coach's), so no trainerId filter is used here either.
+    db.collection(HABITS).where("clientId", "in", clientIds).get(),
   ]);
 
   // Build an assignmentId → log status map for the assignment status flip.
@@ -688,12 +697,16 @@ export async function listMonthForClients(input: {
   const habitsByClient = new Map<string, Array<Record<string, unknown>>>();
   const habitMetaById = new Map<
     string,
-    { name: string; type: HabitType; targetValue: number | undefined }
+    { name: string; type: HabitType; targetValue: number | undefined; clientOwned: boolean }
   >();
   for (const doc of habitSnap.docs) {
     const data = doc.data() as Record<string, unknown>;
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId) continue;
+    // Issue #437: in-memory soft-delete filter (the query no longer does it —
+    // see the habits query note above). Client-created habits have no `deleted`
+    // field, so only `deleted === true` is excluded here.
+    if (data.deleted === true) continue;
     (habitsByClient.get(clientId) ?? habitsByClient.set(clientId, []).get(clientId))!.push({
       ...data,
       __id: doc.id,
@@ -710,6 +723,7 @@ export async function listMonthForClients(input: {
       type: ((typeof data.type === "string" ? data.type : "binary") as HabitType),
       targetValue:
         typeof data.targetValue === "number" ? (data.targetValue as number) : undefined,
+      clientOwned: data.clientOwned === true,
     });
   }
 
@@ -780,6 +794,7 @@ export async function listMonthForClients(input: {
           civilDate: civil,
           habitName: meta.name,
           status,
+          clientOwned: meta.clientOwned,
         });
       }
     }

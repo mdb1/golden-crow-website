@@ -353,6 +353,7 @@
         "habitStatusFuture": "futuro",
         "habitStatusDone": "hecho",
         "habitStatusPending": "pendiente",
+        "habitClientCreated": "Creado por el cliente",
         "reminderStatusFutureValue": "solo visual",
         "reminderStatusDone": "hecho",
         "reminderStatusPending": "pendiente",
@@ -1497,6 +1498,7 @@
       "workouts": "Entrenamientos",
       "habits": "Hábitos",
       "birthdayBadge": "Cumpleaños",
+      "clientCreatedBadge": "Creado por el cliente",
       "pickClientsPrompt": "Elegí uno o más clientes arriba para ver su agenda.",
       "pickClientFirstToast": "Elegí al menos un cliente primero",
       "bulkAssignHabit": "Asignar hábito"

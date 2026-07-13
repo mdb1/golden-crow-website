@@ -80,6 +80,30 @@ function makeDb() {
               scheduleCadence: "daily",
               startsOn: "2026-06-01",
             }),
+            // Issue #437: client-created habit. trainerId === clientId, marked
+            // clientOwned, and crucially NO `deleted` field (rules forbid it at
+            // create) — it must still surface, tagged clientOwned.
+            doc("client-habit", {
+              trainerId: "c1",
+              clientId: "c1",
+              clientOwned: true,
+              name: { en: "Client self habit" },
+              type: "binary",
+              scheduleType: "recurring",
+              scheduleCadence: "daily",
+              startsOn: "2026-06-01",
+            }),
+            // Soft-deleted habit must NOT surface (in-memory filter).
+            doc("gone-habit", {
+              trainerId: "t1",
+              clientId: "c1",
+              deleted: true,
+              name: { en: "Deleted habit" },
+              type: "binary",
+              scheduleType: "recurring",
+              scheduleCadence: "daily",
+              startsOn: "2026-06-01",
+            }),
           ]);
         }
         return snap([]);
@@ -113,13 +137,23 @@ describe("listMonthForClients", () => {
     ]);
     expect(result.habitsByDay["2026-06-10"]).toEqual([
       expect.objectContaining({
+        id: "client-habit:2026-06-10",
+        habitName: "Client self habit",
+        clientOwned: true,
+      }),
+      expect.objectContaining({
         id: "new-habit:2026-06-10",
         habitName: "New coach habit",
+        clientOwned: false,
       }),
       expect.objectContaining({
         id: "old-habit:2026-06-10",
         habitName: "Old coach habit",
+        clientOwned: false,
       }),
     ]);
+    // Soft-deleted habit is filtered out.
+    const ids = result.habitsByDay["2026-06-10"].map((h) => h.id);
+    expect(ids).not.toContain("gone-habit:2026-06-10");
   });
 });
