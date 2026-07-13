@@ -1531,6 +1531,35 @@ export async function listRecentLogsForClientAsAdmin(
   });
 }
 
+/**
+ * Issue #434: a coach may view a workout log when they are the log's `trainerId`
+ * OR the coach-of-record for the log's client. Client-created ("self") workouts
+ * (issue #392) carry `trainerId === clientId === <client uid>`, so the bare
+ * `trainerId === coach` equality 404s them even though the log shows up in the
+ * coach's recent-logs feed (which filters by `clientId`). Resolving the client's
+ * `coachId` — the same fallback habits use in `currentTrainerCanManageHabit` —
+ * admits them. The lookup is scoped to the coach's own clients, so no cross-coach
+ * leak. (The backoffice reads via the Admin SDK, so Firestore rules are bypassed;
+ * this app-side check is the only gate.)
+ */
+async function coachCanAccessLog(
+  db: FirebaseFirestore.Firestore,
+  coachUid: string,
+  data: { trainerId?: unknown; clientId?: unknown },
+): Promise<boolean> {
+  if (data.trainerId === coachUid) return true;
+  const clientId =
+    typeof data.clientId === "string" && data.clientId.trim().length > 0
+      ? data.clientId.trim()
+      : null;
+  if (!clientId) return false;
+  const clientSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  return clientSnap.exists && clientSnap.get("coachId") === coachUid;
+}
+
 export async function getWorkoutLogDetail(
   workoutLogId: string,
 ): Promise<WorkoutLogDetail> {
@@ -1546,7 +1575,7 @@ export async function getWorkoutLogDetail(
   }
 
   const data = logSnap.data() as Record<string, unknown>;
-  if (data.trainerId !== trainer.uid) {
+  if (!(await coachCanAccessLog(db, trainer.uid, data))) {
     throw new Error("Forbidden");
   }
 
@@ -1574,7 +1603,7 @@ export async function getWorkoutLogDetailAsAdmin(
   }
 
   const data = logSnap.data() as Record<string, unknown>;
-  if (data.trainerId !== coachId) {
+  if (!(await coachCanAccessLog(db, coachId, data))) {
     throw new Error("Workout log not found.");
   }
 
@@ -1627,13 +1656,19 @@ export async function getWorkoutLogDetailByAssignment(
   if (docById.size === 0) return null;
   const allDocs = Array.from(docById.values());
 
-  // Trainer-ownership + completed filter in memory (see index note above).
-  const completed = allDocs.filter((d) => {
-    const data = d.data() as Record<string, unknown>;
-    if (data.trainerId !== trainer.uid) return false;
-    // A log is "completed" when it carries a completedAt (status mirrors it).
-    return data.status === "completed" || asIso(data.completedAt) !== null;
-  });
+  // Ownership + completed filter in memory (see index note above). Ownership
+  // resolves the client's coachId too (issue #434 — client-created "self"
+  // workouts carry trainerId === clientId), so the share card shows the actuals
+  // of a self-assigned workout the same way it does a trainer-assigned one.
+  const ownedAndCompleted = await Promise.all(
+    allDocs.map(async (d) => {
+      const data = d.data() as Record<string, unknown>;
+      if (!(await coachCanAccessLog(db, trainer.uid, data))) return false;
+      // A log is "completed" when it carries a completedAt (status mirrors it).
+      return data.status === "completed" || asIso(data.completedAt) !== null;
+    }),
+  );
+  const completed = allDocs.filter((_, i) => ownedAndCompleted[i]);
   if (completed.length === 0) return null;
 
   // Most recent by startedAt (fall back to completedAt), so re-logged
