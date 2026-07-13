@@ -98,6 +98,100 @@ export function formatCivilDateLabel(
   }
 }
 
+// MARK: - Photo-comparator elapsed span (twin of PhotoCompareElapsed.swift /
+//         PhotoCompareElapsed.kt)
+//
+// SAME-SOURCE-OF-TRUTH CONTRACT: any behavioral change to `photoCompareElapsed`
+// (or `daysFromCivil`) MUST be matched in:
+//   gc-fitness/iOS/Packages/GCFitnessCore/Sources/GCFitnessCore/Schema/PhotoCompareElapsed.swift
+//   gc-fitness/android/core/src/main/kotlin/com/goldencrow/fitness/core/schema/PhotoCompareElapsed.kt
+// and the shared fixture block in the three test files must keep agreeing.
+//
+// Why a shared calculator: the before/after photo picker labels the "after"
+// options with the elapsed time since the selected "before" (e.g. "1 mes",
+// "~2 meses"). iOS, Android and the backoffice must produce the SAME buckets
+// for the same pair of civil days, so the pure math lives in one place per
+// platform.
+
+export type PhotoCompareElapsedUnit = "day" | "week" | "month";
+
+export interface PhotoCompareElapsed {
+  value: number;
+  unit: PhotoCompareElapsedUnit;
+  /** True when the span does not land exactly on the unit boundary (renders a
+   * leading "~"): e.g. 2-months-and-19-days → `{value: 2, unit: "month",
+   * approximate: true}` → "~2 meses". */
+  approximate: boolean;
+}
+
+/** A civil day as its calendar components (proleptic Gregorian). */
+export interface CivilYMD {
+  year: number;
+  month: number;
+  day: number;
+}
+
+/**
+ * Splits a `"YYYY-MM-DD"` civil string into its calendar components, or returns
+ * `null` if the string is not a well-formed civil date. Used by the photo
+ * comparator to feed `photoCompareElapsed`.
+ */
+export function parseCivilYMD(civil: string): CivilYMD | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(civil);
+  if (!match) return null;
+  const year = Number.parseInt(match[1]!, 10);
+  const month = Number.parseInt(match[2]!, 10);
+  const day = Number.parseInt(match[3]!, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year, month, day };
+}
+
+/**
+ * Serial day number for a civil date (days since 1970-01-01), via Howard
+ * Hinnant's `days_from_civil`. Pure integer math — no `Date`, no timezone —
+ * so the three platform twins stay bit-identical.
+ */
+function daysFromCivil({ year, month, day }: CivilYMD): number {
+  const y = month <= 2 ? year - 1 : year;
+  const era = Math.floor((y >= 0 ? y : y - 399) / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+
+/**
+ * Elapsed span between two civil days, bucketed to the coarsest sensible unit
+ * (months ≥ 1 → months; else weeks ≥ 1 → weeks; else days).
+ *
+ * Returns `null` when `after` is not strictly after `before` (same day or
+ * earlier) — the picker treats that as "not selectable as the after photo".
+ *
+ * Month counting is calendar-based ("1 mes" for Mar 1 → Apr 1) so it matches a
+ * human reading of the dates rather than a 30-day approximation. `approximate`
+ * is true whenever there is a leftover remainder past the whole unit.
+ */
+export function photoCompareElapsed(
+  before: CivilYMD,
+  after: CivilYMD,
+): PhotoCompareElapsed | null {
+  const beforeSerial = daysFromCivil(before);
+  const afterSerial = daysFromCivil(after);
+  if (afterSerial <= beforeSerial) return null;
+
+  let months = (after.year - before.year) * 12 + (after.month - before.month);
+  if (after.day < before.day) months -= 1;
+  if (months >= 1) {
+    return { value: months, unit: "month", approximate: after.day !== before.day };
+  }
+
+  const days = afterSerial - beforeSerial;
+  if (days >= 7) {
+    return { value: Math.floor(days / 7), unit: "week", approximate: days % 7 !== 0 };
+  }
+  return { value: days, unit: "day", approximate: false };
+}
+
 // MARK: - Helpers
 
 /**
