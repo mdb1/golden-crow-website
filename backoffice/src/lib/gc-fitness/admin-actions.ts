@@ -127,6 +127,14 @@ function rolesFromClaims(claims: Record<string, unknown> | undefined): string[] 
   return Array.from(result);
 }
 
+function isAuthUserNotFound(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  if (code === "auth/user-not-found") return true;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === "string" && message.includes("auth/user-not-found");
+}
+
 export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
   await getCurrentAdmin();
   const db = gcFitnessFirestore();
@@ -215,11 +223,17 @@ export async function searchUsersByEmailForAdmin(
 
   // (4) Map each doc; merge doc.role with claim roles. Tolerant — a single bad
   // doc never throws (missing field → "" / null / false; getUser failure → []).
-  const rows = await Promise.all(
+  const rowsWithOrphans = await Promise.all(
     matches.map(async (doc) => {
       const data = doc.data() as Record<string, unknown>;
       const uid = doc.id;
-      const authUser = await gcFitnessAuth().getUser(uid).catch(() => null);
+      const authUser = await gcFitnessAuth().getUser(uid).catch((error) => {
+        if (isAuthUserNotFound(error)) return "not-found" as const;
+        return null;
+      });
+      if (authUser === "not-found") {
+        return null;
+      }
 
       const roles = new Set<string>(
         rolesFromClaims(authUser?.customClaims as Record<string, unknown> | undefined),
@@ -239,6 +253,10 @@ export async function searchUsersByEmailForAdmin(
         coachId: typeof data.coachId === "string" ? data.coachId : null,
       } satisfies UserSearchResultRow;
     }),
+  );
+
+  const rows = rowsWithOrphans.filter(
+    (row): row is UserSearchResultRow => row !== null,
   );
 
   rows.sort((a, b) => a.email.localeCompare(b.email));
