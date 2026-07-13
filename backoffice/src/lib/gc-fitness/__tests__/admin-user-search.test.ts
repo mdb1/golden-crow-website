@@ -211,12 +211,40 @@ describe("searchUsersByEmailForAdmin", () => {
     ]);
   });
 
-  it("does not throw when getUser fails for a doc (tolerant role merge)", async () => {
+  it("filters orphaned user docs when Firebase Auth says the uid is missing", async () => {
+    const docs = [
+      mockDoc("uid-orphan", {
+        email: "duplicate@example.com",
+        displayName: "Ghost Client",
+        role: "client",
+      }),
+      mockDoc("uid-live", {
+        email: "duplicate@example.com",
+        displayName: "Live Client",
+        role: "client",
+      }),
+    ];
+    mockGet.mockResolvedValueOnce({ docs });
+    mockGetUser.mockImplementation((uid: string) => {
+      if (uid === "uid-orphan") {
+        return Promise.reject({ code: "auth/user-not-found" });
+      }
+      return Promise.resolve({ customClaims: {} });
+    });
+
+    const rows = await searchUsersByEmailForAdmin("duplicate@example.com");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].uid).toBe("uid-live");
+    expect(rows[0].displayName).toBe("Live Client");
+  });
+
+  it("does not throw on non-not-found getUser failures (tolerant role merge)", async () => {
     const docs = [
       mockDoc("uid-x", { email: "x@example.com", displayName: "X", role: "trainer" }),
     ];
     mockGet.mockResolvedValueOnce({ docs });
-    mockGetUser.mockRejectedValueOnce(new Error("auth/user-not-found"));
+    mockGetUser.mockRejectedValueOnce(new Error("auth/network-request-failed"));
 
     const rows = await searchUsersByEmailForAdmin("x");
     expect(rows).toHaveLength(1);
