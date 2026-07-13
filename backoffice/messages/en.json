@@ -353,6 +353,7 @@
         "habitStatusFuture": "future",
         "habitStatusDone": "done",
         "habitStatusPending": "pending",
+        "habitClientCreated": "Created by the client",
         "reminderStatusFutureValue": "visual only",
         "reminderStatusDone": "done",
         "reminderStatusPending": "pending",
@@ -1497,6 +1498,7 @@
       "workouts": "Workouts",
       "habits": "Habits",
       "birthdayBadge": "Birthday",
+      "clientCreatedBadge": "Created by the client",
       "pickClientsPrompt": "Pick one or more clients above to see their agenda.",
       "pickClientFirstToast": "Pick at least one client first",
       "bulkAssignHabit": "Assign habit"

@@ -37,6 +37,7 @@ import {
   Circle,
   Dumbbell,
   PlusIcon,
+  User,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1354,6 +1355,7 @@ function DayCell({
                         <span className="min-w-0 max-w-full truncate">
                           {h.habitName}
                         </span>
+                        {h.clientOwned ? <ClientOwnedBadge /> : null}
                       </button>
                     ))}
                   </div>
@@ -1498,6 +1500,7 @@ function ClientDayCell({
                 <span className="min-w-0 max-w-full truncate">
                   {h.habitName}
                 </span>
+                {h.clientOwned ? <ClientOwnedBadge /> : null}
               </button>
             ))}
           </div>
@@ -1769,4 +1772,15 @@ function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
     return <XCircle className="size-2.5 text-rose-600 dark:text-rose-400" />;
   }
   return <Circle className="size-2.5 opacity-60" />;
+}
+
+/** Issue #437: marks a habit the client created for themselves (vs. one the
+ * trainer assigned). Rendered on the calendar habit chip. */
+function ClientOwnedBadge() {
+  const t = useTranslations("schedule.calendar");
+  return (
+    <span title={t("clientCreatedBadge")} className="inline-flex shrink-0">
+      <User className="size-2.5 opacity-70" aria-label={t("clientCreatedBadge")} />
+    </span>
+  );
 }

@@ -53,6 +53,8 @@ export interface ClientDailyTimelineDay {
     completed: boolean;
     value: string;
     future: boolean;
+    /** Client created this habit for themselves (issue #400/#437). */
+    clientOwned: boolean;
   }>;
   reminders: Array<{
     id: string;
@@ -152,9 +154,10 @@ function isHabitActiveOnDate(
   habit: Record<string, unknown>,
   civilDate: string,
 ): boolean {
-  // Soft-delete is handled by the `deleted == false` query filter in this
-  // module's habit loads, so this predicate (like iOS `isActive`) only answers
-  // "scheduled on this day?".
+  // Soft-delete is filtered in memory when building `habitsById` (issue #437 —
+  // the query no longer uses `deleted == false`, which dropped client-created
+  // habits that carry no `deleted` field), so this predicate (like iOS
+  // `isActive`) only answers "scheduled on this day?".
   return isHabitScheduledOn(habit, civilDate);
 }
 
@@ -229,7 +232,6 @@ export async function getClientDailyTimeline(
     db
       .collection(FirestoreCollections.habits)
       .where("clientId", "==", clientId)
-      .where("deleted", "==", false)
       .get(),
     db
       .collection(FirestoreCollections.habitLogs)
@@ -260,6 +262,9 @@ export async function getClientDailyTimeline(
   const habitsById = new Map<string, Record<string, unknown>>();
   habitsSnap.docs.forEach((doc) => {
     const data = doc.data() as Record<string, unknown>;
+    // Issue #437: in-memory soft-delete filter (the query no longer does it, so
+    // client-created habits without a `deleted` field are not dropped).
+    if (data.deleted === true) return;
     habitNames.set(doc.id, localizedText(data.name, "Habit"));
     habitsById.set(doc.id, data);
   });
@@ -406,6 +411,7 @@ export async function getClientDailyTimeline(
         id: habitId,
         name: habitNames.get(habitId) ?? "Habit",
         completed,
+        clientOwned: habit.clientOwned === true,
         value:
           typeof log?.value === "string" || typeof log?.value === "number"
             ? String(log?.value)
@@ -495,7 +501,6 @@ export async function getClientDailyTimelineDay(
     db
       .collection(FirestoreCollections.habits)
       .where("clientId", "==", clientId)
-      .where("deleted", "==", false)
       .get(),
     db
       .collection(FirestoreCollections.habitLogs)
@@ -525,6 +530,9 @@ export async function getClientDailyTimelineDay(
   const habitsById = new Map<string, Record<string, unknown>>();
   habitsSnap.docs.forEach((doc) => {
     const data = doc.data() as Record<string, unknown>;
+    // Issue #437: in-memory soft-delete filter (the query no longer does it, so
+    // client-created habits without a `deleted` field are not dropped).
+    if (data.deleted === true) return;
     habitNames.set(doc.id, localizedText(data.name, "Habit"));
     habitsById.set(doc.id, data);
   });
@@ -657,6 +665,7 @@ export async function getClientDailyTimelineDay(
       id: habitId,
       name: habitNames.get(habitId) ?? "Habit",
       completed,
+      clientOwned: habit.clientOwned === true,
       value:
         typeof log?.value === "string" || typeof log?.value === "number"
           ? String(log?.value)
