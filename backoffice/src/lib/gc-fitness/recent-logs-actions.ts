@@ -555,11 +555,23 @@ async function buildRecentLogs(params: {
       sourceFull(weightSnapsR) ||
       sourceFull(profileSnapsR);
   } else {
-    const workoutLogsPromise = db
-      .collection(FirestoreCollections.workoutLogs)
-      .where("trainerId", "==", params.trainerId)
-      .limit(150)
-      .get();
+    // #434 follow-up: fan out workout_logs per roster client (by clientId)
+    // instead of a single `trainerId ==` query, so CLIENT-CREATED ("self")
+    // workouts — whose trainerId is the client's own uid, not the coach's —
+    // appear in the dashboard/recent-logs feed too (the paginated branch
+    // already keys off clientId). Each per-client query is bounded and
+    // .catch-guarded like the other fan-outs in this branch. No new index:
+    // single-field `clientId` is auto-indexed.
+    const workoutLogsPromise = Promise.all(
+      clients.map((client) =>
+        db
+          .collection(FirestoreCollections.workoutLogs)
+          .where("clientId", "==", client.uid)
+          .limit(150)
+          .get()
+          .catch(() => null),
+      ),
+    );
     // Trainer-scoped assignments — used to surface the "client moved
     // workout from X to Y" reschedule activity. No orderBy keeps this on
     // the existing single-field trainerId index; we filter in memory to
@@ -664,8 +676,9 @@ async function buildRecentLogs(params: {
         .catch(() => null),
     );
 
+    let workoutLogsFanout: Array<FirebaseFirestore.QuerySnapshot | null> = [];
     [
-      workoutLogsSnap,
+      workoutLogsFanout,
       usersSnap,
       habitLogsSnaps,
       photoSnaps,
@@ -683,6 +696,11 @@ async function buildRecentLogs(params: {
       Promise.all(habitsPromises),
       trainerAssignmentsPromise,
     ]);
+    // Flatten the per-client fan-out into the single `{ docs }` shape the rest
+    // of the function consumes (same shape the paginated branch produces).
+    workoutLogsSnap = {
+      docs: workoutLogsFanout.flatMap((snap) => snap?.docs ?? []),
+    };
   }
 
   // Rewrap as a flat array so the rest of the function (which expects
@@ -1320,12 +1338,23 @@ async function buildRecentLogs(params: {
     (fk) => !existingAssignmentIds.has(fk),
   );
   if (unknownFks.length > 0) {
-    const refs = unknownFks.map((fk) =>
-      db.collection(FirestoreCollections.workoutAssignments).doc(fk),
+    // Point reads, NOT db.getAll: getAll/batchGet is unreliable in this
+    // serverless (Vercel) setup (issue #166 / PR #186). This confirmation is
+    // load-bearing for #434 — a client-created ("self") workout's assignment
+    // (trainerId === clientId) is never in the trainer-scoped
+    // `trainerAssignmentsSnap`, so its FK is ALWAYS "unknown" here and would be
+    // dropped as orphaned if the existence check silently failed.
+    const docs = await Promise.all(
+      unknownFks.map((fk) =>
+        db
+          .collection(FirestoreCollections.workoutAssignments)
+          .doc(fk)
+          .get()
+          .catch(() => null),
+      ),
     );
-    const docs = await db.getAll(...refs);
     docs.forEach((d) => {
-      if (d.exists) existingAssignmentIds.add(d.id);
+      if (d?.exists) existingAssignmentIds.add(d.id);
     });
   }
 
@@ -1531,6 +1560,35 @@ export async function listRecentLogsForClientAsAdmin(
   });
 }
 
+/**
+ * Issue #434: a coach may view a workout log when they are the log's `trainerId`
+ * OR the coach-of-record for the log's client. Client-created ("self") workouts
+ * (issue #392) carry `trainerId === clientId === <client uid>`, so the bare
+ * `trainerId === coach` equality 404s them even though the log shows up in the
+ * coach's recent-logs feed (which filters by `clientId`). Resolving the client's
+ * `coachId` — the same fallback habits use in `currentTrainerCanManageHabit` —
+ * admits them. The lookup is scoped to the coach's own clients, so no cross-coach
+ * leak. (The backoffice reads via the Admin SDK, so Firestore rules are bypassed;
+ * this app-side check is the only gate.)
+ */
+async function coachCanAccessLog(
+  db: FirebaseFirestore.Firestore,
+  coachUid: string,
+  data: { trainerId?: unknown; clientId?: unknown },
+): Promise<boolean> {
+  if (data.trainerId === coachUid) return true;
+  const clientId =
+    typeof data.clientId === "string" && data.clientId.trim().length > 0
+      ? data.clientId.trim()
+      : null;
+  if (!clientId) return false;
+  const clientSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  return clientSnap.exists && clientSnap.get("coachId") === coachUid;
+}
+
 export async function getWorkoutLogDetail(
   workoutLogId: string,
 ): Promise<WorkoutLogDetail> {
@@ -1546,7 +1604,7 @@ export async function getWorkoutLogDetail(
   }
 
   const data = logSnap.data() as Record<string, unknown>;
-  if (data.trainerId !== trainer.uid) {
+  if (!(await coachCanAccessLog(db, trainer.uid, data))) {
     throw new Error("Forbidden");
   }
 
@@ -1574,7 +1632,7 @@ export async function getWorkoutLogDetailAsAdmin(
   }
 
   const data = logSnap.data() as Record<string, unknown>;
-  if (data.trainerId !== coachId) {
+  if (!(await coachCanAccessLog(db, coachId, data))) {
     throw new Error("Workout log not found.");
   }
 
@@ -1627,13 +1685,19 @@ export async function getWorkoutLogDetailByAssignment(
   if (docById.size === 0) return null;
   const allDocs = Array.from(docById.values());
 
-  // Trainer-ownership + completed filter in memory (see index note above).
-  const completed = allDocs.filter((d) => {
-    const data = d.data() as Record<string, unknown>;
-    if (data.trainerId !== trainer.uid) return false;
-    // A log is "completed" when it carries a completedAt (status mirrors it).
-    return data.status === "completed" || asIso(data.completedAt) !== null;
-  });
+  // Ownership + completed filter in memory (see index note above). Ownership
+  // resolves the client's coachId too (issue #434 — client-created "self"
+  // workouts carry trainerId === clientId), so the share card shows the actuals
+  // of a self-assigned workout the same way it does a trainer-assigned one.
+  const ownedAndCompleted = await Promise.all(
+    allDocs.map(async (d) => {
+      const data = d.data() as Record<string, unknown>;
+      if (!(await coachCanAccessLog(db, trainer.uid, data))) return false;
+      // A log is "completed" when it carries a completedAt (status mirrors it).
+      return data.status === "completed" || asIso(data.completedAt) !== null;
+    }),
+  );
+  const completed = allDocs.filter((_, i) => ownedAndCompleted[i]);
   if (completed.length === 0) return null;
 
   // Most recent by startedAt (fall back to completedAt), so re-logged
