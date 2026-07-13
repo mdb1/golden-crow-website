@@ -555,11 +555,23 @@ async function buildRecentLogs(params: {
       sourceFull(weightSnapsR) ||
       sourceFull(profileSnapsR);
   } else {
-    const workoutLogsPromise = db
-      .collection(FirestoreCollections.workoutLogs)
-      .where("trainerId", "==", params.trainerId)
-      .limit(150)
-      .get();
+    // #434 follow-up: fan out workout_logs per roster client (by clientId)
+    // instead of a single `trainerId ==` query, so CLIENT-CREATED ("self")
+    // workouts — whose trainerId is the client's own uid, not the coach's —
+    // appear in the dashboard/recent-logs feed too (the paginated branch
+    // already keys off clientId). Each per-client query is bounded and
+    // .catch-guarded like the other fan-outs in this branch. No new index:
+    // single-field `clientId` is auto-indexed.
+    const workoutLogsPromise = Promise.all(
+      clients.map((client) =>
+        db
+          .collection(FirestoreCollections.workoutLogs)
+          .where("clientId", "==", client.uid)
+          .limit(150)
+          .get()
+          .catch(() => null),
+      ),
+    );
     // Trainer-scoped assignments — used to surface the "client moved
     // workout from X to Y" reschedule activity. No orderBy keeps this on
     // the existing single-field trainerId index; we filter in memory to
@@ -664,8 +676,9 @@ async function buildRecentLogs(params: {
         .catch(() => null),
     );
 
+    let workoutLogsFanout: Array<FirebaseFirestore.QuerySnapshot | null> = [];
     [
-      workoutLogsSnap,
+      workoutLogsFanout,
       usersSnap,
       habitLogsSnaps,
       photoSnaps,
@@ -683,6 +696,11 @@ async function buildRecentLogs(params: {
       Promise.all(habitsPromises),
       trainerAssignmentsPromise,
     ]);
+    // Flatten the per-client fan-out into the single `{ docs }` shape the rest
+    // of the function consumes (same shape the paginated branch produces).
+    workoutLogsSnap = {
+      docs: workoutLogsFanout.flatMap((snap) => snap?.docs ?? []),
+    };
   }
 
   // Rewrap as a flat array so the rest of the function (which expects
@@ -1320,12 +1338,23 @@ async function buildRecentLogs(params: {
     (fk) => !existingAssignmentIds.has(fk),
   );
   if (unknownFks.length > 0) {
-    const refs = unknownFks.map((fk) =>
-      db.collection(FirestoreCollections.workoutAssignments).doc(fk),
+    // Point reads, NOT db.getAll: getAll/batchGet is unreliable in this
+    // serverless (Vercel) setup (issue #166 / PR #186). This confirmation is
+    // load-bearing for #434 — a client-created ("self") workout's assignment
+    // (trainerId === clientId) is never in the trainer-scoped
+    // `trainerAssignmentsSnap`, so its FK is ALWAYS "unknown" here and would be
+    // dropped as orphaned if the existence check silently failed.
+    const docs = await Promise.all(
+      unknownFks.map((fk) =>
+        db
+          .collection(FirestoreCollections.workoutAssignments)
+          .doc(fk)
+          .get()
+          .catch(() => null),
+      ),
     );
-    const docs = await db.getAll(...refs);
     docs.forEach((d) => {
-      if (d.exists) existingAssignmentIds.add(d.id);
+      if (d?.exists) existingAssignmentIds.add(d.id);
     });
   }
 
