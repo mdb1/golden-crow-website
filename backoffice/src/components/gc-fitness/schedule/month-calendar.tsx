@@ -63,7 +63,7 @@ import {
 } from "@/components/ui/popover";
 
 import { AssignTemplateModal } from "./assign-template-modal";
-import { HabitChip } from "./habit-chip";
+import { ClientOwnedBadge, HabitChip } from "./habit-chip";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
@@ -1207,6 +1207,8 @@ function DayCell({
   onClickHabit,
   onClickAdd,
 }: DayCellProps) {
+  // Issue #449 — chip tooltip suffix for client self-assigned workouts.
+  const t = useTranslations("schedule.calendar");
   return (
     <div
       onDragOver={onDragOver}
@@ -1309,8 +1311,12 @@ function DayCell({
                     <button
                       key={w.id}
                       type="button"
-                      draggable
+                      // Issue #449 — self-assigned chips are NOT draggable:
+                      // dropping would hit moveAssignment's ownership throw
+                      // (the coach must not move a client's own workout).
+                      draggable={!w.selfAssigned}
                       onDragStart={(e) => {
+                        if (w.selfAssigned) return;
                         e.dataTransfer.effectAllowed = "move";
                         e.dataTransfer.setData("text/plain", w.id);
                         onDragStartChip(w);
@@ -1320,16 +1326,19 @@ function DayCell({
                         "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
                         workoutChipClass(w.status),
                       )}
-                      title={
-                        movedFromLabel
-                          ? `${w.templateName} — ${movedFromLabel}`
-                          : w.templateName
-                      }
+                      title={[
+                        w.templateName,
+                        movedFromLabel,
+                        w.selfAssigned ? t("clientCreatedBadge") : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" — ")}
                     >
                       <Dumbbell className="size-3 shrink-0 opacity-80" />
                       <span className="min-w-0 flex-1 truncate font-medium">
                         {w.templateName}
                       </span>
+                      {w.selfAssigned ? <ClientOwnedBadge /> : null}
                       {movedFromLabel ? (
                         <ArrowRightLeft
                           className="size-3 shrink-0 opacity-70"
@@ -1410,6 +1419,8 @@ function ClientDayCell({
   onClickHabit,
   onClickAdd,
 }: ClientDayCellProps) {
+  // Issue #449 — chip tooltip suffix for client self-assigned workouts.
+  const t = useTranslations("schedule.calendar");
   const isEmpty = workouts.length === 0 && habits.length === 0;
   return (
     <td
@@ -1437,8 +1448,12 @@ function ClientDayCell({
             <button
               key={w.id}
               type="button"
-              draggable
+              // Issue #449 — self-assigned chips are NOT draggable: dropping
+              // would hit moveAssignment's ownership throw (the coach must
+              // not move a client's own workout).
+              draggable={!w.selfAssigned}
               onDragStart={(e) => {
+                if (w.selfAssigned) return;
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", w.id);
                 onDragStartChip(w);
@@ -1451,16 +1466,19 @@ function ClientDayCell({
                 "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
                 workoutChipClass(w.status),
               )}
-              title={
-                movedFromLabel
-                  ? `${w.templateName} — ${movedFromLabel}`
-                  : w.templateName
-              }
+              title={[
+                w.templateName,
+                movedFromLabel,
+                w.selfAssigned ? t("clientCreatedBadge") : null,
+              ]
+                .filter(Boolean)
+                .join(" — ")}
             >
               <Dumbbell className="size-3 shrink-0 opacity-80" />
               <span className="min-w-0 flex-1 truncate font-medium">
                 {w.templateName}
               </span>
+              {w.selfAssigned ? <ClientOwnedBadge /> : null}
               {movedFromLabel ? (
                 <ArrowRightLeft
                   className="size-3 shrink-0 opacity-70"

@@ -390,6 +390,7 @@
         "loading": "Loading schedule...",
         "loadFailed": "Could not load this week.",
         "emptyDay": "No workouts or habits",
+        "clientCreated": "Created by the client",
         "workoutStatus": {
           "scheduled": "scheduled",
           "started": "in progress",
