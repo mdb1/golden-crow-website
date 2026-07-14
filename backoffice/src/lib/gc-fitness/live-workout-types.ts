@@ -13,6 +13,7 @@
 // to what the iOS app writes (SetLog.swift / WorkoutLog.swift CodingKeys).
 
 import type { ExerciseMetric } from "./live-workout-supersets";
+import type { SetType } from "./set-type";
 
 /** A localized string as stored on exercise/template docs. */
 export interface LocalizedString {
@@ -38,6 +39,14 @@ export interface SessionSetLog {
   clientLoggedAt: string;
   /** Seconds, time-based sets only (plank/wall-sit/dead-hang). */
   durationSeconds?: number | null;
+  /**
+   * quick-260714-m57 (#403) — optional richer set type (warmup / failure /
+   * dropset). Wire: `set_type` (snake_case sibling of `is_warmup`). Writers
+   * MUST keep `isWarmup === (setType === "warmup")` in sync so old readers
+   * keep excluding warm-ups. Absent/null = legacy doc or normal set —
+   * resolve via `effectiveSetType()` from ./set-type.
+   */
+  setType?: SetType | null;
 }
 
 /**
@@ -66,6 +75,12 @@ export interface SessionExercise {
   repsBySet?: number[] | null;
   /** Per-set weight pre-fill, kg. */
   weightBySetKg?: number[] | null;
+  /**
+   * quick-260714-m57 (#403) — per-set type prescription (raw wire strings
+   * "normal" | "warmup" | "failure" | "dropset"). Resolve per set index via
+   * `plannedSetType()` from ./set-type (missing / short / unknown ⇒ normal).
+   */
+  setTypesBySet?: string[] | null;
   /** reps | time. Defaults to reps when absent. */
   metric?: ExerciseMetric | null;
   /** Per-set durations (time exercises), seconds. */

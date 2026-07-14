@@ -5,19 +5,24 @@
 // No I/O; unit-tested in __tests__/live-workout-volume.test.ts.
 //
 // Volume contract (mirrors iOS):
-//   - WARMUP sets are EXCLUDED from total volume.
+//   - WARMUP sets are EXCLUDED from total volume — via the HARDENED
+//     effective predicate (quick-260714-m57 #403): a set is a warmup when
+//     EITHER the richer setType === "warmup" OR the legacy isWarmup flag
+//     says so (effectiveSetType from ./set-type). Failure / drop sets
+//     count normally.
 //   - reps-based set:  weightKg * reps
 //   - time-based set:  weightKg * (durationSeconds / 60)   — a bodyweight
 //     plank (weightKg = 0) contributes 0, which is correct.
 //   A set counts as time-based when it carries a positive durationSeconds.
 
 import type { SessionSetLog } from "./live-workout-types";
+import { effectiveSetType } from "./set-type";
 
 /** Σ working volume in kg. Warmups excluded; time sets use weight·minutes. */
 export function computeTotalVolumeKg(sets: SessionSetLog[]): number {
   let total = 0;
   for (const set of sets) {
-    if (set.isWarmup) continue;
+    if (effectiveSetType(set) === "warmup") continue;
     const duration = set.durationSeconds ?? 0;
     if (duration > 0) {
       total += set.weightKg * (duration / 60);
@@ -49,5 +54,5 @@ export function computeDurationSeconds(
 
 /** Count of completed (non-warmup) working sets — for the progress header. */
 export function countWorkingSets(sets: SessionSetLog[]): number {
-  return sets.filter((s) => !s.isWarmup).length;
+  return sets.filter((s) => effectiveSetType(s) !== "warmup").length;
 }
