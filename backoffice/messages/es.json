@@ -1686,6 +1686,8 @@
       "exerciseOverridesCopyToAll": "Copiar a todas",
       "exerciseOverridesRemoveSet": "Quitar serie {index}",
       "supersetLabel": "Superserie {group}",
+      "supersetGroupRoundRest": "Descanso de la superserie (seg)",
+      "supersetGroupAfterRest": "Descanso al terminar la superserie (seg)",
       "errorTemplateDetailFallback": "No se pudieron cargar los detalles de la plantilla.",
       "cancel": "Cancelar",
       "assigning": "Asignando…",

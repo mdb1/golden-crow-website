@@ -1686,6 +1686,8 @@
       "exerciseOverridesCopyToAll": "Copy to all",
       "exerciseOverridesRemoveSet": "Remove set {index}",
       "supersetLabel": "Superset {group}",
+      "supersetGroupRoundRest": "Superset rest (sec)",
+      "supersetGroupAfterRest": "Rest after the superset (sec)",
       "errorTemplateDetailFallback": "Could not load template details.",
       "cancel": "Cancel",
       "assigning": "Assigning…",

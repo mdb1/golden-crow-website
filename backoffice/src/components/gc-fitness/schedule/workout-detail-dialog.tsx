@@ -51,6 +51,7 @@ import {
   ShareAssignmentCard,
   ShareWorkoutCard,
 } from "@/components/gc-fitness/share-workout-card";
+import { getSupersetGroupRest } from "@/lib/gc-fitness/superset-groups";
 import { WorkoutLogDetailView } from "@/components/gc-fitness/workout-log-detail-view";
 import { WorkoutAssignmentDeleteDialog } from "@/components/gc-fitness/workout-assignment-delete-dialog";
 import { WorkoutAssignmentEditDialog } from "./workout-assignment-edit-dialog";
@@ -455,8 +456,22 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
             {data.exercises.map((ex, idx) => {
               const prevGroup =
                 idx > 0 ? data.exercises[idx - 1].supersetGroup ?? null : null;
-              const isSupersetStart =
-                ex.supersetGroup !== null && ex.supersetGroup !== prevGroup;
+              const nextGroup =
+                idx < data.exercises.length - 1
+                  ? data.exercises[idx + 1].supersetGroup ?? null
+                  : null;
+              const group = ex.supersetGroup ?? null;
+              const isSupersetStart = group !== null && group !== prevGroup;
+              // A REAL superset needs an adjacent same-label sibling. Only then
+              // do we collapse rest to ONE group line (D10); a lone labelled
+              // exercise keeps its own per-exercise rest line.
+              const isRealSupersetMember =
+                group !== null && (group === prevGroup || group === nextGroup);
+              const isBlockEnd = isRealSupersetMember && group !== nextGroup;
+              // D1 canonical group round rest = the block's last member's rest.
+              const groupRoundRest = isRealSupersetMember
+                ? getSupersetGroupRest(data.exercises, group).roundRestSeconds
+                : null;
               return (
                 <div
                   key={`${ex.exerciseId}-${ex.index}`}
@@ -479,10 +494,16 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
                       </span>
                     ) : null}
                   </div>
-                  <ExerciseSetTable ex={ex} />
+                  <ExerciseSetTable ex={ex} hideRest={isRealSupersetMember} />
                   {ex.notes ? (
                     <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
                       {ex.notes}
+                    </p>
+                  ) : null}
+                  {/* D10 — one group rest line for the whole superset block. */}
+                  {isBlockEnd && groupRoundRest !== null ? (
+                    <p className="mt-2 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                      Descanso de la superserie: {groupRoundRest}s
                     </p>
                   ) : null}
                 </div>
@@ -497,8 +518,12 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
 
 function ExerciseSetTable({
   ex,
+  hideRest = false,
 }: {
   ex: AssignmentDetail["exercises"][number];
+  /** Suppress the per-exercise rest line — superset members show ONE group rest
+   *  line at the block level instead (D10). */
+  hideRest?: boolean;
 }) {
   // 26-03 — Widen row shape for the time branch per PATTERNS.md §18.
   // The header column + the body cell both swap between Reps and Seg
@@ -550,9 +575,11 @@ function ExerciseSetTable({
           ) : null}
         </div>
       ))}
-      <div className="mt-1 text-[10px] text-muted-foreground">
-        Descanso: {ex.rest_seconds}s
-      </div>
+      {hideRest ? null : (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          Descanso: {ex.rest_seconds}s
+        </div>
+      )}
     </div>
   );
 }
