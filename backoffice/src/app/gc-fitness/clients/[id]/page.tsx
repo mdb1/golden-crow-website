@@ -50,6 +50,7 @@ import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
 import { getClientNotes } from "@/lib/gc-fitness/client-notes-actions";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
 import { getClientCalendarPeek } from "@/lib/gc-fitness/client-calendar-peek-actions";
+import { listClientPersonalRecordsPage } from "@/lib/gc-fitness/client-personal-records-actions";
 import {
   bodyWeightFulfillment,
   progressPhotosFulfillment,
@@ -57,6 +58,7 @@ import {
 import { PendingClientPreload } from "./_components/PendingClientPreload";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
+import { ClientPersonalRecordsCard } from "./_components/ClientPersonalRecordsCard";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "GC Fitness - <clients>" (issue #170).
@@ -149,7 +151,14 @@ export default async function ClientDetailPage({
   // Contract: every client activity surface below reads this explicit IANA
   // timezone. Leaf components must not infer UTC or the host timezone.
   const todayCivil = civilDateToday(timezone);
-  const [notes, progressPhotos, goals, bodyWeightFulfilled, calendarPeek] = await Promise.all([
+  const [
+    notes,
+    progressPhotos,
+    goals,
+    bodyWeightFulfilled,
+    calendarPeek,
+    personalRecordsPage,
+  ] = await Promise.all([
     getClientNotes(id).catch(() => ({ notes: "", updatedAt: null, entries: [] })),
     listProgressPhotosForClient(id),
     listClientGoals(id),
@@ -160,6 +169,7 @@ export default async function ClientDetailPage({
       () => ({ fulfilled: false, fulfilledAt: null }),
     ),
     getClientCalendarPeek({ clientId: id, anchorCivil: todayCivil }),
+    listClientPersonalRecordsPage({ clientId: id }),
   ]);
   // Header "Peso" = the client's most recent weigh-in BY MEASUREMENT DATE.
   // On a transient read error fall back to NULL (em dash), never to the
@@ -213,6 +223,7 @@ export default async function ClientDetailPage({
         goals={goals}
       />
       <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
+      <ClientPersonalRecordsCard initialPage={personalRecordsPage} />
 
       <ClientRequestActionsCard
         clientId={id}

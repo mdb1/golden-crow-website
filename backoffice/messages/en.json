@@ -404,6 +404,22 @@
           "missed": "missed"
         }
       },
+      "personalRecords": {
+        "title": "Client PRs",
+        "subtitle": "Personal records detected in completed workouts.",
+        "visibleCount": "{count, plural, =0 {No visible PRs} one {# visible PR} other {# visible PRs}}",
+        "filterAll": "All",
+        "filterCommon": "Most common",
+        "muscleGroupLabel": "Group",
+        "muscleGroupAll": "All",
+        "empty": "No PRs for this filter.",
+        "current": "Current",
+        "previous": "Previous",
+        "firstPr": "No previous PR",
+        "openWorkout": "View workout",
+        "loadMore": "Load more",
+        "loadFailed": "Could not load PRs."
+      },
       "goals": {
         "title": "Goals",
         "subtitle": "Short, medium, and long-term goals visible to the client.",

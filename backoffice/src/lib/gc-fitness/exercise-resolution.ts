@@ -16,6 +16,11 @@ type FirestoreLike = {
   };
 };
 
+export interface ResolvedExerciseDoc {
+  id: string;
+  data: ExerciseDocData;
+}
+
 function mergedTargetId(data: ExerciseDocData | null | undefined): string | null {
   const raw = data?.mergedInto;
   return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
@@ -30,6 +35,18 @@ export async function resolveExerciseDocsById(
   db: FirestoreLike,
   ids: string[],
 ): Promise<Map<string, ExerciseDocData>> {
+  const resolved = await resolveExerciseDocsByIdDetailed(db, ids);
+  const out = new Map<string, ExerciseDocData>();
+  for (const [id, entry] of resolved) {
+    out.set(id, entry.data);
+  }
+  return out;
+}
+
+export async function resolveExerciseDocsByIdDetailed(
+  db: FirestoreLike,
+  ids: string[],
+): Promise<Map<string, ResolvedExerciseDoc>> {
   const uniqueIds = Array.from(new Set(ids.filter((id) => id.trim().length > 0)));
   const fetched = new Map<string, ExerciseDocData | null>();
   const queue = [...uniqueIds];
@@ -60,12 +77,12 @@ export async function resolveExerciseDocsById(
     return resolveTerminal(target, seen) ?? target;
   };
 
-  const out = new Map<string, ExerciseDocData>();
+  const out = new Map<string, ResolvedExerciseDoc>();
   for (const id of uniqueIds) {
     const resolvedId = resolveTerminal(id) ?? id;
     const resolvedData = fetched.get(resolvedId) ?? fetched.get(id);
     if (resolvedData) {
-      out.set(id, resolvedData);
+      out.set(id, { id: resolvedId, data: resolvedData });
     }
   }
 
