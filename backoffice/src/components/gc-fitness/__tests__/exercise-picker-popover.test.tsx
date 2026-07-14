@@ -440,6 +440,35 @@ describe("ExercisePickerPopover search-before-cap (issue #291 Case 6)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue #412 (report 2) — double-lupa regression guard. The picker's search
+// input must render EXACTLY ONE magnifying-glass icon. cmdk's CommandInput
+// already draws its own SearchIcon inside `data-slot="command-input-wrapper"`;
+// a previous manual <Search/> wrapper drew a second one. Assert the wrapper
+// holds a single svg.
+// ---------------------------------------------------------------------------
+
+describe("ExercisePickerPopover single search icon (issue #412 report 2)", () => {
+  it("renders exactly one search-icon svg in the command input", () => {
+    mockUseExercisesQuery.mockReturnValue({
+      data: [makeRow()],
+      isLoading: false,
+      error: null,
+      hasSnapshot: true,
+    });
+
+    render(<ExercisePickerPopover value="" onChange={() => {}} />);
+    openPicker();
+
+    const wrapper = document.querySelector(
+      '[data-slot="command-input-wrapper"]',
+    );
+    expect(wrapper).not.toBeNull();
+    const icons = wrapper!.querySelectorAll("svg");
+    expect(icons.length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Legacy exercise retirement — isPickableExercise filter.
 //
 // (A) A legacy catalog row (source "wger", no standard-library tag) must NOT
