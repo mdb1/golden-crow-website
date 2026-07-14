@@ -24,6 +24,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
 
+/** Compact "previous PR" value for the PR row: duration for time PRs, else
+ * "{weight} kg × {reps}" (issue #405). */
+function prPreviousText(
+  prev: NonNullable<WorkoutLogDetail["sets"][number]["prPrevious"]>,
+): string {
+  if (prev.durationSeconds !== null) return `${prev.durationSeconds}s`;
+  return `${prev.weightKg} kg × ${prev.reps}`;
+}
+
 // Stable HSL palette — assigns each distinct exerciseId a recognisable
 // accent so the per-exercise blocks read at a glance.
 const EXERCISE_COLORS = [
@@ -236,7 +245,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                               }
                             >
                               <td className="py-2 pr-3">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                                   <span>{set.index}</span>
                                   {set.isPR ? (
                                     <span
@@ -252,6 +261,13 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                         className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
                                         aria-label={t("prBadge")}
                                       />
+                                    </span>
+                                  ) : null}
+                                  {set.isPR && set.prPrevious ? (
+                                    <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                                      {t("prPreviousLabel", {
+                                        value: prPreviousText(set.prPrevious),
+                                      })}
                                     </span>
                                   ) : null}
                                 </div>

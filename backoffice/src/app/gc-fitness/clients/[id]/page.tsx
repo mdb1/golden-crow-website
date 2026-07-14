@@ -43,6 +43,7 @@ import { ChatHistoryWidget } from "./_components/ChatHistoryWidget";
 import { BodyWeightTrendChart } from "./_components/BodyWeightTrendChart";
 import { ClientNotesCard } from "./_components/ClientNotesCard";
 import { ProgressPhotosWidget } from "./_components/ProgressPhotosWidget";
+import { PersonalRecordsWidget } from "./_components/PersonalRecordsWidget";
 import { ClientRecentLogsWidget } from "./_components/ClientRecentLogsWidget";
 import ClientRequestActionsCard from "./_components/ClientRequestActionsCard";
 import { listClientGoals } from "@/lib/gc-fitness/client-goal-actions";
@@ -252,6 +253,10 @@ export default async function ClientDetailPage({
         />
 
         <ProgressPhotosWidget photos={progressPhotos} clientId={id} timezone={timezone} />
+
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("personalRecords")} />}>
+          <PersonalRecordsWidget clientId={id} />
+        </Suspense>
 
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>
           <ClientRecentLogsWidget clientId={id} timezone={timezone} />
