@@ -94,7 +94,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
+// quick-260714-m57 (#403) — Hevy-style per-set types (normal / warm-up /
+// failure / drop set). TS twin helpers of iOS SetType.swift; the picker
+// writes `setTypesBySet` next to repsBySet / weightBySetKg.
+import {
+  SET_TYPES,
+  type SetType,
+  isSetType,
+  plannedSetType,
+  setDisplayLabels,
+  SET_TYPE_LETTERS,
+  SET_TYPE_LABELS_ES,
+  SET_TYPE_TEXT_CLASS,
+} from "@/lib/gc-fitness/set-type";
 
 import {
   workoutTemplateSchema,
@@ -251,13 +271,32 @@ function withTransitionRestDefault(
     | Array<Partial<WorkoutTemplateInput["exercises"][number]>>
     | undefined,
 ): WorkoutTemplateInput["exercises"] {
-  return (exercises ?? []).map((exercise) => ({
-    ...exercise,
-    transition_rest_seconds:
-      typeof exercise.transition_rest_seconds === "number"
-        ? exercise.transition_rest_seconds
-        : 60,
-  })) as WorkoutTemplateInput["exercises"];
+  return (exercises ?? []).map((exercise) => {
+    const next: Record<string, unknown> = {
+      ...exercise,
+      transition_rest_seconds:
+        typeof exercise.transition_rest_seconds === "number"
+          ? exercise.transition_rest_seconds
+          : 60,
+    };
+    // quick-260714-m57 (#403) — sanitize per-set types on LOAD: keep only
+    // known wire strings ("normal"/"warmup"/"failure"/"dropset") so the
+    // submit-time Zod enum can't reject a stale/foreign doc. All-normal (or
+    // fully-invalid) arrays are dropped entirely — the wire contract omits
+    // the field when nothing is non-normal.
+    const rawTypes = (exercise as { setTypesBySet?: unknown }).setTypesBySet;
+    if (Array.isArray(rawTypes)) {
+      // POSITIONAL coercion (never filter — dropping an entry would shift
+      // every later set's type to the wrong row).
+      const clean = rawTypes.map((t): SetType => (isSetType(t) ? t : "normal"));
+      if (clean.some((t) => t !== "normal")) {
+        next.setTypesBySet = clean;
+      } else {
+        delete next.setTypesBySet;
+      }
+    }
+    return next;
+  }) as WorkoutTemplateInput["exercises"];
 }
 
 function clearDraft(key: string) {
@@ -691,6 +730,38 @@ export function TemplateForm({
     if (nextDurations !== undefined) {
       form.setValue(durationPath, nextDurations, { shouldDirty: true });
     }
+    // quick-260714-m57 (#403) — keep setTypesBySet aligned with the set
+    // count: pad new sets with "normal", truncate removed ones. Only when
+    // the trainer already picked a type (never fabricate the field).
+    const typesPath = `exercises.${index}.setTypesBySet` as const;
+    const currentTypes = form.getValues(typesPath);
+    if (Array.isArray(currentTypes) && currentTypes.length > 0) {
+      const nextTypes = Array.from({ length: safeSets }, (_, i) =>
+        plannedSetType(i, currentTypes),
+      );
+      form.setValue(typesPath, nextTypes, { shouldDirty: true });
+    }
+  }
+
+  // quick-260714-m57 (#403) — per-set type picker write. Reads the current
+  // array (padded to the set count with "normal"), swaps one entry, writes
+  // back. Emission is normalized on submit (field omitted when all-normal).
+  function setSetType(index: number, setIdx: number, type: SetType) {
+    const typesPath = `exercises.${index}.setTypesBySet` as const;
+    const totalSets = Math.max(
+      1,
+      Math.min(
+        10,
+        Number(form.getValues(`exercises.${index}.sets` as const) ?? 1),
+      ),
+    );
+    const current = form.getValues(typesPath);
+    const next = Array.from(
+      { length: Math.max(totalSets, setIdx + 1) },
+      (_, i) => plannedSetType(i, current),
+    );
+    next[setIdx] = type;
+    form.setValue(typesPath, next, { shouldDirty: true });
   }
 
   function syncSupersetGroupSets(group: string, nextSets: number) {
@@ -878,7 +949,23 @@ export function TemplateForm({
                       : durationFallbackForAlign ?? 60,
                   )
                 : undefined;
-            return {
+            // quick-260714-m57 (#403) — align per-set types to canonicalLen
+            // (pad "normal", truncate) like reps/weights above. The field is
+            // persisted ONLY when some entry is non-normal (wire contract:
+            // writers omit all-normal arrays). On update the whole
+            // `exercises` array is replaced, so omission also CLEARS stale
+            // types on Firestore.
+            const cleanedTypes: SetType[] = Array.isArray(ex.setTypesBySet)
+              ? ex.setTypesBySet.map((t): SetType =>
+                  isSetType(t) ? t : "normal",
+                )
+              : [];
+            const alignedTypes = Array.from(
+              { length: canonicalLen },
+              (_, i): SetType => cleanedTypes[i] ?? "normal",
+            );
+            const hasNonNormalTypes = alignedTypes.some((t) => t !== "normal");
+            const normalizedExercise: WorkoutTemplateInput["exercises"][number] = {
               ...ex,
               sets: canonicalLen,
               reps: alignedReps[0] ?? repsFallback,
@@ -902,6 +989,15 @@ export function TemplateForm({
                 : {}),
               order: idx + 1,
             };
+            if (hasNonNormalTypes) {
+              normalizedExercise.setTypesBySet = alignedTypes;
+            } else {
+              // NEVER leave the key as `undefined` — the Admin SDK rejects
+              // undefined values ("Cannot use 'undefined' as a Firestore
+              // value"); deleting the key omits it from the payload.
+              delete normalizedExercise.setTypesBySet;
+            }
+            return normalizedExercise;
           }),
         };
         const result = await onSubmit(normalized);
@@ -1812,6 +1908,20 @@ export function TemplateForm({
                             const weightValue = weightArray[setIdx];
                             const durationValue =
                               setDurationDraft[setKey] ?? (durationArray[setIdx] ?? durationFallback);
+                            // quick-260714-m57 (#403) — Hevy-style per-set
+                            // type. Non-normal rows render the colored letter
+                            // (W/F/D); normal rows render a number counting
+                            // ONLY normal sets (preceding rows decide it, so
+                            // slicing to setIdx+1 is sufficient).
+                            const typesRaw = form.getValues(
+                              `exercises.${index}.setTypesBySet` as const,
+                            );
+                            const rowType = plannedSetType(setIdx, typesRaw);
+                            const rowLabel = setDisplayLabels(
+                              Array.from({ length: setIdx + 1 }, (_, i) =>
+                                plannedSetType(i, typesRaw),
+                              ),
+                            )[setIdx];
 
                             return (
                               <div
@@ -1827,9 +1937,59 @@ export function TemplateForm({
                                     : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px]",
                                 )}
                               >
-                                <span className="text-xs text-muted-foreground">
-                                  {t("setNumber", { count: setIdx + 1 })}
-                                </span>
+                                {/* quick-260714-m57 (#403) — the set-number
+                                    cell is the type picker trigger: Normal /
+                                    Calentamiento (W) / Al fallo (F) / Drop
+                                    set (D). */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      tabIndex={-1}
+                                      aria-label={`Tipo de la serie ${setIdx + 1}: ${SET_TYPE_LABELS_ES[rowType]}`}
+                                      title="Cambiar tipo de serie"
+                                      className={cn(
+                                        "inline-flex h-8 items-center justify-start rounded-md px-1 text-xs hover:bg-muted",
+                                        rowType === "normal"
+                                          ? "text-muted-foreground"
+                                          : cn(
+                                              "font-bold",
+                                              SET_TYPE_TEXT_CLASS[rowType],
+                                            ),
+                                      )}
+                                    >
+                                      {rowType === "normal"
+                                        ? t("setNumber", {
+                                            count: Number(rowLabel),
+                                          })
+                                        : rowLabel}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start">
+                                    {SET_TYPES.map((type) => (
+                                      <DropdownMenuItem
+                                        key={type}
+                                        onSelect={() =>
+                                          setSetType(index, setIdx, type)
+                                        }
+                                        className={cn(
+                                          "gap-2",
+                                          type === rowType && "bg-muted",
+                                        )}
+                                      >
+                                        <span
+                                          className={cn(
+                                            "w-4 text-center font-semibold",
+                                            SET_TYPE_TEXT_CLASS[type],
+                                          )}
+                                        >
+                                          {SET_TYPE_LETTERS[type] ?? "#"}
+                                        </span>
+                                        {SET_TYPE_LABELS_ES[type]}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                                 {/* 26-03 — Per-set primary input. When the
                                     effective metric is "time", the field
                                     binds to durationBySetSeconds with bounds
