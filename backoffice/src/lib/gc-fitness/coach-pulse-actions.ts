@@ -111,6 +111,11 @@ export async function getCoachPulse(): Promise<CoachPulse> {
   const activeClients = clients
     .filter((c) => !c.pendingProvisioning)
     .slice(0, 50);
+  // workout_assignments/workout_logs below are fetched via the trainerId
+  // stamp, which is set at creation and never updated on coach transfer —
+  // transferred clients would otherwise inflate BOTH sides of the workout
+  // metric. Re-scope those rows in memory to the CURRENT roster (issue #446).
+  const rosterUids = new Set(activeClients.map((c) => c.uid));
   const trainerTz = await getTrainerTimezone();
   const windowDays = buildWindowDays(trainerTz);
   const windowStart = windowDays[0]!;
@@ -311,6 +316,7 @@ export async function getCoachPulse(): Promise<CoachPulse> {
         typeof data.scheduledFor === "string" ? data.scheduledFor : "";
       const clientId = typeof data.clientId === "string" ? data.clientId : "";
       if (!scheduledFor || !clientId) return null;
+      if (!rosterUids.has(clientId)) return null; // stale trainerId — issue #446
       if (scheduledFor < windowStart || scheduledFor > windowEnd) return null;
       return { clientId, scheduledFor };
     })
@@ -337,6 +343,7 @@ export async function getCoachPulse(): Promise<CoachPulse> {
       const clientId =
         typeof data.clientId === "string" ? data.clientId : "";
       if (!clientId) return null;
+      if (!rosterUids.has(clientId)) return null; // stale trainerId — issue #446
       const startedAt = asDate(data.startedAt) ?? asDate(data.createdAt);
       if (!startedAt) return null;
       const civilDate = civilDateFormat(startedAt, trainerTz);
