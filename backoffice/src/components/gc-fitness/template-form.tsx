@@ -102,6 +102,7 @@ import {
 } from "@/lib/gc-fitness/workout-template-schema";
 import {
   getSupersetGroupMemberIndexes,
+  getSupersetGroupRest,
   getSupersetMembership,
   listSupersetGroupOptions,
   normalizeSupersetGroup,
@@ -118,6 +119,44 @@ import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener
 // extra Firestore reads).
 import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
 import { estimateTemplateDurationMinutesFromRaw } from "@/lib/gc-fitness/workout-duration-estimate";
+
+/**
+ * Per-label accent classes for superset group borders/pills (D9). Reuses the
+ * live-run violet pattern family and rotates through a small palette so adjacent
+ * blocks (A/B/C) read as distinct groups. Falls back to violet for any label
+ * outside the palette.
+ */
+const SUPERSET_ACCENTS: {
+  card: string;
+  badge: string;
+  pillActive: string;
+}[] = [
+  {
+    card: "border-violet-500/40 bg-violet-500/5",
+    badge: "bg-violet-500/20 text-violet-700 dark:text-violet-100",
+    pillActive: "border-violet-400 bg-violet-400/15 text-violet-700 dark:text-violet-100",
+  },
+  {
+    card: "border-sky-500/40 bg-sky-500/5",
+    badge: "bg-sky-500/20 text-sky-700 dark:text-sky-100",
+    pillActive: "border-sky-400 bg-sky-400/15 text-sky-700 dark:text-sky-100",
+  },
+  {
+    card: "border-emerald-500/40 bg-emerald-500/5",
+    badge: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-100",
+    pillActive: "border-emerald-400 bg-emerald-400/15 text-emerald-700 dark:text-emerald-100",
+  },
+];
+
+function supersetAccentFor(label: string): (typeof SUPERSET_ACCENTS)[number] {
+  const trimmed = label.trim().toUpperCase();
+  // A→0, B→1, C→2; any other label hashes into the palette.
+  const code = trimmed.charCodeAt(0);
+  const idx = Number.isFinite(code)
+    ? (code - 65 + SUPERSET_ACCENTS.length * 100) % SUPERSET_ACCENTS.length
+    : 0;
+  return SUPERSET_ACCENTS[idx] ?? SUPERSET_ACCENTS[0];
+}
 
 export type TemplateFormMode = "create" | "edit";
 
@@ -367,6 +406,14 @@ export function TemplateForm({
   const [transitionRestSecondsDraft, setTransitionRestSecondsDraft] = useState<
     Record<string, string>
   >({});
+  // Group-level rest drafts for superset blocks, keyed by group LABEL (not
+  // field.id) — one editor per block, write-through to every member on commit.
+  const [supersetRoundRestDraft, setSupersetRoundRestDraft] = useState<
+    Record<string, string>
+  >({});
+  const [supersetAfterRestDraft, setSupersetAfterRestDraft] = useState<
+    Record<string, string>
+  >({});
   const [step, setStep] = useState<1 | 2>(1);
   // Coach-language-first: open the translation fields only when the record is
   // already bilingual (edit of a translated template).
@@ -431,6 +478,13 @@ export function TemplateForm({
     () => listSupersetGroupOptions(watchedExercises),
     [watchedExercises],
   );
+  // Fixed A/B/C pills + any legacy labels already in use beyond A-C (rendered as
+  // their own pills so existing docs stay editable). D9.
+  const supersetPillLabels = useMemo(() => {
+    const fixed = ["A", "B", "C"];
+    const extras = supersetGroupOptions.filter((g) => !fixed.includes(g));
+    return [...fixed, ...extras];
+  }, [supersetGroupOptions]);
   // Live estimated duration (work + rest + per-set setup overhead + transitions),
   // matching the iOS-twin estimator. 0 while no exercises are configured.
   const estimatedDurationMinutes = useMemo(
@@ -687,6 +741,49 @@ export function TemplateForm({
         shouldDirty: true,
       });
       syncSetArrays(memberIndex, leaderSets);
+    }
+  }
+
+  // D9 — tap a pill: assign the exercise to that group, or remove it when the
+  // active pill is tapped again.
+  function toggleSupersetGroup(index: number, label: string) {
+    const current = normalizeSupersetGroup(
+      form.getValues(`exercises.${index}.supersetGroup` as const),
+    );
+    applySupersetGroup(index, current === label ? "" : label);
+  }
+
+  // D1/D2 write-through — the single group rest field writes to EVERY member's
+  // rest_seconds (round rest) or transition_rest_seconds (after-superset rest).
+  function writeSupersetGroupRoundRest(group: string, value: number | undefined) {
+    const normalized = normalizeSupersetGroup(group);
+    if (!normalized) return;
+    for (const memberIndex of getSupersetGroupMemberIndexes(
+      watchedExercises,
+      normalized,
+    )) {
+      // Mirrors the per-member rest input, which clears via onChange(undefined);
+      // form.setValue types the path as number, so cast to preserve that.
+      form.setValue(
+        `exercises.${memberIndex}.rest_seconds` as const,
+        value as number,
+        { shouldDirty: true },
+      );
+    }
+  }
+
+  function writeSupersetGroupAfterRest(group: string, value: number | undefined) {
+    const normalized = normalizeSupersetGroup(group);
+    if (!normalized) return;
+    for (const memberIndex of getSupersetGroupMemberIndexes(
+      watchedExercises,
+      normalized,
+    )) {
+      form.setValue(
+        `exercises.${memberIndex}.transition_rest_seconds` as const,
+        value as number,
+        { shouldDirty: true },
+      );
     }
   }
 
@@ -1207,6 +1304,17 @@ export function TemplateForm({
                   const supersetGroup = supersetMembership.group;
                   const isSupersetLeader = supersetMembership.isLeader;
                   const isSupersetFollower = supersetMembership.isFollower;
+                  // D9 — a REAL superset (2+ members). Only then do we hide the
+                  // per-member rest inputs and surface the single group rest
+                  // fields (on the leader). A lone labelled exercise keeps its
+                  // own per-exercise rest fields.
+                  const isSupersetMember = supersetMembership.isGrouped;
+                  const supersetAccent = supersetGroup
+                    ? supersetAccentFor(supersetGroup)
+                    : null;
+                  const groupRest = isSupersetMember
+                    ? getSupersetGroupRest(watchedExercises, supersetGroup)
+                    : null;
                   // True when the trainer hasn't explicitly chosen a
                   // per-template override — we show a small "Heredado"
                   // hint next to the chips so they know the value is
@@ -1219,7 +1327,13 @@ export function TemplateForm({
                   // same exercise).
                   <SortableExerciseRow key={field.id} id={field.id}>
                     {(dragListeners) => (
-                <Card>
+                <Card
+                  className={cn(
+                    isSupersetMember && supersetAccent
+                      ? cn("border-l-4", supersetAccent.card)
+                      : undefined,
+                  )}
+                >
                   <CardContent className="flex flex-col gap-3 p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -1237,6 +1351,16 @@ export function TemplateForm({
                         <span className="text-sm font-medium text-muted-foreground">
                           #{index + 1}
                         </span>
+                        {isSupersetMember && supersetGroup && supersetAccent ? (
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+                              supersetAccent.badge,
+                            )}
+                          >
+                            {t("supersetBlockLabel", { group: supersetGroup })}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="flex gap-1">
                         <Button
@@ -1484,6 +1608,9 @@ export function TemplateForm({
                           </FormItem>
                         )}
                       />
+                      {/* D9 — superset members hide the per-exercise rest input;
+                          the single group rest lives on the leader below. */}
+                      {isSupersetMember ? null : (
                       <Controller
                         control={form.control}
                         name={`exercises.${index}.rest_seconds` as const}
@@ -1547,6 +1674,7 @@ export function TemplateForm({
                           </FormItem>
                         )}
                       />
+                      )}
                     </div>
 
                     {/* 26-03 — Exercise-level duration fallback. Visible only
@@ -2131,8 +2259,121 @@ export function TemplateForm({
                       />
                     </div>
 
+                    {/* D9 — superset LEADER shows the single group rest editor:
+                        one "round rest" + one "after-superset rest" field, both
+                        written through to every member (D1/D2). Members hide
+                        their per-exercise rest fields entirely. */}
+                    {isSupersetMember && isSupersetLeader && supersetAccent ? (
+                      <div
+                        className={cn(
+                          "rounded-lg border p-3",
+                          supersetAccent.card,
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+                              supersetAccent.badge,
+                            )}
+                          >
+                            {t("supersetBlockLabel", { group: supersetGroup })}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <FormItem>
+                            <FormLabel>{t("supersetRoundRest")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={
+                                  supersetRoundRestDraft[supersetGroup] ??
+                                  (groupRest?.roundRestSeconds ?? "")
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== "" && !Number.isFinite(Number(v))) return;
+                                  setSupersetRoundRestDraft((prev) => ({
+                                    ...prev,
+                                    [supersetGroup]: v,
+                                  }));
+                                }}
+                                onBlur={() => {
+                                  const raw = supersetRoundRestDraft[supersetGroup];
+                                  if (raw !== undefined) {
+                                    const parsed = raw === "" ? undefined : Number(raw);
+                                    if (parsed === undefined || Number.isFinite(parsed)) {
+                                      writeSupersetGroupRoundRest(supersetGroup, parsed);
+                                    }
+                                    setSupersetRoundRestDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[supersetGroup];
+                                      return next;
+                                    });
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t("supersetRoundRestHint")}
+                            </FormDescription>
+                          </FormItem>
+                          <FormItem>
+                            <div className="flex items-center gap-2">
+                              <FormLabel>{t("supersetAfterRest")}</FormLabel>
+                              <InfoTooltip
+                                text={t("transitionRestTooltip")}
+                                label={t("transitionRestTooltipLabel")}
+                              />
+                            </div>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={
+                                  supersetAfterRestDraft[supersetGroup] ??
+                                  (groupRest?.afterRestSeconds ?? "")
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== "" && !Number.isFinite(Number(v))) return;
+                                  setSupersetAfterRestDraft((prev) => ({
+                                    ...prev,
+                                    [supersetGroup]: v,
+                                  }));
+                                }}
+                                onBlur={() => {
+                                  const raw = supersetAfterRestDraft[supersetGroup];
+                                  if (raw !== undefined) {
+                                    const parsed = raw === "" ? 60 : Number(raw);
+                                    if (Number.isFinite(parsed)) {
+                                      writeSupersetGroupAfterRest(supersetGroup, parsed);
+                                    }
+                                    setSupersetAfterRestDraft((prev) => {
+                                      const next = { ...prev };
+                                      delete next[supersetGroup];
+                                      return next;
+                                    });
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t("supersetAfterRestHint")}
+                            </FormDescription>
+                          </FormItem>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {/* Transition rest sits below the coach notes — the client
-                        sees it after finishing this exercise. */}
+                        sees it after finishing this exercise. Standalone (and
+                        lone-labelled) exercises only; superset members edit rest
+                        at the group level above. */}
+                    {isSupersetMember ? null : (
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
                       <div className="flex items-center gap-2">
                         <FormLabel className="text-amber-700 dark:text-amber-100">
@@ -2202,30 +2443,39 @@ export function TemplateForm({
                         )}
                       />
                     </div>
+                    )}
 
-                    {/* Superset group — shared across all matching exercises.
-                        Chips let the trainer reuse existing group letters
-                        without retyping them. */}
+                    {/* D9 — fixed A/B/C group pills (plus any legacy label
+                        already in use). Tap a pill to assign the exercise to
+                        that superset; tap the active pill to remove it. Writes
+                        through applySupersetGroup (set-count locking preserved). */}
                     <FormField
                       control={form.control}
                       name={`exercises.${index}.supersetGroup` as const}
-                      render={({ field: supersetField }) => (
-                        <FormItem>
-                          <FormLabel>{t("supersetGroup")}</FormLabel>
-                          {supersetGroupOptions.length > 0 ? (
+                      render={({ field: supersetField }) => {
+                        const activeGroup = normalizeSupersetGroup(
+                          supersetField.value,
+                        );
+                        return (
+                          <FormItem>
+                            <FormLabel>{t("supersetGroup")}</FormLabel>
                             <div className="mt-2 flex flex-wrap gap-2">
-                              {supersetGroupOptions.map((group) => {
-                                const active = supersetField.value?.trim() === group;
+                              {supersetPillLabels.map((group) => {
+                                const active = activeGroup === group;
+                                const accent = supersetAccentFor(group);
                                 return (
                                   <button
                                     key={group}
                                     type="button"
-                                    onClick={() => applySupersetGroup(index, group)}
+                                    data-field-superset
+                                    data-exercise-card={index}
+                                    aria-pressed={active}
+                                    onClick={() => toggleSupersetGroup(index, group)}
                                     className={cn(
-                                      "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors",
+                                      "inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
                                       active
-                                        ? "border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-100"
-                                        : "border-border/70 bg-background text-foreground hover:border-amber-400/60 hover:text-amber-700 dark:text-amber-100",
+                                        ? accent.pillActive
+                                        : "border-border/70 bg-background text-foreground hover:border-foreground/40",
                                     )}
                                   >
                                     {group}
@@ -2233,44 +2483,10 @@ export function TemplateForm({
                                 );
                               })}
                             </div>
-                          ) : null}
-                          <FormControl>
-                            <Input
-                              placeholder={t("supersetGroupPlaceholder")}
-                              data-field-superset
-                              data-exercise-card={index}
-                              onKeyDown={(e) => {
-                                if (e.key === "Tab" && !e.shiftKey) {
-                                  // Skip exercise-name inputs / drag handles /
-                                  // helper buttons and land directly on the
-                                  // NEXT exercise card's Sets field.
-                                  const root = (e.currentTarget.closest(
-                                    "form",
-                                  ) ?? document) as ParentNode;
-                                  const target = root.querySelector<HTMLInputElement>(
-                                    `[data-field-sets="${index + 1}"]`,
-                                  );
-                                  if (target) {
-                                    e.preventDefault();
-                                    target.focus();
-                                    target.select();
-                                  }
-                                }
-                              }}
-                              value={supersetField.value ?? ""}
-                              onChange={(e) => {
-                                const nextGroup = e.target.value;
-                                supersetField.onChange(nextGroup);
-                              }}
-                              onBlur={() => {
-                                supersetField.onBlur();
-                                applySupersetGroup(index, supersetField.value ?? "");
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>{t("supersetGroupHint")}</FormDescription>
-                        </FormItem>
-                      )}
+                            <FormDescription>{t("supersetGroupHint")}</FormDescription>
+                          </FormItem>
+                        );
+                      }}
                     />
                   </CardContent>
                 </Card>
