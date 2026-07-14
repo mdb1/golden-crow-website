@@ -128,6 +128,30 @@ function statusFromAssignment(
   return "scheduled";
 }
 
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function finiteNumberArray(value: unknown): number[] {
+  return Array.isArray(value)
+    ? value.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+    : [];
+}
+
+function effectiveAssignmentMetric(opts: {
+  snapshotExercise: Record<string, unknown>;
+  sourceExercise: Record<string, unknown> | undefined;
+  durationBySetSeconds: number[];
+  durationSeconds: number | null;
+}): "reps" | "time" {
+  if (opts.snapshotExercise.metric === "time") return "time";
+  if (opts.snapshotExercise.metric === "reps") return "reps";
+  if (opts.sourceExercise?.metric === "time") return "time";
+  if (opts.durationBySetSeconds.length > 0) return "time";
+  if (opts.durationSeconds !== null && opts.durationSeconds > 0) return "time";
+  return "reps";
+}
+
 /**
  * Computes which civil-dates in [monthStart, monthEnd] a habit is
  * scheduled on, based on its `scheduleType` + cadence fields. Mirrors the
@@ -433,6 +457,14 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
         (typeof nameField === "string"
           ? nameField
           : nameField?.en ?? nameField?.es ?? exId ?? `Exercise ${idx + 1}`);
+      const durationBySetSeconds = finiteNumberArray(ex.durationBySetSeconds);
+      const durationSeconds = finiteNumber(ex.durationSeconds);
+      const metric = effectiveAssignmentMetric({
+        snapshotExercise: ex,
+        sourceExercise: source,
+        durationBySetSeconds,
+        durationSeconds,
+      });
       return {
         index: idx,
         exerciseId: exId,
@@ -481,20 +513,12 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
           ex.supersetGroup.trim().length > 0
             ? ex.supersetGroup.trim()
             : null,
-        // 26-03 — Forgiving metric decode (PATTERNS.md §18 + Shared 5).
-        // Unknown / absent values fall back to "reps" so every legacy
-        // assignment doc renders the existing Reps column unchanged.
-        metric: ex.metric === "time" ? "time" : "reps",
-        durationBySetSeconds: Array.isArray(ex.durationBySetSeconds)
-          ? (ex.durationBySetSeconds as number[]).filter((n) =>
-              Number.isFinite(n),
-            )
-          : [],
-        durationSeconds:
-          typeof ex.durationSeconds === "number" &&
-          Number.isFinite(ex.durationSeconds)
-            ? ex.durationSeconds
-            : null,
+        // 26-03 + #455 — Forgiving metric decode. Snapshot wins when explicit;
+        // otherwise inherit time from the source exercise or duration fields so
+        // legacy assignment docs don't render time prescriptions as reps/weight.
+        metric,
+        durationBySetSeconds,
+        durationSeconds,
       };
     }),
     lastLoggedSetsByExerciseId,
