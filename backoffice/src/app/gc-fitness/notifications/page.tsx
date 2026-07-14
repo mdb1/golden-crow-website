@@ -33,6 +33,7 @@ import {
   listActiveWorkoutSessionsForTrainer,
 } from "@/lib/gc-fitness/live-workout-actions";
 import type { ActiveWorkoutSummary } from "@/lib/gc-fitness/live-workout-types";
+import { filterPrLogsToRoster } from "@/lib/gc-fitness/personal-records";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -146,14 +147,19 @@ export default async function NotificationsPage({
   const todayCivil = civilDateToday(trainerTimezone);
   const renewalWindowEnd = addCivilDays(todayCivil, 14);
 
-  const [activeWorkoutSummaries, workoutActivity, habits, activations, clients, prNotificationsRaw] =
+  // Roster first: workout_logs.trainerId goes stale on coach transfer, so the
+  // PR feed must be scoped to the CURRENT roster (users.coachId) — issue #446.
+  // listClients() is cached (unstable_cache + per-request dedupe), so awaiting
+  // it before the Promise.all costs nothing.
+  const clients = await listClients();
+  const rosterUids = new Set(clients.map((client) => client.uid));
+  const [activeWorkoutSummaries, workoutActivity, habits, activations, prNotificationsRaw] =
     await Promise.all([
     listActiveWorkoutSessionsForTrainer(),
     listMyCoachActivityPage(null, 100, null, "workout_assignment"),
     listHabitsForTrainer(),
     listRecentLogsForTrainerPage(null, 20, null, "signup"),
-    listClients(),
-    listRecentPrWorkoutNotifications(trainer.uid),
+    listRecentPrWorkoutNotifications(trainer.uid, rosterUids),
   ]);
   const birthdayNotificationsRaw = await listBirthdayNotificationsForTrainer(trainer.uid, todayCivil);
 
@@ -595,17 +601,27 @@ function NotificationRow({
 
 async function listRecentPrWorkoutNotifications(
   trainerUid: string,
+  rosterUids: ReadonlySet<string>,
 ): Promise<PrNotification[]> {
   const db = gcFitnessFirestore();
+  // The trainerId query stays as the cheap fetch (existing single-field index,
+  // no cost change), but trainerId is stamped at log creation and never updated
+  // on coach transfer — so the rows MUST be re-scoped to the current roster
+  // before rendering, or the former coach keeps seeing transferred clients'
+  // PRs (issue #446).
   const snap = await db
     .collection(FirestoreCollections.workoutLogs)
     .where("trainerId", "==", trainerUid)
     .limit(150)
     .get();
 
-  return snap.docs
-    .map((doc): PrNotification | null => {
-      const data = doc.data() as Record<string, unknown>;
+  const rows = snap.docs.map((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    return { doc, data, clientId: data.clientId };
+  });
+
+  return filterPrLogsToRoster(rows, rosterUids)
+    .map(({ doc, data }): PrNotification | null => {
       if (data.deleted === true) return null;
       const completedAt = toIso(data.completedAt);
       if (data.status !== "completed" && !completedAt) return null;
