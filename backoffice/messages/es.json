@@ -321,7 +321,21 @@
         "habitTrends": "Hábitos",
         "recentMessages": "Mensajes recientes",
         "bodyWeight": "Peso corporal (30 días)",
-        "recentLogs": "Actividad reciente"
+        "recentLogs": "Actividad reciente",
+        "personalRecords": "Récords personales"
+      },
+      "personalRecords": {
+        "title": "Récords personales",
+        "subtitle": "Las mejores marcas del cliente y su progresión.",
+        "empty": "Todavía no hay récords.",
+        "muscleGroupLabel": "Grupo muscular",
+        "muscleGroupAll": "Todos",
+        "sortLabel": "Ordenar",
+        "sortRecent": "Más recientes",
+        "sortMostCommon": "Más comunes",
+        "previousLabel": "Anterior: {value}",
+        "estOneRm": "1RM est. {value} kg",
+        "noDate": "—"
       },
       "timeline": {
         "title": "Vista diaria del cliente",
@@ -1805,6 +1819,7 @@
       "noAthleteNotes": "Sin notas del cliente.",
       "prBadge": "PR",
       "prBadgeTitle": "Nuevo récord personal · 1RM estimado {value} kg",
+      "prPreviousLabel": "ant. {value}",
       "exerciseSetCount": "{count, plural, one {# serie} other {# series}}",
       "exerciseTopWeight": "Tope: {weight} kg",
       "exerciseNoWeight": "Sin peso registrado",

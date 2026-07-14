@@ -14,6 +14,7 @@ import {
 } from "./client-roster";
 import { coachVisibleClientName } from "./client-name";
 import { resolveExerciseDocsById } from "./exercise-resolution";
+import { flattenLogPRs, previousRecordsByExercise } from "./personal-records";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 
@@ -140,6 +141,17 @@ export interface WorkoutLogDetail {
     isPR: boolean;
     /** Stored Epley estimated 1RM (kg) when isPR === true. */
     prEstimatedOneRM: number | null;
+    /**
+     * The record this PR beat (issue #405) — the client's most recent PR for
+     * this exercise from a session BEFORE this one. Null when this is the
+     * exercise's first PR or when `isPR` is false.
+     */
+    prPrevious: {
+      weightKg: number;
+      reps: number;
+      estimatedOneRM: number;
+      durationSeconds: number | null;
+    } | null;
     /** Snapshot superset label (e.g. "A"); null for standalone exercises. */
     supersetGroup: string | null;
   }>;
@@ -1817,6 +1829,55 @@ async function buildWorkoutLogDetail(
     prBySetLogId.set(setLogId, { estimatedOneRM: e1rm });
   }
 
+  // #405 part (a): for every PR in THIS log, find the record it beat — the
+  // client's most recent PR for the same exercise from an EARLIER session. Only
+  // runs when the log actually has PRs (keeps the extra read off non-PR logs).
+  const prPrevBySetLogId = new Map<
+    string,
+    { weightKg: number; reps: number; estimatedOneRM: number; durationSeconds: number | null }
+  >();
+  if (rawPrs.length > 0) {
+    const clientId = typeof data.clientId === "string" ? data.clientId : "";
+    const startedAt = asDate(data.startedAt) ?? asDate(data.createdAt);
+    const prExerciseIds = new Set(
+      rawPrs
+        .map((pr) => (typeof pr.exerciseId === "string" ? pr.exerciseId : ""))
+        .filter((id) => id.length > 0),
+    );
+    if (clientId && startedAt && prExerciseIds.size > 0) {
+      // Earlier logs only (startedAt <) — reuses the (clientId, startedAt) index.
+      const earlierSnap = await db
+        .collection(FirestoreCollections.workoutLogs)
+        .where("clientId", "==", clientId)
+        .where("startedAt", "<", startedAt)
+        .orderBy("startedAt", "desc")
+        .limit(200)
+        .get();
+      const earlierPrs = earlierSnap.docs.flatMap((d) =>
+        flattenLogPRs(d.data() as Record<string, unknown>),
+      );
+      const prevByExercise = previousRecordsByExercise(earlierPrs, prExerciseIds);
+      for (const pr of rawPrs) {
+        const exId = typeof pr.exerciseId === "string" ? pr.exerciseId : "";
+        const setLogId =
+          typeof pr.set_log_id === "string"
+            ? pr.set_log_id
+            : typeof pr.setLogId === "string"
+              ? pr.setLogId
+              : "";
+        const prev = exId ? prevByExercise.get(exId) : undefined;
+        if (setLogId && prev) {
+          prPrevBySetLogId.set(setLogId, {
+            weightKg: prev.weightKg,
+            reps: prev.reps,
+            estimatedOneRM: prev.estimatedOneRM,
+            durationSeconds: prev.durationSeconds,
+          });
+        }
+      }
+    }
+  }
+
   const sets = rawSets.map((set, index) => {
     const exerciseId = typeof set.exerciseId === "string" ? set.exerciseId : "";
     const templateExercise = exerciseId
@@ -1852,6 +1913,7 @@ async function buildWorkoutLogDetail(
       isWarmup: Boolean(set.is_warmup ?? set.isWarmup),
       isPR: Boolean(pr),
       prEstimatedOneRM: pr?.estimatedOneRM ?? null,
+      prPrevious: pr ? (prPrevBySetLogId.get(setLogId) ?? null) : null,
       supersetGroup:
         typeof templateExercise?.supersetGroup === "string" &&
         (templateExercise.supersetGroup as string).trim().length > 0

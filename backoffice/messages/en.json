@@ -321,7 +321,21 @@
         "habitTrends": "Habits",
         "recentMessages": "Recent messages",
         "bodyWeight": "Body weight (30 days)",
-        "recentLogs": "Recent activity"
+        "recentLogs": "Recent activity",
+        "personalRecords": "Personal records"
+      },
+      "personalRecords": {
+        "title": "Personal records",
+        "subtitle": "The client's best lifts and how they've progressed.",
+        "empty": "No personal records yet.",
+        "muscleGroupLabel": "Muscle group",
+        "muscleGroupAll": "All",
+        "sortLabel": "Sort",
+        "sortRecent": "Most recent",
+        "sortMostCommon": "Most common",
+        "previousLabel": "Previous: {value}",
+        "estOneRm": "Est. 1RM {value} kg",
+        "noDate": "—"
       },
       "timeline": {
         "title": "Daily client view",
@@ -1805,6 +1819,7 @@
       "noAthleteNotes": "No client notes.",
       "prBadge": "PR",
       "prBadgeTitle": "New personal record · estimated 1RM {value} kg",
+      "prPreviousLabel": "prev {value}",
       "exerciseSetCount": "{count, plural, one {# set} other {# sets}}",
       "exerciseTopWeight": "Top: {weight} kg",
       "exerciseNoWeight": "No weight logged",
