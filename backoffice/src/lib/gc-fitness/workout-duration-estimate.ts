@@ -14,15 +14,30 @@
 //   - iOS:        WorkoutDurationEstimateTests.swift  (coloHipertrofiadoParity)
 //   - backoffice: __tests__/workout-duration-estimate.test.ts
 //
-// FORMULA (per set, summed): active work + prescribed rest + per-set setup
-// overhead. Then at each exercise→exercise handoff the final set's rest is
-// replaced by the transition rest (explicit `transition_rest_seconds`, else
-// the 60s product default). minutes = max(1, ceil(seconds / 60)).
+// FORMULA (D11 superset-aware): base = Σ over every set of (active work + 45s
+// setup). Rest is then charged by walking the FLATTENED interleaved coordinate
+// sequence (the shared `live-workout-supersets` twin) and adding
+// `prescribedRestSeconds` at every coordinate where `shouldRest` is true. So a
+// superset block charges rest ONCE per round (using the D1/D3 group rest = the
+// block's last member's `restSeconds`), and the block's final coordinate
+// charges the transition rest — instead of over-counting a rest per member per
+// set. Standalone math is unchanged: each set rests with its own
+// `rest_seconds`, and an exercise→exercise handoff uses the transition rest
+// (explicit `transition_rest_seconds`, else the 60s product default).
+// minutes = max(1, ceil(seconds / 60)).
 //
 // WIRE-KEY NOTE: rest is the snake_case `rest_seconds` / `transition_rest_seconds`
 // (the documented exceptions inside `exercises[]` — see workout-template-schema.ts);
 // everything else (`durationSeconds`, `durationBySetSeconds`, `repsBySet`,
 // `supersetGroup`, `metric`, `order`) is camelCase verbatim from Swift.
+
+import {
+  DEFAULT_TRANSITION_REST_SECONDS as SEQUENCE_DEFAULT_TRANSITION_REST_SECONDS,
+  flattenedCoordinates,
+  prescribedRestSeconds,
+  shouldRest,
+  type SequenceExercise,
+} from "./live-workout-supersets";
 
 /** Seconds of active work attributed to a single rep (mirrors
  *  `estimatedSecondsPerRep` in Swift). */
@@ -37,8 +52,10 @@ export const ESTIMATED_SECONDS_PER_REP = 3;
 export const ESTIMATED_SETUP_SECONDS_PER_SET = 45;
 
 /** Product fallback when an exercise handoff carries no explicit
- *  `transition_rest_seconds`. Mirrors `SupersetSequence.defaultTransitionRestSeconds`. */
-export const DEFAULT_TRANSITION_REST_SECONDS = 60;
+ *  `transition_rest_seconds`. Mirrors `SupersetSequence.defaultTransitionRestSeconds`.
+ *  Re-exported from the shared superset twin so there is one source of truth. */
+export const DEFAULT_TRANSITION_REST_SECONDS =
+  SEQUENCE_DEFAULT_TRANSITION_REST_SECONDS;
 
 /** Permissive shape accepted by the estimator — structurally satisfied by both
  *  the react-hook-form `ExerciseRefInput` and a raw Firestore exercise record.
@@ -112,96 +129,73 @@ export function exerciseEstimatedDurationSeconds(ex: DurationEstimateExercise): 
   return total;
 }
 
-// --- Superset adjacency + flattened sequence (mirror SupersetGrouping.swift) ---
+/** Per-exercise active-work + per-set setup ONLY (no rest). The D11 estimator
+ *  charges rest separately by walking the flattened coordinate sequence, so the
+ *  base sum must exclude rest to avoid double-counting. */
+function exerciseWorkAndSetupSeconds(ex: DurationEstimateExercise): number {
+  const sets = num(ex.sets);
+  if (sets <= 0) return 0;
 
-interface Coordinate {
-  exerciseId: string;
-  setIndex: number;
-}
+  const timeBased = isTimeBasedForEstimate(ex);
+  const reps = num(ex.reps);
+  const durBySet = ex.durationBySetSeconds;
+  const durSeconds = ex.durationSeconds;
+  const repsBySet = ex.repsBySet;
 
-function normalizeSupersetLabel(value: string | null | undefined): string | null {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-/** Adjacency-aware grouping: a new block starts whenever the supersetGroup label
- *  changes. Mirrors `SupersetBlock.build`. */
-function buildBlocks(
-  sorted: DurationEstimateExercise[],
-): { exercises: DurationEstimateExercise[]; label: string | null }[] {
-  const blocks: { exercises: DurationEstimateExercise[]; label: string | null }[] = [];
-  let current: DurationEstimateExercise[] = [];
-  let currentLabel: string | null = null;
-  for (const ex of sorted) {
-    const label = normalizeSupersetLabel(ex.supersetGroup);
-    if (label !== null && label === currentLabel && current.length > 0) {
-      current.push(ex);
-    } else {
-      if (current.length > 0) blocks.push({ exercises: current, label: currentLabel });
-      current = [ex];
-      currentLabel = label;
-    }
-  }
-  if (current.length > 0) blocks.push({ exercises: current, label: currentLabel });
-  return blocks;
-}
-
-/** Flattened interleaved advancement order. Mirrors
- *  `SupersetSequence.flattenedCoordinates`. */
-function flattenedCoordinates(sorted: DurationEstimateExercise[]): Coordinate[] {
-  const result: Coordinate[] = [];
-  for (const block of buildBlocks(sorted)) {
-    const isSuperset = block.exercises.length > 1 && block.label !== null;
-    if (isSuperset) {
-      const maxSets = Math.max(0, ...block.exercises.map((e) => num(e.sets)));
-      for (let setIndex = 0; setIndex < maxSets; setIndex += 1) {
-        for (const ex of block.exercises) {
-          if (setIndex < num(ex.sets)) {
-            result.push({ exerciseId: ex.exerciseId ?? "", setIndex });
-          }
-        }
+  let total = 0;
+  for (let setIndex = 0; setIndex < sets; setIndex += 1) {
+    let active: number;
+    if (timeBased) {
+      if (Array.isArray(durBySet) && setIndex < durBySet.length) {
+        active = num(durBySet[setIndex]);
+      } else if (typeof durSeconds === "number") {
+        active = durSeconds;
+      } else {
+        active = reps * ESTIMATED_SECONDS_PER_REP;
       }
     } else {
-      const ex = block.exercises[0];
-      for (let setIndex = 0; setIndex < num(ex.sets); setIndex += 1) {
-        result.push({ exerciseId: ex.exerciseId ?? "", setIndex });
-      }
+      const repsForSet =
+        Array.isArray(repsBySet) && setIndex < repsBySet.length
+          ? num(repsBySet[setIndex])
+          : reps;
+      active = repsForSet * ESTIMATED_SECONDS_PER_REP;
     }
+    total += Math.max(0, active) + ESTIMATED_SETUP_SECONDS_PER_SET;
   }
-  return result;
+  return total;
 }
 
-/** Whole-template estimate. Mirrors
- *  `WorkoutAssignment.TemplateSnapshot.estimatedDurationSeconds`: Σ exercise
- *  estimates, with each exercise→exercise handoff replacing the final set's
- *  rest with the transition rest. */
+/** Map the estimator's (snake_case) exercise shape to the camelCase
+ *  `SequenceExercise` the shared superset twins consume. */
+function toSequenceExercise(ex: DurationEstimateExercise): SequenceExercise {
+  return {
+    exerciseId: ex.exerciseId ?? "",
+    sets: num(ex.sets),
+    restSeconds: Math.max(0, num(ex.rest_seconds)),
+    transitionRestSeconds:
+      typeof ex.transition_rest_seconds === "number"
+        ? ex.transition_rest_seconds
+        : null,
+    supersetGroup: ex.supersetGroup ?? null,
+  };
+}
+
+/** Whole-template estimate (D11 superset-aware). Base = Σ (active work + setup)
+ *  over every set; rest = Σ over the flattened coordinate sequence of the
+ *  round-based `prescribedRestSeconds` at every coordinate where `shouldRest`
+ *  is true. A superset charges rest once per round (the block's last member's
+ *  `restSeconds`) plus the block's final transition rest; standalone math is
+ *  unchanged. Twin of `TemplateSnapshot.estimatedDurationSeconds`. */
 export function estimateTemplateDurationSeconds(
   exercises: DurationEstimateExercise[],
 ): number {
   const sorted = [...exercises].sort((a, b) => num(a.order) - num(b.order));
-  let total = sorted.reduce((sum, ex) => sum + exerciseEstimatedDurationSeconds(ex), 0);
+  let total = sorted.reduce((sum, ex) => sum + exerciseWorkAndSetupSeconds(ex), 0);
 
-  const flat = flattenedCoordinates(sorted);
-  for (const ex of sorted) {
-    const sets = num(ex.sets);
-    if (sets <= 0) continue;
-    const exerciseId = ex.exerciseId ?? "";
-    const idx = flat.findIndex(
-      (c) => c.exerciseId === exerciseId && c.setIndex === sets - 1,
-    );
-    if (idx < 0) continue;
-    const next = idx + 1 < flat.length ? flat[idx + 1] : null;
-    // Not an exercise transition (last slot, or next slot is the same exercise).
-    if (next === null || next.exerciseId === exerciseId) continue;
-
-    const rest = Math.max(0, num(ex.rest_seconds));
-    const transition = Math.max(
-      0,
-      typeof ex.transition_rest_seconds === "number"
-        ? ex.transition_rest_seconds
-        : DEFAULT_TRANSITION_REST_SECONDS,
-    );
-    total += transition - rest;
+  const sequence = sorted.map(toSequenceExercise);
+  for (const coordinate of flattenedCoordinates(sequence)) {
+    if (!shouldRest(coordinate, sequence)) continue;
+    total += prescribedRestSeconds(coordinate, sequence);
   }
   return total;
 }

@@ -177,6 +177,20 @@ export function WorkoutAssignmentEditDialog({
       prev.map((row) => (row.rowId === rowId ? { ...row, ...next } : row)),
     );
   }
+  // D10 — write a group rest value through to EVERY member of the superset
+  // label (D1/D2). `rest` = round rest, `transitionRest` = after-superset rest.
+  function patchGroupRest(
+    group: string | null,
+    field: "rest" | "transitionRest",
+    value: string,
+  ) {
+    if (group === null) return;
+    setDrafts((prev) =>
+      prev.map((row) =>
+        (row.supersetGroup ?? null) === group ? { ...row, [field]: value } : row,
+      ),
+    );
+  }
   function patchRow(rowId: string, rowIdx: number, next: Partial<SetRow>) {
     setDrafts((prev) => {
       const cur = prev.find((row) => row.rowId === rowId);
@@ -380,8 +394,63 @@ export function WorkoutAssignmentEditDialog({
                 {exercises.map((draft, index) => {
                   const selectedExercise = exerciseById.get(draft.exerciseId);
                   const showRemove = exercises.length > 1;
+                  // D10 — superset adjacency + canonical group rest (last member).
+                  const group = draft.supersetGroup ?? null;
+                  const prevGroup =
+                    index > 0 ? exercises[index - 1].supersetGroup ?? null : null;
+                  const nextGroup =
+                    index < exercises.length - 1
+                      ? exercises[index + 1].supersetGroup ?? null
+                      : null;
+                  const isInSuperset =
+                    group !== null && (group === prevGroup || group === nextGroup);
+                  const isSupersetStart = group !== null && group !== prevGroup;
+                  const memberRows = isInSuperset
+                    ? exercises.filter((d) => (d.supersetGroup ?? null) === group)
+                    : [];
+                  const lastMember = memberRows[memberRows.length - 1];
+                  const groupRoundRest = lastMember?.rest ?? "";
+                  const groupAfterRest = lastMember?.transitionRest ?? "";
                   return (
                     <div key={draft.rowId} className="rounded-lg border p-3">
+                      {/* D10 — one group rest editor per superset block. */}
+                      {isSupersetStart ? (
+                        <div className="mb-3 rounded-md border border-amber-400/50 bg-amber-50/60 p-3 dark:border-amber-300/35 dark:bg-amber-950/20">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                            Superserie {group}
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <label className="text-xs text-amber-800 dark:text-amber-200">
+                              Descanso de la superserie (s)
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={groupRoundRest}
+                                onChange={(e) =>
+                                  patchGroupRest(group, "rest", e.target.value)
+                                }
+                                className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+                              />
+                            </label>
+                            <label className="text-xs text-amber-800 dark:text-amber-200">
+                              Descanso al terminar la superserie (s)
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={groupAfterRest}
+                                onChange={(e) =>
+                                  patchGroupRest(
+                                    group,
+                                    "transitionRest",
+                                    e.target.value,
+                                  )
+                                }
+                                className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium">
@@ -423,6 +492,9 @@ export function WorkoutAssignmentEditDialog({
                           >
                             Sin peso
                           </button>
+                          {/* D10 — superset members edit rest at the group
+                              level (above); hide the per-member field. */}
+                          {isInSuperset ? null : (
                           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             Descanso (seg)
                             <input
@@ -435,6 +507,7 @@ export function WorkoutAssignmentEditDialog({
                               className="h-8 w-20 rounded-md border bg-background px-2 text-sm text-foreground"
                             />
                           </label>
+                          )}
                           {showRemove ? (
                             <button
                               type="button"
@@ -567,6 +640,9 @@ export function WorkoutAssignmentEditDialog({
                         placeholder="Notas específicas para este cliente en este ejercicio"
                         className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
                       />
+                      {/* D10 — superset members edit the after-superset rest at
+                          the group level (above); hide the per-member field. */}
+                      {isInSuperset ? null : (
                       <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-100">
                         Descanso entre ejercicios (s)
                         <InfoTooltip
@@ -585,6 +661,7 @@ export function WorkoutAssignmentEditDialog({
                           className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
                         />
                       </label>
+                      )}
                     </div>
                   );
                 })}

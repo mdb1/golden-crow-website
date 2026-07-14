@@ -1033,6 +1033,36 @@ export function AssignTemplateModal({
               const isSupersetStart = group !== null && group !== prevGroup;
               const isInSuperset =
                 group !== null && (group === prevGroup || group === nextGroup);
+              // D10 — group-level rest for superset members. Round rest + after
+              // rest are single fields shown once on the block start and written
+              // through to EVERY member's draft (D1/D2). The displayed value is
+              // the block's LAST member (canonical group rest).
+              const supersetMemberIdxs = isInSuperset
+                ? templateDetail.exercises
+                    .filter((e) => (e.supersetGroup ?? null) === group)
+                    .map((e) => e.index)
+                : [];
+              const lastMemberIdx =
+                supersetMemberIdxs[supersetMemberIdxs.length - 1];
+              const groupRoundRestValue =
+                lastMemberIdx !== undefined
+                  ? overrideDrafts[lastMemberIdx]?.rest_seconds ?? ""
+                  : "";
+              const groupAfterRestValue =
+                lastMemberIdx !== undefined
+                  ? overrideDrafts[lastMemberIdx]?.transition_rest_seconds ?? ""
+                  : "";
+              const writeGroupRest = (
+                fieldKey: "rest_seconds" | "transition_rest_seconds",
+                value: string,
+              ) =>
+                setOverrideDrafts((prev) => {
+                  const next = { ...prev };
+                  for (const mi of supersetMemberIdxs) {
+                    next[mi] = { ...next[mi], [fieldKey]: value };
+                  }
+                  return next;
+                });
               return (
                 <div
                   key={`${exercise.exerciseId}-${exercise.index}`}
@@ -1046,6 +1076,51 @@ export function AssignTemplateModal({
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                       {t("supersetLabel", { group })}
                     </p>
+                  ) : null}
+                  {/* D10 — single group rest editor per superset block (round
+                      rest + after-superset rest), write-through to all members. */}
+                  {isSupersetStart ? (
+                    <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                      <label className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                        <span className="block truncate">
+                          {t("supersetGroupRoundRest")}
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={groupRoundRestValue}
+                          onChange={(event) =>
+                            writeGroupRest("rest_seconds", event.target.value)
+                          }
+                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+                        />
+                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
+                          {restMinutesHint(groupRoundRestValue)}
+                        </span>
+                      </label>
+                      <label className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                        <span className="block truncate">
+                          {t("supersetGroupAfterRest")}
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={groupAfterRestValue}
+                          onChange={(event) =>
+                            writeGroupRest(
+                              "transition_rest_seconds",
+                              event.target.value,
+                            )
+                          }
+                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+                        />
+                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
+                          {restMinutesHint(groupAfterRestValue)}
+                        </span>
+                      </label>
+                    </div>
                   ) : null}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 items-center gap-2">
@@ -1130,6 +1205,9 @@ export function AssignTemplateModal({
                         </button>
                       </div>
                     </div>
+                    {/* D10 — superset members edit rest at the group level
+                        (above); hide the per-member rest field. */}
+                    {isInSuperset ? null : (
                     <div className="min-w-0 sm:w-[16rem]">
                       <label className="min-w-0 text-[11px] font-medium text-muted-foreground">
                         <span className="block truncate">{t("exerciseOverridesRest")}</span>
@@ -1155,6 +1233,7 @@ export function AssignTemplateModal({
                         </span>
                       </label>
                     </div>
+                    )}
                   </div>
                   {/* Per-set table — one row per prescribed set. Mirrors the
                       authoring form so the trainer assigns by editing the
@@ -1354,7 +1433,9 @@ export function AssignTemplateModal({
                     className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
                   />
                   {/* Transition rest sits below the coach notes — the client
-                      sees it after finishing this exercise. */}
+                      sees it after finishing this exercise. Superset members
+                      edit the after-superset rest at the group level (D10). */}
+                  {isInSuperset ? null : (
                   <label className="mt-3 block rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
                     <span className="block">{t("exerciseOverridesTransitionRest")}</span>
                     <input
@@ -1378,6 +1459,7 @@ export function AssignTemplateModal({
                       {restMinutesHint(draft.transition_rest_seconds)}
                     </span>
                   </label>
+                  )}
                 </div>
               );
             })}

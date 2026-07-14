@@ -15,7 +15,12 @@ import { toast } from "sonner";
 import { Loader2, Timer, Video, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { groupIntoSupersetBlocks } from "@/lib/gc-fitness/live-workout-supersets";
+import {
+  groupIntoSupersetBlocks,
+  prescribedRestSeconds,
+  shouldRest,
+  type SupersetCoordinate,
+} from "@/lib/gc-fitness/live-workout-supersets";
 import {
   activeSessionKey,
   activeWorkoutSummariesKey,
@@ -57,15 +62,21 @@ function formatMmss(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function resolveRestSeconds(
-  exercise: SessionExercise,
+/**
+ * Round-based rest duration for a completed working set (D8). Uses the shared
+ * `prescribedRestSeconds` twin (round rest = the block's last member's rest;
+ * transition = the block final's transition rest). Standalone exercises keep the
+ * legacy fallback-60 when no explicit rest is set; a superset member that
+ * resolves to 0 means "no timer" (mirrors the app's zero-rest behavior).
+ */
+function resolveRoundRestSeconds(
+  coordinate: SupersetCoordinate,
+  exercises: SessionExercise[],
+  isSupersetMember: boolean,
 ): number {
-  const base =
-    exercise.restSeconds > 0
-      ? exercise.restSeconds
-      : exercise.transitionRestSeconds ?? 0;
-  if (base > 0) return base;
-  return 60;
+  const prescribed = prescribedRestSeconds(coordinate, exercises);
+  if (prescribed > 0) return prescribed;
+  return isSupersetMember ? 0 : 60;
 }
 
 export interface ActiveWorkoutSessionProps {
@@ -130,13 +141,39 @@ export function ActiveWorkoutSession({
 
     for (const ex of live.exercises) {
       const rows = live.rowsByExercise[ex.exerciseId] ?? [];
+      // Working-set index (ignores warmup rows) — the coordinate the shared
+      // superset twin reasons about. Tracks non-warmup rows seen so far.
+      let workingIndex = -1;
       for (const row of rows) {
-        if (!row.done || row.isWarmup) continue;
+        if (row.isWarmup) continue;
+        workingIndex += 1;
+        if (!row.done) continue;
         const completionKey = `${row.id}:${row.completedAt ?? "done"}`;
         if (seenCompletedRowKeysRef.current.has(completionKey)) continue;
         seenCompletedRowKeysRef.current.add(completionKey);
+
+        // D8 — round gating: a superset only rests after its last effective
+        // sibling of the round. Intra-round handoffs (A.setN → B.setN) fire NO
+        // timer. Standalone exercises always rest.
+        const coordinate: SupersetCoordinate = {
+          exerciseId: ex.exerciseId,
+          setIndex: workingIndex,
+        };
+        if (!shouldRest(coordinate, live.exercises)) return;
+
+        const block = groupIntoSupersetBlocks(live.exercises).find((b) =>
+          b.exercises.some((e) => e.exerciseId === ex.exerciseId),
+        );
+        const isSupersetMember = block?.isSuperset ?? false;
+        const duration = resolveRoundRestSeconds(
+          coordinate,
+          live.exercises,
+          isSupersetMember,
+        );
+        if (duration <= 0) return;
+
         setRestingExerciseId(ex.exerciseId);
-        timer.start(resolveRestSeconds(ex));
+        timer.start(duration);
         return;
       }
     }

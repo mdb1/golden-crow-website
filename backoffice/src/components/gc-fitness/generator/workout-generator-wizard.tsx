@@ -34,6 +34,11 @@ import { useFavorites } from "@/lib/gc-fitness/use-favorites";
 import { STANDARD_LIBRARY_TAG } from "@/lib/gc-fitness/exercise-visibility";
 import { dedupeExercisesByDisplayName } from "@/lib/gc-fitness/exercise-dedupe";
 import { createWorkoutTemplate } from "@/lib/gc-fitness/workout-template-actions";
+import {
+  getSupersetGroupRest,
+  listSupersetGroupOptions,
+  writeSupersetGroupRest,
+} from "@/lib/gc-fitness/superset-groups";
 import type { WorkoutTemplateInput } from "@/lib/gc-fitness/workout-template-schema";
 import type { ClientRosterEntry } from "@/lib/gc-fitness/client-roster";
 import { TemplateForm } from "@/components/gc-fitness/template-form";
@@ -261,6 +266,25 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
             : {}),
       })) as WorkoutTemplateInput["exercises"],
     };
+    // D10 — canonicalize any superset group's member rests to the block's
+    // last-member values so the group rest is well-defined before the coach
+    // edits/saves (the embedded TemplateForm then shows ONE group rest field).
+    // The generator engine emits no supersets today, so this is a safe no-op
+    // now and future-proofs the invariant if it ever does.
+    let normalizedExercises = defaults.exercises ?? [];
+    for (const group of listSupersetGroupOptions(normalizedExercises)) {
+      const { roundRestSeconds, afterRestSeconds } = getSupersetGroupRest(
+        normalizedExercises,
+        group,
+      );
+      normalizedExercises = writeSupersetGroupRest(normalizedExercises, group, {
+        ...(roundRestSeconds !== null ? { rest_seconds: roundRestSeconds } : {}),
+        ...(afterRestSeconds !== null
+          ? { transition_rest_seconds: afterRestSeconds }
+          : {}),
+      });
+    }
+    defaults.exercises = normalizedExercises as WorkoutTemplateInput["exercises"];
     setGenerated(defaults);
     setGeneratedName(workout.name.en);
     setPoolWarning(
