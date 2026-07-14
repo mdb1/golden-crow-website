@@ -183,6 +183,7 @@
     "noPrs": "No recent PRs to review.",
     "prsCardTitle": "{client} hit {count, plural, one {# PR} other {# PRs}}",
     "prsCardDetail": "{workout} · {count, plural, one {# personal record} other {# personal records}}",
+    "prsPreviousInline": "(prev {value})",
     "activationsTitle": "Recent activations",
     "activationsDescription": "New client sign-ins that are worth following up.",
     "birthdayCardTitle": "{client}'s birthday",

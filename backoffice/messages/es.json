@@ -183,6 +183,7 @@
     "noPrs": "No hay PRs recientes para revisar.",
     "prsCardTitle": "{client} metió {count, plural, one {# PR} other {# PRs}}",
     "prsCardDetail": "{workout} · {count, plural, one {# récord personal} other {# récords personales}}",
+    "prsPreviousInline": "(antes {value})",
     "activationsTitle": "Activaciones recientes",
     "activationsDescription": "Nuevos ingresos de clientes para hacer seguimiento.",
     "birthdayCardTitle": "Cumpleaños de {client}",

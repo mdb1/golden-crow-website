@@ -33,7 +33,12 @@ import {
   listActiveWorkoutSessionsForTrainer,
 } from "@/lib/gc-fitness/live-workout-actions";
 import type { ActiveWorkoutSummary } from "@/lib/gc-fitness/live-workout-types";
-import { filterPrLogsToRoster } from "@/lib/gc-fitness/personal-records";
+import {
+  filterPrLogsToRoster,
+  flattenLogPRs,
+  previousRecordBySetLog,
+  type PRSnapshot,
+} from "@/lib/gc-fitness/personal-records";
 import { listRecentLogsForTrainerPage } from "@/lib/gc-fitness/recent-logs-actions";
 import { UpcomingWorkoutAlerts } from "@/components/gc-fitness/upcoming-workout-alerts";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -102,6 +107,9 @@ type UnifiedNotification = {
   tone: keyof typeof NOTIFICATION_CHIP;
   icon: ReactNode;
   title: string;
+  /** When set, the notification headline links to this href (e.g. the PR
+   * notification's client name → client profile). */
+  titleHref?: string;
   detail: string;
   detailItems?: string[];
   meta: string;
@@ -159,7 +167,9 @@ export default async function NotificationsPage({
     listMyCoachActivityPage(null, 100, null, "workout_assignment"),
     listHabitsForTrainer(),
     listRecentLogsForTrainerPage(null, 20, null, "signup"),
-    listRecentPrWorkoutNotifications(trainer.uid, rosterUids),
+    listRecentPrWorkoutNotifications(trainer.uid, rosterUids, (value) =>
+      t("prsPreviousInline", { value }),
+    ),
   ]);
   const birthdayNotificationsRaw = await listBirthdayNotificationsForTrainer(trainer.uid, todayCivil);
 
@@ -220,6 +230,7 @@ export default async function NotificationsPage({
         client: item.clientName,
         count: item.prCount,
       }),
+      titleHref: `/gc-fitness/clients/${item.clientId}`,
       detail: item.detail,
       detailItems: item.detailItems,
       meta: formatMeta(item.occurredAtISO, item.clientName, null, locale, trainerTimezone),
@@ -380,6 +391,7 @@ export default async function NotificationsPage({
                 key={item.id}
                 tone={item.tone}
                 title={item.title}
+                titleHref={item.titleHref}
                 detail={item.detail}
                 detailItems={item.detailItems}
                 meta={item.meta}
@@ -514,6 +526,7 @@ function NotificationRow({
   icon,
   tone,
   title,
+  titleHref,
   detail,
   detailItems,
   meta,
@@ -528,6 +541,7 @@ function NotificationRow({
   icon: ReactNode;
   tone: keyof typeof NOTIFICATION_CHIP;
   title: string;
+  titleHref?: string;
   detail: string;
   detailItems?: string[];
   meta: string;
@@ -555,9 +569,18 @@ function NotificationRow({
         </div>
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold leading-tight text-foreground">
-              {title}
-            </p>
+            {titleHref ? (
+              <Link
+                href={titleHref}
+                className="text-sm font-semibold leading-tight text-foreground hover:underline"
+              >
+                {title}
+              </Link>
+            ) : (
+              <p className="text-sm font-semibold leading-tight text-foreground">
+                {title}
+              </p>
+            )}
             {unread ? (
               <span
                 className="size-2 shrink-0 rounded-full bg-primary"
@@ -602,6 +625,7 @@ function NotificationRow({
 async function listRecentPrWorkoutNotifications(
   trainerUid: string,
   rosterUids: ReadonlySet<string>,
+  formatPrevious: (value: string) => string,
 ): Promise<PrNotification[]> {
   const db = gcFitnessFirestore();
   // The trainerId query stays as the cheap fetch (existing single-field index,
@@ -620,8 +644,13 @@ async function listRecentPrWorkoutNotifications(
     return { doc, data, clientId: data.clientId };
   });
 
-  return filterPrLogsToRoster(rows, rosterUids)
-    .map(({ doc, data }): PrNotification | null => {
+  // Build the base notifications (no previous-PR suffix yet), scope to roster,
+  // sort + slice to the top 10 FIRST — so the earlier-logs point query below
+  // runs at most 10 times (bounded), not once per candidate log (issue #405
+  // follow-up). Each surviving log keeps its raw `data`/`prs` for that lookup.
+  const base = filterPrLogsToRoster(rows, rosterUids)
+    .map((row) => {
+      const { doc, data } = row;
       if (data.deleted === true) return null;
       const completedAt = toIso(data.completedAt);
       if (data.status !== "completed" && !completedAt) return null;
@@ -635,12 +664,11 @@ async function listRecentPrWorkoutNotifications(
         (data.templateSnapshot as { name?: unknown } | undefined)?.name,
         "Workout",
       );
-      const prDetails = formatPrDetails(data, prs);
       const clientName =
         typeof data.clientName === "string" && data.clientName.trim()
           ? data.clientName.trim()
           : clientId;
-      return {
+      const notification: PrNotification = {
         id: `pr:${doc.id}`,
         occurredAtISO: completedAt ?? toIso(data.updatedAt) ?? toIso(data.startedAt),
         clientId,
@@ -648,19 +676,68 @@ async function listRecentPrWorkoutNotifications(
         workoutName,
         prCount: prs.length,
         detail: workoutName,
-        detailItems: prDetails,
         workoutHref: `/gc-fitness/recent-logs/workouts/${doc.id}`,
         chatHref: `/gc-fitness/chat?chatId=${clientId}`,
       };
+      return { notification, data, prs };
     })
-    .filter((item): item is PrNotification => item !== null)
-    .sort((a, b) => isoMs(b.occurredAtISO) - isoMs(a.occurredAtISO))
+    .filter(
+      (
+        item,
+      ): item is {
+        notification: PrNotification;
+        data: Record<string, unknown>;
+        prs: Array<Record<string, unknown>>;
+      } => item !== null,
+    )
+    .sort((a, b) => isoMs(b.notification.occurredAtISO) - isoMs(a.notification.occurredAtISO))
     .slice(0, 10);
+
+  // Only the ≤10 surviving PR logs hit Firestore for their earlier-log baseline
+  // (point reads only — getAll/batchGet fails on Vercel).
+  return Promise.all(
+    base.map(async ({ notification, data, prs }) => {
+      const prevBySetLogId = await resolvePreviousPrsForLog(db, data);
+      return {
+        ...notification,
+        detailItems: formatPrDetails(data, prs, prevBySetLogId, formatPrevious),
+      };
+    }),
+  );
+}
+
+/**
+ * For one PR-carrying log, resolves the record each of its PRs beat — keyed by
+ * setLogId — by point-querying the client's EARLIER logs (startedAt <). Mirrors
+ * the log-detail flow (recent-logs-actions.ts) so the feed line matches the
+ * "(antes …)" the log-detail page already shows (issue #405 follow-up).
+ */
+async function resolvePreviousPrsForLog(
+  db: ReturnType<typeof gcFitnessFirestore>,
+  data: Record<string, unknown>,
+): Promise<Map<string, PRSnapshot>> {
+  const clientId = typeof data.clientId === "string" ? data.clientId : "";
+  const startedAt = data.startedAt; // raw Firestore Timestamp value
+  const thisLogPrs = flattenLogPRs(data);
+  if (!clientId || !startedAt || thisLogPrs.length === 0) return new Map();
+  const earlierSnap = await db
+    .collection(FirestoreCollections.workoutLogs)
+    .where("clientId", "==", clientId)
+    .where("startedAt", "<", startedAt)
+    .orderBy("startedAt", "desc")
+    .limit(200)
+    .get();
+  const earlierPrs = earlierSnap.docs.flatMap((d) =>
+    flattenLogPRs(d.data() as Record<string, unknown>),
+  );
+  return previousRecordBySetLog(earlierPrs, thisLogPrs);
 }
 
 function formatPrDetails(
   data: Record<string, unknown>,
   prs: Array<Record<string, unknown>>,
+  prevBySetLogId: Map<string, PRSnapshot>,
+  formatPrevious: (value: string) => string,
 ): string[] {
   const templateExercises =
     (data.templateSnapshot as { exercises?: Array<Record<string, unknown>> } | undefined)
@@ -695,9 +772,20 @@ function formatPrDetails(
         ? exerciseNameById.get(set.exerciseId)
         : undefined) ??
       (exerciseId || "PR");
+    // #405 follow-up: append the record this PR beat, mirroring the log-detail
+    // "(antes …)" copy — duration PR → "Ns", else "W kg x R".
+    const prev = setLogId ? prevBySetLogId.get(setLogId) : undefined;
+    let previousSuffix = "";
+    if (prev) {
+      const prevValue =
+        prev.durationSeconds !== null && prev.durationSeconds > 0
+          ? `${prev.durationSeconds}s`
+          : `${formatKg(prev.weightKg)} x ${Math.round(prev.reps)}`;
+      previousSuffix = ` ${formatPrevious(prevValue)}`;
+    }
     const durationSeconds = numeric(pr.duration_seconds ?? pr.durationSeconds);
     if (durationSeconds !== null && durationSeconds > 0) {
-      return `${name}: ${formatDuration(durationSeconds)}`;
+      return `${name}: ${formatDuration(durationSeconds)}${previousSuffix}`;
     }
     const weight = numeric(pr.weight_kg ?? pr.weightKg ?? set?.weight_kg ?? set?.weight);
     const reps = numeric(pr.reps ?? set?.reps);
@@ -713,7 +801,7 @@ function formatPrDetails(
     const oneRm = estimatedOneRM !== null && estimatedOneRM > 0
       ? ` (${formatKg(estimatedOneRM)} 1RM)`
       : "";
-    return `${name}${performance ? `: ${performance}` : ""}${oneRm}`;
+    return `${name}${performance ? `: ${performance}` : ""}${oneRm}${previousSuffix}`;
   });
   const remaining = prs.length - details.length;
   if (remaining > 0) {
