@@ -56,6 +56,17 @@ function makeDb() {
               templateSnapshot: { name: "New workout" },
               status: "scheduled",
             }),
+            // Issue #449: client self-assigned workout (issue #392 shape —
+            // trainerId === clientId + selfAssigned: true). Must surface on
+            // the coach's calendar, tagged selfAssigned.
+            doc("self-assignment", {
+              trainerId: "c1",
+              clientId: "c1",
+              scheduledFor: "2026-06-10",
+              selfAssigned: true,
+              templateSnapshot: { name: "Self workout" },
+              status: "scheduled",
+            }),
           ]);
         }
         if (collectionName === FirestoreCollections.habits) {
@@ -129,12 +140,23 @@ describe("listMonthForClients", () => {
       todayCivil: "2026-06-08",
     });
 
+    // Chips sort by templateName: "New workout" < "Self workout". The
+    // old-coach doc (trainerId "old-coach" !== clientId) must NOT surface
+    // (#446); the client self-assigned doc MUST (#449), tagged selfAssigned.
     expect(result.workoutsByDay["2026-06-10"]).toEqual([
       expect.objectContaining({
         id: "new-assignment",
         templateName: "New workout",
+        selfAssigned: false,
+      }),
+      expect.objectContaining({
+        id: "self-assignment",
+        templateName: "Self workout",
+        selfAssigned: true,
       }),
     ]);
+    const workoutIds = result.workoutsByDay["2026-06-10"].map((w) => w.id);
+    expect(workoutIds).not.toContain("old-assignment");
     expect(result.habitsByDay["2026-06-10"]).toEqual([
       expect.objectContaining({
         id: "client-habit:2026-06-10",

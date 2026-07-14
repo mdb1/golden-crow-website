@@ -28,8 +28,10 @@ function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
 }
 
 /** Issue #437: marks a habit the client created for themselves (vs. one the
- * trainer assigned). Rendered on the calendar habit chip. */
-function ClientOwnedBadge() {
+ * trainer assigned). Rendered on the calendar habit chip. Issue #449: also
+ * exported for the month calendar's WORKOUT chips, marking self-assigned
+ * workouts (issue #392 — `trainerId === clientId`) with the same User icon. */
+export function ClientOwnedBadge() {
   const t = useTranslations("schedule.calendar");
   return (
     <span title={t("clientCreatedBadge")} className="inline-flex shrink-0">

@@ -11,6 +11,7 @@ import {
   ChevronRightIcon,
   Dumbbell,
   Loader2,
+  User,
   XCircle,
 } from "lucide-react";
 
@@ -33,6 +34,10 @@ type PeekItem = {
   name: string;
   status: MonthWorkoutChip["status"];
   detail: string | null;
+  /** Issue #449 — true when the client created this workout for themselves
+   * (issue #392: `trainerId === clientId`). Renders a User icon beside the
+   * name, mirroring the Agenda calendar's client-created badge. */
+  selfAssigned: boolean;
 };
 
 export function ClientCalendarPeek({
@@ -221,6 +226,7 @@ export function ClientCalendarPeek({
 }
 
 function PeekItemRow({ item }: { item: PeekItem }) {
+  const t = useTranslations("clients.detail.calendarPeek");
   const Icon = itemIcon(item);
   return (
     <div
@@ -230,8 +236,20 @@ function PeekItemRow({ item }: { item: PeekItem }) {
       )}
     >
       <Icon className="mt-0.5 size-3.5 shrink-0" />
-      <div className="min-w-0">
-        <p className="truncate font-medium">{item.name}</p>
+      <div className="min-w-0 flex-1">
+        <p className="flex min-w-0 items-center gap-1">
+          <span className="truncate font-medium">{item.name}</span>
+          {/* Issue #449 — client self-assigned workout marker (same User
+              icon the Agenda calendar's chips use). */}
+          {item.selfAssigned ? (
+            <span title={t("clientCreated")} className="inline-flex shrink-0">
+              <User
+                className="size-3 shrink-0 opacity-70"
+                aria-label={t("clientCreated")}
+              />
+            </span>
+          ) : null}
+        </p>
         {item.detail ? (
           <p className="truncate text-[10px] opacity-75">{item.detail}</p>
         ) : null}
@@ -251,6 +269,7 @@ function buildWorkoutItems(
     detail: workout.templateTag
       ? `${t(`workoutStatus.${workout.status}`)} · ${workout.templateTag}`
       : t(`workoutStatus.${workout.status}`),
+    selfAssigned: workout.selfAssigned,
   }));
 }
 

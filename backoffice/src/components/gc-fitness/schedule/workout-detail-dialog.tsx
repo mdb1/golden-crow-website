@@ -108,6 +108,9 @@ export function WorkoutDetailDialog({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  // Issue #449 — same key the calendar chips' badge uses, so the wording
+  // stays identical ("Created by the client" / "Creado por el cliente").
+  const tCal = useTranslations("schedule.calendar");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["assignment-detail", assignmentId],
@@ -139,10 +142,17 @@ export function WorkoutDetailDialog({
     }
   }, [open]);
 
+  // Issue #449 — client self-assigned workouts (trainerId === clientId) open
+  // READ-ONLY: the coach views the prescription but does not manage it, so
+  // every mutating CTA (edit / recurrence / delete) and the coach-owned
+  // "Iniciar entrenamiento" live-session entry are hidden.
+  const isSelfAssigned = data?.selfAssigned === true;
+
   // "Editar recurrencia" only applies to a recurring series (seriesId set) that
   // still has upcoming occurrences — i.e. scheduled or started, not a finished
   // (completed/missed) one. Single assignments have no recurrence to change.
   const canEditRecurrence =
+    !isSelfAssigned &&
     Boolean(data?.seriesId) &&
     data?.status !== "completed" &&
     data?.status !== "missed";
@@ -177,6 +187,14 @@ export function WorkoutDetailDialog({
                       Abrir chat
                     </Link>
                   </Button>
+                ) : null}
+                {isSelfAssigned ? (
+                  // Issue #449 — marks the workout as client-created (same
+                  // wording as the calendar chip's User badge).
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <User className="size-3" />
+                    {tCal("clientCreatedBadge")}
+                  </span>
                 ) : null}
                 {data ? (
                   <span
@@ -226,7 +244,10 @@ export function WorkoutDetailDialog({
             >
               Cerrar
             </Button>
-            {data && data.status !== "completed" && data.status !== "missed" ? (
+            {data &&
+            !isSelfAssigned &&
+            data.status !== "completed" &&
+            data.status !== "missed" ? (
               <Button asChild className="gap-1">
                 <Link
                   href={`/gc-fitness/clients/${data.clientId}/sessions/${data.id}/run`}
@@ -249,24 +270,28 @@ export function WorkoutDetailDialog({
                 Editar recurrencia
               </Button>
             ) : null}
-            <Button
-              variant="outline"
-              disabled={!data || isLoading}
-              onClick={() => setEditOpen(true)}
-              className="gap-1"
-            >
-              <Pencil className="size-4" />
-              Editar
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!data || isLoading}
-              onClick={() => setDeleteOpen(true)}
-              className="gap-1"
-            >
-              <Trash2 className="size-4" />
-              Eliminar
-            </Button>
+            {!isSelfAssigned ? (
+              <Button
+                variant="outline"
+                disabled={!data || isLoading}
+                onClick={() => setEditOpen(true)}
+                className="gap-1"
+              >
+                <Pencil className="size-4" />
+                Editar
+              </Button>
+            ) : null}
+            {!isSelfAssigned ? (
+              <Button
+                variant="destructive"
+                disabled={!data || isLoading}
+                onClick={() => setDeleteOpen(true)}
+                className="gap-1"
+              >
+                <Trash2 className="size-4" />
+                Eliminar
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
