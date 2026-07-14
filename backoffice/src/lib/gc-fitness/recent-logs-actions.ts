@@ -17,6 +17,9 @@ import { resolveExerciseDocsById } from "./exercise-resolution";
 import { flattenLogPRs, previousRecordsByExercise } from "./personal-records";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
+// quick-260714-m57 (#403) — effective per-set type (setType ?? is_warmup) for
+// the "Detalle de series" badges + warmup exclusions.
+import { effectiveSetType, type SetType } from "./set-type";
 
 export type RecentLogCategory =
   | "habit"
@@ -137,6 +140,13 @@ export interface WorkoutLogDetail {
      * Defaults to false when absent (pre-warmup-flag logs).
      */
     isWarmup: boolean;
+    /**
+     * quick-260714-m57 (#403) — EFFECTIVE set type resolved via
+     * `effectiveSetType` (valid non-normal `set_type` wins; else the legacy
+     * warmup flag). Powers the W/F/D badge in "Detalle de series". Always
+     * consistent with `isWarmup` (`isWarmup === (setType === "warmup")`).
+     */
+    setType: SetType;
     /** True when this set matches a PR row in the parent workout log's prs[]. */
     isPR: boolean;
     /** Stored Epley estimated 1RM (kg) when isPR === true. */
@@ -1890,6 +1900,14 @@ async function buildWorkoutLogDetail(
     );
     const setLogId = typeof set.id === "string" ? set.id : "";
     const pr = setLogId ? prBySetLogId.get(setLogId) : undefined;
+    // quick-260714-m57 (#403) — effective type: a valid non-normal
+    // `set_type` wins; unknown strings and legacy docs fall back to the
+    // warmup flag. Hardens the share-card warmup exclusion too (a
+    // set_type-only warmup now resolves isWarmup=true).
+    const setTypeEffective = effectiveSetType({
+      set_type: typeof set.set_type === "string" ? set.set_type : null,
+      is_warmup: set.is_warmup === true || set.isWarmup === true,
+    });
     return {
       index: index + 1,
       setLogId,
@@ -1906,11 +1924,12 @@ async function buildWorkoutLogDetail(
       durationSeconds: numeric(set.duration_seconds ?? set.durationSeconds),
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
-      // 260529-mrp — Wire field is `is_warmup` (iOS, snake_case); keep
-      // `isWarmup` as a camel fallback mirroring the weight_kg ?? weight
-      // pattern. The share card excludes warmups from Volumen / Series /
-      // top-set / 1RM, matching the iOS twin.
-      isWarmup: Boolean(set.is_warmup ?? set.isWarmup),
+      // 260529-mrp — the share card excludes warmups from Volumen / Series /
+      // top-set / 1RM, matching the iOS twin. quick-260714-m57 (#403):
+      // derived from the EFFECTIVE type so `set_type:"warmup"`-only sets are
+      // excluded too (sync invariant holds by construction).
+      isWarmup: setTypeEffective === "warmup",
+      setType: setTypeEffective,
       isPR: Boolean(pr),
       prEstimatedOneRM: pr?.estimatedOneRM ?? null,
       prPrevious: pr ? (prPrevBySetLogId.get(setLogId) ?? null) : null,

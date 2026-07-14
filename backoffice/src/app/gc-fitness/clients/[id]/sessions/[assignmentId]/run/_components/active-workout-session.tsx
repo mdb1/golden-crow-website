@@ -237,7 +237,7 @@ export function ActiveWorkoutSession({
         onReps={(i, v) => live.setReps(ex.exerciseId, i, v)}
         onDuration={(i, v) => live.setDuration(ex.exerciseId, i, v)}
         onToggleDone={(i) => live.toggleDone(ex.exerciseId, i)}
-        onToggleWarmup={(i) => live.toggleWarmup(ex.exerciseId, i)}
+        onSetType={(i, type) => live.setSetType(ex.exerciseId, i, type)}
         onAddSet={() => live.addSet(ex.exerciseId)}
         onRemoveSet={(i) => live.removeSet(ex.exerciseId, i)}
         onMove={(dir) => live.moveExercise(ex.exerciseId, dir)}

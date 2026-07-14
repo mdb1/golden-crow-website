@@ -46,6 +46,9 @@ import {
   computeTotalVolumeKg,
 } from "./live-workout-volume";
 import { resolveExerciseDocsById } from "./exercise-resolution";
+// quick-260714-m57 (#403) — per-set types. `isSetType` gates the forgiving
+// wire decode; `effectiveSetType` powers the warmup exclusions.
+import { effectiveSetType, isSetType } from "./set-type";
 import type {
   ActiveSession,
   ActiveWorkoutSummary,
@@ -91,6 +94,26 @@ function numArrayOrNull(v: unknown): number[] | null {
   if (!Array.isArray(v)) return null;
   const out = v.filter((n): n is number => typeof n === "number");
   return out.length > 0 ? out : null;
+}
+
+/** quick-260714-m57 (#403) — raw string array (setTypesBySet). POSITIONAL
+ *  coercion: non-string entries become "normal" (never filtered — dropping
+ *  an entry would shift later sets' types). Null when absent/not-a-list. */
+function strArrayOrNull(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  if (v.length === 0) return null;
+  return v.map((s) => (typeof s === "string" ? s : "normal"));
+}
+
+/** quick-260714-m57 (#403) — effective-warmup predicate on a RAW wire set
+ *  (`set_type` / `is_warmup`, snake_case). */
+function isEffectiveWarmupWire(s: Record<string, unknown>): boolean {
+  return (
+    effectiveSetType({
+      set_type: typeof s.set_type === "string" ? s.set_type : null,
+      is_warmup: s.is_warmup === true,
+    }) === "warmup"
+  );
 }
 
 // ── media resolution (gs:// → 1h signed URL; https passes through) ─────────
@@ -184,6 +207,9 @@ async function buildSessionExercises(
             : null,
         repsBySet: numArrayOrNull(e.repsBySet),
         weightBySetKg: numArrayOrNull(e.weightBySetKg),
+        // quick-260714-m57 (#403) — per-set type prescription from the
+        // snapshot; the UI resolves per index via plannedSetType.
+        setTypesBySet: strArrayOrNull(e.setTypesBySet),
         metric,
         durationBySetSeconds: numArrayOrNull(e.durationBySetSeconds),
         durationSeconds:
@@ -209,10 +235,24 @@ function wireSetToSession(s: Record<string, unknown>): SessionSetLog {
     clientLoggedAt: toIso(s.client_logged_at) ?? new Date(0).toISOString(),
     durationSeconds:
       typeof s.duration_seconds === "number" ? s.duration_seconds : null,
+    // quick-260714-m57 (#403) — forgiving decode: unknown/absent/"normal"
+    // wire strings coerce to null (effective type then falls back to
+    // is_warmup, matching the iOS/Android twins).
+    setType:
+      isSetType(s.set_type) && s.set_type !== "normal" ? s.set_type : null,
   };
 }
 
 function sessionSetToWire(s: SessionSetLog): Record<string, unknown> {
+  // quick-260714-m57 (#403) — SYNC INVARIANT at the encode boundary: every
+  // encoded set satisfies `is_warmup == (set_type == "warmup")`. A non-null
+  // non-normal setType is authoritative; legacy/normal sets keep the caller's
+  // isWarmup flag. `set_type` is omitted when null/normal (writers never
+  // store "normal"), mirroring SetLog.swift / SetLog.kt.
+  const setType =
+    s.setType && isSetType(s.setType) && s.setType !== "normal"
+      ? s.setType
+      : null;
   const wire: Record<string, unknown> = {
     id: s.id,
     exerciseId: s.exerciseId,
@@ -220,9 +260,12 @@ function sessionSetToWire(s: SessionSetLog): Record<string, unknown> {
     weight_kg: s.weightKg,
     reps: s.reps,
     completed_at: new Date(s.completedAt),
-    is_warmup: s.isWarmup,
+    is_warmup: setType !== null ? setType === "warmup" : s.isWarmup === true,
     client_logged_at: new Date(s.clientLoggedAt),
   };
+  if (setType !== null) {
+    wire.set_type = setType;
+  }
   // Firestore rejects `undefined`; iOS omits the field on reps-based sets.
   if (typeof s.durationSeconds === "number" && s.durationSeconds > 0) {
     wire.duration_seconds = s.durationSeconds;
@@ -803,6 +846,13 @@ async function enrichEditedExercises(
     if (e.supersetGroup) out.supersetGroup = e.supersetGroup;
     if (e.repsBySet) out.repsBySet = e.repsBySet;
     if (e.weightBySetKg) out.weightBySetKg = e.weightBySetKg;
+    // quick-260714-m57 (#403) — carry the per-set types into the propagated
+    // future snapshots, omitting all-normal arrays (wire contract). The
+    // conditional spread pattern also keeps `undefined` out of the Admin SDK
+    // payload.
+    if (e.setTypesBySet && e.setTypesBySet.some((t) => t !== "normal")) {
+      out.setTypesBySet = e.setTypesBySet;
+    }
     if (e.metric) out.metric = e.metric;
     if (e.durationBySetSeconds) out.durationBySetSeconds = e.durationBySetSeconds;
     if (typeof e.durationSeconds === "number") {
@@ -890,12 +940,14 @@ export async function getPreviousSessionForClient(
     // Logs are newest-first; first time we see an exercise wins. Within a log
     // keep the heaviest working set as the representative "last time".
     for (const raw of sets) {
-      if (raw.is_warmup === true) continue;
+      // quick-260714-m57 (#403) — a set_type-only warmup (is_warmup absent)
+      // must be excluded from the ANTERIOR column/prefill too.
+      if (isEffectiveWarmupWire(raw)) continue;
       const exerciseId = String(raw.exerciseId ?? "");
       if (!exerciseId || map[exerciseId]) continue;
       // find heaviest set for this exercise in this (most recent) log
       const sameExercise = sets.filter(
-        (s) => s.exerciseId === exerciseId && s.is_warmup !== true,
+        (s) => s.exerciseId === exerciseId && !isEffectiveWarmupWire(s),
       );
       const best = sameExercise.reduce((acc, s) =>
         num(s.weight_kg, 0) > num(acc.weight_kg, 0) ? s : acc,
