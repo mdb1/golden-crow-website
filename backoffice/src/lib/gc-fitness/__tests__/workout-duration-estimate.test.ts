@@ -133,6 +133,27 @@ describe("workout duration estimate (TS twin of WorkoutDurationEstimate.swift)",
     expect(estimateTemplateDurationMinutes(exercises)).toBe(48);
   });
 
+  // --- SUPERSET PARITY VECTOR (must match PLAN-1 iOS/Android suites) ---
+  //
+  // D11: superset rest is charged ONCE per round (last member's rest_seconds),
+  // the block's final round charges the transition rest, 45s setup stays per
+  // set, standalone math unchanged. Derivation (see PLAN-2 pinned vector):
+  //   work  = reps×3 → Ex1 3×30=90, Ex2 3×30=90, Ex3 2×24=48 → 228
+  //   setup = 45 × (3+3+2=8 sets) → 360
+  //   superset rounds: rounds 1–2 charge Ex2.rest=60 each (120); round 3 charges
+  //                    Ex2.transition=120; intra-round handoffs charge 0
+  //   standalone Ex3: 90 after each of 2 sets → 180
+  //   total = 228+360+120+120+180 = 1008s → ceil(1008/60)=17 min
+  it("SUPERSET PARITY vector = 1008s / 17 min", () => {
+    const exercises: DurationEstimateExercise[] = [
+      ex({ exerciseId: "e1", sets: 3, reps: 10, rest_seconds: 180, transition_rest_seconds: 90, supersetGroup: "A", order: 1 }),
+      ex({ exerciseId: "e2", sets: 3, reps: 10, rest_seconds: 60, transition_rest_seconds: 120, supersetGroup: "A", order: 2 }),
+      ex({ exerciseId: "e3", sets: 2, reps: 8, rest_seconds: 90, order: 3 }),
+    ];
+    expect(estimateTemplateDurationSeconds(exercises)).toBe(1008);
+    expect(estimateTemplateDurationMinutes(exercises)).toBe(17);
+  });
+
   it("estimateFromRaw coerces a raw Firestore exercises array to the same minutes", () => {
     const raw = [
       { exerciseId: "e1", sets: 4, reps: 10, rest_seconds: 120, order: 1 },
