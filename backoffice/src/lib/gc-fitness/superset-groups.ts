@@ -21,6 +21,8 @@ export interface SupersetGroupRest {
   afterRestSeconds: number | null;
 }
 
+const DEFAULT_SUPERSET_PILL_LABELS = ["A", "B", "C"] as const;
+
 export function normalizeSupersetGroup(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -36,6 +38,32 @@ export function listSupersetGroupOptions(
   return Array.from(groups).sort((a, b) => a.localeCompare(b));
 }
 
+export function listSupersetGroupPillLabels(
+  exercises: SupersetGroupExerciseLike[],
+): string[] {
+  const used = listSupersetGroupOptions(exercises);
+  const labels = new Set<string>(DEFAULT_SUPERSET_PILL_LABELS);
+  for (const group of used) labels.add(group);
+
+  const selectedValues = new Set(
+    Array.from(countAlphabeticSupersetGroups(exercises))
+      .filter(([, count]) => count >= 2)
+      .map(([value]) => value),
+  );
+  const defaultMax = alphabeticLabelValue(
+    DEFAULT_SUPERSET_PILL_LABELS[DEFAULT_SUPERSET_PILL_LABELS.length - 1],
+  );
+  if (defaultMax !== null) {
+    let contiguous = 0;
+    while (selectedValues.has(contiguous + 1)) contiguous += 1;
+    if (contiguous >= defaultMax) {
+      labels.add(alphabeticLabelFromValue(contiguous + 1));
+    }
+  }
+
+  return Array.from(labels).sort(compareSupersetGroupLabels);
+}
+
 export function getSupersetGroupMemberIndexes(
   exercises: SupersetGroupExerciseLike[],
   group: string,
@@ -49,6 +77,88 @@ export function getSupersetGroupMemberIndexes(
     }
   });
   return members;
+}
+
+export function compactSupersetGroupLabelsAfterRemoval<
+  T extends SupersetGroupExerciseLike,
+>(exercises: T[], removedGroup: string): T[] {
+  const removedValue = alphabeticLabelValue(normalizeSupersetGroup(removedGroup));
+  if (removedValue === null) return exercises;
+
+  const usedAfterRemoval = Array.from(
+    new Set(
+      exercises
+        .map((exercise) =>
+          alphabeticLabelValue(normalizeSupersetGroup(exercise.supersetGroup)),
+        )
+        .filter(
+          (value): value is number =>
+            value !== null && value > removedValue,
+        ),
+    ),
+  ).sort((a, b) => a - b);
+  if (usedAfterRemoval.length === 0) return exercises;
+
+  const remapped = new Map<number, string>();
+  usedAfterRemoval.forEach((value, offset) => {
+    const nextValue = removedValue + offset;
+    if (nextValue !== value) {
+      remapped.set(value, alphabeticLabelFromValue(nextValue));
+    }
+  });
+  if (remapped.size === 0) return exercises;
+
+  return exercises.map((exercise) => {
+    const value = alphabeticLabelValue(
+      normalizeSupersetGroup(exercise.supersetGroup),
+    );
+    const nextGroup = value === null ? undefined : remapped.get(value);
+    return nextGroup ? { ...exercise, supersetGroup: nextGroup } : exercise;
+  });
+}
+
+function compareSupersetGroupLabels(a: string, b: string): number {
+  const left = alphabeticLabelValue(a);
+  const right = alphabeticLabelValue(b);
+  if (left !== null && right !== null) return left - right;
+  if (left !== null) return -1;
+  if (right !== null) return 1;
+  return a.localeCompare(b);
+}
+
+function countAlphabeticSupersetGroups(
+  exercises: SupersetGroupExerciseLike[],
+): Map<number, number> {
+  const counts = new Map<number, number>();
+  for (const exercise of exercises) {
+    const value = alphabeticLabelValue(
+      normalizeSupersetGroup(exercise.supersetGroup),
+    );
+    if (value === null) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function alphabeticLabelValue(label: string): number | null {
+  const normalized = label.trim().toUpperCase();
+  if (!/^[A-Z]+$/.test(normalized)) return null;
+  let value = 0;
+  for (const char of normalized) {
+    value = value * 26 + char.charCodeAt(0) - 64;
+  }
+  return value;
+}
+
+function alphabeticLabelFromValue(value: number): string {
+  let remaining = Math.max(1, Math.floor(value));
+  let label = "";
+  while (remaining > 0) {
+    remaining -= 1;
+    label = String.fromCharCode(65 + (remaining % 26)) + label;
+    remaining = Math.floor(remaining / 26);
+  }
+  return label;
 }
 
 /**

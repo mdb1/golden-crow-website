@@ -1,5 +1,7 @@
 import {
+  compactSupersetGroupLabelsAfterRemoval,
   getSupersetGroupMemberIndexes,
+  listSupersetGroupPillLabels,
   getSupersetGroupRest,
   getSupersetMembership,
   listSupersetGroupOptions,
@@ -24,6 +26,96 @@ describe("superset-groups", () => {
 
   it("lists unique superset pills in order", () => {
     expect(listSupersetGroupOptions(exercises)).toEqual(["A", "B"]);
+  });
+
+  it("keeps A/B/C visible before the first three groups are all used", () => {
+    expect(listSupersetGroupPillLabels([])).toEqual(["A", "B", "C"]);
+    expect(listSupersetGroupPillLabels([{ supersetGroup: "A" }])).toEqual([
+      "A",
+      "B",
+      "C",
+    ]);
+    expect(listSupersetGroupPillLabels([{ supersetGroup: "C" }])).toEqual([
+      "A",
+      "B",
+      "C",
+    ]);
+    expect(
+      listSupersetGroupPillLabels([
+        { supersetGroup: "A" },
+        { supersetGroup: "C" },
+      ]),
+    ).toEqual(["A", "B", "C"]);
+    expect(
+      listSupersetGroupPillLabels([
+        { supersetGroup: "A" },
+        { supersetGroup: "A" },
+        { supersetGroup: "B" },
+        { supersetGroup: "B" },
+        { supersetGroup: "C" },
+      ]),
+    ).toEqual(["A", "B", "C"]);
+    expect(
+      listSupersetGroupPillLabels([
+        { supersetGroup: "A" },
+        { supersetGroup: "A" },
+        { supersetGroup: "B" },
+        { supersetGroup: "B" },
+        { supersetGroup: "C" },
+        { supersetGroup: "C" },
+        { supersetGroup: "D" },
+      ]),
+    ).toEqual(["A", "B", "C", "D"]);
+  });
+
+  it("adds the next superset letter once the visible sequence is used", () => {
+    expect(
+      listSupersetGroupPillLabels([
+        { supersetGroup: "A" },
+        { supersetGroup: "A" },
+        { supersetGroup: "B" },
+        { supersetGroup: "B" },
+        { supersetGroup: "C" },
+        { supersetGroup: "C" },
+      ]),
+    ).toEqual(["A", "B", "C", "D"]);
+    expect(
+      listSupersetGroupPillLabels([
+        { supersetGroup: "A" },
+        { supersetGroup: "A" },
+        { supersetGroup: "B" },
+        { supersetGroup: "B" },
+        { supersetGroup: "C" },
+        { supersetGroup: "C" },
+        { supersetGroup: "D" },
+        { supersetGroup: "D" },
+      ]),
+    ).toEqual(["A", "B", "C", "D", "E"]);
+  });
+
+  it("compacts later labels when a superset group is removed", () => {
+    expect(
+      compactSupersetGroupLabelsAfterRemoval(
+        [
+          { supersetGroup: "A" },
+          { supersetGroup: "B" },
+          { supersetGroup: "C" },
+          { supersetGroup: "E" },
+          { supersetGroup: "E" },
+        ],
+        "D",
+      ).map((exercise) => exercise.supersetGroup),
+    ).toEqual(["A", "B", "C", "D", "D"]);
+    expect(
+      compactSupersetGroupLabelsAfterRemoval(
+        [
+          { supersetGroup: "A" },
+          { supersetGroup: "C" },
+          { supersetGroup: "D" },
+        ],
+        "B",
+      ).map((exercise) => exercise.supersetGroup),
+    ).toEqual(["A", "B", "C"]);
   });
 
   it("finds all members for a group", () => {
