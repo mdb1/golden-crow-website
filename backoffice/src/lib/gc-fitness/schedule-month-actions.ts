@@ -34,6 +34,9 @@ import {
   type HabitLogRow,
 } from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
+// quick-260714-m57 (#403) — effective set type for warmup exclusion (a
+// set_type-only warmup must be skipped like an is_warmup one).
+import { effectiveSetType } from "./set-type";
 
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
 const LOGS = FirestoreCollections.workoutLogs;
@@ -252,6 +255,14 @@ export interface AssignmentExercise {
   /** 26-03 — Exercise-level duration fallback (seconds). Null when not
    *  prescribed (reps-based) or unset on a time exercise. */
   durationSeconds: number | null;
+  /**
+   * quick-260714-m57 (#403) — per-set type prescription (raw wire strings
+   * "normal" | "warmup" | "failure" | "dropset"). Positionally coerced on
+   * read (unknown entry → "normal"), never filtered — dropping an entry
+   * would shift later sets' types to the wrong row. Empty array for legacy
+   * docs (all-normal).
+   */
+  setTypesBySet: string[];
 }
 
 export interface AssignmentDetail {
@@ -495,6 +506,12 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
           Number.isFinite(ex.durationSeconds)
             ? ex.durationSeconds
             : null,
+        // quick-260714-m57 (#403) — POSITIONAL coercion (map, never filter).
+        setTypesBySet: Array.isArray(ex.setTypesBySet)
+          ? (ex.setTypesBySet as unknown[]).map((t) =>
+              typeof t === "string" ? t : "normal",
+            )
+          : [],
       };
     }),
     lastLoggedSetsByExerciseId,
@@ -538,7 +555,16 @@ async function fetchLastLoggedSetsByExercise(
         Array<{ setIndex: number; weightKg: number; reps: number }>
       >();
       for (const raw of sets) {
-        if (raw.is_warmup === true) continue;
+        // quick-260714-m57 (#403) — effective-warmup exclusion: a warmup can
+        // arrive as `is_warmup:true` (legacy) or as `set_type:"warmup"`.
+        if (
+          effectiveSetType({
+            set_type: typeof raw.set_type === "string" ? raw.set_type : null,
+            is_warmup: raw.is_warmup === true,
+          }) === "warmup"
+        ) {
+          continue;
+        }
         const exerciseId =
           typeof raw.exerciseId === "string" ? raw.exerciseId : "";
         if (!exerciseId) continue;

@@ -51,6 +51,8 @@ import {
   changedWeightExerciseIds,
   exercisesOf,
 } from "./weight-diff";
+// quick-260714-m57 (#403) — per-set type helpers (TS twin of iOS SetType).
+import { plannedSetType, type SetType } from "./set-type";
 import {
   recordCoachActivityEvent,
   markCoachActivityDeleted,
@@ -142,6 +144,12 @@ function jsonSafe(value: unknown): unknown {
   return value;
 }
 
+// quick-260714-m57 (#403) — NOTE on `setTypesBySet`: every snapshot-build
+// site (assignTemplate single/bulk/recurring, duplicate, fork, recurrence
+// re-expansion, propagateTemplateToFutureAssignments) flows through this
+// function, which copies each template exercise VERBATIM via `...exercise`.
+// `setTypesBySet` therefore rides template → templateSnapshot without an
+// explicit key, exactly like repsBySet / weightBySetKg.
 async function templateSnapshotForAssignment(
   template: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
@@ -275,6 +283,27 @@ function applyExerciseOverrides(
     ...templateSnapshot,
     exercises,
   };
+}
+
+/**
+ * quick-260714-m57 (#403) — normalize per-set types coming from the edit
+ * dialog (or realigned from the existing snapshot when the edit doesn't
+ * carry them). Coerces unknown entries POSITIONALLY to "normal" (never
+ * filters — dropping an entry would shift later sets' types), aligns to
+ * `setCount`, and returns null when every entry is normal: the wire
+ * contract omits all-normal arrays, and callers DELETE the key so a stale
+ * non-normal array can't survive an all-normal edit.
+ */
+function normalizeEditedSetTypes(
+  raw: unknown,
+  setCount: number,
+): SetType[] | null {
+  if (!Array.isArray(raw)) return null;
+  const length = Math.max(1, Math.min(20, setCount || raw.length || 1));
+  const aligned = Array.from({ length }, (_, i) =>
+    plannedSetType(i, raw as readonly string[]),
+  );
+  return aligned.some((t) => t !== "normal") ? aligned : null;
 }
 
 function normalizeEditedWeights(opts: {
@@ -1733,7 +1762,14 @@ export async function editAssignmentExercises(
             ? Number(edit.transition_rest_seconds)
             : undefined;
         const notes = typeof edit.notes === "string" ? edit.notes : "";
-        exercises[index] = {
+        // quick-260714-m57 (#403) — legacy index edits don't carry types:
+        // realign the snapshot's existing setTypesBySet to the new set count
+        // (pad "normal" / truncate); delete when all-normal.
+        const realignedTypes = normalizeEditedSetTypes(
+          (current as { setTypesBySet?: unknown }).setTypesBySet,
+          repsBySet.length,
+        );
+        const nextExercise: Record<string, unknown> = {
           ...current,
           sets: repsBySet.length,
           reps: repsBySet[0] ?? 0,
@@ -1745,6 +1781,12 @@ export async function editAssignmentExercises(
             : {}),
           notes,
         };
+        if (realignedTypes) {
+          nextExercise.setTypesBySet = realignedTypes;
+        } else {
+          delete nextExercise.setTypesBySet;
+        }
+        exercises[index] = nextExercise;
       }
       return { ...base, exercises };
     }
@@ -1812,6 +1854,15 @@ export async function editAssignmentExercises(
           : null;
       const supersetGroup =
         typeof edit.supersetGroup === "string" ? edit.supersetGroup : null;
+      // quick-260714-m57 (#403) — prefer the dialog's explicit types; fall
+      // back to realigning what the snapshot already had (an older dialog
+      // build won't send the field). Null ⇒ all-normal ⇒ key deleted below.
+      const setTypesBySet = normalizeEditedSetTypes(
+        edit.setTypesBySet !== undefined
+          ? edit.setTypesBySet
+          : (current as { setTypesBySet?: unknown } | undefined)?.setTypesBySet,
+        repsBySet.length,
+      );
       const merged: Record<string, unknown> = {
         ...(current ?? {}),
         exerciseId,
@@ -1844,6 +1895,13 @@ export async function editAssignmentExercises(
         merged.hasExplicitNoWeightPrescription = true;
       } else {
         delete merged.hasExplicitNoWeightPrescription;
+      }
+      // quick-260714-m57 (#403) — explicit set-or-delete: `...current` above
+      // carries a stale setTypesBySet that must not survive an all-normal edit.
+      if (setTypesBySet) {
+        merged.setTypesBySet = setTypesBySet;
+      } else {
+        delete merged.setTypesBySet;
       }
       return merged;
     },
