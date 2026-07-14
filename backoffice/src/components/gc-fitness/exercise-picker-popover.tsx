@@ -56,7 +56,7 @@
 // a redundant duplicate line).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronsUpDown, Copy, Search, X } from "lucide-react";
+import { ChevronsUpDown, Copy, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -415,8 +415,9 @@ export function ExercisePickerPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="flex max-h-[min(80vh,720px)] w-[--radix-popover-trigger-width] flex-col overflow-y-auto p-0"
+        className="flex max-h-[min(var(--radix-popover-content-available-height),720px)] w-[--radix-popover-trigger-width] flex-col overflow-y-auto p-0"
         align="start"
+        collisionPadding={8}
       >
         {/* Phase 24-06 Task 3 — filter chip row. Renders ABOVE the
             search input so the trainer narrows by FEXD enrichment
@@ -441,15 +442,11 @@ export function ExercisePickerPopover({
           // cmdk render exactly `visible`.
           shouldFilter={false}
         >
-          <div className="flex items-center border-b px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <CommandInput
-              value={search}
-              onValueChange={setSearch}
-              placeholder={t("searchPlaceholder")}
-              className="h-10 border-0 focus:ring-0"
-            />
-          </div>
+          <CommandInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder={t("searchPlaceholder")}
+          />
           <CommandList ref={listRef}>
             {isLoading || !hasSnapshot ? (
               <CommandEmpty>{t("loadingExercises")}</CommandEmpty>
