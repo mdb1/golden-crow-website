@@ -37,7 +37,6 @@ import {
   Circle,
   Dumbbell,
   PlusIcon,
-  User,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -64,6 +63,7 @@ import {
 } from "@/components/ui/popover";
 
 import { AssignTemplateModal } from "./assign-template-modal";
+import { HabitChip } from "./habit-chip";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
@@ -143,12 +143,6 @@ const STATUS_PALETTE: Record<
 // Scheduled → neutral card surface; terminal states keep their status color.
 function workoutChipClass(status: MonthWorkoutChip["status"]): string {
   if (status === "scheduled") return "border-border bg-card text-foreground";
-  return STATUS_PALETTE[status];
-}
-
-function habitChipClass(status: MonthHabitChip["status"]): string {
-  if (status === "scheduled")
-    return "border-border bg-card text-muted-foreground";
   return STATUS_PALETTE[status];
 }
 
@@ -1350,22 +1344,12 @@ function DayCell({
                 {group.habits.length > 0 ? (
                   <div className="flex min-w-0 flex-wrap gap-1">
                     {group.habits.map((h) => (
-                      <button
+                      <HabitChip
                         key={h.id}
-                        type="button"
+                        habit={h}
                         onClick={() => onClickHabit(h)}
-                        className={cn(
-                          "inline-flex max-w-full items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
-                          habitChipClass(h.status),
-                        )}
                         title={`${h.habitName} · ${h.status}`}
-                      >
-                        <HabitStatusGlyph status={h.status} />
-                        <span className="min-w-0 max-w-full truncate">
-                          {h.habitName}
-                        </span>
-                        {h.clientOwned ? <ClientOwnedBadge /> : null}
-                      </button>
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -1495,22 +1479,12 @@ function ClientDayCell({
         {habits.length > 0 ? (
           <div className="flex min-w-0 flex-wrap gap-1">
             {habits.map((h) => (
-              <button
+              <HabitChip
                 key={h.id}
-                type="button"
+                habit={h}
                 onClick={() => onClickHabit(h)}
-                className={cn(
-                  "inline-flex max-w-full items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium hover:brightness-95",
-                  habitChipClass(h.status),
-                )}
                 title={`${h.habitName} · ${h.status}`}
-              >
-                <HabitStatusGlyph status={h.status} />
-                <span className="min-w-0 max-w-full truncate">
-                  {h.habitName}
-                </span>
-                {h.clientOwned ? <ClientOwnedBadge /> : null}
-              </button>
+              />
             ))}
           </div>
         ) : null}
@@ -1773,23 +1747,3 @@ function LegendItem({
   );
 }
 
-function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
-  if (status === "done") {
-    return <CheckCircle2 className="size-2.5 text-emerald-600 dark:text-emerald-400" />;
-  }
-  if (status === "missed") {
-    return <XCircle className="size-2.5 text-rose-600 dark:text-rose-400" />;
-  }
-  return <Circle className="size-2.5 opacity-60" />;
-}
-
-/** Issue #437: marks a habit the client created for themselves (vs. one the
- * trainer assigned). Rendered on the calendar habit chip. */
-function ClientOwnedBadge() {
-  const t = useTranslations("schedule.calendar");
-  return (
-    <span title={t("clientCreatedBadge")} className="inline-flex shrink-0">
-      <User className="size-2.5 opacity-70" aria-label={t("clientCreatedBadge")} />
-    </span>
-  );
-}

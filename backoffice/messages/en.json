@@ -390,7 +390,6 @@
         "loading": "Loading schedule...",
         "loadFailed": "Could not load this week.",
         "emptyDay": "No workouts or habits",
-        "moreItems": "+{count} more",
         "workoutStatus": {
           "scheduled": "scheduled",
           "started": "in progress",
