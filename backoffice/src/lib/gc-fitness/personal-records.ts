@@ -109,6 +109,28 @@ export function flattenLogPRs(logData: Record<string, unknown>): RawPersonalReco
   return out;
 }
 
+/**
+ * Keeps only rows that belong to a client on the coach's CURRENT roster
+ * (issue #446). `workout_logs.trainerId` is stamped at log-creation time and is
+ * never updated when a client is transferred to another coach, so any
+ * `trainerId == coach` query keeps returning the transferred client's
+ * historical logs to the FORMER coach. The current `users/{uid}.coachId`
+ * (i.e. roster membership via listClients()) is the only valid visibility
+ * scope — apply this filter to every coach-facing read built on a stale
+ * trainerId query. Rows with a missing/empty/non-string clientId are dropped.
+ */
+export function filterPrLogsToRoster<T extends { clientId?: unknown }>(
+  rows: T[],
+  rosterUids: ReadonlySet<string>,
+): T[] {
+  return rows.filter(
+    (row) =>
+      typeof row.clientId === "string" &&
+      row.clientId.length > 0 &&
+      rosterUids.has(row.clientId),
+  );
+}
+
 function metricOf(pr: { durationSeconds: number | null }): PRMetric {
   return pr.durationSeconds != null && pr.durationSeconds > 0 ? "time" : "reps";
 }

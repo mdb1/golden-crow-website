@@ -1,5 +1,6 @@
 import {
   buildPersonalRecords,
+  filterPrLogsToRoster,
   flattenLogPRs,
   previousRecordsByExercise,
   type PRExerciseMeta,
@@ -130,6 +131,51 @@ describe("flattenLogPRs", () => {
 
   it("returns [] when the log has no prs", () => {
     expect(flattenLogPRs({})).toEqual([]);
+  });
+});
+
+describe("filterPrLogsToRoster", () => {
+  const roster = new Set(["client-a", "client-b"]);
+
+  it("keeps rows whose clientId is on the roster", () => {
+    const rows = [
+      { clientId: "client-a", trainerId: "coach-1" },
+      { clientId: "client-b", trainerId: "coach-1" },
+    ];
+    expect(filterPrLogsToRoster(rows, roster)).toEqual(rows);
+  });
+
+  it("drops a transferred client even when trainerId still equals the coach (issue #446)", () => {
+    const rows = [
+      { clientId: "client-a", trainerId: "coach-1" },
+      // Transferred away: users/{uid}.coachId now points at another coach, but
+      // the historical log keeps the stale trainerId stamp.
+      { clientId: "client-transferred", trainerId: "coach-1" },
+    ];
+    expect(filterPrLogsToRoster(rows, roster)).toEqual([
+      { clientId: "client-a", trainerId: "coach-1" },
+    ]);
+  });
+
+  it("keeps a self-assigned-shaped row when the client is on the roster", () => {
+    const rows = [{ clientId: "client-a", trainerId: "client-a" }];
+    expect(filterPrLogsToRoster(rows, roster)).toEqual(rows);
+  });
+
+  it("drops rows with missing or empty clientId", () => {
+    const rows = [
+      { trainerId: "coach-1" },
+      { clientId: "", trainerId: "coach-1" },
+      { clientId: 42, trainerId: "coach-1" },
+      { clientId: null, trainerId: "coach-1" },
+    ];
+    expect(filterPrLogsToRoster(rows, roster)).toEqual([]);
+  });
+
+  it("returns [] against an empty roster", () => {
+    expect(
+      filterPrLogsToRoster([{ clientId: "client-a" }], new Set<string>()),
+    ).toEqual([]);
   });
 });
 
