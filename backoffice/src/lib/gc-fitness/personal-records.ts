@@ -242,3 +242,55 @@ export function previousRecordsByExercise(
   for (const [exId, pr] of best) out.set(exId, toSnapshot(pr));
   return out;
 }
+
+/**
+ * The record each of THIS log's PRs beat, keyed by the PR's `setLogId`
+ * (issue #405 follow-up — the notifications feed). Unlike
+ * `previousRecordsByExercise` (one previous per exercise), this resolves a
+ * previous for EVERY PR row, so a session that set two PRs for the same
+ * exercise sees the second PR's "previous" as the first PR of the SAME session
+ * (not the earlier-log baseline).
+ *
+ * Ordering rule (mirrors the existing convention): per exercise, seed the
+ * running-best from `earlierPrs` (latest by `achievedAtMs`, magnitude
+ * tiebreak); walk `thisLogPrs` oldest→newest (achievedAtMs then magnitude);
+ * for each row the previous = the current running-best (if any), then advance
+ * the running-best to that row. A row with no prior best (first-ever PR) is
+ * simply absent from the map.
+ */
+export function previousRecordBySetLog(
+  earlierPrs: RawPersonalRecord[],
+  thisLogPrs: RawPersonalRecord[],
+): Map<string, PRSnapshot> {
+  // Group this log's PRs by exercise (skip rows missing ids).
+  const byExercise = new Map<string, RawPersonalRecord[]>();
+  for (const pr of thisLogPrs) {
+    if (!pr.exerciseId || !pr.setLogId) continue;
+    const list = byExercise.get(pr.exerciseId);
+    if (list) list.push(pr);
+    else byExercise.set(pr.exerciseId, [pr]);
+  }
+  if (byExercise.size === 0) return new Map();
+
+  // Seed the running-best per exercise from the earlier-log baseline.
+  const runningBest = previousRecordsByExercise(
+    earlierPrs,
+    new Set(byExercise.keys()),
+  );
+
+  const out = new Map<string, PRSnapshot>();
+  for (const [exerciseId, list] of byExercise) {
+    const sorted = [...list].sort((a, b) => {
+      const ta = a.achievedAtMs ?? Number.NEGATIVE_INFINITY;
+      const tb = b.achievedAtMs ?? Number.NEGATIVE_INFINITY;
+      if (ta !== tb) return ta - tb;
+      return magnitude(a) - magnitude(b);
+    });
+    let best = runningBest.get(exerciseId) ?? null;
+    for (const pr of sorted) {
+      if (best) out.set(pr.setLogId, best);
+      best = toSnapshot(pr);
+    }
+  }
+  return out;
+}

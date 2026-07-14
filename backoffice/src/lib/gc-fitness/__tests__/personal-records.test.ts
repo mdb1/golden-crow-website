@@ -2,6 +2,7 @@ import {
   buildPersonalRecords,
   filterPrLogsToRoster,
   flattenLogPRs,
+  previousRecordBySetLog,
   previousRecordsByExercise,
   type PRExerciseMeta,
   type RawPersonalRecord,
@@ -194,5 +195,54 @@ describe("previousRecordsByExercise", () => {
   it("returns empty when no earlier PR exists for the exercise", () => {
     const prev = previousRecordsByExercise([], new Set(["bench"]));
     expect(prev.size).toBe(0);
+  });
+});
+
+describe("previousRecordBySetLog", () => {
+  it("cross-log — maps this log's PR to the record it beat in an earlier log", () => {
+    const earlier = [
+      pr({ exerciseId: "bench", setLogId: "b0", weightKg: 100, reps: 8, estimatedOneRM: 124, achievedAtMs: 1000 }),
+    ];
+    const thisLog = [
+      pr({ exerciseId: "bench", setLogId: "b1", weightKg: 110, reps: 8, estimatedOneRM: 139, achievedAtMs: 2000 }),
+    ];
+    const map = previousRecordBySetLog(earlier, thisLog);
+    expect(map.get("b1")?.weightKg).toBe(100);
+    expect(map.get("b1")?.reps).toBe(8);
+  });
+
+  it("same-log double PR — the second PR's previous is the first PR of the same session, not the earlier-log baseline", () => {
+    const earlier = [
+      pr({ exerciseId: "bench", setLogId: "b0", weightKg: 90, estimatedOneRM: 100, achievedAtMs: 1000 }),
+    ];
+    const thisLog = [
+      pr({ exerciseId: "bench", setLogId: "b1", weightKg: 110, estimatedOneRM: 120, achievedAtMs: 2000 }),
+      pr({ exerciseId: "bench", setLogId: "b2", weightKg: 130, estimatedOneRM: 140, achievedAtMs: 3000 }),
+    ];
+    const map = previousRecordBySetLog(earlier, thisLog);
+    // First PR of the session beat the earlier-log baseline (90).
+    expect(map.get("b1")?.weightKg).toBe(90);
+    // Second PR of the session beat the immediately-prior in-session PR (110).
+    expect(map.get("b2")?.weightKg).toBe(110);
+  });
+
+  it("first-ever PR — no earlier logs + a single this-log PR ⇒ setLogId absent", () => {
+    const thisLog = [
+      pr({ exerciseId: "squat", setLogId: "s1", weightKg: 150, estimatedOneRM: 175, achievedAtMs: 5000 }),
+    ];
+    const map = previousRecordBySetLog([], thisLog);
+    expect(map.has("s1")).toBe(false);
+    expect(map.size).toBe(0);
+  });
+
+  it("time-based PR — previous resolves by duration ordering", () => {
+    const earlier = [
+      pr({ exerciseId: "plank", setLogId: "p0", reps: 0, estimatedOneRM: 0, durationSeconds: 60, achievedAtMs: 1000 }),
+    ];
+    const thisLog = [
+      pr({ exerciseId: "plank", setLogId: "p1", reps: 0, estimatedOneRM: 0, durationSeconds: 90, achievedAtMs: 2000 }),
+    ];
+    const map = previousRecordBySetLog(earlier, thisLog);
+    expect(map.get("p1")?.durationSeconds).toBe(60);
   });
 });

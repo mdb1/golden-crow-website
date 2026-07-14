@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -24,6 +25,7 @@ import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HabitChip } from "@/components/gc-fitness/schedule/habit-chip";
+import { WorkoutDetailDialog } from "@/components/gc-fitness/schedule/workout-detail-dialog";
 
 const DAY_MS = 86_400_000;
 
@@ -31,6 +33,10 @@ const DAY_MS = 86_400_000;
 // HabitChip pills (issue #447 — same visual hierarchy as the Agenda).
 type PeekItem = {
   id: string;
+  /** Raw MonthWorkoutChip.id = the assignment doc id, used to open the
+   * WorkoutDetailDialog (issue #449 follow-up). Distinct from `id`, which is
+   * `workout:`-prefixed for React keys. */
+  assignmentId: string;
   name: string;
   status: MonthWorkoutChip["status"];
   detail: string | null;
@@ -52,6 +58,20 @@ export function ClientCalendarPeek({
   const [peek, setPeek] = useState(initialPayload);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The WorkoutDetailDialog uses `useQuery`, so it needs a QueryClientProvider
+  // ancestor — the client-detail route ships none. Mirror ClientSummaryLists'
+  // local provider defaults (issue #449 follow-up).
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { staleTime: 30_000, refetchOnWindowFocus: false },
+        },
+      }),
+  );
+  const [detailAssignmentId, setDetailAssignmentId] = useState<string | null>(
+    null,
+  );
 
   const days = useMemo(
     () => civilDaysInRange(peek.startCivil, peek.endCivil),
@@ -88,7 +108,11 @@ export function ClientCalendarPeek({
     }
   }
 
+  const rangeTitle = formatRange(peek.startCivil, peek.endCivil, locale);
+  const isOnTodayWeek = peek.anchorCivil === peek.todayCivil;
+
   return (
+   <QueryClientProvider client={queryClient}>
     <section className="rounded-xl border bg-card p-4">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
@@ -97,12 +121,12 @@ export function ClientCalendarPeek({
             {t("title")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {formatRange(peek.startCivil, peek.endCivil, locale)} ·{" "}
-            {t("rangeSummary", totals)}
+            {rangeTitle} · {t("rangeSummary", totals)}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* ‹ [week range] › — mirrors the Agenda month-calendar rangeNav. */}
           <div className="flex items-center gap-1 rounded-full border bg-background p-1">
             <Button
               type="button"
@@ -116,16 +140,9 @@ export function ClientCalendarPeek({
             >
               <ChevronLeftIcon className="size-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 rounded-full px-3"
-              disabled={loading || peek.anchorCivil === peek.todayCivil}
-              onClick={() => void loadAnchor(peek.todayCivil)}
-            >
-              {t("today")}
-            </Button>
+            <span className="min-w-0 flex-1 truncate px-2 text-center text-sm font-semibold tracking-tight sm:min-w-[13ch] sm:flex-none">
+              {rangeTitle}
+            </span>
             <Button
               type="button"
               variant="ghost"
@@ -139,6 +156,18 @@ export function ClientCalendarPeek({
               <ChevronRightIcon className="size-4" />
             </Button>
           </div>
+
+          {/* Separate jump-to-today button, disabled on today's week. */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-full"
+            disabled={loading || isOnTodayWeek}
+            onClick={() => void loadAnchor(peek.todayCivil)}
+          >
+            {t("today")}
+          </Button>
 
           <Button variant="outline" size="sm" className="h-9 rounded-full" asChild>
             <Link href={scheduleHref}>
@@ -201,7 +230,11 @@ export function ClientCalendarPeek({
                 ) : (
                   <div className="flex flex-1 flex-col gap-1.5">
                     {workoutItems.map((item) => (
-                      <PeekItemRow key={item.id} item={item} />
+                      <PeekItemRow
+                        key={item.id}
+                        item={item}
+                        onOpenDetail={setDetailAssignmentId}
+                      />
                     ))}
                     {habits.length > 0 ? (
                       <div className="flex min-w-0 flex-wrap gap-1">
@@ -222,16 +255,38 @@ export function ClientCalendarPeek({
         </div>
       </div>
     </section>
+
+    {detailAssignmentId ? (
+      <WorkoutDetailDialog
+        open
+        onOpenChange={(open) => !open && setDetailAssignmentId(null)}
+        assignmentId={detailAssignmentId}
+        onDeleted={() => {
+          setDetailAssignmentId(null);
+          // Refresh the currently-viewed week so an edit/delete reflects here.
+          void loadAnchor(peek.anchorCivil);
+        }}
+      />
+    ) : null}
+   </QueryClientProvider>
   );
 }
 
-function PeekItemRow({ item }: { item: PeekItem }) {
+function PeekItemRow({
+  item,
+  onOpenDetail,
+}: {
+  item: PeekItem;
+  onOpenDetail: (assignmentId: string) => void;
+}) {
   const t = useTranslations("clients.detail.calendarPeek");
   const Icon = itemIcon(item);
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => onOpenDetail(item.assignmentId)}
       className={cn(
-        "flex min-w-0 items-start gap-1.5 rounded-md border px-2 py-1.5 text-[11px]",
+        "flex w-full min-w-0 items-start gap-1.5 rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors hover:border-primary/50 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         itemClassName(item),
       )}
     >
@@ -254,7 +309,7 @@ function PeekItemRow({ item }: { item: PeekItem }) {
           <p className="truncate text-[10px] opacity-75">{item.detail}</p>
         ) : null}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -264,6 +319,7 @@ function buildWorkoutItems(
 ): PeekItem[] {
   return workouts.map((workout): PeekItem => ({
     id: `workout:${workout.id}`,
+    assignmentId: workout.id,
     name: workout.templateName,
     status: workout.status,
     detail: workout.templateTag
