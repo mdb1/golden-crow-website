@@ -9,9 +9,7 @@ import {
   CheckCircle2,
   ChevronLeftIcon,
   ChevronRightIcon,
-  Circle,
   Dumbbell,
-  ListChecks,
   Loader2,
   XCircle,
 } from "lucide-react";
@@ -20,32 +18,22 @@ import {
   getClientCalendarPeek,
   type ClientCalendarPeekPayload,
 } from "@/lib/gc-fitness/client-calendar-peek-actions";
-import type {
-  MonthHabitChip,
-  MonthWorkoutChip,
-} from "@/lib/gc-fitness/schedule-month-actions";
+import type { MonthWorkoutChip } from "@/lib/gc-fitness/schedule-month-actions";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { HabitChip } from "@/components/gc-fitness/schedule/habit-chip";
 
 const DAY_MS = 86_400_000;
-const MAX_VISIBLE_ITEMS = 4;
 
-type PeekItem =
-  | {
-      id: string;
-      kind: "workout";
-      name: string;
-      status: MonthWorkoutChip["status"];
-      detail: string | null;
-    }
-  | {
-      id: string;
-      kind: "habit";
-      name: string;
-      status: MonthHabitChip["status"];
-      detail: string | null;
-    };
+// Workout-only card row data. Habits render separately as compact
+// HabitChip pills (issue #447 — same visual hierarchy as the Agenda).
+type PeekItem = {
+  id: string;
+  name: string;
+  status: MonthWorkoutChip["status"];
+  detail: string | null;
+};
 
 export function ClientCalendarPeek({
   clientId,
@@ -174,9 +162,7 @@ export function ClientCalendarPeek({
           {days.map((day) => {
             const workouts = peek.calendar.workoutsByDay[day] ?? [];
             const habits = peek.calendar.habitsByDay[day] ?? [];
-            const items = buildItems(workouts, habits, t);
-            const visibleItems = items.slice(0, MAX_VISIBLE_ITEMS);
-            const hiddenCount = Math.max(0, items.length - visibleItems.length);
+            const workoutItems = buildWorkoutItems(workouts, t);
             const isToday = day === peek.todayCivil;
 
             return (
@@ -203,19 +189,25 @@ export function ClientCalendarPeek({
                   ) : null}
                 </div>
 
-                {visibleItems.length === 0 ? (
+                {workoutItems.length === 0 && habits.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center rounded-md border border-dashed px-2 text-center text-xs text-muted-foreground">
                     {t("emptyDay")}
                   </div>
                 ) : (
                   <div className="flex flex-1 flex-col gap-1.5">
-                    {visibleItems.map((item) => (
+                    {workoutItems.map((item) => (
                       <PeekItemRow key={item.id} item={item} />
                     ))}
-                    {hiddenCount > 0 ? (
-                      <p className="px-1 text-[11px] text-muted-foreground">
-                        {t("moreItems", { count: hiddenCount })}
-                      </p>
+                    {habits.length > 0 ? (
+                      <div className="flex min-w-0 flex-wrap gap-1">
+                        {habits.map((h) => (
+                          <HabitChip
+                            key={h.id}
+                            habit={h}
+                            title={`${h.habitName} · ${t(`habitStatus.${h.status}`)}`}
+                          />
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                 )}
@@ -248,41 +240,28 @@ function PeekItemRow({ item }: { item: PeekItem }) {
   );
 }
 
-function buildItems(
+function buildWorkoutItems(
   workouts: MonthWorkoutChip[],
-  habits: MonthHabitChip[],
   t: ReturnType<typeof useTranslations>,
 ): PeekItem[] {
-  return [
-    ...workouts.map((workout): PeekItem => ({
-      id: `workout:${workout.id}`,
-      kind: "workout",
-      name: workout.templateName,
-      status: workout.status,
-      detail: workout.templateTag
-        ? `${t(`workoutStatus.${workout.status}`)} · ${workout.templateTag}`
-        : t(`workoutStatus.${workout.status}`),
-    })),
-    ...habits.map((habit): PeekItem => ({
-      id: `habit:${habit.id}`,
-      kind: "habit",
-      name: habit.habitName,
-      status: habit.status,
-      detail: t(`habitStatus.${habit.status}`),
-    })),
-  ];
+  return workouts.map((workout): PeekItem => ({
+    id: `workout:${workout.id}`,
+    name: workout.templateName,
+    status: workout.status,
+    detail: workout.templateTag
+      ? `${t(`workoutStatus.${workout.status}`)} · ${workout.templateTag}`
+      : t(`workoutStatus.${workout.status}`),
+  }));
 }
 
 function itemIcon(item: PeekItem) {
-  if (item.status === "completed" || item.status === "done") return CheckCircle2;
+  if (item.status === "completed") return CheckCircle2;
   if (item.status === "missed") return XCircle;
-  if (item.kind === "workout") return Dumbbell;
-  if (item.status === "scheduled") return Circle;
-  return ListChecks;
+  return Dumbbell;
 }
 
 function itemClassName(item: PeekItem): string {
-  if (item.status === "completed" || item.status === "done") {
+  if (item.status === "completed") {
     return "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200";
   }
   if (item.status === "missed") {

@@ -390,7 +390,6 @@
         "loading": "Cargando agenda...",
         "loadFailed": "No se pudo cargar esta semana.",
         "emptyDay": "Sin entrenamientos ni hábitos",
-        "moreItems": "+{count} más",
         "workoutStatus": {
           "scheduled": "programado",
           "started": "en curso",
