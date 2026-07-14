@@ -25,10 +25,10 @@ jest.mock("@/lib/gc-fitness/trainer-timezone", () => ({
 import { getWorkoutLogDetail } from "../recent-logs-actions";
 import { FirestoreCollections } from "../collections";
 
-function docSnap(exists: boolean, data: Record<string, unknown>) {
+function docSnap(exists: boolean, data: Record<string, unknown>, id = "") {
   return {
     exists,
-    id: (data.__id as string) ?? "",
+    id: (data.__id as string) ?? id,
     data: () => data,
     get: (field: string) => data[field],
   };
@@ -44,7 +44,7 @@ function makeDb(fixtures: Record<string, Record<string, unknown> | null>) {
       doc: (id: string) => ({
         get: async () => {
           const data = fixtures[`${name}/${id}`];
-          return data ? docSnap(true, data) : docSnap(false, {});
+          return data ? docSnap(true, data, id) : docSnap(false, {}, id);
         },
       }),
     }),
@@ -53,6 +53,7 @@ function makeDb(fixtures: Record<string, Record<string, unknown> | null>) {
 
 const WL = FirestoreCollections.workoutLogs;
 const USERS = FirestoreCollections.users;
+const EXERCISES = FirestoreCollections.exercises;
 
 const SELF_LOG_ID = "log-asg-client1-20260710-self-abc-123";
 const selfLog = {
@@ -101,6 +102,55 @@ describe("getWorkoutLogDetail — client-created (self) workouts (#434)", () => 
 
     const detail = await getWorkoutLogDetail(id);
     expect(detail.workoutName).toBe("Pecho");
+  });
+
+  it("marks legacy time-exercise set logs as time and falls back to prescribed duration", async () => {
+    const id = "log-time-legacy-1";
+    mockState.db = makeDb({
+      [`${WL}/${id}`]: {
+        __id: id,
+        clientId: "client1",
+        trainerId: "coach1",
+        status: "completed",
+        sets: [
+          {
+            id: "set-plank-1",
+            exerciseId: "plank",
+            set_index: 0,
+            reps: 10,
+            weight_kg: 20,
+            completed_at: "2026-07-14T15:00:00.000Z",
+          },
+        ],
+        templateSnapshot: {
+          name: "Core",
+          exercises: [
+            {
+              exerciseId: "plank",
+              sets: 1,
+              reps: 0,
+              durationSeconds: 45,
+            },
+          ],
+        },
+      },
+      [`${USERS}/client1`]: { displayName: "Client One", coachId: "coach1" },
+      [`${USERS}/coach1`]: { displayName: "Coach One" },
+      [`${EXERCISES}/plank`]: {
+        name: { en: "Plank", es: "Plancha" },
+        metric: "time",
+      },
+    });
+
+    const detail = await getWorkoutLogDetail(id);
+
+    expect(detail.sets[0]).toMatchObject({
+      exerciseName: "Plank",
+      metric: "time",
+      reps: 10,
+      weight: 20,
+      durationSeconds: 45,
+    });
   });
 
   it("rejects a log whose client is not the coach's (no cross-coach leak)", async () => {

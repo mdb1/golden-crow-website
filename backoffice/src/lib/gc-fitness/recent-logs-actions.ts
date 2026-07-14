@@ -117,6 +117,14 @@ export interface WorkoutLogDetail {
     setLogId: string;
     exerciseId: string;
     exerciseName: string;
+    /**
+     * Effective exercise metric for rendering logged actuals. Prefer the
+     * template snapshot, then the exercise library, and finally a logged or
+     * prescribed duration. Legacy logs may still carry reps/weight fields for
+     * time exercises, so consumers must branch on this instead of field
+     * presence alone.
+     */
+    metric: "reps" | "time";
     reps: number | null;
     weight: number | null;
     /**
@@ -221,6 +229,47 @@ function numeric(value: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
+}
+
+function numericArray(value: unknown): number[] {
+  return Array.isArray(value)
+    ? value.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+    : [];
+}
+
+function setIndexFromLog(set: Record<string, unknown>): number | null {
+  const raw = numeric(set.set_index ?? set.setIndex);
+  return raw !== null ? Math.max(0, Math.floor(raw)) : null;
+}
+
+function prescribedDurationForSet(
+  templateExercise: Record<string, unknown> | undefined,
+  setIndex: number,
+): number | null {
+  if (!templateExercise) return null;
+  const bySet = numericArray(templateExercise.durationBySetSeconds);
+  return bySet[setIndex] ?? numeric(templateExercise.durationSeconds);
+}
+
+function effectiveSetMetric(opts: {
+  templateExercise: Record<string, unknown> | undefined;
+  sourceExercise: Record<string, unknown> | undefined;
+  loggedDurationSeconds: number | null;
+  prescribedDurationSeconds: number | null;
+}): "reps" | "time" {
+  if (opts.loggedDurationSeconds !== null && opts.loggedDurationSeconds > 0) {
+    return "time";
+  }
+  if (opts.templateExercise?.metric === "time") return "time";
+  if (opts.templateExercise?.metric === "reps") return "reps";
+  if (opts.sourceExercise?.metric === "time") return "time";
+  if (
+    opts.prescribedDurationSeconds !== null &&
+    opts.prescribedDurationSeconds > 0
+  ) {
+    return "time";
+  }
+  return "reps";
 }
 
 function boolCompleted(value: unknown): boolean {
@@ -1878,8 +1927,13 @@ async function buildWorkoutLogDetail(
     }
   }
 
+  const nextSetIndexByExercise = new Map<string, number>();
   const sets = rawSets.map((set, index) => {
     const exerciseId = typeof set.exerciseId === "string" ? set.exerciseId : "";
+    const fallbackSetKey = exerciseId || `row-${index}`;
+    const fallbackSetIndex = nextSetIndexByExercise.get(fallbackSetKey) ?? 0;
+    nextSetIndexByExercise.set(fallbackSetKey, fallbackSetIndex + 1);
+    const setIndex = setIndexFromLog(set) ?? fallbackSetIndex;
     const templateExercise = exerciseId
       ? templateExerciseById.get(exerciseId)
       : undefined;
@@ -1890,11 +1944,25 @@ async function buildWorkoutLogDetail(
     );
     const setLogId = typeof set.id === "string" ? set.id : "";
     const pr = setLogId ? prBySetLogId.get(setLogId) : undefined;
+    const loggedDurationSeconds = numeric(set.duration_seconds ?? set.durationSeconds);
+    const prescribedDurationSeconds = prescribedDurationForSet(
+      templateExercise,
+      setIndex,
+    );
+    const metric = effectiveSetMetric({
+      templateExercise,
+      sourceExercise,
+      loggedDurationSeconds,
+      prescribedDurationSeconds,
+    });
+    const durationSeconds =
+      loggedDurationSeconds ?? (metric === "time" ? prescribedDurationSeconds : null);
     return {
       index: index + 1,
       setLogId,
       exerciseId,
       exerciseName,
+      metric,
       reps: numeric(set.reps),
       // Wire field is `weight_kg` (iOS); keep `weight` as a legacy fallback.
       weight: numeric(set.weight_kg ?? set.weight),
@@ -1903,7 +1971,7 @@ async function buildWorkoutLogDetail(
       // legacy/camel fallback mirroring the weight_kg ?? weight pattern
       // above. Null when the set was reps-based or pre-26-04 (no field
       // on the doc).
-      durationSeconds: numeric(set.duration_seconds ?? set.durationSeconds),
+      durationSeconds,
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
       // 260529-mrp — Wire field is `is_warmup` (iOS, snake_case); keep

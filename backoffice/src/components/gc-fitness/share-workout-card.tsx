@@ -119,8 +119,8 @@ function weightString(kg: number): string {
 
 /**
  * v2.2 per-set chip text — mirrors iOS `ShareCardView.setChipText`:
- *   - weighted (weight > 0): "{w} kg × {reps}"
  *   - time-based (durationSeconds present): "{n}s"
+ *   - weighted (weight > 0): "{w} kg × {reps}"
  *   - bodyweight (weight 0, no duration): "{reps}"
  */
 function setChipText(
@@ -128,11 +128,11 @@ function setChipText(
   reps: number | null,
   durationSeconds: number | null,
 ): string {
-  if (weight !== null && weight > 0) {
-    return `${weightString(weight)} kg × ${reps ?? 0}`;
-  }
   if (durationSeconds !== null) {
     return `${durationSeconds}s`;
+  }
+  if (weight !== null && weight > 0) {
+    return `${weightString(weight)} kg × ${reps ?? 0}`;
   }
   return `${reps ?? 0}`;
 }
@@ -494,7 +494,7 @@ function buildSuccessModel(
     let topVolume = 0;
     let topIdx = -1;
     working.forEach((s, i) => {
-      if (s.weight !== null && s.weight > 0) {
+      if (s.metric !== "time" && s.weight !== null && s.weight > 0) {
         const vol = s.weight * (s.reps ?? 0);
         if (vol > topVolume) {
           topVolume = vol;
@@ -511,7 +511,7 @@ function buildSuccessModel(
 
     const oneRMLabel = bestEstimatedOneRM(
       working
-        .filter((s) => s.weight !== null && s.weight > 0)
+        .filter((s) => s.metric !== "time" && s.weight !== null && s.weight > 0)
         .map((s) => ({ weight: s.weight as number, reps: s.reps ?? 0 })),
     );
 
@@ -521,7 +521,7 @@ function buildSuccessModel(
 
   // Volumen total = Σ(weight × reps) over working (non-warmup) sets.
   const totalVolume = detail.sets
-    .filter((s) => !s.isWarmup)
+    .filter((s) => !s.isWarmup && s.metric !== "time")
     .reduce((acc, s) => acc + (s.weight ?? 0) * (s.reps ?? 0), 0);
   const seriesCount = detail.sets.filter((s) => !s.isWarmup).length;
   const exerciseCount = detail.exerciseCount || order.length;
@@ -612,14 +612,15 @@ function buildAssignmentModel(
 
     // Per-set normalized rows from the prescription. reps_i = repsBySet[i] ?? reps.
     const perSet = Array.from({ length: setCount }, (_, i) => {
+      const isTimeExercise = ex.metric === "time";
       const weight =
-        i < ex.weightBySetKg.length && ex.weightBySetKg[i] > 0
+        !isTimeExercise && i < ex.weightBySetKg.length && ex.weightBySetKg[i] > 0
           ? ex.weightBySetKg[i]
           : null;
       const reps =
-        i < ex.repsBySet.length ? ex.repsBySet[i] : ex.reps;
+        isTimeExercise ? null : i < ex.repsBySet.length ? ex.repsBySet[i] : ex.reps;
       const durationSeconds =
-        ex.metric === "time"
+        isTimeExercise
           ? i < ex.durationBySetSeconds.length
             ? ex.durationBySetSeconds[i]
             : ex.durationSeconds

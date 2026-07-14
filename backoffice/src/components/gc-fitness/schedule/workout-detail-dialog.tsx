@@ -534,7 +534,7 @@ function ExerciseSetTable({
   // no-weight sentinel (weightBySetKg was an empty array = reps-only /
   // bodyweight), drop the Peso column entirely so the detail reads reps-only
   // with NO "kg" label. Legacy (nil) + weighted exercises keep the column.
-  const noWeight = ex.hasExplicitNoWeightPrescription;
+  const noWeight = ex.metric === "time" || ex.hasExplicitNoWeightPrescription;
   const rows = Array.from({ length: ex.sets }, (_, i) => ({
     setNumber: i + 1,
     reps: ex.repsBySet[i] ?? ex.reps,
