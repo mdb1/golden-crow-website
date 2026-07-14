@@ -562,42 +562,51 @@ export function MonthCalendar({
           Restructured for mobile (~390px): the view switcher, month nav,
           "Hoy" and "Asignación masiva" controls live in their own wrapping
           toolbar instead of the PageHeader actions row, so they stack/wrap
-          cleanly on a phone instead of overflowing horizontally. */}
+          cleanly on a phone instead of overflowing horizontally.
+
+          #394: the date nav + "Hoy" keep their OWN row and get width priority
+          so the month/range label never collapses to "J.." on a phone; the
+          bulk-action buttons drop to a separate full-width row below on mobile
+          (all inline on ≥sm). */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-full overflow-x-auto sm:w-auto sm:overflow-visible">
           {viewSwitcher}
         </div>
-        <div className="min-w-0 flex-1 sm:flex-none">{rangeNav}</div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="min-h-[40px] rounded-full"
-          onClick={goToday}
-        >
-          {t("today")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="min-h-[40px] rounded-full"
-          asChild
-        >
-          <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
-        </Button>
-        {/* 260612-e9t (#176): bulk habit assignment from the Agenda. The
-            assigned habit carries its template's recurring schedule (the dialog
-            copies scheduleCadence/Weekdays/etc. server-side). */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="min-h-[40px] rounded-full"
-          onClick={() => setBulkHabitOpen(true)}
-          disabled={clients.length === 0}
-        >
-          {t("bulkAssignHabit")}
-        </Button>
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+          <div className="min-w-0 flex-1 sm:flex-none">{rangeNav}</div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[40px] shrink-0 rounded-full"
+            onClick={goToday}
+          >
+            {t("today")}
+          </Button>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-[40px] rounded-full"
+            asChild
+          >
+            <Link href="/gc-fitness/schedule/bulk">{t("bulkAssign")}</Link>
+          </Button>
+          {/* 260612-e9t (#176): bulk habit assignment from the Agenda. The
+              assigned habit carries its template's recurring schedule (the dialog
+              copies scheduleCadence/Weekdays/etc. server-side). */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[40px] rounded-full"
+            onClick={() => setBulkHabitOpen(true)}
+            disabled={clients.length === 0}
+          >
+            {t("bulkAssignHabit")}
+          </Button>
+        </div>
       </div>
 
       {/* ── Client filter bar ─────────────────────────────────────────── */}
