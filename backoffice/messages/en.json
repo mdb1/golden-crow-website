@@ -325,19 +325,6 @@
         "recentLogs": "Recent activity",
         "personalRecords": "Personal records"
       },
-      "personalRecords": {
-        "title": "Personal records",
-        "subtitle": "The client's best lifts and how they've progressed.",
-        "empty": "No personal records yet.",
-        "muscleGroupLabel": "Muscle group",
-        "muscleGroupAll": "All",
-        "sortLabel": "Sort",
-        "sortRecent": "Most recent",
-        "sortMostCommon": "Most common",
-        "previousLabel": "Previous: {value}",
-        "estOneRm": "Est. 1RM {value} kg",
-        "noDate": "—"
-      },
       "timeline": {
         "title": "Daily client view",
         "subtitle": "Loads the selected day on demand to keep Firestore reads low.",
@@ -413,9 +400,15 @@
         "muscleGroupLabel": "Group",
         "muscleGroupAll": "All",
         "empty": "No PRs for this filter.",
+        "sortLabel": "Sort",
+        "sortRecent": "Most recent",
+        "sortMostCommon": "Most common",
         "current": "Current",
         "previous": "Previous",
+        "previousLabel": "Previous: {value}",
+        "estOneRm": "Est. 1RM {value} kg",
         "firstPr": "No previous PR",
+        "noDate": "—",
         "openWorkout": "View workout",
         "loadMore": "Load more",
         "loadFailed": "Could not load PRs."

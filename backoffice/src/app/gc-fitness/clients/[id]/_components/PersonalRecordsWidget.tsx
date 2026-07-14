@@ -33,8 +33,8 @@ export async function PersonalRecordsWidget({ clientId }: { clientId: string }) 
           sortLabel: t("sortLabel"),
           sortRecent: t("sortRecent"),
           sortMostCommon: t("sortMostCommon"),
-          previousLabel: t("previousLabel"),
-          estOneRm: t("estOneRm"),
+          previousLabel: t("previousLabel", { value: "{value}" }),
+          estOneRm: t("estOneRm", { value: "{value}" }),
           noDate: t("noDate"),
         }}
       />
