@@ -56,6 +56,11 @@ export interface MonthWorkoutChip {
   status: "scheduled" | "started" | "completed" | "missed";
   seriesId: string | null;
   recurrenceKind: string | null;
+  /** Issue #449 — true when the client created this workout for themselves
+   * (issue #392 shape: `trainerId === clientId` + `selfAssigned: true`).
+   * Drives the calendar's "created by the client" badge and disables the
+   * drag/edit affordances (the coach views but does not manage it). */
+  selfAssigned: boolean;
 }
 
 export interface MonthHabitChip {
@@ -279,6 +284,10 @@ export interface AssignmentDetail {
     string,
     Array<{ weightKg: number; reps: number }>
   >;
+  /** Issue #449 — true when the client created this workout for themselves
+   * (issue #392 shape: `trainerId === clientId`). The detail dialog renders
+   * read-only for these (no edit / recurrence / delete CTAs). */
+  selfAssigned: boolean;
 }
 
 export async function getAssignmentDetail(id: string): Promise<AssignmentDetail> {
@@ -288,7 +297,26 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
   const snap = await ref.get();
   if (!snap.exists) throw new Error("Not found");
   const data = snap.data() as Record<string, unknown>;
-  if (data.trainerId !== trainer.uid) throw new Error("Not your assignment.");
+  // Issue #449 — mirror `coachCanAccessLog` (recent-logs-actions): the coach
+  // may open the detail when they own the assignment OR when it's a client
+  // self-assigned workout (issue #392: `trainerId === clientId`) belonging to
+  // one of THEIR clients (point-read `users/{clientId}.coachId`). Anything
+  // else — including a previous coach's docs (#446) — still throws.
+  const isSelfAssigned =
+    typeof data.clientId === "string" &&
+    data.clientId.length > 0 &&
+    data.trainerId === data.clientId;
+  if (data.trainerId !== trainer.uid) {
+    let allowed = false;
+    if (isSelfAssigned) {
+      const clientSnap = await db
+        .collection(FirestoreCollections.users)
+        .doc(data.clientId as string)
+        .get();
+      allowed = clientSnap.exists && clientSnap.get("coachId") === trainer.uid;
+    }
+    if (!allowed) throw new Error("Not your assignment.");
+  }
 
   const clientId = typeof data.clientId === "string" ? data.clientId : "";
   let clientName = clientId;
@@ -470,6 +498,7 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
       };
     }),
     lastLoggedSetsByExerciseId,
+    selfAssigned: isSelfAssigned,
   };
 }
 
@@ -646,8 +675,22 @@ export async function listMonthForClients(input: {
       seriesId?: string | null;
       recurrence?: { kind?: string };
       status?: string;
+      selfAssigned?: unknown;
     };
-    if (data.trainerId !== trainer.uid) continue;
+    // Issue #449 — client self-assigned workouts (issue #392) carry
+    // `trainerId === clientId` (both = client uid). The canonical predicate is
+    // that id equality, NOT the `selfAssigned` boolean, so legacy docs without
+    // the flag still qualify. Roster scoping still holds: both callers derive
+    // `clientIds` from the coach's CURRENT roster (schedule page validates
+    // against listClients' `coachId ==` query; getClientCalendarPeek checks
+    // `client.coachId === trainer.uid`), so admitting these docs never leaks
+    // another coach's clients. Docs from a PREVIOUS coach have
+    // `trainerId === oldCoachUid !== clientId` and stay excluded (#446).
+    const isSelfAssigned =
+      typeof data.clientId === "string" &&
+      data.clientId.length > 0 &&
+      data.trainerId === data.clientId;
+    if (data.trainerId !== trainer.uid && !isSelfAssigned) continue;
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     const civil = typeof data.scheduledFor === "string" ? data.scheduledFor : "";
     if (!clientId || !civil) continue;
@@ -685,6 +728,7 @@ export async function listMonthForClients(input: {
         data.recurrence && typeof data.recurrence.kind === "string"
           ? data.recurrence.kind
           : null,
+      selfAssigned: isSelfAssigned,
     };
     (workoutsByDay[civil] ??= []).push(chip);
   }
