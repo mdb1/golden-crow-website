@@ -93,3 +93,36 @@ describe("countWorkingSets", () => {
     ).toBe(2);
   });
 });
+
+// quick-260714-m57 (#403) — twin vectors shared with iOS SetTypeTests +
+// Android WorkoutVolumeTest: set-type-aware warmup exclusion.
+describe("set-type aware volume (quick-260714-m57 #403)", () => {
+  it("warmup excluded, failure + dropset included ⇒ 450.0 exactly", () => {
+    const sets = [
+      set({ weightKg: 20, reps: 10, setType: "warmup", isWarmup: true }), // excluded
+      set({ weightKg: 20, reps: 10 }), // 200
+      set({ weightKg: 30, reps: 5, setType: "failure" }), // 150
+      set({ weightKg: 10, reps: 10, setType: "dropset" }), // 100
+    ];
+    expect(computeTotalVolumeKg(sets)).toBe(450);
+  });
+
+  it("a set_type-only warmup (isWarmup false) is ALSO excluded", () => {
+    const sets = [
+      set({ weightKg: 20, reps: 10, setType: "warmup", isWarmup: false }),
+      set({ weightKg: 20, reps: 10 }),
+    ];
+    expect(computeTotalVolumeKg(sets)).toBe(200);
+    expect(countWorkingSets(sets)).toBe(1);
+  });
+
+  it("failure/dropset sets count as working sets", () => {
+    expect(
+      countWorkingSets([
+        set({ setType: "failure" }),
+        set({ setType: "dropset" }),
+        set({ setType: "warmup", isWarmup: true }),
+      ]),
+    ).toBe(2);
+  });
+});

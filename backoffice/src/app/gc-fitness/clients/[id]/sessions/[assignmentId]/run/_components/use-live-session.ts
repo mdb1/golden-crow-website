@@ -25,6 +25,12 @@ import type {
   SessionSetLog,
 } from "@/lib/gc-fitness/live-workout-types";
 import { resolveSetPrefill } from "@/lib/gc-fitness/weight-prefill";
+// quick-260714-m57 (#403) — per-set types (normal/warmup/failure/dropset).
+import {
+  type SetType,
+  effectiveSetType,
+  plannedSetType,
+} from "@/lib/gc-fitness/set-type";
 
 export interface SetRowState {
   /** Stable lowercased UUID — the SetLog id (arrayUnion dedup key). */
@@ -32,7 +38,15 @@ export interface SetRowState {
   weightKg: number;
   reps: number;
   durationSeconds: number | null;
+  /**
+   * Legacy warmup flag — kept in LOCKSTEP with `setType` by every mutator
+   * (`isWarmup === (setType === "warmup")`), mirroring the wire sync
+   * invariant (#403).
+   */
   isWarmup: boolean;
+  /** quick-260714-m57 (#403) — per-set type; seeded from the prescription's
+   *  `setTypesBySet` and editable via the set-number picker. */
+  setType: SetType;
   done: boolean;
   /** ISO instant the row was marked done (frozen once set). */
   completedAt: string | null;
@@ -134,12 +148,16 @@ function initialRows(
       prescriptionUpdatedAt,
       lastLoggedAt,
     });
+    // quick-260714-m57 (#403) — seed the planned type from the prescription
+    // (missing / short / unknown ⇒ normal); isWarmup stays in lockstep.
+    const planned = plannedSetType(idx, ex.setTypesBySet);
     return {
       id: newId(),
       weightKg: resolved.weightKg,
       reps: resolved.reps,
       durationSeconds: time ? resolved.durationSeconds : null,
-      isWarmup: false,
+      isWarmup: planned === "warmup",
+      setType: planned,
       done: false,
       completedAt: null,
     };
@@ -156,12 +174,16 @@ function hydrateLoggedSets(
   for (const set of loggedSets) {
     const rows = next[set.exerciseId];
     if (!rows || !rows[set.setIndex]) continue;
+    // quick-260714-m57 (#403) — effective type resolves setType ?? legacy
+    // isWarmup, keeping the row's flag/type pair in lockstep.
+    const eff = effectiveSetType(set);
     rows[set.setIndex] = {
       id: set.id,
       weightKg: set.weightKg,
       reps: set.reps,
       durationSeconds: set.durationSeconds ?? null,
-      isWarmup: set.isWarmup,
+      isWarmup: eff === "warmup",
+      setType: eff,
       done: true,
       completedAt: set.completedAt,
     };
@@ -183,6 +205,8 @@ export interface LiveSessionApi {
   setReps: (exerciseId: string, idx: number, value: number) => void;
   setDuration: (exerciseId: string, idx: number, value: number) => void;
   toggleWarmup: (exerciseId: string, idx: number) => void;
+  /** quick-260714-m57 (#403) — set the row's type (keeps isWarmup synced). */
+  setSetType: (exerciseId: string, idx: number, type: SetType) => void;
   toggleDone: (exerciseId: string, idx: number) => boolean;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, idx: number) => void;
@@ -305,7 +329,10 @@ export function useLiveSession(
             weightKg: row.weightKg,
             reps: row.reps,
             completedAt: row.completedAt ?? new Date().toISOString(),
-            isWarmup: row.isWarmup,
+            // quick-260714-m57 (#403) — setType is authoritative; the wire
+            // bridge (sessionSetToWire) re-derives is_warmup from it.
+            isWarmup: row.setType === "warmup",
+            setType: row.setType === "normal" ? null : row.setType,
             clientLoggedAt: row.completedAt ?? new Date().toISOString(),
             durationSeconds: row.durationSeconds,
           });
@@ -368,7 +395,32 @@ export function useLiveSession(
   );
   const toggleWarmup = useCallback(
     (exerciseId: string, idx: number) =>
-      mutateRow(exerciseId, idx, (r) => ({ ...r, isWarmup: !r.isWarmup }), true),
+      mutateRow(
+        exerciseId,
+        idx,
+        (r) => {
+          // quick-260714-m57 (#403) — the quick toggle flips warmup ↔ normal,
+          // keeping setType and isWarmup in lockstep.
+          const nextWarmup = r.setType !== "warmup";
+          return {
+            ...r,
+            isWarmup: nextWarmup,
+            setType: nextWarmup ? "warmup" : "normal",
+          };
+        },
+        true,
+      ),
+    [mutateRow],
+  );
+  // quick-260714-m57 (#403) — explicit 4-type picker write.
+  const setSetType = useCallback(
+    (exerciseId: string, idx: number, type: SetType) =>
+      mutateRow(
+        exerciseId,
+        idx,
+        (r) => ({ ...r, setType: type, isWarmup: type === "warmup" }),
+        true,
+      ),
     [mutateRow],
   );
 
@@ -421,7 +473,10 @@ export function useLiveSession(
               weightKg: last?.weightKg ?? 0,
               reps: last?.reps ?? 0,
               durationSeconds: last?.durationSeconds ?? null,
+              // quick-260714-m57 (#403) — a new set starts "normal" (values
+              // copy from the last row, the type does not).
               isWarmup: false,
+              setType: "normal" as const,
               done: false,
               completedAt: null,
             },
@@ -485,6 +540,9 @@ export function useLiveSession(
                   supersetGroup: ex.supersetGroup ?? null,
                   repsBySet: rows.map((r) => r.reps),
                   weightBySetKg: rows.map((r) => r.weightKg),
+                  // quick-260714-m57 (#403) — the future prescription keeps
+                  // the performed set types (server omits all-normal arrays).
+                  setTypesBySet: rows.map((r) => r.setType),
                   metric: ex.metric ?? null,
                   durationBySetSeconds: isTime
                     ? rows.map((r) => r.durationSeconds ?? 0)
@@ -550,6 +608,7 @@ export function useLiveSession(
     setReps,
     setDuration,
     toggleWarmup,
+    setSetType,
     toggleDone,
     addSet,
     removeSet,

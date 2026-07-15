@@ -7,6 +7,8 @@
 
 import { z } from "zod";
 
+import { SET_TYPES } from "./set-type";
+
 /** Lowercased UUID-ish id; loose on format, strict on emptiness. */
 const idSchema = z.string().min(1).max(128);
 
@@ -26,6 +28,9 @@ export const sessionSetLogSchema = z.object({
   isWarmup: z.boolean(),
   clientLoggedAt: isoDateSchema,
   durationSeconds: z.number().int().min(1).max(86_400).nullish(),
+  // quick-260714-m57 (#403) — optional richer set type. Writers keep
+  // isWarmup === (setType === "warmup") in sync (see live-workout-types).
+  setType: z.enum(SET_TYPES).nullish(),
 });
 
 export const startSessionSchema = z.object({
@@ -55,6 +60,9 @@ export const sessionExerciseSnapshotSchema = z.object({
   supersetGroup: z.string().max(8).nullish(),
   repsBySet: z.array(z.number().int().min(0).max(100)).max(20).nullish(),
   weightBySetKg: z.array(z.number().min(0).max(2000)).max(20).nullish(),
+  // quick-260714-m57 (#403) — per-set type prescription carried through
+  // finalize / future-recurrence propagation of coach-edited snapshots.
+  setTypesBySet: z.array(z.enum(SET_TYPES)).max(20).nullish(),
   metric: z.enum(["reps", "time"]).nullish(),
   durationBySetSeconds: z.array(z.number().int().min(1).max(86_400)).max(20).nullish(),
   durationSeconds: z.number().int().min(1).max(86_400).nullish(),

@@ -24,6 +24,23 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+// quick-260714-m57 (#403) — Hevy-style per-set types: the set-number cell is
+// the picker; W (orange) / F (red) / D (purple) render instead of the number.
+import {
+  SET_TYPES,
+  type SetType,
+  setDisplayLabels,
+  SET_TYPE_LETTERS,
+  SET_TYPE_LABELS_ES,
+  SET_TYPE_TEXT_CLASS,
+} from "@/lib/gc-fitness/set-type";
 import { setClientExerciseNote } from "@/lib/gc-fitness/live-workout-actions";
 import {
   clientExerciseNoteKey,
@@ -130,7 +147,9 @@ export interface SessionExerciseCardProps {
   onReps: (idx: number, value: number) => void;
   onDuration: (idx: number, value: number) => void;
   onToggleDone: (idx: number) => void;
-  onToggleWarmup: (idx: number) => void;
+  /** quick-260714-m57 (#403) — pick the row's set type (replaces the old
+   *  warmup-only toggle; warmup is one of the four options). */
+  onSetType: (idx: number, type: SetType) => void;
   onAddSet: () => void;
   onRemoveSet: (idx: number) => void;
   onMove: (dir: -1 | 1) => void;
@@ -149,7 +168,7 @@ export function SessionExerciseCard({
   onReps,
   onDuration,
   onToggleDone,
-  onToggleWarmup,
+  onSetType,
   onAddSet,
   onRemoveSet,
   onMove,
@@ -159,6 +178,9 @@ export function SessionExerciseCard({
   const isTime = exercise.metric === "time";
   const prevLabel = formatPrevious(previous, isTime);
   const queryClient = useQueryClient();
+  // quick-260714-m57 (#403) — Hevy numbering: normal sets numbered counting
+  // only normals; W/F/D letters for the rest.
+  const setLabels = setDisplayLabels(rows.map((r) => r.setType));
 
   const noteQuery = useClientExerciseNote(clientId, exercise.exerciseId);
   const [editingNote, setEditingNote] = useState(false);
@@ -326,18 +348,46 @@ export function SessionExerciseCard({
                     : ""
               }`}
             >
-              <button
-                type="button"
-                onClick={() => onToggleWarmup(idx)}
-                title={row.isWarmup ? "Quitar calentamiento" : "Marcar calentamiento"}
-                className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold ${
-                  row.isWarmup
-                    ? "bg-amber-500/20 text-amber-600"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {row.isWarmup ? "W" : idx + 1}
-              </button>
+              {/* quick-260714-m57 (#403) — set-number cell = type picker. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    title="Cambiar tipo de serie"
+                    aria-label={`Tipo de la serie ${idx + 1}: ${SET_TYPE_LABELS_ES[row.setType]}`}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold hover:bg-muted",
+                      row.setType === "normal"
+                        ? "text-muted-foreground"
+                        : cn("font-bold", SET_TYPE_TEXT_CLASS[row.setType]),
+                    )}
+                  >
+                    {setLabels[idx] ?? idx + 1}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {SET_TYPES.map((type) => (
+                    <DropdownMenuItem
+                      key={type}
+                      onSelect={() => onSetType(idx, type)}
+                      className={cn(
+                        "gap-2",
+                        type === row.setType && "bg-muted",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "w-4 text-center font-semibold",
+                          SET_TYPE_TEXT_CLASS[type],
+                        )}
+                      >
+                        {SET_TYPE_LETTERS[type] ?? "#"}
+                      </span>
+                      {SET_TYPE_LABELS_ES[type]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <span className="truncate text-xs text-muted-foreground">
                 {prevLabel ?? "—"}
               </span>

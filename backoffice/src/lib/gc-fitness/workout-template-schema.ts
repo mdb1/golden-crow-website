@@ -31,6 +31,8 @@
 
 import { z } from "zod";
 
+import { SET_TYPES } from "./set-type";
+
 // Tags are trainer-defined free text in v1. We still keep the canonical
 // defaults in the UI, but the schema no longer hard-codes a closed enum.
 export const workoutTagSchema = z
@@ -118,6 +120,15 @@ export const exerciseRefSchema = z
         z.number().min(0, "Weight per set cannot be negative.").max(500, "Weight per set max is 500kg."),
       )
       .max(10, "Maximum 10 weight entries.")
+      .optional(),
+    // quick-260714-m57 (#403) — per-set type prescription (Hevy-style
+    // warmup / failure / dropset markers). Enum literals MUST stay aligned
+    // with the iOS SetType raw values + Android SetType.wire (Pitfall-7
+    // contract surface). Threat T-m57-02: this Zod boundary is the guard
+    // for trainer-authored templates (Admin SDK bypasses Firestore rules).
+    setTypesBySet: z
+      .array(z.enum(SET_TYPES))
+      .max(10, "Maximum 10 set-type entries.")
       .optional(),
     supersetGroup: z
       .string()

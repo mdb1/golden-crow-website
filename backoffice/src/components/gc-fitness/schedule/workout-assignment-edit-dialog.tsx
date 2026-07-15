@@ -24,12 +24,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+// quick-260714-m57 (#403) — Hevy-style per-set types on the assignment's
+// frozen snapshot (same picker as the template editor).
+import {
+  SET_TYPES,
+  type SetType,
+  plannedSetType,
+  setDisplayLabels,
+  SET_TYPE_LETTERS,
+  SET_TYPE_LABELS_ES,
+  SET_TYPE_TEXT_CLASS,
+} from "@/lib/gc-fitness/set-type";
 import { ExercisePickerPopover } from "@/components/gc-fitness/exercise-picker-popover";
 import { useExercisesQuery } from "@/lib/gc-fitness/exercises-listener";
 import {
@@ -73,6 +90,12 @@ interface ExerciseDraftRow {
   durationBySetSeconds: number[];
   durationSeconds: number | null;
   supersetGroup: string | null;
+  /**
+   * quick-260714-m57 (#403) — per-set types, ALWAYS aligned 1:1 with
+   * `setRows` (add/remove set keeps them in lockstep). Payload emits
+   * `setTypesBySet`; the server drops it when all-normal.
+   */
+  setTypes: SetType[];
 }
 
 function InfoTooltip({ text, label }: { text: string; label: string }) {
@@ -116,6 +139,7 @@ function seedDraftRows(exercises: AssignmentDetail["exercises"]): ExerciseDraftR
           ? String(ex.weightBySetKg[i])
           : "",
     }));
+    const rows = setRows.length > 0 ? setRows : [{ reps: "0", kg: "" }];
     return {
       rowId: makeRowId(),
       exerciseId: ex.exerciseId,
@@ -124,13 +148,16 @@ function seedDraftRows(exercises: AssignmentDetail["exercises"]): ExerciseDraftR
       rest: String(ex.rest_seconds ?? 60),
       transitionRest: String(ex.transition_rest_seconds ?? 60),
       notes: ex.notes ?? "",
-      setRows: setRows.length > 0 ? setRows : [{ reps: "0", kg: "" }],
+      setRows: rows,
       // 260610-j67 — preserve the no-weight sentinel across edits.
       noWeight: ex.hasExplicitNoWeightPrescription === true,
       metric: ex.metric,
       durationBySetSeconds: ex.durationBySetSeconds ?? [],
       durationSeconds: ex.durationSeconds ?? null,
       supersetGroup: ex.supersetGroup ?? null,
+      // quick-260714-m57 (#403) — aligned 1:1 with setRows; missing / short /
+      // unknown entries coerce to "normal" (forgiving decode).
+      setTypes: rows.map((_, i) => plannedSetType(i, ex.setTypesBySet)),
     };
   });
 }
@@ -234,8 +261,22 @@ export function WorkoutAssignmentEditDialog({
         durationBySetSeconds: [],
         durationSeconds: null,
         supersetGroup: null,
+        setTypes: ["normal"],
       },
     ]);
+  }
+
+  // quick-260714-m57 (#403) — per-set type mutation (aligned with setRows).
+  function setRowType(rowId: string, rowIdx: number, type: SetType) {
+    setDrafts((prev) =>
+      prev.map((row) => {
+        if (row.rowId !== rowId) return row;
+        const setTypes = row.setRows.map(
+          (_, i) => (i === rowIdx ? type : row.setTypes[i] ?? "normal"),
+        );
+        return { ...row, setTypes };
+      }),
+    );
   }
 
   function removeExerciseRow(rowId: string) {
@@ -297,6 +338,12 @@ export function WorkoutAssignmentEditDialog({
         durationSeconds: draft.durationSeconds,
         supersetGroup: draft.supersetGroup,
         noWeight: draft.noWeight,
+        // quick-260714-m57 (#403) — always send the FULL aligned array; the
+        // server normalizes (writes only when some entry is non-normal, and
+        // deletes the stale key otherwise).
+        setTypesBySet: (repsBySet.length > 0 ? repsBySet : [0]).map(
+          (_, i) => draft.setTypes[i] ?? "normal",
+        ),
       };
     });
   }
@@ -538,6 +585,15 @@ export function WorkoutAssignmentEditDialog({
                           data.lastLoggedSetsByExerciseId?.[draft.exerciseId]?.[
                             rowIdx
                           ];
+                        // quick-260714-m57 (#403) — Hevy label: colored
+                        // letter for non-normal; number counting ONLY
+                        // normal sets otherwise.
+                        const rowType = draft.setTypes[rowIdx] ?? "normal";
+                        const rowLabel = setDisplayLabels(
+                          draft.setRows.map(
+                            (_, i) => draft.setTypes[i] ?? "normal",
+                          ),
+                        )[rowIdx];
                         return (
                           <div
                             key={`${draft.rowId}-${rowIdx}`}
@@ -547,9 +603,51 @@ export function WorkoutAssignmentEditDialog({
                                 : "grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
                             }`}
                           >
-                            <span className="pt-2 text-xs text-muted-foreground">
-                              {rowIdx + 1}
-                            </span>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  tabIndex={-1}
+                                  aria-label={`Tipo de la serie ${rowIdx + 1}: ${SET_TYPE_LABELS_ES[rowType]}`}
+                                  title="Cambiar tipo de serie"
+                                  className={cn(
+                                    "mt-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-xs hover:bg-muted",
+                                    rowType === "normal"
+                                      ? "text-muted-foreground"
+                                      : cn(
+                                          "font-bold",
+                                          SET_TYPE_TEXT_CLASS[rowType],
+                                        ),
+                                  )}
+                                >
+                                  {rowLabel}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                {SET_TYPES.map((type) => (
+                                  <DropdownMenuItem
+                                    key={type}
+                                    onSelect={() =>
+                                      setRowType(draft.rowId, rowIdx, type)
+                                    }
+                                    className={cn(
+                                      "gap-2",
+                                      type === rowType && "bg-muted",
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        "w-4 text-center font-semibold",
+                                        SET_TYPE_TEXT_CLASS[type],
+                                      )}
+                                    >
+                                      {SET_TYPE_LETTERS[type] ?? "#"}
+                                    </span>
+                                    {SET_TYPE_LABELS_ES[type]}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -604,6 +702,14 @@ export function WorkoutAssignmentEditDialog({
                                     setRows: draft.setRows.filter(
                                       (_, i) => i !== rowIdx,
                                     ),
+                                    // quick-260714-m57 (#403) — keep types
+                                    // aligned with setRows.
+                                    setTypes: draft.setRows
+                                      .map(
+                                        (_, i) =>
+                                          draft.setTypes[i] ?? "normal",
+                                      )
+                                      .filter((_, i) => i !== rowIdx),
                                   })
                                 }
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-30"
@@ -624,6 +730,15 @@ export function WorkoutAssignmentEditDialog({
                             setRows: [
                               ...draft.setRows,
                               { reps: last?.reps ?? "0", kg: last?.kg ?? "" },
+                            ],
+                            // quick-260714-m57 (#403) — a new set starts as
+                            // "normal" (values copy from the last row, the
+                            // type does not).
+                            setTypes: [
+                              ...draft.setRows.map(
+                                (_, i) => draft.setTypes[i] ?? "normal",
+                              ),
+                              "normal",
                             ],
                           });
                         }}

@@ -23,6 +23,12 @@ import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { WorkoutLogDetail } from "@/lib/gc-fitness/recent-logs-actions";
+// quick-260714-m57 (#403) — W/F/D badge on logged sets in "Detalle de series".
+import {
+  SET_TYPE_BADGE_CLASS,
+  SET_TYPE_LABELS_ES,
+  SET_TYPE_LETTERS,
+} from "@/lib/gc-fitness/set-type";
 
 /** Compact "previous PR" value for the PR row: duration for time PRs, else
  * "{weight} kg × {reps}" (issue #405). */
@@ -256,6 +262,17 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                 <td className="py-2 pr-3">
                                   <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                                     <span>{set.index}</span>
+                                    {/* quick-260714-m57 (#403) — logged set
+                                        type badge (W/F/D + name tooltip). */}
+                                    {set.setType !== "normal" ? (
+                                      <span
+                                        title={SET_TYPE_LABELS_ES[set.setType]}
+                                        aria-label={SET_TYPE_LABELS_ES[set.setType]}
+                                        className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${SET_TYPE_BADGE_CLASS[set.setType]}`}
+                                      >
+                                        {SET_TYPE_LETTERS[set.setType]}
+                                      </span>
+                                    ) : null}
                                     {set.isPR ? (
                                       <span
                                         title={
