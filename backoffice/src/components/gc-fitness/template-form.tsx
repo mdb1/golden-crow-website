@@ -27,7 +27,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowUp,
@@ -121,10 +121,11 @@ import {
   type WorkoutTemplateInput,
 } from "@/lib/gc-fitness/workout-template-schema";
 import {
+  compactSupersetGroupLabelsAfterRemoval,
   getSupersetGroupMemberIndexes,
   getSupersetGroupRest,
   getSupersetMembership,
-  listSupersetGroupOptions,
+  listSupersetGroupPillLabels,
   normalizeSupersetGroup,
 } from "@/lib/gc-fitness/superset-groups";
 
@@ -512,18 +513,14 @@ export function TemplateForm({
     }
     return s;
   }, [exerciseLibrary]);
-  const watchedExercises = form.watch("exercises") ?? [];
-  const supersetGroupOptions = useMemo(
-    () => listSupersetGroupOptions(watchedExercises),
+  const watchedExercises =
+    useWatch({ control: form.control, name: "exercises" }) ?? [];
+  // Fixed A/B/C pills + any existing labels, and once the highest visible
+  // sequence is in use, one extra letter so trainers can keep adding groups.
+  const supersetPillLabels = useMemo(
+    () => listSupersetGroupPillLabels(watchedExercises),
     [watchedExercises],
   );
-  // Fixed A/B/C pills + any legacy labels already in use beyond A-C (rendered as
-  // their own pills so existing docs stay editable). D9.
-  const supersetPillLabels = useMemo(() => {
-    const fixed = ["A", "B", "C"];
-    const extras = supersetGroupOptions.filter((g) => !fixed.includes(g));
-    return [...fixed, ...extras];
-  }, [supersetGroupOptions]);
   // Live estimated duration (work + rest + per-set setup overhead + transitions),
   // matching the iOS-twin estimator. 0 while no exercises are configured.
   const estimatedDurationMinutes = useMemo(
@@ -780,12 +777,41 @@ export function TemplateForm({
 
   function applySupersetGroup(index: number, nextGroupRaw: string) {
     const nextGroup = normalizeSupersetGroup(nextGroupRaw);
+    const previousGroup = normalizeSupersetGroup(
+      form.getValues(`exercises.${index}.supersetGroup` as const),
+    );
     form.setValue(
       `exercises.${index}.supersetGroup` as const,
       nextGroup,
       { shouldDirty: true },
     );
-    if (!nextGroup) return;
+    if (!nextGroup) {
+      if (!previousGroup) return;
+      const snapshot = watchedExercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === index ? { ...exercise, supersetGroup: "" } : exercise,
+      );
+      if (getSupersetGroupMemberIndexes(snapshot, previousGroup).length >= 2) {
+        return;
+      }
+      const compacted = compactSupersetGroupLabelsAfterRemoval(
+        snapshot,
+        previousGroup,
+      );
+      compacted.forEach((exercise, exerciseIndex) => {
+        const compactedGroup = normalizeSupersetGroup(exercise.supersetGroup);
+        const currentGroup = normalizeSupersetGroup(
+          form.getValues(`exercises.${exerciseIndex}.supersetGroup` as const),
+        );
+        if (compactedGroup !== currentGroup) {
+          form.setValue(
+            `exercises.${exerciseIndex}.supersetGroup` as const,
+            compactedGroup,
+            { shouldDirty: true },
+          );
+        }
+      });
+      return;
+    }
 
     const snapshot = watchedExercises.map((exercise, exerciseIndex) =>
       exerciseIndex === index
@@ -2605,10 +2631,11 @@ export function TemplateForm({
                     </div>
                     )}
 
-                    {/* D9 — fixed A/B/C group pills (plus any legacy label
-                        already in use). Tap a pill to assign the exercise to
-                        that superset; tap the active pill to remove it. Writes
-                        through applySupersetGroup (set-count locking preserved). */}
+                    {/* D9/454 — A/B/C group pills plus the next available
+                        letter once the visible sequence is in use. Tap a pill
+                        to assign the exercise to that superset; tap the active
+                        pill to remove it. Writes through applySupersetGroup
+                        (set-count locking preserved). */}
                     <FormField
                       control={form.control}
                       name={`exercises.${index}.supersetGroup` as const}

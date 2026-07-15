@@ -82,7 +82,7 @@ function groupSetsByExercise(sets: WorkoutLogDetail["sets"]): ExerciseGroup[] {
       order.push(key);
     }
     bucket.sets.push(set);
-    if (set.weight !== null) {
+    if (set.metric !== "time" && set.weight !== null) {
       bucket.topWeight =
         bucket.topWeight === null ? set.weight : Math.max(bucket.topWeight, set.weight);
     }
@@ -187,6 +187,9 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
             <div className="flex flex-col gap-3">
               {groups.map((group, gIdx) => {
                 const palette = EXERCISE_COLORS[gIdx % EXERCISE_COLORS.length];
+                const isTimeGroup =
+                  group.sets.length > 0 &&
+                  group.sets.every((set) => set.metric === "time");
                 return (
                   <div
                     key={group.exerciseId}
@@ -234,83 +237,92 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                         <thead className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                           <tr>
                             <th className="py-1.5 pr-3">{t("columnHash")}</th>
-                            <th className="py-1.5 pr-3">{t("columnReps")}</th>
-                            <th className="py-1.5 pr-3">{t("columnWeight")}</th>
+                            <th className="py-1.5 pr-3">
+                              {isTimeGroup ? t("columnDuration") : t("columnReps")}
+                            </th>
+                            {!isTimeGroup ? (
+                              <th className="py-1.5 pr-3">{t("columnWeight")}</th>
+                            ) : null}
                             <th className="py-1.5 pr-3">{t("columnCompletedAt")}</th>
                             <th className="py-1.5 pr-3">Descanso</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {group.sets.map((set) => (
-                            <tr
-                              key={`${set.index}-${set.setLogId}`}
-                              className={
-                                set.isPR
-                                  ? "border-b bg-amber-100/40 last:border-b-0 dark:bg-amber-900/20"
-                                  : "border-b last:border-b-0"
-                              }
-                            >
-                              <td className="py-2 pr-3">
-                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                  <span>{set.index}</span>
-                                  {/* quick-260714-m57 (#403) — logged set
-                                      type badge (W/F/D + name tooltip). */}
-                                  {set.setType !== "normal" ? (
-                                    <span
-                                      title={SET_TYPE_LABELS_ES[set.setType]}
-                                      aria-label={SET_TYPE_LABELS_ES[set.setType]}
-                                      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${SET_TYPE_BADGE_CLASS[set.setType]}`}
-                                    >
-                                      {SET_TYPE_LETTERS[set.setType]}
-                                    </span>
-                                  ) : null}
-                                  {set.isPR ? (
-                                    <span
-                                      title={
-                                        set.prEstimatedOneRM !== null
-                                          ? t("prBadgeTitle", {
-                                              value: Math.round(set.prEstimatedOneRM * 10) / 10,
-                                            })
-                                          : t("prBadge")
-                                      }
-                                    >
-                                      <Trophy
-                                        className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
-                                        aria-label={t("prBadge")}
-                                      />
-                                    </span>
-                                  ) : null}
-                                  {set.isPR && set.prPrevious ? (
-                                    <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                                      {t("prPreviousLabel", {
-                                        value: prPreviousText(set.prPrevious),
-                                      })}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </td>
-                              <td className="py-2 pr-3">
-                                {/* Time-set rendering: surface `{N}s` when the
-                                    log carries a duration; otherwise reps. */}
-                                {set.durationSeconds !== null
-                                  ? `${set.durationSeconds}s`
-                                  : (set.reps ?? t("emptyDash"))}
-                              </td>
-                              <td className="py-2 pr-3">
-                                {set.weight !== null
-                                  ? `${set.weight} ${t("weightUnit")}`
-                                  : t("emptyDash")}
-                              </td>
-                              <td className="py-2 pr-3 text-muted-foreground">
-                                {formatTimeOnly(set.completedAt, detail.clientTimezone)}
-                              </td>
-                              <td className="py-2 pr-3 text-muted-foreground">
-                                {restMap.has(set.setLogId)
-                                  ? formatRest(restMap.get(set.setLogId)!)
-                                  : t("emptyDash")}
-                              </td>
-                            </tr>
-                          ))}
+                          {group.sets.map((set) => {
+                            const isTimeSet = set.metric === "time";
+                            return (
+                              <tr
+                                key={`${set.index}-${set.setLogId}`}
+                                className={
+                                  set.isPR
+                                    ? "border-b bg-amber-100/40 last:border-b-0 dark:bg-amber-900/20"
+                                    : "border-b last:border-b-0"
+                                }
+                              >
+                                <td className="py-2 pr-3">
+                                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                    <span>{set.index}</span>
+                                    {/* quick-260714-m57 (#403) — logged set
+                                        type badge (W/F/D + name tooltip). */}
+                                    {set.setType !== "normal" ? (
+                                      <span
+                                        title={SET_TYPE_LABELS_ES[set.setType]}
+                                        aria-label={SET_TYPE_LABELS_ES[set.setType]}
+                                        className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${SET_TYPE_BADGE_CLASS[set.setType]}`}
+                                      >
+                                        {SET_TYPE_LETTERS[set.setType]}
+                                      </span>
+                                    ) : null}
+                                    {set.isPR ? (
+                                      <span
+                                        title={
+                                          set.prEstimatedOneRM !== null
+                                            ? t("prBadgeTitle", {
+                                                value: Math.round(set.prEstimatedOneRM * 10) / 10,
+                                              })
+                                            : t("prBadge")
+                                        }
+                                      >
+                                        <Trophy
+                                          className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                                          aria-label={t("prBadge")}
+                                        />
+                                      </span>
+                                    ) : null}
+                                    {set.isPR && set.prPrevious ? (
+                                      <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                                        {t("prPreviousLabel", {
+                                          value: prPreviousText(set.prPrevious),
+                                        })}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </td>
+                                <td className="py-2 pr-3">
+                                  {isTimeSet
+                                    ? set.durationSeconds !== null
+                                      ? `${set.durationSeconds}s`
+                                      : t("emptyDash")
+                                    : (set.reps ?? t("emptyDash"))}
+                                </td>
+                                {!isTimeGroup ? (
+                                  <td className="py-2 pr-3">
+                                    {!isTimeSet && set.weight !== null
+                                      ? `${set.weight} ${t("weightUnit")}`
+                                      : t("emptyDash")}
+                                  </td>
+                                ) : null}
+                                <td className="py-2 pr-3 text-muted-foreground">
+                                  {formatTimeOnly(set.completedAt, detail.clientTimezone)}
+                                </td>
+                                <td className="py-2 pr-3 text-muted-foreground">
+                                  {restMap.has(set.setLogId)
+                                    ? formatRest(restMap.get(set.setLogId)!)
+                                    : t("emptyDash")}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

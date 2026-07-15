@@ -1817,6 +1817,7 @@
       "columnHash": "#",
       "columnExercise": "Exercise",
       "columnReps": "Reps",
+      "columnDuration": "Sec",
       "columnWeight": "Weight",
       "columnCompletedAt": "Completed At",
       "weightUnit": "kg",
