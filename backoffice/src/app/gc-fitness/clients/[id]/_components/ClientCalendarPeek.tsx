@@ -16,15 +16,21 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import {
   getClientCalendarPeek,
   type ClientCalendarPeekPayload,
 } from "@/lib/gc-fitness/client-calendar-peek-actions";
-import type { MonthWorkoutChip } from "@/lib/gc-fitness/schedule-month-actions";
+import {
+  moveAssignment,
+  type MonthWorkoutChip,
+} from "@/lib/gc-fitness/schedule-month-actions";
 import { formatCivilDateLabel } from "@/lib/gc-fitness/civil-date";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HabitChip } from "@/components/gc-fitness/schedule/habit-chip";
+import { MoveAssignmentDialog } from "@/components/gc-fitness/schedule/move-assignment-dialog";
 import { WorkoutDetailDialog } from "@/components/gc-fitness/schedule/workout-detail-dialog";
 
 const DAY_MS = 86_400_000;
@@ -44,6 +50,10 @@ type PeekItem = {
    * (issue #392: `trainerId === clientId`). Renders a User icon beside the
    * name, mirroring the Agenda calendar's client-created badge. */
   selfAssigned: boolean;
+  /** Issue #461 — raw chip carried through so the drag & drop handlers can
+   * read `scheduledFor`/`seriesId`/`recurrenceKind` without reshaping the
+   * render fields (mirrors the Agenda's month-calendar chips). */
+  chip: MonthWorkoutChip;
 };
 
 export function ClientCalendarPeek({
@@ -72,6 +82,16 @@ export function ClientCalendarPeek({
   const [detailAssignmentId, setDetailAssignmentId] = useState<string | null>(
     null,
   );
+
+  // Issue #461 — per-cell drag-and-drop state, same names as the Agenda's
+  // month-calendar.tsx.
+  const [dragChip, setDragChip] = useState<MonthWorkoutChip | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  // Pending move → MoveAssignmentDialog (prompts the scope for recurring).
+  const [pendingMove, setPendingMove] = useState<
+    | { chip: MonthWorkoutChip; newDate: string }
+    | null
+  >(null);
 
   const days = useMemo(
     () => civilDaysInRange(peek.startCivil, peek.endCivil),
@@ -106,6 +126,47 @@ export function ClientCalendarPeek({
     } finally {
       setLoading(false);
     }
+  }
+
+  // Issue #461 — same move semantics as the Agenda (moveAssignment server
+  // action + hardcoded-Spanish toasts, consistent with MoveAssignmentDialog).
+  // Peek data lives in local state (not useQuery), so a successful move
+  // refreshes the visible week via the existing loadAnchor mechanism.
+  async function performMove(input: {
+    id: string;
+    newScheduledFor: string;
+    scope: "one" | "future" | "all";
+  }) {
+    try {
+      const { movedCount } = await moveAssignment(input);
+      toast.success(
+        movedCount === 1
+          ? "Workout movido"
+          : `${movedCount} workouts movidos`,
+      );
+      void loadAnchor(peek.anchorCivil);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo mover");
+    }
+  }
+
+  // Mirrors month-calendar.tsx onCellDrop: recurring series prompt the
+  // one/future/all scope dialog; single occurrences move directly.
+  function onCellDrop(targetDay: string) {
+    setDragOverDay(null);
+    const chip = dragChip;
+    setDragChip(null);
+    if (!chip) return;
+    if (chip.scheduledFor === targetDay) return;
+    if (chip.seriesId && chip.recurrenceKind && chip.recurrenceKind !== "single") {
+      setPendingMove({ chip, newDate: targetDay });
+      return;
+    }
+    void performMove({
+      id: chip.id,
+      newScheduledFor: targetDay,
+      scope: "one",
+    });
   }
 
   const rangeTitle = formatRange(peek.startCivil, peek.endCivil, locale);
@@ -205,7 +266,19 @@ export function ClientCalendarPeek({
                 className={cn(
                   "flex min-h-48 flex-col rounded-lg border bg-background p-2",
                   isToday && "border-primary bg-primary/5",
+                  dragOverDay === day && "border-primary bg-primary/5",
                 )}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverDay(day);
+                }}
+                onDragLeave={() => {
+                  if (dragOverDay === day) setDragOverDay(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onCellDrop(day);
+                }}
               >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -234,6 +307,7 @@ export function ClientCalendarPeek({
                         key={item.id}
                         item={item}
                         onOpenDetail={setDetailAssignmentId}
+                        onDragStart={setDragChip}
                       />
                     ))}
                     {habits.length > 0 ? (
@@ -256,6 +330,25 @@ export function ClientCalendarPeek({
       </div>
     </section>
 
+    {/* Issue #461 — recurrence-scope prompt on series move, same dialog the
+        Agenda uses (mirrors month-calendar.tsx). */}
+    {pendingMove ? (
+      <MoveAssignmentDialog
+        open
+        chip={pendingMove.chip}
+        newDate={pendingMove.newDate}
+        onOpenChange={(open) => !open && setPendingMove(null)}
+        onConfirm={(scope) => {
+          void performMove({
+            id: pendingMove.chip.id,
+            newScheduledFor: pendingMove.newDate,
+            scope,
+          });
+          setPendingMove(null);
+        }}
+      />
+    ) : null}
+
     {detailAssignmentId ? (
       <WorkoutDetailDialog
         open
@@ -275,18 +368,32 @@ export function ClientCalendarPeek({
 function PeekItemRow({
   item,
   onOpenDetail,
+  onDragStart,
 }: {
   item: PeekItem;
   onOpenDetail: (assignmentId: string) => void;
+  onDragStart: (chip: MonthWorkoutChip) => void;
 }) {
   const t = useTranslations("clients.detail.calendarPeek");
   const Icon = itemIcon(item);
   return (
     <button
       type="button"
+      // Issue #461 (same rule as #449 on the Agenda) — self-assigned cards
+      // are NOT draggable: dropping would hit moveAssignment's ownership
+      // throw (the coach must not move a client's own workout). Click and
+      // drag coexist: a completed drag does not fire click.
+      draggable={!item.selfAssigned}
+      onDragStart={(e) => {
+        if (item.selfAssigned) return;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", item.assignmentId);
+        onDragStart(item.chip);
+      }}
       onClick={() => onOpenDetail(item.assignmentId)}
       className={cn(
         "flex w-full min-w-0 items-start gap-1.5 rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors hover:border-primary/50 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        !item.selfAssigned && "cursor-grab active:cursor-grabbing",
         itemClassName(item),
       )}
     >
@@ -326,6 +433,7 @@ function buildWorkoutItems(
       ? `${t(`workoutStatus.${workout.status}`)} · ${workout.templateTag}`
       : t(`workoutStatus.${workout.status}`),
     selfAssigned: workout.selfAssigned,
+    chip: workout,
   }));
 }
 
