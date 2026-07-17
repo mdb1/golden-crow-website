@@ -26,7 +26,13 @@
 export type LinkOutcome =
   | { kind: "link" }
   | { kind: "alreadyYours" }
-  | { kind: "conflict"; currentCoachId: string };
+  | { kind: "conflict"; currentCoachId: string }
+  // CR-02: the target doc is a TRAINER account. A trainer email can never be
+  // linked as a client — without this refusal, a coach typing another
+  // trainer's email would overwrite their user doc (role → "client",
+  // coachId → attacker) and, post-commit, clobber their role claim,
+  // demoting them to a client and locking them out of the backoffice.
+  | { kind: "trainerTarget" };
 
 /**
  * Refusal modes surfaced to the ProvisionClientForm as a RETURN VALUE, never
@@ -36,7 +42,7 @@ export type LinkOutcome =
  * `err.message` degrades to a generic string exactly in prod. The form maps
  * each mode to its own client-side translation key instead.
  */
-export type LinkRefusalMode = "conflict" | "self";
+export type LinkRefusalMode = "conflict" | "trainer-target" | "self";
 
 /**
  * Sentinel thrown INSIDE the provisionClient transactions to abort them
@@ -55,6 +61,7 @@ export class LinkRefusedError extends Error {
 export interface LinkTargetDoc {
   coachId?: string | null;
   autoAssignedCoach?: boolean;
+  role?: string | null;
 }
 
 /**
@@ -67,6 +74,15 @@ export function decideLinkOutcome(
   existing: LinkTargetDoc | null,
   sessionUid: string,
 ): LinkOutcome {
+  // (0) CR-02: a trainer account is never a linkable client — refuse before
+  // any other rule (a trainer doc usually has NO coachId, which rule (1)
+  // would otherwise happily classify as "link" and demote the trainer).
+  // Wins over alreadyYours/stray too: no coachId combination makes
+  // overwriting a trainer doc acceptable.
+  if (existing?.role === "trainer") {
+    return { kind: "trainerTarget" };
+  }
+
   // (1) Normalize: empty / whitespace-only coachId is treated as no coach.
   const coachId = existing?.coachId?.trim() || null;
   if (!coachId) {

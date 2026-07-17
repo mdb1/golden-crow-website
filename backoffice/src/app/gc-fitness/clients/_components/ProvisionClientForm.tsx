@@ -56,7 +56,9 @@ export function ProvisionClientForm() {
                   setError(
                     result.mode === "conflict"
                       ? t("conflictError", { email })
-                      : t("selfError"),
+                      : result.mode === "trainer-target"
+                        ? t("trainerTargetError", { email })
+                        : t("selfError"),
                   );
                   return;
                 }

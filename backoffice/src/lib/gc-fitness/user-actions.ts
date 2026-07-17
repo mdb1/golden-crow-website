@@ -255,6 +255,21 @@ function logLinkConflictRefused(params: {
   console.warn("[gc-fitness/coach-link] link_conflict_refused", params);
 }
 
+/**
+ * CR-02 audit line for a refused trainer-target link attempt. Server-side
+ * console only — same T-32-E2 confinement as logLinkConflictRefused: this
+ * MUST NOT flow into the coach-activity event log, and the requesting coach
+ * only ever sees the mode-keyed banner copy (which names the typed email,
+ * never the fact that the doc belongs to a trainer's roster or claims).
+ */
+function logLinkTrainerTargetRefused(params: {
+  actorUid: string;
+  targetEmail: string;
+  targetUid: string | null;
+}): void {
+  console.warn("[gc-fitness/coach-link] link_trainer_target_refused", params);
+}
+
 async function trainerProfile(
   uid: string,
   email: string,
@@ -436,10 +451,21 @@ export async function provisionClient(input: unknown): Promise<
             ? (mirrorSnap.data() as {
                 coachId?: string | null;
                 autoAssignedCoach?: boolean;
+                role?: string | null;
               })
             : null,
           session.uid,
         );
+        if (outcome.kind === "trainerTarget") {
+          // CR-02: mirror docs shouldn't carry role, but if one ever does,
+          // refuse for the same reason as the /users branch below.
+          logLinkTrainerTargetRefused({
+            actorUid: session.uid,
+            targetEmail: parsed.email,
+            targetUid: null,
+          });
+          throw new LinkRefusedError("trainer-target");
+        }
         if (outcome.kind === "conflict") {
           logLinkConflictRefused({
             actorUid: session.uid,
@@ -511,10 +537,26 @@ export async function provisionClient(input: unknown): Promise<
       const data = userSnap.exists ? userSnap.data() ?? {} : {};
       const outcome = decideLinkOutcome(
         userSnap.exists
-          ? (data as { coachId?: string | null; autoAssignedCoach?: boolean })
+          ? (data as {
+              coachId?: string | null;
+              autoAssignedCoach?: boolean;
+              role?: string | null;
+            })
           : null,
         session.uid,
       );
+      if (outcome.kind === "trainerTarget") {
+        // CR-02: the target is another TRAINER's account — linking would
+        // overwrite their doc (role → "client", coachId → this coach) and
+        // then clobber their role claim post-commit, demoting and locking
+        // them out. Refuse before any write.
+        logLinkTrainerTargetRefused({
+          actorUid: session.uid,
+          targetEmail: parsed.email,
+          targetUid: authUser.uid,
+        });
+        throw new LinkRefusedError("trainer-target");
+      }
       if (outcome.kind === "conflict") {
         logLinkConflictRefused({
           actorUid: session.uid,

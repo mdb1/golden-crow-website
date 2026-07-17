@@ -63,4 +63,34 @@ describe("decideLinkOutcome", () => {
       ),
     ).toEqual({ kind: "conflict", currentCoachId: "coachA" });
   });
+
+  // CR-02 — a trainer account is never a linkable client. A trainer doc
+  // usually has NO coachId, which rule (1) would classify as "link" and
+  // let a coach demote another trainer (doc overwrite + claims clobber).
+  it("refuses a trainer target with no coachId (the demotion vector)", () => {
+    expect(decideLinkOutcome({ role: "trainer" }, "coachB")).toEqual({
+      kind: "trainerTarget",
+    });
+  });
+
+  it("refuses a trainer target even when a coachId is present", () => {
+    expect(
+      decideLinkOutcome({ role: "trainer", coachId: "coachA" }, "coachB"),
+    ).toEqual({ kind: "trainerTarget" });
+  });
+
+  it("trainerTarget wins over alreadyYours and the stray rule", () => {
+    expect(
+      decideLinkOutcome(
+        { role: "trainer", coachId: "coachB", autoAssignedCoach: true },
+        "coachB",
+      ),
+    ).toEqual({ kind: "trainerTarget" });
+  });
+
+  it("does not refuse a client-role doc (role passthrough is trainer-only)", () => {
+    expect(decideLinkOutcome({ role: "client" }, "coachB")).toEqual({
+      kind: "link",
+    });
+  });
 });

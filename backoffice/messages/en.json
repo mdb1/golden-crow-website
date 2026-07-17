@@ -252,6 +252,7 @@
       "errorFallback": "Could not add client.",
       "conflictError": "This client already has a coach. The email {email} is already linked to another coach. Contact support to transfer them.",
       "selfError": "You cannot add yourself as a client.",
+      "trainerTargetError": "The email {email} belongs to a coach account and cannot be added as a client.",
       "alreadyLinked": "This client is already in your list.",
       "successBannerTitle": "Client ready",
       "errorBannerTitle": "Add client failed"
