@@ -1,0 +1,64 @@
+// coach-link.ts
+//
+// PURE decision helper for the provisionClient conflict gate (Phase 32,
+// LINK-01). This module is intentionally I/O-free: no Admin SDK, no
+// Firestore, no "use server" — it takes the freshly-read target doc (a
+// /users/{uid} doc OR a /user_mirror/{email} doc) plus the requesting
+// coach's session uid and returns the link decision. Keeping it pure makes
+// the steal-vector logic jest-testable in isolation and lets BOTH
+// provisionClient branches (existing-user + mirror) share one authority.
+//
+// Outcomes (D-01 / 32-CONTEXT.md):
+//   - link         → coach-less target OR a claimable stray → safe to write.
+//   - alreadyYours → the target is already YOUR client → friendly no-op.
+//   - conflict     → the target has a DIFFERENT real coach → REFUSE (no
+//                    writes); the caller routes the coach to support. The
+//                    currentCoachId is for server-side audit ONLY and MUST
+//                    NEVER be forwarded to the requesting coach (enumeration
+//                    disclosure is bounded — threat T-32-ENUM / T-32-E2).
+//
+// Claimable stray = `autoAssignedCoach === true` (a doc field mirroring the
+// Phase 29 fallback-coach migration predicate) — a fallback-coached user is
+// claimable without conflict. We deliberately do NOT import or reference the
+// functions-repo fallback-coach uid: the predicate is the boolean field, not
+// a hardcoded uid comparison.
+
+export type LinkOutcome =
+  | { kind: "link" }
+  | { kind: "alreadyYours" }
+  | { kind: "conflict"; currentCoachId: string };
+
+export interface LinkTargetDoc {
+  coachId?: string | null;
+  autoAssignedCoach?: boolean;
+}
+
+/**
+ * Decide how a coach's "add client by email" request should resolve against
+ * the freshly-read target doc. Pure — call this INSIDE a transaction on the
+ * tx-read snapshot so the decision is authoritative against concurrent
+ * writers (T-32-TOCTOU).
+ */
+export function decideLinkOutcome(
+  existing: LinkTargetDoc | null,
+  sessionUid: string,
+): LinkOutcome {
+  // (1) Normalize: empty / whitespace-only coachId is treated as no coach.
+  const coachId = existing?.coachId?.trim() || null;
+  if (!coachId) {
+    return { kind: "link" };
+  }
+
+  // (2) Already your client — friendly no-op (wins over the stray rule).
+  if (coachId === sessionUid) {
+    return { kind: "alreadyYours" };
+  }
+
+  // (3) Claimable stray — a fallback-auto-assigned coach is claimable.
+  if (existing?.autoAssignedCoach === true) {
+    return { kind: "link" };
+  }
+
+  // (4) A different real coach owns this client — refuse.
+  return { kind: "conflict", currentCoachId: coachId };
+}
