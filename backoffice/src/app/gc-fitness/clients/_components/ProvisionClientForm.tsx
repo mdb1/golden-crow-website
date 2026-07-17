@@ -49,9 +49,11 @@ export function ProvisionClientForm() {
                 setEmail("");
                 setDisplayName("");
                 setMessage(
-                  result.mode === "attached-existing-user"
-                    ? t("successAttached")
-                    : t("successPreCreated"),
+                  result.mode === "already-linked"
+                    ? t("alreadyLinked")
+                    : result.mode === "attached-existing-user"
+                      ? t("successAttached")
+                      : t("successPreCreated"),
                 );
                 router.refresh();
               } catch (err) {
