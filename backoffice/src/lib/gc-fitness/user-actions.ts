@@ -569,7 +569,10 @@ export async function provisionClient(input: unknown): Promise<
         throw new LinkRefusedError("conflict");
       }
       if (outcome.kind === "alreadyYours") {
-        return "alreadyYours"; // no writes, no claims mutation
+        // No doc writes; claims ARE (re-)synced post-commit — WR-01: the
+        // idempotent setCustomUserClaims below heals a divergence left by a
+        // prior post-commit claims failure when the trainer resubmits.
+        return "alreadyYours";
       }
       tx.set(
         userRef,
@@ -624,17 +627,25 @@ export async function provisionClient(input: unknown): Promise<
     throw err;
   }
 
-  if (userOutcomeKind === "alreadyYours") {
-    return { ok: true, mode: "already-linked" };
-  }
-
   // Claims AFTER the doc-write commit (T-32-DIVERGE): the benign direction
   // (doc written, claims lag) self-heals via the Phase 30 forced token refresh.
+  //
+  // WR-01: this ALSO runs on the alreadyYours path. If a previous submit
+  // committed the tx but the claims call failed (network blip / Auth outage),
+  // the trainer's natural recovery is to resubmit — which now resolves to
+  // alreadyYours. Skipping claims there would leave the doc/claims divergence
+  // unrepairable from the UI. The call is an idempotent no-op when claims
+  // already match, so running it on every resolution of the existing-user
+  // branch is safe and heals the divergence on retry.
   await auth.setCustomUserClaims(authUser.uid, {
     ...(authUser.customClaims ?? {}),
     role: "client",
     coachId: session.uid,
   });
+
+  if (userOutcomeKind === "alreadyYours") {
+    return { ok: true, mode: "already-linked" };
+  }
 
   revalidateTag("gc-fitness-roster", "max");
   return { ok: true, mode: "attached-existing-user" };
