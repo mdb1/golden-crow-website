@@ -46,6 +46,20 @@ export function ProvisionClientForm() {
                   email,
                   displayName: displayName || undefined,
                 });
+                // CR-03: expected refusals arrive as a discriminated result
+                // (NOT a thrown Error) because production Next.js masks
+                // Server-Action error messages. The localized copy is
+                // rendered CLIENT-side from the mode — no server-composed
+                // string crosses the wire, which also keeps the enumeration
+                // bound (T-32-ENUM: copy names only the typed email).
+                if (!result.ok) {
+                  setError(
+                    result.mode === "conflict"
+                      ? t("conflictError", { email })
+                      : t("selfError"),
+                  );
+                  return;
+                }
                 setEmail("");
                 setDisplayName("");
                 setMessage(
@@ -56,10 +70,11 @@ export function ProvisionClientForm() {
                       : t("successPreCreated"),
                 );
                 router.refresh();
-              } catch (err) {
-                setError(
-                  err instanceof Error ? err.message : t("errorFallback"),
-                );
+              } catch {
+                // Unexpected failure only — expected refusals never throw.
+                // err.message is prod-masked by Next.js, so it carries no
+                // user-renderable copy; show the localized fallback instead.
+                setError(t("errorFallback"));
               }
             });
           }}

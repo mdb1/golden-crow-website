@@ -52,7 +52,6 @@
 import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
-import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import {
@@ -61,7 +60,12 @@ import {
 } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
-import { decideLinkOutcome, type LinkOutcome } from "./coach-link";
+import {
+  decideLinkOutcome,
+  LinkRefusedError,
+  type LinkOutcome,
+  type LinkRefusalMode,
+} from "./coach-link";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 
@@ -383,11 +387,22 @@ export async function updateClientNickname(
  * `/users/{uid}` and sets custom claims so the iOS app can read/write under
  * the normal client rules immediately. If the email does not exist yet, it
  * creates `/user_mirror/{email}` for the first-sign-in provisioning path.
+ *
+ * REFUSALS ARE RETURN VALUES, NOT THROWN ERRORS (CR-03): production Next.js
+ * masks Server-Action error messages (generic copy + digest), so a thrown
+ * localized message renders as a generic error exactly in the auto-deployed
+ * prod build. Expected refusals (conflict / self-add) come back as
+ * `{ ok: false, mode }`; the form maps the mode to client-side translated
+ * copy. The tx-internal throw is a sentinel (LinkRefusedError) whose only
+ * job is aborting the transaction before any write.
  */
-export async function provisionClient(input: unknown): Promise<{
-  ok: true;
-  mode: "attached-existing-user" | "precreated-mirror" | "already-linked";
-}> {
+export async function provisionClient(input: unknown): Promise<
+  | {
+      ok: true;
+      mode: "attached-existing-user" | "precreated-mirror" | "already-linked";
+    }
+  | { ok: false; mode: LinkRefusalMode }
+> {
   const session = await getCurrentTrainer();
   const parsed = provisionClientSchema.parse(input);
   const db = gcFitnessFirestore();
@@ -395,9 +410,6 @@ export async function provisionClient(input: unknown): Promise<{
   const coach = await trainerProfile(session.uid, session.email);
   const coachDisplayName = coach.displayName;
   const displayName = parsed.displayName || fallbackName(parsed.email);
-  // Localized conflict copy — built once, rendered verbatim by the form's red
-  // HelperBanner. MUST NOT name the other coach (threat T-32-ENUM).
-  const tErr = await getTranslations("clients.provisionForm");
 
   let authUser: Awaited<ReturnType<typeof auth.getUserByEmail>> | null = null;
   try {
@@ -414,7 +426,9 @@ export async function provisionClient(input: unknown): Promise<{
     const mirrorRef = db
       .collection(FirestoreCollections.userMirror)
       .doc(parsed.email);
-    const mirrorOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
+    let mirrorOutcomeKind: LinkOutcome["kind"];
+    try {
+      mirrorOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
       async (tx) => {
         const mirrorSnap = await tx.get(mirrorRef);
         const outcome = decideLinkOutcome(
@@ -433,8 +447,10 @@ export async function provisionClient(input: unknown): Promise<{
             targetUid: null,
             existingCoachId: outcome.currentCoachId,
           });
-          // Throw INSIDE the tx → aborts before any write.
-          throw new Error(tErr("conflictError", { email: parsed.email }));
+          // Sentinel throw INSIDE the tx → aborts before any write (CR-03:
+          // caught below and converted to a { ok: false } result — the
+          // message never travels to the browser, so prod masking is moot).
+          throw new LinkRefusedError("conflict");
         }
         if (outcome.kind === "alreadyYours") {
           return "alreadyYours"; // no write — friendly no-op surfaced below
@@ -462,7 +478,13 @@ export async function provisionClient(input: unknown): Promise<{
         );
         return "link";
       },
-    );
+      );
+    } catch (err) {
+      if (err instanceof LinkRefusedError) {
+        return { ok: false, mode: err.mode };
+      }
+      throw err;
+    }
     if (mirrorOutcomeKind === "alreadyYours") {
       return { ok: true, mode: "already-linked" };
     }
@@ -471,7 +493,8 @@ export async function provisionClient(input: unknown): Promise<{
   }
 
   if (authUser.uid === session.uid) {
-    throw new Error("You cannot add yourself as a client.");
+    // CR-03: expected refusal → result, not a thrown (prod-masked) message.
+    return { ok: false, mode: "self" };
   }
 
   // EXISTING-USER branch. Read-before-write the /users doc INSIDE the tx and
@@ -480,7 +503,9 @@ export async function provisionClient(input: unknown): Promise<{
   // whose doc was never written (threat T-32-DIVERGE).
   const userRef = db.collection(FirestoreCollections.users).doc(authUser.uid);
   const chatRef = db.collection(FirestoreCollections.chats).doc(authUser.uid);
-  const userOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
+  let userOutcomeKind: LinkOutcome["kind"];
+  try {
+    userOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
     async (tx) => {
       const userSnap = await tx.get(userRef);
       const data = userSnap.exists ? userSnap.data() ?? {} : {};
@@ -497,8 +522,9 @@ export async function provisionClient(input: unknown): Promise<{
           targetUid: authUser.uid,
           existingCoachId: outcome.currentCoachId,
         });
-        // Throw INSIDE the tx → aborts before any write; claims still untouched.
-        throw new Error(tErr("conflictError", { email: parsed.email }));
+        // Sentinel throw INSIDE the tx → aborts before any write; claims
+        // still untouched (CR-03: converted to a result below).
+        throw new LinkRefusedError("conflict");
       }
       if (outcome.kind === "alreadyYours") {
         return "alreadyYours"; // no writes, no claims mutation
@@ -548,7 +574,13 @@ export async function provisionClient(input: unknown): Promise<{
       );
       return "link";
     },
-  );
+    );
+  } catch (err) {
+    if (err instanceof LinkRefusedError) {
+      return { ok: false, mode: err.mode };
+    }
+    throw err;
+  }
 
   if (userOutcomeKind === "alreadyYours") {
     return { ok: true, mode: "already-linked" };

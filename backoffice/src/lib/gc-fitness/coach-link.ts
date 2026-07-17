@@ -28,6 +28,30 @@ export type LinkOutcome =
   | { kind: "alreadyYours" }
   | { kind: "conflict"; currentCoachId: string };
 
+/**
+ * Refusal modes surfaced to the ProvisionClientForm as a RETURN VALUE, never
+ * as a thrown Error message (CR-03): Next.js masks Server-Action error
+ * messages in production builds ("An error occurred in the Server
+ * Components render..." + digest), so localized copy carried on
+ * `err.message` degrades to a generic string exactly in prod. The form maps
+ * each mode to its own client-side translation key instead.
+ */
+export type LinkRefusalMode = "conflict" | "self";
+
+/**
+ * Sentinel thrown INSIDE the provisionClient transactions to abort them
+ * before any write (the Admin SDK aborts a tx whose body throws, and does
+ * not retry non-contention errors). provisionClient catches this sentinel
+ * and converts it into a `{ ok: false, mode }` result — the message is
+ * intentionally NOT user-facing (see LinkRefusalMode).
+ */
+export class LinkRefusedError extends Error {
+  constructor(public readonly mode: LinkRefusalMode) {
+    super(`link refused: ${mode}`);
+    this.name = "LinkRefusedError";
+  }
+}
+
 export interface LinkTargetDoc {
   coachId?: string | null;
   autoAssignedCoach?: boolean;

@@ -251,6 +251,7 @@
       "successPreCreated": "Client pre-created. They will attach on first sign-in.",
       "errorFallback": "Could not add client.",
       "conflictError": "This client already has a coach. The email {email} is already linked to another coach. Contact support to transfer them.",
+      "selfError": "You cannot add yourself as a client.",
       "alreadyLinked": "This client is already in your list.",
       "successBannerTitle": "Client ready",
       "errorBannerTitle": "Add client failed"

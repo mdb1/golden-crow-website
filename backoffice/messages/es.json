@@ -251,6 +251,7 @@
       "successPreCreated": "Cliente pre-creado. Se vinculará al iniciar sesión por primera vez.",
       "errorFallback": "No se pudo agregar el cliente.",
       "conflictError": "Este cliente ya tiene coach. El email {email} ya está vinculado a otro coach. Para transferirlo, contactá a soporte.",
+      "selfError": "No podés agregarte a vos mismo como cliente.",
       "alreadyLinked": "Este cliente ya está en tu lista.",
       "successBannerTitle": "Cliente listo",
       "errorBannerTitle": "Falló al agregar cliente"
