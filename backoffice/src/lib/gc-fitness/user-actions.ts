@@ -574,6 +574,10 @@ export async function provisionClient(input: unknown): Promise<
         // prior post-commit claims failure when the trainer resubmits.
         return "alreadyYours";
       }
+      // WR-02: read the chat doc INSIDE the tx (all tx reads must precede
+      // writes) so createdAt can be create-only below — re-linking an
+      // existing user must not reset the chat's original creation timestamp.
+      const chatSnap = await tx.get(chatRef);
       tx.set(
         userRef,
         {
@@ -611,8 +615,16 @@ export async function provisionClient(input: unknown): Promise<
         {
           clientId: authUser.uid,
           coachId: session.uid,
-          unreadCount: data.unreadCount ?? {},
-          createdAt: FieldValue.serverTimestamp(),
+          // WR-02: no unreadCount here. `data` is the USER doc snapshot, so
+          // `data.unreadCount ?? {}` was always {} — counters live on
+          // /chats/{clientId} and merge:true preserves them; writing an
+          // (accidentally empty) map only worked by the grace of merge
+          // semantics and would wipe both parties' counters under any
+          // future non-merge/flat-field write. createdAt is CREATE-ONLY:
+          // claiming a stray with chat history must not reset it.
+          ...(chatSnap.exists
+            ? {}
+            : { createdAt: FieldValue.serverTimestamp() }),
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
