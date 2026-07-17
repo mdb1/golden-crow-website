@@ -1912,9 +1912,19 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
  * Note: listHabitsForClient is currently UI-unused; it is fixed here for
  * parity with the three live surfaces (D-03 discretion: prefer fix + note).
  *
- *  - Bounded at 200 — T-06-05-07.
+ *  - Bounded at 500 — T-06-05-07. WR-03: the cap counts SOFT-DELETED docs
+ *    too (they are filtered in memory AFTER the fetch), and soft-delete is
+ *    the only delete path (`allow delete: if false`), so deleted docs
+ *    accumulate monotonically toward the cap over a client's lifetime.
+ *    Raised 200 → 500 to keep live habits from silently dropping out, and
+ *    a truncation warning fires when the raw fetch hits the cap. We
+ *    deliberately do NOT re-add `.orderBy("updatedAt")`: Firestore orderBy
+ *    EXCLUDES docs missing the field, which would re-drop field-sparse
+ *    (older/seeded) habit docs — the very regression this filter fixed.
  *  - Excludes soft-deleted (deleted === true) in memory.
  */
+const LIST_HABITS_FOR_CLIENT_CAP = 500;
+
 export async function listHabitsForClient(
   clientId: string,
 ): Promise<HabitRow[]> {
@@ -1924,8 +1934,17 @@ export async function listHabitsForClient(
   const snap = await db
     .collection(COLLECTION)
     .where("clientId", "==", clientId)
-    .limit(200)
+    .limit(LIST_HABITS_FOR_CLIENT_CAP)
     .get();
+
+  if (snap.docs.length >= LIST_HABITS_FOR_CLIENT_CAP) {
+    // WR-03: raw fetch filled the cap — live habits may have been truncated
+    // (which docs survive is doc-ID order, deleted docs included).
+    console.warn(
+      "[gc-fitness/habits] listHabitsForClient hit its fetch cap — live habits may be truncated",
+      { clientId, cap: LIST_HABITS_FOR_CLIENT_CAP },
+    );
+  }
 
   const rows = snap.docs
     .filter((d) => isHabitNotDeleted(d.data() as Record<string, unknown>))

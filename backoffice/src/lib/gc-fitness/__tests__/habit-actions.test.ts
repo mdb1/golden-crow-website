@@ -674,7 +674,10 @@ describe("listHabitsForClient", () => {
     expect(mockWhere).toHaveBeenCalledWith("clientId", "==", "uid-X");
     // The deleted-equality is GONE — filtering happens in memory now.
     expect(mockWhere).not.toHaveBeenCalledWith("deleted", "==", false);
-    expect(mockLimit).toHaveBeenCalledWith(200);
+    // WR-03: cap raised 200 → 500 — soft-deleted docs consume the fetch
+    // budget (they're filtered AFTER the query), so the cap needs headroom
+    // for a lifetime of soft-deletes before live habits truncate.
+    expect(mockLimit).toHaveBeenCalledWith(500);
   });
 
   it("T14b — non-owned client: returns only own-authored rows", async () => {
