@@ -52,6 +52,7 @@
 import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import {
@@ -60,6 +61,7 @@ import {
 } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import { decideLinkOutcome, type LinkOutcome } from "./coach-link";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 
@@ -232,6 +234,23 @@ function fallbackName(email: string): string {
   return localPart || email;
 }
 
+/**
+ * D-02 refused-steal audit. A single support-triage server log line for a
+ * refused coach-link conflict. Deliberately NOT written to the coach-activity
+ * event log or the admin-operations log — those surface in the REQUESTING
+ * coach's My-Activity feed and would leak the other coach's identity (threat
+ * T-32-E2). The existingCoachId is safe ONLY here, in a server-side log line
+ * the requesting coach can never read.
+ */
+function logLinkConflictRefused(params: {
+  actorUid: string;
+  targetEmail: string;
+  targetUid: string | null;
+  existingCoachId: string;
+}): void {
+  console.warn("[gc-fitness/coach-link] link_conflict_refused", params);
+}
+
 async function trainerProfile(
   uid: string,
   email: string,
@@ -365,9 +384,10 @@ export async function updateClientNickname(
  * the normal client rules immediately. If the email does not exist yet, it
  * creates `/user_mirror/{email}` for the first-sign-in provisioning path.
  */
-export async function provisionClient(
-  input: unknown,
-): Promise<{ ok: true; mode: "attached-existing-user" | "precreated-mirror" }> {
+export async function provisionClient(input: unknown): Promise<{
+  ok: true;
+  mode: "attached-existing-user" | "precreated-mirror" | "already-linked";
+}> {
   const session = await getCurrentTrainer();
   const parsed = provisionClientSchema.parse(input);
   const db = gcFitnessFirestore();
@@ -375,6 +395,9 @@ export async function provisionClient(
   const coach = await trainerProfile(session.uid, session.email);
   const coachDisplayName = coach.displayName;
   const displayName = parsed.displayName || fallbackName(parsed.email);
+  // Localized conflict copy — built once, rendered verbatim by the form's red
+  // HelperBanner. MUST NOT name the other coach (threat T-32-ENUM).
+  const tErr = await getTranslations("clients.provisionForm");
 
   let authUser: Awaited<ReturnType<typeof auth.getUserByEmail>> | null = null;
   try {
@@ -385,20 +408,58 @@ export async function provisionClient(
   }
 
   if (!authUser) {
-    await db.collection(FirestoreCollections.userMirror).doc(parsed.email).set(
-      {
-        email: parsed.email,
-        displayName,
-        coachId: session.uid,
-        coachDisplayName,
-        coachPhotoURL: coach.photoURL,
-        coachBio: coach.bio,
-        pre_created: true,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+    // MIRROR branch. A pre-existing `/user_mirror/{email}` owned by a DIFFERENT
+    // coach is a second silent-steal vector (Pitfall 1) — gate it read-before-
+    // write inside a transaction so a concurrent writer can't slip past.
+    const mirrorRef = db
+      .collection(FirestoreCollections.userMirror)
+      .doc(parsed.email);
+    const mirrorOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
+      async (tx) => {
+        const mirrorSnap = await tx.get(mirrorRef);
+        const outcome = decideLinkOutcome(
+          mirrorSnap.exists
+            ? (mirrorSnap.data() as {
+                coachId?: string | null;
+                autoAssignedCoach?: boolean;
+              })
+            : null,
+          session.uid,
+        );
+        if (outcome.kind === "conflict") {
+          logLinkConflictRefused({
+            actorUid: session.uid,
+            targetEmail: parsed.email,
+            targetUid: null,
+            existingCoachId: outcome.currentCoachId,
+          });
+          // Throw INSIDE the tx → aborts before any write.
+          throw new Error(tErr("conflictError", { email: parsed.email }));
+        }
+        if (outcome.kind === "alreadyYours") {
+          return "alreadyYours"; // no write — friendly no-op surfaced below
+        }
+        tx.set(
+          mirrorRef,
+          {
+            email: parsed.email,
+            displayName,
+            coachId: session.uid,
+            coachDisplayName,
+            coachPhotoURL: coach.photoURL,
+            coachBio: coach.bio,
+            pre_created: true,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return "link";
       },
-      { merge: true },
     );
+    if (mirrorOutcomeKind === "alreadyYours") {
+      return { ok: true, mode: "already-linked" };
+    }
     revalidateTag("gc-fitness-roster", "max");
     return { ok: true, mode: "precreated-mirror" };
   }
@@ -407,51 +468,84 @@ export async function provisionClient(
     throw new Error("You cannot add yourself as a client.");
   }
 
+  // EXISTING-USER branch. Read-before-write the /users doc INSIDE the tx and
+  // refuse a different-coach conflict. Claims are set only AFTER the tx commits
+  // (below) so a refusal/abort can never leave claims pointing at a client
+  // whose doc was never written (threat T-32-DIVERGE).
+  const userRef = db.collection(FirestoreCollections.users).doc(authUser.uid);
+  const chatRef = db.collection(FirestoreCollections.chats).doc(authUser.uid);
+  const userOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
+    async (tx) => {
+      const userSnap = await tx.get(userRef);
+      const data = userSnap.exists ? userSnap.data() ?? {} : {};
+      const outcome = decideLinkOutcome(
+        userSnap.exists
+          ? (data as { coachId?: string | null; autoAssignedCoach?: boolean })
+          : null,
+        session.uid,
+      );
+      if (outcome.kind === "conflict") {
+        logLinkConflictRefused({
+          actorUid: session.uid,
+          targetEmail: parsed.email,
+          targetUid: authUser.uid,
+          existingCoachId: outcome.currentCoachId,
+        });
+        // Throw INSIDE the tx → aborts before any write; claims still untouched.
+        throw new Error(tErr("conflictError", { email: parsed.email }));
+      }
+      if (outcome.kind === "alreadyYours") {
+        return "alreadyYours"; // no writes, no claims mutation
+      }
+      tx.set(
+        userRef,
+        {
+          email: parsed.email,
+          displayName:
+            parsed.displayName ||
+            (typeof data.displayName === "string" &&
+            data.displayName.length > 0
+              ? data.displayName
+              : authUser.displayName || displayName),
+          photoURL: authUser.photoURL ?? data.photoURL ?? null,
+          role: "client",
+          coachId: session.uid,
+          coachDisplayName,
+          coachPhotoURL: coach.photoURL,
+          coachBio: coach.bio,
+          preferences: data.preferences ?? {},
+          fcmTokens: data.fcmTokens ?? [],
+          deleted: false,
+          createdAt: data.createdAt ?? FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      tx.set(
+        chatRef,
+        {
+          clientId: authUser.uid,
+          coachId: session.uid,
+          unreadCount: data.unreadCount ?? {},
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return "link";
+    },
+  );
+
+  if (userOutcomeKind === "alreadyYours") {
+    return { ok: true, mode: "already-linked" };
+  }
+
+  // Claims AFTER the doc-write commit (T-32-DIVERGE): the benign direction
+  // (doc written, claims lag) self-heals via the Phase 30 forced token refresh.
   await auth.setCustomUserClaims(authUser.uid, {
     ...(authUser.customClaims ?? {}),
     role: "client",
     coachId: session.uid,
-  });
-
-  const userRef = db.collection(FirestoreCollections.users).doc(authUser.uid);
-  const chatRef = db.collection(FirestoreCollections.chats).doc(authUser.uid);
-  await db.runTransaction(async (tx) => {
-    const userSnap = await tx.get(userRef);
-    const data = userSnap.exists ? userSnap.data() ?? {} : {};
-    tx.set(
-      userRef,
-      {
-        email: parsed.email,
-        displayName:
-          parsed.displayName ||
-          (typeof data.displayName === "string" && data.displayName.length > 0
-            ? data.displayName
-            : authUser.displayName || displayName),
-        photoURL: authUser.photoURL ?? data.photoURL ?? null,
-        role: "client",
-        coachId: session.uid,
-        coachDisplayName,
-        coachPhotoURL: coach.photoURL,
-        coachBio: coach.bio,
-        preferences: data.preferences ?? {},
-        fcmTokens: data.fcmTokens ?? [],
-        deleted: false,
-        createdAt: data.createdAt ?? FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-    tx.set(
-      chatRef,
-      {
-        clientId: authUser.uid,
-        coachId: session.uid,
-        unreadCount: data.unreadCount ?? {},
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
   });
 
   revalidateTag("gc-fitness-roster", "max");
