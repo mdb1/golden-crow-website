@@ -23,6 +23,7 @@ import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { coerceLegacyHabitLogValue } from "@/lib/gc-fitness/habit-compliance";
 import { isHabitScheduledOn } from "@/lib/gc-fitness/habit-schedule";
+import { isHabitNotDeleted } from "@/lib/gc-fitness/habit-visibility";
 import { TREND_RANGES, type TrendRangeKey, addCivilDays } from "./trend-range";
 import { HabitTrendsClient, type HabitTrendRow } from "./HabitTrendsClient";
 
@@ -47,11 +48,15 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
   const unnamed = t("unnamed");
   const db = gcFitnessFirestore();
 
+  // Issue #437/#400: fetch by clientId only, filter `deleted === true` in
+  // memory (isHabitNotDeleted). A `.where("deleted","==",false)` equality only
+  // matches docs where the field EXISTS, silently dropping client-created
+  // habits that never write it. PR #230 pattern.
   const habitsSnap = await db
     .collection(FirestoreCollections.habits)
     .where("clientId", "==", clientId)
-    .where("deleted", "==", false)
     .get();
+  const habitDocs = habitsSnap.docs.filter((d) => isHabitNotDeleted(d.data()));
 
   const today = civilDateFormat(new Date(), timezone);
   // Ascending list of the trailing 365 civil dates ending today. Each
@@ -63,7 +68,7 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
   const windowStart = allDates[0] ?? today;
 
   const rows: HabitTrendRow[] = await Promise.all(
-    habitsSnap.docs.map(async (h) => {
+    habitDocs.map(async (h) => {
       const habit = h.data() as {
         name?: string | { en?: string; es?: string };
       } & Record<string, unknown>;

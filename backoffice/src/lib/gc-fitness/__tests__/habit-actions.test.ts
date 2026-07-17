@@ -637,8 +637,47 @@ describe("listHabitsForTrainer", () => {
 });
 
 describe("listHabitsForClient", () => {
-  // T14 — filters by clientId + deleted; defense-in-depth strips cross-trainer rows
-  it("T14 — strips cross-trainer rows post-query (defense in depth)", async () => {
+  // T14 (LINK-03 / issue #437 / PR #230) — the query scopes by clientId ONLY
+  // (no `.where("deleted","==",false)` equality, which dropped client-created
+  // habits that never write the field); soft-deleted rows are filtered in
+  // memory. Ownership is the belongs-to-my-client gate (D-06):
+  //   - client belongs to the requesting trainer → old-coach / self-created
+  //     habits (trainerId !== trainer.uid) ARE included;
+  //   - client belongs to someone else → only own-authored rows return.
+  it("T14a — client belongs to me: includes old-coach/self-created rows, drops soft-deleted", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockQueryGet.mockResolvedValue(
+      fakeQuerySnapshot([
+        { id: "hab-mine", trainerId: ALLOWED_UID, clientId: "uid-X" },
+        {
+          id: "hab-other",
+          trainerId: "other-trainer-uid",
+          clientId: "uid-X",
+        },
+        {
+          id: "hab-gone",
+          trainerId: "other-trainer-uid",
+          clientId: "uid-X",
+          deleted: true,
+        },
+      ]),
+    );
+    // Belongs-to-my-client point-read: users/uid-X.coachId === trainer.uid.
+    mockGet.mockResolvedValue(
+      fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }),
+    );
+
+    const result = await listHabitsForClient("uid-X");
+
+    // hab-other (old-coach) IS included; hab-gone (soft-deleted) is NOT.
+    expect(result.map((r) => r.id)).toEqual(["hab-mine", "hab-other"]);
+    expect(mockWhere).toHaveBeenCalledWith("clientId", "==", "uid-X");
+    // The deleted-equality is GONE — filtering happens in memory now.
+    expect(mockWhere).not.toHaveBeenCalledWith("deleted", "==", false);
+    expect(mockLimit).toHaveBeenCalledWith(200);
+  });
+
+  it("T14b — non-owned client: returns only own-authored rows", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockQueryGet.mockResolvedValue(
       fakeQuerySnapshot([
@@ -650,13 +689,15 @@ describe("listHabitsForClient", () => {
         },
       ]),
     );
+    // The queried client is coached by someone else.
+    mockGet.mockResolvedValue(
+      fakeUserSnapshot({ exists: true, coachId: "someone-else" }),
+    );
 
     const result = await listHabitsForClient("uid-X");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("hab-mine");
-    expect(mockWhere).toHaveBeenCalledWith("clientId", "==", "uid-X");
-    expect(mockWhere).toHaveBeenCalledWith("deleted", "==", false);
-    expect(mockLimit).toHaveBeenCalledWith(200);
+
+    expect(result.map((r) => r.id)).toEqual(["hab-mine"]);
+    expect(mockWhere).not.toHaveBeenCalledWith("deleted", "==", false);
   });
 });
 

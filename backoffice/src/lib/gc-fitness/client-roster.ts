@@ -47,6 +47,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
+import { isHabitNotDeleted } from "./habit-visibility";
 import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
 import {
@@ -533,14 +534,17 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         // every roster (260528 bug). Mirrors the exclusion in
         // listRecentLogsForTrainer.
         db.collection(FirestoreCollections.chats).doc(c.uid).get(),
+        // Issue #437/#400: fetch by clientId only; filter `deleted === true`
+        // in memory (isHabitNotDeleted) below. A `.where("deleted","==",false)`
+        // equality drops client-created habits that never write the field, so
+        // the compliance counts under-reported them. PR #230 pattern.
         db
           .collection(FirestoreCollections.habits)
           .where("clientId", "==", c.uid)
-          .where("deleted", "==", false)
           // 260529 cost backstop: a roster row never needs more than a
           // sane ceiling of habits; the compliance math below tolerates the
           // cap (no real client carries >60 active habits). Bounds the
-          // worst-case read on the (clientId, deleted, updatedAt) index.
+          // worst-case read on the (clientId, updatedAt) index.
           .limit(60)
           .get(),
         // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
@@ -662,7 +666,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // snapshot by habitId ONCE (replaces a per-habit query fan-out), then
       // compute per-habit ratio via the Pattern-B pure function and average.
       // The same grouped map feeds the trailing-7 habit-count loop below.
-      const habitDocs = clientHabits.docs;
+      const habitDocs = clientHabits.docs.filter((d) =>
+        isHabitNotDeleted(d.data() as Record<string, unknown>),
+      );
       const windowedLogsByHabit = new Map<string, HabitLogRow[]>();
       for (const ldoc of windowedHabitLogs.docs) {
         const data = ldoc.data() as Record<string, unknown>;
