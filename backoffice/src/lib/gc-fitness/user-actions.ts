@@ -448,6 +448,12 @@ export async function provisionClient(input: unknown): Promise<{
             coachDisplayName,
             coachPhotoURL: coach.photoURL,
             coachBio: coach.bio,
+            // CR-01: a claimed doc is no longer a stray. Without this delete,
+            // `merge: true` preserves `autoAssignedCoach: true` and rule (3)
+            // of decideLinkOutcome keeps the claimed target silently
+            // stealable by any other coach. (The migration's other stray
+            // fields — coachDisplayName/PhotoURL/Bio — are overwritten above.)
+            autoAssignedCoach: FieldValue.delete(),
             pre_created: true,
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
@@ -510,6 +516,14 @@ export async function provisionClient(input: unknown): Promise<{
           photoURL: authUser.photoURL ?? data.photoURL ?? null,
           role: "client",
           coachId: session.uid,
+          // CR-01: claiming a Phase-29 fallback-migrated stray MUST clear the
+          // stray marker — otherwise the doc stays `{ coachId: <me>,
+          // autoAssignedCoach: true }`, which decideLinkOutcome rule (3)
+          // still classifies as claimable, so any other coach could silently
+          // steal the client you just claimed (and the roster "NEW" badge
+          // never clears). `merge: true` preserves absent fields, so an
+          // explicit FieldValue.delete() is required.
+          autoAssignedCoach: FieldValue.delete(),
           coachDisplayName,
           coachPhotoURL: coach.photoURL,
           coachBio: coach.bio,
