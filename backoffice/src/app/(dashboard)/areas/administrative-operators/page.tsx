@@ -55,7 +55,6 @@ export default async function AdministrativeOperatorsPage() {
               : undefined
           }
           createDisabledTitle="The current role cannot create administrative operators on this screen."
-          description="Review role capabilities or create a new institution operator with the correct role already selected."
         />
         <InstitutionStaffRoleBrowser
           initialRoles={roles}

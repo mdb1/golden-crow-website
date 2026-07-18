@@ -6056,15 +6056,6 @@ export function TwoPQRecordWorkbench({
                       {hasThreeLetterCode ? t("Assigned") : t("Not assigned")}
                     </Badge>
                   </div>
-                  <p className="mt-2 max-w-2xl text-sm text-fuchsia-950/72 dark:text-fuchsia-50/74">
-                    {mode === "create"
-                      ? t(
-                          "Stage a unique three-letter shorthand for this new 2PQ case before it is created. The code will be written into Firebase as part of the initial case document.",
-                        )
-                      : t(
-                          "A unique three-letter shorthand for this 2PQ case. Use it as a quick visual identifier when operators need a short code instead of the full case label.",
-                        )}
-                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -6164,9 +6155,6 @@ export function TwoPQRecordWorkbench({
               <h3 className="font-heading text-lg font-semibold text-foreground">
                 {group.title}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {group.description}
-              </p>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 {group.fields.map((field) => {

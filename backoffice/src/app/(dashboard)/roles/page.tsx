@@ -50,7 +50,6 @@ export default async function RolesPage() {
               : undefined
           }
           createDisabledTitle="The current role cannot create role assignments on this screen."
-          description="Open the role-by-role capabilities guide or jump directly into the role creation flow."
         />
         <section className="glass-panel flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">

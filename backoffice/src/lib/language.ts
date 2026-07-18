@@ -813,22 +813,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los operarios administrativos son registros de staff con alcance institucional. Cada operario pertenece a una institución y no tiene pacientes asignados.",
   "Administrative operators attached to this institution":
     "Operarios administrativos asociados a esta institución",
-  "Administrative operators available in this lane":
-    "Operarios administrativos disponibles en este carril",
-  "Administrative operators belong to this institution and do not have patient assignments underneath them.":
-    "Los operarios administrativos pertenecen a esta institución y no tienen pacientes asignados debajo.",
   "Administrative operators sit beside doctors under an institution.":
     "Los operarios administrativos están al mismo nivel que los médicos debajo de una institución.",
   access: "acceso",
   "Access and communication": "Acceso y comunicación",
-  "Access review and doctor creation now start from their own dedicated screens instead of this main area page.":
-    "La revisión de acceso y el alta de médico ahora comienzan desde pantallas dedicadas, no desde esta página principal del área.",
-  "Access review and institution creation now start from their own dedicated screens instead of this main area page.":
-    "La revisión de acceso y el alta de institución ahora comienzan desde pantallas dedicadas, no desde esta página principal del área.",
-  "Access review and patient creation now start from their own dedicated screens instead of this main area page.":
-    "La revisión de acceso y el alta de paciente ahora comienzan desde pantallas dedicadas, no desde esta página principal del área.",
-  "Access review and record creation now start from their own dedicated screens instead of this main area page.":
-    "La revisión de acceso y la creación de registros ahora comienzan desde pantallas dedicadas, no desde esta página principal del área.",
   "Access status": "Estado de acceso",
   "Action unavailable": "Acción no disponible",
   "Accounts and Community": "Cuentas y comunidad",
@@ -1075,14 +1063,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Médicos asociados a esta institución",
   "Doctors belong to exactly one institution.":
     "Los médicos pertenecen exactamente a una institución.",
-  "Doctors can CRUD only their own patients. Institution admins and full admins can use the same list as the direct patient handoff.":
-    "Los médicos solo pueden hacer CRUD de sus propios pacientes. Administradores de institución y administradores totales pueden usar la misma lista como acceso directo a pacientes.",
   "Doctors can edit only their own patients.":
     "Los médicos solo pueden editar sus propios pacientes.",
   "Doctors can inspect peers, but edit only self.":
     "Los médicos pueden inspeccionar pares, pero solo editar su propio registro.",
-  "Doctors can read the whole institution and the rest of the team here, but edit only their own doctor file.":
-    "Los médicos pueden leer toda la institución y el resto del equipo acá, pero solo editar su propio legajo médico.",
   "Doctors can view their institution lane and write only records linked to their own doctor id.":
     "Los médicos pueden ver su carril institucional y escribir solo registros vinculados a su propio ID de médico.",
   "Doctors stay tied to one institution. The institution is selected on create, then the doctor detail becomes the main edit surface.":
@@ -1262,10 +1246,6 @@ const SPANISH_TEXT: Record<string, string> = {
     "El personal de laboratorio son registros de staff con alcance institucional. Cada integrante pertenece a una institución y no tiene pacientes asignados.",
   "Laboratory staff attached to this institution":
     "Personal de laboratorio asociado a esta institución",
-  "Laboratory staff available in this lane":
-    "Personal de laboratorio disponible en este carril",
-  "Laboratory staff belong to this institution and do not have patient assignments underneath them.":
-    "El personal de laboratorio pertenece a esta institución y no tiene pacientes asignados debajo.",
   "Laboratory staff sit beside doctors under an institution.":
     "El personal de laboratorio está al mismo nivel que los médicos debajo de una institución.",
   "Launch New Record": "Crear nuevo registro",
@@ -1603,16 +1583,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Revisá el límite de alcance institucional en su propia pantalla antes de abrir la superficie activa de instituciones.",
   "Review the live institutions, doctors, patients, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.":
     "Revisá las instituciones, médicos, pacientes y asignaciones de rol vinculados a este carril, y luego entrá directo a crear o gestionar desde el dashboard.",
-  "Review the live institutions, doctors, patients, administrative operators, laboratory staff, and role assignments tied to this lane, then jump straight into creation or management from the dashboard.":
-    "Revisá las instituciones, médicos, pacientes, operarios administrativos, personal de laboratorio y asignaciones de rol vinculados a este carril, y luego entrá directo a crear o gestionar desde el dashboard.",
   "Review the patient CRUD boundary on its own screen before you open a patient record.":
     "Revisá el límite CRUD de pacientes en su propia pantalla antes de abrir un registro de paciente.",
-  "Review role capabilities or create a new institution operator with the correct role already selected.":
-    "Revisá las capacidades de rol o creá un nuevo operario de institución con el rol correcto ya seleccionado.",
-  "Review role capabilities or create a new laboratory staff member with the correct role already selected.":
-    "Revisá las capacidades de rol o creá un nuevo integrante del personal de laboratorio con el rol correcto ya seleccionado.",
-  "Review the whole team here. Institution admins can add more doctors; institution doctors can inspect peers but only edit their own doctor record.":
-    "Revisá todo el equipo acá. Los administradores de institución pueden agregar médicos; los médicos de institución pueden inspeccionar pares, pero solo editar su propio registro.",
   "Review your own role, permissions, and Firebase Auth details without opening another user's role assignment.":
     "Revisá tu propio rol, permisos y detalles de Firebase Auth sin abrir la asignación de rol de otro usuario.",
   "right now.": "ahora.",

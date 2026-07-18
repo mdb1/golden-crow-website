@@ -31,7 +31,6 @@ export default async function DoctorsPage() {
           createHref="/areas/doctors/new"
           canCreate={canCreateDoctorUi(adminContext)}
           createLabel="Create doctor"
-          description="Access review and doctor creation now start from their own dedicated screens instead of this main area page."
         />
         <DoctorBrowser initialDoctors={doctors} />
       </HeaderUnclutterScope>

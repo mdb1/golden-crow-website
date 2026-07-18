@@ -2651,7 +2651,6 @@ export function TwoPQFormFlow({
     useState(false);
   const [withdrawalCaseSearch, setWithdrawalCaseSearch] = useState("");
   const currentStep = steps[stepIndex] ?? steps[0];
-  const currentStepLabel = t(STEP_LABELS[currentStep]);
   const availableDoctors = doctors.filter((doctor) =>
     state.patientInformation.institutionId
       ? doctor.institutionId === state.patientInformation.institutionId
@@ -5116,9 +5115,6 @@ export function TwoPQFormFlow({
                   ? t("Biopsy form")
                   : t("Withdrawal request form")}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {currentStepLabel}
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {restoredFromDraft ? (
@@ -5188,9 +5184,6 @@ export function TwoPQFormFlow({
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/45 px-4 py-4 dark:border-indigo-300/18 dark:bg-indigo-950/20">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="section-eyebrow text-indigo-700 dark:text-indigo-200">
-                    {t("Withdrawal request")}
-                  </p>
                   <h3 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
                     {selectedWithdrawalCases.length}{" "}
                     {t(
@@ -5199,9 +5192,6 @@ export function TwoPQFormFlow({
                         : "boxes requested for pick up"
                     )}
                   </h3>
-                  <p className="mt-1 text-sm text-indigo-950/70 dark:text-indigo-50/72">
-                    {t("These are the 2PQ boxes included in this withdrawal request.")}
-                  </p>
                 </div>
                 <Button
                   type="button"
@@ -6094,11 +6084,6 @@ export function TwoPQFormFlow({
                   {selectedInstitution?.name ||
                     state.institutionInformation.name ||
                     t("Not provided")}
-                </p>
-                <p className="mt-1 text-sm text-indigo-950/70 dark:text-indigo-50/72">
-                  {t(
-                    "These fields are saved only on this withdrawal request and do not update the original institution record."
-                  )}
                 </p>
               </div>
             ) : (

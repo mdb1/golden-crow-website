@@ -31,7 +31,6 @@ export default async function PatientsPage() {
           createHref="/areas/patients/new"
           canCreate={canCreatePatientUi(adminContext)}
           createLabel="Create patient"
-          description="Access review and patient creation now start from their own dedicated screens instead of this main area page."
         />
         <PatientBrowser initialPatients={patients} />
       </HeaderUnclutterScope>

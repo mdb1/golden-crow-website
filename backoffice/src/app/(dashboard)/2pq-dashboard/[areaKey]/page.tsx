@@ -74,9 +74,6 @@ export default async function TwoPQAreaPage({
           createBlockedTitle="Use the corresponding form"
           createBlockedLinkHref="/2pq-dashboard"
           createBlockedLinkLabel="Go to 2PQ dashboard"
-          description={t(
-            "Access review and record creation now start from their own dedicated screens instead of this main area page.",
-          )}
         />
         <TwoPQAreaBrowser
           areaKey={area.key}

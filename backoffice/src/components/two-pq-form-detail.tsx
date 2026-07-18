@@ -564,7 +564,7 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                 <ClipboardList className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-200">
                   {t("Box code")}
                 </p>
                 <p className="font-heading text-3xl font-semibold text-emerald-950 dark:text-emerald-50">
@@ -857,7 +857,6 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
       <section className="glass-panel flex flex-col gap-4 px-5 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <p className="section-eyebrow">{form.id}</p>
             <h1 className="font-heading text-3xl font-semibold text-foreground">
               {formTitle}
             </h1>
@@ -871,6 +870,9 @@ export function TwoPQFormDetail({ form }: { form: TwoPQFormRecord }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">
+              <span className="font-mono">{form.id}</span>
+            </Badge>
             <Badge variant="brand">{t(TWO_PQ_FORM_LABELS[form.formType])}</Badge>
             <Badge variant="outline">
               <CalendarDays className="mr-1 size-3.5" />

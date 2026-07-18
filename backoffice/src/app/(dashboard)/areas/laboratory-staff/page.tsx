@@ -55,7 +55,6 @@ export default async function LaboratoryStaffPage() {
               : undefined
           }
           createDisabledTitle="The current role cannot create laboratory staff on this screen."
-          description="Review role capabilities or create a new laboratory staff member with the correct role already selected."
         />
         <InstitutionStaffRoleBrowser
           initialRoles={roles}

@@ -1,8 +1,7 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
-import { ArrowRight, Database, Lock } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { AreaAccessMatrix } from "@/components/area-access-matrix";
-import { HelperBanner } from "@/components/helper-banner";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -167,6 +166,8 @@ function MetricTile({
   detail: string;
   tone: TwoPQTone;
 }) {
+  void detail;
+
   return (
     <article
       className={cn(
@@ -174,12 +175,10 @@ function MetricTile({
         toneClasses[tone].panel
       )}
     >
-      <p className="section-eyebrow">2PQ metric</p>
-      <div className="mt-2 flex items-baseline gap-2">
+      <div className="flex items-baseline gap-2">
         <span className="font-heading text-2xl font-semibold text-foreground">{value}</span>
         <span className="text-sm font-medium text-foreground">{label}</span>
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
     </article>
   );
 }
@@ -273,7 +272,6 @@ function BackofficeAreaCard({
 
       <div>
         <h3 className="font-heading text-xl font-semibold text-foreground">{area.label}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{area.description}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -290,10 +288,7 @@ function BackofficeAreaCard({
         ))}
       </div>
 
-      <div className="mt-auto flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {accessible ? "Open the live area." : "Visible here for cross-role clarity."}
-        </p>
+      <div className="mt-auto flex items-center justify-end">
         {accessible ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={area.href}>
@@ -314,12 +309,10 @@ function BackofficeAreaCard({
 function WorkflowFieldGroup({
   areaTone,
   title,
-  description,
   fields,
 }: {
   areaTone: TwoPQTone;
   title: string;
-  description: string;
   fields: TwoPQWorkflowAreaSpec["fieldGroups"][number]["fields"];
 }) {
   return (
@@ -330,7 +323,6 @@ function WorkflowFieldGroup({
       )}
     >
       <h4 className="font-medium text-foreground">{title}</h4>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       <div className="mt-4 grid gap-3">
         {fields.map((field) => (
           <div
@@ -369,9 +361,7 @@ function WorkflowAreaCard({
               <area.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="section-eyebrow">2PQ area</p>
               <h3 className="font-heading text-2xl font-semibold text-foreground">{area.label}</h3>
-              <p className="mt-1 max-w-4xl text-sm text-muted-foreground">{area.description}</p>
             </div>
           </div>
 
@@ -413,8 +403,9 @@ function WorkflowAreaCard({
             </section>
 
             <section className="rounded-2xl border border-border/70 bg-background/45 px-4 py-4">
-              <p className="section-eyebrow">Linked routes</p>
-              <p className="mt-1 text-sm text-muted-foreground">{area.summary}</p>
+              <h4 className="font-heading text-lg font-semibold text-foreground">
+                Linked routes
+              </h4>
               <div className="mt-4 flex flex-wrap gap-2">
                 {area.quickLinks.map((link) => {
                   const accessible = canAccessTwoPQRoute(
@@ -448,7 +439,6 @@ function WorkflowAreaCard({
                 key={group.title}
                 areaTone={area.tone}
                 title={group.title}
-                description={group.description}
                 fields={group.fields}
               />
             ))}
@@ -461,6 +451,7 @@ function WorkflowAreaCard({
           entries={area.roleAccess}
           highlightRole={adminContext.role}
           compact
+          hideDescription
         />
       </div>
     </article>
@@ -525,15 +516,6 @@ export function TwoPQDashboard({
         }
       />
 
-      <HelperBanner
-        title="The 2PQ shell mirrors the PDF, but the permissions stay grounded in the live admin model."
-        tone="blue"
-      >
-        Full admins keep global reach. Institution admins stay inside one institution. Institution
-        doctors stay inside their own doctor lane and patients. The pills below show that boundary
-        before the operator opens an area.
-      </HelperBanner>
-
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <MetricTile
           label="Institutions"
@@ -574,14 +556,9 @@ export function TwoPQDashboard({
       <section className="glass-panel border-emerald-400/28 bg-[linear-gradient(145deg,rgba(7,35,25,0.98),rgba(9,28,20,0.96)_48%,rgba(16,185,129,0.18))] px-5 py-5 shadow-[0_24px_80px_-52px_rgba(16,185,129,0.85)]">
         <div className="flex flex-col gap-5">
           <div>
-            <p className="section-eyebrow text-emerald-100/72">2PQ links</p>
             <h2 className="font-heading text-2xl font-semibold text-emerald-50">
               Linked entities
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-emerald-50/70">
-              Cases, sampling, and sequencing now live together in one greener dashboard section so
-              the parent-child relationship is obvious before you open an area.
-            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -603,7 +580,6 @@ export function TwoPQDashboard({
 
                   <div>
                     <h3 className="font-heading text-xl font-semibold text-emerald-50">{label}</h3>
-                    <p className="mt-1 text-sm text-emerald-50/72">{area.summary}</p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -616,8 +592,6 @@ export function TwoPQDashboard({
                       </span>
                     ))}
                   </div>
-
-                  <p className="text-sm text-emerald-50/74">{currentAccess.note}</p>
 
                   <div className="mt-auto">
                     <Button
@@ -641,14 +615,9 @@ export function TwoPQDashboard({
 
       <section className="glass-panel overflow-hidden px-5 py-5">
         <div className="flex flex-col gap-2">
-          <p className="section-eyebrow">Workflow map</p>
           <h2 className="font-heading text-2xl font-semibold text-foreground">
             Case-management style 2PQ map
           </h2>
-          <p className="max-w-4xl text-sm text-muted-foreground">
-            The layout follows the first PDF page closely: left navigation blocks, a central case
-            ring, right-side sequencing and reporting panels, and lower data rails.
-          </p>
         </div>
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
@@ -772,7 +741,6 @@ export function TwoPQDashboard({
               </Link>
 
               <div className="absolute left-1/2 top-1/2 w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-border/70 bg-background/92 px-5 py-8 text-center shadow-[0_24px_70px_-42px_rgba(126,181,255,0.8)]">
-                <p className="section-eyebrow">2PQ case hub</p>
                 <h3 className="font-heading text-3xl font-semibold text-foreground">Case ID</h3>
                 <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
                   <p>Case | Status</p>
@@ -835,11 +803,6 @@ export function TwoPQDashboard({
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Database className="h-4 w-4" />
-              <span>Database-backed surfaces stay live underneath the 2PQ orchestration shell.</span>
             </div>
           </div>
 
@@ -915,14 +878,9 @@ export function TwoPQDashboard({
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">All areas</p>
           <h2 className="font-heading text-2xl font-semibold text-foreground">
             Backoffice access at a glance
           </h2>
-          <p className="max-w-4xl text-sm text-muted-foreground">
-            Every live area is listed here, even if the current role cannot open it, so the shell
-            stays explicit about where access begins and where it stops.
-          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -934,14 +892,9 @@ export function TwoPQDashboard({
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">Workflow areas</p>
           <h2 className="font-heading text-2xl font-semibold text-foreground">
             Detailed 2PQ CRUD surfaces
           </h2>
-          <p className="max-w-4xl text-sm text-muted-foreground">
-            Each area below uses the same structure: a current-lane summary, linked live routes,
-            grouped fields, and a role-by-role CRUD matrix with pills and color.
-          </p>
         </div>
 
         <div className="grid gap-5">
@@ -953,14 +906,9 @@ export function TwoPQDashboard({
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">Interoperability</p>
           <h2 className="font-heading text-2xl font-semibold text-foreground">
             Current institution model alignment
           </h2>
-          <p className="max-w-4xl text-sm text-muted-foreground">
-            These are the live surfaces that already exist today. The 2PQ shell above routes into
-            them instead of creating a second permission system.
-          </p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -984,7 +932,6 @@ export function TwoPQDashboard({
                     <h3 className="font-heading text-2xl font-semibold text-foreground">
                       {surface.label}
                     </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{surface.description}</p>
                   </div>
                 </div>
 
@@ -994,6 +941,7 @@ export function TwoPQDashboard({
                   entries={surface.roleAccess}
                   highlightRole={adminContext.role}
                   compact
+                  hideDescription
                 />
               </article>
             );

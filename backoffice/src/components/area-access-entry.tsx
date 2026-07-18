@@ -20,7 +20,6 @@ export function AreaAccessEntry({
   createBlockedLinkLabel,
   createDisabledTitle = "The current role cannot create records on this screen.",
   title = "Primary actions",
-  description: _description,
 }: {
   accessHref: string;
   createHref?: string;
@@ -33,11 +32,9 @@ export function AreaAccessEntry({
   createBlockedLinkLabel?: string;
   createDisabledTitle?: string;
   title?: string;
-  description: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  void _description;
 
   return (
     <section className="glass-panel flex flex-col gap-4 px-5 py-5">
