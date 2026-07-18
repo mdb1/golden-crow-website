@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ADMIN_ROLE_DESCRIPTIONS,
   ADMIN_ROLE_LABELS,
   getAssignableRoleOptions,
   isInstitutionManagerRole,
@@ -519,14 +518,13 @@ export function RoleWorkbench({
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="section-eyebrow">{t("Permission tree")}</p>
+          <h3 className="font-heading text-lg font-semibold text-foreground">
+            {t("Permission tree")}
+          </h3>
           <Badge variant={getRoleBadgeVariant(state.role)}>
             {t(ADMIN_ROLE_LABELS[state.role])}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {t(ADMIN_ROLE_DESCRIPTIONS[state.role])}
-        </p>
         <div className="grid gap-2">
           {ROLE_CAPABILITY_LINES[state.role].map((line) => (
             <div
@@ -541,13 +539,9 @@ export function RoleWorkbench({
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div>
-          <p className="section-eyebrow">{t("Resolved scope")}</p>
           <h3 className="font-heading text-lg font-semibold text-foreground">
             {t("Linked records")}
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("Use these links to confirm the role points at the exact institution, doctor, and patient you expect.")}
-          </p>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-3">

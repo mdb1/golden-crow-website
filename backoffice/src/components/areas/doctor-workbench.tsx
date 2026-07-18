@@ -380,13 +380,9 @@ export function DoctorWorkbench({
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="section-eyebrow">{t("Institution")}</p>
               <h3 className="font-heading text-lg font-semibold text-foreground">
                 {t("Linked institution")}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("Doctors can read the whole institution and the rest of the team here, but edit only their own doctor file.")}
-              </p>
             </div>
             {detail.institution ? (
               <Button variant="outline" size="sm" asChild>
@@ -427,13 +423,9 @@ export function DoctorWorkbench({
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="section-eyebrow">{t("Patients")}</p>
               <h3 className="font-heading text-lg font-semibold text-foreground">
                 {t("Patients tied to this doctor")}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("Doctors can CRUD only their own patients. Institution admins and full admins can use the same list as the direct patient handoff.")}
-              </p>
             </div>
             {canCreatePatientUi(adminContext, detail.doctor.institutionId, detail.doctor.id) ? (
               <Button size="sm" asChild>

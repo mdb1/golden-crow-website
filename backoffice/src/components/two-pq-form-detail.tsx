@@ -59,8 +59,7 @@ const INSTITUTION_FIELDS: FieldSpec[] = [
   { key: "legalName", label: "Legal name" },
   { key: "contactEmail", label: "Contact email" },
   { key: "contactPhone", label: "Contact phone" },
-  { key: "addressLine1", label: "Address line 1" },
-  { key: "addressLine2", label: "Address line 2" },
+  { key: "address", label: "Address" },
   { key: "city", label: "City" },
   { key: "state", label: "State / region" },
   { key: "country", label: "Country" },
@@ -359,7 +358,7 @@ function DetailSection({
                 {t(field.label)}
               </dt>
               <dd className="mt-1 min-h-8 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
-                {formatValue(data?.[field.key], language, t, field.type)}
+                {formatValue(getDetailFieldValue(data, field), language, t, field.type)}
               </dd>
             </div>
           );
@@ -516,6 +515,25 @@ function getTextValue(data: Record<string, unknown> | undefined, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function getDetailFieldValue(
+  data: Record<string, unknown> | undefined,
+  field: FieldSpec
+) {
+  if (field.key !== "address") {
+    return data?.[field.key];
+  }
+
+  const address = getTextValue(data, "address");
+  if (address) {
+    return address;
+  }
+
+  return compactList([
+    getTextValue(data, "addressLine1"),
+    getTextValue(data, "addressLine2"),
+  ]);
+}
+
 function displayCaseLabel(value: string | undefined) {
   const normalized = value?.trim() ?? "";
   const xxxMatch = /^([A-Za-z]{3})XXX$/i.exec(normalized);
@@ -534,9 +552,6 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
   return (
     <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 px-5 py-5 shadow-[0_16px_40px_rgba(16,185,129,0.12)] dark:border-emerald-300/24 dark:bg-emerald-950/20">
       <div className="flex flex-col gap-1">
-        <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
-          {t("Linked entities")}
-        </p>
         <h2 className="font-heading text-xl font-semibold text-emerald-950 dark:text-emerald-50">
           {t("2PQ Case and sampling records")}
         </h2>
@@ -633,15 +648,9 @@ function WithdrawalCasesSection({ form }: { form: TwoPQFormRecord }) {
   return (
     <section className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 px-5 py-5 shadow-[0_16px_40px_rgba(16,185,129,0.12)] dark:border-emerald-300/24 dark:bg-emerald-950/20">
       <div className="flex flex-col gap-1">
-        <p className="section-eyebrow text-emerald-700 dark:text-emerald-200">
-          {t("Linked entities")}
-        </p>
         <h2 className="font-heading text-xl font-semibold text-emerald-950 dark:text-emerald-50">
           {t("2PQ cases awaiting pick up")}
         </h2>
-        <p className="text-sm text-emerald-950/72 dark:text-emerald-50/72">
-          {t("These cases were linked to this withdrawal request form.")}
-        </p>
       </div>
       <div className="mt-4 grid gap-3">
         {(cases.length > 0 ? cases : linkedCaseIds.map((caseId) => ({ id: caseId }))).map(
@@ -730,17 +739,14 @@ function PatientLinkSection({ form }: { form: TwoPQFormRecord }) {
             <UserRound className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="section-eyebrow text-sky-700 dark:text-sky-200">
-              {t("Step 1 patient link")}
-            </p>
             <h2 className="font-heading text-xl font-semibold text-sky-950 dark:text-sky-50">
               {form.patientName ?? getTextValue(form.patientInformation, "fullName") ?? t("Scoped patient")}
             </h2>
-            <p className="mt-1 text-sm text-sky-950/72 dark:text-sky-50/74">
-              {patientId
-                ? t("This form is linked to the scoped patient record used for Step 1.")
-                : t("This legacy form does not have a scoped patient link stored.")}
-            </p>
+            {!patientId ? (
+              <p className="mt-1 text-sm text-sky-950/72 dark:text-sky-50/74">
+                {t("This legacy form does not have a scoped patient link stored.")}
+              </p>
+            ) : null}
             {patientId ? (
               <p className="mt-2 font-mono text-xs text-sky-900/74 dark:text-sky-100/74">
                 {patientId}
@@ -782,18 +788,15 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
             <UserRound className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="section-eyebrow text-violet-700 dark:text-violet-200">
-              {t("Requesting doctor link")}
-            </p>
             <h2 className="font-heading text-xl font-semibold text-violet-950 dark:text-violet-50">
               {getTextValue(form.sampleInformation, "requestingDoctorFullName") ??
                 t("Requesting doctor")}
             </h2>
-            <p className="mt-1 text-sm text-violet-950/72 dark:text-violet-50/74">
-              {requestingDoctorId
-                ? t("This sample form is linked to the scoped requesting doctor record.")
-                : t("This sample form is missing the requesting doctor link.")}
-            </p>
+            {!requestingDoctorId ? (
+              <p className="mt-1 text-sm text-violet-950/72 dark:text-violet-50/74">
+                {t("This sample form is missing the requesting doctor link.")}
+              </p>
+            ) : null}
             {requestingDoctorId ? (
               <p className="mt-2 font-mono text-xs text-violet-900/74 dark:text-violet-100/74">
                 {requestingDoctorId}

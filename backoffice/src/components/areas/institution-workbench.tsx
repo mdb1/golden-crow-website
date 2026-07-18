@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RotateCcw, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getAssignableRoleOptions,
+  getInstitutionAddress,
   type InstitutionDetailRecord,
   type InstitutionRecord,
 } from "@/lib/admin-areas";
@@ -35,8 +36,7 @@ type InstitutionFormState = {
   legalName: string;
   contactEmail: string;
   contactPhone: string;
-  addressLine1: string;
-  addressLine2: string;
+  address: string;
   city: string;
   state: string;
   country: string;
@@ -50,8 +50,7 @@ function toInstitutionFormState(institution?: InstitutionRecord | null): Institu
     legalName: institution?.legalName ?? "",
     contactEmail: institution?.contactEmail ?? "",
     contactPhone: institution?.contactPhone ?? "",
-    addressLine1: institution?.addressLine1 ?? "",
-    addressLine2: institution?.addressLine2 ?? "",
+    address: getInstitutionAddress(institution),
     city: institution?.city ?? "",
     state: institution?.state ?? "",
     country: institution?.country ?? "",
@@ -136,8 +135,7 @@ export function InstitutionWorkbench({
         legalName: state.legalName,
         contactEmail: state.contactEmail,
         contactPhone: state.contactPhone,
-        addressLine1: state.addressLine1,
-        addressLine2: state.addressLine2,
+        address: state.address,
         city: state.city,
         state: state.state,
         country: state.country,
@@ -201,7 +199,10 @@ export function InstitutionWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/areas/institutions">{t("Back to institutions")}</Link>
+          <Link href="/areas/institutions">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {t("Back to institutions")}
+          </Link>
         </Button>
         {detail ? (
           <span className="font-mono text-xs text-muted-foreground">
@@ -308,23 +309,12 @@ export function InstitutionWorkbench({
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-address-line-1">{t("Address line 1")}</Label>
+            <Label htmlFor="institution-address">{t("Address")}</Label>
             <Input
-              id="institution-address-line-1"
-              value={state.addressLine1}
+              id="institution-address"
+              value={state.address}
               onChange={(event) =>
-                setState((current) => ({ ...current, addressLine1: event.target.value }))
-              }
-              disabled={!isEditable}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="institution-address-line-2">{t("Address line 2")}</Label>
-            <Input
-              id="institution-address-line-2"
-              value={state.addressLine2}
-              onChange={(event) =>
-                setState((current) => ({ ...current, addressLine2: event.target.value }))
+                setState((current) => ({ ...current, address: event.target.value }))
               }
               disabled={!isEditable}
             />
@@ -380,13 +370,9 @@ export function InstitutionWorkbench({
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="section-eyebrow">{t("Institution doctors")}</p>
               <h3 className="font-heading text-lg font-semibold text-foreground">
                 {t("Doctors attached to this institution")}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("Review the whole team here. Institution admins can add more doctors; institution doctors can inspect peers but only edit their own doctor record.")}
-              </p>
             </div>
             {canCreateDoctorUi(adminContext, detail.institution.id) ? (
               <Button size="sm" asChild>
@@ -459,13 +445,9 @@ export function InstitutionWorkbench({
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="section-eyebrow">{t("Administrative operators")}</p>
               <h3 className="font-heading text-lg font-semibold text-foreground">
                 {t("Administrative operators attached to this institution")}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("Administrative operators belong to this institution and do not have patient assignments underneath them.")}
-              </p>
             </div>
             {canCreateInstitutionOperator ? (
               <Button size="sm" asChild>
@@ -525,13 +507,9 @@ export function InstitutionWorkbench({
         <section className="glass-panel flex flex-col gap-4 px-5 py-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="section-eyebrow">{t("Laboratory staff")}</p>
               <h3 className="font-heading text-lg font-semibold text-foreground">
                 {t("Laboratory staff attached to this institution")}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("Laboratory staff belong to this institution and do not have patient assignments underneath them.")}
-              </p>
             </div>
             {canCreateLaboratoryStaff ? (
               <Button size="sm" asChild>

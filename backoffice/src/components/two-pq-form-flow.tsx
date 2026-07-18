@@ -40,7 +40,11 @@ import type {
   InstitutionListItem,
   PatientListItem,
 } from "@/lib/admin-areas";
-import { isInstitutionManagerRole, PERSON_STATUS_OPTIONS } from "@/lib/admin-areas";
+import {
+  getInstitutionAddress,
+  isInstitutionManagerRole,
+  PERSON_STATUS_OPTIONS,
+} from "@/lib/admin-areas";
 import { appText, type AppLanguage } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
@@ -579,8 +583,7 @@ function emptyInstitution(): InstitutionInformationFormState {
     legalName: "",
     contactEmail: "",
     contactPhone: "",
-    addressLine1: "",
-    addressLine2: "",
+    address: "",
     city: "",
     state: "",
     country: "",
@@ -1154,6 +1157,30 @@ function mergePatientInformationDraft(
   };
 }
 
+function mergeInstitutionInformationDraft(
+  base: InstitutionInformationFormState,
+  value: unknown
+): InstitutionInformationFormState {
+  const merged = mergeDraftSection(base, value);
+  const legacyValue = isRecord(value)
+    ? getInstitutionAddress(value as Partial<InstitutionListItem>)
+    : "";
+  const mergedAddress = typeof merged.address === "string" ? merged.address : "";
+
+  return {
+    code: merged.code,
+    name: merged.name,
+    legalName: merged.legalName,
+    contactEmail: merged.contactEmail,
+    contactPhone: merged.contactPhone,
+    address: mergedAddress.trim() ? mergedAddress : legacyValue,
+    city: merged.city,
+    state: merged.state,
+    country: merged.country,
+    notes: merged.notes,
+  };
+}
+
 function mergeSampleInformationDraft(
   base: SampleInformationFormState,
   value: unknown
@@ -1252,7 +1279,7 @@ function hydrateDraftState(
       defaultState.requestedTest,
       draftState.requestedTest
     ),
-    institutionInformation: mergeDraftSection(
+    institutionInformation: mergeInstitutionInformationDraft(
       defaultState.institutionInformation,
       draftState.institutionInformation
     ),
@@ -2077,8 +2104,7 @@ function institutionToFormState(
     legalName: institution.legalName ?? "",
     contactEmail: institution.contactEmail ?? "",
     contactPhone: institution.contactPhone ?? "",
-    addressLine1: institution.addressLine1 ?? "",
-    addressLine2: institution.addressLine2 ?? "",
+    address: getInstitutionAddress(institution),
     city: institution.city ?? "",
     state: institution.state ?? "",
     country: institution.country ?? "",
@@ -3091,12 +3117,8 @@ export function TwoPQFormFlow({
           value: previewValue(state.institutionInformation.contactPhone),
         },
         {
-          label: t("Address line 1"),
-          value: previewValue(state.institutionInformation.addressLine1),
-        },
-        {
-          label: t("Address line 2"),
-          value: previewValue(state.institutionInformation.addressLine2),
+          label: t("Address"),
+          value: previewValue(state.institutionInformation.address),
         },
         {
           label: t("City"),
@@ -3323,12 +3345,8 @@ export function TwoPQFormFlow({
           value: previewValue(state.institutionInformation.contactPhone),
         },
         {
-          label: t("Address line 1"),
-          value: previewValue(state.institutionInformation.addressLine1),
-        },
-        {
-          label: t("Address line 2"),
-          value: previewValue(state.institutionInformation.addressLine2),
+          label: t("Address"),
+          value: previewValue(state.institutionInformation.address),
         },
         {
           label: t("City"),
@@ -6136,20 +6154,10 @@ export function TwoPQFormFlow({
               }
             />
             <Field
-              id="form-institution-address-line-1"
-              label={t("Address line 1")}
-              value={state.institutionInformation.addressLine1}
-              onChange={(addressLine1) =>
-                updateInstitutionInformation({ addressLine1 })
-              }
-            />
-            <Field
-              id="form-institution-address-line-2"
-              label={t("Address line 2")}
-              value={state.institutionInformation.addressLine2}
-              onChange={(addressLine2) =>
-                updateInstitutionInformation({ addressLine2 })
-              }
+              id="form-institution-address"
+              label={t("Address")}
+              value={state.institutionInformation.address}
+              onChange={(address) => updateInstitutionInformation({ address })}
             />
             <Field
               id="form-institution-city"

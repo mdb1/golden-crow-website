@@ -754,12 +754,10 @@ function ThreeLetterCodeVisualizer({
 
 function RelationSection({
   title,
-  subtitle,
   actions,
   children,
 }: {
   title: string;
-  subtitle: string;
   actions?: ReactNode;
   children: ReactNode;
 }) {
@@ -770,9 +768,6 @@ function RelationSection({
           <h3 className="font-heading text-lg font-semibold text-emerald-950 dark:text-emerald-50">
             {title}
           </h3>
-          <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-900/45 dark:text-emerald-50/56">
-            {subtitle}
-          </p>
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
@@ -5656,7 +5651,6 @@ export function TwoPQRecordWorkbench({
               {areaKey === "sequencing" ? (
                 <RelationSection
                   title={t("Linked cases")}
-                  subtitle={t("Children entities")}
                   actions={
                     mode === "create" ? (
                       <span className={RELATION_HINT_CLASSNAME}>
@@ -5765,7 +5759,6 @@ export function TwoPQRecordWorkbench({
               {areaKey === "cases" ? (
                 <RelationSection
                   title={t("Linked Batch")}
-                  subtitle={t("Parent entity")}
                   actions={
                     <>
                       <Button
@@ -5833,7 +5826,6 @@ export function TwoPQRecordWorkbench({
               {areaKey === "cases" ? (
                 <RelationSection
                   title={t("Linked samplings")}
-                  subtitle={t("Children entities")}
                   actions={
                     mode === "create" ? (
                       <span className={RELATION_HINT_CLASSNAME}>
@@ -5979,7 +5971,6 @@ export function TwoPQRecordWorkbench({
               {areaKey === "sampling" ? (
                 <RelationSection
                   title={t("Linked Case")}
-                  subtitle={t("Parent entity")}
                   actions={
                     <>
                       <Button

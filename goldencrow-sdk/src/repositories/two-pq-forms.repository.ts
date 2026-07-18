@@ -71,8 +71,7 @@ type InstitutionInformationInput = {
   legalName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  addressLine1?: string;
-  addressLine2?: string;
+  address?: string;
   city?: string;
   state?: string;
   country?: string;
@@ -527,6 +526,20 @@ function compactRecord<T extends Record<string, unknown>>(record: T): T {
   ) as T;
 }
 
+function normalizeInstitutionAddress(data: Record<string, unknown>) {
+  const address = normalizeOptionalString(data.address);
+  if (address) {
+    return address;
+  }
+
+  const legacyAddress = [
+    normalizeOptionalString(data.addressLine1),
+    normalizeOptionalString(data.addressLine2),
+  ].filter(Boolean);
+
+  return legacyAddress.length > 0 ? legacyAddress.join(", ") : undefined;
+}
+
 function toInstitutionRecord(id: string, data: Record<string, unknown>): InstitutionRecord {
   const now = new Date().toISOString();
 
@@ -537,8 +550,7 @@ function toInstitutionRecord(id: string, data: Record<string, unknown>): Institu
     legalName: normalizeOptionalString(data.legalName),
     contactEmail: normalizeOptionalString(data.contactEmail),
     contactPhone: normalizeOptionalString(data.contactPhone),
-    addressLine1: normalizeOptionalString(data.addressLine1),
-    addressLine2: normalizeOptionalString(data.addressLine2),
+    address: normalizeInstitutionAddress(data),
     city: normalizeOptionalString(data.city),
     state: normalizeOptionalString(data.state),
     country: normalizeOptionalString(data.country),
@@ -592,7 +604,16 @@ function toTwoPQFormRecord(id: string, data: Record<string, unknown>): TwoPQForm
       ? data.formType
       : "study_request";
   const patientInformationRecord = toPlainRecord(data.patientInformation);
-  const institutionInformationRecord = toPlainRecord(data.institutionInformation);
+  const institutionInformationSource = toPlainRecord(data.institutionInformation);
+  const institutionInformationRecord = { ...institutionInformationSource };
+  delete institutionInformationRecord.addressLine1;
+  delete institutionInformationRecord.addressLine2;
+  const institutionAddress = normalizeInstitutionAddress(
+    institutionInformationSource
+  );
+  if (institutionAddress) {
+    institutionInformationRecord.address = institutionAddress;
+  }
   const caseInformationRecord = toPlainRecord(data.caseInformation);
   const withdrawalCases = Array.isArray(data.withdrawalCases)
     ? data.withdrawalCases.filter(
@@ -847,8 +868,7 @@ function normalizeInstitutionInformation(input: InstitutionInformationInput) {
     legalName: normalizeOptionalString(input.legalName),
     contactEmail: normalizeOptionalEmail(input.contactEmail),
     contactPhone: normalizeOptionalString(input.contactPhone),
-    addressLine1: normalizeOptionalString(input.addressLine1),
-    addressLine2: normalizeOptionalString(input.addressLine2),
+    address: normalizeOptionalString(input.address),
     city: normalizeOptionalString(input.city),
     state: normalizeOptionalString(input.state),
     country: normalizeOptionalString(input.country),
@@ -1648,8 +1668,7 @@ export async function createTwoPQFormForContext(
         legalName: selectedInstitution?.legalName,
         contactEmail: selectedInstitution?.contactEmail,
         contactPhone: selectedInstitution?.contactPhone,
-        addressLine1: selectedInstitution?.addressLine1,
-        addressLine2: selectedInstitution?.addressLine2,
+        address: selectedInstitution?.address,
         city: selectedInstitution?.city,
         state: selectedInstitution?.state,
         country: selectedInstitution?.country,
@@ -2048,8 +2067,7 @@ export async function createTwoPQFormForContext(
               legalName: selectedInstitution?.legalName,
               contactEmail: selectedInstitution?.contactEmail,
               contactPhone: selectedInstitution?.contactPhone,
-              addressLine1: selectedInstitution?.addressLine1,
-              addressLine2: selectedInstitution?.addressLine2,
+              address: selectedInstitution?.address,
               city: selectedInstitution?.city,
               state: selectedInstitution?.state,
               country: selectedInstitution?.country,

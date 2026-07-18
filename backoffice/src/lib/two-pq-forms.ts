@@ -26,8 +26,7 @@ export type InstitutionInformationFormState = {
   legalName: string;
   contactEmail: string;
   contactPhone: string;
-  addressLine1: string;
-  addressLine2: string;
+  address: string;
   city: string;
   state: string;
   country: string;

@@ -481,13 +481,9 @@ export function PatientWorkbench({
 
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div>
-          <p className="section-eyebrow">{t("Relations")}</p>
           <h3 className="font-heading text-lg font-semibold text-foreground">
             {t("Linked institution and doctor")}
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("The patient sheet is informative, but it always resolves back to one institution and one doctor.")}
-          </p>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">

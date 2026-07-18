@@ -534,6 +534,20 @@ function toPatientRecord(id: string, data: Record<string, unknown>): PatientReco
   };
 }
 
+function normalizeInstitutionAddress(data: Record<string, unknown>) {
+  const address = normalizeOptionalString(data.address);
+  if (address) {
+    return address;
+  }
+
+  const legacyAddress = [
+    normalizeOptionalString(data.addressLine1),
+    normalizeOptionalString(data.addressLine2),
+  ].filter(Boolean);
+
+  return legacyAddress.length > 0 ? legacyAddress.join(", ") : undefined;
+}
+
 function toInstitutionRecord(id: string, data: Record<string, unknown>): InstitutionRecord {
   const now = new Date().toISOString();
 
@@ -544,8 +558,7 @@ function toInstitutionRecord(id: string, data: Record<string, unknown>): Institu
     legalName: normalizeOptionalString(data.legalName),
     contactEmail: normalizeOptionalString(data.contactEmail),
     contactPhone: normalizeOptionalString(data.contactPhone),
-    addressLine1: normalizeOptionalString(data.addressLine1),
-    addressLine2: normalizeOptionalString(data.addressLine2),
+    address: normalizeInstitutionAddress(data),
     city: normalizeOptionalString(data.city),
     state: normalizeOptionalString(data.state),
     country: normalizeOptionalString(data.country),

@@ -115,6 +115,20 @@ function hasOwnKey<T extends object>(value: T, key: keyof T) {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
 
+function normalizeInstitutionAddress(data: Record<string, unknown>) {
+  const address = normalizeOptionalString(data.address);
+  if (address) {
+    return address;
+  }
+
+  const legacyAddress = [
+    normalizeOptionalString(data.addressLine1),
+    normalizeOptionalString(data.addressLine2),
+  ].filter(Boolean);
+
+  return legacyAddress.length > 0 ? legacyAddress.join(", ") : undefined;
+}
+
 function toInstitutionRecord(
   id: string,
   data: Record<string, unknown>,
@@ -128,8 +142,7 @@ function toInstitutionRecord(
     legalName: normalizeOptionalString(data.legalName),
     contactEmail: normalizeOptionalString(data.contactEmail),
     contactPhone: normalizeOptionalString(data.contactPhone),
-    addressLine1: normalizeOptionalString(data.addressLine1),
-    addressLine2: normalizeOptionalString(data.addressLine2),
+    address: normalizeInstitutionAddress(data),
     city: normalizeOptionalString(data.city),
     state: normalizeOptionalString(data.state),
     country: normalizeOptionalString(data.country),
@@ -626,8 +639,7 @@ export async function createInstitutionForContext(
     legalName?: string;
     contactEmail?: string;
     contactPhone?: string;
-    addressLine1?: string;
-    addressLine2?: string;
+    address?: string;
     city?: string;
     state?: string;
     country?: string;
@@ -651,8 +663,7 @@ export async function createInstitutionForContext(
     contactEmail:
       normalizeOptionalString(payload.contactEmail)?.toLowerCase() ?? null,
     contactPhone: normalizeOptionalString(payload.contactPhone) ?? null,
-    addressLine1: normalizeOptionalString(payload.addressLine1) ?? null,
-    addressLine2: normalizeOptionalString(payload.addressLine2) ?? null,
+    address: normalizeOptionalString(payload.address) ?? null,
     city: normalizeOptionalString(payload.city) ?? null,
     state: normalizeOptionalString(payload.state) ?? null,
     country: normalizeOptionalString(payload.country) ?? null,
@@ -793,8 +804,7 @@ export async function updateInstitutionForContext(
     legalName?: string;
     contactEmail?: string;
     contactPhone?: string;
-    addressLine1?: string;
-    addressLine2?: string;
+    address?: string;
     city?: string;
     state?: string;
     country?: string;
@@ -823,12 +833,11 @@ export async function updateInstitutionForContext(
     contactPhone: hasOwnKey(payload, "contactPhone")
       ? (normalizeOptionalString(payload.contactPhone) ?? null)
       : (institution.contactPhone ?? null),
-    addressLine1: hasOwnKey(payload, "addressLine1")
-      ? (normalizeOptionalString(payload.addressLine1) ?? null)
-      : (institution.addressLine1 ?? null),
-    addressLine2: hasOwnKey(payload, "addressLine2")
-      ? (normalizeOptionalString(payload.addressLine2) ?? null)
-      : (institution.addressLine2 ?? null),
+    address: hasOwnKey(payload, "address")
+      ? (normalizeOptionalString(payload.address) ?? null)
+      : (institution.address ?? null),
+    addressLine1: FieldValue.delete(),
+    addressLine2: FieldValue.delete(),
     city: hasOwnKey(payload, "city")
       ? (normalizeOptionalString(payload.city) ?? null)
       : (institution.city ?? null),

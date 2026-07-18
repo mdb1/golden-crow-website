@@ -51,8 +51,7 @@ export interface InstitutionRecord {
   legalName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  addressLine1?: string;
-  addressLine2?: string;
+  address?: string;
   city?: string;
   state?: string;
   country?: string;
@@ -136,6 +135,37 @@ export interface InstitutionDetailRecord {
   institution: InstitutionListItem;
   doctors: DoctorListItem[];
   institutionAdmins: RoleManagementRecord[];
+}
+
+type LegacyInstitutionAddress = {
+  addressLine1?: unknown;
+  addressLine2?: unknown;
+};
+
+function cleanAddressPart(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function getInstitutionAddress(
+  institution?: Partial<InstitutionRecord> | null
+) {
+  if (!institution) {
+    return "";
+  }
+
+  const legacyAddress = institution as Partial<InstitutionRecord> &
+    LegacyInstitutionAddress;
+  const address = cleanAddressPart(institution.address);
+  if (address) {
+    return address;
+  }
+
+  return [
+    cleanAddressPart(legacyAddress.addressLine1),
+    cleanAddressPart(legacyAddress.addressLine2),
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 export interface DoctorDetailRecord {
