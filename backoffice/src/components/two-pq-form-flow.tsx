@@ -50,6 +50,7 @@ import { compactList } from "@/lib/moderation-utils";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import {
+  normalizeObservationsValue,
   type CaseInformationFormState,
   type InstitutionInformationFormState,
   type MedicalInformationFormState,
@@ -1305,6 +1306,30 @@ function hydrateDraftState(
   };
 }
 
+function withDefaultObservations(
+  flowState: FlowState,
+  formType: TwoPQFormType
+): FlowState {
+  if (formType !== "study_request") {
+    return flowState;
+  }
+
+  const otherBackground = normalizeObservationsValue(
+    flowState.medicalInformation.otherBackground
+  );
+  if (otherBackground === flowState.medicalInformation.otherBackground) {
+    return flowState;
+  }
+
+  return {
+    ...flowState,
+    medicalInformation: {
+      ...flowState.medicalInformation,
+      otherBackground,
+    },
+  };
+}
+
 function resolveDraftStepIndex(
   draft: TwoPQFormDraftRecord | null | undefined,
   steps: StepKey[]
@@ -1415,9 +1440,6 @@ function validateStepFields(
     }
     if (!flowState.medicalInformation.maleFactor) {
       errors["medicalInformation.maleFactor"] = t("Select male factor.");
-    }
-    if (!flowState.medicalInformation.otherBackground.trim()) {
-      errors["medicalInformation.otherBackground"] = t("Observations are required.");
     }
   }
 
@@ -4190,7 +4212,15 @@ export function TwoPQFormFlow({
       return;
     }
 
-    if (!validateBiopsyTableBeforePreview(validationState)) {
+    const normalizedValidationState = withDefaultObservations(
+      validationState,
+      formType
+    );
+    if (normalizedValidationState !== state) {
+      setState(normalizedValidationState);
+    }
+
+    if (!validateBiopsyTableBeforePreview(normalizedValidationState)) {
       return;
     }
 
@@ -4198,7 +4228,7 @@ export function TwoPQFormFlow({
     await wait(180);
 
     const wholeValidation = validateWholeDocument({
-      flowState: validationState,
+      flowState: normalizedValidationState,
       steps: previewValidationSteps,
       formType,
       language,
@@ -4231,7 +4261,7 @@ export function TwoPQFormFlow({
     await wait(220);
 
     try {
-      await persistDraftSnapshot(previewStepIndex, validationState, {
+      await persistDraftSnapshot(previewStepIndex, normalizedValidationState, {
         errorMessage: t(
           "Preview validation passed, but the draft checkpoint could not be saved."
         ),
@@ -4269,7 +4299,16 @@ export function TwoPQFormFlow({
       return;
     }
 
-    const errors = validateStepFields(currentStep, state, formType, language);
+    const stateForValidation =
+      currentStep === "medicalInformation"
+        ? withDefaultObservations(state, formType)
+        : state;
+    const errors = validateStepFields(
+      currentStep,
+      stateForValidation,
+      formType,
+      language
+    );
     setStepErrors(currentStep, errors);
     if (hasErrors(errors)) {
       setToast({
@@ -4286,11 +4325,17 @@ export function TwoPQFormFlow({
       currentStep === "sampleInformation" &&
       steps[nextStepIndex] === "samplingInformation"
         ? withGeneratedSamplingTable(
-            withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
+            withCaseDefaultsForBoxCode({
+              ...stateForValidation,
+              selectedCaseId: "",
+            })
           )
         : steps[nextStepIndex] === "caseInformation"
-          ? withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
-          : state;
+          ? withCaseDefaultsForBoxCode({
+              ...stateForValidation,
+              selectedCaseId: "",
+            })
+          : stateForValidation;
     try {
       await persistDraftSnapshot(nextStepIndex, nextState);
       setState(nextState);
@@ -4342,10 +4387,17 @@ export function TwoPQFormFlow({
     }
 
     try {
+      const stateForNavigation =
+        boundedStepIndex > stepIndex && currentStep === "medicalInformation"
+          ? withDefaultObservations(state, formType)
+          : state;
       const nextState =
         steps[boundedStepIndex] === "caseInformation"
-          ? withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
-          : state;
+          ? withCaseDefaultsForBoxCode({
+              ...stateForNavigation,
+              selectedCaseId: "",
+            })
+          : stateForNavigation;
       await persistDraftSnapshot(boundedStepIndex, nextState);
       setState(nextState);
       if (boundedStepIndex > stepIndex) {
@@ -4358,12 +4410,14 @@ export function TwoPQFormFlow({
   }
 
   async function submitForm() {
-    const submissionState =
+    const submissionState = withDefaultObservations(
       formType === "sample"
         ? withGeneratedSamplingTable(
             withCaseDefaultsForBoxCode({ ...state, selectedCaseId: "" })
           )
-        : state;
+        : state,
+      formType
+    );
     if (submissionState !== state) {
       setState(submissionState);
     }

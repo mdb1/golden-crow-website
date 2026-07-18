@@ -38,6 +38,7 @@ const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
 const SEQUENCES_COLLECTION = "admin_sequences";
 const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
+const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
   return (
@@ -253,6 +254,10 @@ function normalizeRequiredString(value: unknown, label: string) {
     throw new AdminRepositoryError(`${label} is required.`, 400);
   }
   return normalized;
+}
+
+function normalizeObservationsValue(value: unknown) {
+  return normalizeOptionalString(value) ?? DEFAULT_OBSERVATIONS_VALUE;
 }
 
 function normalizeSearchText(value: unknown) {
@@ -894,10 +899,7 @@ function normalizeMedicalInformation(
       previousMiscarriagesCount: normalizePreviousMiscarriages(
         input.previousMiscarriagesCount
       ),
-      otherBackground: normalizeRequiredString(
-        input.otherBackground,
-        "Observaciones"
-      ),
+      otherBackground: normalizeObservationsValue(input.otherBackground),
     });
   }
 

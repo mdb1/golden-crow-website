@@ -22,6 +22,12 @@
 - Preserve text that carries live data, an empty/error/warning state, a destructive-action consequence, a field label, or a concrete record descriptor. Header uncluttering is not a reason to remove operational state or make a relationship ambiguous.
 - Header uncluttering must not change the data loaded, form fields, validation, mutations, permissions, navigation targets, pagination, or CRUD behavior.
 
+## 2PQ Observaciones Fields
+
+- `Observaciones` fields must never be required or block a form step, preview, draft checkpoint, or submission.
+- When a 2PQ `Observaciones` value is blank, normalize it to the exact text `Sin observaciones` before preview, draft persistence, final submission, and SDK storage.
+- Keep user-entered observations by trimming surrounding whitespace only. Do not replace non-empty observations.
+
 ## Backoffice Firestore Pagination
 
 - Any backoffice surface that reads potentially unbounded Firestore data must paginate instead of loading full collections.

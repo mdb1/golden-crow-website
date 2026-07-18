@@ -1,4 +1,25 @@
-import { getWithdrawalRequestTitle } from "@/lib/two-pq-forms";
+import {
+  DEFAULT_OBSERVATIONS_VALUE,
+  getWithdrawalRequestTitle,
+  normalizeObservationsValue,
+} from "@/lib/two-pq-forms";
+
+describe("normalizeObservationsValue", () => {
+  it("uses the default observations text for blank values", () => {
+    expect(normalizeObservationsValue("")).toBe(DEFAULT_OBSERVATIONS_VALUE);
+    expect(normalizeObservationsValue("   ")).toBe(DEFAULT_OBSERVATIONS_VALUE);
+    expect(normalizeObservationsValue(null)).toBe(DEFAULT_OBSERVATIONS_VALUE);
+    expect(normalizeObservationsValue(undefined)).toBe(
+      DEFAULT_OBSERVATIONS_VALUE
+    );
+  });
+
+  it("trims entered observations", () => {
+    expect(normalizeObservationsValue("  antecedente relevante  ")).toBe(
+      "antecedente relevante"
+    );
+  });
+});
 
 describe("getWithdrawalRequestTitle", () => {
   it("formats one linked case in Spanish", () => {

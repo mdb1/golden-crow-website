@@ -1,5 +1,12 @@
 export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
 
+export const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
+
+export function normalizeObservationsValue(value: string | null | undefined) {
+  const normalized = value?.trim() ?? "";
+  return normalized || DEFAULT_OBSERVATIONS_VALUE;
+}
+
 export type PatientInformationFormState = {
   institutionId: string;
   doctorId: string;

@@ -297,8 +297,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Previous miscarriages selection is not valid.":
     "La selección de abortos previos no es válida.",
   "Select male factor.": "Seleccioná factor masculino.",
-  "Other background is required.": "Observaciones es requerido.",
-  "Observations are required.": "Observaciones es requerido.",
   "Select PGT-A / PGT-SR.": "Seleccioná PGT-A / PGT-SR.",
   "Select karyotype.": "Seleccioná cariotipo.",
   "PGT result is required when PGT-A / PGT-SR is Yes.":
