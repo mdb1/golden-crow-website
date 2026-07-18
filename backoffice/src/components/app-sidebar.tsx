@@ -3,7 +3,6 @@
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -11,11 +10,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useAppLanguage } from "@/components/app-language-provider";
 import type { AdminContextRecord } from "@/lib/admin-areas";
-import { BACKOFFICE_VERSION } from "@/lib/app-version";
 import { appText } from "@/lib/language";
 import { getProjectNav, getProjectSections } from "@/lib/moderation-config";
 import { ChevronDown } from "lucide-react";
@@ -46,22 +43,16 @@ export function AppSidebar({
       collapsible="icon"
       className="border-none bg-transparent p-2"
     >
-      <SidebarHeader className="glass-panel gap-3 px-3 py-3">
+      <SidebarHeader className="glass-panel gap-2 px-3 py-3 group-data-[collapsible=icon]:hidden">
         <div className="px-2">
-          <p className="section-eyebrow">{appText(language, "Golden Crow")}</p>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-baseline gap-2">
-              <p className="font-heading text-lg font-semibold text-sidebar-foreground">
-                {adminContext.project === "pocket-gyms"
-                  ? appText(language, "Pocket Gyms")
-                  : adminContext.project === "gc-fitness"
-                    ? appText(language, "GC Fitness")
-                    : appText(language, "PocketGenes")}
-              </p>
-              <span className="text-xs font-medium text-sidebar-foreground/45">
-                v{BACKOFFICE_VERSION}
-              </span>
-            </div>
+            <p className="truncate font-heading text-lg font-semibold text-sidebar-foreground">
+              {adminContext.project === "pocket-gyms"
+                ? appText(language, "Pocket Gyms")
+                : adminContext.project === "gc-fitness"
+                  ? appText(language, "GC Fitness")
+                  : appText(language, "PocketGenes")}
+            </p>
             {adminContext.projectAccess.length > 1 && (
               <button
                 className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -73,16 +64,6 @@ export function AppSidebar({
               </button>
             )}
           </div>
-          <p className="mt-1 text-sm text-sidebar-foreground/70">
-            {adminContext.project === "pocket-gyms"
-              ? appText(language, "Coach operations console.")
-              : adminContext.project === "gc-fitness"
-                ? appText(language, "Trainer coaching console.")
-                : appText(
-                    language,
-                    "Readable operations console for the live Firebase model.",
-                  )}
-          </p>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -129,33 +110,6 @@ export function AppSidebar({
           );
         })}
       </SidebarContent>
-      <SidebarSeparator />
-      <SidebarFooter className="px-4 pb-4 pt-2 text-xs text-sidebar-foreground/65">
-        {adminContext.role === "full_admin"
-          ? appText(
-              language,
-              "Full admins can reach the global moderation surfaces and the institution-area model from the same shell.",
-            )
-          : adminContext.role === "institution_admin"
-            ? appText(
-                language,
-                "Institution admins stay scoped to one institution, its doctors, its patients, and local role assignments.",
-              )
-            : adminContext.role === "institution_operator"
-              ? appText(
-                  language,
-                  "Institution operators stay scoped to one institution, its doctors, its patients, and local role assignments.",
-                )
-              : adminContext.role === "institution_laboratory_staff"
-                ? appText(
-                    language,
-                    "Institution laboratory staff stay scoped to one institution and its laboratory workflow.",
-                  )
-                : appText(
-                    language,
-                    "Institution doctors stay scoped to one institution, their own doctor record, and their own patients.",
-                  )}
-      </SidebarFooter>
     </Sidebar>
   );
 }
