@@ -37,6 +37,7 @@ const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
 const SEQUENCES_COLLECTION = "admin_sequences";
+const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
   return (
@@ -437,6 +438,40 @@ function normalizeBooleanAnswer(value: unknown, label: string) {
   }
 
   throw new AdminRepositoryError(`${label} must be SI or NO.`, 400);
+}
+
+function isBiopsyEmptyFieldFallbackValue(value: unknown) {
+  return (
+    typeof value === "string" &&
+    value.trim().toLowerCase() ===
+      BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.toLowerCase()
+  );
+}
+
+function normalizeSamplingCellsVisualizedAnswer(
+  value: unknown,
+  label: string
+) {
+  // Product rule: biopsy form operators may explicitly continue with blank
+  // required biopsy cells by storing the literal "Not set". That sentinel is
+  // valid for cellsVisualized even though every other nonempty value must
+  // still normalize as a standard SI/NO answer.
+  if (isBiopsyEmptyFieldFallbackValue(value)) {
+    return BIOPSY_EMPTY_FIELD_FALLBACK_VALUE;
+  }
+
+  return normalizeBooleanAnswer(value, label) ? "si" : "no";
+}
+
+function normalizeOptionalSamplingCellsVisualizedAnswer(
+  value: unknown,
+  label: string
+) {
+  if (typeof value !== "boolean" && !normalizeOptionalString(value)) {
+    return undefined;
+  }
+
+  return normalizeSamplingCellsVisualizedAnswer(value, label);
 }
 
 function joinNameParts(firstName: unknown, lastName: unknown) {
@@ -1094,12 +1129,10 @@ function normalizeSamplingInformation(
     "2PQ processing status"
   );
   const isDiscarded = processingStatus === "discarded";
-  const optionalCellsVisualized =
-    typeof input.cellsVisualized === "boolean" || normalizeOptionalString(input.cellsVisualized)
-      ? normalizeBooleanAnswer(input.cellsVisualized, "Celulas visualizadas")
-        ? "si"
-        : "no"
-      : undefined;
+  const optionalCellsVisualized = normalizeOptionalSamplingCellsVisualizedAnswer(
+    input.cellsVisualized,
+    "Celulas visualizadas"
+  );
 
   return {
     caseLabel: fallbackCaseLabel,
@@ -1121,9 +1154,10 @@ function normalizeSamplingInformation(
       : normalizeRequiredString(input.biopsiedCells, "Celulas biopsiadas"),
     cellsVisualized: isDiscarded
       ? optionalCellsVisualized
-      : normalizeBooleanAnswer(input.cellsVisualized, "Celulas visualizadas")
-        ? "si"
-        : "no",
+      : normalizeSamplingCellsVisualizedAnswer(
+          input.cellsVisualized,
+          "Celulas visualizadas"
+        ),
     collectionDate: undefined,
     receptionDate: undefined,
     runId: undefined,

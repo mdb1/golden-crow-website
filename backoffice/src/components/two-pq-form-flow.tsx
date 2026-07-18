@@ -266,6 +266,40 @@ const REQUESTED_TEST_TO_CASE_TYPE: Record<string, string> = {
 };
 
 const MORPHOLOGY_PATTERN = /^[a-zA-Z0-9]{1,3}$/;
+const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
+
+const REQUIRED_BIOPSY_TABLE_COLUMNS = [
+  "embryoStageDay",
+  "morphology",
+  "sentUl",
+  "biopsiedCells",
+  "cellsVisualized",
+] as const satisfies readonly (keyof SamplingInformationFormState)[];
+
+type RequiredBiopsyTableColumnKey = (typeof REQUIRED_BIOPSY_TABLE_COLUMNS)[number];
+
+const REQUIRED_BIOPSY_TABLE_COLUMN_SET = new Set<keyof SamplingInformationFormState>(
+  REQUIRED_BIOPSY_TABLE_COLUMNS
+);
+
+enum BiopsyTableCellValidationKind {
+  MissingRequiredValue = "missing_required_value",
+  InvalidValue = "invalid_value",
+}
+
+enum BiopsyTableCellVisualState {
+  Neutral = "neutral",
+  MissingRequiredValue = "missing_required_value",
+  InvalidValue = "invalid_value",
+}
+
+type BiopsyTableRequiredCellIssue = {
+  fieldKey: string;
+  rowIndex: number;
+  column: RequiredBiopsyTableColumnKey;
+  kind: BiopsyTableCellValidationKind;
+  message: string;
+};
 
 const BIOPSY_COUNT_OPTIONS = Array.from({ length: 30 }, (_, index) => {
   const value = String(index + 1);
@@ -653,6 +687,143 @@ function isEmbryoSamplingRow(index: number, biopsyCountValue: string) {
 
 function isDiscardedSampling(sampling: SamplingInformationFormState) {
   return sampling.processingStatus === "discarded";
+}
+
+function biopsyTableCellErrorKey(
+  rowIndex: number,
+  column: RequiredBiopsyTableColumnKey
+) {
+  return `samplingInformation.${rowIndex}.${column}`;
+}
+
+function parseRequiredBiopsyTableCellKey(fieldKey: string) {
+  const match = /^samplingInformation\.(\d+)\.(.+)$/.exec(fieldKey);
+  if (!match) {
+    return null;
+  }
+
+  const column = match[2] as keyof SamplingInformationFormState;
+  if (!REQUIRED_BIOPSY_TABLE_COLUMN_SET.has(column)) {
+    return null;
+  }
+
+  return {
+    rowIndex: Number(match[1]),
+    column: column as RequiredBiopsyTableColumnKey,
+  };
+}
+
+function isBiopsyEmptyFieldFallbackValue(value: string) {
+  return (
+    value.trim().toLowerCase() ===
+    BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.toLowerCase()
+  );
+}
+
+function validateBiopsyTableRequiredCells(
+  flowState: FlowState,
+  language: AppLanguage
+) {
+  const t = (text: string) => appText(language, text);
+  const issues: BiopsyTableRequiredCellIssue[] = [];
+
+  flowState.samplingInformation.forEach((sampling, index) => {
+    if (isDiscardedSampling(sampling)) {
+      return;
+    }
+
+    const row = `${t("Sampling")} ${index + 1}`;
+
+    REQUIRED_BIOPSY_TABLE_COLUMNS.forEach((column) => {
+      const value = sampling[column].trim();
+      const fieldKey = biopsyTableCellErrorKey(index, column);
+
+      // Product rule: blank required biopsy cells are a recoverable
+      // "missing value" state, shown in yellow and optionally filled with the
+      // literal "Not set"; nonblank values that fail column validation remain
+      // real errors, shown in red and blocking preview.
+      if (!value) {
+        issues.push({
+          fieldKey,
+          rowIndex: index,
+          column,
+          kind: BiopsyTableCellValidationKind.MissingRequiredValue,
+          message: `${row}: ${t("Required field.")}`,
+        });
+        return;
+      }
+
+      if (isBiopsyEmptyFieldFallbackValue(value)) {
+        return;
+      }
+
+      if (column === "embryoStageDay" && !["5", "6", "7"].includes(value)) {
+        issues.push({
+          fieldKey,
+          rowIndex: index,
+          column,
+          kind: BiopsyTableCellValidationKind.InvalidValue,
+          message: `${row}: ${t("Stage day must be 5, 6 or 7.")}`,
+        });
+      }
+
+      if (column === "morphology" && !MORPHOLOGY_PATTERN.test(value)) {
+        issues.push({
+          fieldKey,
+          rowIndex: index,
+          column,
+          kind: BiopsyTableCellValidationKind.InvalidValue,
+          message: `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`,
+        });
+      }
+
+      if (
+        column === "cellsVisualized" &&
+        !YES_NO_OPTIONS.some((option) => option.value === value)
+      ) {
+        issues.push({
+          fieldKey,
+          rowIndex: index,
+          column,
+          kind: BiopsyTableCellValidationKind.InvalidValue,
+          message: `${row}: ${t("Cells visualized must be yes, no, or Not set.")}`,
+        });
+      }
+    });
+  });
+
+  return issues;
+}
+
+function appendBiopsyTableRequiredCellErrors(
+  errors: FieldErrors,
+  flowState: FlowState,
+  language: AppLanguage
+) {
+  validateBiopsyTableRequiredCells(flowState, language).forEach((issue) => {
+    errors[issue.fieldKey] = issue.message;
+  });
+}
+
+function withMissingBiopsyTableCellsSetToFallback(flowState: FlowState): FlowState {
+  let changed = false;
+  const samplingInformation = flowState.samplingInformation.map((sampling) => {
+    if (isDiscardedSampling(sampling)) {
+      return sampling;
+    }
+
+    const patch: Partial<SamplingInformationFormState> = {};
+    REQUIRED_BIOPSY_TABLE_COLUMNS.forEach((column) => {
+      if (!sampling[column].trim()) {
+        patch[column] = BIOPSY_EMPTY_FIELD_FALLBACK_VALUE;
+        changed = true;
+      }
+    });
+
+    return Object.keys(patch).length > 0 ? { ...sampling, ...patch } : sampling;
+  });
+
+  return changed ? { ...flowState, samplingInformation } : flowState;
 }
 
 function generatedSamplingProcessingStatus(
@@ -1469,34 +1640,8 @@ function validateStepFields(
       if (isDiscardedSampling(sampling)) {
         return;
       }
-      if (
-        !sampling.embryoStageDay ||
-        !["5", "6", "7"].includes(sampling.embryoStageDay)
-      ) {
-        errors[`samplingInformation.${index}.embryoStageDay`] =
-          sampling.embryoStageDay
-            ? `${row}: ${t("Stage day must be 5, 6 or 7.")}`
-            : `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.morphology || !MORPHOLOGY_PATTERN.test(sampling.morphology)) {
-        errors[`samplingInformation.${index}.morphology`] =
-          sampling.morphology
-            ? `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`
-            : `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.sentUl.trim()) {
-        errors[`samplingInformation.${index}.sentUl`] =
-          `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.biopsiedCells.trim()) {
-        errors[`samplingInformation.${index}.biopsiedCells`] =
-          `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.cellsVisualized) {
-        errors[`samplingInformation.${index}.cellsVisualized`] =
-          `${row}: ${t("Required field.")}`;
-      }
     });
+    appendBiopsyTableRequiredCellErrors(errors, flowState, language);
   }
 
   return errors;
@@ -2570,6 +2715,13 @@ export function TwoPQFormFlow({
     value: option.value,
     label: t(option.label),
   }));
+  const biopsyCellsVisualizedOptions = [
+    ...yesNoOptions,
+    {
+      value: BIOPSY_EMPTY_FIELD_FALLBACK_VALUE,
+      label: BIOPSY_EMPTY_FIELD_FALLBACK_VALUE,
+    },
+  ];
   const gameteSourceOptions = GAMETE_SOURCE_OPTIONS.map((option) => ({
     value: option.value,
     label: t(option.label),
@@ -3824,15 +3976,69 @@ export function TwoPQFormFlow({
     return fieldErrors[key];
   }
 
+  function biopsyTableCellValidationKindForFieldError(fieldKey: string) {
+    if (!fieldErrors[fieldKey]) {
+      return null;
+    }
+
+    const parsed = parseRequiredBiopsyTableCellKey(fieldKey);
+    if (!parsed) {
+      return BiopsyTableCellValidationKind.InvalidValue;
+    }
+
+    const sampling = state.samplingInformation[parsed.rowIndex];
+    if (!sampling || isDiscardedSampling(sampling)) {
+      return BiopsyTableCellValidationKind.InvalidValue;
+    }
+
+    return sampling[parsed.column].trim()
+      ? BiopsyTableCellValidationKind.InvalidValue
+      : BiopsyTableCellValidationKind.MissingRequiredValue;
+  }
+
+  function biopsyTableCellVisualState(
+    index: number,
+    key: keyof SamplingInformationFormState
+  ) {
+    const kind = biopsyTableCellValidationKindForFieldError(
+      `samplingInformation.${index}.${key}`
+    );
+
+    if (kind === BiopsyTableCellValidationKind.MissingRequiredValue) {
+      return BiopsyTableCellVisualState.MissingRequiredValue;
+    }
+
+    if (kind === BiopsyTableCellValidationKind.InvalidValue) {
+      return BiopsyTableCellVisualState.InvalidValue;
+    }
+
+    return BiopsyTableCellVisualState.Neutral;
+  }
+
+  function biopsyTableCellFieldError(
+    index: number,
+    key: keyof SamplingInformationFormState
+  ) {
+    const fieldKey = `samplingInformation.${index}.${key}`;
+    return biopsyTableCellVisualState(index, key) ===
+      BiopsyTableCellVisualState.InvalidValue
+      ? errorFor(fieldKey)
+      : undefined;
+  }
+
   function samplingCellClass(index: number, key: keyof SamplingInformationFormState) {
+    const visualState = biopsyTableCellVisualState(index, key);
+
     return [
       "border border-slate-300 p-0 align-top",
       "[&_[data-slot=select-trigger]]:h-10 [&_[data-slot=select-trigger]]:w-full",
       "[&_[data-slot=select-trigger]]:rounded-none [&_[data-slot=select-trigger]]:border-0",
       "[&_[data-slot=select-trigger]]:bg-transparent [&_[data-slot=select-trigger]]:shadow-none",
-      errorFor(`samplingInformation.${index}.${key}`)
-        ? "border-red-200 bg-red-50/80"
-        : "bg-white",
+      visualState === BiopsyTableCellVisualState.MissingRequiredValue
+        ? "border-amber-300 bg-amber-100/85 [&_[data-slot=select-value]]:text-transparent"
+        : visualState === BiopsyTableCellVisualState.InvalidValue
+          ? "border-red-200 bg-red-50/80"
+          : "bg-white",
     ].join(" ");
   }
 
@@ -3840,11 +4046,15 @@ export function TwoPQFormFlow({
     index: number,
     key: keyof SamplingInformationFormState
   ) {
+    const visualState = biopsyTableCellVisualState(index, key);
+
     return [
       "h-10 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-1",
-      errorFor(`samplingInformation.${index}.${key}`)
-        ? "placeholder:text-red-400 focus-visible:ring-red-300"
-        : "",
+      visualState === BiopsyTableCellVisualState.MissingRequiredValue
+        ? "focus-visible:ring-amber-400"
+        : visualState === BiopsyTableCellVisualState.InvalidValue
+          ? "placeholder:text-red-400 focus-visible:ring-red-300"
+          : "",
     ].join(" ");
   }
 
@@ -3903,54 +4113,23 @@ export function TwoPQFormFlow({
     }));
   }
 
-  function validateBiopsyTableBeforePreview() {
+  function validateBiopsyTableBeforePreview(flowState: FlowState) {
     if (formType !== "sample" || currentStep !== "samplingInformation") {
       return true;
     }
 
     const errors: FieldErrors = {};
-    const biopsyCount = Number(state.sampleInformation.biopsyCount);
+    const biopsyCount = Number(flowState.sampleInformation.biopsyCount);
     if (
-      !state.samplingTableGenerated ||
+      !flowState.samplingTableGenerated ||
       !Number.isInteger(biopsyCount) ||
       biopsyCount <= 0 ||
-      state.samplingInformation.length !== biopsyCount + 2
+      flowState.samplingInformation.length !== biopsyCount + 2
     ) {
       errors["samplingInformation._table"] = t("Generate the sampling table.");
     }
 
-    state.samplingInformation.forEach((sampling, index) => {
-      const row = `${t("Sampling")} ${index + 1}`;
-      if (isDiscardedSampling(sampling)) {
-        return;
-      }
-
-      const embryoStageDay = sampling.embryoStageDay.trim();
-      const morphology = sampling.morphology.trim();
-
-      if (!embryoStageDay || !["5", "6", "7"].includes(embryoStageDay)) {
-        errors[`samplingInformation.${index}.embryoStageDay`] = embryoStageDay
-          ? `${row}: ${t("Stage day must be 5, 6 or 7.")}`
-          : `${row}: ${t("Required field.")}`;
-      }
-      if (!morphology || !MORPHOLOGY_PATTERN.test(morphology)) {
-        errors[`samplingInformation.${index}.morphology`] = morphology
-          ? `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`
-          : `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.sentUl.trim()) {
-        errors[`samplingInformation.${index}.sentUl`] =
-          `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.biopsiedCells.trim()) {
-        errors[`samplingInformation.${index}.biopsiedCells`] =
-          `${row}: ${t("Required field.")}`;
-      }
-      if (!sampling.cellsVisualized) {
-        errors[`samplingInformation.${index}.cellsVisualized`] =
-          `${row}: ${t("Required field.")}`;
-      }
-    });
+    appendBiopsyTableRequiredCellErrors(errors, flowState, language);
 
     setPreviewValidationReport(null);
     setStepErrors("samplingInformation", errors);
@@ -3989,12 +4168,12 @@ export function TwoPQFormFlow({
     setStepIndex(previewStepIndex);
   }
 
-  async function validateAndContinueToPreview() {
+  async function validateAndContinueToPreview(validationState: FlowState = state) {
     if (previewStepIndex < 0) {
       return;
     }
 
-    if (!validateBiopsyTableBeforePreview()) {
+    if (!validateBiopsyTableBeforePreview(validationState)) {
       return;
     }
 
@@ -4002,7 +4181,7 @@ export function TwoPQFormFlow({
     await wait(180);
 
     const wholeValidation = validateWholeDocument({
-      flowState: state,
+      flowState: validationState,
       steps: previewValidationSteps,
       formType,
       language,
@@ -4035,7 +4214,7 @@ export function TwoPQFormFlow({
     await wait(220);
 
     try {
-      await persistDraftSnapshot(previewStepIndex, state, {
+      await persistDraftSnapshot(previewStepIndex, validationState, {
         errorMessage: t(
           "Preview validation passed, but the draft checkpoint could not be saved."
         ),
@@ -4051,6 +4230,12 @@ export function TwoPQFormFlow({
         draftErrorDetails: details,
       });
     }
+  }
+
+  async function continueToPreviewWithBiopsyMissingFieldsFallback() {
+    const nextState = withMissingBiopsyTableCellsSetToFallback(state);
+    setState(nextState);
+    await validateAndContinueToPreview(nextState);
   }
 
   async function goNext() {
@@ -4311,12 +4496,22 @@ export function TwoPQFormFlow({
     }
   }
 
-  const samplingTableValidationMessages = Object.entries(fieldErrors)
-    .filter(([key]) => key.startsWith("samplingInformation."))
-    .map(([, message]) => message);
+  const samplingTableValidationEntries = Object.entries(fieldErrors).filter(([key]) =>
+    key.startsWith("samplingInformation.")
+  );
+  const samplingTableValidationMessages = samplingTableValidationEntries.map(
+    ([, message]) => message
+  );
   const showSamplingTableValidationCard =
     currentStep === "samplingInformation" &&
     samplingTableValidationMessages.length > 0;
+  const samplingTableHasOnlyMissingRequiredCells =
+    samplingTableValidationEntries.length > 0 &&
+    samplingTableValidationEntries.every(
+      ([fieldKey]) =>
+        biopsyTableCellValidationKindForFieldError(fieldKey) ===
+        BiopsyTableCellValidationKind.MissingRequiredValue
+    );
   const visibleSamplingValidationMessages =
     samplingTableValidationMessages.slice(0, 6);
   const hiddenSamplingValidationCount =
@@ -6425,7 +6620,7 @@ export function TwoPQFormFlow({
                           <Input
                             id={`form-sampling-stage-day-${index}`}
                             value={sampling.embryoStageDay}
-                            maxLength={1}
+                            maxLength={BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length}
                             inputMode="numeric"
                             onChange={(event) =>
                               updateSamplingInformation(index, {
@@ -6438,8 +6633,9 @@ export function TwoPQFormFlow({
                             )}
                           />
                           <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.embryoStageDay`
+                            message={biopsyTableCellFieldError(
+                              index,
+                              "embryoStageDay"
                             )}
                           />
                         </td>
@@ -6453,7 +6649,7 @@ export function TwoPQFormFlow({
                           <Input
                             id={`form-sampling-morphology-${index}`}
                             value={sampling.morphology}
-                            maxLength={3}
+                            maxLength={BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length}
                             onChange={(event) =>
                               updateSamplingInformation(index, {
                                 morphology: event.target.value,
@@ -6462,8 +6658,9 @@ export function TwoPQFormFlow({
                             className={spreadsheetInputClass(index, "morphology")}
                           />
                           <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.morphology`
+                            message={biopsyTableCellFieldError(
+                              index,
+                              "morphology"
                             )}
                           />
                         </td>
@@ -6486,9 +6683,7 @@ export function TwoPQFormFlow({
                             className={spreadsheetInputClass(index, "sentUl")}
                           />
                           <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.sentUl`
-                            )}
+                            message={biopsyTableCellFieldError(index, "sentUl")}
                           />
                         </td>
                         <td
@@ -6514,8 +6709,9 @@ export function TwoPQFormFlow({
                             className={spreadsheetInputClass(index, "biopsiedCells")}
                           />
                           <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.biopsiedCells`
+                            message={biopsyTableCellFieldError(
+                              index,
+                              "biopsiedCells"
                             )}
                           />
                         </td>
@@ -6531,7 +6727,7 @@ export function TwoPQFormFlow({
                           }
                         >
                           <OptionSelectField
-                            options={yesNoOptions}
+                            options={biopsyCellsVisualizedOptions}
                             value={sampling.cellsVisualized}
                             onChange={(cellsVisualized) =>
                               updateSamplingInformation(index, {
@@ -6542,8 +6738,9 @@ export function TwoPQFormFlow({
                             emptyLabel={t("Not set")}
                           />
                           <FieldError
-                            message={errorFor(
-                              `samplingInformation.${index}.cellsVisualized`
+                            message={biopsyTableCellFieldError(
+                              index,
+                              "cellsVisualized"
                             )}
                           />
                         </td>
@@ -6576,13 +6773,29 @@ export function TwoPQFormFlow({
                 </p>
                 </div>
                 {showSamplingTableValidationCard ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-4 text-sm text-red-950 dark:border-red-300/24 dark:bg-red-950/20 dark:text-red-50">
+                  <div
+                    className={
+                      samplingTableHasOnlyMissingRequiredCells
+                        ? "rounded-xl border border-amber-300 bg-amber-50/90 px-4 py-4 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/24 dark:text-amber-50"
+                        : "rounded-xl border border-red-200 bg-red-50/80 px-4 py-4 text-sm text-red-950 dark:border-red-300/24 dark:bg-red-950/20 dark:text-red-50"
+                    }
+                  >
                     <p className="font-semibold">
-                      {t("Biopsy table validation failed.")}
+                      {samplingTableHasOnlyMissingRequiredCells
+                        ? t("Biopsy table is missing required fields.")
+                        : t("Biopsy table validation failed.")}
                     </p>
-                    <p className="mt-1 text-red-900/80 dark:text-red-50/78">
+                    <p
+                      className={
+                        samplingTableHasOnlyMissingRequiredCells
+                          ? "mt-1 text-amber-900/82 dark:text-amber-50/78"
+                          : "mt-1 text-red-900/80 dark:text-red-50/78"
+                      }
+                    >
                       {t(
-                        "Complete every required cell and fix cells that do not match their validation criteria before opening preview."
+                        samplingTableHasOnlyMissingRequiredCells
+                          ? "Empty required biopsy cells can be filled with Not set before opening preview."
+                          : "Complete every required cell and fix cells that do not match their validation criteria before opening preview."
                       )}
                     </p>
                     <ul className="mt-3 list-disc space-y-1 pl-5 text-xs">
@@ -6598,6 +6811,15 @@ export function TwoPQFormFlow({
                         </li>
                       ) : null}
                     </ul>
+                    {samplingTableHasOnlyMissingRequiredCells ? (
+                      <Button
+                        type="button"
+                        onClick={continueToPreviewWithBiopsyMissingFieldsFallback}
+                        className="mt-4 bg-amber-700 text-white hover:bg-amber-800"
+                      >
+                        {t("Continue anyway")}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
               </>

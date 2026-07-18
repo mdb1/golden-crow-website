@@ -382,10 +382,16 @@ const SPANISH_TEXT: Record<string, string> = {
   "Stage day must be 5, 6 or 7.": "El estadio día debe ser 5, 6 o 7.",
   "Morphology must be 1 to 3 alphanumeric characters.":
     "La morfología debe tener de 1 a 3 caracteres alfanuméricos.",
+  "Cells visualized must be yes, no, or Not set.":
+    "Células visualizadas debe ser sí, no o Not set.",
   "Biopsy table validation failed.":
     "Falló la validación de la tabla de biopsias.",
+  "Biopsy table is missing required fields.":
+    "Faltan completar campos en la tabla de biopsias.",
   "Complete every required cell and fix cells that do not match their validation criteria before opening preview.":
     "Completá todas las celdas obligatorias y corregí las que no cumplen con sus criterios antes de abrir la vista previa.",
+  "Empty required biopsy cells can be filled with Not set before opening preview.":
+    "Las celdas obligatorias vacías se pueden completar con Not set antes de abrir la vista previa.",
   "Additional table issues": "Errores adicionales en la tabla",
   "Generate the sampling table.": "Generá la tabla de samplings.",
   "Sampling table row count must match number of biopsies plus two.":
@@ -626,6 +632,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "No institution selected": "Sin institución seleccionada",
   Previous: "Anterior",
   "Continue to preview": "Continuar a vista previa",
+  "Continue anyway": "Continuar de todos modos",
   "Preview validation": "Validación para vista previa",
   "The form validates steps 1 to 5 before opening the read-only preview.":
     "El formulario valida los pasos 1 a 5 antes de abrir la vista previa de solo lectura.",
