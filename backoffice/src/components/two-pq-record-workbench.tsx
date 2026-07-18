@@ -5205,8 +5205,8 @@ export function TwoPQRecordWorkbench({
                   onClick={handleCaseDeleteProcessExit}
                   className="mt-6 h-12 rounded-[1.1rem] bg-[linear-gradient(180deg,rgba(79,70,229,0.98),rgba(67,56,202,0.96))] px-6 text-sm font-semibold text-white shadow-[0_18px_48px_rgba(79,70,229,0.24)]"
                 >
+                  <ArrowLeft className="h-4 w-4" />
                   {t("Back to cases")}
-                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>

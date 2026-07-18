@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,7 @@ export default async function AdminWorkoutLogDetailPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button asChild variant="outline" size="sm" className="gap-1 rounded-full">
             <Link href={`/gc-fitness/admin/coaches/${uid}/clients/${clientId}`}>
-              <ChevronLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               Back to client
             </Link>
           </Button>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save } from "lucide-react";
+import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -324,7 +324,10 @@ export function RoleWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/roles">{t("Back to roles")}</Link>
+          <Link href="/roles">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {t("Back to roles")}
+          </Link>
         </Button>
         {mode === "edit" && roleRecord ? (
           <span className="font-mono text-xs text-muted-foreground">

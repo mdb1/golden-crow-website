@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Save, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -164,7 +164,10 @@ export function UserWorkbench({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/users">Back to accounts</Link>
+          <Link href="/users">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to accounts
+          </Link>
         </Button>
         <span className="font-mono text-xs text-muted-foreground">{user.uid}</span>
       </div>

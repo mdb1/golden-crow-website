@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
 import { sdkFetch } from "@/lib/sdk-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +87,10 @@ export function MemberWorkbench({ member }: { member: GymMemberRecord }) {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/gym/members">Back to athletes</Link>
+          <Link href="/gym/members">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to athletes
+          </Link>
         </Button>
         <span className="font-mono text-xs text-muted-foreground">{uid}</span>
       </div>

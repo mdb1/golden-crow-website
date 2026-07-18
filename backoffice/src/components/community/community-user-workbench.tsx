@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save } from "lucide-react";
+import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { CommunityIconAvatar } from "@/components/community-icon-avatar";
 import {
@@ -297,7 +297,10 @@ export function CommunityUserWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/collections/community_users">Back to community users</Link>
+          <Link href="/collections/community_users">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to community users
+          </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
           <Link href={`/users/${communityUser.id}`}>Open account</Link>

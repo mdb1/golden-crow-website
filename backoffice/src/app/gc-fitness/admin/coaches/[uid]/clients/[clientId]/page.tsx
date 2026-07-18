@@ -37,7 +37,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/gc-fitness/page-header";
+import { ArrowLeft } from "lucide-react";
 
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
 import { ProgressPhotosGridClient } from "@/app/gc-fitness/clients/[id]/_components/ProgressPhotosGridClient";
@@ -93,12 +95,12 @@ export default async function AdminCoachClientPage({
   return (
     <div className="gc-page flex flex-col gap-6">
       <div>
-        <Link
-          href={`/gc-fitness/admin/coaches/${uid}`}
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Back to coach
-        </Link>
+        <Button asChild variant="outline" size="sm" className="rounded-full">
+          <Link href={`/gc-fitness/admin/coaches/${uid}`}>
+            <ArrowLeft className="h-4 w-4" />
+            Back to coach
+          </Link>
+        </Button>
       </div>
 
       <PageHeader

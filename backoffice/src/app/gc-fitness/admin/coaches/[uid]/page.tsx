@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,10 @@ export default async function CoachAdminDetailPage({
         }
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link href="/gc-fitness/admin">Back to admin</Link>
+            <Link href="/gc-fitness/admin">
+              <ArrowLeft className="h-4 w-4" />
+              Back to admin
+            </Link>
           </Button>
         }
       />

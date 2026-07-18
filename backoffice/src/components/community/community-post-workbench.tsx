@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save } from "lucide-react";
+import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { CommunityTagPill } from "@/components/community-tag-pill";
 import {
@@ -291,7 +291,10 @@ export function CommunityPostWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/community">Back to community</Link>
+          <Link href="/community">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to community
+          </Link>
         </Button>
         {state.authorId.trim() ? (
           <Button variant="outline" size="sm" asChild>

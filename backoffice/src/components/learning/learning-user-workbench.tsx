@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ShieldUser, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, ShieldUser, Sparkles } from "lucide-react";
 import { MetricCard } from "@/components/metric-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,10 @@ export function LearningUserWorkbench({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/learning">Back to learning users</Link>
+          <Link href="/learning">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to learning users
+          </Link>
         </Button>
         <span className="font-mono text-xs text-muted-foreground">{user.uid}</span>
       </div>

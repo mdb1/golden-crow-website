@@ -9,6 +9,7 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
 import { parseCommunityPostRecord } from "@/lib/community-admin";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 async function getCommunityPost(postId: string) {
   try {
@@ -50,7 +51,10 @@ export default async function PostDetailPage({
 
       <div className="flex flex-wrap gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/community">Back to community</Link>
+          <Link href="/community">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to community
+          </Link>
         </Button>
         {post.authorId ? (
           <Button variant="outline" size="sm" asChild>

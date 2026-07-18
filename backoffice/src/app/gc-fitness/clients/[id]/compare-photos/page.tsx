@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
@@ -58,7 +59,10 @@ export default async function ComparePhotosPage({
           <p className="text-sm text-muted-foreground">{clientName}</p>
         </div>
         <Button asChild variant="outline" className="rounded-full">
-          <Link href={`/gc-fitness/clients/${id}#progress-photos`}>Volver al perfil</Link>
+          <Link href={`/gc-fitness/clients/${id}#progress-photos`}>
+            <ArrowLeft className="h-4 w-4" />
+            Volver al perfil
+          </Link>
         </Button>
       </div>
         <ProgressPhotoCompareEditor

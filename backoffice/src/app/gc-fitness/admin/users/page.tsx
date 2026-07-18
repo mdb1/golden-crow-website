@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { AdminSubmitButton } from "../_components/admin-submit-button";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,10 @@ export default async function AdminUserSearchPage({
       />
 
       <Button asChild variant="outline" size="sm" className="self-start rounded-full">
-        <Link href="/gc-fitness/admin">Back to admin</Link>
+        <Link href="/gc-fitness/admin">
+          <ArrowLeft className="h-4 w-4" />
+          Back to admin
+        </Link>
       </Button>
 
       <form

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,7 +114,10 @@ export function UploadedReportUploadWorkbench({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/reports/uploads/${report.id}`}>Back to uploaded report</Link>
+          <Link href={`/reports/uploads/${report.id}`}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to uploaded report
+          </Link>
         </Button>
         <span className="font-mono text-xs text-muted-foreground">{report.id}</span>
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { HelperBanner } from "@/components/helper-banner";
 import { Button } from "@/components/ui/button";
 
@@ -21,7 +22,10 @@ export default function AccessDeniedPage() {
         such as full admin, institution admin, or institution doctor.
       </HelperBanner>
       <Button asChild variant="outline" className="w-full">
-        <Link href="/login">Back to Sign In</Link>
+        <Link href="/login">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Sign In
+        </Link>
       </Button>
     </div>
   );

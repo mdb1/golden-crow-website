@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,7 +65,10 @@ export default async function DataHygienePage({
         subtitle="Inspect orphaned users, chats, images, workouts and other suspicious records before they pile up."
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link href="/gc-fitness/admin">Back to admin</Link>
+            <Link href="/gc-fitness/admin">
+              <ArrowLeft className="h-4 w-4" />
+              Back to admin
+            </Link>
           </Button>
         }
       />

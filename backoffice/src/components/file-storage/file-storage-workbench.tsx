@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
 import { ReportPill } from "@/components/reports/report-pill";
@@ -283,7 +283,10 @@ export function FileStorageWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/collections/file_storage">Back to file storage</Link>
+          <Link href="/collections/file_storage">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to file storage
+          </Link>
         </Button>
         {linkedReportKey ? (
           <Button variant="outline" size="sm" asChild>

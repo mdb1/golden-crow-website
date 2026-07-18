@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -152,7 +153,10 @@ export default async function AuditPage({
         subtitle="Unified, time-ordered trail of coach actions and admin operations — trace what happened and when."
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link href="/gc-fitness/admin">Back to admin</Link>
+            <Link href="/gc-fitness/admin">
+              <ArrowLeft className="h-4 w-4" />
+              Back to admin
+            </Link>
           </Button>
         }
       />

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Save } from "lucide-react";
+import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { DeveloperRawEditor } from "@/components/developer-raw-editor";
 import { UserVerificationCard } from "@/components/user-verification-card";
@@ -277,7 +277,10 @@ export function ReportOwnerWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/collections/report_owners">Back to report owners</Link>
+          <Link href="/collections/report_owners">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to report owners
+          </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
           <Link href={`/reports/users/${owner.id}`}>Open report user</Link>

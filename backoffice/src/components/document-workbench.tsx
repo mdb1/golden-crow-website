@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, RotateCcw, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, RotateCcw, Save, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -168,7 +168,10 @@ export function DocumentWorkbench({
       {mode === "page" ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={backHref}>{backLabel}</Link>
+            <Link href={backHref}>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {backLabel}
+            </Link>
           </Button>
           <span className="font-mono text-xs text-muted-foreground">
             {document.path}

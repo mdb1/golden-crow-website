@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { getString } from "@/lib/moderation-utils";
 import Link from "next/link";
 import type { ModerationDocumentRecord } from "@/lib/moderation-types";
+import { ArrowLeft } from "lucide-react";
 
 export default async function ReportDetailPage({
   params,
@@ -69,7 +70,10 @@ export default async function ReportDetailPage({
         actions={
           <>
             <Button variant="ghost" size="sm" asChild>
-              <Link href={backHref}>Back to reports</Link>
+              <Link href={backHref}>
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to reports
+              </Link>
             </Button>
             {uploadHref ? (
               <Button variant="outline" size="sm" asChild>

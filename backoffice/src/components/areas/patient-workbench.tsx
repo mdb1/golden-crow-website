@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, RotateCcw, Save, ArrowRight, AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -269,7 +269,10 @@ export function PatientWorkbench({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/areas/patients">{t("Back to patients")}</Link>
+          <Link href="/areas/patients">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {t("Back to patients")}
+          </Link>
         </Button>
         {detail ? (
           <span className="font-mono text-xs text-muted-foreground">
