@@ -28,7 +28,7 @@ export default async function NewTwoPQFormPage({
   const initialDraft = formDraft?.formType === formType ? formDraft : null;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 max-w-full flex-col overflow-x-hidden">
       <TwoPQFormFlow
         formType={formType}
         institutions={lookupData.institutions}

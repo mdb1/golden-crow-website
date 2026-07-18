@@ -4589,7 +4589,7 @@ export function TwoPQFormFlow({
     samplingTableValidationMessages.length - visibleSamplingValidationMessages.length;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 max-w-full flex-col gap-5 overflow-x-hidden">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
       <Dialog
         open={doctorResponsibilityAlertOpen}
@@ -5159,7 +5159,7 @@ export function TwoPQFormFlow({
         </Button>
       </div>
 
-      <section className="glass-panel flex flex-col gap-5 px-5 py-5">
+      <section className="glass-panel flex min-w-0 max-w-full flex-col gap-5 overflow-x-hidden px-5 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-heading text-2xl font-semibold text-foreground">
@@ -6559,10 +6559,10 @@ export function TwoPQFormFlow({
         ) : null}
 
         {currentStep === "samplingInformation" ? (
-          <div className="min-w-0 max-w-full space-y-4">
+          <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
             {state.samplingTableGenerated ? (
               <>
-                <div className="w-full min-w-0 max-w-full overflow-x-auto rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
+                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
                   <table className="min-w-[94rem] border-collapse bg-white text-sm">
                   <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
                     <tr>
