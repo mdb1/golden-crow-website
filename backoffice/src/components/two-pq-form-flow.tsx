@@ -3933,10 +3933,27 @@ export function TwoPQFormFlow({
     }));
   }
 
+  function clearSamplingTableValidationState() {
+    setPreviewValidationReport(null);
+    setFieldErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([key]) => !isStepErrorKey(key, "samplingInformation")
+        )
+      )
+    );
+    setStepValidation((current) => {
+      const next = { ...current };
+      delete next.samplingInformation;
+      return next;
+    });
+  }
+
   function updateSamplingInformation(
     index: number,
     patch: Partial<SamplingInformationFormState>
   ) {
+    clearSamplingTableValidationState();
     setState((current) => ({
       ...current,
       samplingInformation: current.samplingInformation.map((entry, entryIndex) =>
