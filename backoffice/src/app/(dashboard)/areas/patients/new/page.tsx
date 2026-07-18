@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { HelperBanner } from "@/components/helper-banner";
 import { PatientWorkbench } from "@/components/areas/patient-workbench";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import type { DoctorListItem, InstitutionRecord } from "@/lib/admin-areas";
@@ -28,21 +28,23 @@ export default async function NewPatientPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow={t("Areas")}
-        title={t("Create patient")}
-        description={t("Create a patient record tied to one institution and one doctor. The save path respects institution-admin and doctor write boundaries automatically.")}
-      />
-      <HelperBanner title={t("Choose the doctor deliberately.")} tone="blue">
-        {t("The doctor link controls who can actually edit this patient later. Institution scope and doctor scope stay explicit and visible on the patient sheet.")}
-      </HelperBanner>
-      <PatientWorkbench
-        mode="create"
-        institutions={institutionsPayload.institutions}
-        doctors={doctorsPayload.doctors}
-        initialInstitutionId={institutionId}
-        initialDoctorId={doctorId}
-      />
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={t("Areas")}
+            title={t("Create patient")}
+            description={t("Create a patient record tied to one institution and one doctor. The save path respects institution-admin and doctor write boundaries automatically.")}
+          />
+        }
+      >
+        <PatientWorkbench
+          mode="create"
+          institutions={institutionsPayload.institutions}
+          doctors={doctorsPayload.doctors}
+          initialInstitutionId={institutionId}
+          initialDoctorId={doctorId}
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

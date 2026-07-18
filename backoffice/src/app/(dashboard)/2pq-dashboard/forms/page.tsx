@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, ClipboardList, FileClock } from "lucide-react";
+import { ArrowLeft, FileClock } from "lucide-react";
+import {
+  HeaderUnclutterButton,
+  HeaderUnclutterScope,
+} from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQFormCompletionDialog } from "@/components/two-pq-form-completion-dialog";
 import { TwoPQFormsList } from "@/components/two-pq-forms-list";
@@ -89,6 +93,28 @@ export default async function TwoPQFormsPage({
   const draftHref = formDraft
     ? `${TWO_PQ_FORM_ROUTES[formDraft.formType]}?draft=1`
     : null;
+  const renderPageActions = () => (
+    <>
+      {formDraft && draftHref ? (
+        <Button variant="default" size="sm" asChild>
+          <Link href={draftHref}>
+            <FileClock className="size-3.5" />
+            {t("Continue from draft")}
+            <span className="sr-only">
+              {" "}
+              {TWO_PQ_FORM_LABELS[formDraft.formType]}
+            </span>
+          </Link>
+        </Button>
+      ) : null}
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/2pq-dashboard">
+          <ArrowLeft className="size-3.5" />
+          {t("Back to dashboard")}
+        </Link>
+      </Button>
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,59 +122,43 @@ export default async function TwoPQFormsPage({
         createdId={createdId}
         createdType={formTypeFromParam(createdType)}
       />
-      <PageHero
-        eyebrow="2PQ"
-        title={t("Forms")}
-        description={t("Stored 2PQ study request, biopsy, and withdrawal forms.")}
-        actions={
-          <>
-            {formDraft && draftHref ? (
-              <Button variant="default" size="sm" asChild>
-                <Link href={draftHref}>
-                  <FileClock className="size-3.5" />
-                  {t("Continue from draft")}
-                  <span className="sr-only">
-                    {" "}
-                    {TWO_PQ_FORM_LABELS[formDraft.formType]}
-                  </span>
-                </Link>
-              </Button>
-            ) : null}
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/2pq-dashboard">
-                <ArrowLeft className="size-3.5" />
-                {t("Back to dashboard")}
-              </Link>
-            </Button>
-          </>
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow="2PQ"
+            title={t("Forms")}
+            description={t("Stored 2PQ study request, biopsy, and withdrawal forms.")}
+            actions={renderPageActions()}
+          />
         }
-      />
-
-      <section className="glass-panel flex flex-col gap-4 px-5 py-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="section-eyebrow">2pq_forms</p>
-              {includeArchived ? <Badge variant="warning">{t("Archived visible")}</Badge> : null}
+      >
+        <section className="glass-panel flex flex-col gap-4 px-5 py-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-heading text-2xl font-semibold text-foreground">
+                  {t("Existing stored forms")}
+                </h2>
+                {includeArchived ? (
+                  <Badge variant="warning">{t("Archived visible")}</Badge>
+                ) : null}
+              </div>
             </div>
-            <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {t("Existing stored forms")}
-            </h2>
-            <p className="max-w-3xl text-sm text-muted-foreground">
-              <ClipboardList className="mr-1 inline size-4" />
-              {t("All submitted form flows are stored as joined documents here.")}
-            </p>
+            <div className="flex flex-wrap gap-2">
+              <HeaderUnclutterButton />
+              {renderPageActions()}
+            </div>
           </div>
-        </div>
-        <TwoPQFormsList
-          forms={formsPage.forms}
-          initialCursor={formsPage.nextCursor}
-          initialHasMore={formsPage.hasMore}
-          initialFilters={initialFilters}
-          pageSize={FORMS_PAGE_SIZE}
-          allowMutations
-        />
-      </section>
+          <TwoPQFormsList
+            forms={formsPage.forms}
+            initialCursor={formsPage.nextCursor}
+            initialHasMore={formsPage.hasMore}
+            initialFilters={initialFilters}
+            pageSize={FORMS_PAGE_SIZE}
+            allowMutations
+          />
+        </section>
+      </HeaderUnclutterScope>
     </div>
   );
 }

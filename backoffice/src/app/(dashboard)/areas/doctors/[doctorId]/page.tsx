@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { HelperBanner } from "@/components/helper-banner";
 import { DoctorWorkbench } from "@/components/areas/doctor-workbench";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import type { DoctorDetailRecord, InstitutionRecord } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
@@ -24,15 +24,17 @@ export default async function DoctorDetailPage({
 
     return (
       <div className="flex flex-col gap-6">
-        <PageHero
-          eyebrow={t("Areas")}
-          title={detail.doctor.fullName}
-          description={t("Doctor detail joins the editable doctor profile, linked institution, direct patient list, and role linkage in one operational screen.")}
-        />
-        <HelperBanner title={t("Doctors can inspect peers, but edit only self.")} tone="blue">
-          {t("The SDK enforces the write boundary. This screen reflects it by showing read-only state whenever the current role can inspect but not modify the selected doctor.")}
-        </HelperBanner>
-        <DoctorWorkbench detail={detail} institutions={institutionsPayload.institutions} />
+        <HeaderUnclutterScope
+          header={
+            <PageHero
+              eyebrow={t("Areas")}
+              title={detail.doctor.fullName}
+              description={t("Doctor detail joins the editable doctor profile, linked institution, direct patient list, and role linkage in one operational screen.")}
+            />
+          }
+        >
+          <DoctorWorkbench detail={detail} institutions={institutionsPayload.institutions} />
+        </HeaderUnclutterScope>
       </div>
     );
   } catch {

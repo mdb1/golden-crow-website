@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { Button } from "@/components/ui/button";
@@ -58,32 +58,33 @@ export default async function TwoPQAreaCreatePage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow="2PQ"
-        title={translatedArea.createLabel}
-        description={`${t("Create a live Firestore document in")} ${area.collectionKey} ${t("with explicit institution, doctor, and patient linkage.")}`}
-        actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href={area.route}>
-              <ArrowLeft className="h-3.5 w-3.5" />
-              {t("Back to")} {translatedArea.navLabel.toLowerCase()}
-            </Link>
-          </Button>
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow="2PQ"
+            title={translatedArea.createLabel}
+            description={`${t("Create a live Firestore document in")} ${area.collectionKey} ${t("with explicit institution, doctor, and patient linkage.")}`}
+            actions={
+              <Button variant="outline" size="sm" asChild>
+                <Link href={area.route}>
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t("Back to")} {translatedArea.navLabel.toLowerCase()}
+                </Link>
+              </Button>
+            }
+          />
         }
-      />
-      <HelperBanner title={t("Create writes a real Firebase document.")} tone="blue">
-        {t("The workbench below sends a POST to the SDK and creates a new record in")}{" "}
-        <code>{area.collectionKey}</code>. {t("After creation, replace, update, and delete become available on the detail screen.")}
-      </HelperBanner>
-      <TwoPQRecordWorkbench
-        areaKey={area.key}
-        institutions={lookupData.institutions}
-        doctors={lookupData.doctors}
-        patients={lookupData.patients}
-        preloadedBatch={preloadedBatch}
-        preloadedCase={preloadedCase}
-        mode="create"
-      />
+      >
+        <TwoPQRecordWorkbench
+          areaKey={area.key}
+          institutions={lookupData.institutions}
+          doctors={lookupData.doctors}
+          patients={lookupData.patients}
+          preloadedBatch={preloadedBatch}
+          preloadedCase={preloadedCase}
+          mode="create"
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

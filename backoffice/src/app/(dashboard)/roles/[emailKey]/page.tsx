@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { RoleWorkbench } from "@/components/areas/role-workbench";
 import { PageHero } from "@/components/page-hero";
 import type {
@@ -70,25 +71,27 @@ export default async function RoleDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow={t("Access")}
-        title={rolePayload.role.email}
-        description={t("Role detail is where email-based access, institution scope, doctor scope, and patient scope all come together in one typed form.")}
-      />
-      <HelperBanner title={t("Changing a role changes access boundaries.")} tone="blue">
-        {t("Use this screen to adjust role power deliberately. The backend prevents cross-institution leakage and stops doctors from assigning anything outside their patient scope.")}
-      </HelperBanner>
-      {optionsUnavailable ? (
-        <HelperBanner title={t("Some linked option lists could not be loaded.")} tone="amber">
-          {t("The role record is open, but one or more institution, doctor, or patient selector lists failed to load. Refresh after the SDK data source recovers.")}
-        </HelperBanner>
-      ) : null}
-      <RoleWorkbench
-        roleRecord={rolePayload.role}
-        institutions={institutions}
-        doctors={doctors}
-        patients={patients}
-      />
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={t("Access")}
+            title={rolePayload.role.email}
+            description={t("Role detail is where email-based access, institution scope, doctor scope, and patient scope all come together in one typed form.")}
+          />
+        }
+      >
+        {optionsUnavailable ? (
+          <HelperBanner title={t("Some linked option lists could not be loaded.")} tone="amber">
+            {t("The role record is open, but one or more institution, doctor, or patient selector lists failed to load. Refresh after the SDK data source recovers.")}
+          </HelperBanner>
+        ) : null}
+        <RoleWorkbench
+          roleRecord={rolePayload.role}
+          institutions={institutions}
+          doctors={doctors}
+          patients={patients}
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

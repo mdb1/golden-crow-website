@@ -7,6 +7,7 @@ import { RotateCcw, Save } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -336,15 +337,12 @@ export function RoleWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">{t("Access")}</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
               {mode === "create" ? t("Create role assignment") : t("Role workbench")}
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              {t("Roles are attached to emails, then constrained by institution, doctor, and patient links according to the permission tree.")}
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <HeaderUnclutterButton />
             <Button
               variant="outline"
               size="sm"

@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { ADMIN_ROLE_LABELS, type AdminRole } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
@@ -91,6 +92,7 @@ export function AreaAccessMatrix({
   highlightRole,
   compact = false,
   className,
+  hideDescription = false,
 }: {
   title: string;
   description: string;
@@ -98,15 +100,23 @@ export function AreaAccessMatrix({
   highlightRole?: AdminRole;
   compact?: boolean;
   className?: string;
+  hideDescription?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
 
   return (
     <section className={cn("flex flex-col gap-3", className)}>
-      <div className="flex flex-col gap-1">
-        <h3 className="font-heading text-lg font-semibold text-foreground">{t(title)}</h3>
-        <p className="max-w-3xl text-sm text-muted-foreground">{t(description)}</p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-1">
+          <h3 className="font-heading text-lg font-semibold text-foreground">{t(title)}</h3>
+          {!hideDescription ? (
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              {t(description)}
+            </p>
+          ) : null}
+        </div>
+        <HeaderUnclutterButton />
       </div>
 
       <div

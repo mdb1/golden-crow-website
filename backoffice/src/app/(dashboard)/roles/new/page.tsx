@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { RoleWorkbench } from "@/components/areas/role-workbench";
 import { PageHero } from "@/components/page-hero";
 import type {
@@ -54,27 +54,27 @@ export default async function NewRolePage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow={t("Access")}
-        title={t("Create role assignment")}
-        description={t(
-          "Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows.",
-        )}
-      />
-      <HelperBanner title={t("Scope first, role second.")} tone="blue">
-        {t(
-          "The selected role determines which linked records are required. When a doctor or patient link exists, the backend validates that the email and relational scope line up correctly.",
-        )}
-      </HelperBanner>
-      <RoleWorkbench
-        mode="create"
-        institutions={institutionsPayload.institutions}
-        doctors={doctorsPayload.doctors}
-        patients={patientsPayload.patients}
-        initialEmail={email}
-        initialInstitutionId={institutionId}
-        fixedRole={fixedRole}
-      />
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={t("Access")}
+            title={t("Create role assignment")}
+            description={t(
+              "Create a new email-based role record and tie it to the exact institution, doctor, or patient scope the permission tree allows.",
+            )}
+          />
+        }
+      >
+        <RoleWorkbench
+          mode="create"
+          institutions={institutionsPayload.institutions}
+          doctors={doctorsPayload.doctors}
+          patients={patientsPayload.patients}
+          initialEmail={email}
+          initialInstitutionId={institutionId}
+          fixedRole={fixedRole}
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

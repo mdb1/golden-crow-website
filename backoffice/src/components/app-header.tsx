@@ -77,6 +77,10 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   const metadata = getChromeMetadata(pathname);
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [pendingProjectSwitch, setPendingProjectSwitch] = useState(false);
+  const hideChromeTitle =
+    pathname.startsWith("/areas") ||
+    pathname.startsWith("/2pq-dashboard") ||
+    pathname.startsWith("/roles");
   const translatedMetadata = {
     eyebrow: appText(language, metadata.eyebrow),
     title: appText(language, metadata.title),
@@ -148,15 +152,19 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-4" />
         <div className="min-w-0 flex-1">
-          <p className="section-eyebrow">{translatedMetadata.eyebrow}</p>
-          <div className="flex min-w-0 flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-3">
-            <h1 className="shrink-0 font-heading text-lg font-semibold text-foreground">
-              {translatedMetadata.title}
-            </h1>
-            <p className="line-clamp-2 hidden min-w-0 flex-1 text-sm leading-5 text-muted-foreground lg:block">
-              {translatedMetadata.description}
-            </p>
-          </div>
+          {!hideChromeTitle ? (
+            <>
+              <p className="section-eyebrow">{translatedMetadata.eyebrow}</p>
+              <div className="flex min-w-0 flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-3">
+                <h1 className="shrink-0 font-heading text-lg font-semibold text-foreground">
+                  {translatedMetadata.title}
+                </h1>
+                <p className="line-clamp-2 hidden min-w-0 flex-1 text-sm leading-5 text-muted-foreground lg:block">
+                  {translatedMetadata.description}
+                </p>
+              </div>
+            </>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           <AppearanceToggle />

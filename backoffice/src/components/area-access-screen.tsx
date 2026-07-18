@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AreaAccessMatrix } from "@/components/area-access-matrix";
-import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { Button } from "@/components/ui/button";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -37,29 +37,40 @@ export function AreaAccessScreen({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow={t(eyebrow)}
-        title={t(title)}
-        description={t(description)}
-        actions={
-          <Button variant="outline" size="sm" asChild>
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={t(eyebrow)}
+            title={t(title)}
+            description={t(description)}
+            actions={
+              <Button variant="outline" size="sm" asChild>
+                <Link href={backHref}>
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t(backLabel)}
+                </Link>
+              </Button>
+            }
+          />
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
             <Link href={backHref}>
               <ArrowLeft className="h-3.5 w-3.5" />
               {t(backLabel)}
             </Link>
           </Button>
-        }
-      />
-      <HelperBanner title={t("This screen isolates access from the live browser.")} tone="blue">
-        {t("Review the current CRUD boundary here first, then return to the main area when you want to open or edit a specific record.")}
-      </HelperBanner>
-      <AreaAccessMatrix
-        title={matrixTitle}
-        description={matrixDescription}
-        entries={entries}
-        highlightRole={highlightRole}
-        compact
-      />
+        </div>
+        <AreaAccessMatrix
+          title={matrixTitle}
+          description={matrixDescription}
+          entries={entries}
+          highlightRole={highlightRole}
+          compact
+          hideDescription
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

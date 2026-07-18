@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { Button } from "@/components/ui/button";
@@ -45,30 +45,31 @@ export default async function TwoPQAreaDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow="2PQ"
-        title={getTwoPQRecordTitle(area, detail.record)}
-        description={subtitle || `${translatedArea.label} ${t("detail and CRUD workbench.")}`}
-        actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href={area.route}>
-              <ArrowLeft className="h-3.5 w-3.5" />
-              {t("Back to")} {translatedArea.navLabel.toLowerCase()}
-            </Link>
-          </Button>
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow="2PQ"
+            title={getTwoPQRecordTitle(area, detail.record)}
+            description={subtitle || `${translatedArea.label} ${t("detail and CRUD workbench.")}`}
+            actions={
+              <Button variant="outline" size="sm" asChild>
+                <Link href={area.route}>
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t("Back to")} {translatedArea.navLabel.toLowerCase()}
+                </Link>
+              </Button>
+            }
+          />
         }
-      />
-      <HelperBanner title={translatedArea.helperTitle} tone="blue">
-        {t("This screen is connected to")} <code>{area.collectionKey}</code>.{" "}
-        {t("Replace writes the full record shape, update patches only changed fields, and delete removes the Firestore document.")}
-      </HelperBanner>
-      <TwoPQRecordWorkbench
-        areaKey={area.key}
-        detail={detail}
-        institutions={lookupData.institutions}
-        doctors={lookupData.doctors}
-        patients={lookupData.patients}
-      />
+      >
+        <TwoPQRecordWorkbench
+          areaKey={area.key}
+          detail={detail}
+          institutions={lookupData.institutions}
+          doctors={lookupData.doctors}
+          patients={lookupData.patients}
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

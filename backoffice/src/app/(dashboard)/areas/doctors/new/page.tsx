@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { HelperBanner } from "@/components/helper-banner";
 import { DoctorWorkbench } from "@/components/areas/doctor-workbench";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import type { InstitutionRecord } from "@/lib/admin-areas";
@@ -27,19 +27,21 @@ export default async function NewDoctorPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow={t("Areas")}
-        title={t("Create doctor")}
-        description={t("Create a doctor record tied to one institution. The rest of the doctor setup happens after the record exists.")}
-      />
-      <HelperBanner title={t("Pick the institution once, then manage from doctor detail.")} tone="blue">
-        {t("A doctor can read the whole institution later, but the institution link itself stays singular and explicit from creation onward.")}
-      </HelperBanner>
-      <DoctorWorkbench
-        mode="create"
-        institutions={institutions}
-        initialInstitutionId={institutionId}
-      />
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={t("Areas")}
+            title={t("Create doctor")}
+            description={t("Create a doctor record tied to one institution. The rest of the doctor setup happens after the record exists.")}
+          />
+        }
+      >
+        <DoctorWorkbench
+          mode="create"
+          institutions={institutions}
+          initialInstitutionId={institutionId}
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }

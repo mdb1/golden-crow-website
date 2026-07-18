@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, PlusCircle, ShieldUser } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { FormRequestedWarningDialog } from "@/components/form-requested-warning-dialog";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Button } from "@/components/ui/button";
 import { appText } from "@/lib/language";
 
@@ -19,7 +20,7 @@ export function AreaAccessEntry({
   createBlockedLinkLabel,
   createDisabledTitle = "The current role cannot create records on this screen.",
   title = "Primary actions",
-  description,
+  description: _description,
 }: {
   accessHref: string;
   createHref?: string;
@@ -36,22 +37,17 @@ export function AreaAccessEntry({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  void _description;
 
   return (
     <section className="glass-panel flex flex-col gap-4 px-5 py-5">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-primary">
-          <ShieldUser className="h-4 w-4" />
-          <p className="section-eyebrow">{t("Access")}</p>
-        </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">
             {t(title)}
           </h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            {t(description)}
-          </p>
         </div>
+        <HeaderUnclutterButton />
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row">

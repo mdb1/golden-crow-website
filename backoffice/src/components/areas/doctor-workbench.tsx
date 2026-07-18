@@ -9,6 +9,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { AreaDeleteDialog } from "@/components/areas/area-delete-dialog";
 import { OptionSelectField } from "@/components/constrained-fields";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -217,15 +218,12 @@ export function DoctorWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">{t("Areas")}</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
               {mode === "create" ? t("Create doctor") : t("Doctor workbench")}
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              {t("Doctors stay tied to one institution. The institution is selected on create, then the doctor detail becomes the main edit surface.")}
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <HeaderUnclutterButton />
             <Button
               variant="outline"
               size="sm"

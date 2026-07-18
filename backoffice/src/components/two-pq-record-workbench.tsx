@@ -30,6 +30,7 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { OptionSelectField } from "@/components/constrained-fields";
 import { FormRequestedWarningDialog } from "@/components/form-requested-warning-dialog";
+import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -5417,15 +5418,11 @@ export function TwoPQRecordWorkbench({
       <section className="glass-panel flex flex-col gap-4 px-5 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="section-eyebrow">2PQ</p>
             <h2 className="font-heading text-xl font-semibold text-foreground">
               {mode === "create"
                 ? area.createLabel
                 : `${area.label} ${t("workbench")}`}
             </h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              {area.summary}
-            </p>
           </div>
 
           <div className="flex flex-col items-start gap-3 lg:items-end">
@@ -5440,6 +5437,7 @@ export function TwoPQRecordWorkbench({
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2">
+              <HeaderUnclutterButton />
               <Button
                 variant="outline"
                 size="sm"

@@ -4,7 +4,10 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Shield, XCircle } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
-import { HelperBanner } from "@/components/helper-banner";
+import {
+  HeaderUnclutterButton,
+  HeaderUnclutterScope,
+} from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -462,90 +465,84 @@ export function RoleAssignmentCapabilitiesScreen({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow={t("Access")}
-        title={t("Role assignment capabilities")}
-        description={t(
-          "A role-by-role explainer for role assignment permissions, operating scope, and hard boundaries.",
-        )}
-        actions={
-          <Button variant="outline" size="sm" asChild>
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow={t("Access")}
+            title={t("Role assignment capabilities")}
+            description={t(
+              "A role-by-role explainer for role assignment permissions, operating scope, and hard boundaries.",
+            )}
+            actions={
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/roles">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t("Back to roles")}
+                </Link>
+              </Button>
+            }
+          />
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
             <Link href="/roles">
               <ArrowLeft className="h-3.5 w-3.5" />
               {t("Back to roles")}
             </Link>
           </Button>
-        }
-      />
-
-      <HelperBanner
-        title={t(
-          "Checks mark allowed actions. Crosses call out the hard boundary.",
-        )}
-        tone="blue"
-      >
-        {t(
-          "Use this screen before creating or editing a role assignment so the scope, the allowed role types, and the blocked actions stay explicit.",
-        )}
-      </HelperBanner>
-
-      <section className="glass-panel flex flex-col gap-4 px-5 py-5">
-        <div className="flex flex-col gap-1">
-          <p className="section-eyebrow">{t("Tabs")}</p>
-          <h2 className="font-heading text-xl font-semibold text-foreground">
-            {t(
-              hasSingleVisibleRole
-                ? "Current role assignment lane"
-                : "Role assignment lanes",
-            )}
-          </h2>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {t(
-              hasSingleVisibleRole
-                ? "Only your current role lane is visible from this account."
-                : "Each tab explains the scope and operating limits for one role assignment type.",
-            )}
-          </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {visibleRoleTabs.map((role) => {
-            const isActive = role === activeEntry.role;
-
-            return (
-              <Button
-                key={role}
-                variant={isActive ? "default" : "outline"}
-                size="sm"
-                asChild
-              >
-                <Link href={`/roles/access?role=${role}`}>
-                  {t(ADMIN_ROLE_LABELS[role])}
-                </Link>
-              </Button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
-        <article className="glass-panel flex flex-col gap-4 px-5 py-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={roleBadgeVariants[activeEntry.role]}>
-              {t(ADMIN_ROLE_LABELS[activeEntry.role])}
-            </Badge>
-            {activeEntry.role === currentRole ? (
-              <Badge variant="secondary">{t("Current role")}</Badge>
-            ) : null}
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em]",
-                activeScope.className,
+        <section className="glass-panel flex flex-col gap-4 px-5 py-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <h2 className="font-heading text-xl font-semibold text-foreground">
+              {t(
+                hasSingleVisibleRole
+                  ? "Current role assignment lane"
+                  : "Role assignment lanes",
               )}
-            >
-              {t(activeScope.label)}
-            </span>
+            </h2>
+            <HeaderUnclutterButton />
           </div>
+
+          <div className="flex flex-wrap gap-2">
+            {visibleRoleTabs.map((role) => {
+              const isActive = role === activeEntry.role;
+
+              return (
+                <Button
+                  key={role}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  asChild
+                >
+                  <Link href={`/roles/access?role=${role}`}>
+                    {t(ADMIN_ROLE_LABELS[role])}
+                  </Link>
+                </Button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+          <article className="glass-panel flex flex-col gap-4 px-5 py-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={roleBadgeVariants[activeEntry.role]}>
+                {t(ADMIN_ROLE_LABELS[activeEntry.role])}
+              </Badge>
+              {activeEntry.role === currentRole ? (
+                <Badge variant="secondary">{t("Current role")}</Badge>
+              ) : null}
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em]",
+                  activeScope.className,
+                )}
+              >
+                {t(activeScope.label)}
+              </span>
+            </div>
 
           <p className="text-sm text-muted-foreground">
             {t(ADMIN_ROLE_DESCRIPTIONS[activeEntry.role])}
@@ -669,6 +666,7 @@ export function RoleAssignmentCapabilitiesScreen({
           </div>
         </section>
       </section>
+      </HeaderUnclutterScope>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AreaAccessEntry } from "@/components/area-access-entry";
-import { HelperBanner } from "@/components/helper-banner";
+import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { TwoPQAreaBrowser } from "@/components/two-pq-area-browser";
 import { getAdminContextServer } from "@/lib/admin-context-server";
@@ -52,40 +52,38 @@ export default async function TwoPQAreaPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHero
-        eyebrow="2PQ"
-        title={translatedArea.label}
-        description={translatedArea.summary}
-      />
-      <HelperBanner title={translatedArea.helperTitle} tone="blue">
-        {translatedArea.helperBody} {t("Live documents in")}{" "}
-        <code>{area.collectionKey}</code>{" "}
-        {t(
-          "stay scoped to the same institution, doctor, and patient permission lanes already enforced by the SDK.",
-        )}
-      </HelperBanner>
-      <AreaAccessEntry
-        accessHref={`${area.route}/access`}
-        createHref={`${area.route}/new`}
-        canCreate={canCreate && !directCreateRequiresForm}
-        createLabel={translatedArea.createLabel}
-        createBlockedAlert={
-          directCreateRequiresForm
-            ? "These entities cannot be created directly. They must be requested through the corresponding form."
-            : undefined
+      <HeaderUnclutterScope
+        header={
+          <PageHero
+            eyebrow="2PQ"
+            title={translatedArea.label}
+            description={translatedArea.summary}
+          />
         }
-        createBlockedTitle="Use the corresponding form"
-        createBlockedLinkHref="/2pq-dashboard"
-        createBlockedLinkLabel="Go to 2PQ dashboard"
-        description={t(
-          "Access review and record creation now start from their own dedicated screens instead of this main area page.",
-        )}
-      />
-      <TwoPQAreaBrowser
-        areaKey={area.key}
-        initialRecords={records}
-        createdId={createdId}
-      />
+      >
+        <AreaAccessEntry
+          accessHref={`${area.route}/access`}
+          createHref={`${area.route}/new`}
+          canCreate={canCreate && !directCreateRequiresForm}
+          createLabel={translatedArea.createLabel}
+          createBlockedAlert={
+            directCreateRequiresForm
+              ? "These entities cannot be created directly. They must be requested through the corresponding form."
+              : undefined
+          }
+          createBlockedTitle="Use the corresponding form"
+          createBlockedLinkHref="/2pq-dashboard"
+          createBlockedLinkLabel="Go to 2PQ dashboard"
+          description={t(
+            "Access review and record creation now start from their own dedicated screens instead of this main area page.",
+          )}
+        />
+        <TwoPQAreaBrowser
+          areaKey={area.key}
+          initialRecords={records}
+          createdId={createdId}
+        />
+      </HeaderUnclutterScope>
     </div>
   );
 }
