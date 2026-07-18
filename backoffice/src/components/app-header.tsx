@@ -77,7 +77,7 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   const metadata = getChromeMetadata(pathname);
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [pendingProjectSwitch, setPendingProjectSwitch] = useState(false);
-  const hideChromeTitle =
+  const compactChromeTitle =
     pathname.startsWith("/areas") ||
     pathname.startsWith("/2pq-dashboard") ||
     pathname.startsWith("/roles");
@@ -152,7 +152,11 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-4" />
         <div className="min-w-0 flex-1">
-          {!hideChromeTitle ? (
+          {compactChromeTitle ? (
+            <h1 className="truncate font-heading text-lg font-semibold text-foreground">
+              {translatedMetadata.title}
+            </h1>
+          ) : (
             <>
               <p className="section-eyebrow">{translatedMetadata.eyebrow}</p>
               <div className="flex min-w-0 flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-3">
@@ -164,7 +168,7 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
                 </p>
               </div>
             </>
-          ) : null}
+          )}
         </div>
         <div className="flex items-center gap-3">
           <AppearanceToggle />

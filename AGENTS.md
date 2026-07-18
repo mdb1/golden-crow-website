@@ -10,7 +10,7 @@
 ## Header Uncluttering
 
 - Header uncluttering is the required cleanup for operational dashboard screens whose top chrome repeats the same area/title/context in the navbar, a page hero, helper banners, and the first workbench/list card.
-- On uncluttered screens, keep the navbar title area empty for the affected route family; navigation, account, language, theme, and sign-out controls must remain visible.
+- On uncluttered screens, the navbar must show only the main route title. Hide navbar eyebrows and secondary gray descriptions for the affected route family; navigation, account, language, theme, and sign-out controls must remain visible.
 - Keep the original page hero code mounted but hidden by default. Add a small icon-only info button in the first operational panel so users can reveal or hide that header context on demand.
 - Remove or permanently hide decorative helper banners and repeated explanatory copy above the actual inputs, filters, tables, or action buttons. Do not remove validation messages, warning/error banners, empty states, field labels, field descriptions that clarify an input, or any user action.
 - The first operational panel should show only the functional title and controls needed to work. Do not show repeated eyebrows such as `Areas`, `Access`, or `2PQ` there unless they are part of a table, filter, record value, or other non-header data.
