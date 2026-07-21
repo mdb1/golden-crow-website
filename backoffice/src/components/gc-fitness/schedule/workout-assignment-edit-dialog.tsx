@@ -53,7 +53,16 @@ import {
   getAssignmentDetail,
   type AssignmentDetail,
 } from "@/lib/gc-fitness/schedule-month-actions";
-import { editAssignmentExercises } from "@/lib/gc-fitness/workout-assignment-actions";
+import {
+  editAssignmentExercises,
+  editAssignmentRecurrence,
+} from "@/lib/gc-fitness/workout-assignment-actions";
+import {
+  addCivilMonths,
+  END_DATE_PRESET_MONTHS,
+  inferEndDatePresetMonths,
+  type EndDatePresetMonths,
+} from "@/lib/gc-fitness/end-date-presets";
 
 interface WorkoutAssignmentEditDialogProps {
   open: boolean;
@@ -62,6 +71,13 @@ interface WorkoutAssignmentEditDialogProps {
   /** Fired after a successful save so the parent can invalidate the calendar. */
   onSaved: () => void;
 }
+
+type RecurrenceRule =
+  | { kind: "daily" }
+  | { kind: "weekly"; weekday: number }
+  | { kind: "weekly_days"; weekdays: number[] }
+  | { kind: "every_n_days"; everyN: number }
+  | { kind: "monthly"; dayOfMonth: number };
 
 interface SetRow {
   reps: string;
@@ -122,6 +138,50 @@ function makeRowId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+const CIVIL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function initialEndDateForSeries(data: AssignmentDetail | undefined): string {
+  if (!data) return "";
+  return data.seriesEndDate &&
+    CIVIL_DATE_RE.test(data.seriesEndDate) &&
+    data.seriesEndDate >= data.scheduledFor
+    ? data.seriesEndDate
+    : data.scheduledFor;
+}
+
+function normalizeRecurrenceRule(
+  recurrence: Record<string, unknown> | null,
+): RecurrenceRule | null {
+  if (!recurrence) return null;
+  const kind = recurrence.kind;
+  if (kind === "daily") return { kind: "daily" };
+  if (kind === "weekly") {
+    const weekday = Number(recurrence.weekday);
+    return Number.isInteger(weekday) && weekday >= 0 && weekday <= 6
+      ? { kind: "weekly", weekday }
+      : null;
+  }
+  if (kind === "weekly_days" && Array.isArray(recurrence.weekdays)) {
+    const weekdays = recurrence.weekdays
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+    return weekdays.length > 0 ? { kind: "weekly_days", weekdays } : null;
+  }
+  if (kind === "every_n_days") {
+    const everyN = Number(recurrence.everyN);
+    return Number.isInteger(everyN) && everyN >= 2 && everyN <= 30
+      ? { kind: "every_n_days", everyN }
+      : null;
+  }
+  if (kind === "monthly") {
+    const dayOfMonth = Number(recurrence.dayOfMonth);
+    return Number.isInteger(dayOfMonth) && dayOfMonth >= 1 && dayOfMonth <= 31
+      ? { kind: "monthly", dayOfMonth }
+      : null;
+  }
+  return null;
+}
+
 function exerciseName(ex: AssignmentDetail["exercises"][number]): { en: string; es: string } {
   return { en: ex.exerciseName, es: "" };
 }
@@ -170,6 +230,9 @@ export function WorkoutAssignmentEditDialog({
 }: WorkoutAssignmentEditDialogProps) {
   const [drafts, setDrafts] = useState<ExerciseDraftRow[]>([]);
   const [scope, setScope] = useState<"one" | "series">("one");
+  const [seriesEndDate, setSeriesEndDate] = useState("");
+  const [seriesEndPresetMonths, setSeriesEndPresetMonths] =
+    useState<EndDatePresetMonths | null>(null);
   const [saving, setSaving] = useState(false);
   const { data: exerciseLibrary } = useExercisesQuery();
 
@@ -189,13 +252,29 @@ export function WorkoutAssignmentEditDialog({
 
   // Seed the editable drafts once the detail loads (and reset on reopen).
   useEffect(() => {
-    if (data) setDrafts(seedDraftRows(data.exercises));
+    if (!data) return;
+    setDrafts(seedDraftRows(data.exercises));
+    const nextEndDate = initialEndDateForSeries(data);
+    setSeriesEndDate(nextEndDate);
+    setSeriesEndPresetMonths(
+      inferEndDatePresetMonths(data.scheduledFor, nextEndDate),
+    );
   }, [data]);
   useEffect(() => {
-    if (!open) setScope("one");
+    if (!open) {
+      setScope("one");
+      setSeriesEndDate("");
+      setSeriesEndPresetMonths(null);
+    }
   }, [open]);
 
   const isSeries = Boolean(data?.seriesId || data?.recurrence);
+  const initialSeriesEndDate = initialEndDateForSeries(data);
+  const seriesEndDateChanged =
+    isSeries &&
+    scope === "series" &&
+    seriesEndDate !== "" &&
+    seriesEndDate !== initialSeriesEndDate;
 
   const exercises = useMemo(() => drafts, [drafts]);
 
@@ -358,16 +437,49 @@ export function WorkoutAssignmentEditDialog({
       toast.error("Elegí un ejercicio para cada fila antes de guardar.");
       return;
     }
+    if (isSeries && scope === "series") {
+      if (!CIVIL_DATE_RE.test(seriesEndDate)) {
+        toast.error("Elegí una fecha de fin válida.");
+        return;
+      }
+      if (data && seriesEndDate < data.scheduledFor) {
+        toast.error("La fecha de fin debe ser igual o posterior a esta fecha.");
+        return;
+      }
+      if (
+        seriesEndDateChanged &&
+        !normalizeRecurrenceRule(data?.recurrence ?? null)
+      ) {
+        toast.error("No se pudo leer la recurrencia actual de la serie.");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const result = await editAssignmentExercises(assignmentId, {
         scope,
         exercises: buildPayload(),
       });
+      let recurrenceCreatedCount: number | null = null;
+      if (data && seriesEndDateChanged) {
+        const recurrence = normalizeRecurrenceRule(data.recurrence);
+        if (!recurrence) {
+          throw new Error("No se pudo leer la recurrencia actual de la serie.");
+        }
+        const recurrenceResult = await editAssignmentRecurrence(assignmentId, {
+          recurrence,
+          endDate: seriesEndDate,
+        });
+        recurrenceCreatedCount = recurrenceResult.createdCount;
+      }
       toast.success(
-        result.updatedCount === 1
-          ? "Workout actualizado"
-          : `${result.updatedCount} ocurrencias actualizadas`,
+        recurrenceCreatedCount !== null
+          ? `Workout actualizado · ${recurrenceCreatedCount} ${
+              recurrenceCreatedCount === 1 ? "fecha" : "fechas"
+            } en la serie.`
+          : result.updatedCount === 1
+            ? "Workout actualizado"
+            : `${result.updatedCount} ocurrencias actualizadas`,
       );
       onSaved();
     } catch (err) {
@@ -787,33 +899,98 @@ export function WorkoutAssignmentEditDialog({
 
         <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {isSeries ? (
-            <div className="flex flex-col gap-1.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground">
-                Aplicar a
-              </span>
-              <div className="inline-flex rounded-lg border p-0.5">
-                {(
-                  [
-                    ["one", "Solo este día"],
-                    ["series", "Toda la serie (futuros)"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setScope(value)}
-                    className={cn(
-                      "rounded-md px-3 py-1 text-xs font-medium transition",
-                      scope === value
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
+            <div className="flex max-w-full flex-col gap-3 text-sm">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Aplicar a
+                </span>
+                <div className="inline-flex w-fit max-w-full self-start rounded-lg border p-0.5">
+                  {(
+                    [
+                      ["one", "Solo este día"],
+                      ["series", "Toda la serie (futuros)"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setScope(value)}
+                      className={cn(
+                        "whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition",
+                        scope === value
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {scope === "series" ? (
+                <div className="flex max-w-md flex-col gap-2 rounded-lg border bg-muted/30 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      className="text-xs font-medium text-muted-foreground"
+                      htmlFor="assignment-series-end-date"
+                    >
+                      Fecha de fin de la serie
+                    </label>
+                    {seriesEndDateChanged ? (
+                      <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        Se actualizará
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {END_DATE_PRESET_MONTHS.map((months) => {
+                      const presetDate = data
+                        ? addCivilMonths(data.scheduledFor, months)
+                        : "";
+                      const active =
+                        seriesEndPresetMonths === months &&
+                        seriesEndDate === presetDate;
+                      return (
+                        <Button
+                          key={months}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          className="h-7 rounded-full px-2 text-xs"
+                          aria-pressed={active}
+                          disabled={!data}
+                          onClick={() => {
+                            setSeriesEndPresetMonths(months);
+                            setSeriesEndDate(presetDate);
+                          }}
+                        >
+                          {months} meses
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <input
+                    id="assignment-series-end-date"
+                    type="date"
+                    value={seriesEndDate}
+                    min={data?.scheduledFor ?? ""}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setSeriesEndDate(next);
+                      setSeriesEndPresetMonths(
+                        data
+                          ? inferEndDatePresetMonths(data.scheduledFor, next)
+                          : null,
+                      );
+                    }}
+                    className="h-9 rounded-md border bg-background px-2 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Reprograma las ocurrencias futuras hasta esta fecha inclusive.
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : (
             <span />
