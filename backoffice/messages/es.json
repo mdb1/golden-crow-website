@@ -278,7 +278,38 @@
       "rangeAll": "Todo",
       "range90": "90d",
       "range30": "30d",
-      "range7": "7d"
+      "range7": "7d",
+      "muscleGroups": {
+        "sectionTitle": "Grupos musculares",
+        "sectionSubtitle": "Series y volumen semanales por grupo muscular. Cada serie cuenta completa para el músculo principal y media para cada secundario.",
+        "setsTitle": "Series por grupo muscular",
+        "volumeTitle": "Volumen por grupo muscular",
+        "volumeUnit": "kg",
+        "setsReadout": "{sets} series esta semana",
+        "selectHint": "Elegí grupos musculares arriba para compararlos.",
+        "empty": "Este cliente todavía no registró series completadas.",
+        "footnote": "Cada serie cuenta 1 para el músculo principal y ½ para cada músculo secundario. Las series de calentamiento se excluyen.",
+        "config": {
+          "title": "Zona objetivo de series",
+          "a11y": "Configurar zona objetivo de series",
+          "description": "Resalta una franja verde en el gráfico de series: las series semanales por grupo muscular que buscás. 12–20 es un rango común para hipertrofia.",
+          "min": "Mínimo",
+          "max": "Máximo",
+          "reset": "Restablecer a 12–20"
+        },
+        "info": {
+          "title": "Cómo se cuentan las series",
+          "a11y": "Cómo se cuentan las series",
+          "countingTitle": "Principal vs. secundario",
+          "countingBody": "Cada serie cuenta completa (1) para el músculo principal del ejercicio y media (½) para cada músculo secundario que trabaja.",
+          "exampleTitle": "Ejemplo",
+          "exampleBody": "Una serie de press de banca suma 1 serie de pecho, ½ de tríceps y ½ de hombros.",
+          "zoneTitle": "La zona verde",
+          "zoneBody": "La franja verde es el objetivo semanal de series por músculo (por defecto 12–20, un rango habitual para crecimiento muscular).",
+          "sourceTitle": "¿Por qué media serie?",
+          "sourceBody": "Contar los músculos secundarios como media serie predijo el crecimiento muscular mejor que cualquier otro método en un análisis de 67 estudios."
+        }
+      }
     },
     "detail": {
       "heightLabel": "Altura: {value}",
@@ -1210,6 +1241,12 @@
       "muscleGroupsPlaceholder": "Elegí grupos musculares…",
       "muscleGroupsAria": "Grupos musculares",
       "muscleGroupsHint": "Elegí primero el músculo principal. Los secundarios van después.",
+      "primaryMuscleGroupLabel": "Músculo principal",
+      "primaryMuscleGroupPlaceholder": "Elegí el músculo principal…",
+      "primaryMuscleGroupHint": "El músculo protagonista. Cuenta como una serie completa en los gráficos de progreso.",
+      "secondaryMuscleGroupsLabel": "Músculos secundarios",
+      "secondaryMuscleGroupsPlaceholder": "Agregá músculos secundarios…",
+      "secondaryMuscleGroupsHint": "Músculos que asisten. Cada uno cuenta como media serie en los gráficos de progreso.",
       "equipmentLabel": "Equipamiento",
       "equipmentPlaceholder": "Elegí equipamiento…",
       "equipmentAria": "Equipamiento",

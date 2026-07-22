@@ -198,6 +198,14 @@ export const exerciseSchema = z.object({
     .array(muscleGroupSchema)
     .min(1, "Pick at least one muscle group.")
     .max(8),
+  // #480 — the PRIMARY mover (a canonical muscle-group tag). Drives the
+  // per-muscle-group progress charts' primary(1.0)/secondary(0.5) attribution
+  // weighting (twin of iOS `Exercise.primaryMuscleGroup`). Optional so every
+  // legacy / wger-seeded doc — which has `muscleGroups` but no explicit primary
+  // — still parses; those fall back to the anatomy heuristic over
+  // `secondaryMuscles`. The form writes `muscleGroups = [primary, ...secondary]`
+  // so the primary is always also present in `muscleGroups`.
+  primaryMuscleGroup: muscleGroupSchema.optional(),
   equipment: equipmentListSchema,
   mediaURL: gsUrlSchema,
   thumbnailURL: thumbnailUrlSchema,

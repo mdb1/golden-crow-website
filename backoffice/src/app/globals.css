@@ -239,6 +239,18 @@
     --input: #1a1e26;
     --ring: rgba(211, 168, 78, 0.6);
     --chart-1: #d3a84e;
+    /* #480 — 7 distinct categorical colors for the muscle-group charts (one
+       overlaid line per coarse group). Tuned for legibility on the dark canvas
+       (#0e1016). Mirrors the iOS `muscleGroupColor(_:)` intent. */
+    --gc-muscle-back: #5b9dff;
+    --gc-muscle-chest: #ff6b6b;
+    --gc-muscle-biceps: #c08bff;
+    --gc-muscle-triceps: #ffa94d;
+    --gc-muscle-shoulders: #34c9c9;
+    --gc-muscle-legs: #51cf66;
+    --gc-muscle-core: #ffd43b;
+    /* Green "target zone" band on the sets chart (12–20 sets/week default). */
+    --gc-target-zone: #51cf66;
     --sidebar: #14171e;
     --sidebar-foreground: #aab2c0;
     --sidebar-primary: #d3a84e;
@@ -281,6 +293,18 @@
     --input: #f4f5f7;
     --ring: rgba(195, 152, 46, 0.5);
     --chart-1: #c3982e;
+    /* #480 — muscle-group categorical palette, darkened for legibility on the
+       light canvas (white cards). Yellow/teal are deepened so they don't wash
+       out on white. */
+    --gc-muscle-back: #2e7be0;
+    --gc-muscle-chest: #e03b3b;
+    --gc-muscle-biceps: #8b4fe0;
+    --gc-muscle-triceps: #d9741a;
+    --gc-muscle-shoulders: #0f8f8f;
+    --gc-muscle-legs: #2f9e44;
+    --gc-muscle-core: #a67c00;
+    /* Green "target zone" band on the sets chart (12–20 sets/week default). */
+    --gc-target-zone: #2f9e44;
     --sidebar: #ffffff;
     /* Inactive nav / labels: darkened a touch for legibility. */
     --sidebar-foreground: #4d5667;

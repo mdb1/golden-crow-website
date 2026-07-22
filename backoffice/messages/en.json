@@ -278,7 +278,38 @@
       "rangeAll": "All",
       "range90": "90d",
       "range30": "30d",
-      "range7": "7d"
+      "range7": "7d",
+      "muscleGroups": {
+        "sectionTitle": "Muscle groups",
+        "sectionSubtitle": "Weekly sets and volume per muscle group. Each set counts fully for its primary muscle and half for each secondary.",
+        "setsTitle": "Sets by muscle group",
+        "volumeTitle": "Volume by muscle group",
+        "volumeUnit": "kg",
+        "setsReadout": "{sets} sets this week",
+        "selectHint": "Select muscle groups above to compare them.",
+        "empty": "This client hasn't logged any completed sets yet.",
+        "footnote": "Each set counts as 1 for the primary muscle and ½ for each secondary muscle. Warm-up sets are excluded.",
+        "config": {
+          "title": "Sets target zone",
+          "a11y": "Configure sets target zone",
+          "description": "Highlights a green band on the sets chart — the weekly sets per muscle group you're aiming for. 12–20 is a common hypertrophy range.",
+          "min": "Minimum",
+          "max": "Maximum",
+          "reset": "Reset to 12–20"
+        },
+        "info": {
+          "title": "How sets are counted",
+          "a11y": "How sets are counted",
+          "countingTitle": "Primary vs. secondary",
+          "countingBody": "Each set counts as a full set (1) for the exercise's primary muscle and half a set (½) for each secondary muscle it works.",
+          "exampleTitle": "Example",
+          "exampleBody": "One set of bench press adds 1 set for chest, ½ for triceps and ½ for shoulders.",
+          "zoneTitle": "The green zone",
+          "zoneBody": "The green band is the weekly sets target per muscle (default 12–20, a common range for muscle growth).",
+          "sourceTitle": "Why half a set?",
+          "sourceBody": "Counting secondary muscles as half a set predicted muscle growth better than any other method across a 67-study analysis."
+        }
+      }
     },
     "detail": {
       "heightLabel": "Height: {value}",
@@ -1210,6 +1241,12 @@
       "muscleGroupsPlaceholder": "Pick muscle groups…",
       "muscleGroupsAria": "Muscle groups",
       "muscleGroupsHint": "Pick the primary muscle first. Secondary muscles follow.",
+      "primaryMuscleGroupLabel": "Primary muscle",
+      "primaryMuscleGroupPlaceholder": "Pick the primary muscle…",
+      "primaryMuscleGroupHint": "The main mover. Counts as a full set in progress charts.",
+      "secondaryMuscleGroupsLabel": "Secondary muscles",
+      "secondaryMuscleGroupsPlaceholder": "Add secondary muscles…",
+      "secondaryMuscleGroupsHint": "Assisting muscles. Each counts as half a set in progress charts.",
       "equipmentLabel": "Equipment",
       "equipmentPlaceholder": "Pick equipment…",
       "equipmentAria": "Equipment",

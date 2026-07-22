@@ -25,6 +25,7 @@ import { getClientExerciseProgress } from "@/lib/gc-fitness/exercise-progress-ac
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { addCivilDays } from "../_components/trend-range";
 import { ExerciseProgressClient } from "./ExerciseProgressClient";
+import { MuscleGroupProgressClient } from "./MuscleGroupProgressClient";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "GC Fitness - <clients>" (issue #170).
@@ -82,7 +83,8 @@ export default async function ClientExerciseProgressPage({
 
   const t = await getTranslations("clients.exerciseProgress");
 
-  const { exercises, points } = await getClientExerciseProgress(id, timezone);
+  const { exercises, points, muscleGroupWeeks, availableMuscleGroups } =
+    await getClientExerciseProgress(id, timezone);
 
   // Anchor each range to today so the local filter windows match the other
   // client-detail trend widgets.
@@ -130,6 +132,13 @@ export default async function ClientExerciseProgressPage({
             "7": t("range7"),
           },
         }}
+      />
+
+      <MuscleGroupProgressClient
+        weeks={muscleGroupWeeks}
+        availableGroups={availableMuscleGroups}
+        today={today}
+        rangeStarts={rangeStarts}
       />
     </div>
   );

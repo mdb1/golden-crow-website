@@ -164,6 +164,9 @@ export function QuickCreateExercise({
         name: localizedName,
         description: localizedDescription,
         muscleGroups: [muscleGroup],
+        // #480 — the single picked muscle is this exercise's PRIMARY mover, so
+        // it weights as a full set in the coach's muscle-group progress charts.
+        primaryMuscleGroup: muscleGroup,
         equipment: [equipment],
         thumbnailURL: gifUrl.trim() || null,
         source: "trainer",
