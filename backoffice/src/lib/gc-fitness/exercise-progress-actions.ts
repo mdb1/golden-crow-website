@@ -27,7 +27,11 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
-import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
+import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
+import {
+  COARSE_MUSCLE_GROUPS,
+  coarseWeights,
+} from "@/lib/gc-fitness/muscle-group-display";
 
 /** A distinct exercise that appears in the client's logged history. */
 export interface LoggedExerciseOption {
@@ -56,10 +60,75 @@ export interface ExerciseSessionPoint {
   volumeKg: number;
 }
 
+/**
+ * #480 — one WEEK bucket of the muscle-group breakdown. `byGroup` is keyed by
+ * COARSE muscle group (see muscle-group-display.ts); `sets` is the weighted set
+ * count (primary 1.0 / secondary 0.5) and `volume` the weighted Σ kg for that
+ * group in the Monday-anchored week starting `weekStart`. Only groups with data
+ * appear in `byGroup`. Weeks are contiguous (zero-filled) from the earliest
+ * trained week to the current week, so the overlaid lines stay continuous.
+ */
+export interface MuscleGroupWeekPoint {
+  /** YYYY-MM-DD of the Monday that starts this week (client timezone). */
+  weekStart: string;
+  byGroup: Record<string, { sets: number; volume: number }>;
+}
+
 export interface ClientExerciseProgress {
   clientId: string;
   exercises: LoggedExerciseOption[];
   points: ExerciseSessionPoint[];
+  /**
+   * #480 — weekly weighted sets + volume per coarse muscle group, for the
+   * muscle-group comparison charts. Empty when the client has logged no
+   * completed working sets in the window.
+   */
+  muscleGroupWeeks: MuscleGroupWeekPoint[];
+  /** Coarse groups with any data in the window, in `COARSE_MUSCLE_GROUPS` order. */
+  availableMuscleGroups: string[];
+}
+
+/** Firestore reserved-id guard — `.doc(id)` throws on ids matching /^__.*__$/. */
+function isReservedId(id: string): boolean {
+  return /^__.*__$/.test(id);
+}
+
+/**
+ * Monday that starts the week containing `civilDate` (YYYY-MM-DD). Anchored at
+ * UTC noon so the weekday math never trips a DST boundary. Week starts Monday
+ * (matches DashboardAggregator.weekStart across all surfaces).
+ */
+function civilWeekStart(civilDate: string): string {
+  const parts = civilDate.split("-");
+  if (parts.length !== 3) return civilDate;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return civilDate;
+  }
+  const noon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  // getUTCDay(): 0=Sun … 6=Sat. Days since Monday = (day + 6) % 7.
+  const sinceMonday = (noon.getUTCDay() + 6) % 7;
+  noon.setUTCDate(noon.getUTCDate() - sinceMonday);
+  const yy = String(noon.getUTCFullYear()).padStart(4, "0");
+  const mm = String(noon.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(noon.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/** `civilDate` shifted by `delta` days (UTC-noon anchored). */
+function shiftCivilDays(civilDate: string, delta: number): string {
+  const parts = civilDate.split("-");
+  if (parts.length !== 3) return civilDate;
+  const noon = new Date(
+    Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0),
+  );
+  noon.setUTCDate(noon.getUTCDate() + delta);
+  const yy = String(noon.getUTCFullYear()).padStart(4, "0");
+  const mm = String(noon.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(noon.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 const MAX_LOOKBACK_DAYS = 365;
@@ -113,7 +182,13 @@ export async function getClientExerciseProgress(
     .doc(clientId)
     .get();
   if (!clientSnap.exists || clientSnap.get("coachId") !== trainer.uid) {
-    return { clientId, exercises: [], points: [] };
+    return {
+      clientId,
+      exercises: [],
+      points: [],
+      muscleGroupWeeks: [],
+      availableMuscleGroups: [],
+    };
   }
 
   const windowStartDate = new Date(
@@ -135,6 +210,17 @@ export async function getClientExerciseProgress(
     string,
     { name: string; sessionCount: number; hasData: boolean }
   >();
+
+  // #480 — every completed NON-warmup set (bodyweight included), tagged with its
+  // session civil date + per-set volume, for the muscle-group aggregation. The
+  // exercise→muscle-group join happens after the batched exercise read below.
+  interface MuscleSetInput {
+    date: string;
+    exerciseId: string;
+    volumeKg: number;
+  }
+  const muscleSetInputs: MuscleSetInput[] = [];
+  const muscleExerciseIds = new Set<string>();
 
   for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
@@ -189,6 +275,23 @@ export async function getClientExerciseProgress(
 
       const weight = numeric(s.weight_kg ?? s.weight);
       const reps = numeric(s.reps);
+
+      // #480 — per-set volume for the muscle-group charts. Twin of
+      // WorkoutVolume.setVolumeKg: a TIME set (duration present) → weight ×
+      // (duration/60); otherwise → weight × reps. Bodyweight sets contribute 0
+      // volume but still COUNT as a set (weighted set-count is a separate tally).
+      const durRaw = s.duration_seconds ?? s.durationSeconds;
+      const hasDuration =
+        typeof durRaw === "number" ||
+        (typeof durRaw === "string" &&
+          durRaw.trim() !== "" &&
+          Number.isFinite(Number(durRaw)));
+      const setVolume = hasDuration
+        ? weight * (numeric(durRaw) / 60)
+        : weight * reps;
+      muscleSetInputs.push({ date, exerciseId: exId, volumeKg: setVolume });
+      muscleExerciseIds.add(exId);
+
       if (weight > 0) {
         acc.topWeight =
           acc.topWeight === null ? weight : Math.max(acc.topWeight, weight);
@@ -237,28 +340,59 @@ export async function getClientExerciseProgress(
   );
   const withDataIds = new Set(withData.map(([exId]) => exId));
 
-  // Muscle groups for the muscle-group filter. The logs don't carry them, so
-  // read the `exercises` docs for the (small, distinct) set of logged-with-data
-  // exercises in ONE batched getAll — bounded by the client's training variety
-  // (typically tens of docs), once per page load. Missing/deleted exercises
-  // resolve to no groups and simply won't match any group filter.
-  const muscleById = new Map<string, string[]>();
-  if (withData.length > 0) {
-    const refs = withData.map(([exId]) =>
+  // Muscle groups for BOTH the per-exercise picker filter AND the #480
+  // muscle-group charts. The logs don't carry muscle metadata, so read the
+  // `exercises` docs for the (small, distinct) set of logged exercises in ONE
+  // batched getAll — bounded by the client's training variety (typically tens
+  // of docs), once per page load. We pull `muscleGroups` (picker filter),
+  // `primaryMuscleGroup` + `secondaryMuscles` (the #480 attribution weighting).
+  // Missing/deleted exercises resolve to nothing and simply don't contribute.
+  interface ExerciseMuscleMeta {
+    muscleGroups: string[];
+    primaryMuscleGroup: string | null;
+    secondaryMuscles: string[];
+  }
+  const exerciseMetaById = new Map<string, ExerciseMuscleMeta>();
+  const neededIds = Array.from(
+    new Set<string>([...withDataIds, ...muscleExerciseIds]),
+  ).filter((id) => id.length > 0 && !isReservedId(id));
+  if (neededIds.length > 0) {
+    const refs = neededIds.map((exId) =>
       db.collection(FirestoreCollections.exercises).doc(exId),
     );
     const exerciseDocs = await db.getAll(...refs);
     for (const exDoc of exerciseDocs) {
       if (!exDoc.exists) continue;
-      const mg = exDoc.get("muscleGroups");
-      if (Array.isArray(mg)) {
-        muscleById.set(
-          exDoc.id,
-          mg.filter((v): v is string => typeof v === "string"),
-        );
-      }
+      const mgRaw = exDoc.get("muscleGroups");
+      const secRaw = exDoc.get("secondaryMuscles");
+      const primaryRaw = exDoc.get("primaryMuscleGroup");
+      exerciseMetaById.set(exDoc.id, {
+        muscleGroups: Array.isArray(mgRaw)
+          ? mgRaw.filter((v): v is string => typeof v === "string")
+          : [],
+        primaryMuscleGroup:
+          typeof primaryRaw === "string" && primaryRaw.trim()
+            ? primaryRaw
+            : null,
+        secondaryMuscles: Array.isArray(secRaw)
+          ? secRaw.filter((v): v is string => typeof v === "string")
+          : [],
+      });
     }
   }
+  const muscleById = new Map<string, string[]>();
+  for (const [exId, meta] of exerciseMetaById) {
+    if (meta.muscleGroups.length > 0) muscleById.set(exId, meta.muscleGroups);
+  }
+
+  // #480 — weekly weighted sets + volume per coarse muscle group. Bucket every
+  // collected set into its Monday-anchored week, spreading its weighted
+  // contribution across each coarse group its exercise trains.
+  const { muscleGroupWeeks, availableMuscleGroups } = buildMuscleGroupWeeks(
+    muscleSetInputs,
+    exerciseMetaById,
+    timezone,
+  );
 
   // Order exercises by how often they appear (most-trained first), then name.
   const exercises: LoggedExerciseOption[] = withData
@@ -277,5 +411,100 @@ export async function getClientExerciseProgress(
   // stays lean (those exercises can never be selected anyway).
   const leanPoints = points.filter((p) => withDataIds.has(p.exerciseId));
 
-  return { clientId, exercises, points: leanPoints };
+  return {
+    clientId,
+    exercises,
+    points: leanPoints,
+    muscleGroupWeeks,
+    availableMuscleGroups,
+  };
+}
+
+/**
+ * #480 — pure aggregation: fold the flat list of completed non-warmup sets into
+ * contiguous WEEK buckets of weighted sets + volume per coarse muscle group.
+ * Twin of MuscleGroupProgress.setsSeries / volumeSeries + the coarseWeights
+ * attribution (primary 1.0 / secondary 0.5).
+ *
+ * TODO(#480 — deferred): the iOS charts also append a ~4-week PROJECTION to the
+ * right of "today", built from upcoming `workout_assignments`'
+ * `templateSnapshot.exercises[].{sets, reps, weightBySetKg, metric,
+ * durationBySetSeconds}` (see ProgressPhotosViewModel.projectedContributions).
+ * That was intentionally left out of this backoffice pass to keep the PR
+ * focused on the actuals; add it by widening the read to the client's
+ * scheduled assignments (today → +5 weeks) and appending projected weekly
+ * buckets flagged so the client can dim them + draw a "today" divider.
+ */
+function buildMuscleGroupWeeks(
+  inputs: { date: string; exerciseId: string; volumeKg: number }[],
+  metaById: Map<
+    string,
+    { muscleGroups: string[]; primaryMuscleGroup: string | null; secondaryMuscles: string[] }
+  >,
+  timezone: string,
+): { muscleGroupWeeks: MuscleGroupWeekPoint[]; availableMuscleGroups: string[] } {
+  // weekStart → group → { sets, volume }
+  const byWeek = new Map<string, Map<string, { sets: number; volume: number }>>();
+  const groupsWithData = new Set<string>();
+
+  for (const input of inputs) {
+    const meta = metaById.get(input.exerciseId);
+    if (!meta) continue;
+    const weights = coarseWeights({
+      muscleGroups: meta.muscleGroups,
+      primaryMuscleGroup: meta.primaryMuscleGroup,
+      secondaryMuscles: meta.secondaryMuscles,
+    });
+    const groups = Object.keys(weights);
+    if (groups.length === 0) continue;
+
+    const week = civilWeekStart(input.date);
+    let weekMap = byWeek.get(week);
+    if (!weekMap) {
+      weekMap = new Map();
+      byWeek.set(week, weekMap);
+    }
+    for (const group of groups) {
+      const weight = weights[group];
+      groupsWithData.add(group);
+      const cell = weekMap.get(group) ?? { sets: 0, volume: 0 };
+      cell.sets += weight;
+      cell.volume += input.volumeKg * weight;
+      weekMap.set(group, cell);
+    }
+  }
+
+  if (byWeek.size === 0) {
+    return { muscleGroupWeeks: [], availableMuscleGroups: [] };
+  }
+
+  // Contiguous weekly axis from the earliest trained week to the current week
+  // (zero-filled) so the overlaid lines don't skip gaps. Bounded by the 365-day
+  // read window (≤ ~53 buckets).
+  const earliest = Array.from(byWeek.keys()).sort()[0];
+  const currentWeek = civilWeekStart(civilDateToday(timezone));
+  const weeks: MuscleGroupWeekPoint[] = [];
+  let cursor = earliest;
+  // Guard the loop against a bad `currentWeek < earliest` edge (shouldn't
+  // happen) and runaway iteration.
+  for (let i = 0; i < 60 && cursor <= currentWeek; i += 1) {
+    const weekMap = byWeek.get(cursor);
+    const byGroup: Record<string, { sets: number; volume: number }> = {};
+    if (weekMap) {
+      for (const [group, cell] of weekMap) {
+        byGroup[group] = {
+          sets: Math.round(cell.sets * 10) / 10,
+          volume: Math.round(cell.volume),
+        };
+      }
+    }
+    weeks.push({ weekStart: cursor, byGroup });
+    cursor = shiftCivilDays(cursor, 7);
+  }
+
+  const availableMuscleGroups = COARSE_MUSCLE_GROUPS.filter((g) =>
+    groupsWithData.has(g),
+  );
+
+  return { muscleGroupWeeks: weeks, availableMuscleGroups };
 }

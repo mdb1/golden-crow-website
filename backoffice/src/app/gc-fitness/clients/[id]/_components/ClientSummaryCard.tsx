@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { isHabitNotDeleted } from "@/lib/gc-fitness/habit-visibility";
 import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
 import { ClientSummaryLists } from "./ClientSummaryLists";
@@ -41,11 +42,17 @@ export async function ClientSummaryCard({
       .limit(80)
       .get()
       .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
+    // Issue #437/#400: fetch by clientId only; filter `deleted === true` in
+    // memory (isHabitNotDeleted) below. A `.where("deleted","==",false)`
+    // equality drops client-created habits that never write the field. PR #230.
+    // WR-03: the cap counts SOFT-DELETED docs too (soft-delete is the only
+    // delete path, so they accumulate over a client's lifetime) — raised
+    // 40 → 200 so live habits don't silently drop off the summary card;
+    // truncation warning below when the raw fetch hits the cap.
     db
       .collection(FirestoreCollections.habits)
       .where("clientId", "==", clientId)
-      .where("deleted", "==", false)
-      .limit(40)
+      .limit(200)
       .get()
       .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
   ]);
@@ -77,7 +84,17 @@ export async function ClientSummaryCard({
   const pastWorkouts = workouts.filter((row) => !row.isRecurring && row.scheduledFor < todayCivil);
   const workoutsGrouped = groupWorkouts(visibleWorkouts);
 
-  const habits = habitsSnap.docs.map((doc) => {
+  if (habitsSnap.docs.length >= 200) {
+    // WR-03: raw fetch filled the cap — soft-deleted docs consume the
+    // budget, so live habits may be missing from the card.
+    console.warn(
+      "[gc-fitness/client-summary] habit fetch hit its cap — live habits may be truncated",
+      { clientId, cap: 200 },
+    );
+  }
+  const habits = habitsSnap.docs
+    .filter((doc) => isHabitNotDeleted(doc.data() as Record<string, unknown>))
+    .map((doc) => {
     const data = doc.data() as Record<string, unknown>;
     return {
       id: doc.id,

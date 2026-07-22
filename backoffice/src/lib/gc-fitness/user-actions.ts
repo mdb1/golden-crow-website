@@ -60,6 +60,12 @@ import {
 } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import {
+  decideLinkOutcome,
+  LinkRefusedError,
+  type LinkOutcome,
+  type LinkRefusalMode,
+} from "./coach-link";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 
@@ -232,6 +238,38 @@ function fallbackName(email: string): string {
   return localPart || email;
 }
 
+/**
+ * D-02 refused-steal audit. A single support-triage server log line for a
+ * refused coach-link conflict. Deliberately NOT written to the coach-activity
+ * event log or the admin-operations log — those surface in the REQUESTING
+ * coach's My-Activity feed and would leak the other coach's identity (threat
+ * T-32-E2). The existingCoachId is safe ONLY here, in a server-side log line
+ * the requesting coach can never read.
+ */
+function logLinkConflictRefused(params: {
+  actorUid: string;
+  targetEmail: string;
+  targetUid: string | null;
+  existingCoachId: string;
+}): void {
+  console.warn("[gc-fitness/coach-link] link_conflict_refused", params);
+}
+
+/**
+ * CR-02 audit line for a refused trainer-target link attempt. Server-side
+ * console only — same T-32-E2 confinement as logLinkConflictRefused: this
+ * MUST NOT flow into the coach-activity event log, and the requesting coach
+ * only ever sees the mode-keyed banner copy (which names the typed email,
+ * never the fact that the doc belongs to a trainer's roster or claims).
+ */
+function logLinkTrainerTargetRefused(params: {
+  actorUid: string;
+  targetEmail: string;
+  targetUid: string | null;
+}): void {
+  console.warn("[gc-fitness/coach-link] link_trainer_target_refused", params);
+}
+
 async function trainerProfile(
   uid: string,
   email: string,
@@ -364,10 +402,22 @@ export async function updateClientNickname(
  * `/users/{uid}` and sets custom claims so the iOS app can read/write under
  * the normal client rules immediately. If the email does not exist yet, it
  * creates `/user_mirror/{email}` for the first-sign-in provisioning path.
+ *
+ * REFUSALS ARE RETURN VALUES, NOT THROWN ERRORS (CR-03): production Next.js
+ * masks Server-Action error messages (generic copy + digest), so a thrown
+ * localized message renders as a generic error exactly in the auto-deployed
+ * prod build. Expected refusals (conflict / self-add) come back as
+ * `{ ok: false, mode }`; the form maps the mode to client-side translated
+ * copy. The tx-internal throw is a sentinel (LinkRefusedError) whose only
+ * job is aborting the transaction before any write.
  */
-export async function provisionClient(
-  input: unknown,
-): Promise<{ ok: true; mode: "attached-existing-user" | "precreated-mirror" }> {
+export async function provisionClient(input: unknown): Promise<
+  | {
+      ok: true;
+      mode: "attached-existing-user" | "precreated-mirror" | "already-linked";
+    }
+  | { ok: false; mode: LinkRefusalMode }
+> {
   const session = await getCurrentTrainer();
   const parsed = provisionClientSchema.parse(input);
   const db = gcFitnessFirestore();
@@ -385,74 +435,229 @@ export async function provisionClient(
   }
 
   if (!authUser) {
-    await db.collection(FirestoreCollections.userMirror).doc(parsed.email).set(
-      {
-        email: parsed.email,
-        displayName,
-        coachId: session.uid,
-        coachDisplayName,
-        coachPhotoURL: coach.photoURL,
-        coachBio: coach.bio,
-        pre_created: true,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+    // MIRROR branch. A pre-existing `/user_mirror/{email}` owned by a DIFFERENT
+    // coach is a second silent-steal vector (Pitfall 1) — gate it read-before-
+    // write inside a transaction so a concurrent writer can't slip past.
+    const mirrorRef = db
+      .collection(FirestoreCollections.userMirror)
+      .doc(parsed.email);
+    let mirrorOutcomeKind: LinkOutcome["kind"];
+    try {
+      mirrorOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
+      async (tx) => {
+        const mirrorSnap = await tx.get(mirrorRef);
+        const outcome = decideLinkOutcome(
+          mirrorSnap.exists
+            ? (mirrorSnap.data() as {
+                coachId?: string | null;
+                autoAssignedCoach?: boolean;
+                role?: string | null;
+              })
+            : null,
+          session.uid,
+        );
+        if (outcome.kind === "trainerTarget") {
+          // CR-02: mirror docs shouldn't carry role, but if one ever does,
+          // refuse for the same reason as the /users branch below.
+          logLinkTrainerTargetRefused({
+            actorUid: session.uid,
+            targetEmail: parsed.email,
+            targetUid: null,
+          });
+          throw new LinkRefusedError("trainer-target");
+        }
+        if (outcome.kind === "conflict") {
+          logLinkConflictRefused({
+            actorUid: session.uid,
+            targetEmail: parsed.email,
+            targetUid: null,
+            existingCoachId: outcome.currentCoachId,
+          });
+          // Sentinel throw INSIDE the tx → aborts before any write (CR-03:
+          // caught below and converted to a { ok: false } result — the
+          // message never travels to the browser, so prod masking is moot).
+          throw new LinkRefusedError("conflict");
+        }
+        if (outcome.kind === "alreadyYours") {
+          return "alreadyYours"; // no write — friendly no-op surfaced below
+        }
+        tx.set(
+          mirrorRef,
+          {
+            email: parsed.email,
+            displayName,
+            coachId: session.uid,
+            coachDisplayName,
+            coachPhotoURL: coach.photoURL,
+            coachBio: coach.bio,
+            // CR-01: a claimed doc is no longer a stray. Without this delete,
+            // `merge: true` preserves `autoAssignedCoach: true` and rule (3)
+            // of decideLinkOutcome keeps the claimed target silently
+            // stealable by any other coach. (The migration's other stray
+            // fields — coachDisplayName/PhotoURL/Bio — are overwritten above.)
+            autoAssignedCoach: FieldValue.delete(),
+            pre_created: true,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return "link";
       },
-      { merge: true },
-    );
+      );
+    } catch (err) {
+      if (err instanceof LinkRefusedError) {
+        return { ok: false, mode: err.mode };
+      }
+      throw err;
+    }
+    if (mirrorOutcomeKind === "alreadyYours") {
+      return { ok: true, mode: "already-linked" };
+    }
     revalidateTag("gc-fitness-roster", "max");
     return { ok: true, mode: "precreated-mirror" };
   }
 
   if (authUser.uid === session.uid) {
-    throw new Error("You cannot add yourself as a client.");
+    // CR-03: expected refusal → result, not a thrown (prod-masked) message.
+    return { ok: false, mode: "self" };
   }
 
+  // EXISTING-USER branch. Read-before-write the /users doc INSIDE the tx and
+  // refuse a different-coach conflict. Claims are set only AFTER the tx commits
+  // (below) so a refusal/abort can never leave claims pointing at a client
+  // whose doc was never written (threat T-32-DIVERGE).
+  const userRef = db.collection(FirestoreCollections.users).doc(authUser.uid);
+  const chatRef = db.collection(FirestoreCollections.chats).doc(authUser.uid);
+  let userOutcomeKind: LinkOutcome["kind"];
+  try {
+    userOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
+    async (tx) => {
+      const userSnap = await tx.get(userRef);
+      const data = userSnap.exists ? userSnap.data() ?? {} : {};
+      const outcome = decideLinkOutcome(
+        userSnap.exists
+          ? (data as {
+              coachId?: string | null;
+              autoAssignedCoach?: boolean;
+              role?: string | null;
+            })
+          : null,
+        session.uid,
+      );
+      if (outcome.kind === "trainerTarget") {
+        // CR-02: the target is another TRAINER's account — linking would
+        // overwrite their doc (role → "client", coachId → this coach) and
+        // then clobber their role claim post-commit, demoting and locking
+        // them out. Refuse before any write.
+        logLinkTrainerTargetRefused({
+          actorUid: session.uid,
+          targetEmail: parsed.email,
+          targetUid: authUser.uid,
+        });
+        throw new LinkRefusedError("trainer-target");
+      }
+      if (outcome.kind === "conflict") {
+        logLinkConflictRefused({
+          actorUid: session.uid,
+          targetEmail: parsed.email,
+          targetUid: authUser.uid,
+          existingCoachId: outcome.currentCoachId,
+        });
+        // Sentinel throw INSIDE the tx → aborts before any write; claims
+        // still untouched (CR-03: converted to a result below).
+        throw new LinkRefusedError("conflict");
+      }
+      if (outcome.kind === "alreadyYours") {
+        // No doc writes; claims ARE (re-)synced post-commit — WR-01: the
+        // idempotent setCustomUserClaims below heals a divergence left by a
+        // prior post-commit claims failure when the trainer resubmits.
+        return "alreadyYours";
+      }
+      // WR-02: read the chat doc INSIDE the tx (all tx reads must precede
+      // writes) so createdAt can be create-only below — re-linking an
+      // existing user must not reset the chat's original creation timestamp.
+      const chatSnap = await tx.get(chatRef);
+      tx.set(
+        userRef,
+        {
+          email: parsed.email,
+          displayName:
+            parsed.displayName ||
+            (typeof data.displayName === "string" &&
+            data.displayName.length > 0
+              ? data.displayName
+              : authUser.displayName || displayName),
+          photoURL: authUser.photoURL ?? data.photoURL ?? null,
+          role: "client",
+          coachId: session.uid,
+          // CR-01: claiming a Phase-29 fallback-migrated stray MUST clear the
+          // stray marker — otherwise the doc stays `{ coachId: <me>,
+          // autoAssignedCoach: true }`, which decideLinkOutcome rule (3)
+          // still classifies as claimable, so any other coach could silently
+          // steal the client you just claimed (and the roster "NEW" badge
+          // never clears). `merge: true` preserves absent fields, so an
+          // explicit FieldValue.delete() is required.
+          autoAssignedCoach: FieldValue.delete(),
+          coachDisplayName,
+          coachPhotoURL: coach.photoURL,
+          coachBio: coach.bio,
+          preferences: data.preferences ?? {},
+          fcmTokens: data.fcmTokens ?? [],
+          deleted: false,
+          createdAt: data.createdAt ?? FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      tx.set(
+        chatRef,
+        {
+          clientId: authUser.uid,
+          coachId: session.uid,
+          // WR-02: no unreadCount here. `data` is the USER doc snapshot, so
+          // `data.unreadCount ?? {}` was always {} — counters live on
+          // /chats/{clientId} and merge:true preserves them; writing an
+          // (accidentally empty) map only worked by the grace of merge
+          // semantics and would wipe both parties' counters under any
+          // future non-merge/flat-field write. createdAt is CREATE-ONLY:
+          // claiming a stray with chat history must not reset it.
+          ...(chatSnap.exists
+            ? {}
+            : { createdAt: FieldValue.serverTimestamp() }),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return "link";
+    },
+    );
+  } catch (err) {
+    if (err instanceof LinkRefusedError) {
+      return { ok: false, mode: err.mode };
+    }
+    throw err;
+  }
+
+  // Claims AFTER the doc-write commit (T-32-DIVERGE): the benign direction
+  // (doc written, claims lag) self-heals via the Phase 30 forced token refresh.
+  //
+  // WR-01: this ALSO runs on the alreadyYours path. If a previous submit
+  // committed the tx but the claims call failed (network blip / Auth outage),
+  // the trainer's natural recovery is to resubmit — which now resolves to
+  // alreadyYours. Skipping claims there would leave the doc/claims divergence
+  // unrepairable from the UI. The call is an idempotent no-op when claims
+  // already match, so running it on every resolution of the existing-user
+  // branch is safe and heals the divergence on retry.
   await auth.setCustomUserClaims(authUser.uid, {
     ...(authUser.customClaims ?? {}),
     role: "client",
     coachId: session.uid,
   });
 
-  const userRef = db.collection(FirestoreCollections.users).doc(authUser.uid);
-  const chatRef = db.collection(FirestoreCollections.chats).doc(authUser.uid);
-  await db.runTransaction(async (tx) => {
-    const userSnap = await tx.get(userRef);
-    const data = userSnap.exists ? userSnap.data() ?? {} : {};
-    tx.set(
-      userRef,
-      {
-        email: parsed.email,
-        displayName:
-          parsed.displayName ||
-          (typeof data.displayName === "string" && data.displayName.length > 0
-            ? data.displayName
-            : authUser.displayName || displayName),
-        photoURL: authUser.photoURL ?? data.photoURL ?? null,
-        role: "client",
-        coachId: session.uid,
-        coachDisplayName,
-        coachPhotoURL: coach.photoURL,
-        coachBio: coach.bio,
-        preferences: data.preferences ?? {},
-        fcmTokens: data.fcmTokens ?? [],
-        deleted: false,
-        createdAt: data.createdAt ?? FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-    tx.set(
-      chatRef,
-      {
-        clientId: authUser.uid,
-        coachId: session.uid,
-        unreadCount: data.unreadCount ?? {},
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-  });
+  if (userOutcomeKind === "alreadyYours") {
+    return { ok: true, mode: "already-linked" };
+  }
 
   revalidateTag("gc-fitness-roster", "max");
   return { ok: true, mode: "attached-existing-user" };

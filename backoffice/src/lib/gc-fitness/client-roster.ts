@@ -47,6 +47,7 @@ import { getCurrentTrainer } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
+import { isHabitNotDeleted } from "./habit-visibility";
 import { civilDateToday } from "./civil-date";
 import { getTrainerTimezone } from "./trainer-timezone";
 import {
@@ -533,15 +534,23 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         // every roster (260528 bug). Mirrors the exclusion in
         // listRecentLogsForTrainer.
         db.collection(FirestoreCollections.chats).doc(c.uid).get(),
+        // Issue #437/#400: fetch by clientId only; filter `deleted === true`
+        // in memory (isHabitNotDeleted) below. A `.where("deleted","==",false)`
+        // equality drops client-created habits that never write the field, so
+        // the compliance counts under-reported them. PR #230 pattern.
         db
           .collection(FirestoreCollections.habits)
           .where("clientId", "==", c.uid)
-          .where("deleted", "==", false)
           // 260529 cost backstop: a roster row never needs more than a
           // sane ceiling of habits; the compliance math below tolerates the
-          // cap (no real client carries >60 active habits). Bounds the
-          // worst-case read on the (clientId, deleted, updatedAt) index.
-          .limit(60)
+          // cap (no real client carries >60 active habits).
+          // WR-03: the cap counts SOFT-DELETED docs too (filtered in memory
+          // after the fetch) and soft-delete is the only delete path, so
+          // deleted docs accumulate toward it over a client's lifetime —
+          // raised 60 → 150; a truncation warning fires below when the raw
+          // fetch hits the cap. Costs nothing unless the docs exist
+          // (limit is a ceiling, not a fetch-always).
+          .limit(150)
           .get(),
         // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
         // is a "YYYY-MM-DD" string — lexicographic comparison is correct
@@ -662,7 +671,18 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // snapshot by habitId ONCE (replaces a per-habit query fan-out), then
       // compute per-habit ratio via the Pattern-B pure function and average.
       // The same grouped map feeds the trailing-7 habit-count loop below.
-      const habitDocs = clientHabits.docs;
+      if (clientHabits.docs.length >= 150) {
+        // WR-03: raw habit fetch filled the cap — soft-deleted docs consume
+        // the budget, so live habits (and the compliance denominators built
+        // from them) may be truncated for this client.
+        console.warn(
+          "[gc-fitness/roster] habit fetch hit its cap — live habits may be truncated",
+          { clientId: c.uid, cap: 150 },
+        );
+      }
+      const habitDocs = clientHabits.docs.filter((d) =>
+        isHabitNotDeleted(d.data() as Record<string, unknown>),
+      );
       const windowedLogsByHabit = new Map<string, HabitLogRow[]>();
       for (const ldoc of windowedHabitLogs.docs) {
         const data = ldoc.data() as Record<string, unknown>;

@@ -53,6 +53,7 @@ import {
 } from "./coach-activity-log";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
+import { isHabitNotDeleted } from "./habit-visibility";
 
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
@@ -1888,27 +1889,42 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
 /**
  * Lists habits assigned to a single client by the calling trainer.
  *
- * Implementation note (Plan-Task 2 choice (b)): the query scopes by
- * `clientId + deleted` and lets the rule layer (P06-03) enforce the
- * `trainerId == auth.uid` precondition on read. Rationale:
- *   - A 4-field composite index would otherwise be required
- *     (`clientId+trainerId+deleted+updatedAt DESC`); not declared in
- *     `firestore.indexes.json` from P06-01.
- *   - The rule layer is sufficient: any returned doc must already satisfy
- *     `trainerId == auth.uid OR clientId == auth.uid`. Since this Server
- *     Action is invoked by an authed trainer (getCurrentTrainer guard),
- *     a doc owned by a different trainer would surface as a
- *     PERMISSION_DENIED on Firestore-rule evaluation — except that the
- *     Admin SDK bypasses rules, so we re-enforce here at the application
- *     layer via the post-query filter.
+ * Implementation note (LINK-03 / issue #437 / PR #230): the query scopes by
+ * `clientId` ONLY, then filters + sorts in memory. Rationale:
+ *   - A `.where("deleted","==",false)` equality only matches docs where the
+ *     field EXISTS. Client-created habits (issue #400) are written WITHOUT a
+ *     `deleted` field, so that clause silently dropped every one of them.
+ *     `isHabitNotDeleted` (deleted !== true) keeps them while still excluding
+ *     genuinely soft-deleted rows.
+ *   - Dropping the equality also removes the `orderBy("updatedAt")` composite
+ *     requirement, so we sort by updatedAt desc in memory (no new index).
  *
- * Defense-in-depth: we additionally filter the result client-of-DB to
- * `row.trainerId === session.uid` so a misbehaving rule (or a future rule
- * relaxation) cannot leak cross-trainer habits.
+ * Ownership gate (T-32-03): the Admin SDK bypasses Firestore rules, so the
+ * app layer is the only gate. A row is returned when it is either authored by
+ * the requesting trainer (`trainerId === trainer.uid`) OR the queried client
+ * belongs to this trainer (`users/{clientId}.coachId === trainer.uid`,
+ * mirroring currentTrainerCanManageHabit). This is the belongs-to-my-client
+ * check — so a formerly coach-less client's self-created habits (whose
+ * `trainerId` is the client's own uid) and any old-coach habits become
+ * visible to the current coach, while a client belonging to another trainer
+ * yields only the requesting trainer's own-authored rows.
  *
- *  - Bounded at 200 — T-06-05-07.
- *  - Excludes soft-deleted.
+ * Note: listHabitsForClient is currently UI-unused; it is fixed here for
+ * parity with the three live surfaces (D-03 discretion: prefer fix + note).
+ *
+ *  - Bounded at 500 — T-06-05-07. WR-03: the cap counts SOFT-DELETED docs
+ *    too (they are filtered in memory AFTER the fetch), and soft-delete is
+ *    the only delete path (`allow delete: if false`), so deleted docs
+ *    accumulate monotonically toward the cap over a client's lifetime.
+ *    Raised 200 → 500 to keep live habits from silently dropping out, and
+ *    a truncation warning fires when the raw fetch hits the cap. We
+ *    deliberately do NOT re-add `.orderBy("updatedAt")`: Firestore orderBy
+ *    EXCLUDES docs missing the field, which would re-drop field-sparse
+ *    (older/seeded) habit docs — the very regression this filter fixed.
+ *  - Excludes soft-deleted (deleted === true) in memory.
  */
+const LIST_HABITS_FOR_CLIENT_CAP = 500;
+
 export async function listHabitsForClient(
   clientId: string,
 ): Promise<HabitRow[]> {
@@ -1918,14 +1934,37 @@ export async function listHabitsForClient(
   const snap = await db
     .collection(COLLECTION)
     .where("clientId", "==", clientId)
-    .where("deleted", "==", false)
-    .orderBy("updatedAt", "desc")
-    .limit(200)
+    .limit(LIST_HABITS_FOR_CLIENT_CAP)
     .get();
 
-  const rows = snap.docs.map((d) =>
-    projectHabitRow(d.id, d.data() as Record<string, unknown>),
+  if (snap.docs.length >= LIST_HABITS_FOR_CLIENT_CAP) {
+    // WR-03: raw fetch filled the cap — live habits may have been truncated
+    // (which docs survive is doc-ID order, deleted docs included).
+    console.warn(
+      "[gc-fitness/habits] listHabitsForClient hit its fetch cap — live habits may be truncated",
+      { clientId, cap: LIST_HABITS_FOR_CLIENT_CAP },
+    );
+  }
+
+  const rows = snap.docs
+    .filter((d) => isHabitNotDeleted(d.data() as Record<string, unknown>))
+    .map((d) => projectHabitRow(d.id, d.data() as Record<string, unknown>))
+    // updatedAt is an ISO string; desc lexicographic sort preserves the old
+    // orderBy("updatedAt","desc") output order without a composite index.
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+
+  // Belongs-to-my-client: ONE point-read (getAll fails on Vercel — use a
+  // single .doc().get()). If the queried client is coached by this trainer,
+  // every row (self-created / old-coach) is theirs to see; otherwise fall
+  // back to own-authored rows only.
+  const clientSnap = await db
+    .collection(FirestoreCollections.users)
+    .doc(clientId)
+    .get();
+  const clientBelongsToMe =
+    clientSnap.exists && clientSnap.get("coachId") === trainer.uid;
+
+  return rows.filter(
+    (r) => r.trainerId === trainer.uid || clientBelongsToMe,
   );
-  // Defense-in-depth: Admin SDK bypasses rules; re-check ownership here.
-  return rows.filter((r) => r.trainerId === trainer.uid);
 }

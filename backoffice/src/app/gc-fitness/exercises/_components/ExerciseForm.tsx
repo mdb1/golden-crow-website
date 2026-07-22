@@ -36,6 +36,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   LocalizedTextField,
   mirrorLocalizedBlank,
   hasDistinctTranslation,
@@ -123,6 +130,11 @@ function buildDefaults(
       es: passed?.description?.es ?? "",
     }),
     muscleGroups: passed?.muscleGroups ?? [],
+    // #480 — the PRIMARY mover. Legacy docs carry `muscleGroups` but no explicit
+    // primary; seed it from the first tag so an edit surfaces a sensible primary
+    // the coach can adjust. Kept in sync with `muscleGroups` on every change.
+    primaryMuscleGroup:
+      passed?.primaryMuscleGroup ?? passed?.muscleGroups?.[0] ?? undefined,
     equipment: passed?.equipment ?? [],
     mediaURL: passed?.mediaURL ?? null,
     thumbnailURL: passed?.thumbnailURL ?? null,
@@ -214,14 +226,61 @@ export function ExerciseForm({
       hasDistinctTranslation(formDefaults.tips),
   );
 
+  // #480 — the muscle picker is split into a single PRIMARY select + a SECONDARY
+  // multi-select. Both write through to `muscleGroups` (kept as [primary,
+  // ...secondaries]) plus the dedicated `primaryMuscleGroup` field.
+  const primaryMuscle = form.watch("primaryMuscleGroup") ?? "";
+  const allMuscles = form.watch("muscleGroups") ?? [];
+  const secondaryMuscles = allMuscles.filter((g) => g !== primaryMuscle);
+  const secondaryOptions = useMemo(
+    () => MUSCLE_GROUPS.filter((g) => g !== primaryMuscle),
+    [primaryMuscle],
+  );
+
+  const handlePrimaryChange = (next: string) => {
+    const prevSecondary = (form.getValues("muscleGroups") ?? []).filter(
+      (g) => g !== primaryMuscle && g !== next,
+    );
+    form.setValue("primaryMuscleGroup", next, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue("muscleGroups", [next, ...prevSecondary], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const handleSecondaryChange = (nextSecondary: string[]) => {
+    const p = form.getValues("primaryMuscleGroup") ?? "";
+    const merged = p
+      ? [p, ...nextSecondary.filter((g) => g !== p)]
+      : nextSecondary;
+    form.setValue("muscleGroups", merged, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   const onSubmit = form.handleSubmit((raw) => {
     if (isView) return;
+    // #480 — normalize the muscle selection: an empty primary collapses to
+    // `undefined` (Zod's optional enum rejects ""), and `muscleGroups` is
+    // rebuilt as [primary, ...secondaries] so the primary is always present.
+    const primary =
+      raw.primaryMuscleGroup && raw.primaryMuscleGroup.trim()
+        ? raw.primaryMuscleGroup
+        : undefined;
+    const secondaries = (raw.muscleGroups ?? []).filter((g) => g !== primary);
+    const muscleGroups = primary ? [primary, ...secondaries] : secondaries;
     // "No translation" ⇒ store the coach's text in every language.
     const values = {
       ...raw,
       name: mirrorLocalizedBlank(raw.name),
       description: mirrorLocalizedBlank(raw.description),
       tips: mirrorLocalizedBlank(raw.tips),
+      primaryMuscleGroup: primary,
+      muscleGroups,
     };
     startTransition(async () => {
       try {
@@ -460,31 +519,76 @@ export function ExerciseForm({
           }}
         />
 
-        {/* Muscle Groups + Equipment */}
+        {/* 480 — Primary muscle (single-select) + Secondary muscles
+            (multi-select, excludes the primary). Together they write
+            `muscleGroups = [primary, ...secondaries]` + `primaryMuscleGroup`,
+            which drives the coach's per-muscle-group progress charts'
+            primary(1)/secondary(½) attribution weighting. */}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
-            name="muscleGroups"
+            name="primaryMuscleGroup"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("muscleGroupsLabel")}</FormLabel>
+                <FormLabel>{t("primaryMuscleGroupLabel")}</FormLabel>
                 <FormControl>
-                  <MultiSelectCombobox
-                    options={MUSCLE_GROUPS}
-                    value={field.value ?? []}
-                    onChange={field.onChange}
-                    formatLabel={formatMuscleLabel}
-                    placeholder={t("muscleGroupsPlaceholder")}
-                    ariaLabel={t("muscleGroupsAria")}
-                    max={8}
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={handlePrimaryChange}
                     disabled={isView}
-                  />
+                  >
+                    <SelectTrigger
+                      className="w-full"
+                      aria-label={t("primaryMuscleGroupLabel")}
+                    >
+                      <SelectValue
+                        placeholder={t("primaryMuscleGroupPlaceholder")}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MUSCLE_GROUPS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {formatMuscleLabel(m)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
-                <FormDescription>{t("muscleGroupsHint")}</FormDescription>
+                <FormDescription>
+                  {t("primaryMuscleGroupHint")}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="muscleGroups"
+            render={() => (
+              <FormItem>
+                <FormLabel>{t("secondaryMuscleGroupsLabel")}</FormLabel>
+                <FormControl>
+                  <MultiSelectCombobox
+                    options={secondaryOptions}
+                    value={secondaryMuscles}
+                    onChange={handleSecondaryChange}
+                    formatLabel={formatMuscleLabel}
+                    placeholder={t("secondaryMuscleGroupsPlaceholder")}
+                    ariaLabel={t("secondaryMuscleGroupsLabel")}
+                    max={7}
+                    disabled={isView}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t("secondaryMuscleGroupsHint")}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="equipment"

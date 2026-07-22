@@ -145,9 +145,13 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
     expect(
       screen.getByRole("button", { name: /add translation/i }),
     ).toBeInTheDocument();
-    // Muscle groups + Equipment render as Combobox triggers — assert by aria-label.
+    // #480 — Primary muscle (single-select) + Secondary muscles (multi-select)
+    // + Equipment render as combobox triggers — assert by accessible name.
     expect(
-      screen.getByRole("combobox", { name: /muscle groups/i }),
+      screen.getByRole("combobox", { name: /primary muscle/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /secondary muscles/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: /equipment/i }),
@@ -192,10 +196,9 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
       screen.getByLabelText(/^description$/i),
       "Lie on a flat bench and press the bar.",
     );
-    // Open muscle Combobox and select "chest".
-    await user.click(screen.getByRole("combobox", { name: /muscle groups/i }));
+    // #480 — pick "chest" as the PRIMARY muscle (single-select Radix Select).
+    await user.click(screen.getByRole("combobox", { name: /primary muscle/i }));
     await user.click(await screen.findByRole("option", { name: /chest/i }));
-    await user.keyboard("{Escape}");
     await user.click(screen.getByRole("combobox", { name: /equipment/i }));
     await user.click(await screen.findByRole("option", { name: /barbell/i }));
     await user.keyboard("{Escape}");
@@ -206,11 +209,20 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
       expect(mockCreateExercise).toHaveBeenCalledTimes(1);
     });
     const calls = mockCreateExercise.mock.calls as unknown as Array<
-      [{ name: { en: string }; muscleGroups: string[]; equipment: string[] }]
+      [
+        {
+          name: { en: string };
+          muscleGroups: string[];
+          primaryMuscleGroup?: string;
+          equipment: string[];
+        },
+      ]
     >;
     const payload = calls[0][0];
     expect(payload.name.en).toBe("Barbell Bench Press");
     expect(payload.muscleGroups).toContain("chest");
+    // #480 — the picked muscle is written as the explicit PRIMARY mover.
+    expect(payload.primaryMuscleGroup).toBe("chest");
     expect(payload.equipment).toContain("barbell");
   });
 
@@ -226,9 +238,8 @@ describe("ExerciseForm — UI-SPEC verbatim validation copy", () => {
       screen.getByLabelText(/^description$/i),
       "Move with control.",
     );
-    await user.click(screen.getByRole("combobox", { name: /muscle groups/i }));
+    await user.click(screen.getByRole("combobox", { name: /primary muscle/i }));
     await user.click(await screen.findByRole("option", { name: /core/i }));
-    await user.keyboard("{Escape}");
 
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
