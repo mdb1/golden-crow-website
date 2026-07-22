@@ -37,13 +37,13 @@ export default async function DashboardLayout({
   return (
     <AppLanguageProvider initialLanguage={initialLanguage}>
       <SidebarProvider>
-        <div className="flex min-h-screen w-full">
+        <div className="flex min-h-screen w-full overflow-x-hidden">
           <AppSidebar adminContext={adminContext} />
-          <SidebarInset className="min-h-screen bg-transparent">
-            <div className="relative flex min-h-screen flex-1 flex-col overflow-hidden">
+          <SidebarInset className="min-h-screen min-w-0 bg-transparent">
+            <div className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden">
               <AmbientBackdrop />
               <AppHeader user={session.user!} adminContext={adminContext} />
-              <main className="relative z-10 flex-1 overflow-auto p-4 lg:p-6">
+              <main className="relative z-10 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-6">
                 <Providers adminContext={adminContext}>{children}</Providers>
               </main>
             </div>

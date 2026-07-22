@@ -4606,7 +4606,7 @@ export function TwoPQFormFlow({
     samplingTableValidationMessages.length - visibleSamplingValidationMessages.length;
 
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-5 overflow-x-hidden">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden">
       <ActionToast toast={toast} onDismiss={() => setToast(null)} />
       <Dialog
         open={doctorResponsibilityAlertOpen}
@@ -5176,9 +5176,9 @@ export function TwoPQFormFlow({
         </Button>
       </div>
 
-      <section className="glass-panel flex min-w-0 max-w-full flex-col gap-5 overflow-x-hidden px-5 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+      <section className="glass-panel flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden px-5 py-5">
+        <div className="flex min-w-0 max-w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <h2 className="font-heading text-2xl font-semibold text-foreground">
               {formType === "study_request"
                 ? t("Study request form")
@@ -5187,7 +5187,7 @@ export function TwoPQFormFlow({
                   : t("Withdrawal request form")}
             </h2>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {restoredFromDraft ? (
               <Badge variant="rose">{t("Recovered draft")}</Badge>
             ) : null}
@@ -5196,7 +5196,7 @@ export function TwoPQFormFlow({
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid min-w-0 max-w-full gap-2 md:grid-cols-3 xl:grid-cols-6">
           {steps.map((step, index) => {
             const active = step === currentStep;
             const storedStatus = stepValidation[step];
@@ -6576,10 +6576,10 @@ export function TwoPQFormFlow({
         ) : null}
 
         {currentStep === "samplingInformation" ? (
-          <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
+          <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
             {state.samplingTableGenerated ? (
               <>
-                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
+                <div className="block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-sm border border-slate-300 bg-white text-slate-950 shadow-sm">
                   <table className="min-w-[94rem] border-collapse bg-white text-sm">
                   <thead className="bg-slate-100 text-left text-xs uppercase text-slate-700">
                     <tr>
@@ -6832,10 +6832,10 @@ export function TwoPQFormFlow({
                     })}
                   </tbody>
                 </table>
+                </div>
                 <p className="px-3 py-2 text-xs text-slate-600">
                   {t("(*): Required field")}
                 </p>
-                </div>
                 {showSamplingTableValidationCard ? (
                   <div
                     className={
