@@ -158,11 +158,21 @@ export function coarseWeights(input: CoarseWeightsInput): Record<string, number>
       Array.from(allCoarse).filter((g) => g !== primaryCoarse),
     );
   } else {
-    secondaryCoarse = new Set<string>();
+    // #529 — the anatomy heuristic must never demote EVERY coarse group to 0.5.
+    // Seeded docs routinely echo the exercise's OWN primary muscle in
+    // `secondaryMuscles` (e.g. a leg lift listing "Quadriceps femoris" /
+    // "Gluteus maximus"), which would collapse a whole 1.0 leg set to 0.5 and make
+    // ~18 leg sets read as ~11.5. When it would swallow all of `allCoarse` there's
+    // no primary mover left to carry 1.0, so keep every group primary.
+    const anatomySecondary = new Set<string>();
     for (const name of input.secondaryMuscles ?? []) {
       const c = coarseGroupFromAnatomy(name);
-      if (c) secondaryCoarse.add(c);
+      if (c) anatomySecondary.add(c);
     }
+    const swallowsAll = Array.from(allCoarse).every((g) =>
+      anatomySecondary.has(g),
+    );
+    secondaryCoarse = swallowsAll ? new Set<string>() : anatomySecondary;
   }
 
   const weights: Record<string, number> = {};

@@ -83,4 +83,23 @@ describe("muscle-group-display", () => {
   it("returns an empty map for exercises with no surfaced coarse group", () => {
     expect(coarseWeights({ muscleGroups: ["cardio", "full_body"] })).toEqual({});
   });
+
+  it("#529 anatomy echoing the primary muscle does not demote a sole group", () => {
+    // Seeded leg doc: no explicit primary, secondaryMuscles echo the exercise's
+    // OWN primary anatomy → both map to `legs`, the only coarse group. It must
+    // stay 1.0 (this demotion turned ~18 leg sets into 11.5 in issue #529).
+    const w = coarseWeights({
+      muscleGroups: ["legs"],
+      secondaryMuscles: ["Quadriceps femoris", "Gluteus maximus"],
+    });
+    expect(w).toEqual({ legs: 1.0 });
+  });
+
+  it("#529 guard is scoped — a true secondary is still 0.5 when a primary remains", () => {
+    const w = coarseWeights({
+      muscleGroups: ["chest", "triceps"],
+      secondaryMuscles: ["Triceps brachii"],
+    });
+    expect(w).toEqual({ chest: 1.0, triceps: 0.5 });
+  });
 });
