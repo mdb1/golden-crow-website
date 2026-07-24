@@ -25,18 +25,30 @@ const baseForm = {
 };
 
 describe("legacy profile setup flow", () => {
-  it("shows only essential first-time setup steps in the visible dots", () => {
+  it("shows name, username, and one optional professional-details dot", () => {
     const visibleStepKeys = PROFILE_SETUP_STEPS.map((step) => step.key);
 
     expect(visibleStepKeys).not.toContain("iconName");
     expect(visibleStepKeys).not.toContain("iconColorHex");
-    expect(visibleStepKeys).not.toContain("ownerProfession");
-    expect(visibleStepKeys).not.toContain("ownerCompany");
-    expect(visibleStepKeys).not.toContain("ownerContactNumber");
-    expect(visibleStepKeys).not.toContain("ownerBio");
     expect(visibleStepKeys).not.toContain("gender");
     expect(visibleStepKeys).not.toContain("condition");
-    expect(visibleStepKeys).toEqual(["fullName", "username"]);
+    expect(visibleStepKeys).toEqual([
+      "fullName",
+      "username",
+      "professionalDetails",
+    ]);
+  });
+
+  it("groups all optional professional fields into one visible step", () => {
+    expect(PROFILE_SETUP_STEPS[2]).toMatchObject({
+      key: "professionalDetails",
+      fieldKeys: [
+        "ownerProfession",
+        "ownerCompany",
+        "ownerContactNumber",
+        "ownerBio",
+      ],
+    });
   });
 
   it("defaults skipped fields before submitting profile setup", () => {
@@ -54,7 +66,7 @@ describe("legacy profile setup flow", () => {
     });
   });
 
-  it("uses blank defaults for skipped optional text fields when they are empty", () => {
+  it("uses blank defaults for optional text fields when they are empty", () => {
     expect(
       normalizeProfileSetupForm({
         ...baseForm,

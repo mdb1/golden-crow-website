@@ -11,8 +11,12 @@ export type ProfileSetupForm = {
   condition: string;
 };
 
+export type ProfileSetupFieldKey = keyof ProfileSetupForm;
+export type ProfileSetupStepKey = "fullName" | "username" | "professionalDetails";
+
 export type ProfileSetupStep = {
-  key: keyof ProfileSetupForm;
+  key: ProfileSetupStepKey;
+  fieldKeys: ProfileSetupFieldKey[];
   title: string;
   description: string;
   required?: boolean;
@@ -32,6 +36,7 @@ const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 export const PROFILE_SETUP_STEPS: ProfileSetupStep[] = [
   {
     key: "fullName",
+    fieldKeys: ["fullName"],
     title: "Your name",
     description:
       "This appears in the private profile, public profile, and report-owner record.",
@@ -39,9 +44,21 @@ export const PROFILE_SETUP_STEPS: ProfileSetupStep[] = [
   },
   {
     key: "username",
+    fieldKeys: ["username"],
     title: "Pick a username",
     description: "Choose the public community handle tied to this admin account.",
     required: true,
+  },
+  {
+    key: "professionalDetails",
+    fieldKeys: [
+      "ownerProfession",
+      "ownerCompany",
+      "ownerContactNumber",
+      "ownerBio",
+    ],
+    title: "Professional details",
+    description: "Add optional report-owner details now, or leave them blank.",
   },
 ];
 

@@ -12,6 +12,7 @@ import {
   PROFILE_SETUP_STEPS,
   normalizeProfileSetupForm,
   profileSetupFormWithSkippedDefaults,
+  type ProfileSetupStep,
   type ProfileSetupForm,
 } from "@/lib/profile-setup-flow";
 
@@ -56,6 +57,17 @@ function getFieldError(
 
   if (key === "ownerContactNumber" && !isPhoneValid(value)) {
     return "Use digits and standard phone punctuation only.";
+  }
+
+  return null;
+}
+
+function getStepError(step: ProfileSetupStep, form: ProfileSetupForm) {
+  for (const fieldKey of step.fieldKeys) {
+    const error = getFieldError(fieldKey, form[fieldKey]);
+    if (error) {
+      return error;
+    }
   }
 
   return null;
@@ -124,7 +136,7 @@ export function CompleteProfileFlow() {
       return null;
     }
 
-    return getFieldError(activeStep.key, form[activeStep.key]);
+    return getStepError(activeStep, form);
   }, [activeStep, form]);
 
   function updateField<K extends keyof ProfileSetupForm>(
@@ -147,17 +159,12 @@ export function CompleteProfileFlow() {
     }
 
     const firstInvalidStep = PROFILE_SETUP_STEPS.findIndex((step) =>
-      Boolean(getFieldError(step.key, normalizedForm[step.key]))
+      Boolean(getStepError(step, normalizedForm))
     );
 
     if (firstInvalidStep >= 0) {
       setCurrentStep(firstInvalidStep);
-      setError(
-        getFieldError(
-          PROFILE_SETUP_STEPS[firstInvalidStep].key,
-          normalizedForm[PROFILE_SETUP_STEPS[firstInvalidStep].key]
-        )
-      );
+      setError(getStepError(PROFILE_SETUP_STEPS[firstInvalidStep], normalizedForm));
       return;
     }
 
@@ -221,18 +228,56 @@ export function CompleteProfileFlow() {
       );
     }
 
-    return (
-      <div className="space-y-2">
-        <Label htmlFor={`setup-${activeStep.key}`}>{activeStep.title}</Label>
-        <Input
-          id={`setup-${activeStep.key}`}
-          value={form[activeStep.key]}
-          onChange={(event) => updateField(activeStep.key, event.target.value)}
-          placeholder={activeStep.title}
-          autoFocus
-        />
-      </div>
-    );
+    if (activeStep.key === "professionalDetails") {
+      return (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="setup-owner-profession">Profession</Label>
+            <Input
+              id="setup-owner-profession"
+              value={form.ownerProfession}
+              onChange={(event) =>
+                updateField("ownerProfession", event.target.value)
+              }
+              placeholder="Clinical genetics specialist"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="setup-owner-company">Company</Label>
+            <Input
+              id="setup-owner-company"
+              value={form.ownerCompany}
+              onChange={(event) => updateField("ownerCompany", event.target.value)}
+              placeholder="Golden Crow"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="setup-owner-contact-number">Contact</Label>
+            <Input
+              id="setup-owner-contact-number"
+              value={form.ownerContactNumber}
+              onChange={(event) =>
+                updateField("ownerContactNumber", event.target.value)
+              }
+              placeholder="+54 11 5555 5555"
+              inputMode="tel"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="setup-owner-bio">Bio</Label>
+            <Input
+              id="setup-owner-bio"
+              value={form.ownerBio}
+              onChange={(event) => updateField("ownerBio", event.target.value)}
+              placeholder="Short professional bio"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   }
 
   if (loading) {
