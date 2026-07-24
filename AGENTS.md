@@ -45,6 +45,7 @@
   - SDK route: `goldencrow-sdk/src/routes/auth.routes.ts` `/auth/login`.
   - Browser session handoff: `backoffice/src/lib/auth.ts` NextAuth credentials flow.
   - Cookie: `session`.
+- Legacy first-time signup completion uses `/complete-profile` after a whitelisted email account is created. Keep that flow short: show only full name and username. Do not show icon, color, profession, company, phone, bio, gender, or condition/disease steps there. Default skipped profile fields to `person.crop.circle.fill`, `#5A4FCF`, blank optional text/gender fields, and no condition, and make the progress dots count only the visible steps.
 - GC Fitness authentication is the trainer surface and must stay isolated under `/gc-fitness/login` and `/api/gc-fitness/login`:
   - Firebase Web SDK app: named `gc-fitness` app in `backoffice/src/lib/firebase/gc-fitness-client.ts`.
   - Server auth/session library: `next-firebase-auth-edge`.
