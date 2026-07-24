@@ -78,7 +78,6 @@ export function CompleteProfileFlow() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [profileState, setProfileState] = useState<ProfileSetupState | null>(null);
   const [form, setForm] = useState<ProfileSetupForm | null>(null);
@@ -176,7 +175,6 @@ export function CompleteProfileFlow() {
         method: "PUT",
         body: JSON.stringify(normalizedForm),
       });
-      setSuccess("Account creation succeeded. Opening the backoffice now.");
       window.setTimeout(() => {
         router.replace("/");
       }, 900);
@@ -321,11 +319,6 @@ export function CompleteProfileFlow() {
           Finish the remaining setup and we will create the related Firebase profile records.
         </p>
       </div>
-
-      <HelperBanner title="What happens when you finish" tone={success ? "green" : "blue"}>
-        {success ??
-          "This will create or update your private profile, community user, public profile, and report-owner documents, then open the backoffice."}
-      </HelperBanner>
 
       {error ? (
         <HelperBanner title="Profile setup needs attention" tone="red">
