@@ -1,8 +1,7 @@
 ---
 import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
-import { APP_STORE_URL, POCKET_GENES_EMAILS, trustDocuments } from '../../data/pocketGenesPublic';
+import { APP_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic';
 
-const trustPreview = trustDocuments.filter((document) => document.category !== 'Community').slice(0, 6);
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const integrationHref = localizePath('/pocket-genes/integration/');
@@ -32,17 +31,56 @@ const productPillars = [
 
 const identityFacts = [
   {
-    label: 'What it is',
+    label: 'Pocket Genes',
     value:
-      'Pocket Genes is a personal genomic companion that helps people organize genetic reports, understand key concepts, and prepare safer next steps.',
+      'A personal genomic companion for reports, notes, education, and next steps.',
   },
   {
-    label: 'Website',
-    value: 'Official Pocket Genes public pages live under /pocket-genes.',
+    label: 'Privacy',
+    value: 'Reports and exact genetic details stay private by default.',
   },
   {
     label: 'Contact',
-    value: `${POCKET_GENES_EMAILS.hello} | ${POCKET_GENES_EMAILS.trust} | ${POCKET_GENES_EMAILS.security}`,
+    value: POCKET_GENES_EMAILS.hello,
+  },
+];
+
+const trustPreview = [
+  {
+    title: 'Privacy Policy',
+    category: 'Privacy',
+    summary: 'What Pocket Genes collects, stores, and lets you control.',
+    href: '/pocket-genes/trust-center/privacy-policy',
+  },
+  {
+    title: 'Security Overview',
+    category: 'Security',
+    summary: 'How Pocket Genes protects report and account information.',
+    href: '/pocket-genes/trust-center/security-overview',
+  },
+  {
+    title: 'Data Flow',
+    category: 'Data',
+    summary: 'How a report becomes a private Pocket Genes experience.',
+    href: '/pocket-genes/trust-center/data-flow-diagram',
+  },
+  {
+    title: 'Retention and Deletion',
+    category: 'Data',
+    summary: 'How stored information can be removed or retained.',
+    href: '/pocket-genes/trust-center/data-retention-deletion',
+  },
+  {
+    title: 'Incident Reporting',
+    category: 'Safety',
+    summary: 'Where to report privacy, safety, or security concerns.',
+    href: '/pocket-genes/trust-center/incident-reporting',
+  },
+  {
+    title: 'Intended Use',
+    category: 'Product',
+    summary: 'What Pocket Genes is built to do, and what it is not.',
+    href: '/pocket-genes/trust-center/regulatory-intended-use',
   },
 ];
 
@@ -51,16 +89,12 @@ const leaders = [
     name: 'Manuel Herrera',
     role: 'Founder & CEO',
     image: '/aboutus1.webp',
-    body:
-      'Leads product strategy, institutional conversations, and the operating model for a careful public genomic product.',
     linkedin: 'https://www.linkedin.com/in/manuh/',
   },
   {
     name: 'Federico Bustos',
     role: 'Co-Founder & CTO',
     image: '/aboutus2.webp',
-    body:
-      'Leads mobile architecture, product engineering, and the technical systems behind report organization and data boundaries.',
     linkedin: 'https://www.linkedin.com/in/federico-bustos-fierro/',
   },
 ];
@@ -109,10 +143,10 @@ const leaders = [
     <section class="pg-section pg-home-identity">
       <div class="pg-container pg-home-split">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">Clear identity</p>
+          <p class="pg-eyebrow">At a glance</p>
           <h2>Pocket Genes in one place.</h2>
           <p>
-            Learn what the app does, where to download it, how to contact the team, and how Pocket Genes handles trust and privacy.
+            Learn what the app does, download it, contact the team, and see how Pocket Genes handles privacy and trust.
           </p>
         </div>
 
@@ -147,8 +181,8 @@ const leaders = [
     <section class="pg-section pg-home-leadership">
       <div class="pg-container">
         <div class="pg-section-heading">
-          <p class="pg-eyebrow">Leadership</p>
-          <h2>Who is behind Pocket Genes.</h2>
+          <p class="pg-eyebrow">Team</p>
+          <h2>People building Pocket Genes.</h2>
         </div>
         <div class="pg-leader-grid">
           {leaders.map((leader) => (
@@ -157,7 +191,6 @@ const leaders = [
               <div>
                 <h3>{leader.name}</h3>
                 <p class="pg-leader-role">{leader.role}</p>
-                <p>{leader.body}</p>
                 <a href={leader.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn profile</a>
               </div>
             </article>
@@ -172,12 +205,12 @@ const leaders = [
           <p class="pg-eyebrow">Trust Center</p>
           <h2>Privacy, safety, and data handling in one place.</h2>
           <p>
-            The Trust Center links privacy, safety, security, scientific methodology, intended use, data handling, and incident reporting from one place.
+            See the privacy, security, data, and safety pages for Pocket Genes.
           </p>
         </div>
         <div class="pg-trust-preview-grid">
           {trustPreview.map((document) => (
-            <a class="pg-trust-preview" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
+            <a class="pg-trust-preview" href={localizePath(document.href)}>
               <span>{document.category}</span>
               <strong>{document.title}</strong>
               <p>{document.summary}</p>
@@ -215,7 +248,7 @@ const leaders = [
           <p class="pg-eyebrow">Get Pocket Genes</p>
           <h2>Available for iPhone. Google Play is planned.</h2>
           <p>
-            Use the App Store link today. Android should remain visibly marked as future Google Play availability until the production listing is ready.
+            Download the iPhone app today. Android support is coming later.
           </p>
         </div>
         <div class="pg-store-actions">
@@ -455,11 +488,6 @@ const leaders = [
     margin: 2px 0 8px;
     color: var(--pg-teal);
     font-weight: 850;
-  }
-
-  .pg-leader p:last-of-type {
-    margin: 0 0 10px;
-    color: var(--pg-ink-soft);
   }
 
   .pg-leader a {
