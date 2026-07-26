@@ -1,8 +1,11 @@
 import { defaultLang, type Lang } from './ui';
+import { assertIntegrationDisplayCasing } from './assertIntegrationDisplayCasing';
 import { en } from './en';
 import { es } from './es';
 
 const translations = { en, es } as const;
+
+assertIntegrationDisplayCasing(en, es);
 
 export function getLangFromUrl(url: URL): Lang {
   const [, lang] = url.pathname.split('/');
