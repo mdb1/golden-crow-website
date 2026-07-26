@@ -1,91 +1,45 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { getLocalizedPath } from '../i18n/index';
-import { defaultLang, type Lang } from '../i18n/ui';
+import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
+import { APP_STORE_URL } from '../data/pocketGenesPublic';
 
-const APP_STORE_URL = 'https://apps.apple.com/ar/app/pocket-genes/id6748587627';
-
-const lang = (Astro.currentLocale || defaultLang) as Lang;
-const isSpanish = lang === 'es';
-
-function localPath(path: string) {
-  return getLocalizedPath(path, lang);
-}
-
-const copy = isSpanish
-  ? {
-      title: 'Descargar Pocket Genes - RareFriends™',
-      eyebrow: 'Pocket Genes + RareFriends™',
-      heroTitle: 'Empezá con Pocket Genes.',
-      heroLead:
-        'La app te permite organizar informes genéticos, aprender conceptos clave y preparar una participación más segura en RareFriends™.',
-      iosLabel: 'Descargar para iPhone',
-      androidLabel: 'Android',
-      androidStatus: 'Próximamente',
-      appStoreAlt: 'Descargar Pocket Genes en App Store',
-      privacyLabel: 'Privacidad primero',
-      privacyText:
-        'Tus informes, variantes exactas e historia clínica no son públicos por defecto. RareFriends™ se construye alrededor de participación voluntaria y control sobre lo que compartís.',
-      stepsTitle: 'Qué podés hacer desde la app',
-      steps: [
-        {
-          title: 'Organizar informes',
-          body: 'Reuní PDFs, paneles, proveedores, fechas y notas en un solo lugar.',
-        },
-        {
-          title: 'Aprender genética sin miedo',
-          body: 'Revisá conceptos como variantes, herencia, VUS, portadores y secuenciación en lenguaje accesible.',
-        },
-        {
-          title: 'Preparar conversaciones',
-          body: 'Llevá preguntas más claras a médicos, profesionales de genética u organizaciones de pacientes.',
-        },
-        {
-          title: 'Participar con más control',
-          body: 'Creá resúmenes comunitarios sin exponer informes genéticos privados.',
-        },
-      ],
-      secondaryCta: 'Ver RareFriends™',
-      secondaryHref: '/pocket-genes/community',
-    }
-  : {
-      title: 'Download Pocket Genes - RareFriends™',
-      eyebrow: 'Pocket Genes + RareFriends™',
-      heroTitle: 'Start from Pocket Genes.',
-      heroLead:
-        'Pocket Genes is the entry point for organizing genetic reports, learning key concepts, and preparing safer participation in RareFriends™.',
-      iosLabel: 'Download for iPhone',
-      androidLabel: 'Android',
-      androidStatus: 'Coming soon',
-      appStoreAlt: 'Download Pocket Genes on the App Store',
-      privacyLabel: 'Privacy first',
-      privacyText:
-        'Your reports, exact variants, and medical history are not public by default. RareFriends™ is built around opt-in participation and control over what you share.',
-      stepsTitle: 'What you can do from the app',
-      steps: [
-        {
-          title: 'Organize reports',
-          body: 'Bring PDFs, panels, providers, dates, and notes into one place.',
-        },
-        {
-          title: 'Learn genetics without fear',
-          body: 'Review concepts like variants, inheritance, VUS, carrier status, and sequencing in accessible language.',
-        },
-        {
-          title: 'Prepare conversations',
-          body: 'Bring better questions to doctors, genetic counselors, or patient organizations.',
-        },
-        {
-          title: 'Participate with more control',
-          body: 'Create community summaries without exposing private genetic reports.',
-        },
-      ],
-      secondaryCta: 'See RareFriends™',
-      secondaryHref: '/pocket-genes/community',
-    };
+const copy = {
+  title: 'Download Pocket Genes',
+  eyebrow: 'Pocket Genes',
+  heroTitle: 'Start with a clearer next step after a genetic result.',
+  heroLead:
+    'Use Pocket Genes to organize your report, understand the language around it, save questions for an appointment, and choose whether RareFriends by Pocket Genes can help you find relevant people, organizations, events, and updates.',
+  iosLabel: 'Download for iPhone',
+  androidLabel: 'Android',
+  androidStatus: 'Coming soon',
+  appStoreAlt: 'Download Pocket Genes on the App Store',
+  privacyLabel: 'Private utility first',
+  privacyText:
+    'Your reports, exact variants, and private notes stay private by default. You can still share selected lessons, questions, resources, or community profile details without accidentally sharing the original genetic report.',
+  stepsTitle: 'What you receive from Pocket Genes',
+  steps: [
+    {
+      title: 'Understand your result',
+      body: 'Turn report terms, genes, panels, variants, and uncertainty into plain-language context you can revisit.',
+    },
+    {
+      title: 'Find relevant support',
+      body: 'Discover people, caregivers, organizations, providers, events, and updates related to your gene, condition, language, or journey stage.',
+    },
+    {
+      title: 'Choose a next step',
+      body: 'Save questions, prepare for a consultation, follow an organization, join a circle, register for an event, or keep learning.',
+    },
+    {
+      title: 'Stay in control',
+      body: 'Participate in RareFriends by Pocket Genes with opt-in sharing, pseudonymous options, and clear privacy boundaries.',
+    },
+  ],
+  secondaryCta: 'See the community layer',
+  secondaryHref: '/pocket-genes/rarefriends',
+};
 ---
 
-<BaseLayout title={copy.title}>
+<PocketGenesPublicLayout title={copy.title} canonicalPath="/pocket-genes/download">
   <main class="download-page">
     <section class="download-hero">
       <div class="download-container download-hero-grid">
@@ -105,7 +59,7 @@ const copy = isSpanish
             </button>
           </div>
 
-          <a class="download-secondary" href={localPath(copy.secondaryHref)}>{copy.secondaryCta}</a>
+          <a class="download-secondary" href={copy.secondaryHref}>{copy.secondaryCta}</a>
         </div>
 
         <div class="download-visual" aria-hidden="true">
@@ -138,7 +92,7 @@ const copy = isSpanish
       </div>
     </section>
   </main>
-</BaseLayout>
+</PocketGenesPublicLayout>
 
 <style>
   .download-page {

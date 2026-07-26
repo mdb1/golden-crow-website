@@ -9,9 +9,10 @@ export const POCKET_GENES_EMAILS = {
 
 export const publicNavItems = [
   { label: 'Home', href: '/pocket-genes/home' },
+  { label: 'Community', href: '/pocket-genes/rarefriends' },
   { label: 'Trust Center', href: '/pocket-genes/trust-center' },
   { label: 'Public Demo', href: '/pocket-genes/demo' },
-  { label: 'RareFriends by Pocket Genes', href: '/pocket-genes/rarefriends' },
+  { label: 'Integration', href: '/pocket-genes/integration' },
   { label: 'Download', href: '/pocket-genes/download' },
 ];
 

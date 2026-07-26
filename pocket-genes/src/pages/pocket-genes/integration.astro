@@ -1,188 +1,319 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import Hero from '../../layouts/Hero.astro';
-import IntroPlan from '../../layouts/IntroPlan.astro';
-import Plan from '../../layouts/Plan.astro';
-import Panels from '../../layouts/Panels.astro';
-import SecondSection from '../../layouts/SecondSection.astro';
-import AppScreenshots from '../../layouts/AppScreenshots.astro';
-import ThirdSection from '../../layouts/ThirdSection.astro';
-import IntegrationOutcome from '../../layouts/IntegrationOutcome.astro';
-import ProviderDiscovery from '../../layouts/ProviderDiscovery.astro';
-import IntegrationJourney from '../../layouts/IntegrationJourney.astro';
-import TrustBoundaries from '../../layouts/TrustBoundaries.astro';
-import Experience from '../../layouts/Experience.astro';
-import { useTranslations } from '../../i18n/index';
+import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+import { POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic';
 
-const t = useTranslations(Astro.currentLocale);
-const bookingCopy = {
-  eyebrow: 'REUNIÓN DE INTEGRACIÓN',
-  titleAccent: 'INTEGRÁ TUS INFORMES',
-  titleMain: 'A POCKET GENES',
-};
+const partnerGains = [
+  {
+    partner: 'Laboratories',
+    value:
+      'A better post-report experience: interactive education, resource navigation, and continued engagement after the PDF is delivered.',
+  },
+  {
+    partner: 'Patient organizations',
+    value:
+      'Verified profiles, community circles, event calendars, announcements, resource libraries, and clearer onboarding links.',
+  },
+  {
+    partner: 'Clinics and genetic counselors',
+    value:
+      'Better-prepared patients who can revisit basic explanations, save questions, and find trusted resources between appointments.',
+  },
+  {
+    partner: 'Research and registry partners',
+    value:
+      'Consent-separated education and outreach workflows without automatic access to private genetic reports or community activity.',
+  },
+];
+
+const integrationSteps = [
+  {
+    title: 'Activation at the result moment',
+    body:
+      'A lab, clinic, or organization can invite a user into Pocket Genes when the need is immediate: after a report, consultation, webinar, or program enrollment.',
+  },
+  {
+    title: 'Private user context',
+    body:
+      'The user starts with private report organization, educational explanations, saved questions, and relevant next-step suggestions.',
+  },
+  {
+    title: 'Optional community and resources',
+    body:
+      'RareFriends by Pocket Genes, providers, organizations, events, and updates remain opt-in layers connected by relevance, not automatic disclosure.',
+  },
+];
 ---
 
-<BaseLayout title={t.pocketGenes.integrationTitle} showFooter={false} extraHeadScripts={["https://link.centralize.es/js/form_embed.js"]}>
-  <main class="pocket-genes-page">
-    <Hero />
-    <ThirdSection />
-    <IntegrationOutcome />
-    <SecondSection />
-    <AppScreenshots />
-    <Panels />
-    <ProviderDiscovery />
-    <IntegrationJourney />
-    <IntroPlan />
-    <Plan />
-    <TrustBoundaries />
-    <Experience />
+<PocketGenesPublicLayout
+  title="Pocket Genes Integration"
+  description="Pocket Genes integration information for laboratories, clinics, patient organizations, providers, and research partners."
+  canonicalPath="/pocket-genes/integration"
+>
+  <main id="main" class="pg-page pg-integration-page">
+    <section class="pg-integration-hero">
+      <div class="pg-container pg-integration-hero-grid">
+        <div>
+          <p class="pg-eyebrow">Integration tab</p>
+          <h1>Bring Pocket Genes to people at the moment they need a next step.</h1>
+          <p>
+            The main product promise stays user-first: understand a genetic result, find relevant support, and choose a clear next step. Integrations help trusted partners offer that journey without turning Pocket Genes into a generic provider portal.
+          </p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href={`mailto:${POCKET_GENES_EMAILS.hello}`}>Contact Pocket Genes</a>
+            <a class="pg-button pg-button-secondary" href="/pocket-genes/rarefriends">See community value</a>
+          </div>
+        </div>
 
-    <section id="booking" class="booking-section">
-      <div class="container">
-        <div class="booking-content">
-          <div class="booking-header">
-            <p class="booking-eyebrow">{bookingCopy.eyebrow}</p>
-            <h2 class="booking-title">
-              <span class="title-accent">{bookingCopy.titleAccent}</span>
-              <span class="title-main">{bookingCopy.titleMain}</span>
-            </h2>
-            <p>{t.pocketGenes.integrationCtaDesc}</p>
-          </div>
-          <div class="calendar-wrapper">
-            <iframe src="https://link.centralize.es/widget/booking/0K86F8BvSkmicNKU6Nyj" style="width: 100%;border:none;overflow: hidden;" scrolling="no" id="0K86F8BvSkmicNKU6Nyj_1770156246220"></iframe>
-          </div>
+        <figure class="pg-integration-visual">
+          <img src="/pocket-genes/screenshots/sample-01.webp" alt="Pocket Genes Explore screen" fetchpriority="high" />
+          <img src="/pocket-genes/screenshots/sample-03.webp" alt="Pocket Genes report detail screen" fetchpriority="high" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="pg-section">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">How integration works</p>
+          <h2>Private utility first. Community second. Trusted ecosystem third.</h2>
+          <p>
+            The strongest entry point is what happens after someone receives genetic information. A useful report and navigation app has value from day one; community and partner resources deepen that value over time.
+          </p>
+        </div>
+
+        <div class="pg-integration-step-grid">
+          {integrationSteps.map((step, index) => (
+            <article class="pg-integration-step">
+              <span>{index + 1}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>
+
+    <section class="pg-section pg-partner-section">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Partner value</p>
+          <h2>Integration should make the user journey clearer, not sell access to private data.</h2>
+          <p>
+            Partner features should support education, navigation, verified resources, and consent-separated programs. Ranking, sponsorship, and research participation must be transparent and separate from private reports.
+          </p>
+        </div>
+
+        <div class="pg-partner-grid">
+          {partnerGains.map((item) => (
+            <article class="pg-partner-card">
+              <h3>{item.partner}</h3>
+              <p>{item.value}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-integration-band-section">
+      <div class="pg-container pg-integration-band">
+        <div>
+          <p class="pg-eyebrow">Trust boundary</p>
+          <h2>Integration does not mean automatic community or research access.</h2>
+          <p>
+            Product membership, RareFriends by Pocket Genes participation, and research or registry participation should each have separate consent and clear visibility rules.
+          </p>
+        </div>
+        <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Open Trust Center</a>
+      </div>
+    </section>
   </main>
-</BaseLayout>
+</PocketGenesPublicLayout>
 
 <style>
-  :root {
-    --space-xs: 0.5rem;
-    --space-sm: 1rem;
-    --space-md: 1.5rem;
-    --space-lg: 2rem;
-    --space-xl: 3rem;
-    --space-2xl: 4rem;
-  }
-
-  body {
-    font-weight: 400;
-  }
-
-  .pocket-genes-page {
-    margin-top: clamp(60px, 10vw, 80px);
-  }
-
-  :global(.pocket-genes-page > *) {
-    border-top: 1px solid rgba(17, 24, 39, 0.06);
-  }
-
-  :global(.pocket-genes-page > :first-child) {
-    border-top: 0;
-  }
-
-  :global(.pocket-genes-page > :nth-child(odd)) {
-    background: var(--bg-secondary) !important;
-  }
-
-  :global(.pocket-genes-page > :nth-child(even)) {
-    background: var(--bg-primary) !important;
-  }
-
-  .booking-section {
-    padding: clamp(4rem, 8vw, 6.5rem) 0;
-    background: var(--bg-secondary);
-  }
-
-  .booking-content {
-    display: grid;
-    gap: clamp(1.5rem, 4vw, 2.5rem);
-  }
-
-  .booking-header {
-    max-width: 760px;
-  }
-
-  .booking-eyebrow {
-    margin: 0 0 0.75rem;
-    color: var(--brand-color);
-    font-size: 0.82rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .booking-title {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: clamp(2.15rem, 5vw, 4.1rem);
-    font-weight: 900;
-    line-height: 1.06;
-  }
-
-  .booking-title .title-accent,
-  .booking-title .title-main {
-    display: block;
-  }
-
-  .booking-title .title-accent {
-    color: var(--text-secondary);
-    font-size: 0.58em;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-  }
-
-  .booking-header p:last-child {
-    max-width: 700px;
-    margin: 1.25rem 0 0;
-    color: var(--text-secondary);
-    font-size: clamp(1rem, 2vw, 1.2rem);
-    line-height: 1.65;
-  }
-
-  .calendar-wrapper {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 1rem;
-    padding: clamp(1rem, 3vw, 2rem);
-    min-height: 600px;
-  }
-
-  .calendar-wrapper iframe {
-    min-height: 550px;
-  }
-
-  section {
-    position: relative;
+  .pg-integration-hero {
+    min-height: 690px;
+    display: flex;
+    align-items: center;
+    padding: 112px 0 64px;
+    background:
+      linear-gradient(90deg, rgba(251, 252, 253, 0.98), rgba(251, 252, 253, 0.84)),
+      url("/mobile2.webp");
+    background-size: cover;
+    background-position: center right;
     overflow: hidden;
   }
 
-  button {
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  .pg-integration-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1.05fr);
+    gap: 52px;
+    align-items: center;
   }
 
-  a {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  .pg-integration-hero h1 {
+    max-width: 760px;
+    margin: 0;
+    font-size: 4rem;
+    line-height: 1.03;
+    letter-spacing: 0;
   }
 
-  ::selection {
-    background: rgba(175, 130, 50, 0.2);
-    color: var(--text-primary);
+  .pg-integration-hero p {
+    max-width: 700px;
+    color: var(--pg-ink-soft);
+    font-size: 1.12rem;
   }
 
-  @media (max-width: 768px) {
-    .booking-section {
-      padding: clamp(3rem, 6vw, 4rem) 0;
+  .pg-integration-hero .pg-button-row {
+    margin-top: 28px;
+  }
+
+  .pg-integration-visual {
+    min-height: 540px;
+    margin: 0;
+    position: relative;
+  }
+
+  .pg-integration-visual img {
+    position: absolute;
+    width: 250px;
+    aspect-ratio: 560 / 1218;
+    object-fit: cover;
+    border: 8px solid #101522;
+    border-radius: 28px;
+    background: #101522;
+    box-shadow: var(--pg-shadow);
+  }
+
+  .pg-integration-visual img:first-child {
+    left: 58px;
+    top: 0;
+  }
+
+  .pg-integration-visual img:last-child {
+    left: 248px;
+    top: 76px;
+  }
+
+  .pg-integration-step-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .pg-integration-step,
+  .pg-partner-card {
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 22px;
+  }
+
+  .pg-integration-step span {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #eef8f5;
+    color: #0e6f6b;
+    display: inline-grid;
+    place-items: center;
+    font-weight: 900;
+    margin-bottom: 14px;
+  }
+
+  .pg-integration-step h3,
+  .pg-partner-card h3 {
+    margin: 0 0 8px;
+    font-size: 1.12rem;
+    line-height: 1.25;
+  }
+
+  .pg-integration-step p,
+  .pg-partner-card p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-partner-section {
+    background: #eef5f7;
+  }
+
+  .pg-partner-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .pg-integration-band-section {
+    background: #ffffff;
+  }
+
+  .pg-integration-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: center;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #f8fbfc;
+    padding: 28px;
+  }
+
+  .pg-integration-band h2 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.12;
+  }
+
+  .pg-integration-band p {
+    margin: 12px 0 0;
+    color: var(--pg-ink-soft);
+  }
+
+  @media (max-width: 980px) {
+    .pg-integration-hero-grid,
+    .pg-integration-band {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-integration-step-grid,
+    .pg-partner-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-integration-visual {
+      min-height: 500px;
     }
   }
 
-  @media (max-width: 480px) {
-    .booking-section {
-      padding: clamp(2.5rem, 6vw, 3.5rem) 0;
+  @media (max-width: 640px) {
+    .pg-integration-hero {
+      min-height: auto;
+      padding: 104px 0 52px;
+    }
+
+    .pg-integration-hero h1 {
+      font-size: 2.72rem;
+    }
+
+    .pg-integration-visual {
+      min-height: 360px;
+    }
+
+    .pg-integration-visual img {
+      width: 188px;
+      border-width: 7px;
+      border-radius: 24px;
+    }
+
+    .pg-integration-visual img:first-child {
+      left: 0;
+      top: 0;
+    }
+
+    .pg-integration-visual img:last-child {
+      left: 120px;
+      top: 56px;
     }
   }
 </style>

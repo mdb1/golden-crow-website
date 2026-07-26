@@ -3,21 +3,38 @@ import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro
 
 const principles = [
   {
-    title: 'Opt-in participation',
-    body: 'Members decide whether to join, what profile details to show, and when to leave.',
+    title: 'People who fit your context',
+    body: 'Find support by same gene, condition, symptom family, role, country, language, or journey stage.',
   },
   {
-    title: 'Private reports by default',
-    body: 'Uploaded PDFs, exact variants, and personal notes do not become community content automatically.',
+    title: 'Organizations and events',
+    body: 'Follow verified organizations, webinars, support programs, and events that match what you are dealing with.',
   },
   {
-    title: 'Small circles',
-    body: 'The community model should favor careful groups, moderation, and context over public broadcasting.',
+    title: 'Practical next steps',
+    body: 'Move from a discussion to a saved appointment question, provider profile, resource, event, or learning module.',
   },
   {
-    title: 'No medical replacement',
-    body: 'Peer support cannot diagnose, prescribe, or replace clinicians, genetic counselors, or patient organizations.',
+    title: 'Emotional and practical support',
+    body: 'A rare journey can feel isolating. The goal is useful responses, daily-living support, and shared experience.',
   },
+  {
+    title: 'Pseudonymous participation',
+    body: 'Members should be able to participate without exposing a full identity, exact variant, or original report.',
+  },
+  {
+    title: 'Moderated safety',
+    body: 'Clear rules, reporting, blocking, and moderation help prevent misinformation, pressure, and re-identification.',
+  },
+];
+
+const matchingLayers = [
+  'Exact gene',
+  'Condition or disease family',
+  'Symptoms or diagnostic journey',
+  'Patient, parent, caregiver, or learner role',
+  'Country, language, and local resources',
+  'Newly diagnosed, undiagnosed, or long-term management stage',
 ];
 ---
 
@@ -33,7 +50,7 @@ const principles = [
           <p class="pg-eyebrow">Community layer</p>
           <h1>RareFriends by Pocket Genes</h1>
           <p>
-            A careful peer-support layer for rare disease journeys, connected to Pocket Genes but separated from private report storage by default.
+            A careful peer-support layer that helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.
           </p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href="/pocket-genes/trust-center/community-terms">Community terms</a>
@@ -50,9 +67,9 @@ const principles = [
       <div class="pg-container">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Relationship</p>
-          <h2>Pocket Genes organizes the private context. RareFriends by Pocket Genes supports optional connection.</h2>
+          <h2>Pocket Genes organizes the private context. RareFriends by Pocket Genes helps you use it to find belonging and action.</h2>
           <p>
-            The naming should stay complete and consistent because "RareFriends" has public search ambiguity. The product site should show the relationship clearly before broader distribution.
+            A social network with no context can feel empty. RareFriends by Pocket Genes can stay useful by matching broadly when an exact-gene circle is quiet and by always pointing toward a helpful next step.
           </p>
         </div>
         <div class="pg-card-grid pg-rf-grid">
@@ -66,13 +83,33 @@ const principles = [
       </div>
     </section>
 
+    <section class="pg-section pg-rf-matching">
+      <div class="pg-container pg-rf-matching-grid">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Layered matching</p>
+          <h2>You should not need an exact diagnosis match to find useful support.</h2>
+          <p>
+            Someone might belong to an exact-gene circle, a broader condition family, a caregiver circle, a regional group, and a newly diagnosed journey at the same time.
+          </p>
+        </div>
+        <div class="pg-match-list">
+          {matchingLayers.map((layer) => (
+            <article>
+              <span></span>
+              <strong>{layer}</strong>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
     <section class="pg-section-tight pg-rf-band-section">
       <div class="pg-container pg-rf-band">
         <div>
           <p class="pg-eyebrow">Trust first</p>
-          <h2>Community growth should follow trust center readiness.</h2>
+          <h2>Community growth should follow usefulness, moderation, and trust.</h2>
           <p>
-            Before expansion, RareFriends by Pocket Genes should have public community terms, safety policy, moderation workflow, incident-reporting contact, and trademark clearance in target jurisdictions.
+            The goal is not vanity activity. A meaningful next step can be understanding a report section, getting a useful answer, following an organization, finding a provider, registering for an event, or preparing a better appointment question.
           </p>
         </div>
         <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Open Trust Center</a>
@@ -140,7 +177,46 @@ const principles = [
   }
 
   .pg-rf-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pg-rf-matching {
+    background: #eef5f7;
+  }
+
+  .pg-rf-matching-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(360px, 1.14fr);
+    gap: 36px;
+    align-items: start;
+  }
+
+  .pg-match-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .pg-match-list article {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--pg-border-strong);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 16px;
+  }
+
+  .pg-match-list span {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--pg-teal);
+    flex: 0 0 auto;
+  }
+
+  .pg-match-list strong {
+    line-height: 1.25;
   }
 
   .pg-rf-band-section {
@@ -171,7 +247,8 @@ const principles = [
 
   @media (max-width: 980px) {
     .pg-rf-hero-grid,
-    .pg-rf-band {
+    .pg-rf-band,
+    .pg-rf-matching-grid {
       grid-template-columns: 1fr;
     }
 
@@ -191,6 +268,10 @@ const principles = [
     }
 
     .pg-rf-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-match-list {
       grid-template-columns: 1fr;
     }
   }

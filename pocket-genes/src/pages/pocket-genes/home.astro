@@ -6,20 +6,24 @@ const trustPreview = trustDocuments.slice(0, 6);
 
 const productPillars = [
   {
-    title: 'Organize genetic reports',
-    body: 'Keep PDFs, panels, providers, dates, reported variants, and family notes in one place.',
+    title: 'Private personal context',
+    body: 'Your report, genes, saved findings, interests, and journey stage give every resource more relevance.',
   },
   {
-    title: 'Understand the language',
-    body: 'Review educational explanations for variants, inheritance, carriers, panels, sequencing, and limitations.',
+    title: 'Understanding',
+    body: 'Plain-language explanations and guided learning help you understand your own information better than before.',
   },
   {
-    title: 'Prepare better conversations',
-    body: 'Turn scattered questions into a clearer checklist for clinicians, genetic counselors, and patient organizations.',
+    title: 'Belonging',
+    body: 'RareFriends by Pocket Genes can connect you by gene, condition, symptoms, role, language, country, or journey stage.',
   },
   {
-    title: 'Share with control',
-    body: 'Create limited summaries for care teams or RareFriends by Pocket Genes without exposing private reports by default.',
+    title: 'Navigation and action',
+    body: 'Move from result to explanation, organization, provider, event, discussion, and saved questions for an appointment.',
+  },
+  {
+    title: 'Relevant updates',
+    body: 'Follow updates that match your gene, condition, country, organization, event interests, or stage of the journey.',
   },
 ];
 
@@ -32,15 +36,7 @@ const identityFacts = [
   {
     label: 'Public web presence',
     value:
-      'Current public route: goldencrowvs.com/pocket-genes/home. Dedicated canonical domain target: pocketgenes.com.',
-  },
-  {
-    label: 'Legal operator',
-    value: 'Operated by Golden Crow VS LLC.',
-  },
-  {
-    label: 'Legal location',
-    value: 'United States.',
+      'Current public route: /pocket-genes/home. Dedicated canonical domain target: pocketgenes.com.',
   },
   {
     label: 'Company-domain contact',
@@ -85,14 +81,14 @@ const leaders = [
           </div>
           <h1>Pocket Genes</h1>
           <p class="pg-home-lead">
-            A personal genomic companion for organizing reports, understanding genetics without fear, and preparing safer participation in RareFriends by Pocket Genes.
+            Pocket Genes helps you understand a genetic result, find trusted connections, and choose a clear next step without making your private report public by default.
           </p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
               Download on the App Store
             </a>
-            <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">
-              Visit Trust Center
+            <a class="pg-button pg-button-secondary" href="/pocket-genes/rarefriends">
+              Explore community
             </a>
           </div>
         </div>
@@ -129,7 +125,7 @@ const leaders = [
       <div class="pg-container">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">What the product does</p>
-          <h2>Genetic information becomes organized, explainable, and easier to bring into a real conversation.</h2>
+          <h2>A private result becomes understanding, belonging, and a useful next step.</h2>
         </div>
         <div class="pg-card-grid pg-pillar-grid">
           {productPillars.map((pillar) => (
@@ -148,7 +144,7 @@ const leaders = [
           <p class="pg-eyebrow">Community relationship</p>
           <h2>RareFriends by Pocket Genes</h2>
           <p>
-            RareFriends by Pocket Genes is the community layer attached to the Pocket Genes experience. Pocket Genes organizes reports and explains concepts; RareFriends by Pocket Genes helps people find careful peer support without making private report data public by default.
+            RareFriends by Pocket Genes is the optional connection layer attached to the private Pocket Genes experience. It helps people find relevant peers, caregivers, organizations, events, and practical support without turning uploaded reports into public community content.
           </p>
           <p class="pg-home-note">
             Naming note: RareFriends already has public search ambiguity. Before heavy expansion, Pocket Genes should run trademark clearance in target jurisdictions and keep the full phrase "RareFriends by Pocket Genes" visible.
@@ -157,18 +153,18 @@ const leaders = [
         <div class="pg-relationship-list">
           <article>
             <span>1</span>
-            <h3>Pocket Genes private space</h3>
-            <p>Reports, notes, education, and conversation preparation remain personal by default.</p>
+            <h3>Match by useful context</h3>
+            <p>Exact gene, condition family, symptoms, role, language, country, and journey stage can all make support more relevant.</p>
           </article>
           <article>
             <span>2</span>
-            <h3>Optional community summary</h3>
-            <p>Users can choose a limited profile and decide what context is safe to share.</p>
+            <h3>Find an action path</h3>
+            <p>Community can point to an organization, provider, event, learning resource, appointment question, or useful update.</p>
           </article>
           <article>
             <span>3</span>
-            <h3>RareFriends by Pocket Genes</h3>
-            <p>Small circles, moderation, and opt-in participation support rare disease journeys.</p>
+            <h3>Keep sharing intentional</h3>
+            <p>Sharing a lesson, event, or resource should never accidentally share a genetic finding or original report.</p>
           </article>
         </div>
       </div>
@@ -425,7 +421,7 @@ const leaders = [
   }
 
   .pg-pillar-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .pg-home-rarefriends {
