@@ -34,6 +34,24 @@ const trustedOrganizationOutputs = [
   'A review path for organizations that want to become visible to users looking for trustworthy next steps.',
   'Up to 5 curated posts per week for free as a trusted organization.',
 ];
+
+const contactRoutes = [
+  {
+    title: 'Privacy',
+    body: 'Data access, deletion, and account questions.',
+    tone: 'teal',
+  },
+  {
+    title: 'Security',
+    body: 'Incident reports and sensitive platform concerns.',
+    tone: 'rose',
+  },
+  {
+    title: 'Accessibility',
+    body: 'Usability barriers, assistive access, and content issues.',
+    tone: 'blue',
+  },
+];
 ---
 
 <PocketGenesPublicLayout
@@ -138,14 +156,43 @@ const trustedOrganizationOutputs = [
       </div>
     </section>
 
-    <section class="pg-section-tight pg-trust-contact">
-      <div class="pg-container pg-trust-contact-band">
-        <div>
-          <p class="pg-eyebrow">Direct contacts</p>
-          <h2>Contact Pocket Genes about privacy, security, or accessibility.</h2>
-        </div>
-        <div class="pg-contact-list">
-          <a href={`mailto:${POCKET_GENES_EMAILS.hello}`}>{POCKET_GENES_EMAILS.hello}</a>
+    <section class="pg-section-tight pg-trust-contact" aria-labelledby="pg-trust-contact-title">
+      <div class="pg-container">
+        <div class="pg-trust-contact-band">
+          <div class="pg-contact-orbits" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="pg-contact-main">
+            <p class="pg-eyebrow">Direct contacts</p>
+            <h2 id="pg-trust-contact-title">Contact Pocket Genes about privacy, security, or accessibility.</h2>
+            <p>
+              One inbox routes trust requests to the right review path.
+            </p>
+          </div>
+          <div class="pg-contact-panel">
+            <div class="pg-contact-actions">
+              <a class="pg-contact-email" href={`mailto:${POCKET_GENES_EMAILS.hello}?subject=Pocket%20Genes%20Trust%20Request`}>
+                <span>Primary inbox</span>
+                <strong>{POCKET_GENES_EMAILS.hello}</strong>
+              </a>
+              <button class="pg-contact-copy-button" type="button" data-copy-email={POCKET_GENES_EMAILS.hello}>
+                Copy email
+              </button>
+            </div>
+            <div class="pg-contact-route-grid" aria-label="Contact topics">
+              {contactRoutes.map((route) => (
+                <article class={`pg-contact-route tone-${route.tone}`}>
+                  <span class="pg-route-marker" aria-hidden="true"></span>
+                  <div>
+                    <h3>{route.title}</h3>
+                    <p>{route.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -164,6 +211,28 @@ const trustedOrganizationOutputs = [
         </div>
       </div>
     </section>
+    <script>
+      const copyEmailButtons = document.querySelectorAll('[data-copy-email]');
+
+      copyEmailButtons.forEach((button) => {
+        const originalText = button.textContent?.trim() || 'Copy email';
+        const email = button.getAttribute('data-copy-email');
+
+        button.addEventListener('click', async () => {
+          if (!email || !navigator.clipboard) return;
+
+          try {
+            await navigator.clipboard.writeText(email);
+            button.textContent = 'Copied';
+            window.setTimeout(() => {
+              button.textContent = originalText;
+            }, 1800);
+          } catch {
+            button.textContent = originalText;
+          }
+        });
+      });
+    </script>
   </main>
 </PocketGenesPublicLayout>
 
@@ -374,40 +443,310 @@ const trustedOrganizationOutputs = [
   }
 
   .pg-trust-contact {
-    background: #ffffff;
+    background:
+      radial-gradient(circle at 10% 0%, rgba(20, 149, 143, 0.13), transparent 34%),
+      linear-gradient(180deg, #ffffff 0%, #eef8f7 100%);
   }
 
   .pg-trust-contact-band {
+    position: relative;
+    isolation: isolate;
     display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(360px, 1.15fr);
-    gap: 28px;
+    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+    gap: clamp(24px, 4vw, 46px);
     align-items: center;
-    border: 1px solid var(--pg-border);
+    min-height: 330px;
+    overflow: hidden;
+    border: 1px solid rgba(125, 228, 215, 0.28);
     border-radius: 8px;
-    background: #f8fbfc;
-    padding: 28px;
+    background:
+      radial-gradient(circle at 22% 22%, rgba(125, 228, 215, 0.18), transparent 30%),
+      radial-gradient(circle at 78% 12%, rgba(228, 80, 128, 0.18), transparent 26%),
+      linear-gradient(135deg, #111827 0%, #172033 48%, #0d3d49 100%);
+    padding: clamp(26px, 5vw, 54px);
+    color: #ffffff;
+    box-shadow:
+      0 34px 80px rgba(23, 32, 51, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+
+  .pg-trust-contact-band::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: 0;
+    background:
+      linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.16) 46%, transparent 62%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 72px);
+    opacity: 0.55;
+    pointer-events: none;
+    transform: translateX(-58%);
+    animation: contactSweep 7.5s ease-in-out infinite;
+  }
+
+  .pg-trust-contact-band::after {
+    content: "";
+    position: absolute;
+    inset: auto -12% -44% 34%;
+    z-index: 0;
+    height: 260px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(20, 149, 143, 0.48), transparent 68%);
+    filter: blur(20px);
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  .pg-contact-orbits {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .pg-contact-orbits span {
+    position: absolute;
+    border: 1px solid rgba(125, 228, 215, 0.28);
+    border-radius: 999px;
+    opacity: 0.72;
+    animation: floatSignal 8s ease-in-out infinite;
+  }
+
+  .pg-contact-orbits span:nth-child(1) {
+    width: 190px;
+    height: 190px;
+    top: -74px;
+    right: 17%;
+  }
+
+  .pg-contact-orbits span:nth-child(2) {
+    width: 330px;
+    height: 330px;
+    right: -74px;
+    bottom: -152px;
+    border-color: rgba(228, 80, 128, 0.22);
+    animation-delay: -2.5s;
+  }
+
+  .pg-contact-orbits span:nth-child(3) {
+    width: 124px;
+    height: 124px;
+    left: 43%;
+    bottom: 28px;
+    border-color: rgba(33, 118, 174, 0.34);
+    animation-delay: -5s;
+  }
+
+  .pg-contact-main,
+  .pg-contact-panel {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pg-trust-contact .pg-eyebrow {
+    color: #7de4d7;
   }
 
   .pg-trust-contact h2 {
+    max-width: 700px;
     margin: 0;
-    font-size: 2rem;
-    line-height: 1.12;
+    font-size: clamp(2.25rem, 4.5vw, 4.25rem);
+    line-height: 1.02;
+    letter-spacing: 0;
   }
 
-  .pg-contact-list {
-    display: flex;
-    flex-wrap: wrap;
+  .pg-contact-main p:not(.pg-eyebrow) {
+    max-width: 520px;
+    margin: 18px 0 0;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 1.08rem;
+  }
+
+  .pg-contact-panel {
+    display: grid;
+    gap: 16px;
+  }
+
+  .pg-contact-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .pg-contact-email,
+  .pg-contact-copy-button,
+  .pg-contact-route {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .pg-contact-email {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 16px 18px;
+    color: #ffffff;
+    text-decoration: none;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  }
+
+  .pg-contact-email:hover {
+    transform: translateY(-3px);
+    border-color: rgba(125, 228, 215, 0.62);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .pg-contact-email span {
+    color: #7de4d7;
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .pg-contact-email strong {
+    overflow-wrap: anywhere;
+    font-size: clamp(1.08rem, 2vw, 1.45rem);
+    line-height: 1.15;
+  }
+
+  .pg-contact-copy-button {
+    min-width: 112px;
+    padding: 0 18px;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  }
+
+  .pg-contact-copy-button:hover {
+    transform: translateY(-3px);
+    border-color: rgba(228, 80, 128, 0.72);
+    background: rgba(228, 80, 128, 0.22);
+  }
+
+  .pg-contact-route-grid {
+    display: grid;
     gap: 10px;
   }
 
-  .pg-contact-list a {
-    border: 1px solid var(--pg-border-strong);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 10px 12px;
-    color: var(--pg-blue);
-    font-weight: 800;
-    text-decoration: none;
+  .pg-contact-route {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  }
+
+  .pg-contact-route:hover {
+    transform: translateX(4px);
+    border-color: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .pg-route-marker {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(125, 228, 215, 0.5);
+    border-radius: 999px;
+    background: rgba(125, 228, 215, 0.12);
+  }
+
+  .pg-route-marker::before,
+  .pg-route-marker::after {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border-radius: 999px;
+    background: #7de4d7;
+    box-shadow: 0 0 22px rgba(125, 228, 215, 0.65);
+    animation: pulseDot 2.8s ease-in-out infinite;
+  }
+
+  .pg-route-marker::after {
+    inset: 5px;
+    background: transparent;
+    border: 1px solid currentColor;
+    opacity: 0.36;
+  }
+
+  .tone-rose .pg-route-marker {
+    color: #ff8bac;
+    border-color: rgba(255, 139, 172, 0.54);
+    background: rgba(228, 80, 128, 0.14);
+  }
+
+  .tone-rose .pg-route-marker::before {
+    background: #ff8bac;
+    box-shadow: 0 0 22px rgba(228, 80, 128, 0.68);
+    animation-delay: -0.9s;
+  }
+
+  .tone-blue .pg-route-marker {
+    color: #85c8ff;
+    border-color: rgba(133, 200, 255, 0.54);
+    background: rgba(33, 118, 174, 0.16);
+  }
+
+  .tone-blue .pg-route-marker::before {
+    background: #85c8ff;
+    box-shadow: 0 0 22px rgba(33, 118, 174, 0.68);
+    animation-delay: -1.8s;
+  }
+
+  .pg-contact-route h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .pg-contact-route p {
+    margin: 2px 0 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.94rem;
+    line-height: 1.4;
+  }
+
+  @keyframes contactSweep {
+    0%,
+    22% {
+      transform: translateX(-58%);
+    }
+    55%,
+    100% {
+      transform: translateX(58%);
+    }
+  }
+
+  @keyframes floatSignal {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(10px, -12px, 0) scale(1.04);
+    }
+  }
+
+  @keyframes pulseDot {
+    0%,
+    100% {
+      transform: scale(0.82);
+      opacity: 0.72;
+    }
+    50% {
+      transform: scale(1.08);
+      opacity: 1;
+    }
   }
 
   .pg-trusted-booking {
@@ -483,6 +822,28 @@ const trustedOrganizationOutputs = [
 
     .pg-trusted-booking h2 {
       font-size: 2.35rem;
+    }
+
+    .pg-contact-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-contact-copy-button {
+      min-height: 48px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pg-trust-contact-band::before,
+    .pg-contact-orbits span,
+    .pg-route-marker::before {
+      animation: none;
+    }
+
+    .pg-contact-email,
+    .pg-contact-copy-button,
+    .pg-contact-route {
+      transition: none;
     }
   }
 </style>
