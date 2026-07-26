@@ -5,12 +5,16 @@ interface Props {
   title: string;
   description?: string;
   canonicalPath?: string;
+  extraHeadScripts?: string[];
+  showFooter?: boolean;
 }
 
 const {
   title,
   description = 'Pocket Genes is a personal genomic companion for organizing reports, understanding key genetic concepts, and finding relevant support.',
   canonicalPath = Astro.url.pathname,
+  extraHeadScripts = [],
+  showFooter = true,
 } = Astro.props;
 
 const siteBase = 'https://goldencrowvs.com';
@@ -61,6 +65,7 @@ const homeHref = localizePath('/pocket-genes/home');
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet" />
+    {extraHeadScripts.map((src) => <script src={src} type="text/javascript"></script>)}
   </head>
   <body>
     <header class="pg-site-header">
@@ -97,6 +102,7 @@ const homeHref = localizePath('/pocket-genes/home');
 
     <slot />
 
+    {showFooter && (
     <footer class="pg-footer">
       <div class="pg-footer-inner">
         <div>
@@ -115,6 +121,7 @@ const homeHref = localizePath('/pocket-genes/home');
         </nav>
       </div>
     </footer>
+    )}
   </body>
 </html>
 

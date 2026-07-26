@@ -11,7 +11,7 @@ export const publicNavItems = [
   { label: 'Home', href: '/pocket-genes/home' },
   { label: 'Community', href: '/pocket-genes/rarefriends' },
   { label: 'Trust Center', href: '/pocket-genes/trust-center' },
-  { label: 'Integration', href: '/pocket-genes/integration' },
+  { label: 'Integration', href: '/pocket-genes/website/integration' },
   { label: 'Download', href: '/pocket-genes/download' },
 ];
 
