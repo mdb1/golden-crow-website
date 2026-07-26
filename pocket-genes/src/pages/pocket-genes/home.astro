@@ -58,21 +58,38 @@ const productMoments = [
   },
 ];
 
-const identityFacts = [
+const identityCards = [
   {
-    label: 'Pocket Genes',
-    value:
-      'A personal genomic companion for reports, notes, education, and next steps.',
+    kicker: 'Private by default',
+    title: 'Your report stays yours',
+    body: 'Store the original file, exact details, notes, and saved findings without turning them into public profile content.',
+    accent: '#14958f',
+    surface: '#e9faf7',
   },
   {
-    label: 'Privacy',
-    value: 'Reports and exact genetic details stay private by default.',
+    kicker: 'Plain language',
+    title: 'Make dense terms usable',
+    body: 'Come back to genes, panels, variants, uncertainty, and saved explanations when you need to understand them again.',
+    accent: '#d85b7f',
+    surface: '#fff0f5',
   },
   {
-    label: 'Contact',
-    value: POCKET_GENES_EMAILS.hello,
+    kicker: 'Relevant support',
+    title: 'Find people and groups',
+    body: 'Look for people, caregivers, groups, events, and updates by gene, condition, symptoms, role, language, or journey stage.',
+    accent: '#2176ae',
+    surface: '#edf6ff',
+  },
+  {
+    kicker: 'Next step',
+    title: 'Keep questions ready',
+    body: 'Save appointment questions, resources, event interests, and useful updates next to the result that raised them.',
+    accent: '#d99232',
+    surface: '#fff7df',
   },
 ];
+
+const identityFlow = ['Save privately', 'Understand terms', 'Find support', 'Prepare questions'];
 
 ---
 
@@ -114,22 +131,47 @@ const identityFacts = [
     </section>
 
     <section class="pg-section pg-home-identity">
-      <div class="pg-container pg-home-split">
-        <div class="pg-section-heading">
+      <div class="pg-container pg-identity-stage">
+        <div class="pg-identity-copy">
           <p class="pg-eyebrow">At a glance</p>
-          <h2>Pocket Genes in one place.</h2>
+          <h2>Built for the moment after a genetic result.</h2>
           <p>
-            Learn what the app does, download it, contact Pocket Genes, and see how privacy and trust are handled.
+            Pocket Genes gives you a private place to keep the report, learn what it says, find relevant support, and prepare what to ask next.
           </p>
+          <div class="pg-identity-actions">
+            <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">Download the app</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Trust Center</a>
+          </div>
         </div>
 
-        <div class="pg-fact-list" aria-label="Pocket Genes identity facts">
-          {identityFacts.map((fact) => (
-            <article class="pg-fact">
-              <h3>{fact.label}</h3>
-              <p>{fact.value}</p>
-            </article>
-          ))}
+        <div class="pg-identity-board">
+          <div class="pg-identity-flow" aria-label="Pocket Genes user flow">
+            {identityFlow.map((step, index) => (
+              <span style={`--flow-index: ${index};`}>
+                <small>{String(index + 1).padStart(2, '0')}</small>
+                {step}
+              </span>
+            ))}
+          </div>
+
+          <div class="pg-identity-card-grid">
+            {identityCards.map((card, index) => (
+              <article
+                class:list={['pg-identity-card', { 'is-featured': index === 0 }]}
+                tabindex="0"
+                style={`--identity-accent: ${card.accent}; --identity-surface: ${card.surface}; --identity-delay: ${index * 80}ms;`}
+              >
+                <span>{card.kicker}</span>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+              </article>
+            ))}
+          </div>
+
+          <div class="pg-identity-contact">
+            <span>Questions about Pocket Genes?</span>
+            <a href={`mailto:${POCKET_GENES_EMAILS.hello}`}>{POCKET_GENES_EMAILS.hello}</a>
+          </div>
         </div>
       </div>
     </section>
@@ -366,36 +408,217 @@ const identityFacts = [
     top: 86px;
   }
 
-  .pg-home-split {
+  .pg-home-identity {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(120deg, rgba(255, 255, 255, 0.96), rgba(239, 248, 247, 0.9) 48%, rgba(255, 246, 251, 0.86)),
+      repeating-linear-gradient(135deg, rgba(20, 149, 143, 0.05) 0 1px, transparent 1px 22px);
+  }
+
+  .pg-home-identity::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, transparent, rgba(20, 149, 143, 0.08), transparent);
+    opacity: 0.7;
+    transform: translateX(-100%);
+    animation: pg-identity-scan 9s ease-in-out infinite;
+  }
+
+  .pg-identity-stage {
+    position: relative;
+    z-index: 1;
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
-    gap: 44px;
-    align-items: start;
+    grid-template-columns: minmax(0, 0.82fr) minmax(520px, 1.18fr);
+    gap: 52px;
+    align-items: center;
   }
 
-  .pg-fact-list {
+  .pg-identity-copy {
     display: grid;
-    gap: 12px;
+    align-content: start;
   }
 
-  .pg-fact {
-    border-left: 4px solid var(--pg-teal);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 18px 20px;
-    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.05);
-  }
-
-  .pg-fact h3 {
-    margin: 0 0 4px;
-    font-size: 0.92rem;
-    color: var(--pg-muted);
-  }
-
-  .pg-fact p {
+  .pg-identity-copy h2 {
+    max-width: 620px;
     margin: 0;
     color: var(--pg-ink);
-    font-weight: 760;
+    font-size: 3.25rem;
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  .pg-identity-copy p:not(.pg-eyebrow) {
+    max-width: 620px;
+    margin: 22px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.1rem;
+    line-height: 1.72;
+  }
+
+  .pg-identity-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .pg-identity-board {
+    display: grid;
+    gap: 16px;
+  }
+
+  .pg-identity-flow {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .pg-identity-flow::before {
+    content: "";
+    position: absolute;
+    left: 7%;
+    right: 7%;
+    top: 50%;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(20, 149, 143, 0.12), rgba(216, 91, 127, 0.45), rgba(33, 118, 174, 0.45), rgba(217, 146, 50, 0.35), rgba(20, 149, 143, 0.12));
+    background-size: 220% 100%;
+    transform: translateY(-50%);
+    animation: pg-identity-track 5.5s linear infinite;
+  }
+
+  .pg-identity-flow span {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    min-height: 82px;
+    align-content: center;
+    border: 1px solid rgba(20, 149, 143, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 12px 34px rgba(23, 32, 51, 0.08);
+    color: var(--pg-ink);
+    font-size: 0.92rem;
+    font-weight: 850;
+    padding: 14px;
+    transform: translateY(0);
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+    animation: pg-identity-rise 520ms ease both;
+    animation-delay: calc(var(--flow-index) * 80ms);
+  }
+
+  .pg-identity-flow span:hover {
+    transform: translateY(-5px);
+    border-color: rgba(20, 149, 143, 0.4);
+    background: #ffffff;
+    box-shadow: 0 22px 46px rgba(23, 32, 51, 0.12);
+  }
+
+  .pg-identity-flow small {
+    color: var(--pg-teal);
+    font-size: 0.72rem;
+    font-weight: 950;
+  }
+
+  .pg-identity-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .pg-identity-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 190px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--identity-accent), white 68%);
+    border-radius: 8px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), var(--identity-surface));
+    box-shadow: 0 16px 38px rgba(23, 32, 51, 0.09);
+    padding: 22px;
+    transition: transform 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 260ms ease;
+    animation: pg-identity-rise 620ms ease both;
+    animation-delay: var(--identity-delay);
+  }
+
+  .pg-identity-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(115deg, transparent 0%, color-mix(in srgb, var(--identity-accent), transparent 88%) 44%, transparent 72%);
+    opacity: 0;
+    transform: translateX(-28%);
+    transition: opacity 260ms ease, transform 260ms ease;
+  }
+
+  .pg-identity-card:hover,
+  .pg-identity-card:focus-visible {
+    transform: translateY(-8px);
+    border-color: color-mix(in srgb, var(--identity-accent), white 18%);
+    box-shadow: 0 28px 64px rgba(23, 32, 51, 0.14);
+    outline: none;
+  }
+
+  .pg-identity-card:hover::before,
+  .pg-identity-card:focus-visible::before {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .pg-identity-card span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--identity-accent), white 84%);
+    color: var(--identity-accent);
+    font-size: 0.74rem;
+    font-weight: 950;
+    padding: 7px 10px;
+    text-transform: uppercase;
+  }
+
+  .pg-identity-card h3 {
+    margin: 18px 0 0;
+    color: var(--pg-ink);
+    font-size: 1.45rem;
+    line-height: 1.14;
+  }
+
+  .pg-identity-card p {
+    margin: 12px 0 0;
+    color: var(--pg-ink-soft);
+    line-height: 1.62;
+  }
+
+  .pg-identity-contact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid rgba(20, 149, 143, 0.22);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 12px 32px rgba(23, 32, 51, 0.07);
+    padding: 16px 18px;
+  }
+
+  .pg-identity-contact span {
+    color: var(--pg-ink-soft);
+    font-weight: 780;
+  }
+
+  .pg-identity-contact a {
+    color: var(--pg-teal);
+    font-weight: 900;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
   }
 
   .pg-home-product {
@@ -666,7 +889,7 @@ const identityFacts = [
 
   @media (max-width: 1040px) {
     .pg-home-hero-grid,
-    .pg-home-split,
+    .pg-identity-stage,
     .pg-moment-layout,
     .pg-store-band {
       grid-template-columns: 1fr;
@@ -688,6 +911,10 @@ const identityFacts = [
 
     .pg-moment-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-identity-copy h2 {
+      max-width: 760px;
     }
 
     .pg-moment-focus {
@@ -717,6 +944,14 @@ const identityFacts = [
       font-size: 1.08rem;
     }
 
+    .pg-identity-copy h2 {
+      font-size: 2.4rem;
+    }
+
+    .pg-identity-copy p:not(.pg-eyebrow) {
+      font-size: 1rem;
+    }
+
     .pg-home-visual {
       min-height: 390px;
     }
@@ -739,8 +974,28 @@ const identityFacts = [
 
     .pg-moment-grid,
     .pg-moment-focus,
+    .pg-identity-card-grid,
+    .pg-identity-flow,
     .pg-moment-flow {
       grid-template-columns: 1fr;
+    }
+
+    .pg-identity-flow::before {
+      left: 22px;
+      right: auto;
+      top: 16px;
+      bottom: 16px;
+      width: 3px;
+      height: auto;
+      background: linear-gradient(180deg, rgba(20, 149, 143, 0.12), rgba(216, 91, 127, 0.45), rgba(33, 118, 174, 0.45), rgba(217, 146, 50, 0.35), rgba(20, 149, 143, 0.12));
+      background-size: 100% 220%;
+      transform: none;
+      animation-name: pg-identity-track-vertical;
+    }
+
+    .pg-identity-flow span {
+      min-height: 66px;
+      padding-left: 54px;
     }
 
     .pg-moment-flow {
@@ -764,6 +1019,10 @@ const identityFacts = [
       font-size: 2.72rem;
     }
 
+    .pg-identity-copy h2 {
+      font-size: 2.08rem;
+    }
+
     .pg-home-visual {
       min-height: 340px;
     }
@@ -777,5 +1036,64 @@ const identityFacts = [
       top: 48px;
     }
 
+  }
+
+  @keyframes pg-identity-rise {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pg-identity-track {
+    from {
+      background-position: 0% 50%;
+    }
+
+    to {
+      background-position: 220% 50%;
+    }
+  }
+
+  @keyframes pg-identity-track-vertical {
+    from {
+      background-position: 50% 0%;
+    }
+
+    to {
+      background-position: 50% 220%;
+    }
+  }
+
+  @keyframes pg-identity-scan {
+    0%,
+    44% {
+      transform: translateX(-100%);
+    }
+
+    64%,
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pg-home-identity::before,
+    .pg-identity-flow::before,
+    .pg-identity-flow span,
+    .pg-identity-card {
+      animation: none;
+    }
+
+    .pg-identity-flow span,
+    .pg-identity-card,
+    .pg-identity-card::before {
+      transition: none;
+    }
   }
 </style>
