@@ -20,14 +20,6 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
 
       <div class="download-shell">
         <div class="download-copy">
-          <div class="app-identity">
-            <img src="/pocket-genes/icon.png" alt="" width="96" height="96" />
-            <div>
-              <p class="download-eyebrow">Pocket Genes</p>
-              <p class="download-status">Available on iPhone</p>
-            </div>
-          </div>
-
           <h1 id="download-title">
             <span>Download</span>
             <span>Pocket Genes</span>
@@ -113,50 +105,15 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
     min-width: 0;
   }
 
-  .app-identity {
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    padding: 10px 14px 10px 10px;
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.18);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-  }
-
-  .app-identity img {
-    width: 54px;
-    height: 54px;
-    border-radius: 8px;
-    box-shadow: 0 12px 30px rgba(228, 80, 128, 0.22);
-  }
-
-  .download-eyebrow,
-  .download-status,
   .store-kicker,
   .store-note {
     margin: 0;
     letter-spacing: 0;
   }
 
-  .download-eyebrow {
-    color: #7de4d7;
-    font-size: 0.78rem;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .download-status {
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 0.94rem;
-    font-weight: 720;
-  }
-
   .download-copy h1 {
     max-width: 760px;
-    margin: clamp(1.5rem, 4vw, 2.35rem) 0 0;
+    margin: 0;
     font-size: clamp(3.35rem, 8vw, 7.2rem);
     font-weight: 900;
     line-height: 0.9;
@@ -496,10 +453,6 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
       margin-right: auto;
     }
 
-    .app-identity {
-      margin: 0 auto;
-    }
-
     .store-grid {
       max-width: 620px;
       margin-left: auto;
@@ -537,11 +490,6 @@ import { APP_STORE_URL } from '../data/pocketGenesPublic';
   }
 
   @media (max-width: 420px) {
-    .app-identity {
-      width: 100%;
-      justify-content: center;
-    }
-
     .download-copy h1 {
       font-size: clamp(2.35rem, 10.5vw, 2.85rem);
       line-height: 0.95;
