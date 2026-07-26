@@ -1,0 +1,812 @@
+---
+import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+import { APP_STORE_URL, POCKET_GENES_EMAILS, trustDocuments } from '../../data/pocketGenesPublic';
+
+const trustPreview = trustDocuments.slice(0, 6);
+
+const productPillars = [
+  {
+    title: 'Organize genetic reports',
+    body: 'Keep PDFs, panels, providers, dates, reported variants, and family notes in one place.',
+  },
+  {
+    title: 'Understand the language',
+    body: 'Review educational explanations for variants, inheritance, carriers, panels, sequencing, and limitations.',
+  },
+  {
+    title: 'Prepare better conversations',
+    body: 'Turn scattered questions into a clearer checklist for clinicians, genetic counselors, and patient organizations.',
+  },
+  {
+    title: 'Share with control',
+    body: 'Create limited summaries for care teams or RareFriends by Pocket Genes without exposing private reports by default.',
+  },
+];
+
+const identityFacts = [
+  {
+    label: 'Canonical description',
+    value:
+      'Pocket Genes is a personal genomic companion that helps people organize genetic reports, understand key concepts, and prepare safer next steps.',
+  },
+  {
+    label: 'Public web presence',
+    value:
+      'Current public route: goldencrowvs.com/pocket-genes/home. Dedicated canonical domain target: pocketgenes.com.',
+  },
+  {
+    label: 'Legal operator',
+    value: 'Operated by Golden Crow VS LLC.',
+  },
+  {
+    label: 'Legal location',
+    value: 'United States.',
+  },
+  {
+    label: 'Company-domain contact',
+    value: `${POCKET_GENES_EMAILS.hello} | ${POCKET_GENES_EMAILS.trust} | ${POCKET_GENES_EMAILS.security}`,
+  },
+];
+
+const leaders = [
+  {
+    name: 'Manuel Herrera',
+    role: 'Founder & CEO',
+    image: '/aboutus1.webp',
+    body:
+      'Leads product strategy, institutional conversations, and the operating model for a careful public genomic product.',
+    linkedin: 'https://www.linkedin.com/in/manuh/',
+  },
+  {
+    name: 'Federico Bustos',
+    role: 'Co-Founder & CTO',
+    image: '/aboutus2.webp',
+    body:
+      'Leads mobile architecture, product engineering, and the technical systems behind report organization and data boundaries.',
+    linkedin: 'https://www.linkedin.com/in/federico-bustos-fierro/',
+  },
+];
+---
+
+<PocketGenesPublicLayout
+  title="Pocket Genes - Personal genomic companion"
+  canonicalPath="/pocket-genes/home"
+>
+  <main id="main" class="pg-page pg-home">
+    <section class="pg-home-hero">
+      <div class="pg-container pg-home-hero-grid">
+        <div class="pg-home-copy">
+          <div class="pg-home-logo" aria-label="Pocket Genes logo">
+            <span class="pg-home-logo-mark" aria-hidden="true">
+              <span></span>
+              <span></span>
+            </span>
+            <span>Pocket Genes</span>
+          </div>
+          <h1>Pocket Genes</h1>
+          <p class="pg-home-lead">
+            A personal genomic companion for organizing reports, understanding genetics without fear, and preparing safer participation in RareFriends by Pocket Genes.
+          </p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+              Download on the App Store
+            </a>
+            <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">
+              Visit Trust Center
+            </a>
+          </div>
+        </div>
+
+        <figure class="pg-home-visual" aria-label="Pocket Genes app preview">
+          <img class="pg-home-phone pg-home-phone-main" src="/pocket-genes/screenshots/sample-01.webp" alt="Pocket Genes Explore screen showing genomics education and report categories" fetchpriority="high" />
+          <img class="pg-home-phone pg-home-phone-side" src="/pocket-genes/screenshots/sample-03.webp" alt="Pocket Genes sample pathology detail screen" fetchpriority="high" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="pg-section pg-home-identity">
+      <div class="pg-container pg-home-split">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Clear identity</p>
+          <h2>A standalone Pocket Genes presence for users and institutions.</h2>
+          <p>
+            The public site should make the product, operator, contacts, leadership, and trust boundaries visible before a hospital, lab, patient organization, or family replies to an outreach message.
+          </p>
+        </div>
+
+        <div class="pg-fact-list" aria-label="Pocket Genes identity facts">
+          {identityFacts.map((fact) => (
+            <article class="pg-fact">
+              <h3>{fact.label}</h3>
+              <p>{fact.value}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-home-product">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">What the product does</p>
+          <h2>Genetic information becomes organized, explainable, and easier to bring into a real conversation.</h2>
+        </div>
+        <div class="pg-card-grid pg-pillar-grid">
+          {productPillars.map((pillar) => (
+            <article class="pg-card">
+              <h3>{pillar.title}</h3>
+              <p>{pillar.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-home-rarefriends">
+      <div class="pg-container pg-home-relationship">
+        <div>
+          <p class="pg-eyebrow">Community relationship</p>
+          <h2>RareFriends by Pocket Genes</h2>
+          <p>
+            RareFriends by Pocket Genes is the community layer attached to the Pocket Genes experience. Pocket Genes organizes reports and explains concepts; RareFriends by Pocket Genes helps people find careful peer support without making private report data public by default.
+          </p>
+          <p class="pg-home-note">
+            Naming note: RareFriends already has public search ambiguity. Before heavy expansion, Pocket Genes should run trademark clearance in target jurisdictions and keep the full phrase "RareFriends by Pocket Genes" visible.
+          </p>
+        </div>
+        <div class="pg-relationship-list">
+          <article>
+            <span>1</span>
+            <h3>Pocket Genes private space</h3>
+            <p>Reports, notes, education, and conversation preparation remain personal by default.</p>
+          </article>
+          <article>
+            <span>2</span>
+            <h3>Optional community summary</h3>
+            <p>Users can choose a limited profile and decide what context is safe to share.</p>
+          </article>
+          <article>
+            <span>3</span>
+            <h3>RareFriends by Pocket Genes</h3>
+            <p>Small circles, moderation, and opt-in participation support rare disease journeys.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-home-leadership">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Leadership</p>
+          <h2>Founder and leadership profiles should be visible on the product site.</h2>
+        </div>
+        <div class="pg-leader-grid">
+          {leaders.map((leader) => (
+            <article class="pg-leader">
+              <img src={leader.image} alt={leader.name} loading="lazy" />
+              <div>
+                <h3>{leader.name}</h3>
+                <p class="pg-leader-role">{leader.role}</p>
+                <p>{leader.body}</p>
+                <a href={leader.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn profile</a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-home-trust">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Trust Center</p>
+          <h2>Trust material should be a visible page, not a footer graveyard.</h2>
+          <p>
+            The Trust Center links privacy, safety, security, scientific methodology, intended use, data handling, and incident reporting from one place.
+          </p>
+        </div>
+        <div class="pg-trust-preview-grid">
+          {trustPreview.map((document) => (
+            <a class="pg-trust-preview" href={`/pocket-genes/trust-center/${document.slug}`}>
+              <span>{document.category}</span>
+              <strong>{document.title}</strong>
+              <p>{document.summary}</p>
+            </a>
+          ))}
+        </div>
+        <div class="pg-home-inline-action">
+          <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Open the full Trust Center</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section pg-home-demo">
+      <div class="pg-container pg-home-demo-grid">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Public demo</p>
+          <h2>Show the complete path from synthetic report to Pocket Genes experience.</h2>
+          <p>
+            Institutional visitors should be able to inspect what came from a lab, what Pocket Genes reformatted, what education was added, and what the user can or cannot share.
+          </p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href="/pocket-genes/demo">View public demo</a>
+            <a class="pg-button pg-button-secondary" href="/pocket-genes/demo/sample-report.pdf">Open sample PDF</a>
+          </div>
+        </div>
+        <figure class="pg-demo-preview">
+          <img src="/pocket-genes/screenshots/sample-04.webp" alt="Pocket Genes sample ancestry report experience" loading="lazy" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-home-store">
+      <div class="pg-container pg-store-band">
+        <div>
+          <p class="pg-eyebrow">Get Pocket Genes</p>
+          <h2>Available for iPhone. Google Play is planned.</h2>
+          <p>
+            Use the App Store link today. Android should remain visibly marked as future Google Play availability until the production listing is ready.
+          </p>
+        </div>
+        <div class="pg-store-actions">
+          <a class="pg-store-app" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+            <span>Download for iPhone</span>
+            <img src="/appStore.png" alt="Download Pocket Genes on the App Store" />
+          </a>
+          <button class="pg-store-disabled" type="button" disabled>
+            <span>Google Play</span>
+            <strong>Coming soon</strong>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-home-hero {
+    min-height: 720px;
+    display: flex;
+    align-items: center;
+    padding: 112px 0 64px;
+    background:
+      linear-gradient(90deg, rgba(251, 252, 253, 0.98) 0%, rgba(251, 252, 253, 0.9) 48%, rgba(251, 252, 253, 0.6) 100%),
+      url("/mobile2.webp");
+    background-size: cover;
+    background-position: center right;
+    overflow: hidden;
+  }
+
+  .pg-home-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1.05fr);
+    gap: 56px;
+    align-items: center;
+  }
+
+  .pg-home-copy h1 {
+    margin: 18px 0 0;
+    font-size: 4.4rem;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .pg-home-lead {
+    max-width: 680px;
+    margin: 20px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.22rem;
+    line-height: 1.66;
+  }
+
+  .pg-home-copy .pg-button-row {
+    margin-top: 28px;
+  }
+
+  .pg-home-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--pg-ink);
+    font-size: 1.04rem;
+    font-weight: 900;
+  }
+
+  .pg-home-logo-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: #eef8f5;
+    border: 1px solid #c8ebe4;
+    position: relative;
+    overflow: hidden;
+    display: inline-grid;
+    place-items: center;
+  }
+
+  .pg-home-logo-mark::before,
+  .pg-home-logo-mark::after {
+    content: "";
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--pg-teal);
+    border-left-color: transparent;
+    border-bottom-color: transparent;
+    border-radius: 999px;
+    transform: rotate(45deg);
+  }
+
+  .pg-home-logo-mark::after {
+    border-color: var(--pg-rose);
+    border-right-color: transparent;
+    border-top-color: transparent;
+    transform: rotate(45deg) translate(2px, -2px);
+  }
+
+  .pg-home-logo-mark span {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--pg-blue);
+  }
+
+  .pg-home-logo-mark span:first-child {
+    transform: translate(-8px, 8px);
+  }
+
+  .pg-home-logo-mark span:last-child {
+    transform: translate(9px, -8px);
+  }
+
+  .pg-home-visual {
+    position: relative;
+    min-height: 580px;
+    margin: 0;
+  }
+
+  .pg-home-phone {
+    position: absolute;
+    display: block;
+    width: 270px;
+    aspect-ratio: 560 / 1218;
+    object-fit: cover;
+    border: 8px solid #101522;
+    border-radius: 28px;
+    background: #101522;
+    box-shadow: var(--pg-shadow);
+  }
+
+  .pg-home-phone-main {
+    right: 170px;
+    top: 16px;
+  }
+
+  .pg-home-phone-side {
+    right: 0;
+    top: 86px;
+  }
+
+  .pg-home-split {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+    gap: 44px;
+    align-items: start;
+  }
+
+  .pg-fact-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .pg-fact {
+    border-left: 4px solid var(--pg-teal);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.05);
+  }
+
+  .pg-fact h3 {
+    margin: 0 0 4px;
+    font-size: 0.92rem;
+    color: var(--pg-muted);
+  }
+
+  .pg-fact p {
+    margin: 0;
+    color: var(--pg-ink);
+    font-weight: 760;
+  }
+
+  .pg-home-product {
+    background: #ffffff;
+  }
+
+  .pg-pillar-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .pg-home-rarefriends {
+    background: #172033;
+    color: #ffffff;
+  }
+
+  .pg-home-relationship {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(360px, 1.15fr);
+    gap: 44px;
+    align-items: center;
+  }
+
+  .pg-home-relationship h2 {
+    margin: 0;
+    font-size: 2.8rem;
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .pg-home-relationship p {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1.08rem;
+  }
+
+  .pg-home-rarefriends .pg-eyebrow {
+    color: #7de4d7;
+  }
+
+  .pg-home-note {
+    border-left: 4px solid var(--pg-amber);
+    padding-left: 16px;
+  }
+
+  .pg-relationship-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .pg-relationship-list article {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 20px;
+  }
+
+  .pg-relationship-list span {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--pg-rose);
+    display: inline-grid;
+    place-items: center;
+    font-weight: 900;
+  }
+
+  .pg-relationship-list h3 {
+    margin: 0 0 4px;
+    color: #ffffff;
+    font-size: 1.08rem;
+  }
+
+  .pg-relationship-list p {
+    margin: 0;
+    font-size: 0.98rem;
+  }
+
+  .pg-leader-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .pg-leader {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 18px;
+  }
+
+  .pg-leader img {
+    width: 132px;
+    height: 132px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .pg-leader h3 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .pg-leader-role {
+    margin: 2px 0 8px;
+    color: var(--pg-teal);
+    font-weight: 850;
+  }
+
+  .pg-leader p:last-of-type {
+    margin: 0 0 10px;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-leader a {
+    color: var(--pg-blue);
+    font-weight: 800;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+
+  .pg-home-trust {
+    background: #eef5f7;
+  }
+
+  .pg-trust-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .pg-trust-preview {
+    min-height: 100%;
+    border: 1px solid var(--pg-border-strong);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 20px;
+    text-decoration: none;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .pg-trust-preview:hover {
+    transform: translateY(-2px);
+    border-color: var(--pg-teal);
+    box-shadow: 0 12px 28px rgba(20, 149, 143, 0.12);
+  }
+
+  .pg-trust-preview span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--pg-teal);
+    font-size: 0.78rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-preview strong {
+    display: block;
+    font-size: 1.06rem;
+    line-height: 1.25;
+  }
+
+  .pg-trust-preview p {
+    margin: 10px 0 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-home-inline-action {
+    margin-top: 24px;
+  }
+
+  .pg-home-demo-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(280px, 0.55fr);
+    gap: 40px;
+    align-items: center;
+  }
+
+  .pg-demo-preview {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .pg-demo-preview img {
+    width: 260px;
+    border: 8px solid #101522;
+    border-radius: 28px;
+    background: #101522;
+    box-shadow: var(--pg-shadow);
+  }
+
+  .pg-home-store {
+    background: #ffffff;
+  }
+
+  .pg-store-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, auto);
+    gap: 28px;
+    align-items: center;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #f8fbfc;
+    padding: 28px;
+  }
+
+  .pg-store-band h2 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.12;
+  }
+
+  .pg-store-band p {
+    margin: 12px 0 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-store-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .pg-store-app,
+  .pg-store-disabled {
+    min-height: 74px;
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font: inherit;
+  }
+
+  .pg-store-app {
+    background: var(--pg-ink);
+    color: #ffffff;
+    text-decoration: none;
+  }
+
+  .pg-store-app span,
+  .pg-store-disabled span {
+    font-weight: 850;
+  }
+
+  .pg-store-app img {
+    width: 132px;
+  }
+
+  .pg-store-disabled {
+    border: 1px solid var(--pg-border-strong);
+    background: #ffffff;
+    color: var(--pg-muted);
+    cursor: not-allowed;
+  }
+
+  .pg-store-disabled strong {
+    color: var(--pg-rose);
+    font-size: 0.86rem;
+  }
+
+  @media (max-width: 1040px) {
+    .pg-home-hero-grid,
+    .pg-home-split,
+    .pg-home-relationship,
+    .pg-home-demo-grid,
+    .pg-store-band {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-home-visual {
+      min-height: 520px;
+    }
+
+    .pg-home-phone-main {
+      left: 80px;
+      right: auto;
+    }
+
+    .pg-home-phone-side {
+      left: 320px;
+      right: auto;
+    }
+
+    .pg-pillar-grid,
+    .pg-trust-preview-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-store-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .pg-home-hero {
+      min-height: auto;
+      padding: 104px 0 52px;
+    }
+
+    .pg-home-copy h1 {
+      font-size: 3.2rem;
+    }
+
+    .pg-home-lead {
+      font-size: 1.08rem;
+    }
+
+    .pg-home-visual {
+      min-height: 390px;
+    }
+
+    .pg-home-phone {
+      width: 210px;
+      border-width: 7px;
+      border-radius: 24px;
+    }
+
+    .pg-home-phone-main {
+      left: 0;
+      top: 0;
+    }
+
+    .pg-home-phone-side {
+      left: 150px;
+      top: 54px;
+    }
+
+    .pg-pillar-grid,
+    .pg-trust-preview-grid,
+    .pg-leader-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-leader {
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .pg-leader img {
+      width: 92px;
+      height: 92px;
+    }
+
+    .pg-home-relationship h2 {
+      font-size: 2.15rem;
+    }
+
+    .pg-store-actions,
+    .pg-store-app,
+    .pg-store-disabled {
+      width: 100%;
+    }
+
+    .pg-store-app,
+    .pg-store-disabled {
+      justify-content: space-between;
+    }
+  }
+
+  @media (max-width: 440px) {
+    .pg-home-copy h1 {
+      font-size: 2.72rem;
+    }
+
+    .pg-home-visual {
+      min-height: 340px;
+    }
+
+    .pg-home-phone {
+      width: 185px;
+    }
+
+    .pg-home-phone-side {
+      left: 118px;
+      top: 48px;
+    }
+
+    .pg-relationship-list article {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,0 +1,197 @@
+---
+import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
+
+const principles = [
+  {
+    title: 'Opt-in participation',
+    body: 'Members decide whether to join, what profile details to show, and when to leave.',
+  },
+  {
+    title: 'Private reports by default',
+    body: 'Uploaded PDFs, exact variants, and personal notes do not become community content automatically.',
+  },
+  {
+    title: 'Small circles',
+    body: 'The community model should favor careful groups, moderation, and context over public broadcasting.',
+  },
+  {
+    title: 'No medical replacement',
+    body: 'Peer support cannot diagnose, prescribe, or replace clinicians, genetic counselors, or patient organizations.',
+  },
+];
+---
+
+<PocketGenesPublicLayout
+  title="RareFriends by Pocket Genes"
+  description="RareFriends by Pocket Genes is the opt-in community layer connected to Pocket Genes."
+  canonicalPath="/pocket-genes/rarefriends"
+>
+  <main id="main" class="pg-page pg-rf-page">
+    <section class="pg-rf-hero">
+      <div class="pg-container pg-rf-hero-grid">
+        <div>
+          <p class="pg-eyebrow">Community layer</p>
+          <h1>RareFriends by Pocket Genes</h1>
+          <p>
+            A careful peer-support layer for rare disease journeys, connected to Pocket Genes but separated from private report storage by default.
+          </p>
+          <div class="pg-button-row">
+            <a class="pg-button pg-button-primary" href="/pocket-genes/trust-center/community-terms">Community terms</a>
+            <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center/community-safety-policy">Safety policy</a>
+          </div>
+        </div>
+        <figure class="pg-rf-visual">
+          <img src="/pocket-genes/screenshots/sample-01.webp" alt="Pocket Genes Explore screen with Connect navigation" fetchpriority="high" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="pg-section">
+      <div class="pg-container">
+        <div class="pg-section-heading">
+          <p class="pg-eyebrow">Relationship</p>
+          <h2>Pocket Genes organizes the private context. RareFriends by Pocket Genes supports optional connection.</h2>
+          <p>
+            The naming should stay complete and consistent because "RareFriends" has public search ambiguity. The product site should show the relationship clearly before broader distribution.
+          </p>
+        </div>
+        <div class="pg-card-grid pg-rf-grid">
+          {principles.map((principle) => (
+            <article class="pg-card">
+              <h3>{principle.title}</h3>
+              <p>{principle.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="pg-section-tight pg-rf-band-section">
+      <div class="pg-container pg-rf-band">
+        <div>
+          <p class="pg-eyebrow">Trust first</p>
+          <h2>Community growth should follow trust center readiness.</h2>
+          <p>
+            Before expansion, RareFriends by Pocket Genes should have public community terms, safety policy, moderation workflow, incident-reporting contact, and trademark clearance in target jurisdictions.
+          </p>
+        </div>
+        <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Open Trust Center</a>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-rf-hero {
+    min-height: 680px;
+    display: flex;
+    align-items: center;
+    padding: 112px 0 60px;
+    background:
+      linear-gradient(90deg, rgba(23, 32, 51, 0.94), rgba(23, 32, 51, 0.72)),
+      url("/mobile2.webp");
+    background-size: cover;
+    background-position: center;
+    color: #ffffff;
+    overflow: hidden;
+  }
+
+  .pg-rf-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(300px, 0.75fr);
+    gap: 48px;
+    align-items: center;
+  }
+
+  .pg-rf-hero h1 {
+    margin: 0;
+    max-width: 780px;
+    font-size: 4rem;
+    line-height: 1.02;
+    letter-spacing: 0;
+  }
+
+  .pg-rf-hero p {
+    max-width: 720px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 1.12rem;
+  }
+
+  .pg-rf-hero .pg-eyebrow {
+    color: #7de4d7;
+  }
+
+  .pg-rf-hero .pg-button-row {
+    margin-top: 26px;
+  }
+
+  .pg-rf-visual {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .pg-rf-visual img {
+    width: 270px;
+    border: 8px solid #101522;
+    border-radius: 28px;
+    background: #101522;
+    box-shadow: var(--pg-shadow);
+  }
+
+  .pg-rf-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .pg-rf-band-section {
+    background: #ffffff;
+  }
+
+  .pg-rf-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: center;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #f8fbfc;
+    padding: 28px;
+  }
+
+  .pg-rf-band h2 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.12;
+  }
+
+  .pg-rf-band p {
+    margin: 12px 0 0;
+    color: var(--pg-ink-soft);
+  }
+
+  @media (max-width: 980px) {
+    .pg-rf-hero-grid,
+    .pg-rf-band {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-rf-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pg-rf-hero {
+      min-height: auto;
+      padding: 104px 0 52px;
+    }
+
+    .pg-rf-hero h1 {
+      font-size: 2.8rem;
+    }
+
+    .pg-rf-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

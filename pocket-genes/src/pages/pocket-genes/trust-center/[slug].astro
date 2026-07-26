@@ -1,0 +1,339 @@
+---
+import PocketGenesPublicLayout from '../../../layouts/PocketGenesPublicLayout.astro';
+import { POCKET_GENES_EMAILS, trustDocuments, type TrustDocument } from '../../../data/pocketGenesPublic';
+
+export function getStaticPaths() {
+  return trustDocuments.map((document) => ({
+    params: { slug: document.slug },
+    props: { document },
+  }));
+}
+
+interface Props {
+  document: TrustDocument;
+}
+
+const { document } = Astro.props;
+const isDataFlow = document.slug === 'data-flow-diagram';
+const flowSteps = [
+  {
+    title: 'Synthetic lab PDF',
+    body: 'The original source report contains structured test fields and limited explanatory notes.',
+  },
+  {
+    title: 'Pocket Genes parser',
+    body: 'Pocket Genes extracts report metadata, panel scope, variants, and provider fields.',
+  },
+  {
+    title: 'Private app space',
+    body: 'The user sees organized report cards, timelines, and exact uploaded documents.',
+  },
+  {
+    title: 'Educational layer',
+    body: 'Pocket Genes adds definitions, context labels, and questions for professional review.',
+  },
+  {
+    title: 'Optional sharing',
+    body: 'The user can share a limited summary, never the raw report by default.',
+  },
+];
+---
+
+<PocketGenesPublicLayout
+  title={`${document.title} - Pocket Genes Trust Center`}
+  description={document.summary}
+  canonicalPath={`/pocket-genes/trust-center/${document.slug}`}
+>
+  <main id="main" class="pg-page pg-trust-detail">
+    <section class="pg-trust-detail-hero">
+      <div class="pg-container">
+        <nav class="pg-breadcrumb" aria-label="Breadcrumb">
+          <a href="/pocket-genes/home">Home</a>
+          <span>/</span>
+          <a href="/pocket-genes/trust-center">Trust Center</a>
+        </nav>
+        <p class="pg-eyebrow">{document.category}</p>
+        <h1>{document.title}</h1>
+        <p>{document.summary}</p>
+      </div>
+    </section>
+
+    <section class="pg-section">
+      <div class="pg-container pg-trust-detail-grid">
+        <aside class="pg-trust-meta" aria-label="Document metadata">
+          <h2>Document details</h2>
+          <dl>
+            <div>
+              <dt>Status</dt>
+              <dd>{document.status}</dd>
+            </div>
+            <div>
+              <dt>Owner</dt>
+              <dd>{document.owner}</dd>
+            </div>
+            <div>
+              <dt>Last reviewed</dt>
+              <dd>{document.lastReviewed}</dd>
+            </div>
+            <div>
+              <dt>Contact</dt>
+              <dd><a href={`mailto:${POCKET_GENES_EMAILS.trust}`}>{POCKET_GENES_EMAILS.trust}</a></dd>
+            </div>
+          </dl>
+        </aside>
+
+        <article class="pg-trust-article">
+          {document.sections.map((section) => (
+            <section>
+              <h2>{section.heading}</h2>
+              <p>{section.body}</p>
+              {section.bullets && (
+                <ul>
+                  {section.bullets.map((bullet) => <li>{bullet}</li>)}
+                </ul>
+              )}
+            </section>
+          ))}
+
+          {isDataFlow && (
+            <section class="pg-data-flow">
+              <h2>Public data-flow diagram</h2>
+              <div class="pg-flow-track" aria-label="Pocket Genes data flow">
+                {flowSteps.map((step, index) => (
+                  <article class:list={['pg-flow-step', { 'is-last': index === flowSteps.length - 1 }]}>
+                    <span>{index + 1}</span>
+                    <h3>{step.title}</h3>
+                    <p>{step.body}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section class="pg-trust-next">
+            <h2>Related trust routes</h2>
+            <div>
+              <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Trust Center</a>
+              <a class="pg-button pg-button-secondary" href="/pocket-genes/demo">Public Demo</a>
+            </div>
+          </section>
+        </article>
+      </div>
+    </section>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-trust-detail-hero {
+    padding: 128px 0 64px;
+    background: #172033;
+    color: #ffffff;
+  }
+
+  .pg-trust-detail-hero .pg-eyebrow {
+    color: #7de4d7;
+  }
+
+  .pg-trust-detail-hero h1 {
+    max-width: 820px;
+    margin: 0;
+    font-size: 3.6rem;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .pg-trust-detail-hero p {
+    max-width: 780px;
+    margin: 18px 0 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 1.12rem;
+  }
+
+  .pg-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+    color: rgba(255, 255, 255, 0.72);
+    font-weight: 780;
+  }
+
+  .pg-breadcrumb a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .pg-breadcrumb a:hover {
+    color: #ffffff;
+  }
+
+  .pg-trust-detail-grid {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+  }
+
+  .pg-trust-meta {
+    position: sticky;
+    top: 100px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 20px;
+  }
+
+  .pg-trust-meta h2 {
+    margin: 0 0 16px;
+    font-size: 1.12rem;
+  }
+
+  .pg-trust-meta dl {
+    margin: 0;
+    display: grid;
+    gap: 14px;
+  }
+
+  .pg-trust-meta dt {
+    color: var(--pg-muted);
+    font-size: 0.8rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .pg-trust-meta dd {
+    margin: 4px 0 0;
+    color: var(--pg-ink);
+    font-weight: 760;
+  }
+
+  .pg-trust-meta a {
+    color: var(--pg-blue);
+  }
+
+  .pg-trust-article {
+    display: grid;
+    gap: 24px;
+  }
+
+  .pg-trust-article > section {
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 26px;
+  }
+
+  .pg-trust-article h2 {
+    margin: 0 0 12px;
+    font-size: 1.55rem;
+    line-height: 1.18;
+    letter-spacing: 0;
+  }
+
+  .pg-trust-article h3 {
+    margin: 0 0 6px;
+    font-size: 1.04rem;
+  }
+
+  .pg-trust-article p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-trust-article ul {
+    margin: 14px 0 0;
+    padding-left: 22px;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-trust-article li + li {
+    margin-top: 8px;
+  }
+
+  .pg-flow-track {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .pg-flow-step {
+    position: relative;
+    min-height: 100%;
+    border: 1px solid var(--pg-border-strong);
+    border-radius: 8px;
+    background: #f8fbfc;
+    padding: 16px;
+  }
+
+  .pg-flow-step::after {
+    content: "->";
+    position: absolute;
+    top: 18px;
+    right: -14px;
+    color: var(--pg-teal);
+    font-weight: 900;
+  }
+
+  .pg-flow-step.is-last::after {
+    content: "";
+  }
+
+  .pg-flow-step span {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--pg-teal);
+    color: #ffffff;
+    display: inline-grid;
+    place-items: center;
+    font-weight: 900;
+    margin-bottom: 12px;
+  }
+
+  .pg-flow-step p {
+    font-size: 0.94rem;
+  }
+
+  .pg-trust-next div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  @media (max-width: 980px) {
+    .pg-trust-detail-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-trust-meta {
+      position: static;
+    }
+
+    .pg-flow-track {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-flow-step::after {
+      top: auto;
+      right: auto;
+      left: 17px;
+      bottom: -19px;
+      transform: rotate(90deg);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pg-trust-detail-hero {
+      padding: 112px 0 48px;
+    }
+
+    .pg-trust-detail-hero h1 {
+      font-size: 2.45rem;
+    }
+
+    .pg-trust-article > section {
+      padding: 20px;
+    }
+  }
+</style>

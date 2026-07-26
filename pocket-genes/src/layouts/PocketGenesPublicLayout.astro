@@ -1,0 +1,556 @@
+---
+import { publicNavItems } from '../data/pocketGenesPublic';
+
+interface Props {
+  title: string;
+  description?: string;
+  canonicalPath?: string;
+}
+
+const {
+  title,
+  description = 'Pocket Genes is a personal genomic companion for organizing reports, understanding key genetic concepts, and preparing safer participation in RareFriends by Pocket Genes.',
+  canonicalPath = Astro.url.pathname,
+} = Astro.props;
+
+const siteBase = 'https://goldencrowvs.com';
+const normalizedPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+const canonicalUrl = `${siteBase}${canonicalPath}`;
+const navItems = publicNavItems.map((item) => ({
+  ...item,
+  active:
+    item.href === '/pocket-genes/trust-center'
+      ? normalizedPath.startsWith('/pocket-genes/trust-center')
+      : normalizedPath === item.href,
+}));
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={`${siteBase}/pocket-genes/screenshots/sample-01.webp`} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${siteBase}/pocket-genes/screenshots/sample-01.webp`} />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="pg-site-header">
+      <a class="pg-skip-link" href="#main">Skip to content</a>
+      <div class="pg-nav-shell">
+        <a class="pg-brand" href="/pocket-genes/home" aria-label="Pocket Genes home">
+          <span class="pg-brand-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </span>
+          <span class="pg-brand-text">Pocket Genes</span>
+        </a>
+
+        <button class="pg-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" data-pg-menu>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="pg-nav" aria-label="Pocket Genes navigation" data-pg-nav>
+          {navItems.map((item) => (
+            <a href={item.href} class:list={['pg-nav-link', { active: item.active }]} aria-current={item.active ? 'page' : undefined}>
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </div>
+    </header>
+
+    <slot />
+
+    <footer class="pg-footer">
+      <div class="pg-footer-inner">
+        <div>
+          <a class="pg-brand pg-footer-brand" href="/pocket-genes/home" aria-label="Pocket Genes home">
+            <span class="pg-brand-mark" aria-hidden="true">
+              <span></span>
+              <span></span>
+            </span>
+            <span class="pg-brand-text">Pocket Genes</span>
+          </a>
+          <p>Personal genomic organization, education, and safer community participation.</p>
+        </div>
+
+        <nav class="pg-footer-links" aria-label="Pocket Genes footer navigation">
+          <a href="/pocket-genes/home">Home</a>
+          <a href="/pocket-genes/trust-center">Trust Center</a>
+          <a href="/pocket-genes/demo">Public Demo</a>
+          <a href="/pocket-genes/download">Download</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --pg-ink: #172033;
+    --pg-ink-soft: #46556f;
+    --pg-muted: #68758b;
+    --pg-border: #dce4ec;
+    --pg-border-strong: #c5d2df;
+    --pg-bg: #fbfcfd;
+    --pg-surface: #ffffff;
+    --pg-blue: #2176ae;
+    --pg-teal: #14958f;
+    --pg-rose: #e45080;
+    --pg-green: #3c9b68;
+    --pg-amber: #d99232;
+    --pg-shadow: 0 18px 48px rgba(23, 32, 51, 0.12);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--pg-bg);
+    color: var(--pg-ink);
+    font-family: "Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .pg-page {
+    background: var(--pg-bg);
+    color: var(--pg-ink);
+  }
+
+  .pg-container {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  .pg-section {
+    padding: 80px 0;
+  }
+
+  .pg-section-tight {
+    padding: 56px 0;
+  }
+
+  .pg-eyebrow {
+    margin: 0 0 12px;
+    color: var(--pg-teal);
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .pg-section-heading {
+    max-width: 780px;
+    margin-bottom: 32px;
+  }
+
+  .pg-section-heading h2,
+  .pg-section-heading h1 {
+    margin: 0;
+    font-size: 2.65rem;
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .pg-section-heading p {
+    margin: 16px 0 0;
+    color: var(--pg-ink-soft);
+    font-size: 1.08rem;
+  }
+
+  .pg-button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .pg-button {
+    display: inline-flex;
+    min-height: 46px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 11px 16px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  }
+
+  .pg-button:hover {
+    transform: translateY(-1px);
+  }
+
+  .pg-button-primary {
+    background: var(--pg-rose);
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(228, 80, 128, 0.24);
+  }
+
+  .pg-button-primary:hover {
+    background: #cc3f6e;
+  }
+
+  .pg-button-secondary {
+    background: #ffffff;
+    color: var(--pg-ink);
+    border-color: var(--pg-border-strong);
+  }
+
+  .pg-button-secondary:hover {
+    border-color: var(--pg-blue);
+    box-shadow: 0 10px 24px rgba(33, 118, 174, 0.12);
+  }
+
+  .pg-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .pg-card {
+    min-height: 100%;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: var(--pg-surface);
+    padding: 22px;
+    box-shadow: 0 1px 2px rgba(23, 32, 51, 0.04);
+  }
+
+  .pg-card h3 {
+    margin: 0 0 8px;
+    font-size: 1.08rem;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  .pg-card p {
+    margin: 0;
+    color: var(--pg-ink-soft);
+  }
+
+  .pg-site-header {
+    position: fixed;
+    z-index: 1000;
+    top: 16px;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+  }
+
+  .pg-skip-link {
+    position: absolute;
+    left: 16px;
+    top: -80px;
+    z-index: 2;
+    border-radius: 8px;
+    background: var(--pg-ink);
+    color: #ffffff;
+    padding: 8px 12px;
+    text-decoration: none;
+  }
+
+  .pg-skip-link:focus {
+    top: 8px;
+  }
+
+  .pg-nav-shell {
+    width: min(1160px, calc(100% - 32px));
+    min-height: 64px;
+    margin: 0 auto;
+    border: 1px solid rgba(197, 210, 223, 0.76);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 10px 32px rgba(23, 32, 51, 0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 12px;
+    pointer-events: auto;
+  }
+
+  .pg-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--pg-ink);
+    font-weight: 900;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .pg-brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #eef8f5;
+    border: 1px solid #c8ebe4;
+    display: inline-grid;
+    place-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pg-brand-mark::before,
+  .pg-brand-mark::after {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--pg-teal);
+    border-left-color: transparent;
+    border-bottom-color: transparent;
+    border-radius: 999px;
+    transform: rotate(45deg);
+  }
+
+  .pg-brand-mark::after {
+    border-color: var(--pg-rose);
+    border-right-color: transparent;
+    border-top-color: transparent;
+    transform: rotate(45deg) translate(2px, -2px);
+  }
+
+  .pg-brand-mark span {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--pg-blue);
+  }
+
+  .pg-brand-mark span:first-child {
+    transform: translate(-6px, 6px);
+  }
+
+  .pg-brand-mark span:last-child {
+    transform: translate(7px, -6px);
+  }
+
+  .pg-brand-text {
+    font-size: 1.02rem;
+    letter-spacing: 0;
+  }
+
+  .pg-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .pg-nav-link {
+    border-radius: 8px;
+    color: var(--pg-ink-soft);
+    font-size: 0.92rem;
+    font-weight: 760;
+    padding: 9px 10px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .pg-nav-link:hover,
+  .pg-nav-link.active {
+    background: #eef8f5;
+    color: #0e6f6b;
+  }
+
+  .pg-menu-button {
+    display: none;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--pg-border);
+    border-radius: 8px;
+    background: #ffffff;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+  }
+
+  .pg-menu-button span {
+    width: 18px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--pg-ink);
+  }
+
+  .pg-footer {
+    border-top: 1px solid var(--pg-border);
+    background: #ffffff;
+    padding: 36px 0;
+  }
+
+  .pg-footer-inner {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .pg-footer p {
+    max-width: 460px;
+    margin: 12px 0 0;
+    color: var(--pg-muted);
+  }
+
+  .pg-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: flex-end;
+    gap: 10px 18px;
+  }
+
+  .pg-footer-links a {
+    color: var(--pg-ink-soft);
+    font-weight: 760;
+    text-decoration: none;
+  }
+
+  .pg-footer-links a:hover {
+    color: var(--pg-teal);
+  }
+
+  @media (max-width: 940px) {
+    .pg-section {
+      padding: 64px 0;
+    }
+
+    .pg-section-heading h2,
+    .pg-section-heading h1 {
+      font-size: 2.2rem;
+    }
+
+    .pg-card-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pg-menu-button {
+      display: inline-flex;
+    }
+
+    .pg-nav {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      border: 1px solid var(--pg-border);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 8px;
+      box-shadow: var(--pg-shadow);
+    }
+
+    .pg-nav.open {
+      display: flex;
+    }
+
+    .pg-nav-link {
+      padding: 12px;
+    }
+
+    .pg-nav-shell {
+      position: relative;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .pg-container,
+    .pg-footer-inner,
+    .pg-nav-shell {
+      width: min(100% - 24px, 1120px);
+    }
+
+    .pg-section {
+      padding: 52px 0;
+    }
+
+    .pg-section-tight {
+      padding: 44px 0;
+    }
+
+    .pg-section-heading h2,
+    .pg-section-heading h1 {
+      font-size: 1.95rem;
+    }
+
+    .pg-card-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pg-footer-inner {
+      flex-direction: column;
+    }
+
+    .pg-footer-links {
+      justify-content: flex-start;
+    }
+
+    .pg-button-row,
+    .pg-button {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  const menuButton = document.querySelector('[data-pg-menu]');
+  const nav = document.querySelector('[data-pg-nav]');
+
+  if (menuButton && nav) {
+    menuButton.addEventListener('click', () => {
+      const isOpen = nav.classList.toggle('open');
+      menuButton.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    nav.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        nav.classList.remove('open');
+        menuButton.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+</script>
