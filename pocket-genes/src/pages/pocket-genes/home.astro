@@ -3,6 +3,8 @@ import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro
 import { APP_STORE_URL, POCKET_GENES_EMAILS, trustDocuments } from '../../data/pocketGenesPublic';
 
 const trustPreview = trustDocuments.slice(0, 6);
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const integrationHref = isEnglish ? '/en/pocket-genes/integration/' : '/pocket-genes/integration/';
 
 const productPillars = [
   {
@@ -91,6 +93,9 @@ const leaders = [
               Explore community
             </a>
           </div>
+          <a class="pg-home-integration-button" href={integrationHref}>
+            Integrate your genomic service with Pocket Genes
+          </a>
         </div>
 
         <figure class="pg-home-visual" aria-label="Pocket Genes app preview">
@@ -297,6 +302,30 @@ const leaders = [
 
   .pg-home-copy .pg-button-row {
     margin-top: 28px;
+  }
+
+  .pg-home-integration-button {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+    border: 1px solid rgba(33, 118, 174, 0.28);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--pg-blue);
+    font-size: 0.9rem;
+    font-weight: 850;
+    line-height: 1.2;
+    padding: 8px 11px;
+    text-decoration: none;
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+  }
+
+  .pg-home-integration-button:hover {
+    border-color: var(--pg-blue);
+    background: #ffffff;
+    color: #155d8c;
   }
 
   .pg-home-logo {
@@ -774,6 +803,10 @@ const leaders = [
     .pg-store-actions,
     .pg-store-app,
     .pg-store-disabled {
+      width: 100%;
+    }
+
+    .pg-home-integration-button {
       width: 100%;
     }
 
