@@ -1,0 +1,7 @@
+---
+import PocketGenesTrustDocumentPage, { getStaticPaths } from '../../../pocket-genes/trust-center/[slug].astro';
+
+export { getStaticPaths };
+---
+
+<PocketGenesTrustDocumentPage document={Astro.props.document} />

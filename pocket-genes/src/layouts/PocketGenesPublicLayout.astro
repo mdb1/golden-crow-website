@@ -14,19 +14,32 @@ const {
 } = Astro.props;
 
 const siteBase = 'https://goldencrowvs.com';
-const normalizedPath = Astro.url.pathname.replace(/\/$/, '') || '/';
-const canonicalUrl = `${siteBase}${canonicalPath}`;
+const currentPath = Astro.url.pathname;
+const isEnglish = currentPath === '/en' || currentPath.startsWith('/en/');
+const lang = isEnglish ? 'en' : 'es';
+const pathWithoutLocale = currentPath.replace(/^\/en(?=\/|$)/, '') || '/';
+const normalizedPath = pathWithoutLocale.replace(/\/$/, '') || '/';
+const esPath = pathWithoutLocale;
+const enPath = `/en${pathWithoutLocale === '/' ? '/' : pathWithoutLocale}`;
+const localizePath = (path: string) => (isEnglish ? `/en${path === '/' ? '/' : path}` : path);
+const localizedCanonicalPath =
+  isEnglish && canonicalPath.startsWith('/pocket-genes') ? `/en${canonicalPath}` : canonicalPath;
+const canonicalUrl = localizedCanonicalPath.startsWith('http')
+  ? localizedCanonicalPath
+  : `${siteBase}${localizedCanonicalPath}`;
 const navItems = publicNavItems.map((item) => ({
   ...item,
+  href: localizePath(item.href),
   active:
     item.href === '/pocket-genes/trust-center'
       ? normalizedPath.startsWith('/pocket-genes/trust-center')
       : normalizedPath === item.href,
 }));
+const homeHref = localizePath('/pocket-genes/home');
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -42,6 +55,9 @@ const navItems = publicNavItems.map((item) => ({
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={`${siteBase}/pocket-genes/screenshots/sample-01.webp`} />
+    <link rel="alternate" hreflang="es" href={`${siteBase}${esPath}`} />
+    <link rel="alternate" hreflang="en" href={`${siteBase}${enPath}`} />
+    <link rel="alternate" hreflang="x-default" href={`${siteBase}${esPath}`} />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet" />
@@ -50,7 +66,7 @@ const navItems = publicNavItems.map((item) => ({
     <header class="pg-site-header">
       <a class="pg-skip-link" href="#main">Skip to content</a>
       <div class="pg-nav-shell">
-        <a class="pg-brand" href="/pocket-genes/home" aria-label="Pocket Genes home">
+        <a class="pg-brand" href={homeHref} aria-label="Pocket Genes home">
           <span class="pg-brand-mark" aria-hidden="true">
             <span></span>
             <span></span>
@@ -70,6 +86,11 @@ const navItems = publicNavItems.map((item) => ({
               {item.label}
             </a>
           ))}
+          <div class="pg-lang-switcher" aria-label="Language">
+            <a href={esPath} class:list={['pg-lang-option', { active: lang === 'es' }]} aria-current={lang === 'es' ? 'true' : undefined}>ES</a>
+            <span class="pg-lang-divider">|</span>
+            <a href={enPath} class:list={['pg-lang-option', { active: lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
+          </div>
         </nav>
       </div>
     </header>
@@ -79,7 +100,7 @@ const navItems = publicNavItems.map((item) => ({
     <footer class="pg-footer">
       <div class="pg-footer-inner">
         <div>
-          <a class="pg-brand pg-footer-brand" href="/pocket-genes/home" aria-label="Pocket Genes home">
+          <a class="pg-brand pg-footer-brand" href={homeHref} aria-label="Pocket Genes home">
             <span class="pg-brand-mark" aria-hidden="true">
               <span></span>
               <span></span>
@@ -90,12 +111,7 @@ const navItems = publicNavItems.map((item) => ({
         </div>
 
         <nav class="pg-footer-links" aria-label="Pocket Genes footer navigation">
-          <a href="/pocket-genes/home">Home</a>
-          <a href="/pocket-genes/rarefriends">Community</a>
-          <a href="/pocket-genes/trust-center">Trust Center</a>
-          <a href="/pocket-genes/demo">Public Demo</a>
-          <a href="/pocket-genes/integration">Integration</a>
-          <a href="/pocket-genes/download">Download</a>
+          {publicNavItems.map((item) => <a href={localizePath(item.href)}>{item.label}</a>)}
         </nav>
       </div>
     </footer>
@@ -394,6 +410,34 @@ const navItems = publicNavItems.map((item) => ({
     color: #0e6f6b;
   }
 
+  .pg-lang-switcher {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 4px 0 8px;
+    white-space: nowrap;
+  }
+
+  .pg-lang-option {
+    color: var(--pg-ink-soft);
+    font-size: 0.82rem;
+    font-weight: 850;
+    line-height: 1;
+    padding: 8px 4px;
+    text-decoration: none;
+  }
+
+  .pg-lang-option:hover,
+  .pg-lang-option.active {
+    color: var(--pg-teal);
+  }
+
+  .pg-lang-divider {
+    color: var(--pg-border-strong);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
   .pg-menu-button {
     display: none;
     width: 42px;
@@ -492,6 +536,11 @@ const navItems = publicNavItems.map((item) => ({
 
     .pg-nav-link {
       padding: 12px;
+    }
+
+    .pg-lang-switcher {
+      align-self: flex-start;
+      padding: 8px 12px;
     }
 
     .pg-nav-shell {
