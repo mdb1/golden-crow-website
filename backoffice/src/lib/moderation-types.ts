@@ -9,6 +9,7 @@ export type AdminSectionKey =
   | "community"
   | "reports"
   | "learning"
+  | "discover"
   | "areas"
   | "access"
   | "gym-overview"

@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Mail,
   MessagesSquare,
+  Newspaper,
   ShieldUser,
   Sparkles,
   Stethoscope,
@@ -108,6 +109,12 @@ export const SECTION_DESCRIPTORS: SectionDescriptor[] = [
     key: "learning",
     label: "Learning",
     description: "Learning progress and lesson operations.",
+    visibleRoles: FULL_ADMIN_ROLES,
+  },
+  {
+    key: "discover",
+    label: "Discover",
+    description: "Discover feed publishers and mobile feed entries.",
     visibleRoles: FULL_ADMIN_ROLES,
   },
   {
@@ -877,6 +884,22 @@ export const ADMIN_NAV: AdminNavItem[] = [
     visibleRoles: FULL_ADMIN_ROLES,
   },
   {
+    section: "discover",
+    label: "Organizations",
+    href: "/discover/organizations",
+    description: "feed_organizations publishers",
+    icon: Building2,
+    visibleRoles: FULL_ADMIN_ROLES,
+  },
+  {
+    section: "discover",
+    label: "Feed entries",
+    href: "/discover/feed-entries",
+    description: "feed_items mobile Discover entries",
+    icon: Newspaper,
+    visibleRoles: FULL_ADMIN_ROLES,
+  },
+  {
     section: "areas",
     label: "Institutions",
     href: "/areas/institutions",
@@ -1396,6 +1419,54 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
       eyebrow: "Learning",
       title: "Lesson detail",
       description: "Structured lesson editing kept separate from user progression state.",
+    };
+  }
+
+  if (pathname === "/discover/organizations") {
+    return {
+      eyebrow: "Discover",
+      title: "Organizations",
+      description: "Publishers stored in feed_organizations for Discover feed entries.",
+    };
+  }
+
+  if (pathname === "/discover/organizations/new") {
+    return {
+      eyebrow: "Discover",
+      title: "New organization",
+      description: "Create a Discover publisher for mobile feed entries.",
+    };
+  }
+
+  if (pathname.startsWith("/discover/organizations/")) {
+    return {
+      eyebrow: "Discover",
+      title: "Organization",
+      description: "Discover publisher detail and snapshot sync.",
+    };
+  }
+
+  if (pathname === "/discover/feed-entries") {
+    return {
+      eyebrow: "Discover",
+      title: "Feed entries",
+      description: "Mobile Discover feed entries stored in feed_items.",
+    };
+  }
+
+  if (pathname === "/discover/feed-entries/new") {
+    return {
+      eyebrow: "Discover",
+      title: "New feed entry",
+      description: "Create a Discover feed item with a publisher snapshot.",
+    };
+  }
+
+  if (pathname.startsWith("/discover/feed-entries/")) {
+    return {
+      eyebrow: "Discover",
+      title: "Feed entry",
+      description: "Discover feed item detail with type-specific payload validation.",
     };
   }
 

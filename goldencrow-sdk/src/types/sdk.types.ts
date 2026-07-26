@@ -526,6 +526,87 @@ export interface ModerationDocumentRecord {
   data: Record<string, unknown>;
 }
 
+export type DiscoverOrganizationStatus = "active" | "inactive" | "archived";
+export type DiscoverOrganizationType =
+  | "foundation"
+  | "hospital"
+  | "university"
+  | "laboratory"
+  | "research_institute"
+  | "patient_advocacy_group"
+  | "public_health_agency"
+  | "conference_organizer"
+  | "company"
+  | "other";
+
+export interface DiscoverOrganizationRecord {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  status: DiscoverOrganizationStatus;
+  slug?: string;
+  websiteUrl?: string;
+  description?: string;
+  countryCode?: string;
+  organizationType?: DiscoverOrganizationType;
+  verified: boolean;
+  contactEmail?: string;
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+}
+
+export type DiscoverFeedType =
+  | "news"
+  | "research_update"
+  | "upcoming_event"
+  | "opportunity";
+export type DiscoverFeedStatus =
+  | "draft"
+  | "in_review"
+  | "scheduled"
+  | "published"
+  | "archived";
+
+export interface DiscoverPublisherSnapshot {
+  name: string;
+  imageUrl: string | null;
+}
+
+export interface DiscoverFeedItemRecord {
+  id: string;
+  publisherOrganizationId: string;
+  publisherSnapshot: DiscoverPublisherSnapshot;
+  type: DiscoverFeedType;
+  publishedAt: string | null;
+  sourceUrl: string | null;
+  status: DiscoverFeedStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+  reviewedByUserId?: string;
+  reviewedAt?: string | null;
+  scheduledFor?: string | null;
+  archivedAt?: string | null;
+  editorialNotes?: string;
+  tags: string[];
+  locale?: string;
+  priority: number;
+  expiresAt?: string | null;
+  news?: Record<string, unknown>;
+  research_update?: Record<string, unknown>;
+  upcoming_event?: Record<string, unknown>;
+  opportunity?: Record<string, unknown>;
+}
+
+export interface DiscoverListPage<T> {
+  records: T[];
+  nextCursor: string | null;
+}
+
 // Lesson types — Firestore-backed lesson content
 export interface LessonParagraph {
   paragraphTitle: string;

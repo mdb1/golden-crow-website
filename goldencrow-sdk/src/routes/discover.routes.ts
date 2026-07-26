@@ -1,0 +1,340 @@
+import { FastifyInstance, type FastifyReply } from "fastify";
+import { z } from "zod";
+import { ZodTypeProvider } from "fastify-type-provider-zod";
+import { isAdminRepositoryError } from "../repositories/admin-errors.js";
+import { canManageLegacyModeration } from "../repositories/roles.repository.js";
+import {
+  createDiscoverFeedItem,
+  createDiscoverOrganization,
+  duplicateDiscoverFeedItem,
+  getDiscoverFeedItem,
+  getDiscoverOrganization,
+  listDiscoverFeedItems,
+  listDiscoverOrganizations,
+  syncDiscoverPublisherSnapshot,
+  updateDiscoverFeedItem,
+  updateDiscoverOrganization,
+} from "../repositories/discover.repository.js";
+
+const OrganizationStatusSchema = z.enum(["active", "inactive", "archived"]);
+const OrganizationTypeSchema = z.enum([
+  "foundation",
+  "hospital",
+  "university",
+  "laboratory",
+  "research_institute",
+  "patient_advocacy_group",
+  "public_health_agency",
+  "conference_organizer",
+  "company",
+  "other",
+]);
+const FeedTypeSchema = z.enum([
+  "news",
+  "research_update",
+  "upcoming_event",
+  "opportunity",
+]);
+const FeedStatusSchema = z.enum([
+  "draft",
+  "in_review",
+  "scheduled",
+  "published",
+  "archived",
+]);
+
+const QuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+});
+
+const OrganizationBodySchema = z.object({
+  name: z.string().optional(),
+  imageUrl: z.string().nullable().optional(),
+  status: OrganizationStatusSchema.optional(),
+  slug: z.string().optional(),
+  websiteUrl: z.string().nullable().optional(),
+  description: z.string().optional(),
+  countryCode: z.string().optional(),
+  organizationType: OrganizationTypeSchema.optional(),
+  verified: z.boolean().optional(),
+  contactEmail: z.string().optional(),
+  internalNotes: z.string().optional(),
+});
+
+const StringArraySchema = z.array(z.string()).optional();
+const PayloadBaseSchema = z.object({
+  title: z.string().optional(),
+  summary: z.string().optional(),
+  imageUrl: z.string().nullable().optional(),
+});
+
+const NewsPayloadSchema = PayloadBaseSchema.extend({
+  category: z.string().optional(),
+  region: z.string().optional(),
+  detailTitle: z.string().optional(),
+  detailBody: z.string().optional(),
+  keyPoints: StringArraySchema,
+});
+
+const ResearchUpdatePayloadSchema = PayloadBaseSchema.extend({
+  topic: z.string().optional(),
+  genes: StringArraySchema,
+  conditions: StringArraySchema,
+  journalName: z.string().optional(),
+  publicationDate: z.string().optional(),
+  doi: z.string().optional(),
+  plainLanguageTakeaway: z.string().optional(),
+  detailBody: z.string().optional(),
+  keyPoints: StringArraySchema,
+});
+
+const UpcomingEventPayloadSchema = PayloadBaseSchema.extend({
+  startsAt: z.string().nullable().optional(),
+  endsAt: z.string().nullable().optional(),
+  timezone: z.string().optional(),
+  locationType: z.string().optional(),
+  locationName: z.string().optional(),
+  registrationUrl: z.string().nullable().optional(),
+  priceLabel: z.string().optional(),
+  audienceLabel: z.string().optional(),
+  agenda: StringArraySchema,
+  detailBody: z.string().optional(),
+});
+
+const OpportunityPayloadSchema = PayloadBaseSchema.extend({
+  opportunityType: z.string().optional(),
+  deadlineAt: z.string().nullable().optional(),
+  locationType: z.string().optional(),
+  locationName: z.string().optional(),
+  eligibility: z.string().optional(),
+  applicationUrl: z.string().nullable().optional(),
+  detailBody: z.string().optional(),
+  requirements: StringArraySchema,
+});
+
+const FeedItemBodySchema = z.object({
+  publisherOrganizationId: z.string().optional(),
+  type: FeedTypeSchema.optional(),
+  status: FeedStatusSchema.optional(),
+  publishedAt: z.string().nullable().optional(),
+  scheduledFor: z.string().nullable().optional(),
+  sourceUrl: z.string().nullable().optional(),
+  editorialNotes: z.string().optional(),
+  tags: StringArraySchema,
+  locale: z.string().optional(),
+  priority: z.number().optional(),
+  expiresAt: z.string().nullable().optional(),
+  news: NewsPayloadSchema.optional(),
+  research_update: ResearchUpdatePayloadSchema.optional(),
+  upcoming_event: UpcomingEventPayloadSchema.optional(),
+  opportunity: OpportunityPayloadSchema.optional(),
+});
+
+function sendRepositoryError(reply: FastifyReply, error: unknown) {
+  if (isAdminRepositoryError(error)) {
+    return reply.status(error.statusCode).send({ error: error.message });
+  }
+
+  throw error;
+}
+
+export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.addHook("onRequest", async (request, reply) => {
+    if (!request.adminContext || !canManageLegacyModeration(request.adminContext)) {
+      return reply.status(403).send({ error: "Full admin access required" });
+    }
+  });
+
+  f.get(
+    "/discover/organizations",
+    {
+      schema: { querystring: QuerySchema },
+    },
+    async (request, reply) => {
+      try {
+        const result = await listDiscoverOrganizations(request.adminContext!, request.query);
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/organizations",
+    {
+      schema: { body: OrganizationBodySchema },
+    },
+    async (request, reply) => {
+      try {
+        const organization = await createDiscoverOrganization(
+          request.adminContext!,
+          request.body,
+        );
+        return reply.send({ organization });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/organizations/:organizationId",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const organization = await getDiscoverOrganization(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send({ organization });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/discover/organizations/:organizationId",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+        body: OrganizationBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const organization = await updateDiscoverOrganization(
+          request.adminContext!,
+          request.params.organizationId,
+          request.body,
+        );
+        return reply.send({ organization });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/organizations/:organizationId/sync-publisher-snapshot",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await syncDiscoverPublisherSnapshot(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/feed-items",
+    {
+      schema: { querystring: QuerySchema },
+    },
+    async (request, reply) => {
+      try {
+        const result = await listDiscoverFeedItems(request.adminContext!, request.query);
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/feed-items",
+    {
+      schema: { body: FeedItemBodySchema },
+    },
+    async (request, reply) => {
+      try {
+        const feedItem = await createDiscoverFeedItem(
+          request.adminContext!,
+          request.body,
+        );
+        return reply.send({ feedItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/feed-items/:feedItemId",
+    {
+      schema: {
+        params: z.object({ feedItemId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const feedItem = await getDiscoverFeedItem(
+          request.adminContext!,
+          request.params.feedItemId,
+        );
+        return reply.send({ feedItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/discover/feed-items/:feedItemId",
+    {
+      schema: {
+        params: z.object({ feedItemId: z.string().min(1) }),
+        body: FeedItemBodySchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const feedItem = await updateDiscoverFeedItem(
+          request.adminContext!,
+          request.params.feedItemId,
+          request.body,
+        );
+        return reply.send({ feedItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/feed-items/:feedItemId/duplicate",
+    {
+      schema: {
+        params: z.object({ feedItemId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const feedItem = await duplicateDiscoverFeedItem(
+          request.adminContext!,
+          request.params.feedItemId,
+        );
+        return reply.send({ feedItem });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+}

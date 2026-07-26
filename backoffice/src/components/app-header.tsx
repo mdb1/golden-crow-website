@@ -79,6 +79,7 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
   const [pendingProjectSwitch, setPendingProjectSwitch] = useState(false);
   const compactChromeTitle =
     pathname.startsWith("/areas") ||
+    pathname.startsWith("/discover") ||
     pathname.startsWith("/2pq-dashboard") ||
     pathname.startsWith("/roles");
   const translatedMetadata = {
