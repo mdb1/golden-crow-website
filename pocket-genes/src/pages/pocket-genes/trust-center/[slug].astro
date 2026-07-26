@@ -14,15 +14,17 @@ interface Props {
 }
 
 const { document } = Astro.props;
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 const isDataFlow = document.slug === 'data-flow-diagram';
 const flowSteps = [
   {
-    title: 'Synthetic lab PDF',
-    body: 'The original source report contains structured test fields and limited explanatory notes.',
+    title: 'Source report',
+    body: 'The original report contains structured test fields and limited explanatory notes.',
   },
   {
-    title: 'Pocket Genes parser',
-    body: 'Pocket Genes extracts report metadata, panel scope, variants, and provider fields.',
+    title: 'Pocket Genes organization',
+    body: 'Pocket Genes organizes report metadata, panel scope, variants, and source fields.',
   },
   {
     title: 'Private app space',
@@ -30,7 +32,7 @@ const flowSteps = [
   },
   {
     title: 'Educational layer',
-    body: 'Pocket Genes adds definitions, context labels, and questions for professional review.',
+    body: 'Pocket Genes adds definitions, context labels, and questions for appointments.',
   },
   {
     title: 'Optional sharing',
@@ -48,9 +50,9 @@ const flowSteps = [
     <section class="pg-trust-detail-hero">
       <div class="pg-container">
         <nav class="pg-breadcrumb" aria-label="Breadcrumb">
-          <a href="/pocket-genes/home">Home</a>
+          <a href={localizePath('/pocket-genes/home')}>Home</a>
           <span>/</span>
-          <a href="/pocket-genes/trust-center">Trust Center</a>
+          <a href={localizePath('/pocket-genes/trust-center')}>Trust Center</a>
         </nav>
         <p class="pg-eyebrow">{document.category}</p>
         <h1>{document.title}</h1>
@@ -97,7 +99,7 @@ const flowSteps = [
 
           {isDataFlow && (
             <section class="pg-data-flow">
-              <h2>Public data-flow diagram</h2>
+              <h2>Pocket Genes data-flow diagram</h2>
               <div class="pg-flow-track" aria-label="Pocket Genes data flow">
                 {flowSteps.map((step, index) => (
                   <article class:list={['pg-flow-step', { 'is-last': index === flowSteps.length - 1 }]}>
@@ -111,10 +113,10 @@ const flowSteps = [
           )}
 
           <section class="pg-trust-next">
-            <h2>Related trust routes</h2>
+            <h2>Related pages</h2>
             <div>
-              <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Trust Center</a>
-              <a class="pg-button pg-button-secondary" href="/pocket-genes/demo">Public Demo</a>
+              <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Trust Center</a>
+              <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>Download Pocket Genes</a>
             </div>
           </section>
         </article>

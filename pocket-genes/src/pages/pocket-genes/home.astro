@@ -4,7 +4,6 @@ import { APP_STORE_URL, POCKET_GENES_EMAILS } from '../../data/pocketGenesPublic
 
 const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
 const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
-const integrationHref = localizePath('/pocket-genes/integration/');
 
 const productPillars = [
   {
@@ -21,7 +20,7 @@ const productPillars = [
   },
   {
     title: 'Navigation and action',
-    body: 'Move from result to explanation, organization, provider, event, discussion, and saved questions for an appointment.',
+    body: 'Move from result to explanation, learning, community, events, and saved questions for an appointment.',
   },
   {
     title: 'Relevant updates',
@@ -84,20 +83,6 @@ const trustPreview = [
   },
 ];
 
-const leaders = [
-  {
-    name: 'Manuel Herrera',
-    role: 'Founder & CEO',
-    image: '/aboutus1.webp',
-    linkedin: 'https://www.linkedin.com/in/manuh/',
-  },
-  {
-    name: 'Federico Bustos',
-    role: 'Co-Founder & CTO',
-    image: '/aboutus2.webp',
-    linkedin: 'https://www.linkedin.com/in/federico-bustos-fierro/',
-  },
-];
 ---
 
 <PocketGenesPublicLayout
@@ -128,9 +113,6 @@ const leaders = [
               Explore community
             </a>
           </div>
-          <a class="pg-home-integration-button" href={integrationHref}>
-            Integrate your genomic service with Pocket Genes
-          </a>
         </div>
 
         <figure class="pg-home-visual" aria-label="Pocket Genes app preview">
@@ -146,7 +128,7 @@ const leaders = [
           <p class="pg-eyebrow">At a glance</p>
           <h2>Pocket Genes in one place.</h2>
           <p>
-            Learn what the app does, download it, contact the team, and see how Pocket Genes handles privacy and trust.
+            Learn what the app does, download it, contact Pocket Genes, and see how privacy and trust are handled.
           </p>
         </div>
 
@@ -178,27 +160,6 @@ const leaders = [
       </div>
     </section>
 
-    <section class="pg-section pg-home-leadership">
-      <div class="pg-container">
-        <div class="pg-section-heading">
-          <p class="pg-eyebrow">Team</p>
-          <h2>People building Pocket Genes.</h2>
-        </div>
-        <div class="pg-leader-grid">
-          {leaders.map((leader) => (
-            <article class="pg-leader">
-              <img src={leader.image} alt={leader.name} loading="lazy" />
-              <div>
-                <h3>{leader.name}</h3>
-                <p class="pg-leader-role">{leader.role}</p>
-                <a href={leader.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn profile</a>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-
     <section class="pg-section pg-home-trust">
       <div class="pg-container">
         <div class="pg-section-heading">
@@ -220,25 +181,6 @@ const leaders = [
         <div class="pg-home-inline-action">
           <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Open the full Trust Center</a>
         </div>
-      </div>
-    </section>
-
-    <section class="pg-section pg-home-demo">
-      <div class="pg-container pg-home-demo-grid">
-        <div class="pg-section-heading">
-          <p class="pg-eyebrow">Public demo</p>
-          <h2>See a synthetic sample report in Pocket Genes.</h2>
-          <p>
-            The demo shows what came from the sample PDF, what Pocket Genes reformatted, and what educational context was added.
-          </p>
-          <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/demo')}>View public demo</a>
-            <a class="pg-button pg-button-secondary" href="/pocket-genes/demo/sample-report.pdf">Open sample PDF</a>
-          </div>
-        </div>
-        <figure class="pg-demo-preview">
-          <img src="/pocket-genes/screenshots/sample-04.webp" alt="Pocket Genes sample ancestry report experience" loading="lazy" />
-        </figure>
       </div>
     </section>
 
@@ -304,30 +246,6 @@ const leaders = [
 
   .pg-home-copy .pg-button-row {
     margin-top: 28px;
-  }
-
-  .pg-home-integration-button {
-    display: inline-flex;
-    width: fit-content;
-    align-items: center;
-    justify-content: center;
-    margin-top: 14px;
-    border: 1px solid rgba(33, 118, 174, 0.28);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.72);
-    color: var(--pg-blue);
-    font-size: 0.9rem;
-    font-weight: 850;
-    line-height: 1.2;
-    padding: 8px 11px;
-    text-decoration: none;
-    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
-  }
-
-  .pg-home-integration-button:hover {
-    border-color: var(--pg-blue);
-    background: #ffffff;
-    color: #155d8c;
   }
 
   .pg-home-logo {
@@ -455,48 +373,6 @@ const leaders = [
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .pg-leader-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-  }
-
-  .pg-leader {
-    display: grid;
-    grid-template-columns: 132px minmax(0, 1fr);
-    gap: 20px;
-    align-items: center;
-    border: 1px solid var(--pg-border);
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 18px;
-  }
-
-  .pg-leader img {
-    width: 132px;
-    height: 132px;
-    border-radius: 8px;
-    object-fit: cover;
-  }
-
-  .pg-leader h3 {
-    margin: 0;
-    font-size: 1.2rem;
-  }
-
-  .pg-leader-role {
-    margin: 2px 0 8px;
-    color: var(--pg-teal);
-    font-weight: 850;
-  }
-
-  .pg-leader a {
-    color: var(--pg-blue);
-    font-weight: 800;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-  }
-
   .pg-home-trust {
     background: #eef5f7;
   }
@@ -545,27 +421,6 @@ const leaders = [
 
   .pg-home-inline-action {
     margin-top: 24px;
-  }
-
-  .pg-home-demo-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 0.95fr) minmax(280px, 0.55fr);
-    gap: 40px;
-    align-items: center;
-  }
-
-  .pg-demo-preview {
-    margin: 0;
-    display: flex;
-    justify-content: center;
-  }
-
-  .pg-demo-preview img {
-    width: 260px;
-    border: 8px solid #101522;
-    border-radius: 28px;
-    background: #101522;
-    box-shadow: var(--pg-shadow);
   }
 
   .pg-home-store {
@@ -643,7 +498,6 @@ const leaders = [
   @media (max-width: 1040px) {
     .pg-home-hero-grid,
     .pg-home-split,
-    .pg-home-demo-grid,
     .pg-store-band {
       grid-template-columns: 1fr;
     }
@@ -707,28 +561,13 @@ const leaders = [
     }
 
     .pg-pillar-grid,
-    .pg-trust-preview-grid,
-    .pg-leader-grid {
+    .pg-trust-preview-grid {
       grid-template-columns: 1fr;
-    }
-
-    .pg-leader {
-      grid-template-columns: 92px minmax(0, 1fr);
-      gap: 14px;
-    }
-
-    .pg-leader img {
-      width: 92px;
-      height: 92px;
     }
 
     .pg-store-actions,
     .pg-store-app,
     .pg-store-disabled {
-      width: 100%;
-    }
-
-    .pg-home-integration-button {
       width: 100%;
     }
 

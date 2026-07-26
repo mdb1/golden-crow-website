@@ -6,6 +6,8 @@ const categories = Array.from(new Set(trustDocuments.map((document) => document.
   category,
   documents: trustDocuments.filter((document) => document.category === category),
 }));
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
 ---
 
 <PocketGenesPublicLayout
@@ -20,11 +22,11 @@ const categories = Array.from(new Set(trustDocuments.map((document) => document.
           <p class="pg-eyebrow">Trust Center</p>
           <h1>Pocket Genes Trust Center</h1>
           <p>
-            A visible hub for privacy, security, community safety, scientific methodology, intended use, data retention, subprocessors, accessibility, and incident reporting.
+            Pocket Genes keeps privacy, security, community safety, scientific methodology, intended use, data retention, subprocessors, accessibility, and incident reporting in one place.
           </p>
           <div class="pg-button-row">
             <a class="pg-button pg-button-primary" href={`mailto:${POCKET_GENES_EMAILS.trust}`}>Contact Trust</a>
-            <a class="pg-button pg-button-secondary" href="/pocket-genes/demo">Inspect public demo</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/download')}>Download Pocket Genes</a>
           </div>
         </div>
 
@@ -52,9 +54,9 @@ const categories = Array.from(new Set(trustDocuments.map((document) => document.
       <div class="pg-container">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Documents</p>
-          <h2>Trust materials linked from one visible page.</h2>
+          <h2>Privacy, safety, and data documents.</h2>
           <p>
-            These pages are written as public drafts for institutional review. They show the expected policy structure before Pocket Genes expands integrations or community distribution.
+            Read the privacy, security, community safety, data retention, accessibility, and intended-use pages for Pocket Genes.
           </p>
         </div>
 
@@ -64,7 +66,7 @@ const categories = Array.from(new Set(trustDocuments.map((document) => document.
               <h3 id={`trust-${category.toLowerCase().replaceAll(' ', '-')}`}>{category}</h3>
               <div class="pg-trust-doc-grid">
                 {documents.map((document) => (
-                  <a class="pg-trust-doc" href={`/pocket-genes/trust-center/${document.slug}`}>
+                  <a class="pg-trust-doc" href={localizePath(`/pocket-genes/trust-center/${document.slug}`)}>
                     <span>{document.status}</span>
                     <strong>{document.title}</strong>
                     <p>{document.summary}</p>
@@ -81,7 +83,7 @@ const categories = Array.from(new Set(trustDocuments.map((document) => document.
       <div class="pg-container pg-trust-contact-band">
         <div>
           <p class="pg-eyebrow">Direct contacts</p>
-          <h2>Trust questions should have visible company-domain email addresses.</h2>
+          <h2>Contact Pocket Genes about privacy, security, or accessibility.</h2>
         </div>
         <div class="pg-contact-list">
           <a href={`mailto:${POCKET_GENES_EMAILS.hello}`}>{POCKET_GENES_EMAILS.hello}</a>

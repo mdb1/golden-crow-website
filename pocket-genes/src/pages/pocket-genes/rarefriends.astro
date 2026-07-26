@@ -1,6 +1,9 @@
 ---
 import PocketGenesPublicLayout from '../../layouts/PocketGenesPublicLayout.astro';
 
+const isEnglish = Astro.url.pathname === '/en' || Astro.url.pathname.startsWith('/en/');
+const localizePath = (path: string) => (isEnglish ? `/en${path}` : path);
+
 const principles = [
   {
     title: 'People who fit your context',
@@ -12,7 +15,7 @@ const principles = [
   },
   {
     title: 'Practical next steps',
-    body: 'Move from a discussion to a saved appointment question, provider profile, resource, event, or learning module.',
+    body: 'Move from a discussion to a saved appointment question, resource, event, or learning module.',
   },
   {
     title: 'Emotional and practical support',
@@ -20,7 +23,7 @@ const principles = [
   },
   {
     title: 'Pseudonymous participation',
-    body: 'Members should be able to participate without exposing a full identity, exact variant, or original report.',
+    body: 'Participate without exposing a full identity, exact variant, or original report.',
   },
   {
     title: 'Moderated safety',
@@ -53,8 +56,8 @@ const matchingLayers = [
             A careful peer-support layer that helps you find people, organizations, events, resources, and updates that are relevant to your genetic context without making your private report public by default.
           </p>
           <div class="pg-button-row">
-            <a class="pg-button pg-button-primary" href="/pocket-genes/trust-center/community-terms">Community terms</a>
-            <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center/community-safety-policy">Safety policy</a>
+            <a class="pg-button pg-button-primary" href={localizePath('/pocket-genes/trust-center/community-terms')}>Community terms</a>
+            <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center/community-safety-policy')}>Safety policy</a>
           </div>
         </div>
         <figure class="pg-rf-visual">
@@ -87,7 +90,7 @@ const matchingLayers = [
       <div class="pg-container pg-rf-matching-grid">
         <div class="pg-section-heading">
           <p class="pg-eyebrow">Layered matching</p>
-          <h2>You should not need an exact diagnosis match to find useful support.</h2>
+          <h2>You do not need an exact diagnosis match to find useful support.</h2>
           <p>
             Someone might belong to an exact-gene circle, a broader condition family, a caregiver circle, a regional group, and a newly diagnosed journey at the same time.
           </p>
@@ -107,12 +110,12 @@ const matchingLayers = [
       <div class="pg-container pg-rf-band">
         <div>
           <p class="pg-eyebrow">Trust first</p>
-          <h2>Community growth should follow usefulness, moderation, and trust.</h2>
+          <h2>Community works best when usefulness, moderation, and trust come first.</h2>
           <p>
-            The goal is not vanity activity. A meaningful next step can be understanding a report section, getting a useful answer, following an organization, finding a provider, registering for an event, or preparing a better appointment question.
+            A meaningful next step can be understanding a report section, getting a useful answer, following an organization, registering for an event, or preparing a better appointment question.
           </p>
         </div>
-        <a class="pg-button pg-button-secondary" href="/pocket-genes/trust-center">Open Trust Center</a>
+        <a class="pg-button pg-button-secondary" href={localizePath('/pocket-genes/trust-center')}>Open Trust Center</a>
       </div>
     </section>
   </main>
