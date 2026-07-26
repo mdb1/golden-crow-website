@@ -147,6 +147,7 @@ describe("searchUsersByEmailForAdmin", () => {
       "photoURL",
       "deleted",
       "coachId",
+      "entitlement",
     );
     // Both the prefix match AND the mid-string match come back; the non-match doesn't.
     expect(rows.map((r) => r.uid).sort()).toEqual(["uid-prefix", "uid-substr"]);
@@ -173,6 +174,7 @@ describe("searchUsersByEmailForAdmin", () => {
         photoURL: "https://example.com/c.jpg",
         deleted: false,
         coachId: "coach-9",
+        entitlement: { tier: "premium", source: "revenuecat", productId: "gcfitness.lifetime" },
       }),
       mockDoc("uid-admin", {
         email: "admin2@example.com",
@@ -203,6 +205,11 @@ describe("searchUsersByEmailForAdmin", () => {
     expect(clientRow.roles).toEqual(["client"]);
     expect(clientRow.photoURL).toBe("https://example.com/c.jpg");
     expect(clientRow.coachId).toBe("coach-9");
+    // Subscription status is parsed from the entitlement map (this change).
+    expect(clientRow.entitlement?.tier).toBe("premium");
+    expect(clientRow.entitlement?.source).toBe("revenuecat");
+    // A user with no entitlement field resolves to null.
+    expect(adminRow.entitlement).toBeNull();
 
     // Sorted by email asc (admin2@ before client@).
     expect(rows.map((r) => r.email)).toEqual([

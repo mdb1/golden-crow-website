@@ -118,6 +118,22 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-xl">Coach-less users (god mode)</CardTitle>
+          <CardDescription>
+            Self-serve clients with no coach: subscription status, per-user
+            content stats (routines, habits, photos, logs), grant/revoke premium,
+            and full cascade delete.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/gc-fitness/admin/coach-less-users">Open coach-less users</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-xl">App version (force update)</CardTitle>
           <CardDescription>
             Set the minimum supported app build per platform. Clients on an

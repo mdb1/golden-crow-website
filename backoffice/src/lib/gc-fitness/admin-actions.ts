@@ -8,6 +8,10 @@ import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { recurrenceLabel } from "@/lib/gc-fitness/coach-activity-log";
+import {
+  toEntitlementInfo,
+  type EntitlementInfo,
+} from "@/lib/gc-fitness/coachless-user-model";
 
 export interface CoachAdminRow {
   uid: string;
@@ -189,6 +193,8 @@ export interface UserSearchResultRow {
   photoURL: string | null;
   deleted: boolean;
   coachId: string | null;
+  /** Subscription status from `/users/{uid}.entitlement` (null when absent). */
+  entitlement: EntitlementInfo | null;
 }
 
 export async function searchUsersByEmailForAdmin(
@@ -211,7 +217,7 @@ export async function searchUsersByEmailForAdmin(
   const cappedLimit = Math.min(Math.max(limit, 1), 50);
   const snap = await db
     .collection(FirestoreCollections.users)
-    .select("email", "displayName", "role", "photoURL", "deleted", "coachId")
+    .select("email", "displayName", "role", "photoURL", "deleted", "coachId", "entitlement")
     .get();
 
   const matches = snap.docs
@@ -251,6 +257,7 @@ export async function searchUsersByEmailForAdmin(
         photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
         deleted: data.deleted === true,
         coachId: typeof data.coachId === "string" ? data.coachId : null,
+        entitlement: toEntitlementInfo(data.entitlement),
       } satisfies UserSearchResultRow;
     }),
   );
